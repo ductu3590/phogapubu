@@ -14,6 +14,9 @@
   "template": {
     "name": "zaui-bistro"
   },
+  "webviewUrls": [
+    "https://dlkgdpexjtyynbotkwka.supabase.co"
+  ],
   "listCSS": [],
   "listSyncJS": [],
   "listAsyncJS": []

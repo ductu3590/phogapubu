@@ -50,6 +50,19 @@ export default function MenuPage() {
 
   if (isLoading) return <MenuSkeleton />;
 
+  // Chưa quét QR đúng bàn — không có storeId
+  if (!storeId) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+        <div className="text-5xl">📷</div>
+        <p className="font-semibold text-text-primary">Quét QR tại bàn</p>
+        <p className="text-small text-text-secondary">
+          Vui lòng dùng Zalo quét mã QR trên bàn để xem menu và đặt món.
+        </p>
+      </div>
+    );
+  }
+
   if (error || !menu) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
