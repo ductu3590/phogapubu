@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(npx zmp-cli --version 2>&1)",
+      "PowerShell(head -3)"
+    ]
+  }
+}
