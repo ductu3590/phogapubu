@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore } from "@/stores/app.store";
-import { useCreateOrder } from "@/services/order/order.mutations";
+import { useCreateOrder, useCancelOrder } from "@/services/order/order.mutations";
 import { zalopayService } from "@/services/zalopay.service";
 import { Button, useSnackbar } from "zmp-ui";
 import { formatCurrency } from "@/utils/format";
@@ -22,6 +22,7 @@ export default function CheckoutPage() {
   const { items: cartItems, updateQuantity, clearCart } = useCartStore();
   const { storeId, tableId, tableNumber } = useAppStore();
   const { mutate: createOrder, isPending } = useCreateOrder();
+  const { mutateAsync: cancelOrder } = useCancelOrder();
 
   const totalAmount = calculateCartTotal(cartItems);
 
@@ -75,18 +76,13 @@ export default function CheckoutPage() {
 
   const handleZaloPayPayment = async (orderId: string, amount: number) => {
     try {
-      // Bước 1: Lấy zp_trans_token từ backend
       const zpTransToken = await zalopayService.createPaymentToken(orderId, amount);
-
-      // Bước 2: Mở ZaloPay payment sheet trong Zalo
       await zalopayService.openPayment(zpTransToken);
-
-      // Bước 3: ZaloPay callback sẽ update status về 'confirmed' qua backend.
-      // Mini App navigate sang order-status — realtime sẽ cập nhật tự động.
       clearCart();
       navigate(`/order-status/${orderId}`);
     } catch (err) {
-      // Lỗi tạo token hoặc ZaloPay SDK lỗi — giữ lại giỏ hàng để thử lại
+      // ZaloPay fail → huỷ đơn để không hiện lên màn hình bếp
+      try { await cancelOrder(orderId); } catch { /* fail silently */ }
       openSnackbar({
         text: err instanceof Error ? err.message : "Thanh toán ZaloPay thất bại",
         type: "error",

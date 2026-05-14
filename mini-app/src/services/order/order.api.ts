@@ -42,6 +42,14 @@ export const orderService = {
     return mapOrder(order);
   },
 
+  cancelOrder: async (orderId: string): Promise<void> => {
+    await supabase
+      .from("orders")
+      .update({ status: "cancelled" })
+      .eq("id", orderId)
+      .eq("status", "pending"); // Chỉ cancel nếu chưa được confirm
+  },
+
   getOrderWithItems: async (orderId: string): Promise<Order> => {
     const { data, error } = await supabase
       .from("orders")

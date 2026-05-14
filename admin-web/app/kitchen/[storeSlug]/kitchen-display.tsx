@@ -249,7 +249,11 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   }
 
   // ── Chia đơn theo cột ─────────────────────────────────────────────────────
-  const waitingOrders = orders.filter((o) => ['pending', 'confirmed'].includes(o.status))
+  // pending chỉ hiện cho tiền mặt — ZaloPay pending chưa thanh toán không vào bếp
+  const waitingOrders = orders.filter((o) =>
+    o.status === 'confirmed' ||
+    (o.status === 'pending' && o.paymentMethod === 'cash')
+  )
   const cookingOrders = orders.filter((o) => o.status === 'cooking')
   const readyOrders = orders.filter((o) => o.status === 'ready')
 

@@ -9,3 +9,9 @@ export function useCreateOrder() {
     mutationFn: (req) => orderService.createOrder(req),
   });
 }
+
+export function useCancelOrder() {
+  return useMutation<void, Error, string>({
+    mutationFn: (orderId) => orderService.cancelOrder(orderId),
+  });
+}
