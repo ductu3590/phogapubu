@@ -3,43 +3,23 @@ import { CreateOrderRequest, Order } from "@/types/order.types";
 
 export const orderService = {
   createOrder: async (req: CreateOrderRequest): Promise<Order> => {
-    const totalAmount = req.items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0,
-    );
-
-    // 1. Tạo đơn hàng trong Supabase
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        store_id: req.storeId,
-        table_id: req.tableId,
-        total_amount: totalAmount,
-        zalo_user_id: req.zaloUserId ?? null,
-        note: req.note ?? null,
-        payment_method: req.paymentMethod,
-        status: "pending",
-      })
-      .select()
-      .single();
-
-    if (orderError || !order) throw orderError ?? new Error("Tạo đơn thất bại");
-
-    // 2. Snapshot tên + giá vào order_items (bảo vệ khi menu thay đổi)
-    const { error: itemsError } = await supabase.from("order_items").insert(
-      req.items.map((item) => ({
-        order_id: order.id,
+    // Giá + tên tính phía server trong RPC create_order (không tin client gửi giá)
+    const { data, error } = await supabase.rpc("create_order", {
+      p_store_id: req.storeId,
+      p_table_id: req.tableId,
+      p_items: req.items.map((item) => ({
         menu_item_id: item.menuItemId,
-        item_name: item.name,
-        item_price: item.price,
         quantity: item.quantity,
         note: item.note ?? null,
       })),
-    );
+      p_payment_method: req.paymentMethod,
+      p_zalo_user_id: req.zaloUserId ?? null,
+      p_note: req.note ?? null,
+    });
 
-    if (itemsError) throw itemsError;
+    if (error || !data) throw error ?? new Error("Tạo đơn thất bại");
 
-    return mapOrder(order);
+    return mapOrder(data as Record<string, unknown>);
   },
 
   cancelOrder: async (orderId: string): Promise<void> => {

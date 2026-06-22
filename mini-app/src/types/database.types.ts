@@ -23,6 +23,7 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['stores']['Row'], 'id' | 'created_at'>
         Update: Partial<Database['public']['Tables']['stores']['Insert']>
+        Relationships: []
       }
       tables: {
         Row: {
@@ -33,6 +34,7 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['tables']['Row'], 'id'>
         Update: Partial<Database['public']['Tables']['tables']['Insert']>
+        Relationships: []
       }
       menu_categories: {
         Row: {
@@ -44,6 +46,7 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['menu_categories']['Row'], 'id'>
         Update: Partial<Database['public']['Tables']['menu_categories']['Insert']>
+        Relationships: []
       }
       menu_items: {
         Row: {
@@ -60,6 +63,7 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['menu_items']['Row'], 'id' | 'created_at'>
         Update: Partial<Database['public']['Tables']['menu_items']['Insert']>
+        Relationships: []
       }
       orders: {
         Row: {
@@ -72,11 +76,13 @@ export interface Database {
           zalo_user_id: string | null
           note: string | null
           payment_method: 'zalopay' | 'cash'
+          capability_token: string | null
           created_at: string
           updated_at: string
         }
         Insert: Omit<Database['public']['Tables']['orders']['Row'], 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Database['public']['Tables']['orders']['Insert']>
+        Relationships: []
       }
       order_items: {
         Row: {
@@ -90,6 +96,31 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['order_items']['Row'], 'id'>
         Update: Partial<Database['public']['Tables']['order_items']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      create_order: {
+        Args: {
+          p_store_id: string
+          p_table_id: string
+          p_items: Json
+          p_payment_method: string
+          p_zalo_user_id?: string | null
+          p_note?: string | null
+        }
+        Returns: Json
       }
     }
   }
