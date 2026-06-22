@@ -37,7 +37,7 @@ BEGIN
     RAISE EXCEPTION 'Bàn không thuộc quán hoặc không hoạt động';
   END IF;
 
-  IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
+  IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN
     RAISE EXCEPTION 'Đơn không có món nào';
   END IF;
 
@@ -47,6 +47,7 @@ BEGIN
           p_payment_method, 'pending', v_token)
   RETURNING * INTO v_order;
 
+  -- Cho phép cùng món xuất hiện nhiều dòng (tách số lượng) — KHÔNG dedup theo menu_item_id
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
   LOOP
     v_qty := COALESCE((v_item->>'quantity')::int, 0);
