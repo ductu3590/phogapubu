@@ -111,6 +111,10 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
+      abandon_zalopay_to_cash: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
       create_order: {
         Args: {
           p_store_id: string

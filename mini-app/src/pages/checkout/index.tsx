@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore } from "@/stores/app.store";
-import { useCreateOrder, useCancelOrder } from "@/services/order/order.mutations";
-import { zalopayService } from "@/services/zalopay.service";
-import { Button, useSnackbar } from "zmp-ui";
+import { useCreateOrder } from "@/services/order/order.mutations";
+import { paymentService } from "@/services/payment.service";
+import { Button, Modal, useSnackbar } from "zmp-ui";
+import { orderService } from "@/services/order/order.api";
 import { formatCurrency } from "@/utils/format";
 import { calculateCartTotal } from "@/utils/cart";
 import QuantityStepper from "@/components/common/quantity-stepper";
@@ -18,11 +19,11 @@ export default function CheckoutPage() {
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("zalopay");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pendingZpOrderId, setPendingZpOrderId] = useState<string | null>(null);
 
   const { items: cartItems, updateQuantity, clearCart } = useCartStore();
   const { storeId, tableId, tableNumber } = useAppStore();
   const { mutate: createOrder, isPending } = useCreateOrder();
-  const { mutateAsync: cancelOrder } = useCancelOrder();
 
   const totalAmount = calculateCartTotal(cartItems);
 
@@ -58,7 +59,7 @@ export default function CheckoutPage() {
       {
         onSuccess: async (order) => {
           if (paymentMethod === "zalopay") {
-            await handleZaloPayPayment(order.id, totalAmount);
+            await handleZaloPayPayment(order.id);
           } else {
             // Tiền mặt: navigate thẳng đến trang trạng thái
             clearCart();
@@ -74,22 +75,38 @@ export default function CheckoutPage() {
     );
   };
 
-  const handleZaloPayPayment = async (orderId: string, amount: number) => {
+  const handleZaloPayPayment = async (orderId: string) => {
     try {
-      const zpTransToken = await zalopayService.createPaymentToken(orderId, amount);
-      await zalopayService.openPayment(zpTransToken);
+      await paymentService.payWithCheckoutSDK(orderId);
       clearCart();
       navigate(`/order-status/${orderId}`);
-    } catch (err) {
-      // ZaloPay fail → huỷ đơn để không hiện lên màn hình bếp
-      try { await cancelOrder(orderId); } catch { /* fail silently */ }
-      openSnackbar({
-        text: err instanceof Error ? err.message : "Thanh toán ZaloPay thất bại",
-        type: "error",
-      });
+    } catch (_err) {
+      // KHÔNG huỷ đơn ở client — để server (checkout-notify) quyết định.
+      // Đơn zalopay pending không vào bếp (kitchen filter), nên để pending là an toàn.
+      // Bỏ dở/thất bại ZaloPay → hỏi khách có chuyển sang tiền mặt không
+      setPendingZpOrderId(orderId);
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const confirmCashFallback = async () => {
+    if (!pendingZpOrderId) return;
+    const id = pendingZpOrderId;
+    try {
+      await orderService.abandonToCash(id);
+    } catch {
+      // lỗi đổi sang cash vẫn điều hướng — đơn giữ pending, không chặn khách
+    }
+    setPendingZpOrderId(null);
+    clearCart();
+    navigate(`/order-status/${id}`);
+  };
+
+  const retryZaloPay = () => {
+    const id = pendingZpOrderId;
+    setPendingZpOrderId(null);
+    if (id) handleZaloPayPayment(id);
   };
 
   const isLoading = isPending || isProcessing;
@@ -192,6 +209,25 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Dialog xác nhận chuyển sang tiền mặt khi ZaloPay bỏ dở/thất bại */}
+      <Modal
+        visible={pendingZpOrderId !== null}
+        title="Thanh toán chưa hoàn tất"
+        description="Bạn muốn chuyển sang trả tiền mặt (thu khi ra về) hay thử lại ZaloPay?"
+        onClose={() => setPendingZpOrderId(null)}
+        actions={[
+          {
+            text: "Trả tiền mặt",
+            highLight: true,
+            onClick: () => { void confirmCashFallback(); },
+          },
+          {
+            text: "Thử lại ZaloPay",
+            onClick: retryZaloPay,
+          },
+        ]}
+      />
 
       {/* Nút đặt món — fixed bottom */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-divider01 bg-white px-4 py-4 pb-5">

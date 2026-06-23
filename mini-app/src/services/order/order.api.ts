@@ -22,6 +22,14 @@ export const orderService = {
     return mapOrder(data as Record<string, unknown>);
   },
 
+  abandonToCash: async (orderId: string): Promise<Order | null> => {
+    const { data, error } = await supabase.rpc("abandon_zalopay_to_cash", {
+      p_order_id: orderId,
+    });
+    if (error) throw error;
+    return data ? mapOrder(data as Record<string, unknown>) : null;
+  },
+
   cancelOrder: async (orderId: string): Promise<void> => {
     await supabase
       .from("orders")
