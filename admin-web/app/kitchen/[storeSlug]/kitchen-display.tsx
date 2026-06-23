@@ -194,12 +194,19 @@ export default function KitchenDisplay({ storeSlug }: Props) {
             filter: `store_id=eq.${storeData.id}`,
           },
           (payload) => {
-            const updated = payload.new as { id: string; status: string; updated_at: string }
+            const updated = payload.new as {
+              id: string; status: string; updated_at: string; payment_method: string
+            }
             setOrders((prev) =>
               prev
                 .map((o) =>
                   o.id === updated.id
-                    ? { ...o, status: updated.status as OrderStatus, updatedAt: updated.updated_at }
+                    ? {
+                        ...o,
+                        status: updated.status as OrderStatus,
+                        updatedAt: updated.updated_at,
+                        paymentMethod: updated.payment_method as KitchenOrder['paymentMethod'],
+                      }
                     : o,
                 )
                 // Xoá khỏi màn hình khi đã thanh toán hoặc huỷ
