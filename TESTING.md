@@ -326,6 +326,50 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 
 ---
 
+## PLAN 2 — Siết bảo mật (2a + 2b)
+
+> Thiết kế: `docs/superpowers/specs/2026-06-24-mevo-plan2-security-2a-2b-design.md`
+> Apply migration theo ĐÚNG thứ tự rollout. Mỗi task test xong mới sang task sau.
+
+### TASK 2a — Operator allowlist (chặn "ai đăng nhập cũng là admin")
+
+**Trước khi test — apply theo thứ tự (Supabase → SQL Editor):**
+1. Chạy `supabase/migrations/006_operator_table.sql` (tạo bảng, CHƯA siết RLS → admin vẫn vào được).
+2. **Seed tài khoản admin của anh** (thay email cho đúng tài khoản đang đăng nhập):
+   ```sql
+   insert into mevo_operators (user_id, store_id)
+   select id, null from auth.users where email = 'EMAIL_ADMIN_CUA_ANH'
+   on conflict (user_id) do nothing;
+   ```
+   → Vào bảng `mevo_operators` xác nhận có 1 dòng với `user_id` của anh.
+3. Đăng nhập admin thử — phải vào được bình thường (lúc này RLS chưa siết).
+4. Chạy `supabase/migrations/006b_tighten_admin_rls.sql` (giờ mới siết RLS).
+
+**✅ Checklist test — Anh Tú tự làm:**
+
+**Test 1 — Operator (tài khoản anh) vẫn dùng admin bình thường**
+1. Đăng nhập admin bằng tài khoản đã seed
+   - [ ] Vào được dashboard
+   - [ ] Menu / Bàn / Đơn hàng đều **hiển thị dữ liệu** (không trống, không lỗi đỏ)
+   - [ ] Sửa 1 món / bật-tắt 1 món → lưu được
+2. ✅ PASS nếu: admin hoạt động y như trước khi siết
+
+**Test 2 — Tài khoản KHÔNG phải operator bị chặn**
+1. Tạo 1 user mới trong Supabase (Authentication → Add user, email bất kỳ) — **không** thêm vào `mevo_operators`
+2. Đăng nhập admin bằng tài khoản mới đó
+   - [ ] Bị đẩy về trang login kèm thông báo "Tài khoản chưa được cấp quyền vận hành"
+   - [ ] **Không** vào được dashboard dù thử gõ thẳng URL `/admin/menu`, `/admin/orders`
+3. ✅ PASS nếu: người ngoài allowlist không vào được bất kỳ trang admin nào
+
+**Test 3 — Không tự khoá, không vòng lặp**
+1. Với tài khoản operator: đăng xuất → đăng nhập lại vài lần
+   - [ ] Không bị kẹt vòng lặp redirect, không màn hình trắng
+2. ✅ PASS nếu: ra/vào mượt
+
+**→ Báo Claude Code:** "2a PASS" hoặc mô tả lỗi (kèm Console F12). Chưa sang 2b khi 2a chưa PASS.
+
+---
+
 ## KHI GẶP LỖI — Cách báo cáo hiệu quả
 
 Khi test FAIL, báo Claude Code theo format này để fix nhanh nhất:

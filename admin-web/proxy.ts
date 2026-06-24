@@ -29,13 +29,29 @@ export async function proxy(request: NextRequest) {
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
   const isLoginPage = request.nextUrl.pathname === '/login'
 
-  // Chưa đăng nhập mà vào /admin → redirect sang /login
-  if (isAdminRoute && !user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  // Operator allowlist (Plan 2 — 2a): chỉ user trong mevo_operators mới được vào admin.
+  // Chỉ tra khi cần (đang vào /admin hoặc đã đăng nhập mà ở /login).
+  // Lưu ý: RLS (006b) mới là lớp khoá thật — đây là cổng UX để redirect sớm.
+  let isOperator = false
+  if (user && (isAdminRoute || isLoginPage)) {
+    const { data: op } = await supabase
+      .from('mevo_operators')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    isOperator = !!op
   }
 
-  // Đã đăng nhập mà vào /login → redirect sang /admin
-  if (isLoginPage && user) {
+  // Vào /admin mà chưa đăng nhập HOẶC không phải operator → về /login
+  if (isAdminRoute && (!user || !isOperator)) {
+    const url = new URL('/login', request.url)
+    if (user && !isOperator) url.searchParams.set('error', 'not_operator')
+    return NextResponse.redirect(url)
+  }
+
+  // Đã đăng nhập VÀ là operator mà vào /login → sang /admin
+  // (KHÔNG bounce non-operator để tránh vòng lặp redirect)
+  if (isLoginPage && user && isOperator) {
     return NextResponse.redirect(new URL('/admin', request.url))
   }
 

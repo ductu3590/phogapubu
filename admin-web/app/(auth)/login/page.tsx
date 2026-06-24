@@ -6,7 +6,16 @@ import { signIn } from './actions'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [error, setError] = useState('')
+  // Hiển thị thông báo khi bị chặn vì không phải operator (redirect kèm ?error=not_operator)
+  const [error, setError] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search)
+      if (p.get('error') === 'not_operator') {
+        return 'Tài khoản chưa được cấp quyền vận hành. Liên hệ MEVO để được cấp quyền.'
+      }
+    }
+    return ''
+  })
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
