@@ -357,8 +357,9 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 **Test 2 — Tài khoản KHÔNG phải operator bị chặn**
 1. Tạo 1 user mới trong Supabase (Authentication → Add user, email bất kỳ) — **không** thêm vào `mevo_operators`
 2. Đăng nhập admin bằng tài khoản mới đó
-   - [ ] Bị đẩy về trang login kèm thông báo "Tài khoản chưa được cấp quyền vận hành"
+   - [ ] Ngay sau khi bấm "Đăng nhập": hiện thông báo đỏ "Tài khoản chưa được cấp quyền vận hành" **ngay tại trang login** (không treo "Đang đăng nhập", không cần F5)
    - [ ] **Không** vào được dashboard dù thử gõ thẳng URL `/admin/menu`, `/admin/orders`
+   - [ ] Console F12 **không** có lỗi hydration
 3. ✅ PASS nếu: người ngoài allowlist không vào được bất kỳ trang admin nào
 
 **Test 3 — Không tự khoá, không vòng lặp**
