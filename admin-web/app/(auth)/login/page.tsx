@@ -6,16 +6,9 @@ import { signIn } from './actions'
 
 export default function LoginPage() {
   const router = useRouter()
-  // Hiển thị thông báo khi bị chặn vì không phải operator (redirect kèm ?error=not_operator)
-  const [error, setError] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const p = new URLSearchParams(window.location.search)
-      if (p.get('error') === 'not_operator') {
-        return 'Tài khoản chưa được cấp quyền vận hành. Liên hệ MEVO để được cấp quyền.'
-      }
-    }
-    return ''
-  })
+  // Lỗi (sai mật khẩu / không có quyền operator) trả về từ server action signIn — không đọc
+  // window ở init để tránh hydration mismatch giữa server và client.
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
