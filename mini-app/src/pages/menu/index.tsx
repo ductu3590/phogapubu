@@ -77,8 +77,11 @@ export default function MenuPage() {
 
   return (
     <div className="flex h-full flex-col bg-[#F7F8FA]">
-      {/* Header quán + bàn */}
-      <div className="flex-shrink-0 bg-white px-4 pb-3 pt-4 shadow-sm">
+      {/* Header quán + bàn — chừa safe-area trên (Dynamic Island/notch iPhone) */}
+      <div
+        className="flex-shrink-0 bg-white px-4 pb-3 shadow-sm"
+        style={{ paddingTop: "calc(var(--zaui-safe-area-inset-top, 0px) + 16px)" }}
+      >
         <p className="text-xlarge-sb font-bold text-text-primary">
           {storeName || "MEVO"}
         </p>

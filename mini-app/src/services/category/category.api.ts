@@ -32,8 +32,13 @@ export const categoryService = {
       name: cat.name,
       sortOrder: cat.sort_order,
       products: ((cat.menu_items as Record<string, unknown>[]) ?? [])
-        .filter((item) => item.is_available)
-        .sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
+        // Giữ cả món hết hàng để hiện mờ + badge "Tạm hết";
+        // món còn hàng lên trước, hết hàng dồn xuống cuối, rồi theo sort_order
+        .sort((a, b) => {
+          const availDiff = (a.is_available ? 0 : 1) - (b.is_available ? 0 : 1);
+          if (availDiff !== 0) return availDiff;
+          return (a.sort_order as number) - (b.sort_order as number);
+        })
         .map(mapProduct),
     }));
   },
