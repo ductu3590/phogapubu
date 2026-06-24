@@ -371,6 +371,75 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 
 ---
 
+### TASK 2b — Token bếp theo quán + khoá anon UPDATE
+
+**Chuẩn bị (BẮT BUỘC trước khi test):**
+1. **Env admin-web** — thêm vào `admin-web/.env.local` (server-only, KHÔNG có `NEXT_PUBLIC_`):
+   ```
+   SUPABASE_JWT_SECRET=<Supabase → Settings → API → JWT Secret>
+   ```
+   Restart `npm run dev` sau khi thêm.
+2. **Apply `supabase/migrations/007a_kitchen_isolation.sql`** (additive — CHƯA khoá anon UPDATE, bếp cũ vẫn chạy).
+   - Sau khi chạy: mở bảng `stores` xác nhận có cột `kitchen_token_version` = 1.
+
+> ⚠️ CHƯA chạy `007b` ở giai đoạn này. `007b` chỉ chạy ở Test 5 (cuối cùng).
+
+**✅ Checklist test — Anh Tú tự làm:**
+
+**Test 1 — Lấy link bếp + mở được màn hình bếp**
+1. Admin → "Màn hình bếp" → bấm "Lấy link bếp" → bấm "Copy"
+2. Mở link đó trên tablet/tab mới
+   - [ ] Màn hình bếp hiện đúng tên quán + 3 cột (Chờ/Đang làm/Xem lại)
+   - [ ] Thanh địa chỉ KHÔNG còn `?k=...` (token đã ẩn vào localStorage)
+   - [ ] Console F12 không lỗi
+3. Mở `/kitchen/pho-ga-pubu` **không** kèm token trên 1 trình duyệt chưa từng mở
+   - [ ] Hiện màn hình "Chưa cấu hình bếp" (không tải đơn)
+4. ✅ PASS nếu: có token thì vào được, không token thì bị chặn
+
+**Test 2 — Đơn mới realtime + đổi trạng thái qua token**
+1. Mở bếp (đã có token) — để màn hình hiển thị
+2. Điện thoại → đặt 1 đơn mới (tiền mặt cho nhanh)
+   - [ ] Đơn hiện ở cột "Chờ xử lý" trong 5 giây, không cần F5
+3. Bấm "Bắt đầu làm" → "Đã xong"
+   - [ ] Card chuyển cột đúng
+   - [ ] Supabase: `orders.status` của đơn đó = `cooking` rồi `ready`
+4. ✅ PASS nếu: realtime + đổi trạng thái chạy bằng token
+
+**Test 3 — Cô lập giữa các quán (QUAN TRỌNG NHẤT — đây là lỗ P0)**
+> Cần 1 quán thứ 2 trong DB. Nếu chưa có, tạo nhanh trong Supabase:
+> `insert into stores (name, slug) values ('Quán Test 2', 'quan-test-2');`
+> rồi `insert into tables (store_id, table_number) select id, 'Bàn 1' from stores where slug='quan-test-2';`
+1. Lấy link bếp của **Phở Gà Pubu**. Mở màn hình bếp Phở Gà Pubu.
+2. Đặt 1 đơn cho **Quán Test 2** (hoặc tạo thủ công 1 dòng `orders` với `store_id` của Quán Test 2 trong Supabase).
+   - [ ] Đơn của Quán Test 2 **KHÔNG** xuất hiện trên bếp Phở Gà Pubu
+3. (Nâng cao, nếu rành) lấy token bếp Phở Gà Pubu, thử query đơn Quán Test 2 → phải **rỗng**.
+4. ✅ PASS nếu: bếp quán này tuyệt đối không thấy đơn quán khác
+
+**Test 4 — Thu hồi token**
+1. Mở bếp Phở Gà Pubu bằng token đang dùng (đang chạy bình thường)
+2. Admin → "Màn hình bếp" → "Thu hồi & cấp lại" → xác nhận
+3. Trên tablet bếp đang mở (token cũ): F5 lại trang
+   - [ ] Không tải được đơn nữa (token cũ đã chết) — hiện lỗi/không có đơn
+4. Mở link MỚI vừa cấp
+   - [ ] Bếp chạy lại bình thường
+5. ✅ PASS nếu: token cũ chết ngay, token mới chạy
+
+**Test 5 — Khoá anon UPDATE (007b) + mini-app không hỏng**
+> Chỉ chạy bước này SAU khi Test 1–4 PASS và tablet đã dùng token.
+1. **Apply `supabase/migrations/007b_lock_anon_update.sql`**
+2. Trên bếp (token): đặt đơn mới → "Bắt đầu làm" → "Đã xong"
+   - [ ] Vẫn đổi trạng thái được (qua RPC, không phải anon UPDATE)
+3. Mini-app: đặt đơn ZaloPay → huỷ/bỏ dở → chọn "Trả tiền mặt"
+   - [ ] Đơn chuyển `payment_method = 'cash'` (abandon qua RPC + token chạy)
+   - [ ] Bếp hiện đơn đó ở cột chờ
+4. Admin → Đơn hàng → đánh dấu 1 đơn tiền mặt là "Đã thanh toán"
+   - [ ] `status = paid` (operator vẫn update được)
+5. ✅ PASS nếu: sau khi khoá anon, mọi luồng hợp lệ vẫn chạy
+
+**→ Báo Claude Code:** "2b PASS" hoặc mô tả lỗi (ghi rõ Test mấy + Console F12).
+
+---
+
 ## KHI GẶP LỖI — Cách báo cáo hiệu quả
 
 Khi test FAIL, báo Claude Code theo format này để fix nhanh nhất:

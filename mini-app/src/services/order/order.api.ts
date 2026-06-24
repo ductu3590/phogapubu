@@ -22,20 +22,23 @@ export const orderService = {
     return mapOrder(data as Record<string, unknown>);
   },
 
-  abandonToCash: async (orderId: string): Promise<Order | null> => {
+  abandonToCash: async (orderId: string, token: string): Promise<Order | null> => {
+    // capability_token bắt buộc — chỉ chủ đơn mới chuyển được sang tiền mặt
     const { data, error } = await supabase.rpc("abandon_zalopay_to_cash", {
       p_order_id: orderId,
+      p_token: token,
     });
     if (error) throw error;
     return data ? mapOrder(data as Record<string, unknown>) : null;
   },
 
-  cancelOrder: async (orderId: string): Promise<void> => {
-    await supabase
-      .from("orders")
-      .update({ status: "cancelled" })
-      .eq("id", orderId)
-      .eq("status", "pending"); // Chỉ cancel nếu chưa được confirm
+  cancelOrder: async (orderId: string, token: string): Promise<void> => {
+    // Huỷ qua RPC (anon UPDATE orders đã bị khoá) — chỉ huỷ đơn pending đúng token
+    const { error } = await supabase.rpc("cancel_order", {
+      p_order_id: orderId,
+      p_token: token,
+    });
+    if (error) throw error;
   },
 
   getOrderWithItems: async (orderId: string): Promise<Order> => {
@@ -73,5 +76,6 @@ function mapOrder(row: Record<string, unknown>): Order {
     note: (row.note as string | null) ?? null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
+    capabilityToken: (row.capability_token as string | null) ?? null,
   };
 }

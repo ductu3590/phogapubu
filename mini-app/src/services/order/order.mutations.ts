@@ -11,7 +11,7 @@ export function useCreateOrder() {
 }
 
 export function useCancelOrder() {
-  return useMutation<void, Error, string>({
-    mutationFn: (orderId) => orderService.cancelOrder(orderId),
+  return useMutation<void, Error, { orderId: string; token: string }>({
+    mutationFn: ({ orderId, token }) => orderService.cancelOrder(orderId, token),
   });
 }

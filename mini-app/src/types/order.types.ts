@@ -26,6 +26,8 @@ export interface Order {
   note: string | null;
   createdAt: string;
   updatedAt: string;
+  // Token năng lực (Plan 2): cấp khi tạo đơn, cần để huỷ / đổi sang tiền mặt
+  capabilityToken: string | null;
   items?: OrderItem[];
 }
 

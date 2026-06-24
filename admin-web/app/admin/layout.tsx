@@ -52,6 +52,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <NavLink href="/admin/menu" icon="🍽️">Quản lý menu</NavLink>
           <NavLink href="/admin/tables" icon="🪑">Bàn & QR</NavLink>
           <NavLink href="/admin/orders" icon="📋">Đơn hàng</NavLink>
+          <NavLink href="/admin/kitchen" icon="🍳">Màn hình bếp</NavLink>
         </nav>
 
         {/* Bottom: đăng xuất */}

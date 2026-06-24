@@ -112,8 +112,12 @@ export interface Database {
     }
     Functions: {
       abandon_zalopay_to_cash: {
-        Args: { p_order_id: string }
+        Args: { p_order_id: string; p_token: string }
         Returns: Json
+      }
+      cancel_order: {
+        Args: { p_order_id: string; p_token: string }
+        Returns: undefined
       }
       create_order: {
         Args: {
