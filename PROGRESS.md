@@ -19,6 +19,23 @@ Sau trao đổi với tổng đài ZaloPay Merchant + nghiên cứu giới hạn
 
 ---
 
+## 0b. Mốc 23/06/2026 — Toàn vẹn đơn + luồng ZaloPay hoàn chỉnh (đã merge `main`)
+
+Đã làm + test PASS + **merge vào main** (nhánh `feat/order-integrity-tenant-safe`):
+
+- **Plan 1 — Toàn vẹn đơn:** RPC `create_order` tính giá từ DB (chống sửa giá), enforce bàn↔quán, sinh `capability_token`; mini-app tạo đơn qua RPC; **bỏ quyền anon insert thẳng** orders/order_items. Spec: [docs/superpowers/specs/2026-06-22-mevo-core-theme-architecture-design.md](docs/superpowers/specs/2026-06-22-mevo-core-theme-architecture-design.md), plan: [docs/superpowers/plans/2026-06-22-order-integrity-tenant-safe-creation.md](docs/superpowers/plans/2026-06-22-order-integrity-tenant-safe-creation.md).
+- **#1 — ZaloPay tự confirm → bếp:** root cause là **Callback URL bị trống** trong Zalo Mini App Studio (đã điền + verify webhook `checkout-notify` chạy, ghi `zalopay_trans_id`).
+- **#2 — Huỷ ZaloPay → tiền mặt:** RPC `abandon_zalopay_to_cash` (guard đơn đã trả), dialog "Trả tiền mặt / Thử lại", kitchen map `payment_method` realtime; và **fix bắt sự kiện huỷ đúng cách** (event `PaymentDone` + `Payment.checkTransaction`, không dựa `fail` callback). Plan: [docs/superpowers/plans/2026-06-23-zalopay-abandon-to-cash.md](docs/superpowers/plans/2026-06-23-zalopay-abandon-to-cash.md).
+
+**Bẫy vận hành đã ghi nhận:** mỗi lần `zmp deploy` version mới phải cập nhật `NEXT_PUBLIC_ZALO_VERSION` trên Vercel (admin-web) để QR mở đúng bản; khi publish production thì để trống.
+
+### Còn lại trong hàng đợi (CHƯA làm)
+- **Plan 2 — Siết bảo mật** (đã phân rã, chưa code): **2a** operator authz cho admin (allowlist `mevo_operator`, chặn "ai đăng nhập cũng là super-admin"); **2b** khoá anon UPDATE orders + token bếp theo quán (JWT scope `store_id`, giữ realtime dưới RLS); **2c** scope quyền đọc order-status của khách (khó vì anon+realtime, cân nhắc hoãn — order id là UUID khó đoán).
+- **Backlog UI/UX:** QR bị Dynamic Island che (mini-app safe-area), admin tạo bàn cần F5, hiện "Tạm hết" thay vì ẩn món hết hàng, CRUD danh mục/món + upload ảnh món 1:1.
+- **Treo:** ZNS template (chưa cấu hình); xác nhận ZaloPay mở app native ở production (sandbox đang mở webview); bật type-check mini-app (đã có task riêng).
+
+---
+
 ## 1. Mục tiêu ban đầu
 
 Nền tảng **QR Order SaaS cho quán ăn Việt Nam, chạy trên Zalo Mini App**: khách quét QR → chọn món → thanh toán ZaloPay 1 chạm → bếp nhận đơn realtime → khách nhận thông báo qua Zalo. **MVP pilot 2–3 quán quen** (Phở Gà Pubu + quán nhậu Lào Cai).
