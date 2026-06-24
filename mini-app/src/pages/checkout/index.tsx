@@ -23,7 +23,7 @@ export default function CheckoutPage() {
   const [pendingZp, setPendingZp] = useState<{ id: string; token: string | null } | null>(null);
 
   const { items: cartItems, updateQuantity, clearCart } = useCartStore();
-  const { storeId, tableId, tableNumber } = useAppStore();
+  const { storeId, tableId, tableNumber, zaloUserId } = useAppStore();
   const { mutate: createOrder, isPending } = useCreateOrder();
 
   const totalAmount = calculateCartTotal(cartItems);
@@ -56,6 +56,7 @@ export default function CheckoutPage() {
         })),
         note: note.trim() || undefined,
         paymentMethod,
+        zaloUserId: zaloUserId || undefined,
       },
       {
         onSuccess: async (order) => {

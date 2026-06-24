@@ -5,9 +5,22 @@ import React, { useEffect } from "react";
 import { SnackbarProvider } from "zmp-ui";
 import { useAppStore, parseQRParams } from "./stores/app.store";
 import { supabase } from "./services/supabase";
+import { getUserID } from "zmp-sdk";
 
 function AppInit() {
-  const { setStoreInfo, setTableInfo } = useAppStore();
+  const { setStoreInfo, setTableInfo, setZaloUserId } = useAppStore();
+
+  // Lấy Zalo user id 1 lần (để gửi thông báo OA khi món xong).
+  // Không cần scope đặc biệt; ngoài môi trường Zalo sẽ lỗi → bỏ qua.
+  useEffect(() => {
+    getUserID()
+      .then((id) => {
+        if (id) setZaloUserId(id);
+      })
+      .catch(() => {
+        /* không ở trong Zalo hoặc chưa cấp — bỏ qua, đơn vẫn tạo bình thường */
+      });
+  }, [setZaloUserId]);
 
   useEffect(() => {
     const { storeSlug, tableId } = parseQRParams();
