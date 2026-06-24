@@ -31,8 +31,8 @@ Sau trao đổi với tổng đài ZaloPay Merchant + nghiên cứu giới hạn
 
 ### Còn lại trong hàng đợi (CHƯA làm)
 - **Plan 2 — Siết bảo mật** (đã phân rã, chưa code): **2a** operator authz cho admin (allowlist `mevo_operator`, chặn "ai đăng nhập cũng là super-admin"); **2b** khoá anon UPDATE orders + token bếp theo quán (JWT scope `store_id`, giữ realtime dưới RLS); **2c** scope quyền đọc order-status của khách (khó vì anon+realtime, cân nhắc hoãn — order id là UUID khó đoán).
-- **Backlog UI/UX:** QR bị Dynamic Island che (mini-app safe-area), admin tạo bàn cần F5, hiện "Tạm hết" thay vì ẩn món hết hàng, CRUD danh mục/món + upload ảnh món 1:1.
-- **Treo:** ZNS template (chưa cấu hình); xác nhận ZaloPay mở app native ở production (sandbox đang mở webview); bật type-check mini-app (đã có task riêng).
+- **Backlog UI/UX:** ~~QR bị Dynamic Island che~~ ✅ (safe-area header menu), admin tạo bàn cần F5, ~~hiện "Tạm hết" thay vì ẩn món hết hàng~~ ✅ (bỏ filter + dồn món hết xuống cuối), ~~CRUD danh mục/món + upload ảnh món 1:1~~ ✅ (sửa món, sửa/xoá danh mục có guard, cropper ảnh 1:1 + bucket `menu-images`). **Code xong 2026-06-24, chờ test + deploy chung đợt Plan 2.**
+- **Treo:** ZNS template (chưa cấu hình — đang hướng dẫn setup); xác nhận ZaloPay mở app native ở production (sandbox đang mở webview); bật type-check mini-app (đã có task riêng).
 
 ---
 
