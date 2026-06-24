@@ -9,8 +9,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Lấy store đầu tiên của user (MVP: 1 user = 1 store)
-  const storeId: string | undefined = user.user_metadata?.store_id
+  // Operator allowlist (Plan 2 — 2a), defense-in-depth cùng proxy.ts.
+  // Không phải operator → đẩy về login (RLS 006b cũng đã chặn dữ liệu).
+  const { data: op } = await supabase
+    .from('mevo_operators')
+    .select('store_id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (!op) redirect('/login?error=not_operator')
+
+  // store_id của operator (NULL = super → fallback lấy quán đầu tiên đang hoạt động)
+  const storeId: string | undefined = op.store_id ?? undefined
   let storeName = 'Quán của tôi'
 
   if (storeId) {
@@ -43,6 +52,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <NavLink href="/admin/menu" icon="🍽️">Quản lý menu</NavLink>
           <NavLink href="/admin/tables" icon="🪑">Bàn & QR</NavLink>
           <NavLink href="/admin/orders" icon="📋">Đơn hàng</NavLink>
+          <NavLink href="/admin/kitchen" icon="🍳">Màn hình bếp</NavLink>
         </nav>
 
         {/* Bottom: đăng xuất */}

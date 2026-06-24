@@ -19,7 +19,8 @@ export default function CheckoutPage() {
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("zalopay");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [pendingZpOrderId, setPendingZpOrderId] = useState<string | null>(null);
+  // Đơn ZaloPay đang chờ xử lý (kèm capability token để chuyển sang tiền mặt nếu bỏ dở)
+  const [pendingZp, setPendingZp] = useState<{ id: string; token: string | null } | null>(null);
 
   const { items: cartItems, updateQuantity, clearCart } = useCartStore();
   const { storeId, tableId, tableNumber } = useAppStore();
@@ -59,7 +60,7 @@ export default function CheckoutPage() {
       {
         onSuccess: async (order) => {
           if (paymentMethod === "zalopay") {
-            await handleZaloPayPayment(order.id);
+            await handleZaloPayPayment(order.id, order.capabilityToken);
           } else {
             // Tiền mặt: navigate thẳng đến trang trạng thái
             clearCart();
@@ -75,7 +76,7 @@ export default function CheckoutPage() {
     );
   };
 
-  const handleZaloPayPayment = async (orderId: string) => {
+  const handleZaloPayPayment = async (orderId: string, token: string | null) => {
     try {
       const outcome = await paymentService.payWithCheckoutSDK(orderId);
       if (outcome === "success") {
@@ -86,33 +87,34 @@ export default function CheckoutPage() {
         // KHÔNG huỷ đơn ở client — để server (checkout-notify) quyết định.
         // Đơn zalopay pending không vào bếp (kitchen filter), nên để pending là an toàn.
         // Hỏi khách có chuyển sang tiền mặt không.
-        setPendingZpOrderId(orderId);
+        setPendingZp({ id: orderId, token });
       }
     } catch (_err) {
       // Lỗi tạo yêu cầu thanh toán (create-mac) → cũng mở dialog để khách chọn
-      setPendingZpOrderId(orderId);
+      setPendingZp({ id: orderId, token });
     } finally {
       setIsProcessing(false);
     }
   };
 
   const confirmCashFallback = async () => {
-    if (!pendingZpOrderId) return;
-    const id = pendingZpOrderId;
+    if (!pendingZp) return;
+    const { id, token } = pendingZp;
     try {
-      await orderService.abandonToCash(id);
+      // Cần capability token để đổi sang tiền mặt; nếu thiếu vẫn điều hướng (đơn giữ pending)
+      if (token) await orderService.abandonToCash(id, token);
     } catch {
       // lỗi đổi sang cash vẫn điều hướng — đơn giữ pending, không chặn khách
     }
-    setPendingZpOrderId(null);
+    setPendingZp(null);
     clearCart();
     navigate(`/order-status/${id}`);
   };
 
   const retryZaloPay = () => {
-    const id = pendingZpOrderId;
-    setPendingZpOrderId(null);
-    if (id) handleZaloPayPayment(id);
+    const pending = pendingZp;
+    setPendingZp(null);
+    if (pending) handleZaloPayPayment(pending.id, pending.token);
   };
 
   const isLoading = isPending || isProcessing;
@@ -218,10 +220,10 @@ export default function CheckoutPage() {
 
       {/* Dialog xác nhận chuyển sang tiền mặt khi ZaloPay bỏ dở/thất bại */}
       <Modal
-        visible={pendingZpOrderId !== null}
+        visible={pendingZp !== null}
         title="Thanh toán chưa hoàn tất"
         description="Bạn muốn chuyển sang trả tiền mặt (thu khi ra về) hay thử lại ZaloPay?"
-        onClose={() => setPendingZpOrderId(null)}
+        onClose={() => setPendingZp(null)}
         actions={[
           {
             text: "Trả tiền mặt",

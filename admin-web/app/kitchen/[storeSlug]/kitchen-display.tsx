@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { createKitchenClient } from '@/lib/supabase/kitchen-client'
 import { cn, formatVND, timeAgo } from '@/lib/utils'
 import type { KitchenOrder, OrderStatus, Store } from '@/types/database.types'
 
@@ -77,7 +77,34 @@ interface Props {
 }
 
 export default function KitchenDisplay({ storeSlug }: Props) {
-  const supabase = createClient()
+  // Token bếp: lấy từ ?k=... (lần đầu, do MEVO cấp) rồi lưu localStorage; lần sau không cần link.
+  const [token, setToken] = useState<string | null>(null)
+  const [tokenMissing, setTokenMissing] = useState(false)
+
+  useEffect(() => {
+    const key = `mevo_kitchen_token_${storeSlug}`
+    const params = new URLSearchParams(window.location.search)
+    const fromUrl = params.get('k')
+    if (fromUrl) {
+      localStorage.setItem(key, fromUrl)
+      setToken(fromUrl)
+      // Xoá token khỏi thanh địa chỉ cho đỡ lộ khi chụp màn hình
+      params.delete('k')
+      const qs = params.toString()
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
+      return
+    }
+    const stored = localStorage.getItem(key)
+    if (stored) {
+      setToken(stored)
+      return
+    }
+    setTokenMissing(true)
+  }, [storeSlug])
+
+  // Client gắn token (chỉ tạo khi đã có token). RLS role 'kitchen' scope đúng quán.
+  const supabase = useMemo(() => (token ? createKitchenClient(token) : null), [token])
+
   const [store, setStore] = useState<Store | null>(null)
   const [orders, setOrders] = useState<KitchenOrder[]>([])
   const [loading, setLoading] = useState(true)
@@ -95,6 +122,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   // ── Fetch đơn đầy đủ kèm items + table ──────────────────────────────────
   const fetchOrder = useCallback(
     async (orderId: string): Promise<KitchenOrder | null> => {
+      if (!supabase) return null
       const { data, error } = await supabase
         .from('orders')
         .select('*, order_items(*), tables(table_number)')
@@ -113,6 +141,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   // ── Load store + tất cả đơn hôm nay ──────────────────────────────────────
   useEffect(() => {
     async function init() {
+      if (!supabase) return
       setLoading(true)
       setError(null)
 
@@ -226,15 +255,17 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
   // ── Cập nhật trạng thái đơn ───────────────────────────────────────────────
   const updateStatus = async (orderId: string, newStatus: OrderStatus) => {
+    if (!supabase) return
     // Optimistic update ngay lập tức
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)),
     )
 
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: newStatus })
-      .eq('id', orderId)
+    // Ghi qua RPC kitchen_set_status (state machine + scope store_id), KHÔNG update trực tiếp
+    const { error } = await supabase.rpc('kitchen_set_status', {
+      p_order_id: orderId,
+      p_status: newStatus,
+    })
 
     if (error) {
       // Rollback nếu thất bại
@@ -265,6 +296,20 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   const readyOrders = orders.filter((o) => o.status === 'ready')
 
   // ── Render ────────────────────────────────────────────────────────────────
+  if (tokenMissing) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-950">
+        <div className="max-w-md text-center">
+          <p className="text-2xl text-yellow-400">🍳 Chưa cấu hình bếp</p>
+          <p className="mt-3 text-gray-400">
+            Màn hình này cần link bếp do MEVO cấp. Vào Admin → “Màn hình bếp” → “Lấy link bếp”,
+            rồi mở link đó trên tablet này một lần.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-950">

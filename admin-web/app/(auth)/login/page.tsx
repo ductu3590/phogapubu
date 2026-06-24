@@ -6,6 +6,8 @@ import { signIn } from './actions'
 
 export default function LoginPage() {
   const router = useRouter()
+  // Lỗi (sai mật khẩu / không có quyền operator) trả về từ server action signIn — không đọc
+  // window ở init để tránh hydration mismatch giữa server và client.
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
