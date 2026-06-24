@@ -77,13 +77,19 @@ export default function CheckoutPage() {
 
   const handleZaloPayPayment = async (orderId: string) => {
     try {
-      await paymentService.payWithCheckoutSDK(orderId);
-      clearCart();
-      navigate(`/order-status/${orderId}`);
+      const outcome = await paymentService.payWithCheckoutSDK(orderId);
+      if (outcome === "success") {
+        clearCart();
+        navigate(`/order-status/${orderId}`);
+      } else {
+        // Huỷ/thất bại ZaloPay (bắt qua PaymentDone + checkTransaction) →
+        // KHÔNG huỷ đơn ở client — để server (checkout-notify) quyết định.
+        // Đơn zalopay pending không vào bếp (kitchen filter), nên để pending là an toàn.
+        // Hỏi khách có chuyển sang tiền mặt không.
+        setPendingZpOrderId(orderId);
+      }
     } catch (_err) {
-      // KHÔNG huỷ đơn ở client — để server (checkout-notify) quyết định.
-      // Đơn zalopay pending không vào bếp (kitchen filter), nên để pending là an toàn.
-      // Bỏ dở/thất bại ZaloPay → hỏi khách có chuyển sang tiền mặt không
+      // Lỗi tạo yêu cầu thanh toán (create-mac) → cũng mở dialog để khách chọn
       setPendingZpOrderId(orderId);
     } finally {
       setIsProcessing(false);
