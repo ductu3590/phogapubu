@@ -7,7 +7,7 @@ import { orderService } from "@/services/order/order.api";
 import { formatCurrency } from "@/utils/format";
 import type { SessionOrder, OrderItem } from "@/types/order.types";
 
-// Nhãn trạng thái đơn
+// Nhãn trạng thái đơn (bếp)
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   pending:   { label: "Chờ xác nhận", color: "bg-yellow-100 text-yellow-700" },
   confirmed: { label: "Đã xác nhận",  color: "bg-blue-100 text-blue-700" },
@@ -17,6 +17,19 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 const UNPAID_STATUSES = new Set(["pending", "confirmed", "cooking", "ready"]);
+
+// Hình thức thanh toán + trạng thái thanh toán
+function getPaymentInfo(
+  paymentMethod: "zalopay" | "cash",
+  status: string,
+): { icon: string; label: string; paid: boolean } {
+  if (paymentMethod === "zalopay") {
+    const paid = status !== "pending"; // ZaloPay: confirmed trở lên = đã trả
+    return { icon: "💳", label: "ZaloPay", paid };
+  }
+  // Tiền mặt: chỉ khi admin xác nhận (status === 'paid') thì mới tính là đã thanh toán
+  return { icon: "💵", label: "Tiền mặt", paid: status === "paid" };
+}
 
 export default function SessionOrdersPage() {
   const { zaloUserId, tableId, tableNumber, storeId } = useAppStore();
@@ -157,6 +170,7 @@ export default function SessionOrdersPage() {
                   isExpanded={expandedId === order.id}
                   isLoadingItems={loadingItemsId === order.id}
                   items={cachedItems[order.id] ?? null}
+                  paymentInfo={getPaymentInfo(order.paymentMethod, order.status)}
                   onToggle={() => void handleToggleExpand(order.id)}
                 />
               ))}
@@ -193,6 +207,7 @@ function OrderCard({
   isExpanded,
   isLoadingItems,
   items,
+  paymentInfo,
   onToggle,
 }: {
   order: SessionOrder;
@@ -200,6 +215,7 @@ function OrderCard({
   isExpanded: boolean;
   isLoadingItems: boolean;
   items: OrderItem[] | null;
+  paymentInfo: { icon: string; label: string; paid: boolean };
   onToggle: () => void;
 }) {
   const statusInfo = STATUS_LABEL[order.status] ?? STATUS_LABEL.pending;
@@ -218,6 +234,14 @@ function OrderCard({
               hour: "2-digit",
               minute: "2-digit",
             })}
+          </p>
+          {/* Hình thức + trạng thái thanh toán */}
+          <p className="mt-0.5 text-xxsmall text-text-secondary">
+            {paymentInfo.icon} {paymentInfo.label}
+            {" · "}
+            <span className={paymentInfo.paid ? "text-green-600 font-semibold" : "text-orange-500"}>
+              {paymentInfo.paid ? "Đã thanh toán" : "Chưa thanh toán"}
+            </span>
           </p>
         </div>
         <div className="flex items-center gap-2">
