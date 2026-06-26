@@ -44,6 +44,28 @@ export async function updateStoreSettings(formData: FormData) {
   if (oaUrl) patch.zalo_oa_url = oaUrl
   else patch.zalo_oa_url = null
 
+  // address, phone, about_text — optional, set null nếu rỗng
+  const address = (formData.get('address') as string | null)?.trim()
+  patch.address = address || null
+
+  const phone = (formData.get('phone') as string | null)?.trim()
+  patch.phone = phone || null
+
+  const aboutText = (formData.get('about_text') as string | null)?.trim()
+  patch.about_text = aboutText || null
+
+  // banner — upload file nếu có (tương tự logo)
+  const banner = formData.get('banner') as File | null
+  if (banner && banner.size > 0) {
+    const ext = banner.type === 'image/png' ? 'png' : banner.type === 'image/webp' ? 'webp' : 'jpg'
+    const path = `${storeId}/banner-${crypto.randomUUID()}.${ext}`
+    const { error: upErr } = await admin.storage
+      .from(ASSET_BUCKET)
+      .upload(path, banner, { contentType: banner.type || 'image/jpeg', upsert: false })
+    if (upErr) throw new Error(`upload banner: ${upErr.message}`)
+    patch.takeaway_banner_url = admin.storage.from(ASSET_BUCKET).getPublicUrl(path).data.publicUrl
+  }
+
   // payment_methods — ít nhất 1 phương thức (luôn validate, không bỏ qua khi rỗng)
   const rawMethods = formData.getAll('payment_methods') as string[]
   const valid = rawMethods.filter((m) => m === 'zalopay' || m === 'cash')

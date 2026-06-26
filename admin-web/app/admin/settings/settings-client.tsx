@@ -10,11 +10,16 @@ interface Props {
   logoUrl: string | null
   paymentMethods: string[]
   zaloOaUrl: string
+  address: string
+  phone: string
+  aboutText: string
+  takeawayBannerUrl: string | null
 }
 
-export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl }: Props) {
+export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl }: Props) {
   const router = useRouter()
   const [logo, setLogo] = useState<File | null>(null)
+  const [banner, setBanner] = useState<File | null>(null)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [methods, setMethods] = useState<Set<string>>(new Set(paymentMethods))
@@ -43,6 +48,7 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
       action={async (fd) => {
         setError('')
         if (logo) fd.set('logo', logo)
+        if (banner) fd.set('banner', banner)
         methods.forEach((m) => fd.append('payment_methods', m))
         try {
           await updateStoreSettings(fd)
@@ -71,6 +77,74 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
         <SquareCropper initialUrl={logoUrl} onChange={setLogo} />
         <p className="mt-1 text-xs text-gray-400">
           Hiện ở đầu trang menu + header trên mini-app của khách.
+        </p>
+      </div>
+
+      {/* Địa chỉ quán */}
+      <div>
+        <label className="label">Địa chỉ quán</label>
+        <input
+          name="address"
+          defaultValue={address}
+          placeholder="VD: 12 Phố Núi, TP. Lào Cai"
+          className="input"
+        />
+      </div>
+
+      {/* Số điện thoại */}
+      <div>
+        <label className="label">Số điện thoại</label>
+        <input
+          name="phone"
+          type="tel"
+          defaultValue={phone}
+          placeholder="VD: 0901 234 567"
+          className="input"
+        />
+      </div>
+
+      {/* Ghi chú / Lời nhắn */}
+      <div>
+        <label className="label">Ghi chú / Lời nhắn</label>
+        <textarea
+          name="about_text"
+          defaultValue={aboutText}
+          placeholder="VD: Cảm ơn bạn đã ghé Phở Gà Pubu! Hotline: 0901234567"
+          rows={3}
+          className="input resize-none"
+        />
+        <p className="mt-1 text-xs text-gray-400">
+          Hiện ở tab &quot;Nhà hàng&quot; trên mini-app. Có thể ghi lời cảm ơn, hotline, chính sách...
+        </p>
+      </div>
+
+      {/* Banner Mang về */}
+      <div>
+        <label className="label">Banner Mang về / Ship (tỉ lệ 2:1)</label>
+        {takeawayBannerUrl && !banner && (
+          <img
+            src={takeawayBannerUrl}
+            alt="Banner hiện tại"
+            className="mb-2 w-full rounded-lg object-cover"
+            style={{ aspectRatio: '2/1' }}
+          />
+        )}
+        {banner && (
+          <img
+            src={URL.createObjectURL(banner)}
+            alt="Preview banner mới"
+            className="mb-2 w-full rounded-lg object-cover"
+            style={{ aspectRatio: '2/1' }}
+          />
+        )}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setBanner(e.target.files?.[0] ?? null)}
+          className="block text-sm text-gray-600"
+        />
+        <p className="mt-1 text-xs text-gray-400">
+          Hiện ở menu khi khách mở app không quét QR. Tỉ lệ 2:1 (VD: 1200×600px). Để trống = không hiện.
         </p>
       </div>
 

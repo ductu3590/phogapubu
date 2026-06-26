@@ -17,7 +17,7 @@ export default async function SettingsPage() {
 
   const { data: store } = await supabase
     .from('stores')
-    .select('name, logo_url, payment_methods, zalo_oa_url')
+    .select('name, logo_url, payment_methods, zalo_oa_url, address, phone, about_text, takeaway_banner_url')
     .eq('id', storeId)
     .single()
 
@@ -33,6 +33,10 @@ export default async function SettingsPage() {
           logoUrl={store?.logo_url ?? null}
           paymentMethods={(store?.payment_methods as string[] | null) ?? ['zalopay', 'cash']}
           zaloOaUrl={(store?.zalo_oa_url as string | null) ?? ''}
+          address={(store?.address as string | null) ?? ''}
+          phone={(store?.phone as string | null) ?? ''}
+          aboutText={(store?.about_text as string | null) ?? ''}
+          takeawayBannerUrl={(store?.takeaway_banner_url as string | null) ?? null}
         />
       </div>
     </div>
