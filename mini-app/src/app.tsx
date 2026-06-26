@@ -1,36 +1,34 @@
 import { RouterProvider } from "react-router-dom";
 import router from "./router";
 import { ReactQueryProvider } from "./lib/react-query-provider";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { SnackbarProvider } from "zmp-ui";
-import { useAppStore, parseQRParams } from "./stores/app.store";
+import { useAppStore, parseQRParams, PaymentMethod } from "./stores/app.store";
 import { supabase } from "./services/supabase";
 import { getUserID } from "zmp-sdk";
+import OaFollowSheet from "./components/common/oa-follow-sheet";
 
 function AppInit() {
-  const { setStoreInfo, setTableInfo, setZaloUserId } = useAppStore();
+  const {
+    setStoreInfo, setTableInfo, setZaloUserId,
+    storeId, zaloOaId,
+  } = useAppStore();
+  const [showOaSheet, setShowOaSheet] = useState(false);
 
-  // Lấy Zalo user id 1 lần (để gửi thông báo OA khi món xong).
-  // Không cần scope đặc biệt; ngoài môi trường Zalo sẽ lỗi → bỏ qua.
   useEffect(() => {
     getUserID()
-      .then((id) => {
-        if (id) setZaloUserId(id);
-      })
-      .catch(() => {
-        /* không ở trong Zalo hoặc chưa cấp — bỏ qua, đơn vẫn tạo bình thường */
-      });
+      .then((id) => { if (id) setZaloUserId(id); })
+      .catch(() => { /* không ở trong Zalo — bỏ qua */ });
   }, [setZaloUserId]);
 
   useEffect(() => {
     const { storeSlug, tableId } = parseQRParams();
     if (!storeSlug || !tableId) return;
 
-    // Lấy thông tin quán + bàn từ Supabase
     Promise.all([
       supabase
         .from("stores")
-        .select("id, name, slug")
+        .select("id, name, slug, logo_url, address, phone, zalo_oa_id, payment_methods")
         .eq("slug", storeSlug)
         .eq("is_active", true)
         .single(),
@@ -46,6 +44,11 @@ function AppInit() {
           storeSlug: storeRes.data.slug,
           storeId: storeRes.data.id,
           storeName: storeRes.data.name,
+          storeLogoUrl: storeRes.data.logo_url ?? "",
+          storeAddress: storeRes.data.address ?? "",
+          storePhone: storeRes.data.phone ?? "",
+          zaloOaId: storeRes.data.zalo_oa_id ?? "",
+          paymentMethods: (storeRes.data.payment_methods as PaymentMethod[]) ?? ["zalopay", "cash"],
         });
       }
       if (tableRes.data) {
@@ -57,7 +60,27 @@ function AppInit() {
     });
   }, [setStoreInfo, setTableInfo]);
 
-  return null;
+  // Hiện OA sheet 1 lần sau khi load xong store + có OA ID
+  useEffect(() => {
+    if (!storeId || !zaloOaId) return;
+    const flagKey = `mevo_oa_prompted_${storeId}`;
+    if (!localStorage.getItem(flagKey)) {
+      setShowOaSheet(true);
+    }
+  }, [storeId, zaloOaId]);
+
+  const handleOaSheetClose = () => {
+    if (storeId) localStorage.setItem(`mevo_oa_prompted_${storeId}`, "1");
+    setShowOaSheet(false);
+  };
+
+  return (
+    <OaFollowSheet
+      oaId={zaloOaId}
+      visible={showOaSheet}
+      onClose={handleOaSheetClose}
+    />
+  );
 }
 
 export default function MiniApp() {
