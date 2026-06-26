@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore } from "@/stores/app.store";
 import { useStoreMenu } from "@/services/category/category.queries";
@@ -9,8 +10,37 @@ import { PlusIcon, MinusIcon } from "@/components/common/vectors";
 import { scrollToId } from "@/utils/scroll-to";
 import { cn } from "@/utils/cn";
 
+function TakeawayBanner({ storeName }: { storeName: string }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-[#E8C9B3] bg-[#FBF4EF] px-4 py-2">
+      <span className="text-sm">🛵</span>
+      <span className="text-xs font-medium text-primary">
+        Mang về / Ship · {storeName}
+      </span>
+    </div>
+  );
+}
+
+function PendingTakeawayBanner() {
+  const navigate = useNavigate();
+  const orderId = localStorage.getItem("mevo_last_takeaway_order");
+  if (!orderId) return null;
+  return (
+    <button
+      onClick={() => navigate(`/order-status/${orderId}`)}
+      className="flex w-full items-center gap-2 border-b border-yellow-200 bg-yellow-50 px-4 py-2 text-left"
+    >
+      <span className="text-sm">📦</span>
+      <span className="flex-1 text-xs text-yellow-800">
+        Bạn có đơn đang xử lý — Xem trạng thái
+      </span>
+      <span className="text-xs text-yellow-600">→</span>
+    </button>
+  );
+}
+
 export default function MenuPage() {
-  const { storeId, storeName, storeLogoUrl, tableNumber } = useAppStore();
+  const { storeId, storeName, storeLogoUrl, tableNumber, orderMode } = useAppStore();
   const { data: menu, isLoading, error } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
   const [activeCategoryId, setActiveCategoryId] = useState<string>("");
@@ -77,6 +107,8 @@ export default function MenuPage() {
 
   return (
     <div className="flex h-full flex-col bg-[#F7F8FA]">
+      {orderMode === "takeaway" && <TakeawayBanner storeName={storeName} />}
+      {orderMode === "takeaway" && <PendingTakeawayBanner />}
       {/* Header quán + bàn — chừa safe-area trên (Dynamic Island/notch iPhone) */}
       <div
         className="flex-shrink-0 bg-white px-4 pb-3 shadow-sm"

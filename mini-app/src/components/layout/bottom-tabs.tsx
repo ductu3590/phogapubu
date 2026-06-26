@@ -1,12 +1,14 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCartStore } from "@/stores/cart.store";
+import { useAppStore } from "@/stores/app.store";
 import { cn } from "@/utils/cn";
 
-const TABS = [
+const ALL_TABS = [
   {
     path: "/",
     matchPaths: ["/", "/menu"],
     label: "Menu",
+    takeawayVisible: true,
     icon: (active: boolean) => (
       <svg viewBox="0 0 24 24" className={cn("h-6 w-6", active ? "text-primary" : "text-neutral300")} fill="none" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -17,6 +19,7 @@ const TABS = [
     path: "/session-orders",
     matchPaths: ["/session-orders"],
     label: "Đã gọi",
+    takeawayVisible: false,
     icon: (active: boolean) => (
       <svg viewBox="0 0 24 24" className={cn("h-6 w-6", active ? "text-primary" : "text-neutral300")} fill="none" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -27,6 +30,7 @@ const TABS = [
     path: "/store-info",
     matchPaths: ["/store-info"],
     label: "Nhà hàng",
+    takeawayVisible: true,
     icon: (active: boolean) => (
       <svg viewBox="0 0 24 24" className={cn("h-6 w-6", active ? "text-primary" : "text-neutral300")} fill="none" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -40,6 +44,9 @@ export default function BottomTabs() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { totalItems } = useCartStore();
+  const { orderMode } = useAppStore();
+
+  const TABS = ALL_TABS.filter(tab => orderMode === "dine_in" || tab.takeawayVisible);
 
   return (
     <div
