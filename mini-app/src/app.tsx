@@ -10,7 +10,7 @@ import OaFollowSheet from "./components/common/oa-follow-sheet";
 
 function AppInit() {
   const {
-    setStoreInfo, setTableInfo, setZaloUserId,
+    setStoreInfo, setTableInfo, setZaloUserId, setOrderMode,
     storeId, zaloOaId,
   } = useAppStore();
   const [showOaSheet, setShowOaSheet] = useState(false);
@@ -22,23 +22,29 @@ function AppInit() {
   }, [setZaloUserId]);
 
   useEffect(() => {
-    const { storeSlug, tableId } = parseQRParams();
-    if (!storeSlug || !tableId) return;
+    const { storeSlug, tableId, orderMode } = parseQRParams();
+    if (!storeSlug) return;
 
-    Promise.all([
-      supabase
-        .from("stores")
-        .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods")
-        .eq("slug", storeSlug)
-        .eq("is_active", true)
-        .single(),
-      supabase
-        .from("tables")
-        .select("id, table_number")
-        .eq("id", tableId)
-        .eq("is_active", true)
-        .single(),
-    ]).then(([storeRes, tableRes]) => {
+    setOrderMode(orderMode);
+
+    const storeQuery = supabase
+      .from("stores")
+      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods")
+      .eq("slug", storeSlug)
+      .eq("is_active", true)
+      .single();
+
+    const tableQuery =
+      orderMode === "dine_in" && tableId
+        ? supabase
+            .from("tables")
+            .select("id, table_number")
+            .eq("id", tableId)
+            .eq("is_active", true)
+            .single()
+        : Promise.resolve({ data: null, error: null });
+
+    Promise.all([storeQuery, tableQuery]).then(([storeRes, tableRes]) => {
       if (storeRes.data) {
         setStoreInfo({
           storeSlug: storeRes.data.slug,
@@ -65,7 +71,7 @@ function AppInit() {
         });
       }
     });
-  }, [setStoreInfo, setTableInfo]);
+  }, [setStoreInfo, setTableInfo, setOrderMode]);
 
   // Hiện OA sheet 1 lần sau khi load xong store + có OA ID
   useEffect(() => {

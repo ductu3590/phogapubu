@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 export type PaymentMethod = "zalopay" | "cash";
+export type OrderMode = "dine_in" | "takeaway";
 
 interface AppStore {
   storeSlug: string;
@@ -15,6 +16,7 @@ interface AppStore {
   tableId: string;
   tableNumber: string;
   zaloUserId: string;
+  orderMode: OrderMode;
 
   setStoreInfo: (info: {
     storeSlug: string;
@@ -29,6 +31,7 @@ interface AppStore {
   }) => void;
   setTableInfo: (info: { tableId: string; tableNumber: string }) => void;
   setZaloUserId: (zaloUserId: string) => void;
+  setOrderMode: (mode: OrderMode) => void;
 }
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -44,16 +47,26 @@ export const useAppStore = create<AppStore>((set) => ({
   tableId: "",
   tableNumber: "",
   zaloUserId: "",
+  orderMode: "dine_in",
 
   setStoreInfo: (info) => set(info),
   setTableInfo: (info) => set(info),
   setZaloUserId: (zaloUserId) => set({ zaloUserId }),
+  setOrderMode: (orderMode) => set({ orderMode }),
 }));
 
-export function parseQRParams(): { storeSlug: string; tableId: string } {
+export function parseQRParams(): {
+  storeSlug: string;
+  tableId: string;
+  orderMode: OrderMode;
+} {
   const params = new URLSearchParams(window.location.search);
-  return {
-    storeSlug: params.get("store") || "",
-    tableId: params.get("table") || "",
-  };
+  const storeSlug =
+    params.get("store") ||
+    (import.meta.env.VITE_DEFAULT_STORE_SLUG as string) ||
+    "";
+  const tableId = params.get("table") || "";
+  const orderMode: OrderMode =
+    storeSlug && !tableId ? "takeaway" : "dine_in";
+  return { storeSlug, tableId, orderMode };
 }
