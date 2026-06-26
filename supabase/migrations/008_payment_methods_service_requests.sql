@@ -5,12 +5,20 @@ ALTER TABLE stores
   ADD COLUMN IF NOT EXISTS payment_methods TEXT[]
     NOT NULL DEFAULT ARRAY['zalopay','cash'];
 
-ALTER TABLE stores
-  ADD CONSTRAINT stores_payment_methods_valid
-    CHECK (
-      array_length(payment_methods, 1) >= 1
-      AND payment_methods <@ ARRAY['zalopay','cash']
-    );
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'stores_payment_methods_valid'
+      AND conrelid = 'stores'::regclass
+  ) THEN
+    ALTER TABLE stores
+      ADD CONSTRAINT stores_payment_methods_valid
+        CHECK (
+          array_length(payment_methods, 1) >= 1
+          AND payment_methods <@ ARRAY['zalopay','cash']
+        );
+  END IF;
+END $$;
 
 -- 2. Tạo bảng service_requests
 CREATE TABLE IF NOT EXISTS service_requests (
@@ -29,7 +37,7 @@ CREATE POLICY "anon_insert_service_requests" ON service_requests
   FOR INSERT TO anon WITH CHECK (true);
 
 CREATE POLICY "auth_select_service_requests" ON service_requests
-  FOR SELECT TO authenticated USING (true);
+  FOR SELECT TO authenticated USING (is_operator());
 
 -- 3. RPC get_session_orders — anon lấy đơn của mình trong phiên (6 tiếng)
 CREATE OR REPLACE FUNCTION get_session_orders(
@@ -63,4 +71,5 @@ AS $$
   ORDER BY o.created_at DESC;
 $$;
 
-GRANT EXECUTE ON FUNCTION get_session_orders TO anon;
+REVOKE ALL ON FUNCTION get_session_orders(TEXT, UUID) FROM public;
+GRANT EXECUTE ON FUNCTION get_session_orders(TEXT, UUID) TO anon;
