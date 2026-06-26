@@ -110,6 +110,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
+  const [callAlerts, setCallAlerts] = useState<Array<{ id: number; tableNumber: string; type: string }>>([])
   // Giữ track đơn đã biết để phát tiếng chuông đúng lần
   const knownOrderIds = useRef<Set<string>>(new Set())
 
@@ -245,8 +246,32 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         )
         .subscribe()
 
+      // Subscribe service_requests — nút chuông gọi nhân viên
+      const srChannel = supabase
+        .channel(`service-requests-${storeData.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'service_requests',
+            filter: `store_id=eq.${storeData.id}`,
+          },
+          (payload) => {
+            const req = payload.new as { table_number: string; type: string }
+            const alertId = Date.now()
+            setCallAlerts((prev) => [
+              ...prev,
+              { id: alertId, tableNumber: req.table_number, type: req.type },
+            ])
+            playBell()
+          },
+        )
+        .subscribe()
+
       return () => {
         supabase.removeChannel(channel)
+        supabase.removeChannel(srChannel)
       }
     }
 
@@ -334,6 +359,26 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
   return (
     <div className="flex h-screen flex-col bg-gray-950 text-white">
+      {/* Chuông gọi nhân viên — dismissable banners */}
+      {callAlerts.map((alert) => (
+        <div
+          key={alert.id}
+          className="fixed right-4 top-4 z-50 flex items-center gap-3 rounded-xl bg-orange-500 px-4 py-3 text-white shadow-lg"
+        >
+          <span className="text-2xl">🔔</span>
+          <div>
+            <p className="font-bold">{alert.tableNumber} gọi thanh toán</p>
+            <p className="text-sm opacity-80">Ra bàn thanh toán cho khách</p>
+          </div>
+          <button
+            onClick={() => setCallAlerts((prev) => prev.filter((a) => a.id !== alert.id))}
+            className="ml-2 opacity-70 hover:opacity-100"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+
       {/* Header */}
       <header className="flex items-center justify-between border-b border-gray-800 px-6 py-3">
         <div className="flex items-center gap-3">
