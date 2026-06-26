@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore, PaymentMethod } from "@/stores/app.store";
@@ -21,7 +21,16 @@ export default function CheckoutPage() {
   const [pendingZp, setPendingZp] = useState<{ id: string; token: string | null } | null>(null);
 
   const { items: cartItems, updateQuantity, clearCart } = useCartStore();
-  const { storeId, tableId, tableNumber, zaloUserId } = useAppStore();
+  const { storeId, tableId, tableNumber, zaloUserId, paymentMethods } = useAppStore();
+  const singleMethod = paymentMethods.length === 1;
+
+  // Syncs selected method when store config loads (e.g. nếu zalopay bị tắt)
+  useEffect(() => {
+    if (!paymentMethods.includes(paymentMethod)) {
+      const fallback = paymentMethods[0] ?? "zalopay";
+      setPaymentMethod(fallback);
+    }
+  }, [paymentMethods, paymentMethod]);
   const { mutate: createOrder, isPending } = useCreateOrder();
 
   const totalAmount = calculateCartTotal(cartItems);
@@ -185,28 +194,34 @@ export default function CheckoutPage() {
           />
         </div>
 
-        {/* Hình thức thanh toán */}
-        <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-4">
-          <p className="mb-3 text-large-m font-semibold">Thanh toán</p>
-          <div className="flex flex-col gap-2">
-            <PaymentOption
-              id="zalopay"
-              label="ZaloPay"
-              sublabel="Thanh toán trong Zalo, nhanh 1 chạm"
-              emoji="💳"
-              selected={paymentMethod === "zalopay"}
-              onSelect={() => setPaymentMethod("zalopay")}
-            />
-            <PaymentOption
-              id="cash"
-              label="Tiền mặt"
-              sublabel="Thanh toán với nhân viên khi ra về"
-              emoji="💵"
-              selected={paymentMethod === "cash"}
-              onSelect={() => setPaymentMethod("cash")}
-            />
+        {/* Hình thức thanh toán — ẩn nếu chỉ có 1 phương thức */}
+        {!singleMethod && (
+          <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-4">
+            <p className="mb-3 text-large-m font-semibold">Thanh toán</p>
+            <div className="flex flex-col gap-2">
+              {paymentMethods.includes("zalopay") && (
+                <PaymentOption
+                  id="zalopay"
+                  label="ZaloPay"
+                  sublabel="Thanh toán trong Zalo, nhanh 1 chạm"
+                  emoji="💳"
+                  selected={paymentMethod === "zalopay"}
+                  onSelect={() => setPaymentMethod("zalopay")}
+                />
+              )}
+              {paymentMethods.includes("cash") && (
+                <PaymentOption
+                  id="cash"
+                  label="Tiền mặt"
+                  sublabel="Thanh toán với nhân viên khi ra về"
+                  emoji="💵"
+                  selected={paymentMethod === "cash"}
+                  onSelect={() => setPaymentMethod("cash")}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tóm tắt tiền */}
         <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-4">
