@@ -26,9 +26,9 @@ export default function CheckoutPage() {
 
   // Syncs selected method when store config loads (e.g. nếu zalopay bị tắt)
   useEffect(() => {
+    if (paymentMethods.length === 0) return; // store config chưa load xong
     if (!paymentMethods.includes(paymentMethod)) {
-      const fallback = paymentMethods[0] ?? "zalopay";
-      setPaymentMethod(fallback);
+      setPaymentMethod(paymentMethods[0]);
     }
   }, [paymentMethods, paymentMethod]);
   const { mutate: createOrder, isPending } = useCreateOrder();

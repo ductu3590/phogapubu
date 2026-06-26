@@ -23,3 +23,5 @@ export const CANCEL_ORDER_KEY = "cancelOrder";
 export const REORDER_KEY = "reorder";
 
 export const CONFIRM_PICKUP_KEY = "confirmPickup";
+
+export const GET_SESSION_ORDERS_KEY = "session-orders";
