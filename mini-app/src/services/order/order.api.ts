@@ -1,5 +1,5 @@
 import { supabase } from "../supabase";
-import { CreateOrderRequest, Order } from "@/types/order.types";
+import { CreateOrderRequest, Order, OrderState, SessionOrder, ServiceRequest } from "@/types/order.types";
 
 export const orderService = {
   createOrder: async (req: CreateOrderRequest): Promise<Order> => {
@@ -79,3 +79,37 @@ function mapOrder(row: Record<string, unknown>): Order {
     capabilityToken: (row.capability_token as string | null) ?? null,
   };
 }
+
+export const sessionOrderService = {
+  getSessionOrders: async (
+    zaloUserId: string,
+    tableId: string,
+  ): Promise<SessionOrder[]> => {
+    const { data, error } = await supabase.rpc("get_session_orders", {
+      p_zalo_user_id: zaloUserId,
+      p_table_id: tableId,
+    });
+    if (error) throw error;
+    return (data as Record<string, unknown>[]).map((row) => ({
+      id: row.id as string,
+      storeId: row.store_id as string,
+      tableId: row.table_id as string,
+      status: row.status as OrderState,
+      totalAmount: row.total_amount as number,
+      paymentMethod: row.payment_method as "zalopay" | "cash",
+      note: (row.note as string | null) ?? null,
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
+    }));
+  },
+
+  callStaff: async (req: ServiceRequest): Promise<void> => {
+    const { error } = await supabase.from("service_requests").insert({
+      store_id: req.storeId,
+      table_id: req.tableId,
+      table_number: req.tableNumber,
+      type: req.type,
+    });
+    if (error) throw error;
+  },
+};

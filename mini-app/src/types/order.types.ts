@@ -45,3 +45,22 @@ export interface CreateOrderRequest {
   paymentMethod: "zalopay" | "cash";
   zaloUserId?: string;
 }
+
+export interface SessionOrder {
+  id: string;
+  storeId: string;
+  tableId: string;
+  status: OrderState;
+  totalAmount: number;
+  paymentMethod: "zalopay" | "cash";
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceRequest {
+  storeId: string;
+  tableId: string;
+  tableNumber: string;
+  type: "payment" | "help";
+}
