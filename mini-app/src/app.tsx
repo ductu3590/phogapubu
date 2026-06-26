@@ -1,19 +1,16 @@
 import { RouterProvider } from "react-router-dom";
 import router from "./router";
 import { ReactQueryProvider } from "./lib/react-query-provider";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { SnackbarProvider } from "zmp-ui";
 import { useAppStore, parseQRParams, PaymentMethod } from "./stores/app.store";
 import { supabase } from "./services/supabase";
 import { getUserID } from "zmp-sdk";
-import OaFollowSheet from "./components/common/oa-follow-sheet";
 
 function AppInit() {
   const {
     setStoreInfo, setTableInfo, setZaloUserId, setOrderMode,
-    storeId, zaloOaId,
   } = useAppStore();
-  const [showOaSheet, setShowOaSheet] = useState(false);
 
   useEffect(() => {
     getUserID()
@@ -29,7 +26,7 @@ function AppInit() {
 
     const storeQuery = supabase
       .from("stores")
-      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods")
+      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods, takeaway_banner_url, about_text")
       .eq("slug", storeSlug)
       .eq("is_active", true)
       .single();
@@ -62,6 +59,8 @@ function AppInit() {
             );
             return valid.length > 0 ? valid : ["zalopay", "cash"];
           })(),
+          takeawayBannerUrl: storeRes.data.takeaway_banner_url ?? "",
+          aboutText: storeRes.data.about_text ?? "",
         });
       }
       if (tableRes.data) {
@@ -73,27 +72,7 @@ function AppInit() {
     });
   }, [setStoreInfo, setTableInfo, setOrderMode]);
 
-  // Hiện OA sheet 1 lần sau khi load xong store + có OA ID
-  useEffect(() => {
-    if (!storeId || !zaloOaId) return;
-    const flagKey = `mevo_oa_prompted_${storeId}`;
-    if (!localStorage.getItem(flagKey)) {
-      setShowOaSheet(true);
-    }
-  }, [storeId, zaloOaId]);
-
-  const handleOaSheetClose = () => {
-    if (storeId) localStorage.setItem(`mevo_oa_prompted_${storeId}`, "1");
-    setShowOaSheet(false);
-  };
-
-  return (
-    <OaFollowSheet
-      oaId={zaloOaId}
-      visible={showOaSheet}
-      onClose={handleOaSheetClose}
-    />
-  );
+  return null;
 }
 
 export default function MiniApp() {
