@@ -4,6 +4,7 @@ import { getBasePath } from "./utils/zma";
 import MenuPage from "./pages/menu";
 import CheckoutPage from "./pages/checkout";
 import OrderStatusPage from "./pages/order-status";
+import type { RouteHandle } from "./types/router.types";
 
 // Placeholder pages — sẽ được implement trong Task 6 và Task 7
 const SessionOrdersPage = () => <div className="flex h-full items-center justify-center text-text-secondary">Đang tải...</div>;
@@ -32,11 +33,10 @@ const router = createBrowserRouter(
           handle: {
             title: "Xác nhận đơn",
             back: true,
-            whiteBackground: true,
             hideBottomTabs: true,
             hideCart: true,
             headerPosition: "sticky",
-          },
+          } satisfies RouteHandle,
         },
 
         // Trạng thái đơn hàng (realtime)
@@ -46,11 +46,10 @@ const router = createBrowserRouter(
           handle: {
             title: "Trạng thái đơn",
             back: false,
-            whiteBackground: true,
             hideBottomTabs: true,
             hideCart: true,
             headerPosition: "sticky",
-          },
+          } satisfies RouteHandle,
         },
       ],
     },
