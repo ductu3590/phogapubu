@@ -39,8 +39,22 @@ function PendingTakeawayBanner() {
   );
 }
 
+function TakeawayBannerCard({ url }: { url: string }) {
+  return (
+    <div className="mx-3.5 mt-2 overflow-hidden rounded-xl">
+      <img
+        src={url}
+        alt="Banner quán"
+        className="w-full object-cover"
+        style={{ aspectRatio: "2/1" }}
+        draggable={false}
+      />
+    </div>
+  );
+}
+
 export default function MenuPage() {
-  const { storeId, storeName, storeLogoUrl, tableNumber, orderMode } = useAppStore();
+  const { storeId, storeName, storeLogoUrl, tableNumber, orderMode, takeawayBannerUrl } = useAppStore();
   const { data: menu, isLoading, error } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
   const [activeCategoryId, setActiveCategoryId] = useState<string>("");
@@ -133,6 +147,11 @@ export default function MenuPage() {
           </div>
         </div>
       </div>
+
+      {/* Banner 2:1 trong takeaway mode */}
+      {orderMode === "takeaway" && takeawayBannerUrl && (
+        <TakeawayBannerCard url={takeawayBannerUrl} />
+      )}
 
       {/* Category tabs — cuộn ngang */}
       <div className="flex-shrink-0 bg-white border-b border-neutral100">
