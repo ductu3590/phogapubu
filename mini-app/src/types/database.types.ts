@@ -18,7 +18,10 @@ export interface Database {
           zalopay_key1: string | null
           zalopay_key2: string | null
           zalo_oa_id: string | null
+          zalo_oa_url: string | null
           payment_methods: string[] | null
+          takeaway_banner_url: string | null
+          about_text: string | null
           is_active: boolean
           created_at: string
         }
