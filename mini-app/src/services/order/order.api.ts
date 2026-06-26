@@ -6,7 +6,7 @@ export const orderService = {
     // Giá + tên tính phía server trong RPC create_order (không tin client gửi giá)
     const { data, error } = await supabase.rpc("create_order", {
       p_store_id: req.storeId,
-      p_table_id: req.tableId,
+      p_table_id: req.tableId ?? null,
       p_items: req.items.map((item) => ({
         menu_item_id: item.menuItemId,
         quantity: item.quantity,
@@ -15,6 +15,11 @@ export const orderService = {
       p_payment_method: req.paymentMethod,
       p_zalo_user_id: req.zaloUserId ?? null,
       p_note: req.note ?? null,
+      p_order_type: req.orderType ?? "dine_in",
+      p_customer_name: req.customerName ?? null,
+      p_customer_phone: req.customerPhone ?? null,
+      p_pickup_time: req.pickupTime ?? null,
+      p_delivery_address: req.deliveryAddress ?? null,
     });
 
     if (error || !data) throw error ?? new Error("Tạo đơn thất bại");
@@ -68,7 +73,7 @@ function mapOrder(row: Record<string, unknown>): Order {
   return {
     id: row.id as string,
     storeId: row.store_id as string,
-    tableId: row.table_id as string,
+    tableId: (row.table_id as string | null) ?? null,
     status: row.status as Order["status"],
     totalAmount: row.total_amount as number,
     paymentMethod: row.payment_method as Order["paymentMethod"],
@@ -77,6 +82,11 @@ function mapOrder(row: Record<string, unknown>): Order {
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     capabilityToken: (row.capability_token as string | null) ?? null,
+    orderType: (row.order_type as Order["orderType"]) ?? "dine_in",
+    customerName: (row.customer_name as string | null) ?? null,
+    customerPhone: (row.customer_phone as string | null) ?? null,
+    pickupTime: (row.pickup_time as string | null) ?? null,
+    deliveryAddress: (row.delivery_address as string | null) ?? null,
   };
 }
 
