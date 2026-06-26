@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { followOA, openWebview, authorize } from "zmp-sdk";
+import { openWebview } from "zmp-sdk";
 import { useAppStore } from "@/stores/app.store";
+import PermissionSheet from "@/components/common/permission-sheet";
 
-// ─── InfoRow ──────────────────────────────────────────────────────────────────
 function InfoRow({
   icon,
   label,
@@ -29,59 +29,38 @@ function InfoRow({
   );
 }
 
-// ─── StoreInfoPage ────────────────────────────────────────────────────────────
 export default function StoreInfoPage() {
-  const { storeId, storeName, storeLogoUrl, storeAddress, storePhone, zaloOaId, zaloOaUrl } =
+  const { storeId, storeName, storeLogoUrl, storeAddress, storePhone, zaloOaId, zaloOaUrl, aboutText } =
     useAppStore();
 
-  const FOLLOWED_KEY = storeId ? `mevo_oa_followed_${storeId}` : "";
-  const AUTHORIZED_KEY = storeId ? `mevo_authorized_${storeId}` : "";
+  const GRANTED_KEY = storeId ? `mevo_perms_granted_${storeId}` : "";
+  const DISMISSED_KEY = storeId ? `mevo_perms_dismissed_${storeId}` : "";
 
-  const [followed, setFollowed] = useState(
-    () => !!storeId && !!localStorage.getItem(`mevo_oa_followed_${storeId}`),
+  const [showPermSheet, setShowPermSheet] = useState(false);
+  const [isGranted, setIsGranted] = useState(
+    () => !!storeId && !!localStorage.getItem(`mevo_perms_granted_${storeId}`),
   );
-  const [following, setFollowing] = useState(false);
 
-  // Khi store data load xong → auto gọi followOA + authorize nếu chưa làm
+  // Auto-show popup lần đầu vào tab (Option C)
   useEffect(() => {
     if (!storeId || !zaloOaId) return;
-
-    // Xin quyền thông tin user (một lần) — dùng để cá nhân hoá sau này
-    if (!localStorage.getItem(AUTHORIZED_KEY)) {
-      void authorize({ scopes: ["scope.userInfo"] })
-        .then(() => { localStorage.setItem(AUTHORIZED_KEY, "1"); })
-        .catch(() => { /* ignore: dev env hoặc user từ chối */ });
-    }
-
-    // Auto gọi native Zalo OA follow sheet mỗi lần vào tab nếu chưa follow
-    if (!localStorage.getItem(FOLLOWED_KEY)) {
-      void followOA({ id: zaloOaId })
-        .then(() => {
-          setFollowed(true);
-          localStorage.setItem(FOLLOWED_KEY, "1");
-        })
-        .catch(() => { /* -201 = user từ chối, bỏ qua */ });
-    }
+    const granted = localStorage.getItem(GRANTED_KEY);
+    const dismissed = localStorage.getItem(DISMISSED_KEY);
+    if (!granted && !dismissed) setShowPermSheet(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeId, zaloOaId]);
 
-  // Bấm thủ công nút "Quan tâm"
-  async function handleFollowOA() {
-    if (!zaloOaId || following) return;
-    setFollowing(true);
-    try {
-      await followOA({ id: zaloOaId });
-      setFollowed(true);
-      localStorage.setItem(FOLLOWED_KEY, "1");
-    } catch (err: unknown) {
-      const code = (err as { error?: number })?.error;
-      if (code !== -201) console.warn("[StoreInfo] followOA error:", err);
-    } finally {
-      setFollowing(false);
-    }
-  }
+  const handleGranted = () => {
+    if (GRANTED_KEY) localStorage.setItem(GRANTED_KEY, "1");
+    setIsGranted(true);
+    setShowPermSheet(false);
+  };
 
-  // ── Empty state ─────────────────────────────────────────────────────────────
+  const handleDismiss = () => {
+    if (DISMISSED_KEY) localStorage.setItem(DISMISSED_KEY, "1");
+    setShowPermSheet(false);
+  };
+
   if (!storeId) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
@@ -91,7 +70,6 @@ export default function StoreInfoPage() {
     );
   }
 
-  // ── Main content ─────────────────────────────────────────────────────────────
   return (
     <div
       className="flex h-full flex-col overflow-y-auto bg-background"
@@ -132,57 +110,62 @@ export default function StoreInfoPage() {
         </div>
       )}
 
-      {/* Card Zalo OA */}
-      {(zaloOaId || zaloOaUrl) && (
+      {/* Card Zalo OA — link sang trang Zalo chính thức */}
+      {zaloOaUrl && (
         <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-white">
-          {/* Hàng "Quan tâm" — nhận thông báo ZNS */}
-          {zaloOaId && (
-            <div className="flex items-center justify-between border-b border-neutral100 px-4 py-3">
-              <div>
-                <p className="text-small-m font-semibold text-text-primary">Nhận thông báo Zalo</p>
-                <p className="mt-0.5 text-xxsmall text-text-secondary">
-                  Quan tâm OA để nhận thông báo khi món xong
-                </p>
-              </div>
-              {followed ? (
-                <span className="rounded-full bg-green-100 px-3 py-1 text-xxsmall font-semibold text-green-700">
-                  Đã quan tâm
-                </span>
-              ) : (
-                <button
-                  onClick={handleFollowOA}
-                  disabled={following}
-                  className="rounded-full bg-primary px-3 py-1 text-xxsmall font-semibold text-white disabled:opacity-60"
-                >
-                  {following ? "..." : "Quan tâm"}
-                </button>
-              )}
+          <button
+            onClick={() => void openWebview({ url: zaloOaUrl })}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-neutral50"
+          >
+            <span className="text-xl">💬</span>
+            <div className="flex-1">
+              <p className="text-xxsmall text-text-secondary">Trang Zalo chính thức</p>
+              <p className="text-small text-primary">Xem trang Zalo OA của nhà hàng</p>
             </div>
-          )}
-
-          {/* Hàng "Trang Zalo OA" — mở webview */}
-          {zaloOaUrl && (
-            <button
-              onClick={() => void openWebview({ url: zaloOaUrl })}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-neutral50"
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 text-neutral300"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
             >
-              <span className="text-xl">💬</span>
-              <div className="flex-1">
-                <p className="text-xxsmall text-text-secondary">Trang Zalo chính thức</p>
-                <p className="text-small text-primary">Xem trang Zalo OA của nhà hàng</p>
-              </div>
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4 text-neutral300"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          )}
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
+      )}
+
+      {/* CTA card xin quyền — hiện cho đến khi granted */}
+      {zaloOaId && !isGranted && (
+        <div className="mx-3.5 mt-3 rounded-xl border border-[#E8C9B3] bg-[#FBF4EF] px-4 py-3">
+          <p className="text-small-m font-semibold text-text-primary">🔔 Kết nối để nhận ưu đãi</p>
+          <p className="mt-0.5 text-xxsmall text-text-secondary">
+            Thông báo khi món xong + điền form nhanh hơn.
+          </p>
+          <button
+            onClick={() => setShowPermSheet(true)}
+            className="mt-2.5 w-full rounded-xl bg-primary py-2.5 text-small font-semibold text-white active:opacity-80"
+          >
+            Kết nối với {storeName}
+          </button>
+        </div>
+      )}
+
+      {/* Ghi chú / Lời nhắn từ quán */}
+      {aboutText && (
+        <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-3">
+          <p className="whitespace-pre-line text-small text-text-secondary">{aboutText}</p>
+        </div>
+      )}
+
+      {/* Permission bottom sheet */}
+      {zaloOaId && (
+        <PermissionSheet
+          oaId={zaloOaId}
+          visible={showPermSheet}
+          onClose={handleDismiss}
+          onGranted={handleGranted}
+        />
       )}
     </div>
   );
