@@ -10,7 +10,7 @@ import { scrollToId } from "@/utils/scroll-to";
 import { cn } from "@/utils/cn";
 
 export default function MenuPage() {
-  const { storeId, storeName, tableNumber } = useAppStore();
+  const { storeId, storeName, storeLogoUrl, tableNumber } = useAppStore();
   const { data: menu, isLoading, error } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
   const [activeCategoryId, setActiveCategoryId] = useState<string>("");
@@ -82,12 +82,24 @@ export default function MenuPage() {
         className="flex-shrink-0 bg-white px-4 pb-3 shadow-sm"
         style={{ paddingTop: "calc(var(--zaui-safe-area-inset-top, 0px) + 16px)" }}
       >
-        <p className="text-xlarge-sb font-bold text-text-primary">
-          {storeName || "MEVO"}
-        </p>
-        {tableNumber && (
-          <p className="mt-0.5 text-small text-text-secondary">{tableNumber}</p>
-        )}
+        <div className="flex items-center gap-2.5">
+          {storeLogoUrl && (
+            <img
+              src={storeLogoUrl}
+              alt={storeName}
+              className="h-9 w-9 flex-shrink-0 rounded-full object-cover"
+              draggable={false}
+            />
+          )}
+          <div className="min-w-0">
+            <p className="text-xlarge-sb font-bold text-text-primary">
+              {storeName || "MEVO"}
+            </p>
+            {tableNumber && (
+              <p className="text-small text-text-secondary">{tableNumber}</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Category tabs — cuộn ngang */}

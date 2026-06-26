@@ -3,6 +3,7 @@ import { Button, Text } from "zmp-ui";
 import Logo from "../common/logo";
 import { BackIcon } from "../common/vectors";
 import { copy, theme } from "@/constants/copy";
+import { useAppStore } from "@/stores/app.store";
 
 interface HeaderProps {
   title?: string;
@@ -12,6 +13,7 @@ interface HeaderProps {
 
 export default function Header({ title, back, position }: HeaderProps) {
   const navigate = useNavigate();
+  const { storeName } = useAppStore();
 
   const positionClass = position || (title ? "fixed" : "sticky");
 
@@ -42,7 +44,7 @@ export default function Header({ title, back, position }: HeaderProps) {
       className={`${positionClass} header-margin left-0 top-0 flex h-12 w-full items-center gap-1.5 px-4 py-2`}
     >
       <Logo />
-      <div className="text-header_title text-primary">{copy.brand.name}</div>
+      <div className="text-header_title text-primary">{storeName || copy.brand.name}</div>
     </div>
   );
 }

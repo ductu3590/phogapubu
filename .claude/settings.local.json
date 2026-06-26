@@ -4,7 +4,10 @@
       "PowerShell(node --version)",
       "PowerShell(npm --version)",
       "PowerShell(npx zmp-cli --version 2>&1)",
-      "PowerShell(head -3)"
+      "PowerShell(head -3)",
+      "mcp__638e660e-3e7a-403a-a61e-834a80bf966b__execute_sql",
+      "mcp__638e660e-3e7a-403a-a61e-834a80bf966b__list_edge_functions",
+      "mcp__638e660e-3e7a-403a-a61e-834a80bf966b__get_logs"
     ]
   }
 }

@@ -1,4 +1,4 @@
-# MEVO — Claude Code Master Context
+# MEVO — Codex Master Context
 
 > **Đọc file này đầu tiên trước khi làm bất kỳ việc gì.**
 > Cập nhật file này mỗi khi có quyết định lớn thay đổi hướng đi.
@@ -7,7 +7,7 @@
 
 ## ⚠️ QUY TẮC BẮT BUỘC VỀ TEST
 
-Sau khi hoàn thành BẤT KỲ Sprint hoặc task nào, Claude Code PHẢI:
+Sau khi hoàn thành BẤT KỲ Sprint hoặc task nào, Codex PHẢI:
 1. Dừng lại — KHÔNG tự động chuyển sang task tiếp theo
 2. Đọc `TESTING.md` — lấy đúng checklist test của Sprint vừa xong
 3. Nói với anh Tú: *"Xong rồi anh, test theo TESTING.md — Sprint X, Test Y nhé"*
@@ -137,7 +137,7 @@ Deploy:       Vercel
 
 ```
 mevo/
-├── CLAUDE.md               ← File này (đọc đầu tiên)
+├── AGENTS.md               ← File này (đọc đầu tiên)
 ├── PRD.md                  ← Chi tiết tính năng
 ├── ARCHITECTURE.md         ← Setup guide & patterns
 │
@@ -198,19 +198,8 @@ stores (
   zalopay_app_id text,        -- ZaloPay merchant app_id
   zalopay_key1 text,          -- ZaloPay key (encrypted)
   zalopay_key2 text,          -- ZaloPay key (encrypted)
-  zalo_oa_id text,            -- Zalo OA để gửi ZNS + prompt follow
-  payment_methods text[] NOT NULL DEFAULT '{zalopay,cash}',  -- phương thức thanh toán được bật
+  zalo_oa_id text,            -- Zalo OA để gửi ZNS
   is_active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now()
-)
-
--- Yêu cầu gọi nhân viên (nút chuông)
-service_requests (
-  id uuid PK,
-  store_id uuid FK stores,
-  table_id uuid FK tables,
-  table_number text,          -- Snapshot số bàn
-  type text DEFAULT 'payment' CHECK (type IN ('payment','help')),
   created_at timestamptz DEFAULT now()
 )
 
@@ -357,6 +346,3 @@ Anh cần hoàn thành các bước này để có credentials:
 | 2026-06-22 | **Kiến trúc Core + Theme runtime** (kiểu WordPress), 1 bộ code lõi nhân bản N app | Update lõi tập trung, đổi theme/menu/banner đọc từ DB lúc runtime (không build lại). Chi tiết: [docs/superpowers/specs/2026-06-22-mevo-core-theme-architecture-design.md](docs/superpowers/specs/2026-06-22-mevo-core-theme-architecture-design.md) |
 | 2026-06-22 | MEVO là đơn vị **làm + vận hành mini-app** cho quán, KHÔNG phải ví điện tử | Tiền về thẳng quán → tránh giấy phép trung gian thanh toán (NHNN) |
 | 2026-06-22 | v1: **mọi thay đổi (theme/menu/banner) do MEVO làm**, quán chưa tự phục vụ | YAGNI — giảm phạm vi admin, hoãn login/phân quyền cho quán sang phase sau |
-| 2026-06-26 | **Hướng tới ZaloPay-only** — tiền mặt là option bật/tắt per-store, không phải default | Bắt buộc thanh toán trước khi bếp làm → tránh QR abuse (gọi từ xa, không ai ăn); đơn chỉ vào bếp sau khi có tiền |
-| 2026-06-26 | **"Món đã gọi" scope: `zalo_user_id + table_id + 6h`** — không phải `table_id` đơn thuần | Khách mới ngồi vào bàn cũ → Zalo ID khác → clean slate. Bàn bên quét nhầm → không thấy đơn bàn khác |
-| 2026-06-26 | **Follow OA trước khi gửi ZNS** — prompt bottom sheet lần đầu mở app | ZNS chỉ gửi được cho user đã follow OA; không follow = không nhận thông báo món xong |
