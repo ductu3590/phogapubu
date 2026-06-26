@@ -160,15 +160,32 @@ export default function CheckoutPage() {
         clearCart();
         navigate(`/order-status/${orderId}`);
       } else {
-        // Huỷ/thất bại ZaloPay (bắt qua PaymentDone + checkTransaction) →
-        // KHÔNG huỷ đơn ở client — để server (checkout-notify) quyết định.
-        // Đơn zalopay pending không vào bếp (kitchen filter), nên để pending là an toàn.
-        // Hỏi khách có chuyển sang tiền mặt không.
-        setPendingZp({ id: orderId, token });
+        if (isTakeaway) {
+          // Takeaway: ZaloPay fail → huỷ đơn ngay, không có fallback tiền mặt
+          try {
+            await orderService.cancelOrder(orderId, token ?? "");
+          } catch { /* bỏ qua nếu đơn không tìm thấy hoặc token sai */ }
+          localStorage.removeItem("mevo_last_takeaway_order");
+          openSnackbar({ text: "Thanh toán thất bại — đơn hàng đã bị huỷ.", type: "error" });
+          navigate("/");
+        } else {
+          // Dine-in: giữ flow cũ — hỏi chuyển sang tiền mặt
+          setPendingZp({ id: orderId, token });
+        }
       }
     } catch (_err) {
-      // Lỗi tạo yêu cầu thanh toán (create-mac) → cũng mở dialog để khách chọn
-      setPendingZp({ id: orderId, token });
+      if (isTakeaway) {
+        // Takeaway: lỗi tạo payment → huỷ đơn và về trang chủ
+        try {
+          await orderService.cancelOrder(orderId, token ?? "");
+        } catch { /* ignore */ }
+        localStorage.removeItem("mevo_last_takeaway_order");
+        openSnackbar({ text: "Thanh toán thất bại — đơn hàng đã bị huỷ.", type: "error" });
+        navigate("/");
+      } else {
+        // Dine-in: giữ flow cũ
+        setPendingZp({ id: orderId, token });
+      }
     } finally {
       setIsProcessing(false);
     }
