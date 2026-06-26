@@ -51,7 +51,7 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenOrder {
   return {
     id: row.id,
     storeId: row.store_id,
-    tableId: row.table_id,
+    tableId: row.table_id ?? null,
     tableNumber,
     status: row.status as OrderStatus,
     totalAmount: row.total_amount,
@@ -60,6 +60,11 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenOrder {
     note: row.note ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    orderType: (row.order_type ?? 'dine_in') as KitchenOrder['orderType'],
+    customerName: row.customer_name ?? null,
+    customerPhone: row.customer_phone ?? null,
+    pickupTime: row.pickup_time ?? null,
+    deliveryAddress: row.delivery_address ?? null,
     items: items.map((item) => ({
       id: item.id,
       menuItemId: item.menu_item_id ?? null,
@@ -69,6 +74,43 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenOrder {
       note: item.note ?? null,
     })),
   }
+}
+
+// ─── Badge loại đơn (Bàn / Tự lấy / Ship) ───────────────────────────────────
+function OrderTypeBadge({ order }: { order: KitchenOrder }) {
+  if (order.orderType === 'pickup' && order.pickupTime) {
+    const timeStr = new Date(order.pickupTime).toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Ho_Chi_Minh',
+    })
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
+        style={{ background: '#A0673D' }}
+      >
+        🚶 {timeStr}
+      </span>
+    )
+  }
+  if (order.orderType === 'delivery') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
+        style={{ background: '#A0673D' }}
+      >
+        🛵 Ship
+      </span>
+    )
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
+      style={{ background: '#1a7f4b' }}
+    >
+      🪑 {order.tableNumber}
+    </span>
+  )
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -525,9 +567,17 @@ function OrderCard({
     >
       {/* Header card */}
       <div className="mb-2 flex items-center justify-between">
-        <div>
-          <span className="text-lg font-bold text-white">{order.tableNumber}</span>
-          <span className="ml-2 text-sm text-gray-400">#{shortId}</span>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <OrderTypeBadge order={order} />
+            {order.orderType !== 'dine_in' && order.customerName && (
+              <span className="text-xs text-gray-400">{order.customerName}</span>
+            )}
+          </div>
+          <span className="text-sm text-gray-400">#{shortId}</span>
+          {order.orderType === 'delivery' && order.deliveryAddress && (
+            <p className="text-[10px] text-gray-500 line-clamp-1">📍 {order.deliveryAddress}</p>
+          )}
         </div>
         <div className="text-right">
           <span

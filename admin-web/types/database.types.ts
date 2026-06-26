@@ -1,6 +1,7 @@
 // Database types tương ứng với schema Supabase
 export type OrderStatus = 'pending' | 'confirmed' | 'cooking' | 'ready' | 'paid' | 'cancelled'
 export type PaymentMethod = 'zalopay' | 'cash'
+export type OrderType = 'dine_in' | 'pickup' | 'delivery'
 
 // --- Row types ---
 interface StoreRow {
@@ -49,7 +50,7 @@ interface MenuItemRow {
 interface OrderRow {
   id: string
   store_id: string
-  table_id: string
+  table_id: string | null
   status: OrderStatus
   total_amount: number
   payment_method: PaymentMethod
@@ -58,6 +59,11 @@ interface OrderRow {
   note: string | null
   created_at: string
   updated_at: string
+  order_type: OrderType
+  customer_name: string | null
+  customer_phone: string | null
+  pickup_time: string | null
+  delivery_address: string | null
 }
 
 interface OrderItemRow {
@@ -100,7 +106,7 @@ export interface Database {
       }
       orders: {
         Row: OrderRow
-        Insert: { store_id: string; table_id: string; total_amount: number; payment_method: PaymentMethod; status?: OrderStatus; note?: string | null; zalo_user_id?: string | null }
+        Insert: { store_id: string; table_id?: string | null; total_amount: number; payment_method: PaymentMethod; status?: OrderStatus; note?: string | null; zalo_user_id?: string | null }
         Update: Partial<OrderRow>
         Relationships: []
       }
@@ -130,7 +136,7 @@ export interface KitchenOrderItem {
 export interface KitchenOrder {
   id: string
   storeId: string
-  tableId: string
+  tableId: string | null
   tableNumber: string
   status: OrderStatus
   totalAmount: number
@@ -139,6 +145,11 @@ export interface KitchenOrder {
   note: string | null
   createdAt: string
   updatedAt: string
+  orderType: OrderType
+  customerName: string | null
+  customerPhone: string | null
+  pickupTime: string | null
+  deliveryAddress: string | null
   items: KitchenOrderItem[]
 }
 
