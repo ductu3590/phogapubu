@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateStoreSettings } from '@/lib/actions/store'
 import SquareCropper from '../menu/square-cropper'
@@ -17,6 +17,12 @@ export default function SettingsClient({ name, logoUrl, paymentMethods }: Props)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [methods, setMethods] = useState<Set<string>>(new Set(paymentMethods))
+
+  useEffect(() => {
+    if (!saved) return
+    const t = setTimeout(() => setSaved(false), 2500)
+    return () => clearTimeout(t)
+  }, [saved])
 
   const toggleMethod = (method: string) => {
     setMethods((prev) => {
@@ -42,7 +48,6 @@ export default function SettingsClient({ name, logoUrl, paymentMethods }: Props)
           setLogo(null)
           setSaved(true)
           router.refresh()
-          setTimeout(() => setSaved(false), 2500)
         } catch (e) {
           setError(e instanceof Error ? e.message : 'Lỗi khi lưu')
         }
