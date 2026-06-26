@@ -3,8 +3,9 @@ import { useSnackbar } from "zmp-ui";
 import { useAppStore } from "@/stores/app.store";
 import { useSessionOrders } from "@/services/order/order.queries";
 import { useCallStaff } from "@/services/order/order.mutations";
+import { orderService } from "@/services/order/order.api";
 import { formatCurrency } from "@/utils/format";
-import type { SessionOrder } from "@/types/order.types";
+import type { SessionOrder, OrderItem } from "@/types/order.types";
 
 // Nhãn trạng thái đơn
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
@@ -22,8 +23,13 @@ export default function SessionOrdersPage() {
   const { openSnackbar } = useSnackbar();
   const [calledAt, setCalledAt] = useState<number | null>(null);
 
+  // Expandable cards state
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [loadingItemsId, setLoadingItemsId] = useState<string | null>(null);
+  const [cachedItems, setCachedItems] = useState<Record<string, OrderItem[]>>({});
+
   const { data: orders, isLoading } = useSessionOrders(zaloUserId, tableId);
-  const { mutate: callStaff } = useCallStaff();
+  const { mutate: callStaff, isPending: isCalling } = useCallStaff();
 
   // Tính tổng tiền và kiểm tra có đơn chưa thanh toán không
   const grandTotal = (orders ?? []).reduce((sum, o) => sum + o.totalAmount, 0);
@@ -50,11 +56,37 @@ export default function SessionOrdersPage() {
     );
   };
 
+  // Mở/đóng chi tiết đơn, fetch items lần đầu
+  const handleToggleExpand = async (orderId: string) => {
+    if (expandedId === orderId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(orderId);
+    if (!cachedItems[orderId]) {
+      setLoadingItemsId(orderId);
+      try {
+        const full = await orderService.getOrderWithItems(orderId);
+        setCachedItems((prev) => ({ ...prev, [orderId]: full.items ?? [] }));
+      } catch {
+        // fail silently — items sẽ là rỗng
+      } finally {
+        setLoadingItemsId(null);
+      }
+    }
+  };
+
   // Chưa quét QR — không có zaloUserId hoặc tableId
   if (!zaloUserId || !tableId) {
     return (
       <div className="flex h-full flex-col bg-[#F7F8FA]">
-        <PageHeader tableNumber={tableNumber} hasUnpaid={false} onCallStaff={handleCallStaff} />
+        {/* Header không có nút chuông */}
+        <div
+          className="flex-shrink-0 bg-white px-4 pb-3 shadow-sm"
+          style={{ paddingTop: "calc(var(--zaui-safe-area-inset-top, 0px) + 16px)" }}
+        >
+          <p className="text-xlarge-sb font-bold text-text-primary">Đã gọi</p>
+        </div>
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
           <div className="text-4xl">📋</div>
           <p className="font-medium text-text-primary">Quét QR tại bàn trước</p>
@@ -68,14 +100,35 @@ export default function SessionOrdersPage() {
 
   return (
     <div className="flex h-full flex-col bg-[#F7F8FA]">
-      <PageHeader
-        tableNumber={tableNumber}
-        hasUnpaid={hasUnpaid}
-        onCallStaff={handleCallStaff}
-      />
+      {/* Header — chỉ tiêu đề, không có nút chuông để tránh đè Zalo overlay */}
+      <div
+        className="flex-shrink-0 bg-white px-4 pb-2 shadow-sm"
+        style={{ paddingTop: "calc(var(--zaui-safe-area-inset-top, 0px) + 16px)" }}
+      >
+        <p className="text-xlarge-sb font-bold text-text-primary">Đã gọi</p>
+        {tableNumber && (
+          <p className="text-small text-text-secondary">{tableNumber}</p>
+        )}
+      </div>
 
       {/* Danh sách đơn */}
       <div className="no-scrollbar flex-1 overflow-y-auto pb-6">
+        {/* Nút "Gọi thanh toán" — trong content, không phải góc trên-phải header */}
+        {hasUnpaid && (
+          <div className="mx-3.5 mt-3">
+            <button
+              onClick={handleCallStaff}
+              disabled={isCalling}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-50 py-3 text-orange-500 active:opacity-70 disabled:opacity-50"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span className="text-small-m font-semibold">Gọi thanh toán</span>
+            </button>
+          </div>
+        )}
+
         {isLoading ? (
           // Skeleton loading
           <div className="mx-3.5 mt-3 space-y-3">
@@ -94,13 +147,17 @@ export default function SessionOrdersPage() {
           </div>
         ) : (
           <>
-            {/* Danh sách từng đơn */}
+            {/* Danh sách từng đơn — có thể expand để xem chi tiết */}
             <div className="mx-3.5 mt-3 space-y-3">
               {orders.map((order, idx) => (
                 <OrderCard
                   key={order.id}
                   order={order}
                   label={`Lần ${orders.length - idx}`}
+                  isExpanded={expandedId === order.id}
+                  isLoadingItems={loadingItemsId === order.id}
+                  items={cachedItems[order.id] ?? null}
+                  onToggle={() => void handleToggleExpand(order.id)}
                 />
               ))}
             </div>
@@ -130,73 +187,85 @@ export default function SessionOrdersPage() {
 
 // --- Sub-components ---
 
-function PageHeader({
-  tableNumber,
-  hasUnpaid,
-  onCallStaff,
-}: {
-  tableNumber: string;
-  hasUnpaid: boolean;
-  onCallStaff: () => void;
-}) {
-  return (
-    <div
-      className="flex-shrink-0 bg-white px-4 pb-3 shadow-sm"
-      style={{ paddingTop: "calc(var(--zaui-safe-area-inset-top, 0px) + 16px)" }}
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xlarge-sb font-bold text-text-primary">Đã gọi</p>
-          {tableNumber && (
-            <p className="text-small text-text-secondary">{tableNumber}</p>
-          )}
-        </div>
-
-        {/* Nút chuông — chỉ hiển thị khi có đơn chưa thanh toán */}
-        {hasUnpaid && (
-          <button
-            onClick={onCallStaff}
-            className="flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-small font-semibold text-white active:opacity-80"
-          >
-            <span>🔔</span>
-            <span>Gọi thanh toán</span>
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function OrderCard({
   order,
   label,
+  isExpanded,
+  isLoadingItems,
+  items,
+  onToggle,
 }: {
   order: SessionOrder;
   label: string;
+  isExpanded: boolean;
+  isLoadingItems: boolean;
+  items: OrderItem[] | null;
+  onToggle: () => void;
 }) {
   const statusInfo = STATUS_LABEL[order.status] ?? STATUS_LABEL.pending;
 
   return (
-    <div className="rounded-xl bg-white px-4 py-3">
-      <div className="flex items-center justify-between">
-        <p className="text-small-m font-semibold text-text-primary">{label}</p>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xxsmall font-semibold ${statusInfo.color}`}
-        >
-          {statusInfo.label}
-        </span>
-      </div>
-      <div className="mt-2 flex items-center justify-between">
-        <p className="text-small text-text-secondary">
-          {new Date(order.createdAt).toLocaleTimeString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </p>
-        <p className="text-small font-semibold text-primary">
-          {formatCurrency(order.totalAmount)}đ
-        </p>
-      </div>
+    <div className="rounded-xl bg-white">
+      {/* Tappable header */}
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-4 py-3 text-left"
+      >
+        <div>
+          <p className="text-small-m font-semibold text-text-primary">{label}</p>
+          <p className="text-small text-text-secondary">
+            {new Date(order.createdAt).toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xxsmall font-semibold ${statusInfo.color}`}
+          >
+            {statusInfo.label}
+          </span>
+          <p className="text-small font-semibold text-primary">
+            {formatCurrency(order.totalAmount)}đ
+          </p>
+          <svg
+            viewBox="0 0 24 24"
+            className={`h-4 w-4 text-neutral300 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {/* Expanded items */}
+      {isExpanded && (
+        <div className="border-t border-neutral100 px-4 pb-3 pt-2">
+          {isLoadingItems ? (
+            <div className="space-y-2 py-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-5 animate-pulse rounded bg-neutral100" />
+              ))}
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {(items ?? []).map((item) => (
+                <li key={item.id} className="flex items-center justify-between">
+                  <span className="text-small text-text-primary">
+                    <span className="font-semibold">×{item.quantity}</span> {item.name}
+                  </span>
+                  <span className="text-small text-text-secondary">
+                    {formatCurrency(item.price * item.quantity)}đ
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }

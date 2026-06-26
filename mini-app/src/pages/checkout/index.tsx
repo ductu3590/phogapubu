@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore, PaymentMethod } from "@/stores/app.store";
 import { useCreateOrder } from "@/services/order/order.mutations";
@@ -10,10 +11,12 @@ import { formatCurrency } from "@/utils/format";
 import { calculateCartTotal } from "@/utils/cart";
 import QuantityStepper from "@/components/common/quantity-stepper";
 import NoteInput from "@/components/common/note-input";
+import { GET_SESSION_ORDERS_KEY } from "@/constants/api";
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { openSnackbar } = useSnackbar();
+  const queryClient = useQueryClient();
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("zalopay");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -67,6 +70,8 @@ export default function CheckoutPage() {
       },
       {
         onSuccess: async (order) => {
+          // Invalidate tab "Đã gọi" để hiện đơn mới ngay lập tức
+          void queryClient.invalidateQueries({ queryKey: [GET_SESSION_ORDERS_KEY] });
           if (paymentMethod === "zalopay") {
             await handleZaloPayPayment(order.id, order.capabilityToken);
           } else {
