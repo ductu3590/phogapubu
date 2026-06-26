@@ -78,11 +78,20 @@ Toggle dùng style pill, active = background `#A0673D`, text trắng.
 
 **Thanh toán:** ZaloPay bắt buộc (ẩn option tiền mặt khi `orderMode === 'takeaway'`)
 
+**Validation:** Inline — border đỏ + message dưới field khi blur. Nút "Thanh toán ZaloPay" bị disable cho đến khi tất cả required fields hợp lệ. Không dùng toast cho validation lỗi form.
+
+**Giờ qua lấy — time picker:**
+- Slot 15 phút, range từ `now + 30 phút` đến giờ đóng cửa của quán
+- Lưu và hiển thị theo múi giờ ICT (UTC+7). Khi lưu DB dùng `timestamptz`, giá trị là thời điểm tuyệt đối (ISO 8601 với offset `+07:00`)
+- Hiển thị lại: format `HH:mm` theo ICT, ví dụ "11:30"
+
 ### 3.3 Order Status Page
 
 Hiển thị thông tin theo `order_type`:
-- `pickup`: hiện giờ lấy dự kiến + địa chỉ quán
+- `pickup`: hiện giờ lấy dự kiến (`pickup_time` format `HH:mm ICT`) + địa chỉ quán
 - `delivery`: hiện địa chỉ giao + note phí ship
+
+**Lưu order_id cho khách quay lại:** Sau khi ZaloPay callback thành công, lưu `orderId` vào `localStorage` key `mevo_last_takeaway_order`. Khi khách mở lại app ở takeaway mode, nếu key này tồn tại và đơn chưa hoàn thành → hiện banner "Bạn có đơn đang xử lý" dẫn về `/order-status/:orderId`.
 
 ### 3.4 Kitchen Display (Admin Web)
 
@@ -104,10 +113,17 @@ Badge phân loại trên mỗi card đơn hàng:
 ALTER TABLE orders
   ADD COLUMN order_type text NOT NULL DEFAULT 'dine_in'
     CHECK (order_type IN ('dine_in', 'pickup', 'delivery')),
-  ADD COLUMN customer_name    text,       -- nullable; required khi pickup/delivery
-  ADD COLUMN customer_phone   text,       -- nullable; required khi pickup/delivery
-  ADD COLUMN pickup_time      timestamptz, -- required khi order_type = 'pickup'
-  ADD COLUMN delivery_address text;       -- required khi order_type = 'delivery'
+  ADD COLUMN customer_name    text,
+  ADD COLUMN customer_phone   text,
+  ADD COLUMN pickup_time      timestamptz,
+  ADD COLUMN delivery_address text,
+  -- Enforce business rules at DB level
+  ADD CONSTRAINT chk_pickup_time
+    CHECK (order_type <> 'pickup' OR pickup_time IS NOT NULL),
+  ADD CONSTRAINT chk_delivery_address
+    CHECK (order_type <> 'delivery' OR delivery_address IS NOT NULL),
+  ADD CONSTRAINT chk_customer_info
+    CHECK (order_type = 'dine_in' OR (customer_name IS NOT NULL AND customer_phone IS NOT NULL));
 ```
 
 **Backward compatible:** Đơn dine-in hiện tại mặc định `order_type = 'dine_in'`, các field mới = NULL. Không cần sửa RLS, realtime subscription, hay code kitchen display hiện có (ngoài thêm badge).
@@ -144,7 +160,8 @@ ALTER TABLE orders
 - Tracking shipper realtime
 - Quản lý đơn takeaway riêng trong admin (dùng chung kitchen display)
 - `stores.brand_color` cấu hình màu per-store (để giai đoạn sau)
-- ZNS cho đơn takeaway (cần xem xét flow riêng vì không có table session)
+- ZNS cho đơn takeaway (không có table session; khách quay lại qua localStorage `mevo_last_takeaway_order` — xem 3.3)
+- Hết giờ time picker (slot cuối = giờ đóng cửa) — chưa có `stores.closing_time` trong schema
 
 ---
 
