@@ -9,9 +9,10 @@ interface Props {
   name: string
   logoUrl: string | null
   paymentMethods: string[]
+  zaloOaUrl: string
 }
 
-export default function SettingsClient({ name, logoUrl, paymentMethods }: Props) {
+export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl }: Props) {
   const router = useRouter()
   const [logo, setLogo] = useState<File | null>(null)
   const [saved, setSaved] = useState(false)
@@ -70,6 +71,21 @@ export default function SettingsClient({ name, logoUrl, paymentMethods }: Props)
         <SquareCropper initialUrl={logoUrl} onChange={setLogo} />
         <p className="mt-1 text-xs text-gray-400">
           Hiện ở đầu trang menu + header trên mini-app của khách.
+        </p>
+      </div>
+
+      <div>
+        <label className="label">Link trang Zalo OA</label>
+        <input
+          name="zalo_oa_url"
+          type="url"
+          defaultValue={zaloOaUrl}
+          placeholder="https://zalo.me/phogapubu"
+          className="input"
+        />
+        <p className="mt-1 text-xs text-gray-400">
+          Link trang Zalo OA của quán. Khách bấm vào tab "Nhà hàng" sẽ thấy nút mở trang này.
+          Lấy tại Zalo OA Manager → Thông tin cơ bản → Link chia sẻ.
         </p>
       </div>
 

@@ -28,7 +28,7 @@ function AppInit() {
     Promise.all([
       supabase
         .from("stores")
-        .select("id, name, slug, logo_url, address, phone, zalo_oa_id, payment_methods")
+        .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods")
         .eq("slug", storeSlug)
         .eq("is_active", true)
         .single(),
@@ -48,6 +48,7 @@ function AppInit() {
           storeAddress: storeRes.data.address ?? "",
           storePhone: storeRes.data.phone ?? "",
           zaloOaId: storeRes.data.zalo_oa_id ?? "",
+          zaloOaUrl: storeRes.data.zalo_oa_url ?? "",
           paymentMethods: (() => {
             const raw = (storeRes.data.payment_methods ?? []) as string[];
             const valid = raw.filter((m): m is PaymentMethod =>

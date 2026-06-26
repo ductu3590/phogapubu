@@ -39,6 +39,11 @@ export async function updateStoreSettings(formData: FormData) {
     patch.logo_url = admin.storage.from(ASSET_BUCKET).getPublicUrl(path).data.publicUrl
   }
 
+  // zalo_oa_url — tuỳ chọn, để rỗng nếu không điền
+  const oaUrl = (formData.get('zalo_oa_url') as string | null)?.trim()
+  if (oaUrl) patch.zalo_oa_url = oaUrl
+  else patch.zalo_oa_url = null
+
   // payment_methods — ít nhất 1 phương thức (luôn validate, không bỏ qua khi rỗng)
   const rawMethods = formData.getAll('payment_methods') as string[]
   const valid = rawMethods.filter((m) => m === 'zalopay' || m === 'cash')

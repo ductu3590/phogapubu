@@ -10,6 +10,7 @@ interface AppStore {
   storeAddress: string;
   storePhone: string;
   zaloOaId: string;
+  zaloOaUrl: string;
   paymentMethods: PaymentMethod[];
   tableId: string;
   tableNumber: string;
@@ -23,6 +24,7 @@ interface AppStore {
     storeAddress: string;
     storePhone: string;
     zaloOaId: string;
+    zaloOaUrl: string;
     paymentMethods: PaymentMethod[];
   }) => void;
   setTableInfo: (info: { tableId: string; tableNumber: string }) => void;
@@ -37,6 +39,7 @@ export const useAppStore = create<AppStore>((set) => ({
   storeAddress: "",
   storePhone: "",
   zaloOaId: "",
+  zaloOaUrl: "",
   paymentMethods: ["zalopay", "cash"],
   tableId: "",
   tableNumber: "",

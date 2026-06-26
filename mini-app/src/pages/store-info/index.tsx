@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { followOA } from "zmp-sdk";
+import { followOA, openWebview } from "zmp-sdk";
 import { useAppStore } from "@/stores/app.store";
 
 // ─── InfoRow ──────────────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ function InfoRow({
 
 // ─── StoreInfoPage ────────────────────────────────────────────────────────────
 export default function StoreInfoPage() {
-  const { storeId, storeName, storeLogoUrl, storeAddress, storePhone, zaloOaId } = useAppStore();
+  const { storeId, storeName, storeLogoUrl, storeAddress, storePhone, zaloOaId, zaloOaUrl } = useAppStore();
 
   const [followed, setFollowed] = useState(false);
   const [following, setFollowing] = useState(false);
@@ -120,30 +120,50 @@ export default function StoreInfoPage() {
         </div>
       )}
 
-      {/* Card follow OA */}
-      {zaloOaId && (
-        <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-small-m font-semibold text-text-primary">Nhận thông báo Zalo</p>
-              <p className="mt-0.5 text-xxsmall text-text-secondary">
-                Quan tâm OA để nhận thông báo khi món xong
-              </p>
+      {/* Card Zalo OA */}
+      {(zaloOaId || zaloOaUrl) && (
+        <div className="mx-3.5 mt-3 rounded-xl bg-white overflow-hidden">
+          {/* Hàng "Quan tâm" — nhận thông báo ZNS */}
+          {zaloOaId && (
+            <div className="flex items-center justify-between border-b border-neutral100 px-4 py-3">
+              <div>
+                <p className="text-small-m font-semibold text-text-primary">Nhận thông báo Zalo</p>
+                <p className="mt-0.5 text-xxsmall text-text-secondary">
+                  Quan tâm OA để nhận thông báo khi món xong
+                </p>
+              </div>
+              {followed ? (
+                <span className="rounded-full bg-green-100 px-3 py-1 text-xxsmall font-semibold text-green-700">
+                  Đã quan tâm
+                </span>
+              ) : (
+                <button
+                  onClick={handleFollowOA}
+                  disabled={following}
+                  className="rounded-full bg-primary px-3 py-1 text-xxsmall font-semibold text-white disabled:opacity-60"
+                >
+                  {following ? "..." : "Quan tâm"}
+                </button>
+              )}
             </div>
-            {followed ? (
-              <span className="rounded-full bg-green-100 px-3 py-1 text-xxsmall font-semibold text-green-700">
-                Đã quan tâm
-              </span>
-            ) : (
-              <button
-                onClick={handleFollowOA}
-                disabled={following}
-                className="rounded-full bg-primary px-3 py-1 text-xxsmall font-semibold text-white disabled:opacity-60"
-              >
-                {following ? "..." : "Quan tâm"}
-              </button>
-            )}
-          </div>
+          )}
+
+          {/* Hàng "Trang Zalo OA" — mở webview tới trang OA */}
+          {zaloOaUrl && (
+            <button
+              onClick={() => void openWebview({ url: zaloOaUrl })}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-neutral50"
+            >
+              <span className="text-xl">💬</span>
+              <div className="flex-1">
+                <p className="text-xxsmall text-text-secondary">Trang Zalo chính thức</p>
+                <p className="text-small text-primary">Xem trang Zalo OA của nhà hàng</p>
+              </div>
+              <svg viewBox="0 0 24 24" className="h-4 w-4 text-neutral300" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
         </div>
       )}
     </div>
