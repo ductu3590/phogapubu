@@ -141,13 +141,18 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
   // ── Load store + tất cả đơn hôm nay ──────────────────────────────────────
   useEffect(() => {
+    if (!supabase) return
+
+    // Hoist channel vars ra ngoài init() để cleanup đồng bộ có thể tham chiếu
+    let ordersChannel: ReturnType<typeof supabase.channel> | null = null
+    let srChannel: ReturnType<typeof supabase.channel> | null = null
+
     async function init() {
-      if (!supabase) return
       setLoading(true)
       setError(null)
 
       // 1. Lấy store theo slug
-      const { data: storeData, error: storeErr } = await supabase
+      const { data: storeData, error: storeErr } = await supabase!
         .from('stores')
         .select('id, name, slug')
         .eq('slug', storeSlug)
@@ -165,7 +170,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
       const todayStart = new Date()
       todayStart.setHours(0, 0, 0, 0)
 
-      const { data: ordersData, error: ordersErr } = await supabase
+      const { data: ordersData, error: ordersErr } = await supabase!
         .from('orders')
         .select('*, order_items(*), tables(table_number)')
         .eq('store_id', storeData.id)
@@ -190,8 +195,8 @@ export default function KitchenDisplay({ storeSlug }: Props) {
       setOrders(mapped)
       setLoading(false)
 
-      // 3. Subscribe Supabase Realtime
-      const channel = supabase
+      // 3. Subscribe Supabase Realtime — gán vào outer vars để cleanup hoạt động
+      ordersChannel = supabase!
         .channel(`kitchen-${storeData.id}`)
         .on(
           'postgres_changes',
@@ -247,7 +252,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         .subscribe()
 
       // Subscribe service_requests — nút chuông gọi nhân viên
-      const srChannel = supabase
+      srChannel = supabase!
         .channel(`service-requests-${storeData.id}`)
         .on(
           'postgres_changes',
@@ -268,14 +273,15 @@ export default function KitchenDisplay({ storeSlug }: Props) {
           },
         )
         .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-        supabase.removeChannel(srChannel)
-      }
     }
 
     init()
+
+    // Cleanup đồng bộ — React thấy return value này, channels được unsubscribe đúng khi unmount
+    return () => {
+      if (ordersChannel) supabase.removeChannel(ordersChannel)
+      if (srChannel) supabase.removeChannel(srChannel)
+    }
   }, [storeSlug, supabase, fetchOrder])
 
   // ── Cập nhật trạng thái đơn ───────────────────────────────────────────────
@@ -359,25 +365,29 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
   return (
     <div className="flex h-screen flex-col bg-gray-950 text-white">
-      {/* Chuông gọi nhân viên — dismissable banners */}
-      {callAlerts.map((alert) => (
-        <div
-          key={alert.id}
-          className="fixed right-4 top-4 z-50 flex items-center gap-3 rounded-xl bg-orange-500 px-4 py-3 text-white shadow-lg"
-        >
-          <span className="text-2xl">🔔</span>
-          <div>
-            <p className="font-bold">{alert.tableNumber} gọi thanh toán</p>
-            <p className="text-sm opacity-80">Ra bàn thanh toán cho khách</p>
-          </div>
-          <button
-            onClick={() => setCallAlerts((prev) => prev.filter((a) => a.id !== alert.id))}
-            className="ml-2 opacity-70 hover:opacity-100"
-          >
-            ✕
-          </button>
+      {/* Chuông gọi nhân viên — dismissable banners, xếp dọc không chồng nhau */}
+      {callAlerts.length > 0 && (
+        <div className="fixed right-4 top-4 z-50 flex flex-col gap-2">
+          {callAlerts.map((alert) => (
+            <div
+              key={alert.id}
+              className="flex items-center gap-3 rounded-xl bg-orange-500 px-4 py-3 text-white shadow-lg"
+            >
+              <span className="text-2xl">🔔</span>
+              <div>
+                <p className="font-bold">{alert.tableNumber} gọi thanh toán</p>
+                <p className="text-sm opacity-80">Ra bàn thanh toán cho khách</p>
+              </div>
+              <button
+                onClick={() => setCallAlerts((prev) => prev.filter((a) => a.id !== alert.id))}
+                className="ml-2 opacity-70 hover:opacity-100"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
 
       {/* Header */}
       <header className="flex items-center justify-between border-b border-gray-800 px-6 py-3">
