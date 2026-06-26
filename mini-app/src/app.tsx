@@ -48,7 +48,13 @@ function AppInit() {
           storeAddress: storeRes.data.address ?? "",
           storePhone: storeRes.data.phone ?? "",
           zaloOaId: storeRes.data.zalo_oa_id ?? "",
-          paymentMethods: (storeRes.data.payment_methods as PaymentMethod[]) ?? ["zalopay", "cash"],
+          paymentMethods: (() => {
+            const raw = (storeRes.data.payment_methods ?? []) as string[];
+            const valid = raw.filter((m): m is PaymentMethod =>
+              m === "zalopay" || m === "cash"
+            );
+            return valid.length > 0 ? valid : ["zalopay", "cash"];
+          })(),
         });
       }
       if (tableRes.data) {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cart.store";
-import { useAppStore } from "@/stores/app.store";
+import { useAppStore, PaymentMethod } from "@/stores/app.store";
 import { useCreateOrder } from "@/services/order/order.mutations";
 import { paymentService } from "@/services/payment.service";
 import { Button, Modal, useSnackbar } from "zmp-ui";
@@ -10,8 +10,6 @@ import { formatCurrency } from "@/utils/format";
 import { calculateCartTotal } from "@/utils/cart";
 import QuantityStepper from "@/components/common/quantity-stepper";
 import NoteInput from "@/components/common/note-input";
-
-type PaymentMethod = "zalopay" | "cash";
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
