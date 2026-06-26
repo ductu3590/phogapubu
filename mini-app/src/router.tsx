@@ -4,11 +4,9 @@ import { getBasePath } from "./utils/zma";
 import MenuPage from "./pages/menu";
 import CheckoutPage from "./pages/checkout";
 import OrderStatusPage from "./pages/order-status";
+import SessionOrdersPage from "./pages/session-orders";
+import StoreInfoPage from "./pages/store-info";
 import type { RouteHandle } from "./types/router.types";
-
-// Placeholder pages — sẽ được implement trong Task 6 và Task 7
-const SessionOrdersPage = () => <div className="flex h-full items-center justify-center text-text-secondary">Đang tải...</div>;
-const StoreInfoPage = () => <div className="flex h-full items-center justify-center text-text-secondary">Đang tải...</div>;
 
 const router = createBrowserRouter(
   [
@@ -23,7 +21,7 @@ const router = createBrowserRouter(
         // Tab: Đơn đã gọi trong phiên (placeholder, Task 6)
         { path: "/session-orders", element: <SessionOrdersPage />, handle: { hideHeader: true } },
 
-        // Tab: Thông tin nhà hàng (placeholder, Task 7)
+        // Tab: Thông tin nhà hàng
         { path: "/store-info", element: <StoreInfoPage />, handle: { hideHeader: true } },
 
         // Checkout: đặt món + chọn thanh toán
