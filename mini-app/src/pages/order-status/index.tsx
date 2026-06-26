@@ -280,6 +280,18 @@ export default function OrderStatusPage() {
             </Button>
           </div>
         )}
+
+        {/* Nút về trang chủ — chỉ hiện khi đặt mang về / ship */}
+        {order.orderType !== "dine_in" && (
+          <div className="mx-4 mt-4 mb-6">
+            <button
+              onClick={() => navigate("/")}
+              className="w-full rounded-xl border border-neutral100 py-3 text-small font-medium text-text-secondary active:bg-neutral50"
+            >
+              ← Về trang chủ
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
