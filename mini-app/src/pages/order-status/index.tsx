@@ -51,6 +51,39 @@ const STATUS_CONFIG: Record<
 
 const STATUS_STEPS: OrderState[] = ["pending", "confirmed", "cooking", "ready"];
 
+function TakeawayInfoCard({ order }: { order: Order }) {
+  if (order.orderType === "dine_in") return null;
+
+  if (order.orderType === "pickup" && order.pickupTime) {
+    const timeStr = new Date(order.pickupTime).toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Asia/Ho_Chi_Minh",
+    });
+    return (
+      <div className="mx-4 mt-4 rounded-xl border border-[#E8C9B3] bg-[#FBF4EF] p-4">
+        <p className="mb-1 text-xs text-text-secondary">🚶 Tự qua lấy lúc</p>
+        <p className="text-2xl font-bold text-primary">{timeStr}</p>
+        <p className="mt-1 text-xs text-text-secondary">📍 Đến quán lấy trực tiếp</p>
+      </div>
+    );
+  }
+
+  if (order.orderType === "delivery" && order.deliveryAddress) {
+    return (
+      <div className="mx-4 mt-4 rounded-xl border border-[#E8C9B3] bg-[#FBF4EF] p-4">
+        <p className="mb-1 text-xs text-text-secondary">🛵 Giao đến</p>
+        <p className="text-sm font-semibold text-primary">{order.deliveryAddress}</p>
+        <p className="mt-2 rounded-lg bg-white px-3 py-2 text-xs text-[#92400E]">
+          ⚠️ Phí ship do shipper thu trực tiếp khi giao
+        </p>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function OrderStatusPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -97,6 +130,17 @@ export default function OrderStatusPage() {
       supabase.removeChannel(channel);
     };
   }, [orderId]);
+
+  // Xoá localStorage khi đơn takeaway hoàn tất
+  useEffect(() => {
+    if (!orderId) return;
+    if (order?.status === "paid" || order?.status === "cancelled") {
+      const stored = localStorage.getItem("mevo_last_takeaway_order");
+      if (stored === orderId) {
+        localStorage.removeItem("mevo_last_takeaway_order");
+      }
+    }
+  }, [orderId, order?.status]);
 
   if (isLoading || !order) {
     return (
@@ -182,6 +226,9 @@ export default function OrderStatusPage() {
           </div>
         )}
 
+        {/* Thông tin giao/lấy đơn mang về */}
+        {order.orderType !== "dine_in" && <TakeawayInfoCard order={order} />}
+
         {/* Chi tiết đơn */}
         <div className="mx-4 mt-4 rounded-xl bg-white p-4">
           <div className="mb-3 flex items-center justify-between">
@@ -221,16 +268,18 @@ export default function OrderStatusPage() {
           </div>
         )}
 
-        {/* Nút gọi thêm */}
-        <div className="mx-4 mt-4">
-          <Button
-            onClick={() => navigate("/menu")}
-            className="w-full rounded-xl border-2 border-primary bg-white py-3 font-semibold text-primary active:bg-primary/5"
-            fullWidth
-          >
-            Gọi thêm món
-          </Button>
-        </div>
+        {/* Nút gọi thêm — chỉ hiện khi ăn tại quán */}
+        {order.orderType === "dine_in" && (
+          <div className="mx-4 mt-4">
+            <Button
+              onClick={() => navigate("/menu")}
+              className="w-full rounded-xl border-2 border-primary bg-white py-3 font-semibold text-primary active:bg-primary/5"
+              fullWidth
+            >
+              Gọi thêm món
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
