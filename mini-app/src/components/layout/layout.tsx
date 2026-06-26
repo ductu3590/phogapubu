@@ -1,6 +1,6 @@
 import { Outlet, useMatches } from "react-router-dom";
 import Header from "./header";
-import Footer from "./footer";
+import BottomTabs from "./bottom-tabs";
 import CartFloatButton from "../common/cart-float-button";
 import { useCartStore } from "@/stores/cart.store";
 
@@ -9,7 +9,7 @@ export default function Layout() {
   const current = matches[matches.length - 1];
   const handle = current.handle as Record<string, unknown> | undefined;
 
-  const hideFooter = handle?.hideFooter as boolean | undefined;
+  const hideBottomTabs = handle?.hideBottomTabs as boolean | undefined;
   const hideCart = handle?.hideCart as boolean | undefined;
   const hideHeader = handle?.hideHeader as boolean | undefined;
   const headerPosition = handle?.headerPosition as string | undefined;
@@ -25,15 +25,11 @@ export default function Layout() {
           position={headerPosition}
         />
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="relative min-h-0 flex-1 overflow-y-auto">
         <Outlet />
+        {!hideCart && totalItems > 0 && <CartFloatButton itemCount={totalItems} />}
       </div>
-      {!hideFooter && (
-        <div className="relative shrink-0">
-          <Footer />
-          {!hideCart && <CartFloatButton itemCount={totalItems} />}
-        </div>
-      )}
+      {!hideBottomTabs && <BottomTabs />}
     </div>
   );
 }

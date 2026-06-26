@@ -20,7 +20,7 @@ export default function CartFloatButton({ itemCount }: CartFloatButtonProps) {
   return (
     <button
       onClick={() => navigate("/checkout")}
-      className="fixed bottom-6 left-4 right-4 z-50 flex items-center justify-between rounded-2xl bg-primary px-4 py-3 shadow-lg active:opacity-90"
+      className="fixed bottom-20 left-4 right-4 z-50 flex items-center justify-between rounded-2xl bg-primary px-4 py-3 shadow-lg active:opacity-90"
     >
       <div className="flex items-center gap-2">
         <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/20">

@@ -5,6 +5,10 @@ import MenuPage from "./pages/menu";
 import CheckoutPage from "./pages/checkout";
 import OrderStatusPage from "./pages/order-status";
 
+// Placeholder pages — sẽ được implement trong Task 6 và Task 7
+const SessionOrdersPage = () => <div className="flex h-full items-center justify-center text-text-secondary">Đang tải...</div>;
+const StoreInfoPage = () => <div className="flex h-full items-center justify-center text-text-secondary">Đang tải...</div>;
+
 const router = createBrowserRouter(
   [
     {
@@ -15,6 +19,12 @@ const router = createBrowserRouter(
         { path: "/", element: <MenuPage />, handle: { hideHeader: true } },
         { path: "/menu", element: <MenuPage />, handle: { hideHeader: true } },
 
+        // Tab: Đơn đã gọi trong phiên (placeholder, Task 6)
+        { path: "/session-orders", element: <SessionOrdersPage />, handle: { hideHeader: true } },
+
+        // Tab: Thông tin nhà hàng (placeholder, Task 7)
+        { path: "/store-info", element: <StoreInfoPage />, handle: { hideHeader: true } },
+
         // Checkout: đặt món + chọn thanh toán
         {
           path: "/checkout",
@@ -23,7 +33,8 @@ const router = createBrowserRouter(
             title: "Xác nhận đơn",
             back: true,
             whiteBackground: true,
-            hideFooter: true,
+            hideBottomTabs: true,
+            hideCart: true,
             headerPosition: "sticky",
           },
         },
@@ -36,17 +47,15 @@ const router = createBrowserRouter(
             title: "Trạng thái đơn",
             back: false,
             whiteBackground: true,
-            hideFooter: true,
-            headerPosition: "sticky",
+            hideBottomTabs: true,
             hideCart: true,
+            headerPosition: "sticky",
           },
         },
       ],
     },
   ],
-  {
-    basename: getBasePath(),
-  },
+  { basename: getBasePath() },
 );
 
 export default router;
