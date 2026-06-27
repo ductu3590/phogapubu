@@ -78,18 +78,13 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenOrder {
 
 // ─── Badge loại đơn (Bàn / Tự lấy / Ship) ───────────────────────────────────
 function OrderTypeBadge({ order }: { order: KitchenOrder }) {
-  if (order.orderType === 'pickup' && order.pickupTime) {
-    const timeStr = new Date(order.pickupTime).toLocaleTimeString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Asia/Ho_Chi_Minh',
-    })
+  if (order.orderType === 'pickup') {
     return (
       <span
         className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
         style={{ background: '#A0673D' }}
       >
-        🚶 {timeStr}
+        🚶 Tự lấy
       </span>
     )
   }
@@ -553,6 +548,7 @@ function OrderCard({
   const shortId = order.id.slice(-6).toUpperCase()
   const elapsed = Math.floor((now - new Date(order.createdAt).getTime()) / 1000)
   const isUrgent = elapsed > 600 // > 10 phút → highlight đỏ
+  const isTakeaway = order.orderType !== 'dine_in'
 
   return (
     <div
@@ -562,9 +558,22 @@ function OrderCard({
           ? 'border-green-800 bg-gray-900'
           : isUrgent
             ? 'border-red-700 bg-red-950/30'
-            : 'border-gray-700 bg-gray-900',
+            : isTakeaway
+              ? 'border-2 border-amber-500 bg-gray-900'
+              : 'border-gray-700 bg-gray-900',
       )}
     >
+      {/* Banner nổi bật đơn mang về — bếp đóng túi mang đi */}
+      {isTakeaway && (
+        <div
+          className="-mx-3 -mt-3 mb-2 rounded-t-xl px-3 py-1.5 text-center"
+          style={{ background: '#A0673D' }}
+        >
+          <span className="text-sm font-extrabold tracking-wide text-white">
+            {order.orderType === 'delivery' ? '🛵 SHIP' : '📦 MANG VỀ'}
+          </span>
+        </div>
+      )}
       {/* Header card */}
       <div className="mb-2 flex items-center justify-between">
         <div className="flex flex-col gap-0.5">
