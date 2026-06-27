@@ -38,7 +38,7 @@ serve(async (req) => {
     // Lấy thông tin đơn + bàn + quán
     const { data: order, error } = await supabase
       .from('orders')
-      .select('id, zalo_user_id, total_amount, note, tables(table_number), stores(name, zalo_oa_id)')
+      .select('id, zalo_user_id, total_amount, note, order_type, customer_name, tables(table_number), stores(name, zalo_oa_id)')
       .eq('id', orderId)
       .single()
 
@@ -67,11 +67,21 @@ serve(async (req) => {
 
     // Gửi tin nhắn Zalo OA (message API — không cần ZNS template đăng ký)
     // Dùng Zalo OA Message API gửi text message đến follower
+    const orderType = (order.order_type as string) ?? 'dine_in'
+    const storeName = store?.name || 'MEVO'
+
+    let messageText: string
+    if (orderType === 'pickup') {
+      messageText = `🍜 Món của bạn đã chuẩn bị xong!\n${storeName}\nĐơn #${orderShortId}\n\nMời bạn qua quán lấy đồ. Cảm ơn bạn!`
+    } else if (orderType === 'delivery') {
+      messageText = `🍜 Đơn của bạn đã chuẩn bị xong!\n${storeName}\nĐơn #${orderShortId}\n\nShipper sẽ sớm giao đến cho bạn. Cảm ơn bạn!`
+    } else {
+      messageText = `🍜 Món của bạn đã xong!\n${storeName} — ${table?.table_number || 'Bàn'}\nĐơn #${orderShortId}\n\nNhân viên đang mang ra cho bạn. Cảm ơn bạn đã chờ!`
+    }
+
     const messagePayload = {
       recipient: { user_id: zaloUserId },
-      message: {
-        text: `🍜 Món của bạn đã xong!\n${store?.name || 'MEVO'} — ${table?.table_number || 'Bàn'}\nĐơn #${orderShortId}\n\nNhân viên đang mang ra cho bạn. Cảm ơn bạn đã chờ!`,
-      },
+      message: { text: messageText },
     }
 
     const zaloResponse = await fetch('https://openapi.zalo.me/v2.0/oa/message', {
