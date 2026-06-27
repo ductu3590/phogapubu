@@ -18,7 +18,6 @@ export const orderService = {
       p_order_type: req.orderType ?? "dine_in",
       p_customer_name: req.customerName ?? null,
       p_customer_phone: req.customerPhone ?? null,
-      p_pickup_time: req.pickupTime ?? null,
       p_delivery_address: req.deliveryAddress ?? null,
     });
 

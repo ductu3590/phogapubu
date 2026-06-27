@@ -54,7 +54,6 @@ export interface CreateOrderRequest {
   orderType?: OrderType;
   customerName?: string;
   customerPhone?: string;
-  pickupTime?: string;
   deliveryAddress?: string;
 }
 
