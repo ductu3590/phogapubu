@@ -6,6 +6,7 @@ import { Order, OrderState } from "@/types/order.types";
 import { formatCurrency } from "@/utils/format";
 import { Button } from "zmp-ui";
 import { cn } from "@/utils/cn";
+import { useAppStore } from "@/stores/app.store";
 
 const STATUS_CONFIG: Record<
   OrderState,
@@ -52,19 +53,23 @@ const STATUS_CONFIG: Record<
 const STATUS_STEPS: OrderState[] = ["pending", "confirmed", "cooking", "ready"];
 
 function TakeawayInfoCard({ order }: { order: Order }) {
+  const { storeName, storeAddress } = useAppStore();
   if (order.orderType === "dine_in") return null;
 
-  if (order.orderType === "pickup" && order.pickupTime) {
-    const timeStr = new Date(order.pickupTime).toLocaleTimeString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Asia/Ho_Chi_Minh",
-    });
+  if (order.orderType === "pickup") {
+    const ready = order.status === "ready";
     return (
       <div className="mx-4 mt-4 rounded-xl border border-[#E8C9B3] bg-[#FBF4EF] p-4">
-        <p className="mb-1 text-xs text-text-secondary">🚶 Tự qua lấy lúc</p>
-        <p className="text-2xl font-bold text-primary">{timeStr}</p>
-        <p className="mt-1 text-xs text-text-secondary">📍 Đến quán lấy trực tiếp</p>
+        <p className="mb-1 text-xs text-text-secondary">🚶 Tự qua lấy</p>
+        <p className="text-base font-semibold text-primary">{storeName || "Quán"}</p>
+        {storeAddress && (
+          <p className="mt-0.5 text-xs text-text-secondary">📍 {storeAddress}</p>
+        )}
+        <p className="mt-2 rounded-lg bg-white px-3 py-2 text-xs text-text-secondary">
+          {ready
+            ? "🎉 Món xong rồi! Mời bạn qua quán lấy đồ."
+            : "Bếp chuẩn bị theo thứ tự — bạn sẽ nhận thông báo Zalo khi món xong."}
+        </p>
       </div>
     );
   }

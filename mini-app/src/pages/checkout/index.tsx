@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCartStore } from "@/stores/cart.store";
@@ -17,29 +17,35 @@ function isPhoneValid(phone: string): boolean {
   return /^0\d{9}$/.test(phone.replace(/\s/g, ""));
 }
 
-function generatePickupSlots(): string[] {
-  const slots: string[] = [];
-  const now = new Date();
-  const start = new Date(now.getTime() + 30 * 60 * 1000);
-  start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0);
-  const end = new Date();
-  end.setHours(22, 0, 0, 0);
-  const cur = new Date(start);
-  while (cur <= end) {
-    const hh = String(cur.getHours()).padStart(2, "0");
-    const mm = String(cur.getMinutes()).padStart(2, "0");
-    slots.push(`${hh}:${mm}`);
-    cur.setMinutes(cur.getMinutes() + 15);
-  }
-  return slots;
+const TAKEAWAY_FORM_KEY = "mevo_takeaway_form";
+
+interface TakeawayFormData {
+  takeawayType: "pickup" | "delivery";
+  customerName: string;
+  customerPhone: string;
+  deliveryAddress: string;
 }
 
-function slotToTimestamp(slot: string): string {
-  const [hh, mm] = slot.split(":").map(Number);
-  const d = new Date();
-  d.setHours(hh, mm, 0, 0);
-  if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1);
-  return d.toISOString();
+function loadTakeawayForm(): TakeawayFormData {
+  const empty: TakeawayFormData = {
+    takeawayType: "pickup",
+    customerName: "",
+    customerPhone: "",
+    deliveryAddress: "",
+  };
+  try {
+    const raw = localStorage.getItem(TAKEAWAY_FORM_KEY);
+    if (!raw) return empty;
+    const parsed = JSON.parse(raw) as Partial<TakeawayFormData>;
+    return {
+      takeawayType: parsed.takeawayType === "delivery" ? "delivery" : "pickup",
+      customerName: parsed.customerName ?? "",
+      customerPhone: parsed.customerPhone ?? "",
+      deliveryAddress: parsed.deliveryAddress ?? "",
+    };
+  } catch {
+    return empty;
+  }
 }
 
 export default function CheckoutPage() {
@@ -53,11 +59,11 @@ export default function CheckoutPage() {
   const [pendingZp, setPendingZp] = useState<{ id: string; token: string | null } | null>(null);
 
   // Takeaway form state
-  const [takeawayType, setTakeawayType] = useState<"pickup" | "delivery">("pickup");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [pickupTime, setPickupTime] = useState(() => generatePickupSlots()[0] ?? "");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const initialForm = useRef(loadTakeawayForm()).current;
+  const [takeawayType, setTakeawayType] = useState<"pickup" | "delivery">(initialForm.takeawayType);
+  const [customerName, setCustomerName] = useState(initialForm.customerName);
+  const [customerPhone, setCustomerPhone] = useState(initialForm.customerPhone);
+  const [deliveryAddress, setDeliveryAddress] = useState(initialForm.deliveryAddress);
   const [nameError, setNameError] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [addressError, setAddressError] = useState("");
@@ -66,7 +72,6 @@ export default function CheckoutPage() {
   const { storeId, tableId, tableNumber, zaloUserId, paymentMethods, orderMode } = useAppStore();
   const isTakeaway = orderMode === "takeaway";
   const singleMethod = paymentMethods.length === 1;
-  const pickupSlots = generatePickupSlots();
 
   // Syncs selected method when store config loads (e.g. nếu zalopay bị tắt)
   useEffect(() => {
@@ -75,11 +80,24 @@ export default function CheckoutPage() {
       setPaymentMethod(paymentMethods[0]);
     }
   }, [paymentMethods, paymentMethod]);
+
+  // Lưu form mang về để khách không phải nhập lại khi thanh toán lại
+  useEffect(() => {
+    if (!isTakeaway) return;
+    const data: TakeawayFormData = { takeawayType, customerName, customerPhone, deliveryAddress };
+    try {
+      localStorage.setItem(TAKEAWAY_FORM_KEY, JSON.stringify(data));
+    } catch {
+      /* localStorage đầy hoặc bị chặn — bỏ qua */
+    }
+  }, [isTakeaway, takeawayType, customerName, customerPhone, deliveryAddress]);
   const isTakeawayFormValid =
     !isTakeaway ||
-    (customerName.trim() !== "" &&
-      isPhoneValid(customerPhone) &&
-      (takeawayType === "pickup" ? pickupTime !== "" : deliveryAddress.trim() !== ""));
+    (takeawayType === "pickup"
+      ? customerName.trim() !== ""
+      : customerName.trim() !== "" &&
+        isPhoneValid(customerPhone) &&
+        deliveryAddress.trim() !== "");
 
   const { mutate: createOrder, isPending } = useCreateOrder();
 
@@ -96,8 +114,10 @@ export default function CheckoutPage() {
     }
     if (isTakeaway && !isTakeawayFormValid) {
       if (!customerName.trim()) setNameError("Vui lòng nhập tên");
-      if (!isPhoneValid(customerPhone)) setPhoneError("Số điện thoại không hợp lệ (10 số, bắt đầu 0)");
-      if (takeawayType === "delivery" && !deliveryAddress.trim()) setAddressError("Vui lòng nhập địa chỉ");
+      if (takeawayType === "delivery") {
+        if (!isPhoneValid(customerPhone)) setPhoneError("Số điện thoại không hợp lệ (10 số, bắt đầu 0)");
+        if (!deliveryAddress.trim()) setAddressError("Vui lòng nhập địa chỉ");
+      }
       return;
     }
     if (!isTakeaway && !tableId) {
@@ -124,9 +144,10 @@ export default function CheckoutPage() {
         ...(isTakeaway && {
           orderType: takeawayType,
           customerName: customerName.trim(),
-          customerPhone: customerPhone.replace(/\s/g, ""),
-          ...(takeawayType === "pickup" && { pickupTime: slotToTimestamp(pickupTime) }),
-          ...(takeawayType === "delivery" && { deliveryAddress: deliveryAddress.trim() }),
+          ...(takeawayType === "delivery" && {
+            customerPhone: customerPhone.replace(/\s/g, ""),
+            deliveryAddress: deliveryAddress.trim(),
+          }),
         }),
       },
       {
@@ -274,38 +295,21 @@ export default function CheckoutPage() {
               {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
             </div>
 
-            {/* SĐT */}
-            <div className="mb-3">
-              <label className="mb-1 block text-xs text-text-secondary">Số điện thoại *</label>
-              <input
-                value={customerPhone}
-                onChange={(e) => { setCustomerPhone(e.target.value); setPhoneError(""); }}
-                onBlur={() => { if (!isPhoneValid(customerPhone)) setPhoneError("Số điện thoại không hợp lệ"); }}
-                placeholder="0901 234 567"
-                inputMode="tel"
-                className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
-                  phoneError ? "border-red-400" : "border-neutral100 focus:border-primary"
-                }`}
-              />
-              {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
-            </div>
-
-            {/* Giờ lấy */}
-            {takeawayType === "pickup" && (
+            {/* SĐT — chỉ ship tận nhà */}
+            {takeawayType === "delivery" && (
               <div className="mb-3">
-                <label className="mb-1 block text-xs text-text-secondary">Giờ qua lấy *</label>
-                <select
-                  value={pickupTime}
-                  onChange={(e) => setPickupTime(e.target.value)}
-                  className="w-full rounded-xl border border-neutral100 px-3 py-2.5 text-sm outline-none focus:border-primary"
-                >
-                  {pickupSlots.length > 0
-                    ? pickupSlots.map((slot) => (
-                        <option key={slot} value={slot}>{slot}</option>
-                      ))
-                    : <option value="">Quán đã đóng cửa hôm nay</option>
-                  }
-                </select>
+                <label className="mb-1 block text-xs text-text-secondary">Số điện thoại *</label>
+                <input
+                  value={customerPhone}
+                  onChange={(e) => { setCustomerPhone(e.target.value); setPhoneError(""); }}
+                  onBlur={() => { if (!isPhoneValid(customerPhone)) setPhoneError("Số điện thoại không hợp lệ"); }}
+                  placeholder="0901 234 567"
+                  inputMode="tel"
+                  className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
+                    phoneError ? "border-red-400" : "border-neutral100 focus:border-primary"
+                  }`}
+                />
+                {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
               </div>
             )}
 
