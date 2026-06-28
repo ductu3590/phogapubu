@@ -64,6 +64,9 @@ export async function updateStoreSettings(formData: FormData) {
       .upload(path, banner, { contentType: banner.type || 'image/jpeg', upsert: false })
     if (upErr) throw new Error(`upload banner: ${upErr.message}`)
     patch.takeaway_banner_url = admin.storage.from(ASSET_BUCKET).getPublicUrl(path).data.publicUrl
+  } else if (formData.get('remove_banner')) {
+    // Xoá banner: chỉ áp dụng khi không upload ảnh mới
+    patch.takeaway_banner_url = null
   }
 
   // payment_methods — ít nhất 1 phương thức (luôn validate, không bỏ qua khi rỗng)

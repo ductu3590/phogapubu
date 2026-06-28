@@ -50,7 +50,11 @@ export default async function OrdersPage({
     .order('created_at', { ascending: false })
 
   const list = orders ?? []
-  const totalRevenue = list.filter((o) => o.status === 'paid').reduce((s, o) => s + o.total_amount, 0)
+  // Doanh thu = tiền THẬT đã nhận: ZaloPay đã có trans_id (chưa huỷ) HOẶC tiền mặt đã thu
+  const isReceived = (o: { payment_method: string; zalopay_trans_id: string | null; status: string }) =>
+    (o.payment_method === 'zalopay' && !!o.zalopay_trans_id && o.status !== 'cancelled') ||
+    (o.payment_method === 'cash' && o.status === 'paid')
+  const totalRevenue = list.filter(isReceived).reduce((s, o) => s + o.total_amount, 0)
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
