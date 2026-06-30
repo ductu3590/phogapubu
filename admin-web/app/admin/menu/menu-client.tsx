@@ -67,6 +67,12 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null)
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null)
 
+  // Đồng bộ state local với dữ liệu server mới mỗi khi router.refresh() trả về
+  // (state local của drag-sort không tự cập nhật theo prop → badge topping/món bị cũ tới khi F5)
+  useEffect(() => {
+    setCategories(initialCategories)
+  }, [initialCategories])
+
   const handleToggle = (itemId: string, current: boolean) => {
     setOverrides((prev) => ({ ...prev, [itemId]: !current }))
     startTransition(async () => {
