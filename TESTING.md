@@ -440,20 +440,21 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 
 ---
 
-## TÍNH NĂNG TOPPING — Topping cho món ăn (2026-06-30)
+## TÍNH NĂNG TOPPING — Topping dùng chung (v2, 2026-06-30)
 
 ### Claude Code làm xong khi:
-- Migration `015_menu_toppings.sql` đã áp prod (bảng `menu_item_toppings` + cột `order_items.selected_toppings` + RPC `create_order` v2).
-- Admin quản lý topping trong modal sửa món; mini-app chọn topping qua bottom sheet; bếp + màn theo dõi đơn hiển thị topping.
-- `tsc` mini-app không thêm lỗi mới (baseline 147); admin `tsc` = 0; admin `next build` xanh.
+- Migration `016_toppings_shared.sql` đã áp prod (kho `toppings` + bảng nối `menu_item_toppings(menu_item_id,topping_id)` + RPC `create_order` v3 validate topping qua bảng nối).
+- Admin: khu "🧀 Topping" trong trang menu để quản kho; modal sửa món tick checkbox gán topping. Mini-app chọn topping qua bottom sheet; bếp + màn theo dõi đơn hiển thị topping.
+- `tsc` mini-app không thêm lỗi mới (baseline 147); admin `tsc` = 0 + vitest 2/2; admin `next build` xanh.
 
 ### ✅ Checklist test — Anh Tú tự làm:
 
-**Admin (máy tính):**
-1. Vào Quản lý menu → Sửa 1 món → mục "Topping (tuỳ chọn)": thêm 2 topping (VD "Thêm trứng" 10000, "Quẩy" 5000). Reload → món hiện badge "2 topping".
-2. Toggle 1 topping sang "tạm hết" (nút xám) → topping đó KHÔNG còn hiện trong mini-app.
-3. Xoá 1 topping → biến mất.
-4. Thêm MÓN MỚI → sau khi lưu, modal sửa món vừa tạo tự mở → thêm được topping ngay (không phải tìm lại món).
+**Admin (máy tính) — kho topping dùng chung:**
+1. Quản lý menu → cột trái bấm **"🧀 Topping"** → khu kho hiện ra. Thêm 2 topping (VD "Thêm trứng" 10000, "Quẩy" 5000) bằng ô tên + ô giá + "+ Thêm". (Ô tên giờ rộng full hàng — nhập tên được bình thường.)
+2. Trong kho: toggle 1 topping sang "tạm hết" → topping đó KHÔNG hiện cho khách ở mini-app. Xoá 1 topping → biến mất khỏi kho VÀ khỏi mọi món đã gán.
+3. Sửa 1 **món** → mục "Topping của món (tick để gán)": tick các topping phù hợp → reload thấy badge "N topping" trên dòng món; bỏ tick → giảm.
+4. Gán cùng 1 topping cho nhiều món khác nhau → đều dùng chung 1 topping trong kho (sửa giá/tên trong kho 1 lần, mọi món cập nhật).
+5. Thêm MÓN MỚI → modal sửa tự mở → tick gán topping ngay.
 
 **Mini-app (điện thoại thật):**
 5. Món KHÔNG topping: nút +/- quick-add hoạt động như cũ.
