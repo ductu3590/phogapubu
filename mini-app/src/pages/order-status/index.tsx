@@ -6,6 +6,7 @@ import { useConfirmReceived } from "@/services/order/order.mutations";
 import { supabase } from "@/services/supabase";
 import { Order, OrderState } from "@/types/order.types";
 import { formatCurrency } from "@/utils/format";
+import { getItemLineTotal } from "@/utils/order-pricing";
 import { Button } from "zmp-ui";
 import { cn } from "@/utils/cn";
 import { useAppStore } from "@/stores/app.store";
@@ -277,13 +278,20 @@ export default function OrderStatusPage() {
           </div>
           <div className="flex flex-col gap-3">
             {(order.items ?? []).map((item) => (
-              <div key={item.id} className="flex justify-between">
-                <span className="flex-1 text-small text-text-primary">
-                  {item.name}
-                  <span className="ml-1 text-text-secondary">×{item.quantity}</span>
-                </span>
+              <div key={item.id} className="flex justify-between gap-2">
+                <div className="flex-1">
+                  <span className="text-small text-text-primary">
+                    {item.name}
+                    <span className="ml-1 text-text-secondary">×{item.quantity}</span>
+                  </span>
+                  {item.selectedToppings.length > 0 && (
+                    <p className="text-xxsmall text-text-secondary">
+                      {item.selectedToppings.map((t) => `+ ${t.name}`).join(", ")}
+                    </p>
+                  )}
+                </div>
                 <span className="text-small font-medium">
-                  {formatCurrency(item.price * item.quantity)}đ
+                  {formatCurrency(getItemLineTotal(item))}đ
                 </span>
               </div>
             ))}
