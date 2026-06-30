@@ -529,27 +529,31 @@ function ToppingEditor({
         ))}
         {toppings.length === 0 && <p className="text-xs text-gray-400">Chưa có topping</p>}
       </div>
-      <div className="mt-2 flex gap-2">
+      {/* Tách 2 hàng: ô tên riêng (tránh xung đột width:100% của .input trong flex);
+          hàng dưới ô giá + nút (chỉ 1 .input nên flex-1 giãn đúng) */}
+      <div className="mt-2 flex flex-col gap-2">
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="Tên topping (VD: Thêm trứng)"
-          className="input flex-1"
+          className="input"
         />
-        <input
-          value={newPrice}
-          onChange={(e) => setNewPrice(e.target.value)}
-          type="number"
-          min="0"
-          placeholder="Giá"
-          className="input w-24"
-        />
-        <button
-          type="button"
-          onClick={handleAdd}
-          disabled={isPending}
-          className="flex-shrink-0 rounded-xl bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40"
-        >+ Thêm</button>
+        <div className="flex gap-2">
+          <input
+            value={newPrice}
+            onChange={(e) => setNewPrice(e.target.value)}
+            type="number"
+            min="0"
+            placeholder="Giá (VNĐ)"
+            className="input min-w-0 flex-1"
+          />
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={isPending}
+            className="flex-shrink-0 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40"
+          >+ Thêm</button>
+        </div>
       </div>
     </div>
   )
