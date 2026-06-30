@@ -10,10 +10,20 @@ import {
   addCategory,
   updateCategory,
   deleteCategory,
+  addTopping,
+  updateTopping,
+  deleteTopping,
 } from '@/lib/actions/menu'
 import { formatVND } from '@/lib/utils'
 import SquareCropper from './square-cropper'
 
+type Topping = {
+  id: string
+  name: string
+  price: number
+  is_available: boolean
+  sort_order: number
+}
 type MenuItem = {
   id: string
   name: string
@@ -23,6 +33,7 @@ type MenuItem = {
   image_url: string | null
   sort_order: number
   category_id: string
+  menu_item_toppings?: Topping[]
 }
 type Category = { id: string; name: string; sort_order: number; menu_items: MenuItem[] }
 
@@ -162,6 +173,11 @@ export default function MenuClient({ categories, storeId }: { categories: Catego
                         {item.name}
                       </p>
                       {item.description && <p className="truncate text-xs text-gray-400">{item.description}</p>}
+                      {(item.menu_item_toppings?.length ?? 0) > 0 && (
+                        <span className="mt-0.5 inline-block rounded bg-orange-50 px-1.5 py-0.5 text-[11px] font-medium text-orange-600">
+                          {item.menu_item_toppings!.length} topping
+                        </span>
+                      )}
                     </div>
                     <p className="flex-shrink-0 font-semibold text-gray-700">{formatVND(item.price)}</p>
 
@@ -203,10 +219,22 @@ export default function MenuClient({ categories, storeId }: { categories: Catego
             submitLabel="Thêm"
             onSubmit={async (fd) => {
               if (addImage) fd.set('image', addImage)
-              await addMenuItem(fd)
+              const newId = await addMenuItem(fd)
               setShowAddItem(false)
               setAddImage(null)
               router.refresh()
+              // Mở ngay modal sửa để thêm topping cho món vừa tạo.
+              setEditItem({
+                id: newId,
+                name: fd.get('name') as string,
+                description: (fd.get('description') as string) || null,
+                price: parseInt(fd.get('price') as string, 10),
+                is_available: true,
+                image_url: null,
+                sort_order: 0,
+                category_id: fd.get('category_id') as string,
+                menu_item_toppings: [],
+              })
             }}
             onCancel={() => setShowAddItem(false)}
           />
@@ -231,6 +259,7 @@ export default function MenuClient({ categories, storeId }: { categories: Catego
             }}
             onCancel={() => setEditItem(null)}
           />
+          <ToppingEditor item={editItem} router={router} />
         </Modal>
       )}
 
@@ -353,6 +382,102 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
         </div>
         {children}
+      </div>
+    </div>
+  )
+}
+
+function ToppingEditor({
+  item,
+  router,
+}: {
+  item: MenuItem
+  router: ReturnType<typeof useRouter>
+}) {
+  const [isPending, startTransition] = useTransition()
+  const [newName, setNewName] = useState('')
+  const [newPrice, setNewPrice] = useState('')
+  const toppings = item.menu_item_toppings ?? []
+
+  const handleAdd = () => {
+    const name = newName.trim()
+    const price = parseInt(newPrice, 10)
+    if (!name || Number.isNaN(price) || price < 0) {
+      alert('Nhập tên và giá topping hợp lệ')
+      return
+    }
+    startTransition(async () => {
+      await addTopping(item.id, name, price)
+      setNewName('')
+      setNewPrice('')
+      router.refresh()
+    })
+  }
+
+  const handleToggle = (t: Topping) => {
+    startTransition(async () => {
+      await updateTopping(t.id, { is_available: !t.is_available })
+      router.refresh()
+    })
+  }
+
+  const handleDelete = (t: Topping) => {
+    if (!confirm(`Xoá topping "${t.name}"?`)) return
+    startTransition(async () => {
+      await deleteTopping(t.id)
+      router.refresh()
+    })
+  }
+
+  return (
+    <div className="mt-2 border-t border-gray-100 pt-3">
+      <p className="mb-2 text-sm font-semibold text-gray-700">Topping (tuỳ chọn)</p>
+      <div className="flex flex-col gap-2">
+        {toppings.map((t) => (
+          <div key={t.id} className="flex items-center gap-2 rounded-lg border border-gray-200 px-2 py-1.5">
+            <button
+              type="button"
+              onClick={() => handleToggle(t)}
+              disabled={isPending}
+              className={`h-5 w-9 flex-shrink-0 rounded-full transition-colors ${t.is_available ? 'bg-green-500' : 'bg-gray-300'}`}
+              title={t.is_available ? 'Đang bán — bấm để tạm hết' : 'Tạm hết — bấm để bán lại'}
+            >
+              <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${t.is_available ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
+            <span className={`flex-1 text-sm ${t.is_available ? 'text-gray-800' : 'text-gray-400 line-through'}`}>{t.name}</span>
+            <span className="text-sm text-gray-500">{formatVND(t.price)}</span>
+            <button
+              type="button"
+              onClick={() => handleDelete(t)}
+              disabled={isPending}
+              className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+              title="Xoá topping"
+            >🗑️</button>
+          </div>
+        ))}
+        {toppings.length === 0 && <p className="text-xs text-gray-400">Chưa có topping</p>}
+      </div>
+      <div className="mt-2 flex gap-2">
+        <input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Tên topping (VD: Thêm trứng)"
+          className="input flex-1"
+        />
+        <input
+          value={newPrice}
+          onChange={(e) => setNewPrice(e.target.value)}
+          type="number"
+          min="0"
+          placeholder="Giá"
+          className="input w-24"
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          disabled={isPending}
+          className="flex-shrink-0 rounded-xl bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40"
+        >+ Thêm</button>
       </div>
     </div>
   )
