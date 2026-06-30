@@ -13,13 +13,15 @@ import {
   deleteCategory,
   reorderCategories,
   reorderMenuItems,
-  addTopping,
-  updateTopping,
-  deleteTopping,
+  addPoolTopping,
+  updatePoolTopping,
+  deletePoolTopping,
+  setMenuItemToppings,
 } from '@/lib/actions/menu'
 import { formatVND } from '@/lib/utils'
 import SquareCropper from './square-cropper'
 
+// Topping trong kho dùng chung của quán
 type Topping = {
   id: string
   name: string
@@ -36,7 +38,8 @@ type MenuItem = {
   image_url: string | null
   sort_order: number
   category_id: string
-  menu_item_toppings?: Topping[]
+  // Danh sách link tới topping trong kho (chỉ chứa topping_id)
+  menu_item_toppings?: { topping_id: string }[]
 }
 type Category = { id: string; name: string; sort_order: number; menu_items: MenuItem[] }
 
@@ -47,7 +50,7 @@ function moveArrayItem<T>(items: T[], oldIndex: number, newIndex: number): T[] {
   return next
 }
 
-export default function MenuClient({ categories: initialCategories }: { categories: Category[]; storeId: string }) {
+export default function MenuClient({ categories: initialCategories, toppings }: { categories: Category[]; toppings: Topping[]; storeId: string }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [categories, setCategories] = useState<Category[]>(initialCategories)
@@ -177,9 +180,17 @@ export default function MenuClient({ categories: initialCategories }: { categori
         >
           + Thêm danh mục
         </button>
+        <button
+          onClick={() => setSelectedCatId('__toppings__')}
+          className={`mt-2 w-full px-4 py-2.5 text-left text-sm font-medium ${selectedCatId === '__toppings__' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-100'}`}
+        >🧀 Topping <span className="ml-1 text-xs text-gray-400">({toppings.length})</span></button>
       </aside>
 
-      {/* Danh sách món bên phải */}
+      {/* Kho topping dùng chung — khi chọn nút "🧀 Topping" */}
+      {selectedCatId === '__toppings__' ? (
+        <ToppingPool toppings={toppings} router={router} />
+      ) : (
+      /* Danh sách món bên phải */
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
           <p className="font-semibold text-gray-700">{selectedCat?.name}</p>
@@ -280,6 +291,7 @@ export default function MenuClient({ categories: initialCategories }: { categori
           </div>
         </div>
       </div>
+      )}
 
       {/* Modal thêm món */}
       {showAddItem && (
@@ -331,7 +343,7 @@ export default function MenuClient({ categories: initialCategories }: { categori
             }}
             onCancel={() => setEditItem(null)}
           />
-          <ToppingEditor item={editItem} router={router} />
+          <ItemToppingPicker item={editItem} toppings={toppings} router={router} />
         </Modal>
       )}
 
@@ -459,101 +471,71 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
-function ToppingEditor({
-  item,
-  router,
-}: {
-  item: MenuItem
-  router: ReturnType<typeof useRouter>
-}) {
+// Khu quản lý kho topping dùng chung (panel bên phải khi chọn "🧀 Topping")
+function ToppingPool({ toppings, router }: { toppings: Topping[]; router: ReturnType<typeof useRouter> }) {
   const [isPending, startTransition] = useTransition()
-  const [newName, setNewName] = useState('')
-  const [newPrice, setNewPrice] = useState('')
-  const toppings = item.menu_item_toppings ?? []
-
-  const handleAdd = () => {
-    const name = newName.trim()
-    const price = parseInt(newPrice, 10)
-    if (!name || Number.isNaN(price) || price < 0) {
-      alert('Nhập tên và giá topping hợp lệ')
-      return
-    }
-    startTransition(async () => {
-      await addTopping(item.id, name, price)
-      setNewName('')
-      setNewPrice('')
-      router.refresh()
-    })
+  const [name, setName] = useState(''); const [price, setPrice] = useState('')
+  const add = () => {
+    const n = name.trim(); const p = parseInt(price, 10)
+    if (!n || Number.isNaN(p) || p < 0) { alert('Nhập tên và giá topping hợp lệ'); return }
+    startTransition(async () => { await addPoolTopping(n, p); setName(''); setPrice(''); router.refresh() })
   }
+  const toggle = (t: Topping) => startTransition(async () => { await updatePoolTopping(t.id, { is_available: !t.is_available }); router.refresh() })
+  const del = (t: Topping) => { if (!confirm(`Xoá topping "${t.name}"? Sẽ gỡ khỏi mọi món.`)) return
+    startTransition(async () => { await deletePoolTopping(t.id); router.refresh() }) }
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="border-b border-gray-100 px-5 py-3"><p className="font-semibold text-gray-700">🧀 Kho topping</p></div>
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="space-y-2">
+          {toppings.slice().sort((a,b)=>a.sort_order-b.sort_order).map((t) => (
+            <div key={t.id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
+              <button onClick={() => toggle(t)} disabled={isPending}
+                className={`h-6 w-11 flex-shrink-0 rounded-full ${t.is_available ? 'bg-green-500' : 'bg-gray-300'}`}
+                title={t.is_available ? 'Đang bán — bấm để tạm hết' : 'Tạm hết — bấm để bán lại'}>
+                <span className={`block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${t.is_available ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+              </button>
+              <span className={`min-w-0 flex-1 truncate font-medium ${t.is_available ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{t.name}</span>
+              <span className="flex-shrink-0 font-semibold text-gray-700">{formatVND(t.price)}</span>
+              <button onClick={() => del(t)} disabled={isPending} className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40" title="Xoá">🗑️</button>
+            </div>
+          ))}
+          {toppings.length === 0 && <p className="px-1 py-6 text-center text-sm text-gray-400">Chưa có topping nào trong kho</p>}
+        </div>
+      </div>
+      <div className="border-t border-gray-100 p-4">
+        <div className="flex flex-col gap-2">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên topping (VD: Thêm trứng)" className="input" />
+          <div className="flex gap-2">
+            <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" min="0" placeholder="Giá (VNĐ)" className="input min-w-0 flex-1" />
+            <button onClick={add} disabled={isPending} className="flex-shrink-0 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">+ Thêm</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-  const handleToggle = (t: Topping) => {
-    startTransition(async () => {
-      await updateTopping(t.id, { is_available: !t.is_available })
-      router.refresh()
-    })
+// Checkbox tick chọn topping từ kho cho 1 món (trong modal sửa món)
+function ItemToppingPicker({ item, toppings, router }: { item: MenuItem; toppings: Topping[]; router: ReturnType<typeof useRouter> }) {
+  const [isPending, startTransition] = useTransition()
+  const linked = new Set((item.menu_item_toppings ?? []).map((l) => l.topping_id))
+  const toggle = (toppingId: string) => {
+    const next = new Set(linked); next.has(toppingId) ? next.delete(toppingId) : next.add(toppingId)
+    startTransition(async () => { await setMenuItemToppings(item.id, [...next]); router.refresh() })
   }
-
-  const handleDelete = (t: Topping) => {
-    if (!confirm(`Xoá topping "${t.name}"?`)) return
-    startTransition(async () => {
-      await deleteTopping(t.id)
-      router.refresh()
-    })
-  }
-
   return (
     <div className="mt-2 border-t border-gray-100 pt-3">
-      <p className="mb-2 text-sm font-semibold text-gray-700">Topping (tuỳ chọn)</p>
-      <div className="flex flex-col gap-2">
-        {toppings.map((t) => (
-          <div key={t.id} className="flex items-center gap-2 rounded-lg border border-gray-200 px-2 py-1.5">
-            <button
-              type="button"
-              onClick={() => handleToggle(t)}
-              disabled={isPending}
-              className={`h-5 w-9 flex-shrink-0 rounded-full transition-colors ${t.is_available ? 'bg-green-500' : 'bg-gray-300'}`}
-              title={t.is_available ? 'Đang bán — bấm để tạm hết' : 'Tạm hết — bấm để bán lại'}
-            >
-              <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${t.is_available ? 'translate-x-4' : 'translate-x-0.5'}`} />
-            </button>
-            <span className={`flex-1 text-sm ${t.is_available ? 'text-gray-800' : 'text-gray-400 line-through'}`}>{t.name}</span>
-            <span className="text-sm text-gray-500">{formatVND(t.price)}</span>
-            <button
-              type="button"
-              onClick={() => handleDelete(t)}
-              disabled={isPending}
-              className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
-              title="Xoá topping"
-            >🗑️</button>
-          </div>
+      <p className="mb-2 text-sm font-semibold text-gray-700">Topping của món (tick để gán)</p>
+      {toppings.length === 0 && <p className="text-xs text-gray-400">Kho topping trống — thêm ở khu "🧀 Topping" trước.</p>}
+      <div className="flex flex-col gap-1.5">
+        {toppings.slice().sort((a,b)=>a.sort_order-b.sort_order).map((t) => (
+          <label key={t.id} className="flex cursor-pointer items-center gap-2 text-sm">
+            <input type="checkbox" checked={linked.has(t.id)} disabled={isPending} onChange={() => toggle(t.id)} className="h-4 w-4" />
+            <span className="flex-1 text-gray-800">{t.name}</span>
+            <span className="text-gray-500">{formatVND(t.price)}</span>
+          </label>
         ))}
-        {toppings.length === 0 && <p className="text-xs text-gray-400">Chưa có topping</p>}
-      </div>
-      {/* Tách 2 hàng: ô tên riêng (tránh xung đột width:100% của .input trong flex);
-          hàng dưới ô giá + nút (chỉ 1 .input nên flex-1 giãn đúng) */}
-      <div className="mt-2 flex flex-col gap-2">
-        <input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          placeholder="Tên topping (VD: Thêm trứng)"
-          className="input"
-        />
-        <div className="flex gap-2">
-          <input
-            value={newPrice}
-            onChange={(e) => setNewPrice(e.target.value)}
-            type="number"
-            min="0"
-            placeholder="Giá (VNĐ)"
-            className="input min-w-0 flex-1"
-          />
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={isPending}
-            className="flex-shrink-0 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40"
-          >+ Thêm</button>
-        </div>
       </div>
     </div>
   )
