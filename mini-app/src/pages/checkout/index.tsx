@@ -8,7 +8,7 @@ import { paymentService } from "@/services/payment.service";
 import { Button, Modal, useSnackbar } from "zmp-ui";
 import { orderService } from "@/services/order/order.api";
 import { formatCurrency } from "@/utils/format";
-import { calculateCartTotal, calculateCartItemPrice, formatVariantWithPercentage } from "@/utils/cart";
+import { calculateCartTotal, calculateCartItemPrice } from "@/utils/cart";
 import QuantityStepper from "@/components/common/quantity-stepper";
 import NoteInput from "@/components/common/note-input";
 import { GET_SESSION_ORDERS_KEY } from "@/constants/api";
@@ -363,7 +363,7 @@ export default function CheckoutPage() {
                     </p>
                     {item.selectedVariants.length > 0 && (
                       <p className="text-xxsmall text-text-secondary line-clamp-2">
-                        {formatVariantWithPercentage(item.selectedVariants)}
+                        {item.selectedVariants.map((v) => `+ ${v.optionName}`).join(", ")}
                       </p>
                     )}
                     <p className="text-xxsmall text-text-secondary">
