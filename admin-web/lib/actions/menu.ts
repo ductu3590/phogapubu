@@ -63,49 +63,31 @@ async function assertCategoryInStore(categoryId: string, storeId: string): Promi
   if (data.store_id !== storeId) throw new Error('Danh mục không thuộc quán của bạn')
 }
 
-// Ném lỗi nếu topping không thuộc store của user
+// Ném lỗi nếu topping không thuộc store của user (kho topping dùng chung)
 async function assertToppingInStore(toppingId: string, storeId: string): Promise<void> {
   const admin = createAdminClient()
-  const { data, error } = await admin
-    .from('menu_item_toppings')
-    .select('id, store_id')
-    .eq('id', toppingId)
-    .single()
+  const { data, error } = await admin.from('toppings').select('id, store_id').eq('id', toppingId).single()
   if (error || !data) throw new Error('Không tìm thấy topping')
   if (data.store_id !== storeId) throw new Error('Topping không thuộc quán của bạn')
 }
 
-// Thêm topping cho 1 món — store_id LẤY TỪ món, không nhận từ client
-export async function addTopping(menuItemId: string, name: string, price: number) {
+// Thêm topping vào kho dùng chung của quán
+export async function addPoolTopping(name: string, price: number) {
   const storeId = await getStoreId()
-  await assertMenuItemInStore(menuItemId, storeId)
   const admin = createAdminClient()
-  // sort_order = max + 1 trong cùng món để thứ tự ổn định
-  const { data: maxRow } = await admin
-    .from('menu_item_toppings')
-    .select('sort_order')
-    .eq('menu_item_id', menuItemId)
-    .order('sort_order', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const { data: maxRow } = await admin.from('toppings').select('sort_order')
+    .eq('store_id', storeId).order('sort_order', { ascending: false }).limit(1).maybeSingle()
   const nextSort = (maxRow?.sort_order ?? -1) + 1
-  const { error } = await admin.from('menu_item_toppings').insert({
-    menu_item_id: menuItemId,
-    store_id: storeId,
-    name: name.trim(),
-    price: Math.max(0, Math.round(price)),
-    is_available: true,
-    sort_order: nextSort,
+  const { error } = await admin.from('toppings').insert({
+    store_id: storeId, name: name.trim(), price: Math.max(0, Math.round(price)),
+    is_available: true, sort_order: nextSort,
   })
-  if (error) throw new Error(`addTopping: ${error.message}`)
+  if (error) throw new Error(`addPoolTopping: ${error.message}`)
   revalidatePath('/admin/menu')
 }
 
-// Sửa topping (tên/giá/tạm hết)
-export async function updateTopping(
-  toppingId: string,
-  patch: { name?: string; price?: number; is_available?: boolean },
-) {
+// Sửa topping trong kho (tên/giá/tạm hết)
+export async function updatePoolTopping(toppingId: string, patch: { name?: string; price?: number; is_available?: boolean }) {
   const storeId = await getStoreId()
   await assertToppingInStore(toppingId, storeId)
   const admin = createAdminClient()
@@ -113,18 +95,39 @@ export async function updateTopping(
   if (patch.name !== undefined) update.name = patch.name.trim()
   if (patch.price !== undefined) update.price = Math.max(0, Math.round(patch.price))
   if (patch.is_available !== undefined) update.is_available = patch.is_available
-  const { error } = await admin.from('menu_item_toppings').update(update).eq('id', toppingId)
-  if (error) throw new Error(`updateTopping: ${error.message}`)
+  const { error } = await admin.from('toppings').update(update).eq('id', toppingId)
+  if (error) throw new Error(`updatePoolTopping: ${error.message}`)
   revalidatePath('/admin/menu')
 }
 
-// Xoá topping
-export async function deleteTopping(toppingId: string) {
+// Xoá topping khỏi kho — gỡ luôn khỏi mọi món (junction xoá theo FK/cascade)
+export async function deletePoolTopping(toppingId: string) {
   const storeId = await getStoreId()
   await assertToppingInStore(toppingId, storeId)
   const admin = createAdminClient()
-  const { error } = await admin.from('menu_item_toppings').delete().eq('id', toppingId)
-  if (error) throw new Error(`deleteTopping: ${error.message}`)
+  const { error } = await admin.from('toppings').delete().eq('id', toppingId)
+  if (error) throw new Error(`deletePoolTopping: ${error.message}`)
+  revalidatePath('/admin/menu')
+}
+
+// Gán/bỏ topping cho 1 món — thay toàn bộ danh sách link bằng toppingIds mới
+export async function setMenuItemToppings(menuItemId: string, toppingIds: string[]) {
+  const storeId = await getStoreId()
+  await assertMenuItemInStore(menuItemId, storeId)
+  const admin = createAdminClient()
+  const ids = [...new Set(toppingIds)]
+  if (ids.length > 0) {
+    const { data, error } = await admin.from('toppings').select('id').eq('store_id', storeId).in('id', ids)
+    if (error) throw new Error(`setMenuItemToppings(check): ${error.message}`)
+    if ((data?.length ?? 0) !== ids.length) throw new Error('Có topping không thuộc quán')
+  }
+  const { error: delErr } = await admin.from('menu_item_toppings').delete().eq('menu_item_id', menuItemId)
+  if (delErr) throw new Error(`setMenuItemToppings(del): ${delErr.message}`)
+  if (ids.length > 0) {
+    const rows = ids.map((tid) => ({ menu_item_id: menuItemId, topping_id: tid, store_id: storeId }))
+    const { error: insErr } = await admin.from('menu_item_toppings').insert(rows)
+    if (insErr) throw new Error(`setMenuItemToppings(ins): ${insErr.message}`)
+  }
   revalidatePath('/admin/menu')
 }
 
