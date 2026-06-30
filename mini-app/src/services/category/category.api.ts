@@ -1,6 +1,17 @@
 import { supabase } from "../supabase";
 import { Category, CategoryWithProducts } from "@/types/category.types";
-import { Product } from "@/types/product.types";
+import { Product, Topping } from "@/types/product.types";
+
+function mapToppings(rows: Record<string, unknown>[] | null | undefined): Topping[] {
+  return (rows ?? [])
+    .filter((r) => r.is_available === true)
+    .sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
+    .map((r) => ({
+      id: r.id as string,
+      name: r.name as string,
+      price: r.price as number,
+    }));
+}
 
 function mapProduct(row: Record<string, unknown>): Product {
   return {
@@ -12,6 +23,7 @@ function mapProduct(row: Record<string, unknown>): Product {
     isAvailable: row.is_available as boolean,
     categoryId: row.category_id as string,
     sortOrder: row.sort_order as number,
+    toppings: mapToppings(row.menu_item_toppings as Record<string, unknown>[] | undefined),
   };
 }
 
@@ -20,7 +32,9 @@ export const categoryService = {
   getMenuByStore: async (storeId: string): Promise<CategoryWithProducts[]> => {
     const { data, error } = await supabase
       .from("menu_categories")
-      .select("*, menu_items(*)")
+      .select(
+        "*, menu_items(*, menu_item_toppings(id, name, price, is_available, sort_order))",
+      )
       .eq("store_id", storeId)
       .eq("is_active", true)
       .order("sort_order");

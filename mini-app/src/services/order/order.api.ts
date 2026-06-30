@@ -72,6 +72,12 @@ export const orderService = {
         quantity: item.quantity as number,
         price: item.item_price as number,
         note: item.note as string | null,
+        selectedToppings:
+          (item.selected_toppings as {
+            id: string;
+            name: string;
+            price: number;
+          }[]) ?? [],
       })),
     };
   },
