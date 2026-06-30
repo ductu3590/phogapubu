@@ -39,6 +39,83 @@ async function getStoreId(): Promise<string> {
   return data.id as string
 }
 
+// Ném lỗi nếu món không thuộc store của user → chống service-role sửa chéo store
+async function assertMenuItemInStore(menuItemId: string, storeId: string): Promise<void> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('menu_items')
+    .select('id, store_id')
+    .eq('id', menuItemId)
+    .single()
+  if (error || !data) throw new Error('Không tìm thấy món')
+  if (data.store_id !== storeId) throw new Error('Món không thuộc quán của bạn')
+}
+
+// Ném lỗi nếu topping không thuộc store của user
+async function assertToppingInStore(toppingId: string, storeId: string): Promise<void> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('menu_item_toppings')
+    .select('id, store_id')
+    .eq('id', toppingId)
+    .single()
+  if (error || !data) throw new Error('Không tìm thấy topping')
+  if (data.store_id !== storeId) throw new Error('Topping không thuộc quán của bạn')
+}
+
+// Thêm topping cho 1 món — store_id LẤY TỪ món, không nhận từ client
+export async function addTopping(menuItemId: string, name: string, price: number) {
+  const storeId = await getStoreId()
+  await assertMenuItemInStore(menuItemId, storeId)
+  const admin = createAdminClient()
+  // sort_order = max + 1 trong cùng món để thứ tự ổn định
+  const { data: maxRow } = await admin
+    .from('menu_item_toppings')
+    .select('sort_order')
+    .eq('menu_item_id', menuItemId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const nextSort = (maxRow?.sort_order ?? -1) + 1
+  const { error } = await admin.from('menu_item_toppings').insert({
+    menu_item_id: menuItemId,
+    store_id: storeId,
+    name: name.trim(),
+    price: Math.max(0, Math.round(price)),
+    is_available: true,
+    sort_order: nextSort,
+  })
+  if (error) throw new Error(`addTopping: ${error.message}`)
+  revalidatePath('/admin/menu')
+}
+
+// Sửa topping (tên/giá/tạm hết)
+export async function updateTopping(
+  toppingId: string,
+  patch: { name?: string; price?: number; is_available?: boolean },
+) {
+  const storeId = await getStoreId()
+  await assertToppingInStore(toppingId, storeId)
+  const admin = createAdminClient()
+  const update: Record<string, unknown> = {}
+  if (patch.name !== undefined) update.name = patch.name.trim()
+  if (patch.price !== undefined) update.price = Math.max(0, Math.round(patch.price))
+  if (patch.is_available !== undefined) update.is_available = patch.is_available
+  const { error } = await admin.from('menu_item_toppings').update(update).eq('id', toppingId)
+  if (error) throw new Error(`updateTopping: ${error.message}`)
+  revalidatePath('/admin/menu')
+}
+
+// Xoá topping
+export async function deleteTopping(toppingId: string) {
+  const storeId = await getStoreId()
+  await assertToppingInStore(toppingId, storeId)
+  const admin = createAdminClient()
+  const { error } = await admin.from('menu_item_toppings').delete().eq('id', toppingId)
+  if (error) throw new Error(`deleteTopping: ${error.message}`)
+  revalidatePath('/admin/menu')
+}
+
 // Toggle bật/tắt món (1 click)
 export async function toggleMenuItem(itemId: string, isAvailable: boolean) {
   const storeId = await getStoreId()
@@ -56,7 +133,7 @@ export async function addMenuItem(formData: FormData) {
   const storeId = await getStoreId()
   const admin = createAdminClient()
   const imageUrl = await uploadMenuImage(admin, storeId, formData.get('image') as File | null)
-  const { error } = await admin.from('menu_items').insert({
+  const { data, error } = await admin.from('menu_items').insert({
     store_id: storeId,
     category_id: formData.get('category_id') as string,
     name: formData.get('name') as string,
@@ -65,9 +142,10 @@ export async function addMenuItem(formData: FormData) {
     image_url: imageUrl,
     is_available: true,
     sort_order: 0,
-  })
+  }).select('id').single()
   if (error) throw new Error(`addMenuItem: ${error.message}`)
   revalidatePath('/admin/menu')
+  return data.id as string
 }
 
 // Sửa món — chỉ đổi ảnh khi có file mới gửi lên
