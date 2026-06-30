@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useSnackbar } from "zmp-ui";
 import { useOrderWithItems } from "@/services/order/order.queries";
+import { useConfirmReceived } from "@/services/order/order.mutations";
 import { supabase } from "@/services/supabase";
 import { Order, OrderState } from "@/types/order.types";
 import { formatCurrency } from "@/utils/format";
@@ -92,7 +94,10 @@ function TakeawayInfoCard({ order }: { order: Order }) {
 export default function OrderStatusPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
+  const { zaloUserId } = useAppStore();
+  const { openSnackbar } = useSnackbar();
   const { data: initialOrder, isLoading } = useOrderWithItems(orderId ?? "");
+  const { mutate: confirmReceived, isPending: isConfirming } = useConfirmReceived();
   const [order, setOrder] = useState<Order | null>(null);
 
   // Sync initial data
@@ -124,6 +129,8 @@ export default function OrderStatusPage() {
                   updatedAt: updated.updated_at as string,
                   zalopayTransId:
                     (updated.zalopay_trans_id as string | null) ?? null,
+                  readyAt: (updated.ready_at as string | null) ?? null,
+                  completedAt: (updated.completed_at as string | null) ?? null,
                 }
               : prev,
           );
@@ -136,16 +143,16 @@ export default function OrderStatusPage() {
     };
   }, [orderId]);
 
-  // Xoá localStorage khi đơn takeaway hoàn tất
+  // Xoá localStorage khi đơn takeaway hoàn tất (đã thanh toán / huỷ / đã nhận)
   useEffect(() => {
     if (!orderId) return;
-    if (order?.status === "paid" || order?.status === "cancelled") {
+    if (order?.status === "paid" || order?.status === "cancelled" || order?.completedAt) {
       const stored = localStorage.getItem("mevo_last_takeaway_order");
       if (stored === orderId) {
         localStorage.removeItem("mevo_last_takeaway_order");
       }
     }
-  }, [orderId, order?.status]);
+  }, [orderId, order?.status, order?.completedAt]);
 
   if (isLoading || !order) {
     return (
@@ -156,8 +163,34 @@ export default function OrderStatusPage() {
     );
   }
 
-  const config = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
+  const isCompleted = !!order.completedAt;
+  const isTakeaway = order.orderType !== "dine_in";
+  // Đơn mang về đã xong nhưng khách chưa xác nhận nhận hàng
+  const canConfirmReceive = isTakeaway && order.status === "ready" && !isCompleted;
+
+  const COMPLETED_CONFIG = {
+    label: "Đã hoàn thành",
+    sublabel: "Cảm ơn bạn! Hẹn gặp lại.",
+    emoji: "💚",
+    color: "text-green-600",
+  };
+  const config = isCompleted
+    ? COMPLETED_CONFIG
+    : STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
   const currentStepIdx = STATUS_STEPS.indexOf(order.status);
+
+  const handleReceive = () => {
+    if (!orderId) return;
+    confirmReceived(
+      { orderId, zaloUserId },
+      {
+        onSuccess: () =>
+          openSnackbar({ text: "Đã xác nhận nhận hàng. Cảm ơn bạn!", type: "success" }),
+        onError: () =>
+          openSnackbar({ text: "Không xác nhận được, thử lại sau.", type: "error" }),
+      },
+    );
+  };
 
   return (
     <div className="flex h-full flex-col bg-[#F7F8FA]">
@@ -175,7 +208,7 @@ export default function OrderStatusPage() {
         </div>
 
         {/* Progress steps */}
-        {order.status !== "cancelled" && order.status !== "paid" && (
+        {order.status !== "cancelled" && order.status !== "paid" && !isCompleted && (
           <div className="mx-4 mt-4 rounded-xl bg-white p-4">
             <p className="mb-4 text-small-m font-semibold text-text-secondary">
               Tiến trình đơn hàng
@@ -283,6 +316,23 @@ export default function OrderStatusPage() {
             >
               Gọi thêm món
             </Button>
+          </div>
+        )}
+
+        {/* Nút "Đã nhận" — đơn mang về đã xong, chưa xác nhận */}
+        {canConfirmReceive && (
+          <div className="mx-4 mt-4">
+            <Button
+              onClick={handleReceive}
+              loading={isConfirming}
+              className="w-full rounded-xl bg-[#1D9E75] py-3 font-semibold text-white active:opacity-80"
+              fullWidth
+            >
+              Đã nhận
+            </Button>
+            <p className="mt-2 text-center text-xxsmall text-text-secondary">
+              Tự hoàn thành sau 30 phút nếu không bấm
+            </p>
           </div>
         )}
 

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore } from "@/stores/app.store";
 import { useStoreMenu } from "@/services/category/category.queries";
@@ -21,24 +20,6 @@ function TakeawayBanner({ storeName }: { storeName: string }) {
   );
 }
 
-function PendingTakeawayBanner() {
-  const navigate = useNavigate();
-  const orderId = localStorage.getItem("mevo_last_takeaway_order");
-  if (!orderId) return null;
-  return (
-    <button
-      onClick={() => navigate(`/order-status/${orderId}`)}
-      className="flex w-full items-center gap-2 border-b border-yellow-200 bg-yellow-50 px-4 py-2 text-left"
-    >
-      <span className="text-sm">📦</span>
-      <span className="flex-1 text-xs text-yellow-800">
-        Bạn có đơn đang xử lý — Xem trạng thái
-      </span>
-      <span className="text-xs text-yellow-600">→</span>
-    </button>
-  );
-}
-
 function TakeawayBannerCard({ url }: { url: string }) {
   return (
     <div className="mx-3.5 mt-2 overflow-hidden rounded-xl">
@@ -46,7 +27,7 @@ function TakeawayBannerCard({ url }: { url: string }) {
         src={url}
         alt="Banner quán"
         className="w-full object-cover"
-        style={{ aspectRatio: "2/1" }}
+        style={{ aspectRatio: "4/1" }}
         draggable={false}
       />
     </div>
@@ -122,7 +103,6 @@ export default function MenuPage() {
   return (
     <div className="flex h-full flex-col bg-[#F7F8FA]">
       {orderMode === "takeaway" && <TakeawayBanner storeName={storeName} />}
-      {orderMode === "takeaway" && <PendingTakeawayBanner />}
       {/* Header quán + bàn — chừa safe-area trên (Dynamic Island/notch iPhone) */}
       <div
         className="flex-shrink-0 bg-white px-4 pb-3 shadow-sm"
@@ -148,7 +128,7 @@ export default function MenuPage() {
         </div>
       </div>
 
-      {/* Banner 2:1 trong takeaway mode */}
+      {/* Banner 4:1 trong takeaway mode */}
       {orderMode === "takeaway" && takeawayBannerUrl && (
         <TakeawayBannerCard url={takeawayBannerUrl} />
       )}

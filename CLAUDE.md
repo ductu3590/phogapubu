@@ -360,3 +360,5 @@ Anh cần hoàn thành các bước này để có credentials:
 | 2026-06-26 | **Hướng tới ZaloPay-only** — tiền mặt là option bật/tắt per-store, không phải default | Bắt buộc thanh toán trước khi bếp làm → tránh QR abuse (gọi từ xa, không ai ăn); đơn chỉ vào bếp sau khi có tiền |
 | 2026-06-26 | **"Món đã gọi" scope: `zalo_user_id + table_id + 6h`** — không phải `table_id` đơn thuần | Khách mới ngồi vào bàn cũ → Zalo ID khác → clean slate. Bàn bên quét nhầm → không thấy đơn bàn khác |
 | 2026-06-26 | **Follow OA trước khi gửi ZNS** — prompt bottom sheet lần đầu mở app | ZNS chỉ gửi được cho user đã follow OA; không follow = không nhận thông báo món xong |
+| 2026-06-28 | **Quán mới mặc định TẮT tiền mặt** (`payment_methods` default `{zalopay}`) | Cashless-first; bắt trả trước qua ZaloPay chống chơi xấu (chụp QR bàn → ngồi nhà đặt rồi chọn tiền mặt). Quán cũ không đổi tự động, tự bật trong admin nếu cần |
+| 2026-06-28 | **Doanh thu = tiền THẬT đã nhận** (ZaloPay `trans_id` + cash `paid`), không chỉ `status='paid'` | Đơn ZaloPay trả trước dừng ở confirmed/ready, không bao giờ thành `paid` → trước đây doanh thu ZaloPay bị tính = 0 |

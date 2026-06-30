@@ -134,6 +134,28 @@ export interface Database {
         }
         Returns: Json
       }
+      confirm_order_received: {
+        Args: { p_order_id: string; p_zalo_user_id: string }
+        Returns: undefined
+      }
+      get_takeaway_orders: {
+        Args: { p_zalo_user_id: string; p_store_id: string }
+        Returns: {
+          id: string
+          store_id: string
+          status: string
+          total_amount: number
+          payment_method: string
+          note: string | null
+          order_type: string
+          customer_name: string | null
+          delivery_address: string | null
+          ready_at: string | null
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }[]
+      }
     }
   }
 }

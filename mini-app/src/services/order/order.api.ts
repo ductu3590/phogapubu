@@ -1,5 +1,5 @@
 import { supabase } from "../supabase";
-import { CreateOrderRequest, Order, OrderState, SessionOrder, ServiceRequest } from "@/types/order.types";
+import { CreateOrderRequest, Order, OrderState, OrderType, SessionOrder, TakeawayOrder, ServiceRequest } from "@/types/order.types";
 
 export const orderService = {
   createOrder: async (req: CreateOrderRequest): Promise<Order> => {
@@ -45,6 +45,15 @@ export const orderService = {
     if (error) throw error;
   },
 
+  confirmReceived: async (orderId: string, zaloUserId: string): Promise<void> => {
+    // Khách bấm "Đã nhận" — guard bằng zalo_user_id trong RPC
+    const { error } = await supabase.rpc("confirm_order_received", {
+      p_order_id: orderId,
+      p_zalo_user_id: zaloUserId,
+    });
+    if (error) throw error;
+  },
+
   getOrderWithItems: async (orderId: string): Promise<Order> => {
     const { data, error } = await supabase
       .from("orders")
@@ -86,6 +95,8 @@ function mapOrder(row: Record<string, unknown>): Order {
     customerPhone: (row.customer_phone as string | null) ?? null,
     pickupTime: (row.pickup_time as string | null) ?? null,
     deliveryAddress: (row.delivery_address as string | null) ?? null,
+    readyAt: (row.ready_at as string | null) ?? null,
+    completedAt: (row.completed_at as string | null) ?? null,
   };
 }
 
@@ -107,6 +118,32 @@ export const sessionOrderService = {
       totalAmount: row.total_amount as number,
       paymentMethod: row.payment_method as "zalopay" | "cash",
       note: (row.note as string | null) ?? null,
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
+    }));
+  },
+
+  getTakeawayOrders: async (
+    zaloUserId: string,
+    storeId: string,
+  ): Promise<TakeawayOrder[]> => {
+    const { data, error } = await supabase.rpc("get_takeaway_orders", {
+      p_zalo_user_id: zaloUserId,
+      p_store_id: storeId,
+    });
+    if (error) throw error;
+    return (data as Record<string, unknown>[]).map((row) => ({
+      id: row.id as string,
+      storeId: row.store_id as string,
+      status: row.status as OrderState,
+      totalAmount: row.total_amount as number,
+      paymentMethod: row.payment_method as "zalopay" | "cash",
+      note: (row.note as string | null) ?? null,
+      orderType: row.order_type as OrderType,
+      customerName: (row.customer_name as string | null) ?? null,
+      deliveryAddress: (row.delivery_address as string | null) ?? null,
+      readyAt: (row.ready_at as string | null) ?? null,
+      completedAt: (row.completed_at as string | null) ?? null,
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,
     }));

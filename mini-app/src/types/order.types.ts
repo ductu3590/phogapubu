@@ -35,6 +35,9 @@ export interface Order {
   customerPhone: string | null;
   pickupTime: string | null;
   deliveryAddress: string | null;
+  // Đơn mang về: mốc bếp báo xong + mốc khách đã nhận / tự hoàn thành
+  readyAt: string | null;
+  completedAt: string | null;
   items?: OrderItem[];
 }
 
@@ -65,6 +68,23 @@ export interface SessionOrder {
   totalAmount: number;
   paymentMethod: "zalopay" | "cash";
   note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Đơn mang về hiển thị ở tab "Đơn hàng" (chế độ takeaway) — lịch sử 30 ngày
+export interface TakeawayOrder {
+  id: string;
+  storeId: string;
+  status: OrderState;
+  totalAmount: number;
+  paymentMethod: "zalopay" | "cash";
+  note: string | null;
+  orderType: OrderType;
+  customerName: string | null;
+  deliveryAddress: string | null;
+  readyAt: string | null;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
