@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { GripVertical } from 'lucide-react'
 import {
@@ -475,6 +475,9 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 function ToppingPool({ toppings, router }: { toppings: Topping[]; router: ReturnType<typeof useRouter> }) {
   const [isPending, startTransition] = useTransition()
   const [name, setName] = useState(''); const [price, setPrice] = useState('')
+  // State sửa inline 1 topping (tên + giá)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editName, setEditName] = useState(''); const [editPrice, setEditPrice] = useState('')
   const add = () => {
     const n = name.trim(); const p = parseInt(price, 10)
     if (!n || Number.isNaN(p) || p < 0) { alert('Nhập tên và giá topping hợp lệ'); return }
@@ -483,21 +486,46 @@ function ToppingPool({ toppings, router }: { toppings: Topping[]; router: Return
   const toggle = (t: Topping) => startTransition(async () => { await updatePoolTopping(t.id, { is_available: !t.is_available }); router.refresh() })
   const del = (t: Topping) => { if (!confirm(`Xoá topping "${t.name}"? Sẽ gỡ khỏi mọi món.`)) return
     startTransition(async () => { await deletePoolTopping(t.id); router.refresh() }) }
+  const startEdit = (t: Topping) => { setEditId(t.id); setEditName(t.name); setEditPrice(String(t.price)) }
+  const saveEdit = (t: Topping) => {
+    const n = editName.trim(); const p = parseInt(editPrice, 10)
+    if (!n || Number.isNaN(p) || p < 0) { alert('Nhập tên và giá hợp lệ'); return }
+    startTransition(async () => { await updatePoolTopping(t.id, { name: n, price: p }); setEditId(null); router.refresh() })
+  }
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="border-b border-gray-100 px-5 py-3"><p className="font-semibold text-gray-700">🧀 Kho topping</p></div>
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-2">
           {toppings.slice().sort((a,b)=>a.sort_order-b.sort_order).map((t) => (
-            <div key={t.id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
-              <button onClick={() => toggle(t)} disabled={isPending}
-                className={`h-6 w-11 flex-shrink-0 rounded-full ${t.is_available ? 'bg-green-500' : 'bg-gray-300'}`}
-                title={t.is_available ? 'Đang bán — bấm để tạm hết' : 'Tạm hết — bấm để bán lại'}>
-                <span className={`block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${t.is_available ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-              </button>
-              <span className={`min-w-0 flex-1 truncate font-medium ${t.is_available ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{t.name}</span>
-              <span className="flex-shrink-0 font-semibold text-gray-700">{formatVND(t.price)}</span>
-              <button onClick={() => del(t)} disabled={isPending} className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40" title="Xoá">🗑️</button>
+            <div key={t.id} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3">
+              {editId === t.id ? (
+                <>
+                  {/* class riêng, KHÔNG dùng .input (tránh width:100% bóp ô trong flex) */}
+                  <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Tên"
+                    className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-900" />
+                  <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} type="number" min="0" placeholder="Giá"
+                    className="w-24 flex-shrink-0 rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-900" />
+                  <button onClick={() => saveEdit(t)} disabled={isPending}
+                    className="flex-shrink-0 rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">Lưu</button>
+                  <button onClick={() => setEditId(null)} disabled={isPending}
+                    className="flex-shrink-0 rounded-lg border px-3 py-1.5 text-sm text-gray-600">Huỷ</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => toggle(t)} disabled={isPending}
+                    className={`h-6 w-11 flex-shrink-0 rounded-full ${t.is_available ? 'bg-green-500' : 'bg-gray-300'}`}
+                    title={t.is_available ? 'Đang bán — bấm để tạm hết' : 'Tạm hết — bấm để bán lại'}>
+                    <span className={`block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${t.is_available ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                  </button>
+                  <span className={`min-w-0 flex-1 truncate font-medium ${t.is_available ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{t.name}</span>
+                  <span className="flex-shrink-0 font-semibold text-gray-700">{formatVND(t.price)}</span>
+                  <button onClick={() => startEdit(t)} disabled={isPending}
+                    className="flex-shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40" title="Sửa tên/giá">✎</button>
+                  <button onClick={() => del(t)} disabled={isPending}
+                    className="flex-shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40" title="Xoá">🗑️</button>
+                </>
+              )}
             </div>
           ))}
           {toppings.length === 0 && <p className="px-1 py-6 text-center text-sm text-gray-400">Chưa có topping nào trong kho</p>}
@@ -519,9 +547,19 @@ function ToppingPool({ toppings, router }: { toppings: Topping[]; router: Return
 // Checkbox tick chọn topping từ kho cho 1 món (trong modal sửa món)
 function ItemToppingPicker({ item, toppings, router }: { item: MenuItem; toppings: Topping[]; router: ReturnType<typeof useRouter> }) {
   const [isPending, startTransition] = useTransition()
-  const linked = new Set((item.menu_item_toppings ?? []).map((l) => l.topping_id))
+  // State local để tick hiện NGAY (optimistic); resync khi link đổi (sau refresh / đổi món)
+  const linkedSig = (item.menu_item_toppings ?? []).map((l) => l.topping_id).sort().join(',')
+  const [linked, setLinked] = useState<Set<string>>(
+    () => new Set((item.menu_item_toppings ?? []).map((l) => l.topping_id)),
+  )
+  useEffect(() => {
+    setLinked(new Set((item.menu_item_toppings ?? []).map((l) => l.topping_id)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedSig])
   const toggle = (toppingId: string) => {
-    const next = new Set(linked); next.has(toppingId) ? next.delete(toppingId) : next.add(toppingId)
+    const next = new Set(linked)
+    if (next.has(toppingId)) next.delete(toppingId); else next.add(toppingId)
+    setLinked(next) // hiện tick ngay, không chờ server
     startTransition(async () => { await setMenuItemToppings(item.id, [...next]); router.refresh() })
   }
   return (
