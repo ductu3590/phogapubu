@@ -8,7 +8,7 @@ import { paymentService } from "@/services/payment.service";
 import { Button, Modal, useSnackbar } from "zmp-ui";
 import { orderService } from "@/services/order/order.api";
 import { formatCurrency } from "@/utils/format";
-import { calculateCartTotal } from "@/utils/cart";
+import { calculateCartTotal, calculateCartItemPrice, formatVariantWithPercentage } from "@/utils/cart";
 import QuantityStepper from "@/components/common/quantity-stepper";
 import NoteInput from "@/components/common/note-input";
 import { GET_SESSION_ORDERS_KEY } from "@/constants/api";
@@ -137,6 +137,9 @@ export default function CheckoutPage() {
           price: item.basePrice,
           quantity: item.quantity,
           note: item.note,
+          toppingIds: item.selectedVariants
+            .filter((v) => v.groupId === "topping")
+            .map((v) => v.optionId),
         })),
         note: note.trim() || undefined,
         paymentMethod: isTakeaway ? "zalopay" : paymentMethod,
@@ -358,8 +361,13 @@ export default function CheckoutPage() {
                     <p className="text-small-m font-medium text-text-primary line-clamp-2">
                       {item.productName}
                     </p>
+                    {item.selectedVariants.length > 0 && (
+                      <p className="text-xxsmall text-text-secondary line-clamp-2">
+                        {formatVariantWithPercentage(item.selectedVariants)}
+                      </p>
+                    )}
                     <p className="text-xxsmall text-text-secondary">
-                      {formatCurrency(item.basePrice)}đ
+                      {formatCurrency(calculateCartItemPrice(item))}đ
                     </p>
                   </div>
                   <QuantityStepper
