@@ -1,8 +1,87 @@
 # Topping cho món ăn — Thiết kế
 
 > Ngày: 2026-06-30
-> Trạng thái: Đã duyệt hướng, chờ viết plan
+> Trạng thái: **REVISION v2 đã duyệt** — chuyển từ topping per-món sang **topping dùng chung + gán vào món**. Phần dưới (mục 1–10) là v1 (đã code, đã merge main); **mục 11 là v2 ghi đè** phần admin + cách load mini-app.
 > Phạm vi: thêm topping (add-on) cho món, quản lý trong admin web, chọn khi đặt trong mini-app, hiển thị ở bếp + màn theo dõi đơn.
+
+---
+
+## 11. REVISION v2 (2026-06-30) — Topping dùng chung (shared pool + gán vào món)
+
+**Lý do đổi:** UX thêm topping riêng cho từng món (v1) không tiện khi nhiều món chung topping. Chuyển sang: quản 1 **kho topping dùng chung**, rồi mỗi món **tick chọn** topping phù hợp (quan hệ nhiều-nhiều).
+
+### 11.1 Data model (migration `016_toppings_shared.sql`)
+- Bảng mới `toppings` (kho dùng chung, KHÔNG ảnh, KHÔNG hiện ra menu khách):
+  ```sql
+  toppings (
+    id uuid PK default gen_random_uuid(),
+    store_id uuid NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    price int NOT NULL DEFAULT 0 CHECK (price >= 0),
+    is_available boolean NOT NULL DEFAULT true,
+    sort_order int NOT NULL DEFAULT 0,
+    created_at timestamptz NOT NULL DEFAULT now()
+  );
+  ALTER TABLE toppings ADD CONSTRAINT toppings_id_store_uniq UNIQUE (id, store_id); -- đích composite FK
+  ```
+- **Restructure** `menu_item_toppings` (v1 per-item) → **bảng nối** nhiều-nhiều. Bảng cũ chỉ có data test → **DROP & tạo lại**:
+  ```sql
+  DROP TABLE IF EXISTS menu_item_toppings;
+  CREATE TABLE menu_item_toppings (
+    menu_item_id uuid NOT NULL,
+    topping_id   uuid NOT NULL,
+    store_id     uuid NOT NULL,
+    PRIMARY KEY (menu_item_id, topping_id),
+    CONSTRAINT mit_item_fkey    FOREIGN KEY (menu_item_id, store_id) REFERENCES menu_items(id, store_id) ON DELETE CASCADE,
+    CONSTRAINT mit_topping_fkey FOREIGN KEY (topping_id, store_id)   REFERENCES toppings(id, store_id)   ON DELETE CASCADE
+  );
+  CREATE INDEX idx_mit_topping ON menu_item_toppings (topping_id);
+  ```
+  → 2 composite FK ép `store_id` món = `store_id` topping = bảng nối (chống lệch store ở tầng DB).
+- `order_items.selected_toppings` snapshot **giữ nguyên** `[{id,name,price}]` (id giờ = `toppings.id`).
+- RLS `toppings`: anon SELECT `true`, authenticated SELECT `is_operator()` (mirror `menu_item_toppings` v1). RLS bảng nối: anon + authenticated SELECT (mini-app + admin đọc). Ghi: service-role. Không policy kitchen.
+
+### 11.2 RPC `create_order` v3
+Trong vòng lặp món, khi có `topping_ids`: JOIN `toppings` với bảng nối, validate topping **(a)** thuộc store, **(b)** `is_available`, **(c) có liên kết đúng món**:
+```sql
+SELECT COALESCE(jsonb_agg(jsonb_build_object('id',t.id,'name',t.name,'price',t.price) ORDER BY t.sort_order, t.created_at), '[]'),
+       COALESCE(SUM(t.price),0), COUNT(*)
+INTO v_item_toppings, v_topping_total, v_topping_count
+FROM toppings t
+JOIN menu_item_toppings mit ON mit.topping_id = t.id AND mit.menu_item_id = v_menu.id
+WHERE t.id = ANY(v_topping_ids) AND t.store_id = p_store_id AND t.is_available = true;
+
+IF v_topping_count <> array_length(v_topping_ids,1) THEN
+  RAISE EXCEPTION 'Topping không hợp lệ / chưa gán cho món / ngừng bán: %', v_menu.name;
+END IF;
+```
+Phần còn lại (snapshot, total = (menu.price + topping_total)×qty) y v2. Signature 10-param không đổi, `CREATE OR REPLACE`.
+
+### 11.3 Admin — kho topping trong trang menu
+- **Cột trái** (`menu-client.tsx`): dưới danh sách danh mục, thêm nút đặc biệt **"🧀 Topping"**. Dùng sentinel `selectedCatId === '__toppings__'`.
+- Khi chọn khu Topping → cột phải hiện **danh sách kho** (mỗi dòng: tên, giá, toggle tạm hết, sửa, xoá) + form "Thêm topping" (chỉ **tên + giá**, không ảnh).
+- **Modal sửa món**: bỏ `ToppingEditor` inline (v1); thay bằng section **"Topping của món"** = danh sách **checkbox toàn bộ kho topping**, tick = topping áp cho món. Mỗi lần tick/bỏ → gọi `setMenuItemToppings(menuItemId, toppingIds[])` (replace-all link của món) + `router.refresh()`.
+- Badge "N topping" trên dòng món = số topping đã gán (đếm từ bảng nối).
+
+### 11.4 Server actions (`lib/actions/menu.ts`) — thay v1
+- **BỎ** `addTopping/updateTopping/deleteTopping` (per-item v1).
+- **THÊM** (đều `getStoreId()` + assert ownership, ghi service-role):
+  - `addPoolTopping(name, price)` → insert `toppings` (store_id từ user, sort_order = max+1).
+  - `updatePoolTopping(toppingId, {name?,price?,is_available?})` → assert topping thuộc store.
+  - `deletePoolTopping(toppingId)` → assert; xoá (CASCADE tự gỡ link).
+  - `setMenuItemToppings(menuItemId, toppingIds[])` → assert món thuộc store + assert MỌI topping thuộc store; xoá hết link cũ của món rồi insert link mới (store_id từ món). Transaction-ish: delete + insert.
+- Giữ `assertMenuItemInStore`; thêm `assertToppingInStore` (dùng bảng `toppings` thay vì bảng cũ).
+
+### 11.5 Mini-app — đổi cách load (phần còn lại GIỮ NGUYÊN)
+- `category.api.ts` select: `menu_items(*, menu_item_toppings(toppings(id,name,price,is_available,sort_order)))`.
+- `mapToppings`: duyệt mảng `menu_item_toppings`, lấy object `toppings` lồng, lọc `is_available`, sort `sort_order` → map `{id,name,price}` vào `Product.toppings`.
+- `database.types.ts` (mini-app + admin nếu cần): thêm bảng `toppings`; `menu_item_toppings` đổi Row sang `{menu_item_id, topping_id, store_id}`.
+- **Bottom sheet, cart, checkout, order-status, kitchen, RPC payload `topping_ids`, helper giá — KHÔNG đổi** (đã tiêu thụ `Product.toppings` / snapshot).
+
+### 11.6 Phạm vi v2
+- Thay: migration 016, RPC v3, admin (pool area + món checkbox + actions), mini-app load.
+- Giữ nguyên: toàn bộ mini-app ordering UI + snapshot + hiển thị bếp/đơn.
+- YAGNI: vẫn không nhóm/không số lượng/không thống kê; kho topping không phân loại, 1 danh sách phẳng.
 
 ## 1. Mục tiêu
 
