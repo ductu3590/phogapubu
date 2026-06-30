@@ -2,15 +2,12 @@ import { supabase } from "../supabase";
 import { Category, CategoryWithProducts } from "@/types/category.types";
 import { Product, Topping } from "@/types/product.types";
 
-function mapToppings(rows: Record<string, unknown>[] | null | undefined): Topping[] {
-  return (rows ?? [])
-    .filter((r) => r.is_available === true)
+function mapToppings(links: Record<string, unknown>[] | null | undefined): Topping[] {
+  return (links ?? [])
+    .map((l) => l.toppings as Record<string, unknown> | null)
+    .filter((t): t is Record<string, unknown> => !!t && t.is_available === true)
     .sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
-    .map((r) => ({
-      id: r.id as string,
-      name: r.name as string,
-      price: r.price as number,
-    }));
+    .map((t) => ({ id: t.id as string, name: t.name as string, price: t.price as number }));
 }
 
 function mapProduct(row: Record<string, unknown>): Product {
@@ -33,7 +30,7 @@ export const categoryService = {
     const { data, error } = await supabase
       .from("menu_categories")
       .select(
-        "*, menu_items(*, menu_item_toppings(id, name, price, is_available, sort_order))",
+        "*, menu_items(*, menu_item_toppings(toppings(id, name, price, is_available, sort_order)))",
       )
       .eq("store_id", storeId)
       .eq("is_active", true)
