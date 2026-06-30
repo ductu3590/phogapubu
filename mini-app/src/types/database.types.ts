@@ -69,19 +69,16 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['menu_items']['Insert']>
         Relationships: []
       }
+      toppings: {
+        Row: { id: string; store_id: string; name: string; price: number; is_available: boolean; sort_order: number; created_at: string }
+        Insert: Omit<Database['public']['Tables']['toppings']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['toppings']['Insert']>
+        Relationships: []
+      }
       menu_item_toppings: {
-        Row: {
-          id: string
-          menu_item_id: string
-          store_id: string
-          name: string
-          price: number
-          is_available: boolean
-          sort_order: number
-          created_at: string
-        }
-        Insert: Omit<Database['public']['Tables']['menu_item_toppings']['Row'], 'id' | 'created_at'>
-        Update: Partial<Database['public']['Tables']['menu_item_toppings']['Insert']>
+        Row: { menu_item_id: string; topping_id: string; store_id: string }
+        Insert: Database['public']['Tables']['menu_item_toppings']['Row']
+        Update: Partial<Database['public']['Tables']['menu_item_toppings']['Row']>
         Relationships: []
       }
       orders: {
