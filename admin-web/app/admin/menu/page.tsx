@@ -18,7 +18,7 @@ export default async function MenuPage() {
   // Lấy categories + items
   const { data: categories } = await supabase
     .from('menu_categories')
-    .select('*, menu_items(*)')
+    .select('*, menu_items(*, menu_item_toppings(id, name, price, is_available, sort_order))')
     .eq('store_id', storeId)
     .eq('is_active', true)
     .order('sort_order')
