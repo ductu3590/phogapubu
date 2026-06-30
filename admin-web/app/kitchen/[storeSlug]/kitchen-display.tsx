@@ -72,6 +72,7 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenOrder {
       quantity: item.quantity,
       price: item.item_price,
       note: item.note ?? null,
+      selectedToppings: (item.selected_toppings ?? []) as { id: string; name: string; price: number }[],
     })),
   }
 }
@@ -606,12 +607,19 @@ function OrderCard({
       {/* Danh sách món */}
       <ul className="mb-2 space-y-1">
         {order.items.map((item) => (
-          <li key={item.id} className="flex justify-between text-sm">
-            <span className="text-gray-200">
-              <strong className="text-white">×{item.quantity}</strong> {item.name}
-            </span>
-            {item.note && (
-              <span className="ml-2 text-xs italic text-yellow-400">{item.note}</span>
+          <li key={item.id} className="text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-200">
+                <strong className="text-white">×{item.quantity}</strong> {item.name}
+              </span>
+              {item.note && (
+                <span className="ml-2 text-xs italic text-yellow-400">{item.note}</span>
+              )}
+            </div>
+            {item.selectedToppings.length > 0 && (
+              <div className="text-sm text-gray-500">
+                {item.selectedToppings.map((t) => `+ ${t.name}`).join(', ')}
+              </div>
             )}
           </li>
         ))}

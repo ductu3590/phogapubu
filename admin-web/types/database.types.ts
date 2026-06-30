@@ -131,6 +131,7 @@ export interface KitchenOrderItem {
   quantity: number
   price: number
   note: string | null
+  selectedToppings: { id: string; name: string; price: number }[]
 }
 
 export interface KitchenOrder {
