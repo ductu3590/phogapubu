@@ -4,6 +4,8 @@ import { useAppStore } from "@/stores/app.store";
 import { useStoreMenu } from "@/services/category/category.queries";
 import { CategoryWithProducts } from "@/types/category.types";
 import { Product } from "@/types/product.types";
+import ToppingSheet from "@/components/menu/topping-sheet";
+import { SelectedVariant } from "@/types/cart.types";
 import { formatCurrency } from "@/utils/format";
 import { PlusIcon, MinusIcon } from "@/components/common/vectors";
 import { scrollToId } from "@/utils/scroll-to";
@@ -39,6 +41,7 @@ export default function MenuPage() {
   const { data: menu, isLoading, error } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
   const [activeCategoryId, setActiveCategoryId] = useState<string>("");
+  const [toppingProduct, setToppingProduct] = useState<Product | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,9 +51,15 @@ export default function MenuPage() {
   }, [menu, activeCategoryId]);
 
   const getItemCount = (productId: string) =>
-    cartItems.find((i) => i.id === productId)?.quantity ?? 0;
+    cartItems
+      .filter((i) => i.productId === productId)
+      .reduce((s, i) => s + i.quantity, 0);
 
   const handleAdd = (product: Product) => {
+    if (product.toppings.length > 0) {
+      setToppingProduct(product);
+      return;
+    }
     const existing = cartItems.find((i) => i.id === product.id);
     if (existing) {
       updateQuantity(product.id, existing.quantity + 1);
@@ -64,6 +73,19 @@ export default function MenuPage() {
         quantity: 1,
       });
     }
+  };
+
+  const handleConfirmToppings = (variants: SelectedVariant[]) => {
+    if (!toppingProduct) return;
+    addToCart({
+      productId: toppingProduct.id,
+      productName: toppingProduct.name,
+      productImage: toppingProduct.image ?? "",
+      basePrice: toppingProduct.price,
+      selectedVariants: variants,
+      quantity: 1,
+    });
+    setToppingProduct(null);
   };
 
   const handleDecrease = (product: Product) => {
@@ -182,6 +204,13 @@ export default function MenuPage() {
         ))}
         <div className="h-4" />
       </div>
+
+      <ToppingSheet
+        product={toppingProduct}
+        visible={toppingProduct !== null}
+        onClose={() => setToppingProduct(null)}
+        onConfirm={handleConfirmToppings}
+      />
     </div>
   );
 }
@@ -235,6 +264,7 @@ function MenuItemRow({
   onAdd: () => void;
   onDecrease: () => void;
 }) {
+  const hasToppings = product.toppings.length > 0;
   return (
     <div
       className={cn(
@@ -283,7 +313,7 @@ function MenuItemRow({
 
           {product.isAvailable && (
             <div className="flex items-center gap-2">
-              {count > 0 && (
+              {!hasToppings && count > 0 && (
                 <>
                   <button
                     onClick={onDecrease}
@@ -296,6 +326,11 @@ function MenuItemRow({
                     {count}
                   </span>
                 </>
+              )}
+              {hasToppings && count > 0 && (
+                <span className="min-w-[20px] text-center text-small-m font-bold text-primary">
+                  {count}
+                </span>
               )}
               <button
                 onClick={onAdd}
