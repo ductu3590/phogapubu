@@ -440,6 +440,41 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 
 ---
 
+## TÍNH NĂNG TOPPING — Topping cho món ăn (2026-06-30)
+
+### Claude Code làm xong khi:
+- Migration `015_menu_toppings.sql` đã áp prod (bảng `menu_item_toppings` + cột `order_items.selected_toppings` + RPC `create_order` v2).
+- Admin quản lý topping trong modal sửa món; mini-app chọn topping qua bottom sheet; bếp + màn theo dõi đơn hiển thị topping.
+- `tsc` mini-app không thêm lỗi mới (baseline 147); admin `tsc` = 0; admin `next build` xanh.
+
+### ✅ Checklist test — Anh Tú tự làm:
+
+**Admin (máy tính):**
+1. Vào Quản lý menu → Sửa 1 món → mục "Topping (tuỳ chọn)": thêm 2 topping (VD "Thêm trứng" 10000, "Quẩy" 5000). Reload → món hiện badge "2 topping".
+2. Toggle 1 topping sang "tạm hết" (nút xám) → topping đó KHÔNG còn hiện trong mini-app.
+3. Xoá 1 topping → biến mất.
+4. Thêm MÓN MỚI → sau khi lưu, modal sửa món vừa tạo tự mở → thêm được topping ngay (không phải tìm lại món).
+
+**Mini-app (điện thoại thật):**
+5. Món KHÔNG topping: nút +/- quick-add hoạt động như cũ.
+6. Món CÓ topping: bấm "+" mở bottom sheet; tick topping → tổng tiền 1 suất cập nhật đúng; "Thêm vào giỏ" = +1 suất.
+7. Thêm cùng món với 2 tổ hợp topping khác nhau → giỏ có 2 dòng riêng; cùng tổ hợp → gộp số lượng.
+8. Badge trên nút "+" của món có topping = tổng số mọi tổ hợp đã thêm.
+9. Checkout: mỗi dòng hiện topping dạng "+ Trứng, + Quẩy" + đơn giá gồm topping; tổng tiền khớp.
+
+**Đơn hàng (server tính đúng + snapshot):**
+10. Đặt 1 đơn có topping → DB `order_items.selected_toppings` có `[{id,name,price}]`; `orders.total_amount` = Σ (giá món + Σ topping) × số lượng.
+11. Màn theo dõi đơn (mini-app): mỗi món hiện dòng "+ Trứng, + Quẩy"; tiền từng dòng đúng (gồm topping).
+12. Màn bếp: hiện topping dưới tên món.
+13. (Bảo mật) Thử đặt đơn với topping đã "tạm hết" (giả lập sửa client) → RPC từ chối ("Topping không hợp lệ").
+
+**Deploy (BẮT BUỘC trước khi test đơn thật):**
+14. Đã `cd mini-app && zmp deploy` bản mới. (RPC v2 đã áp prod ở bước migration, tương thích ngược app cũ.)
+
+**→ Báo Claude Code:** "Topping PASS" hoặc mô tả lỗi (ghi rõ Test mấy + Console F12).
+
+---
+
 ## KHI GẶP LỖI — Cách báo cáo hiệu quả
 
 Khi test FAIL, báo Claude Code theo format này để fix nhanh nhất:
