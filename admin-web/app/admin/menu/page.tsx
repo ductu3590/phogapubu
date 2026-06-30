@@ -22,6 +22,9 @@ export default async function MenuPage() {
     .eq('store_id', storeId)
     .eq('is_active', true)
     .order('sort_order')
+  const menuVersion = (categories ?? [])
+    .map((category) => `${category.id}:${category.sort_order}:${category.name}:${category.menu_items?.length ?? 0}`)
+    .join('|')
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -29,7 +32,7 @@ export default async function MenuPage() {
         <h1 className="text-xl font-bold text-gray-900">🍽️ Quản lý menu</h1>
         <p className="text-sm text-gray-500">Toggle hết hàng, thêm/sửa/xóa món</p>
       </div>
-      <MenuClient categories={categories ?? []} storeId={storeId} />
+      <MenuClient key={menuVersion} categories={categories ?? []} storeId={storeId} />
     </div>
   )
 }

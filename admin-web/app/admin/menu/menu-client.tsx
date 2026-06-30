@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { GripVertical } from 'lucide-react'
 import {
   toggleMenuItem,
   addMenuItem,
@@ -10,6 +11,8 @@ import {
   addCategory,
   updateCategory,
   deleteCategory,
+  reorderCategories,
+  reorderMenuItems,
   addTopping,
   updateTopping,
   deleteTopping,
@@ -37,19 +40,29 @@ type MenuItem = {
 }
 type Category = { id: string; name: string; sort_order: number; menu_items: MenuItem[] }
 
-export default function MenuClient({ categories, storeId }: { categories: Category[]; storeId: string }) {
+function moveArrayItem<T>(items: T[], oldIndex: number, newIndex: number): T[] {
+  const next = [...items]
+  const [moved] = next.splice(oldIndex, 1)
+  next.splice(newIndex, 0, moved)
+  return next
+}
+
+export default function MenuClient({ categories: initialCategories }: { categories: Category[]; storeId: string }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [categories, setCategories] = useState<Category[]>(initialCategories)
   const [showAddItem, setShowAddItem] = useState(false)
   const [showAddCat, setShowAddCat] = useState(false)
   const [editItem, setEditItem] = useState<MenuItem | null>(null)
   const [editCat, setEditCat] = useState<Category | null>(null)
-  const [selectedCatId, setSelectedCatId] = useState(categories[0]?.id ?? '')
+  const [selectedCatId, setSelectedCatId] = useState(initialCategories[0]?.id ?? '')
   // File ảnh đã crop chờ submit (add + edit dùng riêng)
   const [addImage, setAddImage] = useState<File | null>(null)
   const [editImage, setEditImage] = useState<File | null>(null)
   // Optimistic state cho từng món (is_available)
   const [overrides, setOverrides] = useState<Record<string, boolean>>({})
+  const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null)
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null)
 
   const handleToggle = (itemId: string, current: boolean) => {
     setOverrides((prev) => ({ ...prev, [itemId]: !current }))
@@ -81,16 +94,68 @@ export default function MenuClient({ categories, storeId }: { categories: Catego
   }
 
   const selectedCat = categories.find((c) => c.id === selectedCatId)
+  const selectedItems = selectedCat?.menu_items?.slice().sort((a, b) => a.sort_order - b.sort_order) ?? []
+
+  const handleCategoryDrop = (targetCategoryId: string) => {
+    if (!draggedCategoryId || draggedCategoryId === targetCategoryId) return
+
+    const oldIndex = categories.findIndex((cat) => cat.id === draggedCategoryId)
+    const newIndex = categories.findIndex((cat) => cat.id === targetCategoryId)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const nextCategories = moveArrayItem(categories, oldIndex, newIndex).map((cat, index) => ({
+      ...cat,
+      sort_order: index,
+    }))
+    setDraggedCategoryId(null)
+    setCategories(nextCategories)
+    startTransition(async () => {
+      await reorderCategories(nextCategories.map((cat) => cat.id))
+      router.refresh()
+    })
+  }
+
+  const handleItemDrop = (targetItemId: string) => {
+    if (!selectedCat || !draggedItemId || draggedItemId === targetItemId) return
+
+    const oldIndex = selectedItems.findIndex((item) => item.id === draggedItemId)
+    const newIndex = selectedItems.findIndex((item) => item.id === targetItemId)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const nextItems = moveArrayItem(selectedItems, oldIndex, newIndex).map((item, index) => ({
+      ...item,
+      sort_order: index,
+    }))
+    setDraggedItemId(null)
+    setCategories((current) =>
+      current.map((cat) => (cat.id === selectedCat.id ? { ...cat, menu_items: nextItems } : cat)),
+    )
+    startTransition(async () => {
+      await reorderMenuItems(selectedCat.id, nextItems.map((item) => item.id))
+      router.refresh()
+    })
+  }
 
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Category tabs bên trái */}
       <aside className="w-52 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-gray-50 py-3">
         {categories.map((cat) => (
-          <div key={cat.id} className="group flex items-center">
+          <div
+            key={cat.id}
+            draggable
+            onDragStart={() => setDraggedCategoryId(cat.id)}
+            onDragEnd={() => setDraggedCategoryId(null)}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={() => handleCategoryDrop(cat.id)}
+            className={`group flex items-center ${draggedCategoryId === cat.id ? 'opacity-60' : ''}`}
+          >
+            <span className="ml-1 rounded p-1 text-gray-300 group-hover:text-gray-500" title="Kéo để sắp xếp danh mục">
+              <GripVertical className="h-4 w-4" />
+            </span>
             <button
               onClick={() => setSelectedCatId(cat.id)}
-              className={`flex-1 px-4 py-2.5 text-left text-sm font-medium transition-colors ${
+              className={`flex-1 px-2 py-2.5 text-left text-sm font-medium transition-colors ${
                 selectedCatId === cat.id ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
@@ -131,16 +196,23 @@ export default function MenuClient({ categories, storeId }: { categories: Catego
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-2">
-            {selectedCat?.menu_items
-              ?.slice()
-              .sort((a, b) => a.sort_order - b.sort_order)
-              .map((item) => {
+            {selectedItems.map((item) => {
                 const isAvailable = overrides[item.id] !== undefined ? overrides[item.id] : item.is_available
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3"
+                    draggable
+                    onDragStart={() => setDraggedItemId(item.id)}
+                    onDragEnd={() => setDraggedItemId(null)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={() => handleItemDrop(item.id)}
+                    className={`flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-3 ${
+                      draggedItemId === item.id ? 'opacity-60' : ''
+                    }`}
                   >
+                    <span className="flex-shrink-0 rounded p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-500" title="Kéo để sắp xếp món">
+                      <GripVertical className="h-5 w-5" />
+                    </span>
                     {/* Toggle on/off */}
                     <button
                       onClick={() => handleToggle(item.id, isAvailable)}

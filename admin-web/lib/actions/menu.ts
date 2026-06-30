@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { buildSortUpdates } from '@/lib/menu/reorder'
 import { revalidatePath } from 'next/cache'
 
 // Bucket Storage chứa ảnh món (public read, chỉ service-role ghi)
@@ -49,6 +50,17 @@ async function assertMenuItemInStore(menuItemId: string, storeId: string): Promi
     .single()
   if (error || !data) throw new Error('Không tìm thấy món')
   if (data.store_id !== storeId) throw new Error('Món không thuộc quán của bạn')
+}
+
+async function assertCategoryInStore(categoryId: string, storeId: string): Promise<void> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('menu_categories')
+    .select('id, store_id')
+    .eq('id', categoryId)
+    .single()
+  if (error || !data) throw new Error('Không tìm thấy danh mục')
+  if (data.store_id !== storeId) throw new Error('Danh mục không thuộc quán của bạn')
 }
 
 // Ném lỗi nếu topping không thuộc store của user
@@ -124,7 +136,67 @@ export async function toggleMenuItem(itemId: string, isAvailable: boolean) {
     .from('menu_items')
     .update({ is_available: isAvailable })
     .eq('id', itemId)
+    .eq('store_id', storeId)
   if (error) throw new Error(`toggleMenuItem: ${error.message}`)
+  revalidatePath('/admin/menu')
+}
+
+export async function reorderCategories(categoryIds: string[]) {
+  const storeId = await getStoreId()
+  const updates = buildSortUpdates(categoryIds)
+  if (updates.length === 0) return
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('menu_categories')
+    .select('id')
+    .eq('store_id', storeId)
+    .in('id', updates.map((update) => update.id))
+  if (error) throw new Error(`reorderCategories(select): ${error.message}`)
+  if ((data?.length ?? 0) !== updates.length) {
+    throw new Error('Danh sách danh mục không hợp lệ')
+  }
+
+  for (const update of updates) {
+    const { error: updateError } = await admin
+      .from('menu_categories')
+      .update({ sort_order: update.sort_order })
+      .eq('id', update.id)
+      .eq('store_id', storeId)
+    if (updateError) throw new Error(`reorderCategories(update): ${updateError.message}`)
+  }
+
+  revalidatePath('/admin/menu')
+}
+
+export async function reorderMenuItems(categoryId: string, itemIds: string[]) {
+  const storeId = await getStoreId()
+  await assertCategoryInStore(categoryId, storeId)
+  const updates = buildSortUpdates(itemIds)
+  if (updates.length === 0) return
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('menu_items')
+    .select('id')
+    .eq('store_id', storeId)
+    .eq('category_id', categoryId)
+    .in('id', updates.map((update) => update.id))
+  if (error) throw new Error(`reorderMenuItems(select): ${error.message}`)
+  if ((data?.length ?? 0) !== updates.length) {
+    throw new Error('Danh sách món không hợp lệ')
+  }
+
+  for (const update of updates) {
+    const { error: updateError } = await admin
+      .from('menu_items')
+      .update({ sort_order: update.sort_order })
+      .eq('id', update.id)
+      .eq('store_id', storeId)
+      .eq('category_id', categoryId)
+    if (updateError) throw new Error(`reorderMenuItems(update): ${updateError.message}`)
+  }
+
   revalidatePath('/admin/menu')
 }
 
@@ -132,16 +204,27 @@ export async function toggleMenuItem(itemId: string, isAvailable: boolean) {
 export async function addMenuItem(formData: FormData) {
   const storeId = await getStoreId()
   const admin = createAdminClient()
+  const categoryId = formData.get('category_id') as string
+  await assertCategoryInStore(categoryId, storeId)
+  const { data: maxRow } = await admin
+    .from('menu_items')
+    .select('sort_order')
+    .eq('store_id', storeId)
+    .eq('category_id', categoryId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const nextSort = (maxRow?.sort_order ?? -1) + 1
   const imageUrl = await uploadMenuImage(admin, storeId, formData.get('image') as File | null)
   const { data, error } = await admin.from('menu_items').insert({
     store_id: storeId,
-    category_id: formData.get('category_id') as string,
+    category_id: categoryId,
     name: formData.get('name') as string,
     description: (formData.get('description') as string) || null,
     price: parseInt(formData.get('price') as string, 10),
     image_url: imageUrl,
     is_available: true,
-    sort_order: 0,
+    sort_order: nextSort,
   }).select('id').single()
   if (error) throw new Error(`addMenuItem: ${error.message}`)
   revalidatePath('/admin/menu')
@@ -178,10 +261,18 @@ export async function deleteMenuItem(itemId: string) {
 export async function addCategory(formData: FormData) {
   const storeId = await getStoreId()
   const admin = createAdminClient()
+  const { data: maxRow } = await admin
+    .from('menu_categories')
+    .select('sort_order')
+    .eq('store_id', storeId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const nextSort = (maxRow?.sort_order ?? -1) + 1
   const { error } = await admin.from('menu_categories').insert({
     store_id: storeId,
     name: formData.get('name') as string,
-    sort_order: 0,
+    sort_order: nextSort,
     is_active: true,
   })
   if (error) throw new Error(`addCategory: ${error.message}`)
