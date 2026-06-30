@@ -15,9 +15,16 @@ interface CartStore {
   closeCheckoutSheet: () => void;
 }
 
-// ID đơn giản: productId (MVP không có variants)
+// ID cart line = productId + tổ hợp topping (đã sort) → cùng món khác topping = 2 line,
+// cùng tổ hợp thì gộp số lượng.
 const generateCartItemId = (item: Omit<CartItem, "id">): string => {
-  return item.productId;
+  const toppingIds = item.selectedVariants
+    .filter((v) => v.groupId === "topping")
+    .map((v) => v.optionId)
+    .sort();
+  return toppingIds.length > 0
+    ? `${item.productId}|${toppingIds.join(",")}`
+    : item.productId;
 };
 
 // Helper function to calculate totals
