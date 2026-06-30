@@ -15,6 +15,7 @@ export interface OrderItem {
   quantity: number;
   price: number;
   note?: string | null;
+  selectedToppings: { id: string; name: string; price: number }[];
 }
 
 export interface Order {
@@ -50,6 +51,7 @@ export interface CreateOrderRequest {
     price: number;
     quantity: number;
     note?: string;
+    toppingIds?: string[];
   }[];
   note?: string;
   paymentMethod: "zalopay" | "cash";

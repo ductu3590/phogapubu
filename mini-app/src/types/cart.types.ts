@@ -1,4 +1,4 @@
-// MVP: selectedVariants luôn rỗng, giữ để tương thích với cart utils
+// selectedVariants chứa topping đã chọn (groupId = "topping")
 export interface SelectedVariant {
   groupId: string;
   groupTitle: string;
@@ -14,7 +14,7 @@ export interface CartItem {
   productName: string;
   productImage: string;
   basePrice: number;
-  selectedVariants: SelectedVariant[];   // luôn [] cho MVP
+  selectedVariants: SelectedVariant[];   // topping đã chọn; [] nếu món không topping
   quantity: number;
   note?: string;
 }

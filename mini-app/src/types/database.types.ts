@@ -69,6 +69,21 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['menu_items']['Insert']>
         Relationships: []
       }
+      menu_item_toppings: {
+        Row: {
+          id: string
+          menu_item_id: string
+          store_id: string
+          name: string
+          price: number
+          is_available: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['menu_item_toppings']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['menu_item_toppings']['Insert']>
+        Relationships: []
+      }
       orders: {
         Row: {
           id: string
@@ -97,6 +112,7 @@ export interface Database {
           item_price: number
           quantity: number
           note: string | null
+          selected_toppings: { id: string; name: string; price: number }[]
         }
         Insert: Omit<Database['public']['Tables']['order_items']['Row'], 'id'>
         Update: Partial<Database['public']['Tables']['order_items']['Insert']>
