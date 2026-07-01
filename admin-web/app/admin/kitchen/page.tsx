@@ -1,33 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
 import KitchenLinkClient from './kitchen-link-client'
+import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { redirect } from 'next/navigation'
 
 // Trang quản lý link bếp: sinh / thu hồi token bếp theo quán (Plan 2 — 2b).
 export default async function AdminKitchenPage() {
+  const operator = await requireOperatorOrRedirect()
+  if (operator.role !== 'store_owner') redirect('/mevo')
+  const storeId = operator.storeId
+
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const storeIdMeta: string | undefined = user.user_metadata?.store_id
-  let storeId = storeIdMeta
-  let storeName = ''
-
-  if (!storeId) {
-    const { data } = await supabase
-      .from('stores')
-      .select('id, name')
-      .eq('is_active', true)
-      .limit(1)
-      .single()
-    storeId = data?.id
-    storeName = data?.name ?? ''
-  } else {
-    const { data } = await supabase.from('stores').select('name').eq('id', storeId).single()
-    storeName = data?.name ?? ''
-  }
-
-  if (!storeId) return <p className="p-6 text-gray-400">Chưa có quán nào.</p>
+  const { data } = await supabase.from('stores').select('name').eq('id', storeId).single()
+  const storeName = data?.name ?? ''
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">

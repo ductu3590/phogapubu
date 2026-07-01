@@ -1,35 +1,22 @@
+import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { signOut } from '@/app/(auth)/login/actions'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  // Operator allowlist (Plan 2 — 2a), defense-in-depth cùng proxy.ts.
-  // Không phải operator → đẩy về login (RLS 006b cũng đã chặn dữ liệu).
-  const { data: op } = await supabase
-    .from('mevo_operators')
-    .select('store_id')
-    .eq('user_id', user.id)
-    .maybeSingle()
-  if (!op) redirect('/login?error=not_operator')
-
-  // store_id của operator (NULL = super → fallback lấy quán đầu tiên đang hoạt động)
-  const storeId: string | undefined = op.store_id ?? undefined
-  let storeName = 'Quán của tôi'
-
-  if (storeId) {
-    const { data } = await supabase.from('stores').select('name').eq('id', storeId).single()
-    if (data) storeName = data.name
-  } else {
-    // Fallback: lấy store đầu tiên đang hoạt động
-    const { data } = await supabase.from('stores').select('name').eq('is_active', true).limit(1).single()
-    if (data) storeName = data.name
+  const operator = await requireOperatorOrRedirect()
+  if (operator.role !== 'store_owner') {
+    // Superadmin lỡ vào /admin — đưa về đúng khu, không fallback vào "quán đầu tiên".
+    redirect('/mevo')
   }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let storeName = 'Quán của tôi'
+  const { data } = await supabase.from('stores').select('name').eq('id', operator.storeId).single()
+  if (data) storeName = data.name
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -58,7 +45,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
         {/* Bottom: đăng xuất */}
         <div className="border-t border-gray-100 px-3 py-4">
-          <p className="mb-2 truncate px-3 text-xs text-gray-400">{user.email}</p>
+          <p className="mb-2 truncate px-3 text-xs text-gray-400">{user?.email}</p>
           <form action={signOut}>
             <button
               type="submit"

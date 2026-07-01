@@ -1,8 +1,9 @@
 'use server'
 
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { buildSortUpdates } from '@/lib/menu/reorder'
 import { revalidatePath } from 'next/cache'
+import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 
 // Bucket Storage chứa ảnh món (public read, chỉ service-role ghi)
 const MENU_BUCKET = 'menu-images'
@@ -26,18 +27,7 @@ async function uploadMenuImage(
 
 // Lấy storeId của user hiện tại (dùng anon client để xác thực)
 async function getStoreId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Chưa đăng nhập')
-
-  const storeId: string | undefined = user.user_metadata?.store_id
-  if (storeId) return storeId
-
-  // Fallback: lấy store đầu tiên
-  const admin = createAdminClient()
-  const { data } = await admin.from('stores').select('id').eq('is_active', true).limit(1).single()
-  if (!data) throw new Error('Không tìm thấy quán')
-  return data.id as string
+  return requireStoreOwnerStoreId()
 }
 
 // Ném lỗi nếu món không thuộc store của user → chống service-role sửa chéo store

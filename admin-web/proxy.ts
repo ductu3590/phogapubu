@@ -27,31 +27,41 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
+  const isMevoRoute = request.nextUrl.pathname.startsWith('/mevo')
   const isLoginPage = request.nextUrl.pathname === '/login'
 
-  // Operator allowlist (Plan 2 — 2a): chỉ user trong mevo_operators mới được vào admin.
-  // Chỉ tra khi cần (đang vào /admin hoặc đã đăng nhập mà ở /login).
-  // Lưu ý: RLS (006b) mới là lớp khoá thật — đây là cổng UX để redirect sớm.
-  let isOperator = false
-  if (user && (isAdminRoute || isLoginPage)) {
+  // Role-aware routing (Onboarding Cockpit): mevo_operators.role quyết định /admin hay /mevo.
+  // RLS (019) mới là lớp khoá thật — đây vẫn chỉ là cổng UX để redirect sớm.
+  let role: 'mevo_superadmin' | 'store_owner' | null = null
+  if (user && (isAdminRoute || isMevoRoute || isLoginPage)) {
     const { data: op } = await supabase
       .from('mevo_operators')
-      .select('user_id')
+      .select('role, store_id')
       .eq('user_id', user.id)
       .maybeSingle()
-    isOperator = !!op
+    if (op?.role === 'mevo_superadmin' && op.store_id === null) role = 'mevo_superadmin'
+    else if (op?.role === 'store_owner' && op.store_id) role = 'store_owner'
   }
 
-  // Vào /admin mà chưa đăng nhập HOẶC không phải operator → về /login
-  if (isAdminRoute && (!user || !isOperator)) {
+  // Vào /admin mà chưa đăng nhập, không phải operator, HOẶC là superadmin (không có store riêng) → /login
+  if (isAdminRoute && (!user || role !== 'store_owner')) {
     const url = new URL('/login', request.url)
-    if (user && !isOperator) url.searchParams.set('error', 'not_operator')
+    if (user && !role) url.searchParams.set('error', 'not_operator')
     return NextResponse.redirect(url)
   }
 
-  // Đã đăng nhập VÀ là operator mà vào /login → sang /admin
-  // (KHÔNG bounce non-operator để tránh vòng lặp redirect)
-  if (isLoginPage && user && isOperator) {
+  // Vào /mevo mà không phải superadmin → /login
+  if (isMevoRoute && (!user || role !== 'mevo_superadmin')) {
+    const url = new URL('/login', request.url)
+    if (user && !role) url.searchParams.set('error', 'not_operator')
+    return NextResponse.redirect(url)
+  }
+
+  // Đã đăng nhập và có role mà vào /login → về đúng khu (KHÔNG bounce non-operator, tránh vòng lặp)
+  if (isLoginPage && user && role === 'mevo_superadmin') {
+    return NextResponse.redirect(new URL('/mevo', request.url))
+  }
+  if (isLoginPage && user && role === 'store_owner') {
     return NextResponse.redirect(new URL('/admin', request.url))
   }
 

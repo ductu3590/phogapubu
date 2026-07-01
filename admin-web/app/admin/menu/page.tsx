@@ -1,19 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import MenuClient from './menu-client'
+import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { redirect } from 'next/navigation'
 
 export default async function MenuPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const operator = await requireOperatorOrRedirect()
+  if (operator.role !== 'store_owner') redirect('/mevo')
+  const storeId = operator.storeId
 
-  // Lấy store
-  const storeIdMeta: string | undefined = user.user_metadata?.store_id
-  let storeId = storeIdMeta
-  if (!storeId) {
-    const { data } = await supabase.from('stores').select('id').eq('is_active', true).limit(1).single()
-    storeId = data?.id
-  }
-  if (!storeId) return <p className="p-6 text-gray-400">Chưa có quán nào.</p>
+  const supabase = await createClient()
 
   // Lấy categories + items (mỗi món kèm danh sách topping_id đã gán)
   const { data: categories } = await supabase

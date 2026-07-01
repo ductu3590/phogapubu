@@ -23,8 +23,9 @@ export default function LoginPage() {
       setError(result.error)
       setLoading(false)
     } else {
-      // Login thành công — navigate từ client để tránh NEXT_REDIRECT throw
-      router.push('/admin')
+      // Login thành công — navigate từ client để tránh NEXT_REDIRECT throw.
+      // redirectTo theo role: mevo_superadmin → /mevo, store_owner → /admin.
+      router.push(result?.redirectTo ?? '/admin')
       router.refresh()
     }
   }

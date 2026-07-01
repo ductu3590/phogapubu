@@ -1,33 +1,13 @@
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { formatVND } from '@/lib/utils'
 import Link from 'next/link'
-
-async function getStoreId(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const storeId: string | undefined = user.user_metadata?.store_id
-  if (storeId) return storeId
-
-  // Fallback: lấy store đầu tiên đang hoạt động
-  const admin = createAdminClient()
-  const { data } = await admin.from('stores').select('id').eq('is_active', true).limit(1).single()
-  return (data?.id as string) ?? null
-}
+import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { redirect } from 'next/navigation'
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const storeId = await getStoreId(supabase)
-  if (!storeId) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-gray-400">Chưa có quán nào được liên kết với tài khoản này.</p>
-      </div>
-    )
-  }
+  const operator = await requireOperatorOrRedirect()
+  if (operator.role !== 'store_owner') redirect('/mevo')
+  const storeId = operator.storeId
 
   const admin = createAdminClient()
   const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
