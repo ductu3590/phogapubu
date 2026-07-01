@@ -36,6 +36,22 @@
   chuyển sang Checkout SDK (thay bằng `store_checkout_configs`, xem
   `docs/superpowers/specs/2026-07-01-per-store-zalopay-checkout-secret-design.md`).
 
+## BẮT BUỘC làm trước khi có quán thứ 2 thật (phát hiện 2026-07-01)
+- **Bối cảnh:** viết skill `.claude/skills/replicate-mini-app/SKILL.md` để chuẩn bị nhân bản
+  mini-app, phát hiện 3 lỗ hổng chỉ lộ ra khi có ≥2 quán active cùng lúc (hiện chỉ 1 quán nên
+  chưa gây hại, nhưng KHÔNG được onboard quán 2 thật trước khi xử lý):
+  1. **Fallback chọn quán sai trong admin-web** — nhiều file (`admin-web/app/admin/*`,
+     `lib/actions/*`) fallback `SELECT * FROM stores WHERE is_active=true LIMIT 1` khi operator
+     thiếu `store_id`. Với 2 quán active, operator có thể sửa nhầm menu/bàn của quán khác mà
+     không có cảnh báo gì. Grep `is_active.*limit(1)` để tìm hết các chỗ.
+  2. **ZNS chưa multi-tenant** — `supabase/functions/zns-notify/index.ts` đọc 1 secret toàn cục
+     `ZALO_OA_ACCESS_TOKEN`. Quán 2 có OA riêng sẽ nhận ZNS sai OA hoặc không nhận được gì.
+  3. **Webhook xoá dữ liệu chưa multi-tenant** — `admin-web/app/api/zalo-webhook/route.ts` đọc
+     1 secret toàn cục `ZALO_APP_SECRET_KEY`. Quán 2 có Zalo App riêng sẽ cần secret riêng.
+- **Việc cần làm:** sửa cả 3 theo đúng pattern đã dùng cho ZaloPay Checkout (bảng riêng theo
+  `store_id`, xem `docs/superpowers/specs/2026-07-01-per-store-zalopay-checkout-secret-design.md`
+  làm mẫu) — làm TRƯỚC khi insert `stores` row thứ 2 với `is_active=true`.
+
 ## Hardening (không gấp, RLS đã chặn đủ)
 - **Ngày ghi:** 2026-07-01
 - `store_checkout_configs` đang chặn anon/authenticated hoàn toàn nhờ RLS bật + không có
