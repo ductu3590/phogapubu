@@ -14,10 +14,11 @@ export default function PrivacyPolicyPage() {
       <section className="mb-6">
         <h2 className="mb-2 text-lg font-semibold">1. Giới thiệu</h2>
         <p className="text-sm leading-relaxed text-gray-700">
-          Ứng dụng đặt món <strong>Phở Gà PUBU</strong> ("ứng dụng") được vận hành bởi
-          <strong> MEVO</strong>. Chúng tôi cam kết bảo vệ quyền riêng tư và dữ liệu cá nhân
-          của người dùng. Chính sách này mô tả rõ loại dữ liệu chúng tôi thu thập, mục đích
-          sử dụng và quyền của bạn.
+          Ứng dụng đặt món <strong>Phở Gà PUBU</strong> ("ứng dụng") thuộc sở hữu và kinh
+          doanh bởi <strong>Hộ kinh doanh Phở Gà PUBU</strong>, được xây dựng và vận hành kỹ
+          thuật bởi <strong>MEVO</strong>. Chúng tôi cam kết bảo vệ quyền riêng tư và dữ liệu
+          cá nhân của người dùng. Chính sách này mô tả rõ loại dữ liệu chúng tôi thu thập,
+          mục đích sử dụng và quyền của bạn.
         </p>
       </section>
 
@@ -126,14 +127,17 @@ export default function PrivacyPolicyPage() {
           Mọi thắc mắc về quyền riêng tư, vui lòng liên hệ:
         </p>
         <address className="mt-2 not-italic text-sm text-gray-700">
-          <strong>Phở Gà PUBU</strong><br />
-          Địa chỉ: Lào Cai, Việt Nam<br />
+          <strong>Hộ kinh doanh Phở Gà PUBU</strong><br />
+          Chủ hộ kinh doanh: Đoàn Ngọc Hiến<br />
+          Mã số hộ kinh doanh: 034088018267<br />
+          Địa chỉ: Số nhà 155, đường Đinh Tiên Hoàng, Tổ dân phố Đồng Tâm 9, Phường Yên Bái, Tỉnh Lào Cai<br />
+          Điện thoại: 0866491988<br />
           Email: <a href="mailto:mrtu.yb@gmail.com" className="text-blue-600 underline">mrtu.yb@gmail.com</a>
         </address>
       </section>
 
       <footer className="mt-10 border-t border-gray-200 pt-6 text-xs text-gray-400">
-        © 2026 MEVO. Vận hành bởi Đỗ Đức Tú, Lào Cai, Việt Nam.
+        © 2026 Hộ kinh doanh Phở Gà PUBU. Vận hành kỹ thuật bởi MEVO.
       </footer>
     </main>
   );

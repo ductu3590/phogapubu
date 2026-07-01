@@ -23,6 +23,7 @@ export default function TermsPage() {
         <h2 className="mb-2 text-lg font-semibold">2. Dịch vụ cung cấp</h2>
         <p className="text-sm leading-relaxed text-gray-700">
           Ứng dụng cho phép khách hàng đang có mặt tại nhà hàng <strong>Phở Gà PUBU</strong>
+          (do <strong>Hộ kinh doanh Phở Gà PUBU</strong> sở hữu và kinh doanh)
           quét mã QR trên bàn, xem thực đơn, đặt món và thanh toán qua ZaloPay hoặc tiền mặt.
           Ứng dụng chỉ dành cho khách đang có mặt trực tiếp tại quán.
         </p>
@@ -86,14 +87,17 @@ export default function TermsPage() {
           Mọi thắc mắc về điều khoản sử dụng, vui lòng liên hệ:
         </p>
         <address className="mt-2 not-italic text-sm text-gray-700">
-          <strong>Phở Gà PUBU</strong><br />
-          Địa chỉ: Lào Cai, Việt Nam<br />
+          <strong>Hộ kinh doanh Phở Gà PUBU</strong><br />
+          Chủ hộ kinh doanh: Đoàn Ngọc Hiến<br />
+          Mã số hộ kinh doanh: 034088018267<br />
+          Địa chỉ: Số nhà 155, đường Đinh Tiên Hoàng, Tổ dân phố Đồng Tâm 9, Phường Yên Bái, Tỉnh Lào Cai<br />
+          Điện thoại: 0866491988<br />
           Email: <a href="mailto:mrtu.yb@gmail.com" className="text-blue-600 underline">mrtu.yb@gmail.com</a>
         </address>
       </section>
 
       <footer className="mt-10 border-t border-gray-200 pt-6 text-xs text-gray-400">
-        © 2026 MEVO. Vận hành bởi Đỗ Đức Tú, Lào Cai, Việt Nam.
+        © 2026 Hộ kinh doanh Phở Gà PUBU. Vận hành kỹ thuật bởi MEVO.
       </footer>
     </main>
   );

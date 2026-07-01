@@ -144,13 +144,10 @@ Chọn **"Xác thực qua Zalo Official Account"** và nhập OA ID của Phở 
 ```
 Bước A: Publish thành công trên Zalo
          ↓
-Bước B: Đăng ký Sàn TMĐT với Bộ Công Thương
-         URL: https://online.gov.vn/
-         Hình thức: "Ứng dụng thương mại điện tử"
-         Hồ sơ cần:
-         • CMND/CCCD của người đại diện (Đỗ Đức Tú)
-         • Mô tả hoạt động kinh doanh (bán hàng F&B)
-         • URL app trên Zalo (sau khi publish)
+Bước B: THÔNG BÁO ứng dụng bán hàng với Bộ Công Thương
+         (không phải "Đăng ký Sàn TMĐT" — mini-app 1 quán = Thông báo, không phải Đăng ký)
+         Chủ thể đứng tên: hộ kinh doanh Phở Gà PUBU (KHÔNG phải MEVO/Đỗ Đức Tú)
+         Chi tiết đầy đủ: xem bo-cong-thuong-thong-bao-checklist.md
          Thời gian xử lý: 3–5 ngày làm việc
          ↓
 Bước C: Gửi Giấy xác nhận đăng ký BCT cho ZaloPay Merchant
