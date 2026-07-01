@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import TablesClient from './tables-client'
 
 export default async function TablesPage() {
@@ -9,7 +9,6 @@ export default async function TablesPage() {
   const storeIdMeta: string | undefined = user.user_metadata?.store_id
   let storeId = storeIdMeta
   let storeSlug = ''
-  const zaloAppId = process.env.NEXT_PUBLIC_ZALO_APP_ID ?? ''
 
   if (!storeId) {
     const { data } = await supabase.from('stores').select('id, slug').eq('is_active', true).limit(1).single()
@@ -21,6 +20,17 @@ export default async function TablesPage() {
   }
 
   if (!storeId) return <p className="p-6 text-gray-400">Chưa có quán nào.</p>
+
+  // zalo_mini_app_id nằm trong store_checkout_configs (không phải stores) — RLS bảng đó
+  // không cho authenticated đọc (chỉ service role), nên phải dùng admin client. Chỉ chọn
+  // đúng cột này, KHÔNG bao giờ select zalo_checkout_secret_key ở đây.
+  const admin = createAdminClient()
+  const { data: checkoutConfig } = await admin
+    .from('store_checkout_configs')
+    .select('zalo_mini_app_id')
+    .eq('store_id', storeId)
+    .single()
+  const zaloAppId = checkoutConfig?.zalo_mini_app_id ?? ''
 
   const { data: tables } = await supabase
     .from('tables')
