@@ -497,6 +497,48 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 
 ---
 
+## SPRINT — Onboarding Cockpit (`/mevo`) — 2026-07-01
+
+### Claude Code làm xong khi:
+- Migration 018-021 đã áp lên Supabase (role, RLS store-scoped, store_app_configs, store_zalo_configs).
+- `/mevo` chạy được: dashboard, danh sách quán, tạo quán, chi tiết quán, gán operator.
+- `/admin` không còn fallback "quán active đầu tiên" ở bất kỳ trang/action nào.
+- `zns-notify` và `zalo-webhook` đọc secret theo `store_id`, không còn dùng biến môi trường toàn cục.
+
+### ✅ Checklist test — Anh Tú tự làm:
+
+**Test 1 — Routing theo role**
+1. Đăng nhập bằng tài khoản MEVO hiện tại (superadmin) → phải vào `/mevo`, không bị đẩy sang `/admin`.
+2. Vào thẳng URL `/admin` khi đang là superadmin → phải bị đẩy về `/mevo` (không vào được).
+3. Đăng xuất, thử vào `/mevo` hoặc `/admin` khi chưa đăng nhập → phải về `/login`.
+
+**Test 2 — Tạo quán thử + gán operator**
+1. Vào `/mevo/stores/new`, tạo 1 quán test (vd "Test Quán 2").
+2. Vào chi tiết quán vừa tạo, điền Mini App ID + Checkout secret bất kỳ (giá trị test) → bấm Lưu.
+3. Load lại trang → xác nhận ô secret **không hiện lại giá trị cũ**, chỉ thấy "Đã cấu hình".
+4. Gán 1 email test làm chủ quán → nhận được tài khoản/mật khẩu tạm.
+5. Đăng nhập bằng tài khoản chủ quán test đó → phải vào `/admin`, thấy đúng tên quán test (không
+   phải Phở Gà Pubu).
+
+**Test 3 — RLS store-scoped (quan trọng nhất — bắt buộc PASS trước khi onboard quán 2 thật)**
+1. Mở DevTools (tab Network hoặc Console) khi đã đăng nhập bằng tài khoản chủ quán test (Test 2).
+2. Copy `access_token` từ cookie/session, gọi thẳng Supabase REST
+   (`GET {SUPABASE_URL}/rest/v1/stores?select=*` với header `apikey: <anon key>` và
+   `Authorization: Bearer <access_token>` của tài khoản chủ quán test).
+3. Kỳ vọng: CHỈ thấy row "Test Quán 2" (quán của chính họ), KHÔNG thấy "Phở Gà Pubu" hay quán khác.
+4. Thử `PATCH` vào `menu_items` của Phở Gà Pubu (biết `id` món ăn thật) bằng session của tài khoản
+   Test Quán 2 → phải bị từ chối (0 rows affected hoặc lỗi RLS), không được sửa thành công.
+
+**Test 4 — Dọn quán test**
+1. Xoá quán "Test Quán 2" và tài khoản operator test đã tạo (qua Supabase Dashboard hoặc SQL),
+   không để lại rác trong production DB.
+
+**Test 5 — ZNS + webhook (nếu có sẵn OA token thật để test)**
+1. Đặt 1 đơn ở quán Phở Gà Pubu (quán thật, đã có `store_zalo_configs`), để bếp bấm "Xong".
+2. Xác nhận vẫn nhận được tin nhắn Zalo như trước (hành vi không đổi vì đã có secret theo store_id).
+
+---
+
 ## KHI GẶP LỖI — Cách báo cáo hiệu quả
 
 Khi test FAIL, báo Claude Code theo format này để fix nhanh nhất:
