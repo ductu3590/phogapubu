@@ -42,7 +42,8 @@ create table store_checkout_configs (
   zalo_mini_app_id text not null unique,
   zalo_checkout_secret_key text not null,
   is_enabled boolean not null default true,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 alter table store_checkout_configs enable row level security;
@@ -52,6 +53,10 @@ alter table store_checkout_configs enable row level security;
 
 `zalo_mini_app_id` chỉ sống trong bảng này — không lặp lại ở `stores` (hiện chưa có chỗ nào
 khác cần đọc nó ngoài 2 edge function; tránh 2 nguồn sự thật).
+
+`updated_at` dùng trigger `update_updated_at()` có sẵn (đã dùng cho bảng khác trong
+`001_init.sql`) để tự cập nhật khi đổi secret — biết được "đổi lúc nào" tối thiểu. Audit log
+đầy đủ (ai đổi, đổi gì) chưa cần v1, ghi backlog.
 
 **Set secret thật cho Pubu — làm SAU khi migration áp dụng, bằng SQL thủ công qua Supabase
 MCP (`execute_sql`), KHÔNG viết secret vào file migration / không commit vào git:**
@@ -83,13 +88,18 @@ Thứ tự xử lý (đúng tinh thần "không tin gì trước khi verify"):
    secret toàn cục nữa). Sai MAC → `resp(-1, 'invalid mac')` (giữ hành vi cũ).
 4. **Chỉ sau khi MAC hợp lệ** mới `decodeURIComponent` + parse `extradata.orderId` (giữ
    nguyên, không đổi).
-5. Query `order` theo `appOrderId` → thiếu → `resp(-1, 'order not found')` (giữ nguyên).
-6. **Mới:** so `order.store_id === config.store_id` (config tra được ở bước 2) → lệch →
+5. **Giữ đúng thứ tự gốc — check `resultCode` NGAY sau khi parse `extradata`, TRƯỚC khi query
+   `order`:** `resultCode !== 1` → ack ngay `resp(1, 'payment failed acknowledged')`, **không**
+   đụng DB, **không** cần order/store/amount tồn tại. Lý do (P1 review): nếu order đã bị xoá
+   hoặc dữ liệu amount lệch kiểu, để các check đó chạy trước sẽ khiến callback thất bại (mà ta
+   không cần làm gì) trả `-1` → Zalo hiểu là lỗi và **retry** không cần thiết. Có thể log
+   best-effort `appOrderId` để theo dõi, nhưng không được biến failed payment thành retry loop.
+6. (Chỉ tiếp tục nếu `resultCode === 1`.) Query `order` theo `appOrderId` → thiếu →
+   `resp(-1, 'order not found')` (giữ nguyên).
+7. **Mới:** so `order.store_id === config.store_id` (config tra được ở bước 2) → lệch →
    log lỗi + `resp(-1, 'store mismatch')` — chặn trường hợp chữ ký đúng của quán A nhưng gắn
    nhầm order của quán B.
-7. So `amount === order.total_amount` (giữ nguyên, đã có).
-8. `resultCode !== 1` → giữ đơn `pending`, ack `resp(1, ...)` (giữ nguyên hành vi thất bại
-   thanh toán không đụng đơn).
+8. So `amount === order.total_amount` (giữ nguyên, đã có).
 9. Update `status = 'confirmed'`, `zalopay_trans_id` — idempotent bằng `where status='pending'`
    (giữ nguyên).
 
@@ -117,17 +127,28 @@ Thứ tự bắt buộc:
 ## 8. Testing (thủ công, TESTING.md)
 
 Thêm mục mới "ZaloPay per-store secret":
-1. Đặt đơn ZaloPay ở Pubu như bình thường → PASS nếu xác nhận đúng như trước khi đổi.
-2. Tạm sửa `zalo_mini_app_id` của Pubu trong DB thành giá trị sai → gọi lại callback (hoặc
-   đợi 1 giao dịch thật) → PASS nếu bị reject `unknown app`, đơn không tự confirmed.
-3. Trả lại giá trị đúng → xác nhận lại Test 1 vẫn PASS.
-4. (Không thể test cross-store thật vì chỉ có 1 quán — bước 2 là cách giả lập gần nhất trong
-   giới hạn hiện tại.)
+1. Đặt đơn ZaloPay ở Pubu như bình thường (giao dịch thật/sandbox, config đúng từ đầu đến
+   cuối) → PASS nếu xác nhận `confirmed` đúng như trước khi đổi.
+2. Test "unknown app" **không dùng giao dịch thật đang chờ xử lý** (tránh rủi ro Zalo retry
+   callback sau khi trả lại config đúng, làm confirm muộn 1 đơn cũ ngoài ý muốn). Thay vào đó:
+   gọi thẳng `checkout-notify` bằng request giả lập (`curl`/Postman) với `data.appId` không
+   tồn tại trong `store_checkout_configs` (và MAC bất kỳ, vì sẽ bị chặn ở bước tra `appId`
+   trước khi verify MAC) → PASS nếu response `resp(-1, 'unknown app')` và **không có order nào
+   bị đổi trạng thái**.
+3. (Tuỳ chọn, không bắt buộc) Test "store mismatch": capture lại body callback thật đã nhận
+   được của 1 đơn Pubu (đã xử lý xong, không dùng lại đơn đang pending) → sửa `extradata`
+   trỏ sang 1 `orderId` giả không thuộc quán đó → gọi lại `checkout-notify` với `appId`/MAC
+   đúng của Pubu → PASS nếu bị reject (`order not found` hoặc `store mismatch` tuỳ có tìm thấy
+   order giả hay không) và không đơn thật nào bị ảnh hưởng.
+4. (Không thể test cross-store thật vì chỉ có 1 quán — bước 2/3 là cách giả lập trong giới hạn
+   hiện tại, không động đến giao dịch thật đang chờ xử lý.)
 
 ## 9. Ngoài phạm vi
 
 - Chưa cần admin UI để MEVO nhập secret qua form (v1 vẫn thao tác SQL trực tiếp, đúng quyết
   định "v1 MEVO làm hết" trong CLAUDE.md).
 - Chưa dọn cột `zalopay_app_id/key1/key2` cũ.
+- Chưa có audit log đầy đủ (ai đổi secret, đổi lúc nào ngoài `updated_at`) — ghi backlog, làm
+  khi có nhiều quán/nhiều người thao tác hơn.
 - Việc nhân bản mini-app (tạo Zalo Mini App mới, `zmp deploy`, tạo QR...) — xem hướng dẫn
   riêng (skill), không nằm trong spec này.
