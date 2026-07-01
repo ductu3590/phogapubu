@@ -48,14 +48,14 @@ serve(async (req) => {
     )
 
     // 2. Map appId → đúng quán TRƯỚC khi verify MAC
-    const { data: config } = await supabase
+    const { data: config, error: configError } = await supabase
       .from('store_checkout_configs')
       .select('store_id, zalo_checkout_secret_key, is_enabled')
       .eq('zalo_mini_app_id', appId)
       .single()
 
     if (!config || !config.is_enabled) {
-      console.error('[checkout-notify] appId không khớp quán nào:', appId)
+      console.error('[checkout-notify] appId không khớp quán nào:', appId, configError?.message)
       return resp(-1, 'unknown app')
     }
     const secret = config.zalo_checkout_secret_key as string
@@ -89,12 +89,15 @@ serve(async (req) => {
       return resp(1, 'payment failed acknowledged')
     }
 
-    const { data: order } = await supabase
+    const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('id, store_id, total_amount, status')
       .eq('id', appOrderId)
       .single()
-    if (!order) return resp(-1, 'order not found')
+    if (!order) {
+      console.error('[checkout-notify] order not found:', appOrderId, orderError?.message)
+      return resp(-1, 'order not found')
+    }
 
     // 6. Đối chiếu quán suy ra từ appId khớp với quán thật của order
     if (order.store_id !== config.store_id) {
