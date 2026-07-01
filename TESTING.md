@@ -476,6 +476,27 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 
 ---
 
+## ZALOPAY — SECRET THEO TỪNG QUÁN (2026-07-01)
+
+### Claude Code làm xong khi:
+- Migration 017 áp dụng, bảng `store_checkout_configs` có đúng 1 dòng cho Pubu.
+- 2 edge function `checkout-create-mac`/`checkout-notify` đọc secret từ DB, không còn biến
+  môi trường `ZALO_CHECKOUT_SECRET_KEY`.
+
+### ✅ Checklist test — Anh Tú tự làm:
+
+**Test 1: Đặt đơn ZaloPay bình thường**
+1. Mở mini-app Pubu → đặt món → thanh toán ZaloPay.
+2. ✅ PASS nếu: thanh toán thành công, đơn chuyển sang bếp bình thường — y hệt trước khi đổi.
+
+**Test 2: Không có gì đổi ở phía khách hàng**
+1. Kiểm tra toàn bộ luồng đặt món/giỏ hàng/theo dõi đơn — không có màn hình nào thay đổi.
+2. ✅ PASS nếu: không thấy khác biệt gì so với trước.
+
+**→ Báo Claude Code:** "ZaloPay per-store PASS" hoặc mô tả lỗi (kèm Console F12 nếu có).
+
+---
+
 ## KHI GẶP LỖI — Cách báo cáo hiệu quả
 
 Khi test FAIL, báo Claude Code theo format này để fix nhanh nhất:
