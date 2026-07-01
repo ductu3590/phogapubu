@@ -38,7 +38,7 @@ serve(async (req) => {
     // Lấy thông tin đơn + bàn + quán
     const { data: order, error } = await supabase
       .from('orders')
-      .select('id, zalo_user_id, total_amount, note, order_type, customer_name, tables(table_number), stores(name, zalo_oa_id)')
+      .select('id, store_id, zalo_user_id, total_amount, note, order_type, customer_name, tables(table_number), stores(name, zalo_oa_id)')
       .eq('id', orderId)
       .single()
 
@@ -50,7 +50,12 @@ serve(async (req) => {
     }
 
     const zaloUserId = order.zalo_user_id
-    const oaAccessToken = Deno.env.get('ZALO_OA_ACCESS_TOKEN')
+    const { data: zaloConfig } = await supabase
+      .from('store_zalo_configs')
+      .select('zalo_oa_access_token, is_enabled')
+      .eq('store_id', order.store_id)
+      .maybeSingle()
+    const oaAccessToken = zaloConfig?.is_enabled ? zaloConfig.zalo_oa_access_token : null
 
     // Nếu không có Zalo user ID hoặc OA token thì skip (không báo lỗi)
     if (!zaloUserId || !oaAccessToken) {
