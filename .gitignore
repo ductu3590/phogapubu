@@ -37,3 +37,7 @@ supabase/.temp/
 
 # Local visual brainstorming companion
 .superpowers/
+
+# Git worktrees (isolated workspaces for agent-driven implementation)
+.worktrees/
+.claude/worktrees/
