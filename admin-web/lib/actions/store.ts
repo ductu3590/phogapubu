@@ -1,24 +1,15 @@
 'use server'
 
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 
 // Dùng chung bucket ảnh với menu (public read, service-role ghi)
 const ASSET_BUCKET = 'menu-images'
 
 // storeId của operator hiện tại (xác thực + chống đổi quán khác)
 async function getStoreId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Chưa đăng nhập')
-
-  const storeId: string | undefined = user.user_metadata?.store_id
-  if (storeId) return storeId
-
-  const admin = createAdminClient()
-  const { data } = await admin.from('stores').select('id').eq('is_active', true).limit(1).single()
-  if (!data) throw new Error('Không tìm thấy quán')
-  return data.id as string
+  return requireStoreOwnerStoreId()
 }
 
 // Cập nhật cài đặt quán: tên + logo (logo crop sẵn 1:1 từ client)

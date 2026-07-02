@@ -1,25 +1,16 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import TablesClient from './tables-client'
+import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { redirect } from 'next/navigation'
 
 export default async function TablesPage() {
+  const operator = await requireOperatorOrRedirect()
+  if (operator.role !== 'store_owner') redirect('/mevo')
+  const storeId = operator.storeId
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const storeIdMeta: string | undefined = user.user_metadata?.store_id
-  let storeId = storeIdMeta
-  let storeSlug = ''
-
-  if (!storeId) {
-    const { data } = await supabase.from('stores').select('id, slug').eq('is_active', true).limit(1).single()
-    storeId = data?.id
-    storeSlug = data?.slug ?? ''
-  } else {
-    const { data } = await supabase.from('stores').select('slug').eq('id', storeId).single()
-    storeSlug = data?.slug ?? ''
-  }
-
-  if (!storeId) return <p className="p-6 text-gray-400">Chưa có quán nào.</p>
+  const { data: storeRow } = await supabase.from('stores').select('slug').eq('id', storeId).single()
+  const storeSlug = storeRow?.slug ?? ''
 
   // zalo_mini_app_id nằm trong store_checkout_configs (không phải stores) — RLS bảng đó
   // không cho authenticated đọc (chỉ service role), nên phải dùng admin client. Chỉ chọn

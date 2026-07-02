@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { formatVND } from '@/lib/utils'
 import { markOrderPaid, cancelOrder } from '@/lib/actions/orders'
 import { DatePicker } from './date-picker'
+import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { redirect } from 'next/navigation'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Chờ', confirmed: 'Xác nhận', cooking: 'Đang làm',
@@ -22,17 +24,11 @@ export default async function OrdersPage({
   searchParams: Promise<{ date?: string }>
 }) {
   const { date } = await searchParams
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const operator = await requireOperatorOrRedirect()
+  if (operator.role !== 'store_owner') redirect('/mevo')
+  const storeId = operator.storeId
 
-  const storeIdMeta: string | undefined = user.user_metadata?.store_id
-  let storeId = storeIdMeta
-  if (!storeId) {
-    const { data } = await supabase.from('stores').select('id').eq('is_active', true).limit(1).single()
-    storeId = data?.id
-  }
-  if (!storeId) return <p className="p-6 text-gray-400">Chưa có quán nào.</p>
+  const supabase = await createClient()
 
   // Lọc theo ngày (mặc định hôm nay)
   const selectedDate = date ?? new Date().toISOString().slice(0, 10)
