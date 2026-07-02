@@ -29,24 +29,50 @@ describe('account validation', () => {
     expect(() => parseAccountProfile(formData)).toThrow('Số điện thoại tối đa 30 ký tự')
   })
 
-  it('accepts a valid matching password', () => {
+  it('preserves current password leading and trailing spaces', () => {
+    const formData = new FormData()
+    formData.set('current_password', '  matkhaucu  ')
+    formData.set('password', 'matkhau123')
+    formData.set('confirm_password', 'matkhau123')
+
+    expect(parseAccountPassword(formData)).toEqual({
+      currentPassword: '  matkhaucu  ',
+      password: 'matkhau123',
+    })
+  })
+
+  it('preserves new password leading and trailing spaces when confirmation matches exactly', () => {
+    const formData = new FormData()
+    formData.set('current_password', 'matkhaucu')
+    formData.set('password', '  matkhau123  ')
+    formData.set('confirm_password', '  matkhau123  ')
+
+    expect(parseAccountPassword(formData)).toEqual({
+      currentPassword: 'matkhaucu',
+      password: '  matkhau123  ',
+    })
+  })
+
+  it('rejects missing current password', () => {
     const formData = new FormData()
     formData.set('password', 'matkhau123')
     formData.set('confirm_password', 'matkhau123')
 
-    expect(parseAccountPassword(formData)).toEqual({ password: 'matkhau123' })
+    expect(() => parseAccountPassword(formData)).toThrow('Vui lòng nhập mật khẩu hiện tại')
   })
 
-  it('trims password and confirmation before returning password', () => {
+  it('rejects blank current password', () => {
     const formData = new FormData()
-    formData.set('password', '  matkhau123  ')
-    formData.set('confirm_password', '  matkhau123  ')
+    formData.set('current_password', '   ')
+    formData.set('password', 'matkhau123')
+    formData.set('confirm_password', 'matkhau123')
 
-    expect(parseAccountPassword(formData)).toEqual({ password: 'matkhau123' })
+    expect(() => parseAccountPassword(formData)).toThrow('Vui lòng nhập mật khẩu hiện tại')
   })
 
   it('rejects password shorter than 8 characters', () => {
     const formData = new FormData()
+    formData.set('current_password', 'matkhaucu')
     formData.set('password', '1234567')
     formData.set('confirm_password', '1234567')
 
@@ -55,6 +81,7 @@ describe('account validation', () => {
 
   it('rejects password confirmation mismatch', () => {
     const formData = new FormData()
+    formData.set('current_password', 'matkhaucu')
     formData.set('password', 'matkhau123')
     formData.set('confirm_password', 'matkhau456')
 

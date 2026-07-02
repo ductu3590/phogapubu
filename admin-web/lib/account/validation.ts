@@ -4,6 +4,7 @@ export type AccountProfileInput = {
 }
 
 export type AccountPasswordInput = {
+  currentPassword: string
   password: string
 }
 
@@ -11,6 +12,12 @@ function getTrimmedField(formData: FormData, fieldName: string) {
   const value = formData.get(fieldName)
 
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function getStringField(formData: FormData, fieldName: string) {
+  const value = formData.get(fieldName)
+
+  return typeof value === 'string' ? value : ''
 }
 
 export function parseAccountProfile(formData: FormData): AccountProfileInput {
@@ -29,8 +36,13 @@ export function parseAccountProfile(formData: FormData): AccountProfileInput {
 }
 
 export function parseAccountPassword(formData: FormData): AccountPasswordInput {
-  const password = getTrimmedField(formData, 'password')
-  const confirmPassword = getTrimmedField(formData, 'confirm_password')
+  const currentPassword = getStringField(formData, 'current_password')
+  const password = getStringField(formData, 'password')
+  const confirmPassword = getStringField(formData, 'confirm_password')
+
+  if (!currentPassword.trim()) {
+    throw new Error('Vui lòng nhập mật khẩu hiện tại')
+  }
 
   if (password.length < 8) {
     throw new Error('Mật khẩu mới phải có ít nhất 8 ký tự')
@@ -40,5 +52,5 @@ export function parseAccountPassword(formData: FormData): AccountPasswordInput {
     throw new Error('Mật khẩu nhập lại không khớp')
   }
 
-  return { password }
+  return { currentPassword, password }
 }
