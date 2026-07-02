@@ -111,6 +111,37 @@ Quyet dinh:
 - Neu role la `mevo_superadmin`, khong vao `/admin` mac dinh bang fallback quan dau tien; vao `/mevo`.
 - Neu superadmin can mo admin cua mot quan de ho tro, lam sau bang route ro rang nhu `/mevo/stores/[storeId]/admin-link` hoac switch context co ghi nhan, khong dung fallback am tham.
 
+### 3.4 RLS phai scope theo store_id (khong chi chan o tang Next.js)
+
+Hien tai (`006b_tighten_admin_rls.sql`) cac policy tren `stores`, `tables`, `menu_categories`,
+`menu_items`, `orders`, `order_items` dung `is_operator()` — ham nay chi tra loi "co phai operator
+khong", KHONG kiem tra `store_id` co khop voi row dang truy cap. Day moi la lop khoa THAT (comment
+trong `proxy.ts` da ghi ro: RLS moi la lop khoa that, proxy chi la cong UX de redirect som).
+
+Neu khong sua truoc, sau khi them `role` va tao tai khoan `store_owner` that cho quan thu 2: chu
+quan A van co the goi thang Supabase (vi du tu devtools, dung session JWT cua chinh ho, khong can
+qua admin-web) va doc/sua duoc du lieu quan B — vi RLS khong phan biet quan nao, chi phan biet
+"co phai operator hay khong".
+
+Bat buoc them truoc khi tao tai khoan `store_owner` that cho quan thu 2 (khong duoc coi la "sau nay
+lam cung duoc"):
+
+```sql
+create or replace function is_store_scoped_operator(target_store_id uuid) returns boolean
+  language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from mevo_operators
+    where user_id = auth.uid()
+      and (role = 'mevo_superadmin' or store_id = target_store_id)
+  );
+$$;
+```
+
+Va sua lai toan bo policy trong `006b` tu `USING (is_operator())` / `WITH CHECK (is_operator())`
+sang `USING (is_store_scoped_operator(store_id))` (voi bang `stores` thi dung `is_store_scoped_operator(id)`).
+Buoc nay chen vao Rollout (muc 8) giua buoc "bat role not null" va buoc "sua login/proxy/layout" —
+phai xong o tang DB truoc khi tang ung dung bat dau tin tuong `role`.
+
 ## 4. Du lieu cau hinh mini-app
 
 V1 nen tach cau hinh cong khai va secret.
@@ -123,10 +154,7 @@ Khuyen nghi bang rieng:
 ```sql
 create table store_app_configs (
   store_id uuid primary key references stores(id) on delete cascade,
-  zalo_mini_app_id text unique,
   zalo_mini_app_name text,
-  zalo_oa_id text,
-  zalo_oa_url text,
   zmp_app_config jsonb not null default '{}'::jsonb,
   onboarding_status text not null default 'draft',
   deployment_status text not null default 'not_deployed',
@@ -137,12 +165,26 @@ create table store_app_configs (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table store_app_configs enable row level security;
+
+create policy "operator_read_app_configs" on store_app_configs
+  for select to authenticated using (is_store_scoped_operator(store_id));
+-- Chi doc qua policy nay. Ghi (insert/update) chi lam qua service_role trong
+-- server action /mevo — khong tao policy insert/update cho authenticated.
 ```
 
 Ghi chu:
 
-- `zalo_oa_url` hien co tren `stores` co the giu tam de mini-app doc, nhung `/mevo` nen la noi quan ly nguon cau hinh tong.
-- `zmp_app_config` chi chua metadata khong bi mat, vi du ten app, mau, domain, checklist deployment.
+- **Khong lap lai `zalo_mini_app_id` va cac field OA o day** — day la nguyen nhan de co nhieu
+  nguon su that. `zalo_mini_app_id` dung khi can (tao QR, checkout) da co san trong
+  `store_checkout_configs.zalo_mini_app_id`; `/mevo` doc bang do qua service_role khi hien thi.
+  `zalo_oa_id`/access token dua ve `store_zalo_configs` (muc 4.2) lam nguon that duy nhat.
+- `stores.zalo_oa_url` (da co tu migration 009, mini-app dang doc de hien nut "Theo doi OA") giu
+  nguyen khong doi trong scope design nay — day la cot legacy da duoc ghi vao `docs/BACKLOG.md`
+  muc don dep, khong nhan them field trung lap moi vao `store_app_configs`.
+- `zmp_app_config` chi chua metadata khong bi mat, vi du mau, domain, checklist deployment — khong
+  chua secret hay ID dung de xac thuc thanh toan.
 
 ### 4.2 Secret theo tung quan
 
@@ -159,7 +201,6 @@ Can them secret cho Zalo OA/webhook khi lam multi-tenant:
 ```sql
 create table store_zalo_configs (
   store_id uuid primary key references stores(id) on delete cascade,
-  zalo_oa_id text,
   zalo_oa_access_token text,
   zalo_app_secret_key text,
   is_enabled boolean not null default true,
@@ -167,6 +208,28 @@ create table store_zalo_configs (
   updated_at timestamptz not null default now()
 );
 ```
+
+**Khong them cot `zalo_oa_id` o day** — `stores.zalo_oa_id` da co san tu migration 001 va
+`zns-notify` da doc no qua join `stores(name, zalo_oa_id)`. Chi 2 secret (`zalo_oa_access_token`,
+`zalo_app_secret_key`) la thu can bang rieng; `zalo_oa_id` khong phai secret, giu nguyen tren `stores`
+de tranh them mot nguon su that thu 3.
+
+**Tao bang nay khong tu dong het blocker #2/#3 da ghi trong `docs/BACKLOG.md`** (ZNS va webhook
+chua multi-tenant). Con 2 viec code phai lam kem:
+
+- `supabase/functions/zns-notify/index.ts`: da join san `order.store_id` khi doc order — chi can
+  them 1 query `store_zalo_configs` theo `store_id` do de lay `zalo_oa_access_token` thay vi
+  `Deno.env.get('ZALO_OA_ACCESS_TOKEN')`. Khong can doi API cua function (van nhan `{ orderId }`).
+- `admin-web/app/api/zalo-webhook/route.ts`: **kho hon** — payload webhook hien tai (`event`,
+  `userId`) KHONG mang thong tin quan nao, va phai xac dinh dung secret truoc khi verify chu ky
+  (khong the dua vao noi dung payload chua verify de chon quan). Cach xu ly: doi route thanh
+  `admin-web/app/api/zalo-webhook/[storeId]/route.ts`, dang ky URL webhook nay (co storeId that
+  trong path) tren tung app Zalo rieng khi onboard quan moi. Route doc `store_zalo_configs` theo
+  `storeId` tu URL truoc, dung dung secret cua quan do de verify chu ky, va khi update
+  `orders.zalo_user_id = null` phai them dieu kien `.eq('store_id', storeId)` (khong update xuyen
+  quan bang zalo_user_id thuan tuy nua).
+
+Xem day la viec bat buoc lam ngay sau khi bang nay ton tai, khong phai viec rieng co the hoan.
 
 Bao mat:
 
@@ -282,12 +345,19 @@ Thu tu:
    - User hien co co `store_id = NULL` -> `role = 'mevo_superadmin'`.
    - Neu sau nay co user quan -> `role = 'store_owner'`, `store_id` bat buoc.
 3. Bat `role not null`, them role/store constraint.
-4. Them helper `requireOperator()`.
-5. Sua login/proxy/layout theo role.
-6. Sua cac admin page/action bo fallback quan dau tien.
-7. Them route `/mevo` read-only dashboard/list truoc.
-8. Them form tao/sua store va config.
-9. Them form update secret nhung khong hien lai secret.
+4. **Them `is_store_scoped_operator()` va sua lai toan bo policy trong `006b` de dung ham nay
+   thay cho `is_operator()` tren `stores`/`tables`/`menu_categories`/`menu_items`/`orders`/`order_items`
+   (muc 3.4). Buoc nay BAT BUOC xong truoc buoc 9 (tao tai khoan `store_owner` that cho quan thu 2)** —
+   khong duoc hoan lai sau, vi day la lop khoa that o DB.
+5. Them helper `requireOperator()`.
+6. Sua login/proxy/layout theo role.
+7. Sua cac admin page/action bo fallback quan dau tien.
+8. Them route `/mevo` read-only dashboard/list truoc.
+9. Them form tao/sua store va config — bao gom bat RLS + policy cho `store_app_configs`
+   ngay trong migration tao bang (muc 4.1), khong de trong.
+10. Them form update secret (`store_checkout_configs`, `store_zalo_configs`) nhung khong hien lai secret.
+11. Sua `zns-notify` va `admin-web/app/api/zalo-webhook/route.ts` doc secret theo `store_id` tu
+    `store_zalo_configs` thay vi `process.env` toan cuc (dong bo voi blocker #2/#3 trong `docs/BACKLOG.md`).
 
 ## 9. Testing
 
@@ -301,6 +371,9 @@ Can them checklist rieng vao `TESTING.md` khi implement:
 - Tao quan moi trong `/mevo` tao dung row `stores` va config rong.
 - Update Checkout secret -> UI chi hien "Da cau hinh", khong render secret.
 - Tat/mat config Checkout -> mini-app/checkout fail co thong bao ro, khong crash.
+- **RLS store-scoped**: dung 2 quan test (A, B) + 2 tai khoan `store_owner` rieng. Dang nhap quan A,
+  goi thang Supabase REST (khong qua admin-web) doc/sua `stores`/`menu_items`/`orders` cua quan B ->
+  phai bi tu choi (khong chi bi chan tren UI admin-web).
 
 ## 10. Cau hoi da chot
 
