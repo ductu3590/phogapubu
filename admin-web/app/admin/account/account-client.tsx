@@ -48,7 +48,12 @@ export default function AccountClient({ email, fullName, phone }: Props) {
         <div className="mt-4 flex flex-col gap-4">
           <div>
             <label className="label">Email đăng nhập</label>
-            <input value={email} readOnly className="input bg-gray-50 text-gray-500" />
+            <input
+              value={email}
+              readOnly
+              className="input cursor-not-allowed"
+              style={{ backgroundColor: '#f9fafb', color: '#6b7280' }}
+            />
           </div>
           <div>
             <label className="label">Họ tên</label>
