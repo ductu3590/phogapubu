@@ -57,6 +57,27 @@ MEVO **KHÔNG** dùng một mini-app đa quán. Lý do: Zalo Mini App khoá than
 - MEVO là đơn vị **làm + vận hành mini-app**, không phải ví điện tử.
 - 📄 Thiết kế đầy đủ: [docs/superpowers/specs/2026-06-22-mevo-core-theme-architecture-design.md](docs/superpowers/specs/2026-06-22-mevo-core-theme-architecture-design.md)
 
+### ⚠️ Sửa mini-app đúng chỗ — 3 tầng, đừng nhầm (quyết định 2026-07-03)
+
+Trước khi sửa bất kỳ file nào trong `mini-app/` hoặc `mini-app-instances/`, xác định đang sửa
+tầng nào — nhầm tầng là lỗi hay gặp nhất khi có ≥2 quán:
+
+| Tầng | Sửa ở đâu | Khi nào sửa | Áp dụng cho |
+|---|---|---|---|
+| **1. Core code** (logic, UI, luồng đặt món...) | `mini-app/src/` (thư mục gốc repo, nhánh `main`) | Sửa bug, thêm tính năng dùng chung cho MỌI quán | Tất cả quán, sau khi mỗi quán tự `git merge origin/main` vào worktree của mình |
+| **2. Cấu hình riêng quán** (Zalo App ID, Supabase key, tên app hiển thị trên Zalo) | `mini-app-instances/<slug>/mini-app/.env` + `app-config.json` (KHÔNG tracked, mỗi quán 1 bản) | Onboard quán mới, đổi Zalo App ID | Chỉ 1 quán — không bao giờ sửa ở `mini-app/` gốc, gốc không có 2 file này |
+| **3. Nội dung/theme runtime** (tên quán, logo, banner, menu, **màu chủ đạo**) | Bảng `stores`/`menu_items`/... qua `/mevo` hoặc `/admin` | Đổi nội dung hiển thị, không đổi hành vi | Chỉ 1 quán — KHÔNG cần sửa code, KHÔNG cần deploy lại, chỉ cần quán đó đã `zmp deploy` ít nhất 1 lần |
+
+**Quy tắc:**
+- `mini-app/` (thư mục gốc) = **source lõi**, không `npm run dev`/`zmp deploy` trực tiếp từ đây
+  (thiếu `.env`/`app-config.json` cố ý — nhắc đang cầm nhầm thư mục).
+- Mỗi quán có 1 **git worktree riêng** tại `mini-app-instances/<slug>/` (branch `deploy/<slug>`,
+  tạo bằng `scripts/create-mini-app-instance.sh`) — `cd` vào `mini-app-instances/<slug>/mini-app`
+  để `npm run dev`/`zmp deploy` cho ĐÚNG quán đó, không lo đụng `.env` quán khác.
+- Sửa core xong trên `main` → từng quán tự đồng bộ: `cd mini-app-instances/<slug> && git fetch
+  origin && git merge origin/main` — KHÔNG copy tay file.
+- 📄 Chi tiết đầy đủ + lịch sử: `.claude/skills/replicate-mini-app/SKILL.md`.
+
 ---
 
 ## 3. Kiến trúc hệ thống

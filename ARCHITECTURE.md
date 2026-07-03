@@ -453,14 +453,21 @@ serve(async (req) => {
 ## 4. Deploy
 
 ### Zalo Mini App
+
+> ⚠️ **Cập nhật 2026-07-03:** không còn deploy trực tiếp từ thư mục `mini-app/` gốc nữa — mỗi
+> quán có 1 worktree riêng ở `mini-app-instances/<slug>/`. Chi tiết đầy đủ + lý do:
+> `CLAUDE.md` mục "Sửa mini-app đúng chỗ" và `.claude/skills/replicate-mini-app/SKILL.md`.
+> Quán đầu tiên (Phở Gà Pubu) đã có sẵn tại `mini-app-instances/pho-ga-pubu/`.
+
 ```bash
-cd mini-app
+# Lần đầu cho 1 quán mới: tạo worktree riêng
+scripts/create-mini-app-instance.sh <slug> "<Tên hiển thị>"
 
-# Login Zalo Developer
-zmp login
+# Từ đó về sau, luôn làm việc trong thư mục riêng của quán đó:
+cd mini-app-instances/<slug>/mini-app
 
-# Deploy lên Zalo platform
-zmp deploy
+zmp login      # đăng nhập tài khoản Zalo sở hữu app CỦA QUÁN NÀY
+zmp deploy     # deploy lên đúng app Zalo của quán này
 
 # Sau khi deploy → Zalo tạo QR để test
 # Scan QR bằng Zalo để preview trên điện thoại thật
@@ -493,11 +500,11 @@ supabase secrets set ZALOPAY_APP_ID=xxx ZALOPAY_KEY1=xxx ZALOPAY_KEY2=xxx
 ## 5. Lệnh thường dùng
 
 ```bash
-# Zalo Mini App
-cd mini-app
+# Zalo Mini App — luôn từ thư mục riêng của quán, KHÔNG phải mini-app/ gốc
+cd mini-app-instances/<slug>/mini-app
 npm run dev          # Dev mode (browser, mock Zalo APIs)
 zmp preview          # Preview trên điện thoại qua Zalo
-zmp deploy           # Deploy lên Zalo platform
+zmp deploy           # Deploy lên Zalo platform (đúng app của quán này)
 
 # Admin Web
 cd admin-web
