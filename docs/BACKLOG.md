@@ -23,41 +23,41 @@
 - **Lý do hoãn:** khách nhập tay vẫn đủ chức năng; ưu tiên publish trước.
 
 ## Cần verify khi test sự kiện xoá dữ liệu (user.revoke.consent)
-- **Ngày ghi:** 2026-06-28
-- Webhook `https://pubu.soccernow.net/api/zalo-webhook` (admin-web) đã set + Kiểm tra 200 OK.
+- **Ngày ghi:** 2026-06-28. **Cập nhật 2026-07-02:** URL + nơi lưu secret đã đổi (xem mục
+  Onboarding Cockpit ở trên) — webhook giờ là
+  `https://pubu.soccernow.net/api/zalo-webhook/87f4c6bc-07b5-4dcd-99d8-067f3417ab5e`
+  (đã cập nhật trên Zalo Dev Console), secret đọc từ `store_zalo_configs.zalo_app_secret_key`
+  qua `/mevo`, KHÔNG còn dùng env Vercel `ZALO_APP_SECRET_KEY` nữa.
 - **Cần kiểm:** chữ ký webhook OA ký bằng **"OA Secret Key"** (hiện ở màn Webhook
-  developers.zalo.me) hay **app secret**? Env Vercel `ZALO_APP_SECRET_KEY` hiện đặt = app
-  secret `o2Sd2dPVAS21ORQiV6La`. Nếu test sự kiện thật mà KHÔNG xử lý (chữ ký không khớp) →
-  đổi env sang giá trị **OA Secret Key**. (Webhook luôn ack 200 nên không lộ ra khi duyệt.)
-- 🔁 Nhớ **reset app secret / OA secret** đã lộ trong chat, rồi cập nhật lại env Vercel.
+  developers.zalo.me) hay **app secret**? Nếu test sự kiện thật mà KHÔNG xử lý (chữ ký không
+  khớp) → thử nhập giá trị **OA Secret Key** vào `/mevo/stores/<id>` thay vì app secret.
+  (Webhook luôn ack 200 nên không lộ ra khi duyệt — phải xem log Vercel để biết chữ ký có khớp
+  không.)
+- 🔁 Nhớ **reset app secret cũ `o2Sd2dPVAS21ORQiV6La`** đã lộ trong chat trước đây (không còn
+  dùng qua env Vercel nữa nhưng vẫn nên revoke phía Zalo Dev Console cho chắc), rồi nhập secret
+  mới vào `/mevo`.
 
-## Dọn dẹp
-- Cột `stores.zalopay_app_id/key1/key2` — tàn dư model ZaloPay API cũ, không dùng từ khi
-  chuyển sang Checkout SDK (thay bằng `store_checkout_configs`, xem
-  `docs/superpowers/specs/2026-07-01-per-store-zalopay-checkout-secret-design.md`).
-
-## BẮT BUỘC làm trước khi có quán thứ 2 thật (phát hiện 2026-07-01)
+## ✅ ĐÃ XONG — BẮT BUỘC làm trước khi có quán thứ 2 thật (phát hiện 2026-07-01, xong 2026-07-02)
 - **Bối cảnh:** viết skill `.claude/skills/replicate-mini-app/SKILL.md` để chuẩn bị nhân bản
-  mini-app, phát hiện 3 lỗ hổng chỉ lộ ra khi có ≥2 quán active cùng lúc (hiện chỉ 1 quán nên
-  chưa gây hại, nhưng KHÔNG được onboard quán 2 thật trước khi xử lý):
-  1. **Fallback chọn quán sai trong admin-web** — nhiều file (`admin-web/app/admin/*`,
-     `lib/actions/*`) fallback `SELECT * FROM stores WHERE is_active=true LIMIT 1` khi operator
-     thiếu `store_id`. Với 2 quán active, operator có thể sửa nhầm menu/bàn của quán khác mà
-     không có cảnh báo gì. Grep `is_active.*limit(1)` để tìm hết các chỗ.
-  2. **ZNS chưa multi-tenant** — `supabase/functions/zns-notify/index.ts` đọc 1 secret toàn cục
-     `ZALO_OA_ACCESS_TOKEN`. Quán 2 có OA riêng sẽ nhận ZNS sai OA hoặc không nhận được gì.
-  3. **Webhook xoá dữ liệu chưa multi-tenant** — `admin-web/app/api/zalo-webhook/route.ts` đọc
-     1 secret toàn cục `ZALO_APP_SECRET_KEY`. Quán 2 có Zalo App riêng sẽ cần secret riêng.
-- **Việc cần làm:** sửa cả 3 theo đúng pattern đã dùng cho ZaloPay Checkout (bảng riêng theo
-  `store_id`, xem `docs/superpowers/specs/2026-07-01-per-store-zalopay-checkout-secret-design.md`
-  làm mẫu) — làm TRƯỚC khi insert `stores` row thứ 2 với `is_active=true`.
+  mini-app, phát hiện 3 lỗ hổng chỉ lộ ra khi có ≥2 quán active cùng lúc. Đã xử lý cả 3 trong
+  Onboarding Cockpit (xem `docs/superpowers/plans/2026-07-01-mevo-internal-backend-onboarding-cockpit.md`):
+  1. **Fallback chọn quán sai** — đã xoá hết, thay bằng `requireOperator()`
+     (`admin-web/lib/auth/operator.ts`) đọc `mevo_operators.role/store_id`, fail closed nếu
+     thiếu. Đồng thời vá thêm ở tầng RLS (mục 2 bên dưới) — lớp khoá thật, không chỉ tầng UI.
+  2. **ZNS multi-tenant** — `zns-notify` đọc `store_zalo_configs.zalo_oa_access_token` theo
+     `store_id`, đã deploy production (migration 021, function version 17).
+  3. **Webhook multi-tenant** — route đổi thành `admin-web/app/api/zalo-webhook/[storeId]/route.ts`,
+     đọc secret theo `storeId` trong URL. **Đã đổi URL trên Zalo Dev Console cho Phở Gà Pubu**
+     thành `https://pubu.soccernow.net/api/zalo-webhook/87f4c6bc-07b5-4dcd-99d8-067f3417ab5e`
+     (anh Tú xác nhận xong 2026-07-02).
+- **Thêm ngoài 3 blocker gốc:** RLS (`006b`) trước đây chỉ check "có phải operator", không check
+  đúng quán — đã thêm `is_store_scoped_operator(store_id)` (migration 019), viết lại 17 policy
+  trên 9 bảng. Test cross-store (đọc + ghi) đã PASS 2026-07-02.
+- Tài khoản `pubu@mevo.vn` đã gán `store_owner` cho Phở Gà Pubu qua `mevo_operators`.
 
-## Hardening (không gấp, RLS đã chặn đủ)
-- **Ngày ghi:** 2026-07-01
-- `store_checkout_configs` đang chặn anon/authenticated hoàn toàn nhờ RLS bật + không có
-  policy nào (default-deny). Nhưng bảng vẫn còn GRANT mặc định của Postgres/Supabase cho
-  anon/authenticated (SELECT/INSERT/UPDATE/DELETE...) — hiện không gây rủi ro vì RLS chặn hết,
-  nhưng là "bẫy" nếu sau này có ai thêm 1 policy permissive cho mục đích khác (vd admin UI nhập
-  secret) mà quên xét lại GRANT. Nên chạy `REVOKE ALL ON store_checkout_configs FROM anon,
-  authenticated;` trong 1 migration nhỏ riêng, làm phòng thủ thêm (defense-in-depth), không
-  bắt buộc.
+## ✅ ĐÃ XONG — Dọn dẹp cột ZaloPay cũ (2026-07-02)
+- Cột `stores.zalopay_app_id/key1/key2` (tàn dư model ZaloPay API cũ) đã xoá — xem migration
+  `022_drop_legacy_zalopay_columns.sql`.
+
+## ✅ ĐÃ XONG — Hardening REVOKE (2026-07-02)
+- Đã `REVOKE ALL ON store_checkout_configs FROM anon, authenticated` — cùng migration 022.
