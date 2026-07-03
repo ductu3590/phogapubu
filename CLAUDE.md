@@ -141,7 +141,7 @@ mevo/
 ├── PRD.md                  ← Chi tiết tính năng
 ├── ARCHITECTURE.md         ← Setup guide & patterns
 │
-├── mini-app/               ← Zalo Mini App (khách hàng)
+├── mini-app/               ← Zalo Mini App — SOURCE LÕI, không deploy trực tiếp từ đây
 │   ├── src/
 │   │   ├── pages/
 │   │   │   ├── index.tsx         ← Trang menu chính
@@ -158,9 +158,13 @@ mevo/
 │   │   │   └── zalopay.service.ts← Tạo giao dịch ZaloPay
 │   │   ├── state.ts              ← Recoil atoms (menu, cart, store)
 │   │   └── app.tsx               ← Route config
-│   ├── app-config.json           ← Zalo Mini App config
+│   ├── app-config.example.json   ← Template (tracked); app-config.json thật = gitignored
 │   ├── package.json
-│   └── .env
+│   └── .env.example              ← Template (tracked); .env thật = gitignored
+│
+├── mini-app-instances/     ← Worktree riêng theo quán (gitignored, xem quyết định 2026-07-03)
+│   └── <slug>/mini-app/    ← cd vào đây để npm run dev / zmp deploy cho ĐÚNG quán này
+│                              (tạo bằng scripts/create-mini-app-instance.sh)
 │
 ├── admin-web/              ← Next.js Admin + Kitchen
 │   ├── app/
@@ -362,3 +366,5 @@ Anh cần hoàn thành các bước này để có credentials:
 | 2026-06-26 | **Follow OA trước khi gửi ZNS** — prompt bottom sheet lần đầu mở app | ZNS chỉ gửi được cho user đã follow OA; không follow = không nhận thông báo món xong |
 | 2026-06-28 | **Quán mới mặc định TẮT tiền mặt** (`payment_methods` default `{zalopay}`) | Cashless-first; bắt trả trước qua ZaloPay chống chơi xấu (chụp QR bàn → ngồi nhà đặt rồi chọn tiền mặt). Quán cũ không đổi tự động, tự bật trong admin nếu cần |
 | 2026-06-28 | **Doanh thu = tiền THẬT đã nhận** (ZaloPay `trans_id` + cash `paid`), không chỉ `status='paid'` | Đơn ZaloPay trả trước dừng ở confirmed/ready, không bao giờ thành `paid` → trước đây doanh thu ZaloPay bị tính = 0 |
+| 2026-07-02 | **MEVO Onboarding Cockpit (`/mevo`)** — `mevo_operators.role` (`mevo_superadmin`/`store_owner`), RLS scope theo `store_id` (`is_store_scoped_operator()`), thay toàn bộ fallback "quán active đầu tiên" bằng `requireOperator()` | Chuẩn bị quán thứ 2 thật — RLS cũ chỉ check "có phải operator", không check đúng quán → chủ quán A gọi thẳng Supabase vẫn đọc/sửa được quán B |
+| 2026-07-03 | **Mỗi quán 1 git worktree riêng cho mini-app** (`mini-app-instances/<slug>/`, nhánh `deploy/<slug>`), KHÔNG sửa tay `.env`/`app-config.json` dùng chung nữa | Sửa tay `.env` mỗi lần deploy dễ nhầm quán, không chạy song song 2 `npm run dev` được. Worktree cho thư mục vật lý riêng nhưng vẫn chung lịch sử `mini-app/src` — vá lỗi core 1 chỗ, đồng bộ qua `git merge origin/main`, không copy tay. `mini-app/` gốc giờ là source lõi, không dùng để deploy trực tiếp nữa. Script: `scripts/create-mini-app-instance.sh` |

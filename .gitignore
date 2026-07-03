@@ -41,3 +41,11 @@ supabase/.temp/
 # Git worktrees (isolated workspaces for agent-driven implementation)
 .worktrees/
 .claude/worktrees/
+
+# Mini-app app-config.json là cấu hình riêng theo từng quán (title, v.v.) — không commit bản
+# thật, chỉ commit app-config.example.json làm template. Xem scripts/create-mini-app-instance.sh.
+mini-app/app-config.json
+
+# Worktree lâu dài cho từng quán (mini-app-instances/<slug>/) — không phải worktree tạm của
+# agent, nhưng cũng không nên commit nội dung checkout vào chính repo.
+mini-app-instances/
