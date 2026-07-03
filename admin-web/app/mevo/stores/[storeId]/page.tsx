@@ -1,9 +1,10 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import {
-  updateStoreBasicInfo, updateAppConfig, updateCheckoutConfig, updateZaloConfig,
+  updateStoreBasicInfo, updateStoreColor, updateAppConfig, updateCheckoutConfig, updateZaloConfig,
 } from '@/lib/actions/mevo-stores'
 import AssignOwnerForm from './assign-owner-form'
+import SaveForm from './save-form'
 
 export default async function StoreDetailPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params
@@ -18,6 +19,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
   const { data: operators } = await admin.from('mevo_operators').select('user_id').eq('store_id', storeId)
 
   const updateInfo = updateStoreBasicInfo.bind(null, storeId)
+  const updateColor = updateStoreColor.bind(null, storeId)
   const updateApp = updateAppConfig.bind(null, storeId)
   const updateCheckout = updateCheckoutConfig.bind(null, storeId)
   const updateZalo = updateZaloConfig.bind(null, storeId)
@@ -27,7 +29,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
       <h1 className="text-2xl font-bold text-gray-900">{store.name}</h1>
 
       <Section title="Thông tin quán">
-        <form action={updateInfo} className="space-y-3">
+        <SaveForm action={updateInfo}>
           <Field label="Tên" name="name" defaultValue={store.name} required />
           <Field label="Điện thoại" name="phone" defaultValue={store.phone ?? ''} />
           <Field label="Địa chỉ" name="address" defaultValue={store.address ?? ''} />
@@ -35,20 +37,27 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="is_active" defaultChecked={store.is_active} /> Đang hoạt động
           </label>
-          <SubmitButton />
-        </form>
+        </SaveForm>
+      </Section>
+
+      <Section title="Giao diện Mini App">
+        <p className="mb-3 text-sm text-gray-500">
+          Màu chủ đạo áp cho thanh menu/nút bấm trên Mini App của quán này. Không ảnh hưởng quán khác.
+        </p>
+        <SaveForm action={updateColor}>
+          <ColorField label="Màu chủ đạo" name="primary_color" defaultValue={store.primary_color ?? '#A0673D'} />
+        </SaveForm>
       </Section>
 
       <Section title="Mini App / Onboarding checklist">
-        <form action={updateApp} className="space-y-3">
+        <SaveForm action={updateApp}>
           <Field label="Tên Mini App (Zalo Dev)" name="zalo_mini_app_name" defaultValue={appConfig?.zalo_mini_app_name ?? ''} />
           <SelectField label="Trạng thái onboarding" name="onboarding_status" defaultValue={appConfig?.onboarding_status ?? 'draft'}
             options={['draft', 'in_progress', 'ready', 'live']} />
           <SelectField label="Trạng thái deploy" name="deployment_status" defaultValue={appConfig?.deployment_status ?? 'not_deployed'}
             options={['not_deployed', 'deployed', 'submitted', 'published']} />
           <TextArea label="Ghi chú" name="notes" defaultValue={appConfig?.notes ?? ''} />
-          <SubmitButton />
-        </form>
+        </SaveForm>
       </Section>
 
       <Section title="ZaloPay Checkout">
@@ -56,11 +65,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
           Trạng thái: <StatusText ok={!!checkoutConfig?.is_enabled} />
           {checkoutConfig?.updated_at && ` — cập nhật lúc ${new Date(checkoutConfig.updated_at).toLocaleString('vi-VN')}`}
         </p>
-        <form action={updateCheckout} className="space-y-3">
+        <SaveForm action={updateCheckout}>
           <Field label="Zalo Mini App ID" name="zalo_mini_app_id" defaultValue={checkoutConfig?.zalo_mini_app_id ?? ''} required />
           <Field label="Checkout Secret Key (bỏ trống nếu không đổi)" name="zalo_checkout_secret_key" type="password" />
-          <SubmitButton />
-        </form>
+        </SaveForm>
       </Section>
 
       <Section title="Zalo OA / Webhook">
@@ -68,11 +76,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
           OA ID hiện tại: {store.zalo_oa_id ?? '—'} (sửa ở mục &quot;Thông tin quán&quot; phía trên — không phải secret)
         </p>
         <p className="mb-3 text-sm text-gray-500">Trạng thái secret: <StatusText ok={!!zaloConfig?.is_enabled} /></p>
-        <form action={updateZalo} className="space-y-3">
+        <SaveForm action={updateZalo}>
           <Field label="OA Access Token (bỏ trống nếu không đổi)" name="zalo_oa_access_token" type="password" />
           <Field label="App Secret Key — webhook (bỏ trống nếu không đổi)" name="zalo_app_secret_key" type="password" />
-          <SubmitButton />
-        </form>
+        </SaveForm>
       </Section>
 
       <Section title="Tài khoản chủ quán">
@@ -123,11 +130,15 @@ function SelectField({ label, name, defaultValue, options }: { label: string; na
   )
 }
 
-function SubmitButton({ label }: { label?: string }) {
+function ColorField({ label, name, defaultValue }: { label: string; name: string; defaultValue: string }) {
   return (
-    <button type="submit" className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600">
-      {label ?? 'Lưu'}
-    </button>
+    <label className="block">
+      <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
+      <div className="flex items-center gap-3">
+        <input type="color" name={name} defaultValue={defaultValue} className="h-10 w-16 rounded-lg border border-gray-300" />
+        <span className="text-sm text-gray-500">{defaultValue}</span>
+      </div>
+    </label>
   )
 }
 

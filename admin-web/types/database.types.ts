@@ -12,6 +12,7 @@ interface StoreRow {
   address: string | null
   logo_url: string | null
   zalo_oa_id: string | null
+  primary_color: string
   is_active: boolean
   created_at: string
 }

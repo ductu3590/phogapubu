@@ -121,7 +121,9 @@ const base = {
 
 const semantic = {
   colors: {
-    primary: "#A0673D",
+    // Theme runtime theo store_id — set ở app.tsx (document.documentElement.style.setProperty).
+    // Fallback #A0673D khi CSS var chưa set (trước khi app.tsx chạy, hoặc ngoài Mini App).
+    primary: "var(--color-primary, #A0673D)",
     background: "#F7F7F7",
     text: {
       primary: base.colors.neutral900,

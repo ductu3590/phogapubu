@@ -26,7 +26,7 @@ function AppInit() {
 
     const storeQuery = supabase
       .from("stores")
-      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods, takeaway_banner_url, about_text")
+      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods, takeaway_banner_url, about_text, primary_color")
       .eq("slug", storeSlug)
       .eq("is_active", true)
       .single();
@@ -43,6 +43,13 @@ function AppInit() {
 
     Promise.all([storeQuery, tableQuery]).then(([storeRes, tableRes]) => {
       if (storeRes.data) {
+        // Màu chủ đạo theo quán (theme runtime) — set CSS var để mọi class Tailwind
+        // dùng theme("colors.primary") (đã trỏ sang var(--color-primary) trong tokens.js)
+        // đổi màu ngay không cần build lại.
+        document.documentElement.style.setProperty(
+          "--color-primary",
+          storeRes.data.primary_color || "#A0673D",
+        );
         setStoreInfo({
           storeSlug: storeRes.data.slug,
           storeId: storeRes.data.id,
