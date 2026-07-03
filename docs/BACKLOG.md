@@ -61,3 +61,10 @@
 
 ## ✅ ĐÃ XONG — Hardening REVOKE (2026-07-02)
 - Đã `REVOKE ALL ON store_checkout_configs FROM anon, authenticated` — cùng migration 022.
+
+## Dọn dẹp — cột rác khác (phát hiện khi dọn ZaloPay cũ, chưa xoá)
+- **Ngày ghi:** 2026-07-02
+- `stores.zalo_app_id` (khác `store_checkout_configs.zalo_mini_app_id`) — thêm ở migration 002,
+  dự định lưu Zalo Mini App ID thẳng trên `stores` trước khi có `store_checkout_configs`. Grep
+  không thấy code nào đọc/ghi cột này ngoài chính migration tạo nó. Nhiều khả năng cũng chết như
+  3 cột ZaloPay vừa xoá — nhưng CHƯA verify kỹ + CHƯA xin xác nhận xoá, để lại đây cho lần sau.
