@@ -19,6 +19,7 @@ export interface Database {
           payment_methods: string[] | null
           takeaway_banner_url: string | null
           about_text: string | null
+          primary_color: string
           is_active: boolean
           created_at: string
         }

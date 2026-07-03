@@ -50,6 +50,18 @@ export async function updateStoreBasicInfo(storeId: string, formData: FormData) 
   revalidatePath(`/mevo/stores/${storeId}`)
 }
 
+// Đổi màu chủ đạo Mini App — tách riêng khỏi updateStoreBasicInfo để form "Giao diện" chỉ
+// cần gửi đúng 1 field, không phải nhắc lại toàn bộ name/phone/address.
+export async function updateStoreColor(storeId: string, formData: FormData) {
+  await requireSuperadmin()
+  const admin = createAdminClient()
+  const color = (formData.get('primary_color') as string).trim()
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) throw new Error('Mã màu không hợp lệ')
+  const { error } = await admin.from('stores').update({ primary_color: color }).eq('id', storeId)
+  if (error) throw new Error(`updateStoreColor: ${error.message}`)
+  revalidatePath(`/mevo/stores/${storeId}`)
+}
+
 // Cập nhật app config công khai (không bí mật)
 export async function updateAppConfig(storeId: string, formData: FormData) {
   await requireSuperadmin()
