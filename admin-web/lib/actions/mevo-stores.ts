@@ -42,6 +42,7 @@ export async function updateStoreBasicInfo(storeId: string, formData: FormData) 
     name: (formData.get('name') as string).trim(),
     phone: (formData.get('phone') as string | null)?.trim() || null,
     address: (formData.get('address') as string | null)?.trim() || null,
+    zalo_oa_id: (formData.get('zalo_oa_id') as string | null)?.trim() || null,
     is_active: formData.get('is_active') === 'on',
   }
   const { error } = await admin.from('stores').update(patch).eq('id', storeId)
