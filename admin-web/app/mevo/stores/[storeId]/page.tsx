@@ -1,8 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import {
-  updateStoreBasicInfo, updateAppConfig, updateCheckoutConfig, updateZaloConfig, assignStoreOwner,
+  updateStoreBasicInfo, updateAppConfig, updateCheckoutConfig, updateZaloConfig,
 } from '@/lib/actions/mevo-stores'
+import AssignOwnerForm from './assign-owner-form'
 
 export default async function StoreDetailPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params
@@ -20,13 +21,6 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
   const updateApp = updateAppConfig.bind(null, storeId)
   const updateCheckout = updateCheckoutConfig.bind(null, storeId)
   const updateZalo = updateZaloConfig.bind(null, storeId)
-  // assignStoreOwner trả về { email, tempPassword } để hiện mật khẩu tạm 1 lần nếu cần (xem
-  // ghi chú UX trong spec) — form action cơ bản ở Server Component chỉ chấp nhận void, nên bọc
-  // lại và bỏ qua giá trị trả về; superadmin có thể tự đặt lại mật khẩu qua Supabase Dashboard.
-  async function assignOwner(formData: FormData) {
-    'use server'
-    await assignStoreOwner(storeId, formData)
-  }
 
   return (
     <div className="flex-1 space-y-6 overflow-y-auto p-6">
@@ -37,6 +31,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
           <Field label="Tên" name="name" defaultValue={store.name} required />
           <Field label="Điện thoại" name="phone" defaultValue={store.phone ?? ''} />
           <Field label="Địa chỉ" name="address" defaultValue={store.address ?? ''} />
+          <Field label="Zalo OA ID (không phải secret)" name="zalo_oa_id" defaultValue={store.zalo_oa_id ?? ''} />
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="is_active" defaultChecked={store.is_active} /> Đang hoạt động
           </label>
@@ -70,7 +65,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
 
       <Section title="Zalo OA / Webhook">
         <p className="mb-3 text-sm text-gray-500">
-          OA ID hiện tại: {store.zalo_oa_id ?? '—'} (sửa ở &quot;Thông tin quán&quot; nếu cần đổi — không phải secret)
+          OA ID hiện tại: {store.zalo_oa_id ?? '—'} (sửa ở mục &quot;Thông tin quán&quot; phía trên — không phải secret)
         </p>
         <p className="mb-3 text-sm text-gray-500">Trạng thái secret: <StatusText ok={!!zaloConfig?.is_enabled} /></p>
         <form action={updateZalo} className="space-y-3">
@@ -84,10 +79,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
         <p className="mb-3 text-sm text-gray-500">
           {operators && operators.length > 0 ? `${operators.length} tài khoản đã gán` : 'Chưa gán tài khoản nào'}
         </p>
-        <form action={assignOwner} className="space-y-3">
-          <Field label="Email chủ quán" name="email" type="email" required />
-          <SubmitButton label="Gán / tạo tài khoản" />
-        </form>
+        <AssignOwnerForm storeId={storeId} />
       </Section>
     </div>
   )

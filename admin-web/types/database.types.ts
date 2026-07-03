@@ -11,9 +11,6 @@ interface StoreRow {
   phone: string | null
   address: string | null
   logo_url: string | null
-  zalopay_app_id: string | null
-  zalopay_key1: string | null
-  zalopay_key2: string | null
   zalo_oa_id: string | null
   is_active: boolean
   created_at: string
