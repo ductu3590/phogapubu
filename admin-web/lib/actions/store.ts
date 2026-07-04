@@ -45,6 +45,12 @@ export async function updateStoreSettings(formData: FormData) {
   const aboutText = (formData.get('about_text') as string | null)?.trim()
   patch.about_text = aboutText || null
 
+  // wifi_name, wifi_password — optional; tên rỗng thì coi như tắt hiển thị wifi
+  const wifiName = (formData.get('wifi_name') as string | null)?.trim()
+  const wifiPassword = (formData.get('wifi_password') as string | null)?.trim()
+  patch.wifi_name = wifiName || null
+  patch.wifi_password = wifiPassword || null
+
   // banner — upload file nếu có (tương tự logo)
   const banner = formData.get('banner') as File | null
   if (banner && banner.size > 0) {

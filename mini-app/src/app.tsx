@@ -26,7 +26,7 @@ function AppInit() {
 
     const storeQuery = supabase
       .from("stores")
-      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods, takeaway_banner_url, about_text, primary_color")
+      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods, takeaway_banner_url, about_text, wifi_name, wifi_password, primary_color")
       .eq("slug", storeSlug)
       .eq("is_active", true)
       .single();
@@ -68,6 +68,8 @@ function AppInit() {
           })(),
           takeawayBannerUrl: storeRes.data.takeaway_banner_url ?? "",
           aboutText: storeRes.data.about_text ?? "",
+          wifiName: storeRes.data.wifi_name ?? "",
+          wifiPassword: storeRes.data.wifi_password ?? "",
         });
       }
       if (tableRes.data) {

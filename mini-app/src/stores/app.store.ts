@@ -15,6 +15,8 @@ interface AppStore {
   paymentMethods: PaymentMethod[];
   takeawayBannerUrl: string;
   aboutText: string;
+  wifiName: string;
+  wifiPassword: string;
   tableId: string;
   tableNumber: string;
   zaloUserId: string;
@@ -32,6 +34,8 @@ interface AppStore {
     paymentMethods: PaymentMethod[];
     takeawayBannerUrl: string;
     aboutText: string;
+    wifiName: string;
+    wifiPassword: string;
   }) => void;
   setTableInfo: (info: { tableId: string; tableNumber: string }) => void;
   setZaloUserId: (zaloUserId: string) => void;
@@ -50,6 +54,8 @@ export const useAppStore = create<AppStore>((set) => ({
   paymentMethods: ["zalopay", "cash"],
   takeawayBannerUrl: "",
   aboutText: "",
+  wifiName: "",
+  wifiPassword: "",
   tableId: "",
   tableNumber: "",
   zaloUserId: "",

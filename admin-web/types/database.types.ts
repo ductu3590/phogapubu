@@ -13,6 +13,8 @@ interface StoreRow {
   logo_url: string | null
   zalo_oa_id: string | null
   primary_color: string
+  wifi_name: string | null
+  wifi_password: string | null
   is_active: boolean
   created_at: string
 }

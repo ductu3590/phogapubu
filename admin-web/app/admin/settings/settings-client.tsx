@@ -14,6 +14,8 @@ interface Props {
   phone: string
   aboutText: string
   takeawayBannerUrl: string | null
+  wifiName: string
+  wifiPassword: string
 }
 
 // Nén ảnh banner phía client: thu nhỏ về tối đa 1600px chiều rộng + JPEG q0.85.
@@ -50,7 +52,7 @@ async function compressBanner(file: File): Promise<File> {
   }
 }
 
-export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl }: Props) {
+export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword }: Props) {
   const router = useRouter()
   const [logo, setLogo] = useState<File | null>(null)
   const [banner, setBanner] = useState<File | null>(null)
@@ -139,6 +141,29 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
           placeholder="VD: 0901 234 567"
           className="input"
         />
+      </div>
+
+      {/* Cấu hình Wifi — hiện ở tab "Nhà hàng" trên mini-app, để trống = không hiện */}
+      <div>
+        <label className="label">Tên wifi</label>
+        <input
+          name="wifi_name"
+          defaultValue={wifiName}
+          placeholder="VD: PhoGaPubu_Free"
+          className="input"
+        />
+      </div>
+      <div>
+        <label className="label">Mật khẩu wifi</label>
+        <input
+          name="wifi_password"
+          defaultValue={wifiPassword}
+          placeholder="VD: pubu2024"
+          className="input"
+        />
+        <p className="mt-1 text-xs text-gray-400">
+          Hiện ở tab &quot;Nhà hàng&quot; trên mini-app, khách bấm là sao chép mật khẩu. Để trống tên wifi = không hiện.
+        </p>
       </div>
 
       {/* Ghi chú / Lời nhắn */}

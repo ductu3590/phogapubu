@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { openWebview } from "zmp-sdk";
+import { useSnackbar } from "zmp-ui";
 import { useAppStore } from "@/stores/app.store";
 import PermissionSheet from "@/components/common/permission-sheet";
 
@@ -30,8 +31,30 @@ function InfoRow({
 }
 
 export default function StoreInfoPage() {
-  const { storeId, storeName, storeLogoUrl, storeAddress, storePhone, zaloOaId, zaloOaUrl, aboutText } =
+  const { storeId, storeName, storeLogoUrl, storeAddress, storePhone, zaloOaId, zaloOaUrl, aboutText, wifiName, wifiPassword } =
     useAppStore();
+  const { openSnackbar } = useSnackbar();
+
+  // Sao chép mật khẩu wifi: ưu tiên Clipboard API, fallback textarea + execCommand
+  const handleCopyWifi = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(wifiPassword);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = wifiPassword;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      openSnackbar({ text: "Đã sao chép mật khẩu wifi", type: "success" });
+    } catch {
+      openSnackbar({ text: "Không sao chép được, vui lòng thử lại", type: "error" });
+    }
+  };
 
   const GRANTED_KEY = storeId ? `mevo_perms_granted_${storeId}` : "";
   const DISMISSED_KEY = storeId ? `mevo_perms_dismissed_${storeId}` : "";
@@ -96,7 +119,7 @@ export default function StoreInfoPage() {
       </div>
 
       {/* Card liên hệ */}
-      {(storeAddress || storePhone) && (
+      {(storeAddress || storePhone || wifiName) && (
         <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-white">
           {storeAddress && <InfoRow icon="📍" label="Địa chỉ" value={storeAddress} />}
           {storePhone && (
@@ -106,6 +129,27 @@ export default function StoreInfoPage() {
               value={storePhone}
               onPress={() => { window.location.href = `tel:${storePhone}`; }}
             />
+          )}
+          {/* Wifi — hiện ngay dưới Điện thoại; wifi_name rỗng thì không render */}
+          {wifiName && (
+            <div className="flex items-start gap-3 border-b border-neutral100 px-4 py-3 last:border-0">
+              <span className="text-xl">📶</span>
+              <div className="flex-1">
+                <p className="text-xxsmall text-text-secondary">Wifi</p>
+                <p className="text-small text-text-primary">
+                  {wifiName}
+                  {wifiPassword ? ` · ${wifiPassword}` : ""}
+                </p>
+              </div>
+              {wifiPassword && (
+                <button
+                  onClick={handleCopyWifi}
+                  className="shrink-0 self-center rounded-lg bg-primary/10 px-3 py-1.5 text-xxsmall font-semibold text-primary active:opacity-70"
+                >
+                  Sao chép
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
