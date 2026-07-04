@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { createKitchenClient } from '@/lib/supabase/kitchen-client'
 import { cn, formatVND, timeAgo } from '@/lib/utils'
 import { speak, initTts, isTtsSupported } from '@/lib/tts'
+import { orderInKitchen, shouldAnnounceOrder } from '@/lib/kitchen-announce'
 import type { KitchenOrder, OrderStatus, Store } from '@/types/database.types'
 
 // ─── Âm thanh thông báo đơn mới (Web Audio API, không cần file ngoài) ───────
@@ -166,8 +167,10 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
   const [callAlerts, setCallAlerts] = useState<Array<{ id: number; tableNumber: string; type: string }>>([])
-  // Giữ track đơn đã biết để phát tiếng chuông đúng lần
+  // Giữ track đơn đã biết để không thêm trùng vào danh sách
   const knownOrderIds = useRef<Set<string>>(new Set())
+  // Đơn đã "báo bếp" (chuông + đọc) rồi — chống báo lại khi nhận nhiều event
+  const announcedOrderIds = useRef<Set<string>>(new Set())
 
   // ── Loa đọc đơn (TTS) — mặc định TẮT, lưu localStorage theo quán ──────────
   const TTS_KEY = `mevo_kitchen_tts_${storeSlug}`
@@ -273,9 +276,32 @@ export default function KitchenDisplay({ storeSlug }: Props) {
           row.order_items ?? [],
         ),
       )
-      mapped.forEach((o) => knownOrderIds.current.add(o.id))
+      mapped.forEach((o) => {
+        knownOrderIds.current.add(o.id)
+        // Đơn đã ở trong bếp lúc tải trang → coi như đã báo, reload không kêu lại.
+        // ZaloPay còn pending (chưa trả) KHÔNG đánh dấu → lúc confirmed sẽ báo.
+        if (orderInKitchen(o.status, o.paymentMethod)) announcedOrderIds.current.add(o.id)
+      })
       setOrders(mapped)
       setLoading(false)
+
+      // Báo bếp: chuông + (nếu bật) đọc đơn. Chỉ báo LẦN ĐẦU đơn vào bếp.
+      const announce = (order: KitchenOrder) => {
+        if (
+          !shouldAnnounceOrder(
+            order.status,
+            order.paymentMethod,
+            announcedOrderIds.current.has(order.id),
+          )
+        )
+          return
+        announcedOrderIds.current.add(order.id)
+        playBell()
+        // Chuông kêu trước, đọc sau ~300ms cho khỏi đè tiếng
+        if (ttsEnabledRef.current) {
+          setTimeout(() => speak(buildOrderSpeech(order)), 300)
+        }
+      }
 
       // 3. Subscribe Supabase Realtime — gán vào outer vars để cleanup hoạt động
       ordersChannel = supabase!
@@ -299,11 +325,9 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
             knownOrderIds.current.add(order.id)
             setOrders((prev) => [order, ...prev])
-            playBell()
-            // Loa đọc đơn: chuông kêu trước, đọc sau ~300ms cho khỏi đè tiếng
-            if (ttsEnabledRef.current) {
-              setTimeout(() => speak(buildOrderSpeech(order)), 300)
-            }
+            // Chỉ báo khi đơn thực sự vào bếp: tiền mặt vào ngay; ZaloPay phải
+            // chờ thanh toán xong (sẽ báo ở event UPDATE → confirmed bên dưới).
+            announce(order)
           },
         )
         .on(
@@ -314,7 +338,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
             table: 'orders',
             filter: `store_id=eq.${storeData.id}`,
           },
-          (payload) => {
+          async (payload) => {
             const updated = payload.new as {
               id: string; status: string; updated_at: string; payment_method: string
             }
@@ -333,6 +357,18 @@ export default function KitchenDisplay({ storeSlug }: Props) {
                 // Xoá khỏi màn hình khi đã thanh toán hoặc huỷ
                 .filter((o) => !['paid', 'cancelled'].includes(o.status)),
             )
+            // Báo khi đơn VỪA vào bếp — vd ZaloPay pending→confirmed sau khi khách
+            // trả tiền xong. Đã báo rồi (cooking/ready...) → bỏ qua, khỏi fetch thừa.
+            if (
+              shouldAnnounceOrder(
+                updated.status,
+                updated.payment_method,
+                announcedOrderIds.current.has(updated.id),
+              )
+            ) {
+              const order = await fetchOrder(updated.id)
+              if (order) announce(order)
+            }
           },
         )
         .subscribe()
@@ -409,11 +445,9 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   }
 
   // ── Chia đơn theo cột ─────────────────────────────────────────────────────
-  // pending chỉ hiện cho tiền mặt — ZaloPay pending chưa thanh toán không vào bếp
-  const waitingOrders = orders.filter((o) =>
-    o.status === 'confirmed' ||
-    (o.status === 'pending' && o.paymentMethod === 'cash')
-  )
+  // pending chỉ hiện cho tiền mặt — ZaloPay pending chưa thanh toán không vào bếp.
+  // Dùng chung predicate với logic "báo bếp" (lib/kitchen-announce) cho khỏi lệch.
+  const waitingOrders = orders.filter((o) => orderInKitchen(o.status, o.paymentMethod))
   const cookingOrders = orders.filter((o) => o.status === 'cooking')
   const readyOrders = orders.filter((o) => o.status === 'ready')
 

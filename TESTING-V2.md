@@ -95,12 +95,19 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 3. ✅ PASS nếu: nghe đọc *"Đã bật đọc đơn"* ngay khi bấm.
    (Nếu máy không có giọng vi-VN → không nghe gì là ĐÚNG fallback; cài giọng vi rồi thử lại.)
 
-**Test 2 — Đọc đơn mới**
-1. Đặt 1 đơn thật (2 món) từ mini-app.
-2. ✅ PASS nếu: kitchen nghe **chuông trước**, rồi đọc đúng bàn + đúng món + đúng số lượng.
+**Test 2 — Đọc đơn ZaloPay ĐÚNG THỜI ĐIỂM (quan trọng)**
+1. Đặt 1 đơn ZaloPay (2 món). Bấm **"Đặt món và thanh toán"** nhưng CHƯA trả tiền.
+2. ✅ PASS nếu: kitchen **KHÔNG kêu chuông, KHÔNG đọc** lúc này (đơn chưa vào bếp).
+3. Hoàn tất thanh toán ZaloPay (sandbox) thành công.
+4. ✅ PASS nếu: **ngay khi trả xong** kitchen nghe **chuông trước**, rồi đọc đúng bàn + đúng
+   món + đúng số lượng, và đơn hiện ở cột "CHỜ XỬ LÝ".
+
+**Test 2b — Đơn tiền mặt đọc ngay**
+1. Đặt 1 đơn **tiền mặt** (nếu quán bật) — không có bước thanh toán online.
+2. ✅ PASS nếu: kitchen nghe chuông + đọc ngay khi đặt (tiền mặt vào bếp luôn).
 
 **Test 3 — Nhiều đơn không chồng tiếng**
-1. Đặt 2 đơn sát nhau.
+1. Đặt 2 đơn (đã thanh toán) sát nhau.
 2. ✅ PASS nếu: đọc lần lượt từng đơn, KHÔNG chồng tiếng lên nhau.
 
 **Test 4 — Đọc gọi nhân viên**
