@@ -70,3 +70,50 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 **Sau PASS:** merge core vào worktree `mini-app-instances/pho-ga-pubu` + `zmp deploy`.
 
 ---
+
+## SPRINT v2.2 — Chuông + loa đọc đơn (TTS) cho Kitchen Display
+
+### Claude Code làm xong khi:
+- Module `admin-web/lib/tts.ts` dùng Web Speech API (miễn phí, chạy client) — hàng đợi
+  tuần tự không chồng tiếng, fallback im lặng nếu thiết bị không có giọng vi-VN.
+- Kitchen Display có toggle **🔊 Đọc đơn** trên header, mặc định TẮT, lưu `localStorage` theo quán.
+- Đơn mới → chuông beep + đọc *"Đơn mới, Bàn X: 2 phở gà đặc biệt, 1 nước cam."*
+  (takeaway: *"Đơn mang về: ..."*, tối đa 4 món rồi "và N món khác").
+- Nút gọi nhân viên → đọc *"Bàn X gọi thanh toán"* / *"Bàn X cần hỗ trợ"*.
+- Không đụng schema, không đụng mini-app. `tsc` admin-web sạch.
+
+> ⚠️ Test sprint này **BẮT BUỘC trên thiết bị thật** (tablet/điện thoại Chrome + Safari) —
+> giọng đọc lấy từ hệ điều hành, máy tính dev/preview thường KHÔNG có giọng vi-VN nên
+> sẽ chỉ nghe chuông (đúng fallback). Android thường có sẵn giọng Google TTS tiếng Việt;
+> iPad/iPhone vào Cài đặt → Trợ năng → Nội dung được đọc để tải giọng vi nếu chưa có.
+
+### ✅ Checklist test — Anh Tú tự làm (trên tablet/điện thoại thật):
+
+**Test 1 — Bật loa**
+1. Mở `/kitchen/pho-ga-pubu` (có token bếp) trên tablet/điện thoại thật (thử cả Chrome và Safari).
+2. Bấm toggle **🔇 Đọc đơn** trên header → chuyển thành **🔊 Đọc đơn** (xanh).
+3. ✅ PASS nếu: nghe đọc *"Đã bật đọc đơn"* ngay khi bấm.
+   (Nếu máy không có giọng vi-VN → không nghe gì là ĐÚNG fallback; cài giọng vi rồi thử lại.)
+
+**Test 2 — Đọc đơn mới**
+1. Đặt 1 đơn thật (2 món) từ mini-app.
+2. ✅ PASS nếu: kitchen nghe **chuông trước**, rồi đọc đúng bàn + đúng món + đúng số lượng.
+
+**Test 3 — Nhiều đơn không chồng tiếng**
+1. Đặt 2 đơn sát nhau.
+2. ✅ PASS nếu: đọc lần lượt từng đơn, KHÔNG chồng tiếng lên nhau.
+
+**Test 4 — Đọc gọi nhân viên**
+1. Trên mini-app bấm nút chuông gọi nhân viên (thanh toán).
+2. ✅ PASS nếu: kitchen nghe *"Bàn X gọi thanh toán"*.
+
+**Test 5 — Tắt + nhớ trạng thái**
+1. Bấm toggle về **🔇** → đặt đơn mới.
+2. ✅ PASS nếu: chỉ còn chuông, KHÔNG đọc.
+3. Reload trang.
+4. ✅ PASS nếu: toggle giữ nguyên trạng thái (tắt vẫn tắt / bật vẫn bật).
+
+**→ Báo Claude Code:** "Sprint v2.2 PASS" hoặc mô tả lỗi cụ thể để fix.
+**Sau PASS:** chỉ cần deploy Vercel (không đụng mini-app).
+
+---

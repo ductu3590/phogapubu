@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { createKitchenClient } from '@/lib/supabase/kitchen-client'
 import { cn, formatVND, timeAgo } from '@/lib/utils'
+import { speak, initTts, isTtsSupported } from '@/lib/tts'
 import type { KitchenOrder, OrderStatus, Store } from '@/types/database.types'
 
 // ─── Âm thanh thông báo đơn mới (Web Audio API, không cần file ngoài) ───────
@@ -75,6 +76,22 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenOrder {
       selectedToppings: (item.selected_toppings ?? []) as { id: string; name: string; price: number }[],
     })),
   }
+}
+
+// ─── Câu đọc TTS cho đơn mới (loa đọc đơn) ──────────────────────────────────
+// VD: "Đơn mới, Bàn 3: 2 phở gà đặc biệt, 1 nước cam." — takeaway: "Đơn mang về: ..."
+// Đọc tối đa 4 món, còn lại gộp "và N món khác".
+function buildOrderSpeech(order: KitchenOrder): string {
+  const MAX = 4
+  const parts = order.items
+    .slice(0, MAX)
+    .map((i) => `${i.quantity} ${i.name}`)
+  if (order.items.length > MAX) {
+    parts.push(`và ${order.items.length - MAX} món khác`)
+  }
+  const lead =
+    order.orderType !== 'dine_in' ? 'Đơn mang về' : `Đơn mới, ${order.tableNumber}`
+  return parts.length > 0 ? `${lead}: ${parts.join(', ')}.` : `${lead}.`
 }
 
 // ─── Badge loại đơn (Bàn / Tự lấy / Ship) ───────────────────────────────────
@@ -151,6 +168,33 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   const [callAlerts, setCallAlerts] = useState<Array<{ id: number; tableNumber: string; type: string }>>([])
   // Giữ track đơn đã biết để phát tiếng chuông đúng lần
   const knownOrderIds = useRef<Set<string>>(new Set())
+
+  // ── Loa đọc đơn (TTS) — mặc định TẮT, lưu localStorage theo quán ──────────
+  const TTS_KEY = `mevo_kitchen_tts_${storeSlug}`
+  const [ttsEnabled, setTtsEnabled] = useState(false)
+  // Ref để realtime callback (closure cũ) đọc được trạng thái mới nhất
+  const ttsEnabledRef = useRef(false)
+
+  useEffect(() => {
+    if (isTtsSupported()) initTts()
+    const saved = localStorage.getItem(TTS_KEY) === '1'
+    setTtsEnabled(saved)
+    ttsEnabledRef.current = saved
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeSlug])
+
+  // Bật/tắt loa. Lần bấm bật chính là user gesture để unlock audio (chặn autoplay).
+  const toggleTts = () => {
+    const next = !ttsEnabled
+    setTtsEnabled(next)
+    ttsEnabledRef.current = next
+    localStorage.setItem(TTS_KEY, next ? '1' : '0')
+    if (next) {
+      initTts()
+      // Đọc thử để xác nhận có tiếng + unlock audio trong cùng cú chạm
+      speak('Đã bật đọc đơn')
+    }
+  }
 
   // Cập nhật "X phút trước" mỗi 30 giây
   useEffect(() => {
@@ -256,6 +300,10 @@ export default function KitchenDisplay({ storeSlug }: Props) {
             knownOrderIds.current.add(order.id)
             setOrders((prev) => [order, ...prev])
             playBell()
+            // Loa đọc đơn: chuông kêu trước, đọc sau ~300ms cho khỏi đè tiếng
+            if (ttsEnabledRef.current) {
+              setTimeout(() => speak(buildOrderSpeech(order)), 300)
+            }
           },
         )
         .on(
@@ -308,6 +356,11 @@ export default function KitchenDisplay({ storeSlug }: Props) {
               { id: alertId, tableNumber: req.table_number, type: req.type },
             ])
             playBell()
+            // Loa đọc yêu cầu gọi nhân viên
+            if (ttsEnabledRef.current) {
+              const what = req.type === 'help' ? 'cần hỗ trợ' : 'gọi thanh toán'
+              setTimeout(() => speak(`${req.table_number} ${what}`), 300)
+            }
           },
         )
         .subscribe()
@@ -437,6 +490,20 @@ export default function KitchenDisplay({ storeSlug }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-6 text-sm text-gray-400">
+          {isTtsSupported() && (
+            <button
+              onClick={toggleTts}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors',
+                ttsEnabled
+                  ? 'bg-green-600 text-white hover:bg-green-500'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+              )}
+              title={ttsEnabled ? 'Đang bật đọc đơn — bấm để tắt' : 'Bật loa đọc đơn'}
+            >
+              {ttsEnabled ? '🔊' : '🔇'} Đọc đơn
+            </button>
+          )}
           <span>
             ⏳ <strong className="text-yellow-400">{waitingOrders.length}</strong> chờ
           </span>
