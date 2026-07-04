@@ -35,25 +35,42 @@ export default function StoreInfoPage() {
     useAppStore();
   const { openSnackbar } = useSnackbar();
 
-  // Sao chép mật khẩu wifi: ưu tiên Clipboard API, fallback textarea + execCommand
+  // Sao chép mật khẩu wifi: ưu tiên Clipboard API, nếu bị chặn thì fallback textarea + execCommand
   const handleCopyWifi = async () => {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(wifiPassword);
-      } else {
+    const copyViaExecCommand = (): boolean => {
+      try {
         const ta = document.createElement("textarea");
         ta.value = wifiPassword;
         ta.style.position = "fixed";
         ta.style.opacity = "0";
         document.body.appendChild(ta);
         ta.select();
-        document.execCommand("copy");
+        const ok = document.execCommand("copy");
         document.body.removeChild(ta);
+        return ok;
+      } catch {
+        return false;
       }
-      openSnackbar({ text: "Đã sao chép mật khẩu wifi", type: "success" });
-    } catch {
-      openSnackbar({ text: "Không sao chép được, vui lòng thử lại", type: "error" });
+    };
+
+    let copied = false;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(wifiPassword);
+        copied = true;
+      } catch {
+        // Clipboard API bị chặn (quyền / webview) → thử cách cũ
+        copied = copyViaExecCommand();
+      }
+    } else {
+      copied = copyViaExecCommand();
     }
+
+    openSnackbar(
+      copied
+        ? { text: "Đã sao chép mật khẩu wifi", type: "success" }
+        : { text: "Không sao chép được, vui lòng thử lại", type: "error" },
+    );
   };
 
   const GRANTED_KEY = storeId ? `mevo_perms_granted_${storeId}` : "";
