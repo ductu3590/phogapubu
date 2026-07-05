@@ -169,6 +169,14 @@ export interface Database {
           updated_at: string
         }[]
       }
+      get_spin_state: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
+      spin_wheel: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
     }
   }
 }

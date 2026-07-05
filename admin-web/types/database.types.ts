@@ -15,8 +15,33 @@ interface StoreRow {
   primary_color: string
   wifi_name: string | null
   wifi_password: string | null
+  spin_enabled: boolean
   is_active: boolean
   created_at: string
+}
+
+interface SpinRewardRow {
+  id: string
+  store_id: string
+  label: string
+  type: 'gift' | 'none'
+  weight: number
+  sort_order: number
+  is_active: boolean
+  created_at: string
+}
+
+interface SpinResultRow {
+  id: string
+  store_id: string
+  order_id: string
+  zalo_user_id: string | null
+  reward_id: string | null
+  reward_label: string
+  reward_type: string
+  status: 'won' | 'redeemed'
+  created_at: string
+  redeemed_at: string | null
 }
 
 interface TableRow {
@@ -114,6 +139,18 @@ export interface Database {
         Row: OrderItemRow
         Insert: { order_id: string; item_name: string; item_price: number; quantity: number; menu_item_id?: string | null; note?: string | null }
         Update: Partial<OrderItemRow>
+        Relationships: []
+      }
+      spin_rewards: {
+        Row: SpinRewardRow
+        Insert: { store_id: string; label: string; type?: 'gift' | 'none'; weight?: number; sort_order?: number; is_active?: boolean; id?: string }
+        Update: Partial<SpinRewardRow>
+        Relationships: []
+      }
+      spin_results: {
+        Row: SpinResultRow
+        Insert: { store_id: string; order_id: string; reward_label: string; reward_type: string; zalo_user_id?: string | null; reward_id?: string | null; status?: 'won' | 'redeemed' }
+        Update: Partial<SpinResultRow>
         Relationships: []
       }
     }

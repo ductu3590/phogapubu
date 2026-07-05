@@ -130,3 +130,60 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 **Sau PASS:** chỉ cần deploy Vercel (không đụng mini-app).
 
 ---
+
+## SPRINT v2.3 — Vòng quay may mắn sau thanh toán
+
+### Claude Code làm xong khi:
+- Migration `025_spin_wheel`: cột `stores.spin_enabled` (default **false** mọi quán) + bảng
+  `spin_rewards`, `spin_results` + RPC `get_spin_state` / `spin_wheel` / `redeem_spin_result`.
+- Kết quả quay do **SERVER quyết định** (RPC theo weight), idempotent 1 lượt/đơn, chỉ đơn **có
+  tiền thật** (ZaloPay có trans_id, hoặc cash đã `paid`).
+- Mini-app `order-status`: khi đơn đủ điều kiện + quán bật → hiện vòng quay; bấm quay → dừng
+  đúng ô server trả về → hiện kết quả + mã đổi. Bọc try/catch: lỗi vòng quay KHÔNG làm hỏng trang đơn.
+- Admin `/admin/spin`: toggle bật/tắt + CRUD quà (bộ mặc định 6 ô) + cảnh báo bật mà chưa có quà.
+- Admin `/admin/orders`: badge 🎁 + nút "Đã đổi thưởng" (`redeem_spin_result`).
+- `spin_enabled` = **false** trên mọi quán; `get_advisors` không WARN RLS mới.
+
+### ✅ Checklist test — Anh Tú tự làm:
+
+**Test 1 — REGRESSION khi TẮT (QUAN TRỌNG NHẤT)**
+1. Giữ nguyên `spin_enabled=false` (mặc định). Chạy trọn luồng: quét QR → đặt món →
+   ZaloPay sandbox → kitchen → món xong.
+2. ✅ PASS nếu: mọi thứ y HỆT trước v2.3, trang `order-status` KHÔNG có gì lạ (không vòng quay).
+
+**Test 2 — Bật + tạo quà**
+1. `/admin/spin` (đăng nhập chủ quán Pubu) → "Tạo bộ mặc định 6 ô" → chỉnh 1 ô tỉ lệ rất cao
+   để test trúng ổn định → **Lưu quà** → bật toggle.
+2. ✅ PASS nếu: lưu OK; bật khi chưa có quà active thì bị chặn + cảnh báo.
+
+**Test 3 — Quay**
+1. Đặt đơn ZaloPay sandbox, thanh toán xong → ở `order-status` thấy **Vòng quay may mắn**.
+2. Bấm "Quay thưởng" → đĩa quay → dừng đúng ô → hiện kết quả + mã 6 ký tự.
+
+**Test 4 — 1 lượt/đơn (idempotent)**
+1. Mở lại trang đơn đó (reload / vào lại).
+2. ✅ PASS nếu: KHÔNG quay lại được, thấy đúng kết quả cũ.
+
+**Test 5 — Chưa thanh toán không được quay**
+1. Đơn ZaloPay chưa trả tiền (hoặc cash chưa `paid`).
+2. ✅ PASS nếu: KHÔNG thấy vòng quay.
+
+**Test 6 — Đổi thưởng**
+1. `/admin/orders` → đơn vừa trúng có badge 🎁 → bấm "Đã đổi thưởng".
+2. ✅ PASS nếu: chuyển "✓ Đã đổi"; bấm lại (reload) không đổi được nữa.
+
+**Test 7 — Tắt lại**
+1. `/admin/spin` tắt toggle → đặt đơn mới thanh toán xong.
+2. ✅ PASS nếu: đơn mới KHÔNG thấy vòng quay; kết quả cũ vẫn xem/đổi được.
+
+**Test 8 — Cách ly quán**
+1. Operator quán A không thấy/sửa được rewards + results quán B; quán B (chưa bật) không bị ảnh hưởng.
+
+**Test 9 — Vòng quay lỗi không làm chết trang**
+1. (Tuỳ chọn) Ngắt mạng lúc mở order-status của đơn đủ điều kiện.
+2. ✅ PASS nếu: trang đơn vẫn hiển thị bình thường, chỉ thiếu phần vòng quay.
+
+**→ Báo Claude Code:** "Sprint v2.3 PASS" hoặc mô tả lỗi cụ thể để fix.
+**Sau PASS:** merge worktree pho-ga-pubu + `zmp deploy` (mini-app có thay đổi); deploy Vercel.
+
+---

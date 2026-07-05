@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { formatVND } from '@/lib/utils'
 import { markOrderPaid, cancelOrder } from '@/lib/actions/orders'
+import { redeemSpin } from '@/lib/actions/spin'
 import { DatePicker } from './date-picker'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { redirect } from 'next/navigation'
@@ -46,6 +47,18 @@ export default async function OrdersPage({
     .order('created_at', { ascending: false })
 
   const list = orders ?? []
+
+  // Kết quả vòng quay cho các đơn trong ngày (badge + nút "Đã đổi thưởng")
+  const orderIds = list.map((o) => o.id)
+  const { data: spinResults } = orderIds.length
+    ? await supabase
+        .from('spin_results')
+        .select('order_id, id, reward_label, reward_type, status')
+        .in('order_id', orderIds)
+    : { data: [] }
+  const spinByOrder = new Map(
+    (spinResults ?? []).map((s) => [s.order_id, s]),
+  )
   // Doanh thu = tiền THẬT đã nhận: ZaloPay đã có trans_id (chưa huỷ) HOẶC tiền mặt đã thu
   const isReceived = (o: { payment_method: string; zalopay_trans_id: string | null; status: string }) =>
     (o.payment_method === 'zalopay' && !!o.zalopay_trans_id && o.status !== 'cancelled') ||
@@ -114,6 +127,31 @@ export default async function OrdersPage({
               {order.note && (
                 <p className="mb-3 text-xs text-gray-500 italic">📝 {order.note}</p>
               )}
+
+              {/* Kết quả vòng quay */}
+              {(() => {
+                const spin = spinByOrder.get(order.id)
+                if (!spin) return null
+                return (
+                  <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#FBF4EF] px-3 py-2">
+                    <span className="text-sm">🎁</span>
+                    <span className="flex-1 text-sm text-gray-700">{spin.reward_label}</span>
+                    {spin.reward_type === 'gift' && spin.status === 'won' && (
+                      <form action={redeemSpin.bind(null, spin.id)}>
+                        <button
+                          type="submit"
+                          className="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600"
+                        >
+                          Đã đổi thưởng
+                        </button>
+                      </form>
+                    )}
+                    {spin.status === 'redeemed' && (
+                      <span className="text-xs font-medium text-green-600">✓ Đã đổi</span>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Actions */}
               {isCashUnpaid && (

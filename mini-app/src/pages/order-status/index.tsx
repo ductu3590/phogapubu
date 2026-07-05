@@ -10,6 +10,7 @@ import { getItemLineTotal } from "@/utils/order-pricing";
 import { Button } from "zmp-ui";
 import { cn } from "@/utils/cn";
 import { useAppStore } from "@/stores/app.store";
+import SpinSection from "@/components/spin/spin-section";
 
 const STATUS_CONFIG: Record<
   OrderState,
@@ -267,6 +268,13 @@ export default function OrderStatusPage() {
 
         {/* Thông tin giao/lấy đơn mang về */}
         {order.orderType !== "dine_in" && <TakeawayInfoCard order={order} />}
+
+        {/* Vòng quay may mắn — chỉ khi đơn có tiền thật; tự ẩn nếu quán tắt / lỗi */}
+        {orderId &&
+          ((order.paymentMethod === "zalopay" && !!order.zalopayTransId) ||
+            (order.paymentMethod === "cash" && order.status === "paid")) && (
+            <SpinSection orderId={orderId} />
+          )}
 
         {/* Chi tiết đơn */}
         <div className="mx-4 mt-4 rounded-xl bg-white p-4">
