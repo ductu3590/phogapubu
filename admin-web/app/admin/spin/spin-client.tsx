@@ -51,12 +51,16 @@ export default function SpinClient({
     setError('')
     setBusy(true)
     try {
-      await saveRewards(rows.map(({ key: _key, ...r }) => r))
+      const res = await saveRewards(rows.map(({ key: _key, ...r }) => r))
+      if (res?.error) {
+        setError(res.error)
+        return
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
       router.refresh()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Lỗi khi lưu quà')
+    } catch {
+      setError('Lỗi kết nối khi lưu quà, thử lại.')
     } finally {
       setBusy(false)
     }
@@ -67,11 +71,15 @@ export default function SpinClient({
     const next = !isEnabled
     setBusy(true)
     try {
-      await setSpinEnabled(next)
+      const res = await setSpinEnabled(next)
+      if (res?.error) {
+        setError(res.error)
+        return
+      }
       setIsEnabled(next)
       router.refresh()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Không đổi được trạng thái')
+    } catch {
+      setError('Lỗi kết nối, thử lại.')
     } finally {
       setBusy(false)
     }
