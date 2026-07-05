@@ -89,11 +89,17 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 
 ### ✅ Checklist test — Anh Tú tự làm (trên tablet/điện thoại thật):
 
+> 🔑 **Về mở khoá âm thanh:** trình duyệt chặn tự phát tiếng tới khi có 1 lần CHẠM màn hình
+> trong phiên. Vì vậy **mỗi lần MỞ / TẢI LẠI trang kitchen, hãy chạm màn hình 1 lần** (bấm
+> toggle, hay chạm bất kỳ đâu) để mở khoá — sau đó chuông + đọc đơn mới kêu. Toggle bật sẵn
+> từ lần trước KHÔNG tự mở khoá được nếu chưa chạm.
+
 **Test 1 — Bật loa**
 1. Mở `/kitchen/pho-ga-pubu` (có token bếp) trên tablet/điện thoại thật (thử cả Chrome và Safari).
 2. Bấm toggle **🔇 Đọc đơn** trên header → chuyển thành **🔊 Đọc đơn** (xanh).
 3. ✅ PASS nếu: nghe đọc *"Đã bật đọc đơn"* ngay khi bấm.
    (Nếu máy không có giọng vi-VN → không nghe gì là ĐÚNG fallback; cài giọng vi rồi thử lại.)
+4. **Sau khi TẢI LẠI trang** (vd sau deploy mới): chạm màn hình 1 lần → đơn mới về sẽ kêu bình thường.
 
 **Test 2 — Đọc đơn ZaloPay ĐÚNG THỜI ĐIỂM (quan trọng)**
 1. Đặt 1 đơn ZaloPay (2 món). Bấm **"Đặt món và thanh toán"** nhưng CHƯA trả tiền.

@@ -77,6 +77,21 @@ export function speak(text: string): boolean {
   return true
 }
 
+// Mở khoá TTS trong 1 cú chạm của người dùng (trình duyệt chặn autoplay tới khi
+// có gesture). Đọc 1 utterance câm (volume 0) để "kích hoạt" engine cho các lần
+// speak() sau — nhất là trên mobile/iPad. Gọi trong event handler của gesture.
+export function unlockTts(): void {
+  if (!isTtsSupported()) return
+  try {
+    window.speechSynthesis.resume()
+    const u = new SpeechSynthesisUtterance(' ')
+    u.volume = 0
+    window.speechSynthesis.speak(u)
+  } catch {
+    // bỏ qua — không phá luồng nếu trình duyệt chặn
+  }
+}
+
 // Dừng đọc + xoá hàng đợi (dùng khi cần, vd unmount)
 export function stopTts(): void {
   if (!isTtsSupported()) return

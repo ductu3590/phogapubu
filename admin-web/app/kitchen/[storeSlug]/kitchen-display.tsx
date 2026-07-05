@@ -3,14 +3,34 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { createKitchenClient } from '@/lib/supabase/kitchen-client'
 import { cn, formatVND, timeAgo } from '@/lib/utils'
-import { speak, initTts, isTtsSupported } from '@/lib/tts'
+import { speak, initTts, isTtsSupported, unlockTts } from '@/lib/tts'
 import { orderInKitchen, shouldAnnounceOrder } from '@/lib/kitchen-announce'
 import type { KitchenOrder, OrderStatus, Store } from '@/types/database.types'
 
 // ─── Âm thanh thông báo đơn mới (Web Audio API, không cần file ngoài) ───────
+// Dùng CHUNG 1 AudioContext (thay vì tạo mới mỗi lần) để có thể resume() sau
+// gesture. Trình duyệt tạo AudioContext ở trạng thái 'suspended' cho tới khi
+// người dùng chạm trang — nếu không sẽ câm dù toggle đang bật.
+let sharedAudioCtx: AudioContext | null = null
+function getAudioCtx(): AudioContext | null {
+  if (typeof window === 'undefined') return null
+  const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!AC) return null
+  if (!sharedAudioCtx) sharedAudioCtx = new AC()
+  return sharedAudioCtx
+}
+
+// Mở khoá audio chuông trong 1 gesture (resume context đang suspended)
+function unlockBellAudio() {
+  const ctx = getAudioCtx()
+  if (ctx && ctx.state === 'suspended') void ctx.resume()
+}
+
 function playBell() {
   try {
-    const ctx = new AudioContext()
+    const ctx = getAudioCtx()
+    if (!ctx) return
+    if (ctx.state === 'suspended') void ctx.resume()
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.connect(gain)
@@ -186,6 +206,25 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeSlug])
 
+  // Mở khoá audio ở cú CHẠM ĐẦU TIÊN của phiên. Trình duyệt chặn autoplay tới khi
+  // có gesture → tab vừa reload (toggle bật sẵn từ localStorage) sẽ CÂM cho tới khi
+  // nhân viên chạm màn hình. Sau 1 chạm bất kỳ, chuông + đọc đơn hoạt động.
+  useEffect(() => {
+    const onGesture = () => {
+      unlockBellAudio()
+      if (ttsEnabledRef.current) unlockTts()
+      // chạm 1 lần là đủ mở khoá cho cả phiên → gỡ listener
+      window.removeEventListener('pointerdown', onGesture)
+      window.removeEventListener('keydown', onGesture)
+    }
+    window.addEventListener('pointerdown', onGesture)
+    window.addEventListener('keydown', onGesture)
+    return () => {
+      window.removeEventListener('pointerdown', onGesture)
+      window.removeEventListener('keydown', onGesture)
+    }
+  }, [])
+
   // Bật/tắt loa. Lần bấm bật chính là user gesture để unlock audio (chặn autoplay).
   const toggleTts = () => {
     const next = !ttsEnabled
@@ -194,6 +233,8 @@ export default function KitchenDisplay({ storeSlug }: Props) {
     localStorage.setItem(TTS_KEY, next ? '1' : '0')
     if (next) {
       initTts()
+      // Cú chạm này là gesture → mở khoá cả chuông lẫn TTS cho phiên
+      unlockBellAudio()
       // Đọc thử để xác nhận có tiếng + unlock audio trong cùng cú chạm
       speak('Đã bật đọc đơn')
     }
