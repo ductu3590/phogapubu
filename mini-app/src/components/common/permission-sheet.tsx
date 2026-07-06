@@ -7,7 +7,8 @@ interface PermissionSheetProps {
   oaId: string;
   visible: boolean;
   onClose: () => void;
-  onGranted: () => void;
+  // followed = user thực sự quan tâm OA thành công (không phải chỉ bấm nút rồi từ chối)
+  onGranted: (followed: boolean) => void;
 }
 
 export default function PermissionSheet({
@@ -22,14 +23,18 @@ export default function PermissionSheet({
 
   const handleGrant = async () => {
     setLoading(true);
+    let followed = false;
     try {
-      if (oaId) await followOA({ id: oaId });
-    } catch { /* -201 = user từ chối — bỏ qua */ }
+      if (oaId) {
+        await followOA({ id: oaId });
+        followed = true;
+      }
+    } catch { /* -201 = user từ chối — không đánh dấu đã kết nối */ }
     try {
       await authorize({ scopes: ["scope.userInfo", "scope.userPhonenumber"] });
     } catch { /* bỏ qua nếu app chưa được cấp quyền */ }
     setLoading(false);
-    onGranted();
+    onGranted(followed);
   };
 
   return (

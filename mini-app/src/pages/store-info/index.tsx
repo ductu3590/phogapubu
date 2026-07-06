@@ -31,7 +31,7 @@ function InfoRow({
 }
 
 export default function StoreInfoPage() {
-  const { storeId, storeName, storeLogoUrl, storeAddress, storePhone, zaloOaId, zaloOaUrl, aboutText, wifiName, wifiPassword } =
+  const { storeId, storeName, storeLogoUrl, storeAddress, storePhone, zaloOaId, zaloOaUrl, aboutText, wifiName, wifiPassword, deliveryAreaNote } =
     useAppStore();
   const { openSnackbar } = useSnackbar();
 
@@ -73,31 +73,36 @@ export default function StoreInfoPage() {
     );
   };
 
-  const GRANTED_KEY = storeId ? `mevo_perms_granted_${storeId}` : "";
-  const DISMISSED_KEY = storeId ? `mevo_perms_dismissed_${storeId}` : "";
+  // Key mới (v2) — bỏ qua cờ "granted" cũ vốn set cả khi user từ chối, khiến prompt
+  // biến mất vĩnh viễn. "connected" chỉ true khi user thực sự quan tâm OA thành công.
+  const CONNECTED_KEY = storeId ? `mevo_oa_connected_v2_${storeId}` : "";
+  const SHEET_SESSION_KEY = storeId ? `mevo_oa_sheet_${storeId}` : "";
 
   const [showPermSheet, setShowPermSheet] = useState(false);
-  const [isGranted, setIsGranted] = useState(
-    () => !!storeId && !!localStorage.getItem(`mevo_perms_granted_${storeId}`),
+  const [isConnected, setIsConnected] = useState(
+    () => !!storeId && !!localStorage.getItem(`mevo_oa_connected_v2_${storeId}`),
   );
 
-  // Auto-show popup lần đầu vào tab (Option C)
+  // Tự bật sheet 1 lần MỖI PHIÊN (khi chưa kết nối) — dùng sessionStorage để mỗi lần
+  // mở lại app sẽ mời lại, nhưng không phiền trong cùng phiên.
   useEffect(() => {
-    if (!storeId || !zaloOaId) return;
-    const granted = localStorage.getItem(GRANTED_KEY);
-    const dismissed = localStorage.getItem(DISMISSED_KEY);
-    if (!granted && !dismissed) setShowPermSheet(true);
+    if (!storeId || !zaloOaId || isConnected) return;
+    if (sessionStorage.getItem(SHEET_SESSION_KEY)) return;
+    sessionStorage.setItem(SHEET_SESSION_KEY, "1");
+    setShowPermSheet(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storeId, zaloOaId]);
+  }, [storeId, zaloOaId, isConnected]);
 
-  const handleGranted = () => {
-    if (GRANTED_KEY) localStorage.setItem(GRANTED_KEY, "1");
-    setIsGranted(true);
+  const handleGranted = (followed: boolean) => {
+    if (followed && CONNECTED_KEY) {
+      localStorage.setItem(CONNECTED_KEY, "1");
+      setIsConnected(true);
+    }
     setShowPermSheet(false);
   };
 
+  // "Để sau" — chỉ đóng sheet phiên này; CTA card vẫn còn để khách tự bấm lại.
   const handleDismiss = () => {
-    if (DISMISSED_KEY) localStorage.setItem(DISMISSED_KEY, "1");
     setShowPermSheet(false);
   };
 
@@ -136,9 +141,10 @@ export default function StoreInfoPage() {
       </div>
 
       {/* Card liên hệ */}
-      {(storeAddress || storePhone || wifiName) && (
+      {(storeAddress || storePhone || wifiName || deliveryAreaNote) && (
         <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-white">
           {storeAddress && <InfoRow icon="📍" label="Địa chỉ" value={storeAddress} />}
+          {deliveryAreaNote && <InfoRow icon="🛵" label="Phạm vi ship" value={deliveryAreaNote} />}
           {storePhone && (
             <InfoRow
               icon="📞"
@@ -196,8 +202,8 @@ export default function StoreInfoPage() {
         </div>
       )}
 
-      {/* CTA card xin quyền — hiện cho đến khi granted */}
-      {zaloOaId && !isGranted && (
+      {/* CTA card xin quyền — hiện mỗi lần vào tab cho đến khi thực sự kết nối */}
+      {zaloOaId && !isConnected && (
         <div className="mx-3.5 mt-3 rounded-xl border border-[#E8C9B3] bg-[#FBF4EF] px-4 py-3">
           <p className="text-small-m font-semibold text-text-primary">🔔 Kết nối để nhận ưu đãi</p>
           <p className="mt-0.5 text-xxsmall text-text-secondary">

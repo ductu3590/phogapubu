@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ServingShift } from "@/utils/store-hours";
 
 export type PaymentMethod = "zalopay" | "cash";
 export type OrderMode = "dine_in" | "takeaway";
@@ -17,6 +18,9 @@ interface AppStore {
   aboutText: string;
   wifiName: string;
   wifiPassword: string;
+  isAcceptingOrders: boolean;
+  servingHours: ServingShift[];
+  deliveryAreaNote: string;
   tableId: string;
   tableNumber: string;
   zaloUserId: string;
@@ -36,6 +40,9 @@ interface AppStore {
     aboutText: string;
     wifiName: string;
     wifiPassword: string;
+    isAcceptingOrders: boolean;
+    servingHours: ServingShift[];
+    deliveryAreaNote: string;
   }) => void;
   setTableInfo: (info: { tableId: string; tableNumber: string }) => void;
   setZaloUserId: (zaloUserId: string) => void;
@@ -56,6 +63,9 @@ export const useAppStore = create<AppStore>((set) => ({
   aboutText: "",
   wifiName: "",
   wifiPassword: "",
+  isAcceptingOrders: true,
+  servingHours: [],
+  deliveryAreaNote: "",
   tableId: "",
   tableNumber: "",
   zaloUserId: "",

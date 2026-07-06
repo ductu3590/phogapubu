@@ -66,6 +66,29 @@ export async function updateStoreSettings(formData: FormData) {
     patch.takeaway_banner_url = null
   }
 
+  // is_accepting_orders — công tắc tạm nghỉ
+  patch.is_accepting_orders = formData.get('is_accepting_orders') === '1'
+
+  // serving_hours — mảng ca [{open,close}]; validate định dạng HH:mm, bỏ ca hỏng
+  const rawHours = (formData.get('serving_hours') as string | null) ?? '[]'
+  let shifts: { open: string; close: string }[] = []
+  try {
+    const parsed = JSON.parse(rawHours)
+    if (Array.isArray(parsed)) {
+      const isHHmm = (v: unknown) => typeof v === 'string' && /^\d{2}:\d{2}$/.test(v)
+      shifts = parsed
+        .filter((s) => s && isHHmm(s.open) && isHHmm(s.close))
+        .map((s) => ({ open: s.open, close: s.close }))
+    }
+  } catch {
+    shifts = []
+  }
+  patch.serving_hours = shifts
+
+  // delivery_area_note — text hiển thị, optional
+  const deliveryNote = (formData.get('delivery_area_note') as string | null)?.trim()
+  patch.delivery_area_note = deliveryNote || null
+
   // payment_methods — ít nhất 1 phương thức (luôn validate, không bỏ qua khi rỗng)
   const rawMethods = formData.getAll('payment_methods') as string[]
   const valid = rawMethods.filter((m) => m === 'zalopay' || m === 'cash')

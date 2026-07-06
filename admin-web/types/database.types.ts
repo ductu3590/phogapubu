@@ -15,6 +15,9 @@ interface StoreRow {
   primary_color: string
   wifi_name: string | null
   wifi_password: string | null
+  is_accepting_orders: boolean
+  serving_hours: { open: string; close: string }[]
+  delivery_area_note: string | null
   spin_enabled: boolean
   is_active: boolean
   created_at: string

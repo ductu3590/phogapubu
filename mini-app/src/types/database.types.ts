@@ -22,6 +22,9 @@ export interface Database {
           wifi_name: string | null
           wifi_password: string | null
           primary_color: string
+          is_accepting_orders: boolean
+          serving_hours: Json
+          delivery_area_note: string | null
           is_active: boolean
           created_at: string
         }

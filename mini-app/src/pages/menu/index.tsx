@@ -10,6 +10,9 @@ import { formatCurrency } from "@/utils/format";
 import { PlusIcon, MinusIcon } from "@/components/common/vectors";
 import { scrollToId } from "@/utils/scroll-to";
 import { cn } from "@/utils/cn";
+import { useSnackbar } from "zmp-ui";
+import { isStoreOpen, formatServingHours } from "@/utils/store-hours";
+import mevoLogo from "@/static/mevo-logo.svg";
 
 function TakeawayBanner({ storeName }: { storeName: string }) {
   return (
@@ -18,6 +21,32 @@ function TakeawayBanner({ storeName }: { storeName: string }) {
       <span className="text-xs font-medium text-primary">
         Mang về / Ship · {storeName}
       </span>
+    </div>
+  );
+}
+
+function ClosedBanner({
+  isAcceptingOrders,
+  servingHours,
+}: {
+  isAcceptingOrders: boolean;
+  servingHours: string;
+}) {
+  return (
+    <div className="flex items-start gap-2 border-b border-[#F0C9C0] bg-[#FDEDE9] px-4 py-2.5">
+      <span className="text-base leading-tight">😴</span>
+      <div>
+        <p className="text-small-m font-semibold text-[#C0341A]">
+          {isAcceptingOrders ? "Ngoài giờ phục vụ" : "Quán đang tạm nghỉ"}
+        </p>
+        <p className="text-xxsmall text-[#9A4634]">
+          {isAcceptingOrders
+            ? servingHours
+              ? `Giờ phục vụ: ${servingHours}. Bạn vẫn xem được menu.`
+              : "Quán chưa nhận đơn lúc này. Bạn vẫn xem được menu."
+            : "Quán sẽ mở lại sớm. Bạn vẫn xem được menu."}
+        </p>
+      </div>
     </div>
   );
 }
@@ -37,9 +66,11 @@ function TakeawayBannerCard({ url }: { url: string }) {
 }
 
 export default function MenuPage() {
-  const { storeId, storeName, storeLogoUrl, tableNumber, orderMode, takeawayBannerUrl } = useAppStore();
+  const { storeId, storeName, storeLogoUrl, tableNumber, orderMode, takeawayBannerUrl, isAcceptingOrders, servingHours } = useAppStore();
   const { data: menu, isLoading, error } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
+  const { openSnackbar } = useSnackbar();
+  const storeOpen = isStoreOpen({ isAcceptingOrders, servingHours });
   const [activeCategoryId, setActiveCategoryId] = useState<string>("");
   const [toppingProduct, setToppingProduct] = useState<Product | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -56,6 +87,15 @@ export default function MenuPage() {
       .reduce((s, i) => s + i.quantity, 0);
 
   const handleAdd = (product: Product) => {
+    if (!storeOpen) {
+      openSnackbar({
+        text: isAcceptingOrders
+          ? "Quán đang ngoài giờ phục vụ, chưa nhận đơn."
+          : "Quán đang tạm nghỉ, chưa nhận đơn.",
+        type: "warning",
+      });
+      return;
+    }
     if (product.toppings.length > 0) {
       setToppingProduct(product);
       return;
@@ -97,14 +137,21 @@ export default function MenuPage() {
 
   if (isLoading) return <MenuSkeleton />;
 
-  // Chưa quét QR đúng bàn — không có storeId
+  // Chưa có store context (cold start / chưa quét QR) — splash thương hiệu MEVO
   if (!storeId) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <div className="text-5xl">📷</div>
-        <p className="font-semibold text-text-primary">Quét QR tại bàn</p>
-        <p className="text-small text-text-secondary">
-          Vui lòng dùng Zalo quét mã QR trên bàn để xem menu và đặt món.
+      <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
+        <img src={mevoLogo} alt="MEVO" className="h-24 w-24" draggable={false} />
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#E4572E]">
+            MEVO<span className="text-text-primary">.VN</span>
+          </h1>
+          <p className="mt-2 text-small text-text-secondary">
+            Giải pháp đặt bàn &amp; thanh toán cho nhà hàng, quán ăn, quán cà phê, trà sữa...
+          </p>
+        </div>
+        <p className="mt-1 text-xxsmall text-text-secondary">
+          Vui lòng dùng Zalo quét mã QR trên bàn để đặt món.
         </p>
       </div>
     );
@@ -149,6 +196,14 @@ export default function MenuPage() {
           </div>
         </div>
       </div>
+
+      {/* Banner quán đóng cửa / ngoài giờ — chặn đặt món */}
+      {!storeOpen && (
+        <ClosedBanner
+          isAcceptingOrders={isAcceptingOrders}
+          servingHours={formatServingHours(servingHours)}
+        />
+      )}
 
       {/* Banner 4:1 trong takeaway mode */}
       {orderMode === "takeaway" && takeawayBannerUrl && (
@@ -197,6 +252,7 @@ export default function MenuPage() {
           <CategorySection
             key={cat.id}
             category={cat}
+            canOrder={storeOpen}
             getCount={getItemCount}
             onAdd={handleAdd}
             onDecrease={handleDecrease}
@@ -217,11 +273,13 @@ export default function MenuPage() {
 
 function CategorySection({
   category,
+  canOrder,
   getCount,
   onAdd,
   onDecrease,
 }: {
   category: CategoryWithProducts;
+  canOrder: boolean;
   getCount: (productId: string) => number;
   onAdd: (product: Product) => void;
   onDecrease: (product: Product) => void;
@@ -238,6 +296,7 @@ function CategorySection({
           <MenuItemRow
             key={product.id}
             product={product}
+            canOrder={canOrder}
             count={getCount(product.id)}
             onAdd={() => onAdd(product)}
             onDecrease={() => onDecrease(product)}
@@ -255,11 +314,13 @@ function CategorySection({
 
 function MenuItemRow({
   product,
+  canOrder,
   count,
   onAdd,
   onDecrease,
 }: {
   product: Product;
+  canOrder: boolean;
   count: number;
   onAdd: () => void;
   onDecrease: () => void;
@@ -311,7 +372,7 @@ function MenuItemRow({
             {formatCurrency(product.price)}đ
           </span>
 
-          {product.isAvailable && (
+          {product.isAvailable && canOrder && (
             <div className="flex items-center gap-2">
               {!hasToppings && count > 0 && (
                 <>

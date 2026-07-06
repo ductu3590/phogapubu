@@ -1,0 +1,24 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MEVO">
+  <!-- Khung quét QR (4 góc) -->
+  <g stroke="#E4572E" stroke-width="7" stroke-linecap="round" fill="none">
+    <path d="M40 62 V44 Q40 40 44 40 H62" />
+    <path d="M138 40 H156 Q160 40 160 44 V62" />
+    <path d="M160 138 V156 Q160 160 156 160 H138" />
+    <path d="M62 160 H44 Q40 160 40 156 V138" />
+  </g>
+  <!-- Vành đĩa -->
+  <circle cx="100" cy="100" r="52" stroke="#E4572E" stroke-width="3" fill="none" opacity="0.55" />
+  <circle cx="100" cy="100" r="44" stroke="#E4572E" stroke-width="2" fill="none" opacity="0.35" />
+  <!-- Hơi bốc lên -->
+  <g stroke="#E4572E" stroke-width="5" stroke-linecap="round" fill="none">
+    <path d="M88 78 q-6 -8 0 -16 q6 -8 0 -16" />
+    <path d="M104 78 q-6 -8 0 -16 q6 -8 0 -16" />
+  </g>
+  <!-- Tô phở -->
+  <path d="M66 92 H134 a4 4 0 0 1 4 4 a38 38 0 0 1 -76 0 a4 4 0 0 1 4 -4 Z" fill="#E4572E" />
+  <!-- Sợi / lát bên trong (âm bản) -->
+  <path d="M84 104 q16 8 32 0" stroke="#FFF" stroke-width="3" fill="none" opacity="0.85" stroke-linecap="round" />
+  <ellipse cx="120" cy="110" rx="6" ry="4" fill="#FFF" opacity="0.85" />
+  <!-- Chân đĩa -->
+  <path d="M80 140 h40" stroke="#E4572E" stroke-width="4" stroke-linecap="round" opacity="0.5" />
+</svg>

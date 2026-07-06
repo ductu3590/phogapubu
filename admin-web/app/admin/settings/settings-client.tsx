@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation'
 import { updateStoreSettings } from '@/lib/actions/store'
 import SquareCropper from '../menu/square-cropper'
 
+interface ServingShift {
+  open: string
+  close: string
+}
+
 interface Props {
   name: string
   logoUrl: string | null
@@ -16,6 +21,9 @@ interface Props {
   takeawayBannerUrl: string | null
   wifiName: string
   wifiPassword: string
+  isAcceptingOrders: boolean
+  servingHours: ServingShift[]
+  deliveryAreaNote: string
 }
 
 // Nén ảnh banner phía client: thu nhỏ về tối đa 1600px chiều rộng + JPEG q0.85.
@@ -52,7 +60,7 @@ async function compressBanner(file: File): Promise<File> {
   }
 }
 
-export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword }: Props) {
+export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword, isAcceptingOrders, servingHours, deliveryAreaNote }: Props) {
   const router = useRouter()
   const [logo, setLogo] = useState<File | null>(null)
   const [banner, setBanner] = useState<File | null>(null)
@@ -60,6 +68,13 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [methods, setMethods] = useState<Set<string>>(new Set(paymentMethods))
+  const [accepting, setAccepting] = useState(isAcceptingOrders)
+  const [shifts, setShifts] = useState<ServingShift[]>(servingHours ?? [])
+
+  const addShift = () => setShifts((prev) => [...prev, { open: '08:00', close: '22:00' }])
+  const removeShift = (i: number) => setShifts((prev) => prev.filter((_, idx) => idx !== i))
+  const updateShift = (i: number, key: keyof ServingShift, val: string) =>
+    setShifts((prev) => prev.map((s, idx) => (idx === i ? { ...s, [key]: val } : s)))
 
   useEffect(() => {
     if (!saved) return
@@ -88,6 +103,10 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
         if (banner) fd.set('banner', banner)
         if (removeBanner) fd.set('remove_banner', '1')
         methods.forEach((m) => fd.append('payment_methods', m))
+        fd.set('is_accepting_orders', accepting ? '1' : '0')
+        // Chỉ giữ ca có đủ open+close
+        const validShifts = shifts.filter((s) => s.open && s.close)
+        fd.set('serving_hours', JSON.stringify(validShifts))
         try {
           await updateStoreSettings(fd)
           setLogo(null)
@@ -178,6 +197,85 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
         />
         <p className="mt-1 text-xs text-gray-400">
           Hiện ở tab &quot;Nhà hàng&quot; trên mini-app. Có thể ghi lời cảm ơn, hotline, chính sách...
+        </p>
+      </div>
+
+      {/* Giờ phục vụ */}
+      <div className="rounded-xl border-2 border-gray-200 p-3">
+        <label className="flex cursor-pointer items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Đang nhận đơn</p>
+            <p className="text-xs text-gray-500">
+              Tắt = tạm nghỉ, chặn mọi đơn (cả QR bàn lẫn mang về)
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            className="sr-only"
+            checked={accepting}
+            onChange={() => setAccepting((v) => !v)}
+          />
+          <div className={`h-6 w-11 rounded-full transition-colors ${accepting ? 'bg-green-500' : 'bg-gray-300'}`}>
+            <div className={`h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${accepting ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+          </div>
+        </label>
+
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <p className="text-sm font-semibold text-gray-900">Giờ phục vụ</p>
+          <p className="mb-2 text-xs text-gray-500">
+            Ngoài giờ sẽ chặn đặt món. Không thêm ca nào = mở cả ngày. Thêm nhiều ca cho quán nghỉ trưa.
+          </p>
+          <div className="flex flex-col gap-2">
+            {shifts.length === 0 && (
+              <p className="text-xs text-gray-400">Chưa có ca — quán mở cả ngày.</p>
+            )}
+            {shifts.map((s, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  type="time"
+                  value={s.open}
+                  onChange={(e) => updateShift(i, 'open', e.target.value)}
+                  className="input flex-1"
+                />
+                <span className="text-gray-400">–</span>
+                <input
+                  type="time"
+                  value={s.close}
+                  onChange={(e) => updateShift(i, 'close', e.target.value)}
+                  className="input flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeShift(i)}
+                  className="rounded-lg px-2 py-1 text-sm text-red-500 hover:bg-red-50"
+                  aria-label="Xoá ca"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addShift}
+            className="mt-2 rounded-lg border border-orange-300 px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50"
+          >
+            + Thêm ca phục vụ
+          </button>
+        </div>
+      </div>
+
+      {/* Phạm vi ship (chỉ hiển thị cho khách) */}
+      <div>
+        <label className="label">Phạm vi ship (hiển thị cho khách)</label>
+        <input
+          name="delivery_area_note"
+          defaultValue={deliveryAreaNote}
+          placeholder="VD: Ship trong bán kính ~3km khu vực TP. Lào Cai"
+          className="input"
+        />
+        <p className="mt-1 text-xs text-gray-400">
+          Chỉ hiển thị ở tab &quot;Nhà hàng&quot; trên mini-app để khách tham khảo. Không tự động chặn đơn ngoài vùng.
         </p>
       </div>
 

@@ -12,6 +12,7 @@ import { calculateCartTotal, calculateCartItemPrice } from "@/utils/cart";
 import QuantityStepper from "@/components/common/quantity-stepper";
 import NoteInput from "@/components/common/note-input";
 import { GET_SESSION_ORDERS_KEY } from "@/constants/api";
+import { isStoreOpen } from "@/utils/store-hours";
 
 function isPhoneValid(phone: string): boolean {
   return /^0\d{9}$/.test(phone.replace(/\s/g, ""));
@@ -69,8 +70,9 @@ export default function CheckoutPage() {
   const [addressError, setAddressError] = useState("");
 
   const { items: cartItems, updateQuantity, clearCart } = useCartStore();
-  const { storeId, tableId, tableNumber, zaloUserId, paymentMethods, orderMode } = useAppStore();
+  const { storeId, tableId, tableNumber, zaloUserId, paymentMethods, orderMode, isAcceptingOrders, servingHours } = useAppStore();
   const isTakeaway = orderMode === "takeaway";
+  const storeOpen = isStoreOpen({ isAcceptingOrders, servingHours });
   const singleMethod = paymentMethods.length === 1;
 
   // Syncs selected method when store config loads (e.g. nếu zalopay bị tắt)
@@ -106,6 +108,15 @@ export default function CheckoutPage() {
   const handleOrder = () => {
     if (cartItems.length === 0) {
       openSnackbar({ text: "Giỏ hàng trống", type: "warning" });
+      return;
+    }
+    if (!storeOpen) {
+      openSnackbar({
+        text: isAcceptingOrders
+          ? "Quán đang ngoài giờ phục vụ, chưa nhận đơn."
+          : "Quán đang tạm nghỉ, chưa nhận đơn.",
+        type: "warning",
+      });
       return;
     }
     if (!storeId) {
@@ -460,9 +471,16 @@ export default function CheckoutPage() {
             {formatCurrency(totalAmount)}đ
           </span>
         </div>
+        {!storeOpen && (
+          <p className="mb-2 text-center text-xxsmall font-medium text-[#C0341A]">
+            {isAcceptingOrders
+              ? "Quán đang ngoài giờ phục vụ, chưa nhận đơn."
+              : "Quán đang tạm nghỉ, chưa nhận đơn."}
+          </p>
+        )}
         <Button
           onClick={handleOrder}
-          disabled={isLoading || cartItems.length === 0 || !isTakeawayFormValid}
+          disabled={isLoading || cartItems.length === 0 || !isTakeawayFormValid || !storeOpen}
           className="w-full rounded-xl bg-primary py-3 font-semibold text-white active:bg-primary disabled:opacity-50"
           fullWidth
         >
