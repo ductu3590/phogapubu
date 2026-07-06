@@ -59,20 +59,26 @@ export default function SpinWheel({
         }}
       >
         {rewards.map((r, i) => {
-          const angle = i * seg + seg / 2;
+          // Đặt nhãn gần vành, giữa mỗi ô, chữ để THẲNG cho dễ đọc (không xoay từng nhãn).
+          const angle = i * seg + seg / 2; // độ, theo chiều kim tính từ đỉnh
+          const rad = ((angle - 90) * Math.PI) / 180;
+          const dist = SIZE * 0.32; // khoảng cách từ tâm ra (≈83px, vành ở 130px)
+          const x = SIZE / 2 + dist * Math.cos(rad);
+          const y = SIZE / 2 + dist * Math.sin(rad);
           return (
             <div
               key={r.id}
-              className="absolute left-1/2 top-1/2 flex origin-top justify-center"
+              className="absolute flex items-center justify-center"
               style={{
-                transform: `rotate(${angle}deg) translateY(14px)`,
-                width: 80,
-                marginLeft: -40,
+                left: x,
+                top: y,
+                width: 74,
+                transform: "translate(-50%, -50%)",
               }}
             >
               <span
-                className="line-clamp-2 text-center text-[10px] font-bold leading-tight text-white"
-                style={{ textShadow: "0 1px 2px rgba(0,0,0,.35)" }}
+                className="line-clamp-3 text-center text-[9px] font-bold leading-tight text-white"
+                style={{ textShadow: "0 1px 2px rgba(0,0,0,.4)" }}
               >
                 {r.label}
               </span>
