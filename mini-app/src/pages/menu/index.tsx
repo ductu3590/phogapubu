@@ -12,7 +12,7 @@ import { scrollToId } from "@/utils/scroll-to";
 import { cn } from "@/utils/cn";
 import { useSnackbar } from "zmp-ui";
 import { isStoreOpen, formatServingHours } from "@/utils/store-hours";
-import mevoLogo from "@/static/mevo-logo.svg";
+import mevoLogo from "@/static/mevo-logo.png";
 
 function TakeawayBanner({ storeName }: { storeName: string }) {
   return (
