@@ -225,6 +225,9 @@ stores (
   zalopay_key2 text,          -- ZaloPay key (encrypted)
   zalo_oa_id text,            -- Zalo OA để gửi ZNS + prompt follow
   payment_methods text[] NOT NULL DEFAULT '{zalopay,cash}',  -- phương thức thanh toán được bật
+  is_accepting_orders boolean DEFAULT true,  -- công tắc tạm nghỉ; false = chặn mọi đơn (mig 017)
+  serving_hours jsonb DEFAULT '[]',          -- mảng ca [{open,close}] giờ Asia/Ho_Chi_Minh; rỗng = cả ngày (mig 017)
+  delivery_area_note text,                   -- text phạm vi ship, chỉ hiển thị (mig 017)
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 )
@@ -392,3 +395,7 @@ Anh cần hoàn thành các bước này để có credentials:
 | 2026-07-06 | **Core v2.0**: wifi trên menu (mig 024) + loa đọc đơn TTS Kitchen (Web Speech, miễn phí) + vòng quay may mắn sau thanh toán (mig 025). Cả 3 sprint PASS. Kế hoạch: `docs/superpowers/specs/2026-07-04-mevo-core-v2-plan.md`, checklist `TESTING-V2.md` | Bám đối thủ (phân tích `docs/research/2026-07-04-cola-vn-competitor-analysis.md`): wifi giảm hỏi pass; loa đọc đơn cho quán ồn; vòng quay kéo khách quay lại |
 | 2026-07-06 | **Loa đọc đơn báo đúng lúc đơn VÀO BẾP** (confirmed/pending+cash), không phải lúc `create_order` (pending, khách mới bấm pay chưa trả tiền). Predicate `admin-web/lib/kitchen-announce.ts` dùng chung với cột "Chờ xử lý" | `create_order` tạo đơn 'pending' NGAY khi bấm thanh toán; ZaloPay chỉ vào bếp sau callback → confirmed. Báo ở INSERT/pending = kêu cho đơn chưa trả tiền |
 | 2026-07-06 | **Vòng quay: kết quả do SERVER quyết định** (RPC `spin_wheel` theo weight, idempotent 1 lượt/đơn), client chỉ vẽ animation dừng đúng ô. `spin_enabled` mặc định **false** mọi quán, chỉ đơn có tiền thật mới quay | Chống gian lận (client không tự chọn quà); "cắm thêm, tắt là như chưa từng tồn tại" để không ảnh hưởng quán chưa dùng |
+| 2026-07-06 | **Giờ phục vụ + tạm nghỉ** (mig 017): `stores.is_accepting_orders` + `serving_hours` (jsonb nhiều ca, rỗng=cả ngày, giờ Asia/Ho_Chi_Minh). Ngoài giờ/tạm nghỉ **chặn CẢ đơn tại bàn lẫn ship**, 2 lớp: mini-app (banner + khoá đặt) + RPC `create_order` (helper `store_accepting_now`). Cấu hình ở `/admin` settings | Quán nghỉ lễ/ngoài giờ vẫn bị quét QR đặt từ xa; chặn ở server mới chống lách thật. Spec `docs/superpowers/specs/2026-07-06-serving-hours-branding-oa-follow-design.md` |
+| 2026-07-06 | **Phạm vi ship chỉ hiển thị** (`stores.delivery_area_note`, text ở tab Cửa hàng), KHÔNG geocoding/không chặn theo địa chỉ | YAGNI — pilot thị xã nhỏ, geocoding/maps API quá nặng; chủ quán tự lọc đơn ngoài vùng |
+| 2026-07-06 | **Splash thương hiệu MEVO** thay màn `!storeId` trang menu (logo `mini-app/src/static/mevo-logo.png` 512px + "MEVO.VN" + tagline) | Màn chờ/cold-start trước đây trống trơn ("Quét QR"), giờ nhận diện thương hiệu MEVO |
+| 2026-07-06 | **Fix prompt quan tâm OA "biến mất"** (tab Cửa hàng): đổi sang key `mevo_oa_connected_v2_<storeId>`, chỉ đánh dấu khi `followOA` thật sự thành công; CTA card luôn hiện tới khi kết nối, sheet tự bật 1 lần/phiên | Cờ cũ `mevo_perms_granted` set cả khi user từ chối → ẩn vĩnh viễn cả sheet lẫn card (không phải mất code/data) |
