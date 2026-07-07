@@ -24,6 +24,7 @@ interface Props {
   isAcceptingOrders: boolean
   servingHours: ServingShift[]
   deliveryAreaNote: string
+  termsOfUse: string
 }
 
 // Nén ảnh banner phía client: thu nhỏ về tối đa 1600px chiều rộng + JPEG q0.85.
@@ -60,7 +61,7 @@ async function compressBanner(file: File): Promise<File> {
   }
 }
 
-export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword, isAcceptingOrders, servingHours, deliveryAreaNote }: Props) {
+export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword, isAcceptingOrders, servingHours, deliveryAreaNote, termsOfUse }: Props) {
   const router = useRouter()
   const [logo, setLogo] = useState<File | null>(null)
   const [banner, setBanner] = useState<File | null>(null)
@@ -197,6 +198,24 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
         />
         <p className="mt-1 text-xs text-gray-400">
           Hiện ở tab &quot;Nhà hàng&quot; trên mini-app. Có thể ghi lời cảm ơn, hotline, chính sách...
+        </p>
+      </div>
+
+      {/* Điều khoản sử dụng — Markdown nhẹ, hiện ở tab "Nhà hàng" khi khách bấm */}
+      <div>
+        <label className="label">Điều khoản sử dụng</label>
+        <textarea
+          name="terms_of_use"
+          defaultValue={termsOfUse}
+          placeholder={"# Điều khoản sử dụng\n\n## Đặt món\n- Khách chọn món và thanh toán ngay trên Zalo\n\n## Liên hệ\n- Hotline: 0901 234 567"}
+          rows={10}
+          className="input resize-none font-mono text-sm"
+        />
+        <p className="mt-1 text-xs text-gray-400">
+          Hiện ở tab &quot;Nhà hàng&quot; trên mini-app khi khách bấm &quot;Điều khoản sử dụng&quot;.
+          Hỗ trợ Markdown nhẹ: <code># Tiêu đề</code>, <code>## Tiêu đề nhỏ</code>,{' '}
+          <code>- gạch đầu dòng</code>, <code>**in đậm**</code>, <code>[chữ](link)</code>.
+          Để trống = dùng mẫu điều khoản mặc định của MEVO.
         </p>
       </div>
 

@@ -12,7 +12,7 @@ export default async function SettingsPage() {
 
   const { data: store } = await supabase
     .from('stores')
-    .select('name, logo_url, payment_methods, zalo_oa_url, address, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, is_accepting_orders, serving_hours, delivery_area_note')
+    .select('name, logo_url, payment_methods, zalo_oa_url, address, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, is_accepting_orders, serving_hours, delivery_area_note, terms_of_use')
     .eq('id', storeId)
     .single()
 
@@ -41,6 +41,7 @@ export default async function SettingsPage() {
               : []
           }
           deliveryAreaNote={(store?.delivery_area_note as string | null) ?? ''}
+          termsOfUse={(store?.terms_of_use as string | null) ?? ''}
         />
       </div>
     </div>
