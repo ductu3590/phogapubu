@@ -181,9 +181,30 @@ export default function StoreInfoPage() {
         </div>
       )}
 
-      {/* Card Zalo OA — link sang trang Zalo chính thức */}
-      {zaloOaUrl && (
-        <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-white">
+      {/* Card: Điều khoản sử dụng (luôn hiện) + Trang Zalo chính thức (nếu có) */}
+      <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-white">
+        {/* Điều khoản sử dụng — luôn hiện; rỗng thì dùng DEFAULT_TERMS */}
+        <button
+          onClick={() => setShowTerms(true)}
+          className="flex w-full items-center gap-3 border-b border-neutral100 px-4 py-3 text-left last:border-0 active:bg-neutral50"
+        >
+          <span className="text-xl">📄</span>
+          <div className="flex-1">
+            <p className="text-small text-text-primary">Điều khoản sử dụng</p>
+          </div>
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4 text-neutral300"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        {/* Trang Zalo chính thức — link sang trang Zalo OA */}
+        {zaloOaUrl && (
           <button
             onClick={() => void openWebview({ url: zaloOaUrl })}
             className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-neutral50"
@@ -203,8 +224,8 @@ export default function StoreInfoPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* CTA card xin quyền — hiện mỗi lần vào tab cho đến khi thực sự kết nối */}
       {zaloOaId && !isConnected && (
@@ -228,28 +249,6 @@ export default function StoreInfoPage() {
           <p className="whitespace-pre-line text-small text-text-secondary">{aboutText}</p>
         </div>
       )}
-
-      {/* Điều khoản sử dụng — luôn hiện; rỗng thì dùng DEFAULT_TERMS */}
-      <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-white">
-        <button
-          onClick={() => setShowTerms(true)}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-neutral50"
-        >
-          <span className="text-xl">📄</span>
-          <div className="flex-1">
-            <p className="text-small text-text-primary">Điều khoản sử dụng</p>
-          </div>
-          <svg
-            viewBox="0 0 24 24"
-            className="h-4 w-4 text-neutral300"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
 
       {/* Sheet điều khoản sử dụng */}
       <TermsSheet
