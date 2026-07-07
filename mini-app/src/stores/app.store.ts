@@ -21,6 +21,7 @@ interface AppStore {
   isAcceptingOrders: boolean;
   servingHours: ServingShift[];
   deliveryAreaNote: string;
+  termsOfUse: string;
   tableId: string;
   tableNumber: string;
   zaloUserId: string;
@@ -43,6 +44,7 @@ interface AppStore {
     isAcceptingOrders: boolean;
     servingHours: ServingShift[];
     deliveryAreaNote: string;
+    termsOfUse: string;
   }) => void;
   setTableInfo: (info: { tableId: string; tableNumber: string }) => void;
   setZaloUserId: (zaloUserId: string) => void;
@@ -66,6 +68,7 @@ export const useAppStore = create<AppStore>((set) => ({
   isAcceptingOrders: true,
   servingHours: [],
   deliveryAreaNote: "",
+  termsOfUse: "",
   tableId: "",
   tableNumber: "",
   zaloUserId: "",

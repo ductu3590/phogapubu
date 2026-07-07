@@ -26,7 +26,7 @@ function AppInit() {
 
     const storeQuery = supabase
       .from("stores")
-      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods, takeaway_banner_url, about_text, wifi_name, wifi_password, primary_color, is_accepting_orders, serving_hours, delivery_area_note")
+      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods, takeaway_banner_url, about_text, wifi_name, wifi_password, primary_color, is_accepting_orders, serving_hours, delivery_area_note, terms_of_use")
       .eq("slug", storeSlug)
       .eq("is_active", true)
       .single();
@@ -75,6 +75,7 @@ function AppInit() {
             ? (storeRes.data.serving_hours as unknown as import("@/utils/store-hours").ServingShift[])
             : [],
           deliveryAreaNote: storeRes.data.delivery_area_note ?? "",
+          termsOfUse: storeRes.data.terms_of_use ?? "",
         });
       }
       if (tableRes.data) {
