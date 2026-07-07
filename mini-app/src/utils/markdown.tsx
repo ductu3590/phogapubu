@@ -1,7 +1,9 @@
 // Markdown renderer tối giản cho Điều khoản sử dụng — KHÔNG dùng thư viện ngoài,
 // KHÔNG dùng dangerouslySetInnerHTML (React tự escape → an toàn XSS).
-// Cú pháp hỗ trợ (đủ cho nhu cầu điều khoản): # / ## tiêu đề, - hoặc * bullet,
-// **in đậm**, [chữ](url), đoạn văn. Cú pháp lạ → render như văn bản thường.
+// Cú pháp hỗ trợ (đủ cho nhu cầu điều khoản): # / ## tiêu đề (ATX), tiêu đề kiểu
+// Setext (dòng kế tiếp toàn === → h2, --- → h3), - hoặc * bullet, **in đậm**,
+// [chữ](url), đoạn văn. Dòng kẻ ngang lẻ (===, ---, ___) được bỏ qua.
+// Cú pháp lạ → render như văn bản thường.
 import { ReactNode } from "react";
 import { openWebview } from "zmp-sdk";
 
@@ -71,36 +73,70 @@ export function renderMarkdown(src: string): ReactNode {
     );
   };
 
-  for (const rawLine of lines) {
-    const line = rawLine.replace(/\s+$/, "");
+  const pushH2 = (text: string) => {
+    const k = key++;
+    blocks.push(
+      <h2 key={`h2-${k}`} className="mb-1 mt-3 text-medium-m font-bold text-text-primary first:mt-0">
+        {renderInline(text, `h2-${k}`)}
+      </h2>,
+    );
+  };
+  const pushH3 = (text: string) => {
+    const k = key++;
+    blocks.push(
+      <h3 key={`h3-${k}`} className="mb-1 mt-2.5 text-small-m font-semibold text-text-primary">
+        {renderInline(text, `h3-${k}`)}
+      </h3>,
+    );
+  };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].replace(/\s+$/, "");
+
+    // Bullet: - hoặc * theo sau bởi khoảng trắng
     const bullet = line.match(/^\s*[-*]\s+(.*)$/);
     if (bullet) {
       listBuffer.push(bullet[1]);
       continue;
     }
     flushList();
-    if (line.trim() === "") {
+
+    const trimmed = line.trim();
+    if (trimmed === "") continue;
+
+    // Dòng kẻ ngang / gạch chân đứng lẻ (===, ---, ___) → bỏ, không in ra
+    if (/^(=|-|_){3,}$/.test(trimmed)) continue;
+
+    // Tiêu đề ATX: ## trước, rồi #
+    if (/^##\s+/.test(line)) {
+      pushH3(line.replace(/^##\s+/, ""));
       continue;
     }
-    if (/^##\s+/.test(line)) {
-      blocks.push(
-        <h3 key={`h3-${key++}`} className="mb-1 mt-2.5 text-small-m font-semibold text-text-primary">
-          {renderInline(line.replace(/^##\s+/, ""), `h3-${key}`)}
-        </h3>,
-      );
-    } else if (/^#\s+/.test(line)) {
-      blocks.push(
-        <h2 key={`h2-${key++}`} className="mb-1 mt-3 text-medium-m font-bold text-text-primary first:mt-0">
-          {renderInline(line.replace(/^#\s+/, ""), `h2-${key}`)}
-        </h2>,
-      );
-    } else {
-      blocks.push(
-        <p key={`p-${key++}`} className="my-1.5 text-small text-text-secondary">
-          {renderInline(line, `p-${key}`)}
-        </p>,
-      );
+    if (/^#\s+/.test(line)) {
+      pushH2(line.replace(/^#\s+/, ""));
+      continue;
     }
+
+    // Tiêu đề Setext: dòng kế tiếp toàn === (h2) hoặc --- (h3)
+    const next = i + 1 < lines.length ? lines[i + 1].trim() : "";
+    if (/^=+$/.test(next) && next.length >= 3) {
+      pushH2(trimmed);
+      i += 1; // nuốt dòng gạch chân
+      continue;
+    }
+    if (/^-+$/.test(next) && next.length >= 3) {
+      pushH3(trimmed);
+      i += 1; // nuốt dòng gạch chân
+      continue;
+    }
+
+    // Đoạn văn
+    const k = key++;
+    blocks.push(
+      <p key={`p-${k}`} className="my-1.5 text-small text-text-secondary">
+        {renderInline(line, `p-${k}`)}
+      </p>,
+    );
   }
   flushList();
 
