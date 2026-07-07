@@ -190,7 +190,7 @@ export default function StoreInfoPage() {
         >
           <span className="text-xl">📄</span>
           <div className="flex-1">
-            <p className="text-small text-text-primary">Điều khoản sử dụng</p>
+            <p className="text-small text-primary">Điều khoản sử dụng</p>
           </div>
           <svg
             viewBox="0 0 24 24"
