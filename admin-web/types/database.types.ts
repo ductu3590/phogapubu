@@ -18,6 +18,7 @@ interface StoreRow {
   is_accepting_orders: boolean
   serving_hours: { open: string; close: string }[]
   delivery_area_note: string | null
+  terms_of_use: string | null
   spin_enabled: boolean
   is_active: boolean
   created_at: string
