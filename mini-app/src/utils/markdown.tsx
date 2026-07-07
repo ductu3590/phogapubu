@@ -7,6 +7,11 @@
 import { ReactNode } from "react";
 import { openWebview } from "zmp-sdk";
 
+// Bỏ dấu gạch chéo ngược thoát ký tự (Markdown escape): "1\." → "1.", "\*" → "*"...
+function unescapeMd(s: string): string {
+  return s.replace(/\\([^\w\s])/g, "$1");
+}
+
 // Parse inline: **đậm** và [text](url). Trả về mảng ReactNode.
 function renderInline(text: string, keyBase: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -16,7 +21,7 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
   let i = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > lastIndex) {
-      nodes.push(text.slice(lastIndex, m.index));
+      nodes.push(unescapeMd(text.slice(lastIndex, m.index)));
     }
     if (m[1] !== undefined) {
       // **đậm**
@@ -46,7 +51,7 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
     i += 1;
   }
   if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
+    nodes.push(unescapeMd(text.slice(lastIndex)));
   }
   return nodes;
 }
