@@ -3,6 +3,8 @@ import { openWebview } from "zmp-sdk";
 import { useSnackbar } from "zmp-ui";
 import { useAppStore } from "@/stores/app.store";
 import PermissionSheet from "@/components/common/permission-sheet";
+import TermsSheet from "@/components/common/terms-sheet";
+import { DEFAULT_TERMS } from "@/constants/terms";
 
 function InfoRow({
   icon,
@@ -31,7 +33,7 @@ function InfoRow({
 }
 
 export default function StoreInfoPage() {
-  const { storeId, storeName, storeLogoUrl, storeAddress, storePhone, zaloOaId, zaloOaUrl, aboutText, wifiName, wifiPassword, deliveryAreaNote } =
+  const { storeId, storeName, storeLogoUrl, storeAddress, storePhone, zaloOaId, zaloOaUrl, aboutText, wifiName, wifiPassword, deliveryAreaNote, termsOfUse } =
     useAppStore();
   const { openSnackbar } = useSnackbar();
 
@@ -79,6 +81,8 @@ export default function StoreInfoPage() {
   const SHEET_SESSION_KEY = storeId ? `mevo_oa_sheet_${storeId}` : "";
 
   const [showPermSheet, setShowPermSheet] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const termsContent = termsOfUse.trim() || DEFAULT_TERMS;
   const [isConnected, setIsConnected] = useState(
     () => !!storeId && !!localStorage.getItem(`mevo_oa_connected_v2_${storeId}`),
   );
@@ -224,6 +228,35 @@ export default function StoreInfoPage() {
           <p className="whitespace-pre-line text-small text-text-secondary">{aboutText}</p>
         </div>
       )}
+
+      {/* Điều khoản sử dụng — luôn hiện; rỗng thì dùng DEFAULT_TERMS */}
+      <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-white">
+        <button
+          onClick={() => setShowTerms(true)}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-neutral50"
+        >
+          <span className="text-xl">📄</span>
+          <div className="flex-1">
+            <p className="text-small text-text-primary">Điều khoản sử dụng</p>
+          </div>
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4 text-neutral300"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Sheet điều khoản sử dụng */}
+      <TermsSheet
+        visible={showTerms}
+        content={termsContent}
+        onClose={() => setShowTerms(false)}
+      />
 
       {/* Permission bottom sheet */}
       {zaloOaId && (
