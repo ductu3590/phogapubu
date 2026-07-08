@@ -46,6 +46,29 @@ export const orderService = {
     if (error) throw error;
   },
 
+  // Chờ server xác nhận đơn đã trả tiền (qua webhook checkout-notify).
+  // Dùng cho chuyển khoản ngân hàng: Zalo báo notify trễ vài giây sau khi khách chuyển,
+  // client KHÔNG được huỷ đơn sớm. Poll trạng thái tới khi confirmed/có trans_id, hoặc hết giờ.
+  waitForConfirmation: async (orderId: string, timeoutMs = 15000): Promise<boolean> => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const { data } = await supabase
+        .from("orders")
+        .select("status, zalopay_trans_id")
+        .eq("id", orderId)
+        .single();
+      if (data) {
+        const status = data.status as string;
+        if (status === "cancelled") return false;
+        if (data.zalopay_trans_id || (status !== "pending" && status !== "cancelled")) {
+          return true;
+        }
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    return false;
+  },
+
   confirmReceived: async (orderId: string, zaloUserId: string): Promise<void> => {
     // Khách bấm "Đã nhận" — guard bằng zalo_user_id trong RPC
     const { error } = await supabase.rpc("confirm_order_received", {

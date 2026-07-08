@@ -1,7 +1,12 @@
 // Supabase Edge Function — Notify webhook của Zalo Checkout SDK
-// Zalo gọi sau khi thanh toán xong (cả thành công lẫn thất bại).
-// Secret ký/verify MAC đọc theo QUÁN (store_checkout_configs), map bằng data.appId TRƯỚC
-// khi verify MAC — không tin bất kỳ field nào của callback trước khi xác định đúng quán.
+// Xử lý 2 loại callback (phân biệt bằng sự hiện diện của resultCode):
+//  1) Ví ZaloPay: payload có resultCode/amount/transId; verify `mac` theo template CỐ ĐỊNH.
+//  2) Chuyển khoản ngân hàng / method tuỳ chỉnh (method="BANK"): payload chỉ có
+//     {appId, method, orderId, extradata}, KHÔNG có amount/resultCode/transId. Verify
+//     `overallMac` = HMAC(secret, các field của `data` sort a→z, nối "key=value&...").
+//     MAC hợp lệ nghĩa là khách ĐÃ HOÀN TẤT bước chuyển khoản — Zalo không giữ tiền nên
+//     không có resultCode; tiền về thẳng TK quán, quán tự đối chiếu (quyết định Option A).
+// Secret verify đọc theo QUÁN (store_checkout_configs), map bằng data.appId TRƯỚC khi verify.
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 // verify_jwt: FALSE (Zalo không gửi JWT — bảo mật bằng MAC)
 
@@ -30,10 +35,20 @@ function resp(returnCode: number, returnMessage: string) {
   })
 }
 
+// Lấy app orderId (id đơn của MEVO) từ extradata đã URL-encode
+function parseAppOrderId(extradata: unknown): string | undefined {
+  try {
+    const ed = JSON.parse(decodeURIComponent(String(extradata ?? '%7B%7D')))
+    return ed.orderId
+  } catch (_) {
+    return undefined
+  }
+}
+
 serve(async (req) => {
   try {
     const body = await req.json()
-    const { data, mac } = body
+    const { data, mac, overallMac } = body
 
     // 1. Chặn sớm nếu thiếu appId — không đi tiếp, không đụng DB
     const appId = data?.appId ? String(data.appId) : ''
@@ -60,7 +75,46 @@ serve(async (req) => {
     }
     const secret = config.zalo_checkout_secret_key as string
 
-    // 3. Verify MAC theo template CỐ ĐỊNH của Zalo (KHÔNG sort), bằng secret của ĐÚNG quán
+    // 3. Phân loại callback: ví ZaloPay LUÔN có resultCode; chuyển khoản/method tuỳ chỉnh thì KHÔNG.
+    const isCustomMethod = data?.resultCode == null
+
+    if (isCustomMethod) {
+      // === CHUYỂN KHOẢN NGÂN HÀNG / method tuỳ chỉnh ===
+      // overallMac = HMAC(secret, các field của `data` sort a→z, nối "key=value&...")
+      const macStr = Object.keys(data)
+        .sort()
+        .map((k) => `${k}=${data[k]}`)
+        .join('&')
+      const expected = await hmacSHA256(secret, macStr)
+      if (!overallMac || expected !== overallMac) {
+        console.error('[checkout-notify] BANK overallMac không khớp')
+        return resp(-1, 'invalid mac')
+      }
+
+      const appOrderId = parseAppOrderId(data.extradata)
+      if (!appOrderId) return resp(-1, 'missing orderId in extradata')
+
+      // MAC hợp lệ = khách đã hoàn tất chuyển khoản → confirm đơn.
+      // Payload KHÔNG có amount nên không đối chiếu số tiền; store_id + MAC (theo secret quán) đã bảo vệ.
+      // Lưu orderId của Zalo vào zalopay_trans_id để tính doanh thu (đơn có tiền thật).
+      const zaloRef = data.orderId ? `BANK:${data.orderId}` : `BANK:${appOrderId}`
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'confirmed', zalopay_trans_id: zaloRef })
+        .eq('id', appOrderId)
+        .eq('store_id', config.store_id)
+        .eq('status', 'pending')
+      if (error) {
+        console.error('[checkout-notify] BANK update lỗi:', error)
+        return resp(-1, 'update failed')
+      }
+
+      console.log(`[checkout-notify] BANK đơn ${appOrderId} → confirmed, ref ${zaloRef}`)
+      return resp(1, 'success')
+    }
+
+    // === VÍ ZALOPAY (logic cũ, giữ nguyên) ===
+    // Verify MAC theo template CỐ ĐỊNH của Zalo (KHÔNG sort), bằng secret của ĐÚNG quán
     const macStr =
       `appId=${data.appId}&amount=${data.amount}&description=${data.description}` +
       `&orderId=${data.orderId}&message=${data.message}` +
@@ -71,19 +125,11 @@ serve(async (req) => {
       return resp(-1, 'invalid mac')
     }
 
-    // 4. Chỉ sau khi MAC hợp lệ mới parse extradata
-    let appOrderId: string | undefined
-    try {
-      const ed = JSON.parse(decodeURIComponent(data.extradata ?? '%7B%7D'))
-      appOrderId = ed.orderId
-    } catch (_) {
-      /* ignore */
-    }
+    const appOrderId = parseAppOrderId(data.extradata)
     if (!appOrderId) return resp(-1, 'missing orderId in extradata')
 
-    // 5. Check resultCode NGAY sau khi có appOrderId, TRƯỚC khi query order/store/amount —
-    //    thanh toán thất bại thì ack luôn, không cần order còn tồn tại hay không, tránh
-    //    biến failed callback thành retry loop nếu order đã bị xoá hoặc dữ liệu lệch.
+    // Check resultCode NGAY sau khi có appOrderId, TRƯỚC khi query order/store/amount —
+    // thanh toán thất bại thì ack luôn, tránh biến failed callback thành retry loop.
     if (Number(data.resultCode) !== 1) {
       console.log(`[checkout-notify] payment failed, order=${appOrderId}, appId=${appId}`)
       return resp(1, 'payment failed acknowledged')
@@ -99,7 +145,7 @@ serve(async (req) => {
       return resp(-1, 'order not found')
     }
 
-    // 6. Đối chiếu quán suy ra từ appId khớp với quán thật của order
+    // Đối chiếu quán suy ra từ appId khớp với quán thật của order
     if (order.store_id !== config.store_id) {
       console.error(
         `[checkout-notify] store mismatch: order.store_id=${order.store_id} config.store_id=${config.store_id}`,
@@ -107,13 +153,13 @@ serve(async (req) => {
       return resp(-1, 'store mismatch')
     }
 
-    // 7. Đối chiếu số tiền với DB — chống giả mạo amount
+    // Đối chiếu số tiền với DB — chống giả mạo amount
     if (Number(data.amount) !== Number(order.total_amount)) {
       console.error('[checkout-notify] amount không khớp', data.amount, order.total_amount)
       return resp(-1, 'amount mismatch')
     }
 
-    // 8. Xác nhận đơn (idempotent: chỉ update nếu vẫn pending)
+    // Xác nhận đơn (idempotent: chỉ update nếu vẫn pending)
     const { error } = await supabase
       .from('orders')
       .update({ status: 'confirmed', zalopay_trans_id: String(data.transId) })
