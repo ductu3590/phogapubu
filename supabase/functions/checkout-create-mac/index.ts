@@ -1,7 +1,9 @@
 // Supabase Edge Function — Ký MAC cho Zalo Checkout SDK Payment.createOrder
 // Mini app gọi với { orderId }. Server TỰ đọc số tiền từ DB (không tin client),
 // build body + ký MAC bằng secret CỦA ĐÚNG QUÁN (store_checkout_configs), trả về cho mini app.
-// Secrets: ZALO_PAYMENT_METHOD (tuỳ chọn, mặc định ZALOPAY_SANDBOX) — secret ký MAC đọc từ DB.
+// KHÔNG truyền field `method` → Payment.createOrder tự mở màn CHỌN phương thức
+// (ví ZaloPay, chuyển khoản ngân hàng...) theo những gì quán đã bật trên console Zalo.
+// Secrets: secret ký MAC đọc từ DB (store_checkout_configs).
 // verify_jwt: true (mini app gửi anon JWT)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -41,8 +43,6 @@ serve(async (req) => {
     const { orderId } = await req.json()
     if (!orderId) return json({ error: 'Thiếu orderId' }, 400)
 
-    const methodId = Deno.env.get('ZALO_PAYMENT_METHOD') ?? 'ZALOPAY_SANDBOX'
-
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -79,18 +79,19 @@ serve(async (req) => {
     }))
     const desc = `MEVO - Don ${String(orderId).slice(-6).toUpperCase()}`
     const extradata = JSON.stringify({ orderId })
-    const method = JSON.stringify({ id: methodId, isCustom: false })
 
-    // MAC = HMAC-SHA256(secret, "key=value&..." với key sort a→z, object→JSON.stringify)
-    const body: Record<string, unknown> = { amount, desc, extradata, item, method }
+    // MAC = HMAC-SHA256(secret, "key=value&..." với key sort a→z, object→JSON.stringify).
+    // KHÔNG có `method` trong body → MAC ký đúng các field gửi đi (amount/desc/extradata/item)
+    // và Zalo tự mở màn chọn phương thức thanh toán.
+    const body: Record<string, unknown> = { amount, desc, extradata, item }
     const dataMac = Object.keys(body)
       .sort()
       .map((k) => `${k}=${typeof body[k] === 'object' ? JSON.stringify(body[k]) : body[k]}`)
       .join('&')
     const mac = await hmacSHA256(secret, dataMac)
 
-    // Trả đúng body để mini app truyền nguyên vào Payment.createOrder
-    return json({ amount, desc, item, extradata, method, mac })
+    // Trả đúng body để mini app truyền nguyên vào Payment.createOrder (không kèm method)
+    return json({ amount, desc, item, extradata, mac })
   } catch (e) {
     return json({ error: String(e) }, 500)
   }

@@ -79,12 +79,12 @@ export const paymentService = {
 
       // Mở sheet ZaloPay — zpOrderId được lưu từ success callback VÀ từ promise resolve
       // (tuỳ SDK version, một trong hai sẽ cung cấp trước)
+      // KHÔNG truyền `method` → Zalo tự mở màn chọn phương thức (ví ZaloPay, chuyển khoản...)
       Payment.createOrder({
         desc: body.desc,
         item: body.item,
         amount: body.amount,
         extradata: body.extradata,
-        method: body.method,
         mac: body.mac,
         success: (r: { orderId?: string }) => {
           if (r?.orderId) {

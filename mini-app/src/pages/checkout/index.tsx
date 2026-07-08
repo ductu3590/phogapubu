@@ -487,11 +487,11 @@ export default function CheckoutPage() {
           {isLoading
             ? isPending
               ? "Đang tạo đơn..."
-              : "Đang mở ZaloPay..."
+              : "Đang mở thanh toán..."
             : isTakeaway
-              ? "Đặt mang về & Thanh toán ZaloPay"
+              ? "Đặt mang về & Thanh toán"
               : paymentMethod === "zalopay"
-                ? "Đặt món & Thanh toán ZaloPay"
+                ? "Đặt món & Thanh toán"
                 : "Đặt món (Trả tiền mặt)"}
         </Button>
       </div>
