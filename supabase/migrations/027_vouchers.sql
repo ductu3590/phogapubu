@@ -73,7 +73,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- ============================================================
 -- Đầu ngày hiện tại theo giờ VN (timestamptz) — cho daily_limit
 CREATE OR REPLACE FUNCTION vn_day_start() RETURNS timestamptz
-LANGUAGE sql STABLE AS $$
+LANGUAGE sql STABLE SET search_path = public AS $$
   SELECT date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh') AT TIME ZONE 'Asia/Ho_Chi_Minh'
 $$;
 
@@ -110,7 +110,7 @@ END $$;
 
 -- Số tiền giảm cho subtotal (fixed trừ thẳng; percent làm tròn, chặn max_discount)
 CREATE OR REPLACE FUNCTION voucher_discount(v vouchers, p_subtotal int)
-RETURNS int LANGUAGE sql IMMUTABLE AS $$
+RETURNS int LANGUAGE sql IMMUTABLE SET search_path = public AS $$
   SELECT CASE
     WHEN v.discount_type = 'fixed' THEN LEAST(v.discount_value, p_subtotal)
     ELSE LEAST(round(p_subtotal * v.discount_value / 100.0)::int,
@@ -424,3 +424,22 @@ BEGIN
   RETURN jsonb_build_object('ok', true, 'already', v_res.status='redeemed');
 END; $$;
 GRANT EXECUTE ON FUNCTION redeem_spin_result(uuid) TO authenticated, kitchen;
+
+-- ============================================================
+-- 11) Hardening: helper nội bộ KHÔNG cho gọi trực tiếp qua PostgREST
+--     (chỉ được gọi từ các hàm SECURITY DEFINER phía trên).
+--     Tiện tay dọn luôn 3 RPC spin kế thừa public từ mig 025.
+--     ⚠️ Supabase default ACL grant EXECUTE cho anon/authenticated/service_role
+--     NGAY khi CREATE FUNCTION → REVOKE FROM public KHÔNG đủ, phải revoke
+--     tường minh cả anon + authenticated trên helper nội bộ.
+-- ============================================================
+REVOKE ALL ON FUNCTION vn_day_start() FROM public, anon, authenticated;
+REVOKE ALL ON FUNCTION voucher_uses(uuid, timestamptz) FROM public, anon, authenticated;
+REVOKE ALL ON FUNCTION voucher_reject_reason(vouchers, text) FROM public, anon, authenticated;
+REVOKE ALL ON FUNCTION voucher_discount(vouchers, int) FROM public, anon, authenticated;
+REVOKE ALL ON FUNCTION get_spin_state(uuid) FROM public;
+REVOKE ALL ON FUNCTION spin_wheel(uuid) FROM public;
+REVOKE ALL ON FUNCTION redeem_spin_result(uuid) FROM public, anon;
+-- get_spin_state/spin_wheel vẫn cần anon (mini-app gọi); redeem đã GRANT authenticated+kitchen ở mục 10
+GRANT EXECUTE ON FUNCTION get_spin_state(uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION spin_wheel(uuid) TO anon, authenticated;
