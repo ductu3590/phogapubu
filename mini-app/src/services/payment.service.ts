@@ -92,9 +92,18 @@ export const paymentService = {
           const r = await Payment.checkTransaction({ data: { orderId: zpOrderId } })
           console.info('[checkout] checkTransaction result:', r)
           // resultCode === 1: thanh toán thành công
-          finish(Number(r.resultCode) === 1 ? 'success' : 'unpaid')
+          if (Number(r.resultCode) === 1) {
+            finish('success')
+            return
+          }
+          // isCustom = phương thức custom (chuyển khoản ngân hàng) — Zalo KHÔNG tự thấy được
+          // giao dịch bank→bank, phải chờ webhook server xác nhận → 'unpaid' (chờ).
+          // Ngược lại (ví thường / chưa chọn PT rồi bấm back): resultCode≠1 là huỷ THẬT,
+          // không webhook nào về → 'cancelled' (kết luận ngay, khỏi chờ 12s).
+          finish(r.isCustom ? 'unpaid' : 'cancelled')
         } catch (e) {
           console.error('[checkout] checkTransaction lỗi:', e)
+          // Không rõ trạng thái → chờ webhook cho an toàn (tránh huỷ nhầm đơn đã chuyển khoản)
           finish('unpaid')
         }
       }
