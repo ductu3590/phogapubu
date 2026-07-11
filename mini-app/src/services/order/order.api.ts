@@ -49,7 +49,7 @@ export const orderService = {
   // Chờ server xác nhận đơn đã trả tiền (qua webhook checkout-notify).
   // Dùng cho chuyển khoản ngân hàng: Zalo báo notify trễ vài giây sau khi khách chuyển,
   // client KHÔNG được huỷ đơn sớm. Poll trạng thái tới khi confirmed/có trans_id, hoặc hết giờ.
-  waitForConfirmation: async (orderId: string, timeoutMs = 15000): Promise<boolean> => {
+  waitForConfirmation: async (orderId: string, timeoutMs = 12000): Promise<boolean> => {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       const { data } = await supabase
@@ -64,7 +64,7 @@ export const orderService = {
           return true;
         }
       }
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 1500));
     }
     return false;
   },

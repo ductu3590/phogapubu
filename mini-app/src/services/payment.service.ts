@@ -8,9 +8,33 @@ import { Payment, events, EventName } from 'zmp-sdk'
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-export type ZaloPayOutcome = 'success' | 'unpaid' // unpaid = huỷ hoặc thất bại
+// success = đã trả xong; unpaid = ĐÃ khởi tạo giao dịch nhưng SDK chưa thấy trả (có thể là
+// chuyển khoản, notify về trễ → phải chờ webhook); cancelled = khách bỏ ngang khi CHƯA khởi tạo
+// giao dịch (bấm back ở màn chọn PT) → không có webhook nào sẽ về, kết luận ngay, khỏi chờ.
+export type ZaloPayOutcome = 'success' | 'unpaid' | 'cancelled'
 
 export const paymentService = {
+  /**
+   * Làm nóng edge function ký MAC (fire-and-forget).
+   * Thanh toán thưa nên isolate thường nguội → lần bấm đầu phải chờ ~1-2s cold-start.
+   * Gọi trước (khi vào trang checkout) để lúc bấm thanh toán isolate đã sẵn sàng.
+   */
+  warmupCheckout: async (): Promise<void> => {
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/checkout-create-mac`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          apikey: SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ warmup: true }),
+      })
+    } catch {
+      /* chỉ là làm nóng — lỗi mạng bỏ qua, không ảnh hưởng luồng đặt món */
+    }
+  },
+
   /**
    * Mở thanh toán Checkout SDK cho 1 đơn đã tạo (pending).
    * Server tự đọc total_amount từ DB và ký MAC — client không truyền số tiền.
@@ -60,8 +84,9 @@ export const paymentService = {
       const onPaymentDone = async () => {
         try {
           if (!zpOrderId) {
-            console.warn('[checkout] PaymentDone bắn nhưng chưa có zpOrderId → unpaid')
-            finish('unpaid')
+            // Không có zpOrderId = khách bấm back trước khi chọn/khởi tạo giao dịch → huỷ ngay
+            console.warn('[checkout] PaymentDone bắn nhưng chưa có zpOrderId → cancelled')
+            finish('cancelled')
             return
           }
           const r = await Payment.checkTransaction({ data: { orderId: zpOrderId } })
@@ -94,9 +119,9 @@ export const paymentService = {
         },
         fail: () => {
           // fail callback bắn khi có lỗi tạo order (không phải khi khách bấm back)
-          // PaymentDone vẫn sẽ bắn sau, nhưng nếu không → fallback về unpaid
+          // Chưa khởi tạo được giao dịch → không webhook nào về → huỷ ngay, khỏi chờ
           console.warn('[checkout] createOrder fail callback')
-          finish('unpaid')
+          finish('cancelled')
         },
       } as Parameters<typeof Payment.createOrder>[0])
         .then((created: { orderId?: string }) => {
@@ -107,7 +132,7 @@ export const paymentService = {
         })
         .catch((e: unknown) => {
           console.error('[checkout] createOrder promise rejected:', e)
-          finish('unpaid')
+          finish('cancelled')
         })
     })
   },

@@ -40,7 +40,10 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { orderId } = await req.json()
+    const reqBody = await req.json()
+    // Ping làm nóng isolate (client gọi khi vào trang checkout) — trả về ngay, không đụng DB
+    if (reqBody?.warmup) return json({ ok: true })
+    const { orderId } = reqBody
     if (!orderId) return json({ error: 'Thiếu orderId' }, 400)
 
     const supabase = createClient(

@@ -56,6 +56,8 @@ export default function CheckoutPage() {
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("zalopay");
   const [isProcessing, setIsProcessing] = useState(false);
+  // Overlay "Đang xác nhận thanh toán" khi chờ webhook chuyển khoản (notify về trễ vài giây)
+  const [verifying, setVerifying] = useState(false);
   // Đơn ZaloPay đang chờ xử lý (kèm capability token để chuyển sang tiền mặt nếu bỏ dở)
   const [pendingZp, setPendingZp] = useState<{ id: string; token: string | null } | null>(null);
 
@@ -74,6 +76,19 @@ export default function CheckoutPage() {
   const isTakeaway = orderMode === "takeaway";
   const storeOpen = isStoreOpen({ isAcceptingOrders, servingHours });
   const singleMethod = paymentMethods.length === 1;
+  // Chỉ đề nghị "Trả tiền mặt" khi quán thật sự bật tiền mặt trong cấu hình admin
+  const cashAllowed = paymentMethods.includes("cash");
+
+  // Làm nóng edge function ký MAC một lần khi vào trang, nếu đơn này sẽ dùng thanh toán online
+  // (takeaway luôn dùng, dine-in dùng khi quán bật zalopay) → bấm thanh toán không phải chờ cold-start.
+  const warmedRef = useRef(false);
+  useEffect(() => {
+    if (warmedRef.current) return;
+    const willUseOnlinePay = isTakeaway || paymentMethods.includes("zalopay");
+    if (!willUseOnlinePay) return;
+    warmedRef.current = true;
+    void paymentService.warmupCheckout();
+  }, [isTakeaway, paymentMethods]);
 
   // Syncs selected method when store config loads (e.g. nếu zalopay bị tắt)
   useEffect(() => {
@@ -189,37 +204,50 @@ export default function CheckoutPage() {
   };
 
   const handleZaloPayPayment = async (orderId: string, token: string | null) => {
-    // Khi Checkout SDK trả 'unpaid' HOẶC lỗi: KHÔNG kết luận thất bại ngay.
-    // Chuyển khoản ngân hàng xác nhận qua webhook server (notify trễ vài giây) — phải chờ
-    // server confirm trước, tránh huỷ nhầm đơn khách đã chuyển khoản thật.
-    const settleUnpaid = async () => {
-      const confirmed = await orderService.waitForConfirmation(orderId);
-      if (confirmed) {
-        clearCart();
-        navigate(`/order-status/${orderId}`);
-        return;
-      }
+    const goSuccess = () => {
+      clearCart();
+      navigate(`/order-status/${orderId}`);
+    };
+
+    // Khách bỏ ngang khi CHƯA khởi tạo giao dịch (bấm back ở màn chọn PT) → kết luận NGAY,
+    // không chờ webhook (sẽ không có notify nào về).
+    const settleCancelled = async () => {
       if (isTakeaway) {
-        // Takeaway: thật sự chưa trả tiền → huỷ đơn, không có fallback tiền mặt
         try {
           await orderService.cancelOrder(orderId, token ?? "");
         } catch { /* bỏ qua nếu đơn không tìm thấy hoặc token sai */ }
         localStorage.removeItem("mevo_last_takeaway_order");
-        openSnackbar({ text: "Thanh toán thất bại — đơn hàng đã bị huỷ.", type: "error" });
+        openSnackbar({ text: "Đã huỷ thanh toán.", type: "warning" });
         navigate("/");
       } else {
-        // Dine-in: giữ flow cũ — hỏi chuyển sang tiền mặt
+        // Dine-in: mở hộp thoại thử lại (kèm tuỳ chọn tiền mặt nếu quán có bật)
         setPendingZp({ id: orderId, token });
       }
     };
+
+    // ĐÃ khởi tạo giao dịch nhưng SDK báo chưa trả → có thể là chuyển khoản (notify trễ vài
+    // giây). CHỜ server confirm trước khi kết luận, có overlay "đang xác nhận" cho khách yên tâm.
+    const settleUnpaid = async () => {
+      setVerifying(true);
+      let confirmed = false;
+      try {
+        confirmed = await orderService.waitForConfirmation(orderId);
+      } finally {
+        setVerifying(false);
+      }
+      if (confirmed) {
+        goSuccess();
+        return;
+      }
+      // Hết thời gian chờ mà server chưa confirm → xử như huỷ
+      await settleCancelled();
+    };
+
     try {
       const outcome = await paymentService.payWithCheckoutSDK(orderId);
-      if (outcome === "success") {
-        clearCart();
-        navigate(`/order-status/${orderId}`);
-      } else {
-        await settleUnpaid();
-      }
+      if (outcome === "success") goSuccess();
+      else if (outcome === "cancelled") await settleCancelled();
+      else await settleUnpaid();
     } catch (_err) {
       await settleUnpaid();
     } finally {
@@ -445,23 +473,57 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Dialog xác nhận chuyển sang tiền mặt khi ZaloPay bỏ dở/thất bại */}
+      {/* Overlay chờ server xác nhận chuyển khoản (notify về trễ vài giây) */}
+      {verifying && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="mx-8 flex flex-col items-center gap-3 rounded-2xl bg-white px-8 py-6 text-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-neutral100 border-t-primary" />
+            <p className="text-normal-sb font-semibold text-text-primary">
+              Đang xác nhận thanh toán…
+            </p>
+            <p className="text-xxsmall text-text-secondary">
+              Vui lòng đợi trong giây lát, đừng đóng ứng dụng.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Dialog khi thanh toán bỏ dở/thất bại.
+          Chỉ đề nghị tiền mặt khi quán bật tiền mặt trong cấu hình admin. */}
       <Modal
         visible={pendingZp !== null}
         title="Thanh toán chưa hoàn tất"
-        description="Bạn muốn chuyển sang trả tiền mặt (thu khi ra về) hay thử lại ZaloPay?"
+        description={
+          cashAllowed
+            ? "Bạn muốn chuyển sang trả tiền mặt (thu khi ra về) hay thử lại thanh toán?"
+            : "Đơn của bạn chưa được thanh toán. Vui lòng thử lại để hoàn tất."
+        }
         onClose={() => setPendingZp(null)}
-        actions={[
-          {
-            text: "Trả tiền mặt",
-            highLight: true,
-            onClick: () => { void confirmCashFallback(); },
-          },
-          {
-            text: "Thử lại ZaloPay",
-            onClick: retryZaloPay,
-          },
-        ]}
+        actions={
+          cashAllowed
+            ? [
+                {
+                  text: "Trả tiền mặt",
+                  highLight: true,
+                  onClick: () => { void confirmCashFallback(); },
+                },
+                {
+                  text: "Thử lại",
+                  onClick: retryZaloPay,
+                },
+              ]
+            : [
+                {
+                  text: "Thử lại",
+                  highLight: true,
+                  onClick: retryZaloPay,
+                },
+                {
+                  text: "Để sau",
+                  onClick: () => setPendingZp(null),
+                },
+              ]
+        }
       />
 
       {/* Nút đặt món — fixed bottom */}
