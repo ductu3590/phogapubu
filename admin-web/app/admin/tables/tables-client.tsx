@@ -6,7 +6,7 @@ import { addTable, toggleTable, deleteTable } from '@/lib/actions/tables'
 import { buildTableQRUrl } from '@/lib/qr'
 import QRCode from 'qrcode'
 
-type Table = { id: string; table_number: string; is_active: boolean }
+type Table = { id: string; table_number: string; is_active: boolean; qrDataUrl: string }
 
 export default function TablesClient({
   tables: initialTables,
@@ -97,6 +97,20 @@ export default function TablesClient({
                 {table.is_active ? 'Mở' : 'Đóng'}
               </button>
             </div>
+
+            {/* Ảnh QR hiện sẵn trên trang */}
+            {table.qrDataUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={table.qrDataUrl}
+                alt={`QR ${table.table_number}`}
+                className="mx-auto mb-3 aspect-square w-full max-w-[180px] rounded-lg border border-gray-100 bg-white"
+              />
+            ) : (
+              <div className="mx-auto mb-3 flex aspect-square w-full max-w-[180px] items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-center text-[11px] text-gray-400">
+                Chưa cấu hình Zalo Mini App cho quán
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               {/* Tải QR */}
