@@ -7,9 +7,14 @@ import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 export type RewardInput = {
   id?: string
   label: string
-  type: 'gift' | 'none'
+  type: 'gift' | 'none' | 'voucher'
   weight: number
   is_active: boolean
+  // Chỉ dùng khi type='voucher'
+  discount_type?: 'fixed' | 'percent'
+  discount_value?: number | null
+  max_discount?: number | null
+  voucher_days?: number | null
 }
 
 // Kết quả trả cho client. Next.js REDACT message của lỗi throw trong production,
@@ -45,14 +50,33 @@ export async function saveRewards(rewards: RewardInput[]): Promise<ActionResult>
   const admin = createAdminClient()
 
   const clean = rewards
-    .map((r) => ({
-      id: r.id,
-      label: (r.label ?? '').trim(),
-      type: r.type === 'none' ? 'none' : 'gift',
-      weight: Math.max(1, Math.floor(Number(r.weight) || 1)),
-      is_active: !!r.is_active,
-    }))
+    .map((r) => {
+      const type = r.type === 'none' ? 'none' : r.type === 'voucher' ? 'voucher' : 'gift'
+      const isVoucher = type === 'voucher'
+      return {
+        id: r.id,
+        label: (r.label ?? '').trim(),
+        type,
+        weight: Math.max(1, Math.floor(Number(r.weight) || 1)),
+        is_active: !!r.is_active,
+        discount_type: isVoucher ? (r.discount_type === 'percent' ? 'percent' : 'fixed') : null,
+        discount_value: isVoucher ? Math.max(1, Math.floor(Number(r.discount_value) || 0)) : null,
+        max_discount:
+          isVoucher && r.discount_type === 'percent' && r.max_discount
+            ? Math.max(1, Math.floor(Number(r.max_discount)))
+            : null,
+        voucher_days: isVoucher ? Math.max(1, Math.floor(Number(r.voucher_days) || 30)) : null,
+      }
+    })
     .filter((r) => r.label.length > 0)
+
+  // Ô voucher phải có mức giảm > 0 (spin_wheel sẽ không phát mã nếu value 0)
+  const badVoucher = clean.find((r) => r.type === 'voucher' && (r.discount_value ?? 0) <= 0)
+  if (badVoucher) return { error: `Ô "${badVoucher.label}": nhập mức giảm lớn hơn 0.` }
+  const badPercent = clean.find(
+    (r) => r.type === 'voucher' && r.discount_type === 'percent' && (r.discount_value ?? 0) > 100,
+  )
+  if (badPercent) return { error: `Ô "${badPercent.label}": phần trăm giảm tối đa 100.` }
 
   // Xoá các quà không còn trong danh sách (FK spin_results.reward_id ON DELETE SET NULL)
   const keepIds = clean.filter((r) => r.id).map((r) => r.id!)
@@ -70,6 +94,10 @@ export async function saveRewards(rewards: RewardInput[]): Promise<ActionResult>
     weight: r.weight,
     sort_order: i,
     is_active: r.is_active,
+    discount_type: r.discount_type,
+    discount_value: r.discount_value,
+    max_discount: r.max_discount,
+    voucher_days: r.voucher_days ?? 30,
   }))
   if (rows.length > 0) {
     const { error } = await admin.from('spin_rewards').upsert(rows)

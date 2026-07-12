@@ -16,7 +16,7 @@ export default async function SpinPage() {
     .single()
   const { data: rewards } = await supabase
     .from('spin_rewards')
-    .select('id, label, type, weight, is_active, sort_order')
+    .select('id, label, type, weight, is_active, sort_order, discount_type, discount_value, max_discount, voucher_days')
     .eq('store_id', storeId)
     .order('sort_order')
 

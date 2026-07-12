@@ -142,13 +142,59 @@ export default function SpinClient({
               />
               <select
                 value={r.type}
-                onChange={(e) => update(r.key, { type: e.target.value as 'gift' | 'none' })}
-                className="input w-28"
+                onChange={(e) => update(r.key, { type: e.target.value as RewardInput['type'] })}
+                className="input w-32"
                 title="Loại"
               >
                 <option value="gift">🎁 Có quà</option>
+                <option value="voucher">🎟️ Mã giảm giá</option>
                 <option value="none">— Trượt</option>
               </select>
+              {r.type === 'voucher' && (
+                <>
+                  <select
+                    value={r.discount_type ?? 'fixed'}
+                    onChange={(e) => update(r.key, { discount_type: e.target.value as 'fixed' | 'percent' })}
+                    className="input w-24"
+                    title="Kiểu giảm"
+                  >
+                    <option value="fixed">đ</option>
+                    <option value="percent">%</option>
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    value={r.discount_value ?? ''}
+                    onChange={(e) => update(r.key, { discount_value: Number(e.target.value) })}
+                    placeholder={r.discount_type === 'percent' ? 'VD 10' : 'VD 10000'}
+                    className="input w-24"
+                    title="Mức giảm"
+                  />
+                  {r.discount_type === 'percent' && (
+                    <input
+                      type="number"
+                      min={1}
+                      value={r.max_discount ?? ''}
+                      onChange={(e) => update(r.key, { max_discount: Number(e.target.value) })}
+                      placeholder="Tối đa đ"
+                      className="input w-24"
+                      title="Giảm tối đa (đ)"
+                    />
+                  )}
+                  <label className="flex items-center gap-1 text-xs text-gray-500">
+                    HSD
+                    <input
+                      type="number"
+                      min={1}
+                      value={r.voucher_days ?? 30}
+                      onChange={(e) => update(r.key, { voucher_days: Number(e.target.value) })}
+                      className="input w-16"
+                      title="Số ngày hạn dùng"
+                    />
+                    ngày
+                  </label>
+                </>
+              )}
               <label className="flex items-center gap-1 text-xs text-gray-500">
                 Tỉ lệ
                 <input
@@ -192,6 +238,7 @@ export default function SpinClient({
         <p className="mt-2 text-xs text-gray-400">
           &quot;Tỉ lệ&quot; là tỉ trọng random — ô tỉ lệ 4 dễ trúng gấp 4 lần ô tỉ lệ 1.
           Nên để vài ô &quot;Trượt&quot; tỉ lệ cao để không tặng quà mọi lượt.
+          Ô &quot;Mã giảm giá&quot;: khách trúng sẽ được mã TỰ ĐỘNG áp vào lần đặt món sau.
         </p>
       </div>
 
