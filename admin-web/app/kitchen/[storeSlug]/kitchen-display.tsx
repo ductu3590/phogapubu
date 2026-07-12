@@ -187,6 +187,10 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
   const [callAlerts, setCallAlerts] = useState<Array<{ id: number; tableNumber: string; type: string }>>([])
+  // Giải hiện vật vòng quay chưa đưa cho khách (card + loa TTS)
+  const [giftAlerts, setGiftAlerts] = useState<Array<{
+    id: string; label: string; where: string; createdAt: string
+  }>>([])
   // Giữ track đơn đã biết để không thêm trùng vào danh sách
   const knownOrderIds = useRef<Set<string>>(new Set())
   // Đơn đã "báo bếp" (chuông + đọc) rồi — chống báo lại khi nhận nhiều event
@@ -272,6 +276,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
     // Hoist channel vars ra ngoài init() để cleanup đồng bộ có thể tham chiếu
     let ordersChannel: ReturnType<typeof supabase.channel> | null = null
     let srChannel: ReturnType<typeof supabase.channel> | null = null
+    let giftChannel: ReturnType<typeof supabase.channel> | null = null
 
     async function init() {
       setLoading(true)
@@ -325,6 +330,28 @@ export default function KitchenDisplay({ storeSlug }: Props) {
       })
       setOrders(mapped)
       setLoading(false)
+
+      // Giải hiện vật 6h gần nhất chưa đưa (phòng bếp F5 mất card)
+      const sixHoursAgo = new Date(Date.now() - 6 * 3600_000).toISOString()
+      const { data: gifts } = await supabase!
+        .from('spin_results')
+        .select('id, reward_label, created_at, orders(order_type, tables(table_number))')
+        .eq('store_id', storeData.id)
+        .eq('reward_type', 'gift')
+        .eq('status', 'won')
+        .gte('created_at', sixHoursAgo)
+        .order('created_at', { ascending: true })
+      setGiftAlerts(
+        (gifts ?? []).map((g) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const o = g.orders as any
+          const where =
+            o?.order_type && o.order_type !== 'dine_in'
+              ? 'Đơn mang về'
+              : (o?.tables?.table_number ?? 'Bàn ?')
+          return { id: g.id, label: g.reward_label, where, createdAt: g.created_at }
+        }),
+      )
 
       // Báo bếp: chuông + (nếu bật) đọc đơn. Chỉ báo LẦN ĐẦU đơn vào bếp.
       const announce = (order: KitchenOrder) => {
@@ -441,6 +468,47 @@ export default function KitchenDisplay({ storeSlug }: Props) {
           },
         )
         .subscribe()
+
+      // Subscribe spin_results — giải hiện vật vòng quay → báo mang ra luôn
+      giftChannel = supabase!
+        .channel(`spin-gifts-${storeData.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'spin_results',
+            filter: `store_id=eq.${storeData.id}`,
+          },
+          async (payload) => {
+            const row = payload.new as {
+              id: string; reward_type: string; reward_label: string
+              order_id: string; created_at: string
+            }
+            if (row.reward_type !== 'gift') return // voucher/none KHÔNG báo bếp
+            // Lấy bàn từ đơn (kitchen đọc được orders + tables)
+            const { data: ord } = await supabase!
+              .from('orders')
+              .select('order_type, tables(table_number)')
+              .eq('id', row.order_id)
+              .single()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const o = ord as any
+            const where =
+              o?.order_type && o.order_type !== 'dine_in'
+                ? 'Đơn mang về'
+                : (o?.tables?.table_number ?? 'Bàn ?')
+            setGiftAlerts((prev) => [
+              ...prev,
+              { id: row.id, label: row.reward_label, where, createdAt: row.created_at },
+            ])
+            playBell()
+            if (ttsEnabledRef.current) {
+              setTimeout(() => speak(`${where} trúng ${row.reward_label}`), 300)
+            }
+          },
+        )
+        .subscribe()
     }
 
     init()
@@ -449,6 +517,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
     return () => {
       if (ordersChannel) supabase.removeChannel(ordersChannel)
       if (srChannel) supabase.removeChannel(srChannel)
+      if (giftChannel) supabase.removeChannel(giftChannel)
     }
   }, [storeSlug, supabase, fetchOrder])
 
@@ -483,6 +552,14 @@ export default function KitchenDisplay({ storeSlug }: Props) {
     if (newStatus === 'ready') {
       callZnsNotify(orderId)
     }
+  }
+
+  // Nhân viên đã mang quà ra → gạch card (RPC redeem_spin_result cho phép role kitchen)
+  const redeemGift = async (resultId: string) => {
+    if (!supabase) return
+    setGiftAlerts((prev) => prev.filter((g) => g.id !== resultId)) // optimistic
+    const { error } = await supabase.rpc('redeem_spin_result', { p_result_id: resultId })
+    if (error) alert('Không đánh dấu được, thử lại!')
   }
 
   // ── Chia đơn theo cột ─────────────────────────────────────────────────────
@@ -549,6 +626,30 @@ export default function KitchenDisplay({ storeSlug }: Props) {
                 className="ml-2 opacity-70 hover:opacity-100"
               >
                 ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Giải hiện vật vòng quay — mang ra cho khách */}
+      {giftAlerts.length > 0 && (
+        <div className="fixed left-4 top-4 z-50 flex flex-col gap-2">
+          {giftAlerts.map((g) => (
+            <div
+              key={g.id}
+              className="flex items-center gap-3 rounded-xl bg-purple-600 px-4 py-3 text-white shadow-lg"
+            >
+              <span className="text-2xl">🎁</span>
+              <div>
+                <p className="font-bold">{g.where} trúng {g.label}</p>
+                <p className="text-sm opacity-80">Mang ra cho khách</p>
+              </div>
+              <button
+                onClick={() => void redeemGift(g.id)}
+                className="ml-2 rounded-lg bg-white/20 px-3 py-1.5 text-sm font-semibold hover:bg-white/30"
+              >
+                Đã đưa ✓
               </button>
             </div>
           ))}
