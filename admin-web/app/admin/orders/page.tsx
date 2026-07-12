@@ -40,7 +40,7 @@ export default async function OrdersPage({
 
   const { data: orders } = await supabase
     .from('orders')
-    .select('*, order_items(*), tables(table_number)')
+    .select('*, order_items(*), tables(table_number), vouchers(code)')
     .eq('store_id', storeId)
     .gte('created_at', dayStart.toISOString())
     .lte('created_at', dayEnd.toISOString())
@@ -123,6 +123,14 @@ export default async function OrdersPage({
                   </p>
                 ))}
               </div>
+
+              {order.discount_amount > 0 && (
+                <p className="mb-3 text-sm text-green-600">
+                  🎟️ Giảm giá −{formatVND(order.discount_amount)}
+                  {(order.vouchers as { code: string } | null)?.code &&
+                    ` (mã ${(order.vouchers as { code: string }).code})`}
+                </p>
+              )}
 
               {order.note && (
                 <p className="mb-3 text-xs text-gray-500 italic">📝 {order.note}</p>
