@@ -13,6 +13,8 @@ import QuantityStepper from "@/components/common/quantity-stepper";
 import NoteInput from "@/components/common/note-input";
 import { GET_SESSION_ORDERS_KEY } from "@/constants/api";
 import { isStoreOpen } from "@/utils/store-hours";
+import VoucherSection from "@/components/checkout/voucher-section";
+import { estimateDiscount, MyVoucher } from "@/services/voucher/voucher.api";
 
 function isPhoneValid(phone: string): boolean {
   return /^0\d{9}$/.test(phone.replace(/\s/g, ""));
@@ -54,6 +56,7 @@ export default function CheckoutPage() {
   const { openSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
   const [note, setNote] = useState("");
+  const [voucher, setVoucher] = useState<MyVoucher | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("zalopay");
   const [isProcessing, setIsProcessing] = useState(false);
   // Overlay "Đang xác nhận thanh toán" khi chờ webhook chuyển khoản (notify về trễ vài giây)
@@ -119,6 +122,8 @@ export default function CheckoutPage() {
   const { mutate: createOrder, isPending } = useCreateOrder();
 
   const totalAmount = calculateCartTotal(cartItems);
+  const discount = voucher ? estimateDiscount(voucher, totalAmount) : 0;
+  const payableAmount = totalAmount - discount;
 
   const handleOrder = () => {
     if (cartItems.length === 0) {
@@ -170,6 +175,7 @@ export default function CheckoutPage() {
         note: note.trim() || undefined,
         paymentMethod: isTakeaway ? "zalopay" : paymentMethod,
         zaloUserId: zaloUserId || undefined,
+        voucherCode: voucher?.code,
         ...(isTakeaway && {
           orderType: takeawayType,
           customerName: customerName.trim(),
@@ -196,6 +202,7 @@ export default function CheckoutPage() {
           }
         },
         onError: (err) => {
+          setVoucher(null);
           setIsProcessing(false);
           openSnackbar({ text: `Đặt món thất bại: ${err.message}`, type: "error" });
         },
@@ -464,12 +471,29 @@ export default function CheckoutPage() {
           </div>
         )}
 
+        {/* Mã giảm giá */}
+        <VoucherSection
+          storeId={storeId ?? ""}
+          zaloUserId={zaloUserId || null}
+          subtotal={totalAmount}
+          selected={voucher}
+          onSelect={setVoucher}
+        />
+
         {/* Tóm tắt tiền */}
         <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-4">
           <div className="flex justify-between">
             <span className="text-small text-text-secondary">Tổng tiền món</span>
             <span className="text-small font-semibold">{formatCurrency(totalAmount)}đ</span>
           </div>
+          {discount > 0 && (
+            <div className="mt-1.5 flex justify-between">
+              <span className="text-small text-text-secondary">Giảm giá</span>
+              <span className="text-small font-semibold text-green-600">
+                −{formatCurrency(discount)}đ
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -531,7 +555,7 @@ export default function CheckoutPage() {
         <div className="mb-2 flex justify-between px-1">
           <span className="text-small text-text-secondary">Tổng cộng</span>
           <span className="text-large-m font-bold text-primary">
-            {formatCurrency(totalAmount)}đ
+            {formatCurrency(payableAmount)}đ
           </span>
         </div>
         {!storeOpen && (
