@@ -92,6 +92,8 @@ export interface Database {
           table_id: string
           status: 'pending' | 'confirmed' | 'cooking' | 'ready' | 'paid' | 'cancelled'
           total_amount: number
+          discount_amount: number
+          voucher_id: string | null
           zalopay_trans_id: string | null
           zalo_user_id: string | null
           note: string | null
@@ -148,7 +150,20 @@ export interface Database {
           p_payment_method: string
           p_zalo_user_id?: string | null
           p_note?: string | null
+          p_order_type?: string | null
+          p_customer_name?: string | null
+          p_customer_phone?: string | null
+          p_delivery_address?: string | null
+          p_voucher_code?: string | null
         }
+        Returns: Json
+      }
+      get_my_vouchers: {
+        Args: { p_store_id: string; p_zalo_user_id: string }
+        Returns: Json
+      }
+      check_voucher: {
+        Args: { p_store_id: string; p_code: string; p_zalo_user_id: string; p_subtotal: number }
         Returns: Json
       }
       confirm_order_received: {

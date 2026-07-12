@@ -24,6 +24,7 @@ export interface Order {
   tableId: string | null;
   status: OrderState;
   totalAmount: number;
+  discountAmount: number;
   paymentMethod: "zalopay" | "cash";
   zalopayTransId: string | null;
   note: string | null;
@@ -60,6 +61,7 @@ export interface CreateOrderRequest {
   customerName?: string;
   customerPhone?: string;
   deliveryAddress?: string;
+  voucherCode?: string;
 }
 
 export interface SessionOrder {

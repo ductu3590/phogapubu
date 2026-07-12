@@ -20,6 +20,7 @@ export const orderService = {
       p_customer_name: req.customerName ?? null,
       p_customer_phone: req.customerPhone ?? null,
       p_delivery_address: req.deliveryAddress ?? null,
+      p_voucher_code: req.voucherCode ?? null,
     });
 
     if (error || !data) throw error ?? new Error("Tạo đơn thất bại");
@@ -114,6 +115,7 @@ function mapOrder(row: Record<string, unknown>): Order {
     tableId: (row.table_id as string | null) ?? null,
     status: row.status as Order["status"],
     totalAmount: row.total_amount as number,
+    discountAmount: (row.discount_amount as number | undefined) ?? 0,
     paymentMethod: row.payment_method as Order["paymentMethod"],
     zalopayTransId: (row.zalopay_trans_id as string | null) ?? null,
     note: (row.note as string | null) ?? null,
