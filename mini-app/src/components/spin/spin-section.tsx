@@ -99,6 +99,23 @@ export default function SpinSection({ orderId }: { orderId: string }) {
             <p className="text-small font-semibold text-text-primary">
               Chúc bạn may mắn lần sau 🍀
             </p>
+          ) : result.type === "voucher" ? (
+            <>
+              <p className="text-small text-text-secondary">🎉 Bạn trúng</p>
+              <p className="mt-0.5 text-medium-m font-bold text-primary">
+                {result.label}
+              </p>
+              <p className="mt-2 text-xxsmall text-text-secondary">
+                Mã tự động áp dụng cho lần đặt món sau
+                {result.voucher?.expires_at &&
+                  ` • HSD ${new Date(result.voucher.expires_at).toLocaleDateString("vi-VN")}`}
+              </p>
+              <div className="mt-2 inline-block rounded-lg bg-white px-3 py-1.5">
+                <span className="text-small font-bold tracking-widest text-text-primary">
+                  {result.voucher?.code ?? result.code}
+                </span>
+              </div>
+            </>
           ) : (
             <>
               <p className="text-small text-text-secondary">🎉 Bạn trúng</p>
@@ -106,7 +123,7 @@ export default function SpinSection({ orderId }: { orderId: string }) {
                 {result.label}
               </p>
               <p className="mt-2 text-xxsmall text-text-secondary">
-                Đưa màn hình này cho nhân viên để đổi thưởng
+                Nhân viên sẽ mang ra cho bạn — hoặc đưa màn hình này để đổi
               </p>
               <div className="mt-2 inline-block rounded-lg bg-white px-3 py-1.5">
                 <span className="text-small font-bold tracking-widest text-text-primary">

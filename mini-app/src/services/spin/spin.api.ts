@@ -1,15 +1,16 @@
 import { supabase } from "../supabase";
 
 // Vòng quay may mắn (Sprint v2.3). Kết quả do SERVER quyết định (RPC).
-export type SpinReward = { id: string; label: string; type: "gift" | "none" };
+export type SpinReward = { id: string; label: string; type: "gift" | "none" | "voucher" };
 
 export type SpinResult = {
   result_id: string;
   reward_id: string | null;
   label: string;
-  type: "gift" | "none";
+  type: "gift" | "none" | "voucher";
   code: string;
   redeem_status: "won" | "redeemed";
+  voucher: { code: string; label: string; expires_at: string | null } | null;
 };
 
 export type SpinState =
