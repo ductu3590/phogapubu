@@ -411,3 +411,42 @@ end $$;
 revoke all on function confirm_manual_payment(uuid) from public;
 revoke all on function confirm_manual_payment(uuid) from anon;
 grant execute on function confirm_manual_payment(uuid) to authenticated;
+
+-- ============================================================
+-- 9) Doanh thu: thêm nhánh bank_transfer/cash đã xác nhận tay.
+--    (PM-1 sẽ gộp cả 3 nhánh về payment_received_at — spec multi-method §4)
+-- ============================================================
+create or replace function get_daily_revenue(
+  p_store_id uuid,
+  p_date date default current_date
+)
+returns table (
+  total_revenue bigint,
+  total_orders  bigint,
+  paid_orders   bigint,
+  cash_pending  bigint
+) language sql stable as $$
+  with tinh as (
+    select
+      total_amount,
+      (
+        (payment_method = 'zalopay' and zalopay_trans_id is not null and status <> 'cancelled')
+        or (payment_method = 'cash' and status = 'paid')                      -- legacy
+        or (payment_method in ('cash','bank_transfer')
+            and payment_received_at is not null and status <> 'cancelled')    -- mới
+      ) as da_co_tien,
+      (payment_method in ('cash','bank_transfer')
+       and payment_received_at is null
+       and status not in ('paid','cancelled')) as cho_thu
+    from orders
+    where store_id = p_store_id
+      and created_at >= p_date::timestamptz
+      and created_at <  (p_date + interval '1 day')::timestamptz
+  )
+  select
+    coalesce(sum(total_amount) filter (where da_co_tien), 0)::bigint,
+    count(*)::bigint,
+    count(*) filter (where da_co_tien)::bigint,
+    count(*) filter (where cho_thu)::bigint
+  from tinh;
+$$;
