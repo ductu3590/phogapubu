@@ -6,15 +6,19 @@
 > **Phụ thuộc:** Làm **SAU** khi `2026-07-15-staff-assisted-ordering-design.md` (SA-1…SA-5) PASS.
 > Spec đó dựng `payment_received_at` + `confirm_manual_payment` mà spec này xây tiếp lên.
 
-> ### Đọc trước khi code — 3 điểm dễ sai nhất
+> ### Đọc trước khi code — 4 điểm dễ sai nhất
 >
 > 1. **§1 — Notify của Zalo KHÔNG phải bằng chứng thanh toán.** Nó là sự kiện *"khách vừa
 >    chọn phương thức"*. Code hiện tại hiểu sai điều này và đang tính doanh thu sai.
 >    Đây là **bug đã xác nhận trên prod**, không phải rủi ro lý thuyết.
-> 2. **§3 — Hai trục.** `payment_method` = tiền đi đường nào (đứng yên).
->    `payment_received_via` = mình biết tiền về bằng cách nào (đổi theo cấu hình quán).
->    Nhét chung một cột là nguồn gốc mọi mâu thuẫn.
-> 3. **§6 — Bếp không có `auth.uid()`.** Kitchen Display chạy role Postgres `kitchen` + token,
+> 2. **§2 — Zalo KHÔNG ghim `method`.** Khách chọn ví/chuyển khoản/Momo **bên trong UI Zalo,
+>    sau khi đơn đã tạo và MAC đã ký**. Nên `payment_method` là **KÊNH** (`zalo_checkout`),
+>    không phải instrument — 54/90 đơn `zalopay` trên prod chưa từng có instrument nào. Mọi
+>    thiết kế giả định biết trước khách trả bằng gì đều sai.
+> 3. **§5.3 — MỘT số tiền cho mọi instrument.** MAC ký `payment_amount` trước khi biết
+>    instrument. Rẽ nhánh "ví so `total_amount`, bank so `payment_amount`" = **mọi giao dịch ví
+>    amount mismatch**.
+> 4. **§6 — Bếp không có `auth.uid()`.** Kitchen Display chạy role Postgres `kitchen` + token,
 >    không qua Supabase Auth. Không dùng chung RPC của owner được.
 
 ---
@@ -67,43 +71,86 @@ ngân hàng**: tai người nghe loa báo (§6), hoặc webhook giao dịch (§9
 
 ---
 
-## 2. Chỉ có MỘT phương thức chuyển khoản
+## 2. `payment_method='zalopay'` là KÊNH, không phải phương thức
 
-Zalo Checkout **không phải một phương thức thanh toán** — nó là **một cách khởi tạo**
-(deeplink mở app ngân hàng kèm sẵn số tiền). QR dán ở quầy là cách khởi tạo khác. Tiền đi
-cùng một đường: app ngân hàng của khách → **thẳng TK ngân hàng quán**.
+Đây là phát hiện lật lại bản đầu của spec này. Bản đầu khai *"7 đơn test gắn nhãn sai"* —
+**không hề sai**.
 
-Nên **không có** "chuyển khoản qua Zalo" và "chuyển khoản thủ công" như hai method. Chỉ có
-`bank_transfer`, với vài cách khởi tạo. Cách khởi tạo không cần lưu thành cột (YAGNI).
+`checkout-create-mac` **cố ý không gửi `method`** (`index.ts:4`) → *"Payment.createOrder tự mở
+màn CHỌN phương thức"*. Mini-app chỉ cho khách chọn đúng **hai** thứ
+(`mini-app/src/pages/checkout/index.tsx:450-466`): `zalopay` hoặc `cash`.
 
-7 đơn test hiện tại đang **gắn nhãn sai** `payment_method='zalopay'` — thực chất là
-`bank_transfer`. Xử lý ở §5.2.
+Nên `payment_method='zalopay'` thật ra nghĩa là **"thanh toán online qua Zalo Checkout"**.
+Khách chọn ví / chuyển khoản / Momo **bên trong UI của Zalo, SAU khi đơn đã tạo và MAC đã ký**.
+Instrument thật chỉ lộ ra ở `data.method` lúc notify/callback về.
+
+Số liệu prod (2026-07-15) xác nhận:
+
+| `payment_method` | Số đơn | Thực tế bank | Thực tế ví | **Chưa trả gì** |
+|---|---|---|---|---|
+| `zalopay` | 90 | 7 | 29 | **54** |
+| `cash` | 22 | — | — | 22 |
+
+54/90 đơn `zalopay` **chưa từng có instrument nào** — khách bấm rồi bỏ. Cái nhãn mô tả *kênh
+khách chọn*, không phải *tiền đi đường nào*.
+
+### 2.1 Hệ quả: không thể phân nhóm đơn trước
+
+**Cùng một đơn** nằm ở cả nhóm "tự động xác nhận" lẫn nhóm "phải xác nhận tay", cho tới khi
+khách bấm chọn trong Zalo. Mọi thiết kế giả định biết trước instrument đều sai.
+
+Suy ra ba ràng buộc cứng:
+
+1. Đơn `zalo_checkout` phải được coi là **chưa trả tiền** cho tới khi có bằng chứng thật
+   (callback ví, hoặc bếp/SePay xác nhận chuyển khoản).
+2. Ở quán có bật chuyển khoản, **mọi** đơn `zalo_checkout` phải mang đuôi định danh — vì có
+   thể kết thúc bằng bank. Khách trả ví cũng trả số lẻ (§5.3).
+3. **Một số tiền duy nhất được ký trong MAC**, dùng chung cho mọi instrument (§5.3).
+
+### 2.2 Chuyển khoản: chỉ có một, dù khởi tạo bằng gì
+
+Zalo Checkout không phải phương thức — nó là **một cách khởi tạo** (deeplink mở app ngân hàng
+kèm số tiền). QR dán ở quầy là cách khởi tạo khác. Tiền đi cùng một đường: app ngân hàng của
+khách → **thẳng TK ngân hàng quán**. Nên không có "chuyển khoản qua Zalo" vs "chuyển khoản thủ
+công" — chỉ có một instrument `bank`.
 
 ---
 
-## 3. Hai trục — quyết định kiến trúc trung tâm
+## 3. Ba cột, ba câu hỏi khác nhau
 
-| Trục | Cột | Giá trị | Đổi khi nào |
+| Câu hỏi | Cột | Giá trị | Biết lúc nào |
 |---|---|---|---|
-| Tiền đi đường nào | `payment_method` | `zalopay` `momo` `vnpay` `bank_transfer` `cash` | Khách chọn lúc đặt, cố định theo đơn |
-| Mình biết tiền về bằng cách nào | `payment_received_via` | `zalo_callback` `sepay` `kitchen` `owner` | Theo cấu hình quán, đổi bất cứ lúc nào |
+| Khách chọn **kênh** nào? | `payment_method` | `zalo_checkout` `cash` `bank_transfer`¹ | **Lúc tạo đơn** |
+| Tiền thật sự đi bằng **instrument** nào? | `payment_instrument` | `wallet` `bank` `momo` `vnpay` / NULL | **Lúc notify/callback** (`data.method`) |
+| Mình **biết tiền về** bằng cách nào? | `payment_received_via` | `zalo_callback` `sepay` `kitchen` `owner` `legacy` | Lúc được xác nhận |
 
-**Vì sao phải tách:** quán bật SePay thì đơn vẫn là chuyển khoản y hệt, chỉ khác ai xác nhận.
-Nếu nhét chung một cột (kiểu `bank_manual`) thì bật SePay là tên cột tự mâu thuẫn với dữ liệu
-(`bank_manual` + xác nhận tự động), và phải migrate đơn cũ mỗi lần đổi cấu hình.
+¹ `bank_transfer` chỉ dành cho **đơn staff** — nhân viên biết chắc khách sẽ chuyển khoản tại
+quầy, không qua Zalo Checkout. Đây là kênh duy nhất mà kênh = instrument.
 
-Tách ra thì bật/tắt SePay **không đụng một dòng dữ liệu nào**.
+**Vì sao ba cột chứ không hai:** bản đầu spec này gộp kênh và instrument vào `payment_method`
+rồi khai *"cố định theo đơn"* — sai với đơn Zalo Checkout, nơi instrument chỉ lộ ra sau. Tách
+ra thì:
 
-### 3.1 Hai nhóm phương thức
+- `payment_method` trả lời được **ngay lúc tạo đơn** (cần cho việc cấp đuôi, cho UI).
+- `payment_instrument` điền sau, **chỉ để báo cáo** — không logic nào phụ thuộc nó.
+- `payment_received_via` đổi tự do theo cấu hình quán, bật SePay **không migrate dữ liệu**.
 
-| Nhóm | Method | Zalo báo qua | Xác nhận |
-|---|---|---|---|
-| **Đối tác trừ tiền** | `zalopay` `momo` `vnpay` | **Callback** — tiền đã trừ | Tự động, tin được |
-| **Zalo không đụng tiền** | `bank_transfer` `cash` | **Notify** — khách vừa chọn | **Mình tự lo**: bếp bấm hoặc SePay |
+### 3.1 Hai đường xác nhận — phân theo INSTRUMENT, không phân theo đơn
 
-Nhóm đối tác: **không xây gì thêm**. Nhánh ví trong `checkout-notify` (có `resultCode`, đối
-chiếu `amount` với DB — `index.ts:116-160`) đã đúng và dùng lại được. Chủ quán bật/tắt trong
-cấu hình; quán nào có merchant thì chạy. Momo/VNPay chưa test thật — xem §11 Rủi ro.
+| Instrument (lộ ra ở callback/notify) | Zalo báo qua | Xác nhận |
+|---|---|---|
+| `wallet` `momo` `vnpay` | **Callback** — *"tiền của user bị trừ thành công"* | Tự động, tin được |
+| `bank` | **Notify** — *"khách vừa chọn"* | **Mình tự lo**: bếp bấm hoặc SePay |
+| `cash` (không qua Zalo) | — | Bếp/owner bấm |
+
+Nhánh ví trong `checkout-notify` (`index.ts:116-160`, có `resultCode` + đối chiếu `amount`) đã
+đúng về nguyên tắc và dùng lại được cho cả Momo/VNPay — **không xây gì thêm**. Nhưng phải sửa
+hai chỗ: ghi `payment_received_at` (§12 PM-1) và đối chiếu `payment_amount` thay vì
+`total_amount` (§5.3).
+
+**MEVO không chọn được instrument.** Quyết định 2026-07-08 đã ghi: *"Thứ tự/ẩn-hiện PT chỉnh ở
+console Zalo (kéo thả danh sách PT), không phải code"*. Nên yêu cầu "chủ quán chọn phương thức"
+chỉ thực hiện được ở mức **online vs tiền mặt** (§8.2). Momo/VNPay chưa test thật — §11 Rủi ro.
 
 ---
 
@@ -149,6 +196,8 @@ Bảng cột sau khi xong (mở rộng từ spec staff §4.2):
 | `payment_received_at` | Lúc tiền được ghi nhận. **Nguồn sự thật duy nhất.** |
 | `payment_received_via` | `zalo_callback` / `sepay` / `kitchen` / `owner` / `legacy`¹ |
 | `payment_received_by` | `auth.users(id)` — **chỉ điền khi `via='owner'`**, còn lại NULL |
+| `payment_instrument` | `wallet`/`bank`/`momo`/`vnpay`/`cash` — điền lúc notify/callback. **Chỉ báo cáo**, không logic nào rẽ nhánh theo nó (§3). |
+| `payment_amount` | Số khách trả (có đuôi định danh nếu quán bật CK). **NOT NULL.** |
 | `bank_handoff_at` | Khách đã sang app ngân hàng (từ notify). **Chỉ để hiển thị**, không bao giờ tính tiền. |
 
 ¹ `legacy` chỉ xuất hiện ở dữ liệu backfill (§5.2) — dữ liệu cũ không ghi ai thu tiền. Code
@@ -167,13 +216,21 @@ supabase/migrations/029_multi_method_payment.sql
 ### 5.1 Thay đổi schema
 
 ```sql
--- Mở method: bank_manual (từ spec staff) → bank_transfer, thêm nhóm đối tác
--- Sửa CHECK orders.payment_method  → ('zalopay','momo','vnpay','bank_transfer','cash')
--- Sửa stores_payment_methods_valid → <@ ARRAY['zalopay','momo','vnpay','bank_transfer','cash']
+-- Đổi tên KÊNH cho đúng nghĩa: 'zalopay' → 'zalo_checkout' (§2)
+-- Sửa CHECK orders.payment_method  → ('zalo_checkout','cash','bank_transfer')
+-- Sửa stores_payment_methods_valid → <@ ARRAY['zalo_checkout','cash']
+--   (bank_transfer KHÔNG vào stores.payment_methods: staff-only, không phải lựa chọn của khách)
 
 alter table orders
+  add column payment_instrument text null,
   add column payment_received_via text null,
   add column bank_handoff_at timestamptz null;
+
+alter table orders
+  add constraint orders_payment_instrument_check
+  check (payment_instrument in ('wallet','bank','momo','vnpay','cash'));
+-- Chỉ để BÁO CÁO. Không logic nào được rẽ nhánh theo cột này — instrument chỉ biết
+-- sau khi khách đã chọn trong Zalo, nên mọi quyết định trước đó không dùng được nó.
 
 alter table orders
   add constraint orders_payment_received_via_check
@@ -204,7 +261,9 @@ alter table orders
     )
   );
 
--- Số tiền khách phải chuyển — TÁCH khỏi total_amount (§5.3)
+-- Số tiền khách phải trả — TÁCH khỏi total_amount (§5.3).
+-- LUÔN có giá trị (= total_amount khi không cần đuôi) để không nơi nào phải COALESCE
+-- rồi quên. Backfill trước, rồi mới SET NOT NULL.
 alter table orders
   add column payment_amount int null;
 
@@ -221,28 +280,55 @@ nhận mất dấu vết ai thu tiền mặt** (§6.2).
 > **Thứ tự chạy trong migration:** thêm cột → **backfill** → **rồi mới** add constraint.
 > Constraint kiểm cả dòng cũ lúc ADD, nên backfill sai thứ tự là migration vỡ giữa chừng.
 
-```sql
--- Đơn ví đã có tiền thật (29 đơn) → nguồn sự thật mới
-update orders set payment_received_at = updated_at, payment_received_via = 'zalo_callback'
-where zalopay_trans_id is not null and zalopay_trans_id not like 'BANK:%';
+Số liệu prod 2026-07-15: **90 đơn `zalopay`** (7 bank, 29 ví, 54 chưa trả gì) + **22 đơn `cash`**.
 
--- Legacy tiền mặt đã thu — via='legacy' vì dữ liệu cũ KHÔNG ghi ai thu.
--- Không dùng via='owner' ở đây: sẽ vi phạm orders_payment_received_by_check
--- (owner phải có payment_received_by), và bịa ra một người thu là sai sự thật.
+```sql
+-- 1) Đổi tên kênh (90 đơn). KHÔNG phải sửa nhãn sai — nhãn cũ đúng nghĩa "online",
+--    chỉ là tên cũ mập mờ (§2).
+update orders set payment_method = 'zalo_checkout' where payment_method = 'zalopay';
+update stores set payment_methods =
+  array_replace(payment_methods, 'zalopay', 'zalo_checkout');
+
+-- 2) Instrument suy ngược từ zalopay_trans_id (chỉ để báo cáo)
+update orders set payment_instrument = 'bank'
+where zalopay_trans_id like 'BANK:%';                                   -- 7 đơn
+update orders set payment_instrument = 'wallet'
+where zalopay_trans_id is not null and zalopay_trans_id not like 'BANK:%'; -- 29 đơn
+-- 54 đơn còn lại: instrument = NULL, đúng — chưa từng trả gì.
+
+-- 3) Đơn ví đã có tiền thật (29) → nguồn sự thật mới
+update orders set payment_received_at = updated_at, payment_received_via = 'zalo_callback'
+where payment_instrument = 'wallet';
+
+-- 4) Legacy tiền mặt đã thu — via='legacy' vì dữ liệu cũ KHÔNG ghi ai thu.
+--    Không dùng via='owner': sẽ vi phạm constraint (owner phải có payment_received_by),
+--    và bịa ra một người thu là sai sự thật.
 update orders set payment_received_at = updated_at, payment_received_via = 'legacy'
 where payment_method = 'cash' and status = 'paid' and payment_received_at is null;
 
--- 7 đơn BANK gắn nhãn sai → đúng bản chất, và KHÔNG có bằng chứng tiền về
+-- 5) ⚠️ Đơn đã được confirm_manual_payment của migration 028 xác nhận.
+--    028 set payment_received_at + payment_received_by, lúc đó payment_received_via
+--    CHƯA TỒN TẠI. Không có bước này thì constraint 3 trạng thái VỠ NGAY lúc ADD.
+update orders set payment_received_via = 'owner'
+where payment_received_at is not null
+  and payment_received_via is null
+  and payment_received_by is not null;
+
+-- 6) 7 đơn BANK: có bank_handoff, KHÔNG có bằng chứng tiền về (§1.1)
 update orders
-set payment_method = 'bank_transfer',
-    zalopay_trans_id = null,
+set zalopay_trans_id = null,
     bank_handoff_at = updated_at,
     payment_received_at = null,
     payment_received_via = null
-where zalopay_trans_id like 'BANK:%';
+where payment_instrument = 'bank';
+
+-- 7) payment_amount: đơn cũ không có đuôi
+update orders set payment_amount = total_amount where payment_amount is null;
+alter table orders alter column payment_amount set not null;
 ```
 
-Doanh thu Pubu tự đúng lại sau backfill, không cần thao tác tay.
+Doanh thu Pubu tự đúng lại sau backfill (29 đơn ví giữ nguyên, 7 đơn bank biến khỏi doanh
+thu), không cần thao tác tay.
 
 ### 5.3 Số tiền định danh — `payment_amount`, KHÔNG đụng `total_amount`
 
@@ -262,17 +348,39 @@ payment_amount = 105.037đ   ← số khách cần chuyển, mang đuôi định
 hoá đơn không khớp dòng món; doanh thu cộng thêm khoản không có dòng hàng; hoàn tiền và báo
 cáo voucher không đối chiếu được; thống kê giá trị đơn sai có hệ thống.
 
-**Ai đối chiếu số nào:**
+#### ⚠️ MỘT số tiền cho mọi instrument — không được rẽ nhánh
+
+Đề xuất từ review (*"callback ví đối chiếu `total_amount`, chuyển khoản đối chiếu
+`payment_amount`"*) **không làm được**, và làm theo sẽ **vỡ toàn bộ thanh toán ví**:
+
+MAC ký **một** số tiền, **trước** khi biết instrument (`checkout-create-mac:77`, method không
+được ghim — §2). Nếu ký `payment_amount` (có đuôi) mà callback ví lại so với `total_amount` →
+**mọi giao dịch ví đều "amount mismatch"** (`checkout-notify:157`) → không đơn ví nào được
+confirm nữa.
+
+Quy tắc đúng — **`payment_amount` là số duy nhất được ký và khách trả, bất kể instrument**:
 
 | Nguồn | Đối chiếu với |
 |---|---|
-| Callback ví (`checkout-notify` nhánh ví, `index.ts:157`) | `total_amount` — ví không có đuôi |
-| MAC checkout cho `bank_transfer` | `payment_amount` — số khách thật sự chuyển |
-| SePay webhook | `payment_amount` |
+| MAC ở `checkout-create-mac` | **`payment_amount`** (thay `total_amount` hiện tại, dòng 77) |
+| Callback ví ở `checkout-notify:157` | **`payment_amount`** (thay `total_amount` hiện tại) |
+| SePay webhook | **`payment_amount`** |
+| Hoá đơn, doanh thu, báo cáo voucher | `total_amount` |
 
-- `payment_amount = total_amount` khi không cần đuôi (ví, tiền mặt) → `null` nghĩa là "dùng
-  `total_amount`". UI chỉ hiện hai dòng khi hai số khác nhau.
-- Chỉ đơn `bank_transfer` mới được cấp đuôi.
+**Khi nào cấp đuôi** — quyết định được **lúc tạo đơn**, chỉ cần biết cấu hình quán:
+
+```text
+Quán có bật chuyển khoản  → MỌI đơn zalo_checkout + bank_transfer mang đuôi
+                             (đơn zalo_checkout CÓ THỂ kết thúc bằng bank — §2.1)
+Quán chỉ bật ví           → payment_amount = total_amount, không đuôi
+Đơn cash                  → payment_amount = total_amount, không đuôi
+```
+
+Hệ quả chấp nhận: ở quán bật chuyển khoản, **khách trả ví cũng trả số lẻ** (105.037đ). Không
+tránh được, vì lúc ký MAC chưa biết khách sẽ chọn gì.
+
+`payment_amount` **luôn NOT NULL** (= `total_amount` khi không đuôi) → không nơi nào phải
+`COALESCE` rồi quên.
 
 #### Thuật toán cấp đuôi — nguyên tử, không phải "kiểm lúc gán"
 
@@ -281,13 +389,22 @@ Bất biến phải do **DB** giữ, không phải do code kiểm rồi hy vọn
 ```sql
 create unique index orders_pending_payment_amount_unique
   on orders(store_id, payment_amount)
-  where payment_method = 'bank_transfer' and payment_received_at is null
+  where payment_method in ('zalo_checkout','bank_transfer')
+        and payment_received_at is null
         and status <> 'cancelled';
 ```
+
+Index phủ **cả `zalo_checkout`** — không chỉ `bank_transfer` — vì đơn `zalo_checkout` có thể
+kết thúc bằng bank (§2.1). Phủ thiếu là hai đơn cùng đuôi, loa đọc lên không phân biệt được.
 
 `create_order`/`staff_create_order` cấp đuôi trong **cùng transaction**: thử đuôi, gặp
 `unique_violation` thì thử tiếp (bốc ngẫu nhiên 000–999, tối đa N lần rồi RAISE). Hai
 transaction đồng thời chọn trùng đuôi → một cái vỡ unique → retry. Không cần khoá bảng.
+
+⚠️ Quán chỉ bật ví thì **không cấp đuôi** → nhiều đơn cùng `payment_amount = total_amount` →
+vỡ unique index. Vì vậy index phải loại nhóm không-đuôi ra. Cách đơn giản nhất: chỉ cấp đuôi
+khi quán bật chuyển khoản, và thêm cột cờ hoặc điều kiện tương ứng vào `where` của index —
+**chốt chính xác biểu thức này ở PM-2**, kèm test hai đơn cùng giá ở quán chỉ-ví.
 
 Index là **partial** nên đuôi tự giải phóng khi đơn được thanh toán hoặc huỷ — đó chính là
 điều tạo ra rủi ro dưới đây.
@@ -328,10 +445,19 @@ kitchen_confirm_payment(p_order_id uuid)
 
 - `GRANT EXECUTE ... TO kitchen`, `REVOKE ALL FROM public`.
 - `store_id` lấy từ `kitchen_store_id()` — JWT, fail-closed, **không tin client**.
-- `bank_transfer`: luôn cho phép.
+- `bank_transfer` (đơn staff): luôn cho phép.
+- `zalo_checkout`: **cho phép** — bếp không thể biết khách chọn ví hay chuyển khoản (§2.1), nên
+  không được từ chối. Nếu khách đã trả bằng ví thì callback đã set `payment_received_at` rồi →
+  RPC idempotent trả nguyên trạng, không ghi đè `via='zalo_callback'`.
+  *(Bản đầu spec ghi "từ chối `zalopay`/`momo`/`vnpay`" — sai, vì đó là instrument chứ không
+  phải kênh, và kênh thì bếp không suy ra được instrument.)*
 - `cash`: chỉ khi `stores.kitchen_can_confirm_cash = true`, ngược lại RAISE.
-- `zalopay`/`momo`/`vnpay`: **TỪ CHỐI** — ví tự confirm, bấm tay = gian lận.
 - Đơn `cancelled`: từ chối.
+
+⚠️ Đánh đổi: bếp **có thể** bấm xác nhận một đơn `zalo_checkout` mà khách chưa trả gì (54/90
+đơn prod rơi vào nhóm chưa trả). Không có cách nào chặn ở DB — chỉ đối chiếu sao kê cuối ngày
+mới lộ. Đây chính là lý do đuôi định danh (§5.3) bắt buộc, không phải tuỳ chọn: nó buộc bếp
+phải khớp số loa đọc với số trên card thay vì bấm bừa.
 - Set `payment_received_at = now()`, `payment_received_via = 'kitchen'`, `by = null`.
 - **Idempotent:** đã có `payment_received_at` thì trả nguyên trạng, không ghi đè lần đầu.
 - **KHÔNG** đụng `orders.status`.
@@ -439,11 +565,18 @@ Vá này **bắt buộc nằm cùng sprint với predicate mới (PM-2)**, khôn
 Vận hành: **loa ngân hàng đặt cạnh màn hình bếp**. Loa đọc số tiền → bếp so với card → bấm.
 Đây là hướng dẫn lắp đặt, đưa vào tài liệu onboarding quán.
 
-### 8.2 Admin — cấu hình phương thức
+### 8.2 Admin — cấu hình phương thức (phạm vi thật hẹp hơn tưởng)
 
-- Tab Cửa hàng: chọn phương thức bật/tắt (ghi `stores.payment_methods`).
+**MEVO chỉ chọn được `zalo_checkout` vs `cash`.** Việc bật/tắt/sắp xếp ZaloPay, Momo, VNPay,
+chuyển khoản nằm ở **console Zalo** (kéo thả danh sách PT — quyết định 2026-07-08), không phải
+ở admin MEVO và không phải trong code. Đừng dựng UI hứa điều mình không làm được.
+
+- Tab Cửa hàng: bật/tắt `zalo_checkout`, `cash` (ghi `stores.payment_methods`).
+- Cờ "quán có nhận chuyển khoản qua Zalo Checkout không" — **chủ quán tự khai**, vì MEVO không
+  đọc được cấu hình console Zalo. Cờ này quyết định **có cấp đuôi hay không** (§5.3), nên khai
+  sai là đối soát hỏng. Nhắc rõ trong UI.
 - Công tắc `kitchen_can_confirm_cash`, kèm giải thích đánh đổi audit ở §6.2.
-- Mini-app đọc `stores.payment_methods` để dựng danh sách cho khách.
+- Mini-app đọc `stores.payment_methods` để dựng danh sách cho khách (chỉ 2 lựa chọn).
 
 ### 8.3 Badge trạng thái tiền
 
@@ -503,7 +636,9 @@ cột với bếp bấm, nên **không đụng bếp/doanh thu/UI**.
 | 2 | Quán bật `bank_transfer` nhưng chưa có ai xác nhận (không loa, không SePay) → đơn khách tự đặt kẹt ở cột chờ | Admin cảnh báo khi bật `bank_transfer` mà chưa cấu hình nguồn xác nhận nào |
 | 3 | Bếp bấm bừa "đã nhận" cho đủ chỉ tiêu | Đối chiếu sao kê cuối ngày; báo cáo lọc theo `payment_received_via` để thấy tỉ lệ xác nhận tay |
 | 4 | Đuôi số tiền trùng nhau trong tập đơn chưa thanh toán | Bất biến ở §5.3 kiểm lúc gán; test riêng |
-| 5 | **Khách đổi ý phương thức lúc ra quầy** (đặt `bank_transfer`, đến quầy lại trả tiền mặt). `payment_method` ghi lúc đặt nên sẽ sai. | Chấp nhận: `payment_received_at` vẫn đúng nên **doanh thu không sai**, chỉ thống kê theo phương thức lệch chút. Khách trả đúng số tiền có đuôi. Không xây UI đổi method (YAGNI) — gặp nhiều mới làm. |
+| 5 | **Owner huỷ đơn ĐÃ THU TIỀN → doanh thu bốc hơi, tiền vẫn ở ngân hàng.** §7.1 chỉ chặn `cancel_order` (phía khách); owner vẫn UPDATE `status='cancelled'` qua admin được. Doanh thu = `at IS NOT NULL AND status <> 'cancelled'` → tụt, tiền thật vẫn nằm trong TK. Chưa có luồng hoàn tiền nên đây là **lỗ đối soát thật**. | PM-4: admin cảnh báo khi huỷ đơn đã thu tiền, buộc ghi lý do; báo cáo có mục "đã thu nhưng đã huỷ" để không mất dấu. Hoàn tiền vẫn ngoài phạm vi (§14). |
+| 6 | **Đơn staff sẽ đủ điều kiện quay vòng quay.** Đổi `v_paid` sang `payment_received_at` thì đơn staff (owner xác nhận) thành eligible — nhưng đơn staff **không có `zalo_user_id`**, khách không ở trong app, không ai quay được. | PM-1 chốt rõ: `get_spin_state`/`spin_wheel` yêu cầu **`order_source='customer_zalo'` VÀ có `zalo_user_id`**. Đơn staff không quay. |
+| 7 | **Khách đổi ý phương thức lúc ra quầy** (đặt `bank_transfer`, đến quầy lại trả tiền mặt). `payment_method` ghi lúc đặt nên sẽ sai. | Chấp nhận: `payment_received_at` vẫn đúng nên **doanh thu không sai**, chỉ thống kê theo phương thức lệch chút. Khách trả đúng số tiền có đuôi. Không xây UI đổi method (YAGNI) — gặp nhiều mới làm. |
 
 ---
 
@@ -512,9 +647,12 @@ cột với bếp bấm, nên **không đụng bếp/doanh thu/UI**.
 > Sau mỗi Sprint: dừng, đọc checklist trong `TESTING.md`, báo anh Tú test, chờ **PASS**.
 > Không tự chuyển Sprint.
 
-### Sprint PM-1 — Vá bug + hai trục (quan trọng nhất)
-- Migration `029`: method mới, `payment_received_via`, `bank_handoff_at`, `payment_amount`,
-  `kitchen_can_confirm_cash`, constraint 3 trạng thái, backfill §5.2.
+### Sprint PM-1 — Vá bug + ba cột + rename kênh (quan trọng nhất)
+- Migration `029`: rename kênh `zalopay`→`zalo_checkout` (90 đơn), `payment_instrument`,
+  `payment_received_via`, `bank_handoff_at`, `payment_amount` (NOT NULL), `kitchen_can_confirm_cash`,
+  constraint 3 trạng thái, backfill §5.2 **gồm bước (5) cứu đơn do 028 xác nhận**.
+- Rename `'zalopay'` trong code: **32 chỗ / 14 file** (đo 2026-07-15), gồm 2 file union TS,
+  `mini-app/src/pages/checkout/index.tsx`, admin settings, `lib/actions/store.ts`.
 - `checkout-notify` **sửa CẢ HAI nhánh**:
   - **Nhánh BANK**: thôi confirm → chỉ set `bank_handoff_at`. Fail-closed cho method lạ (Rủi ro #1).
   - **Nhánh ví** (`index.ts:163`): hiện chỉ ghi `status` + `zalopay_trans_id`. Phải ghi thêm
@@ -526,14 +664,19 @@ cột với bếp bấm, nên **không đụng bếp/doanh thu/UI**.
     payment_received_via = 'zalo_callback'
     payment_received_by  = null
     ```
-    **Bỏ qua bước này là hỏng ví**: đơn ZaloPay mới sẽ có `payment_received_at = NULL` →
+    và **đối chiếu `payment_amount` thay vì `total_amount`** (`index.ts:157`) — cùng lúc
+    `checkout-create-mac:77` đổi sang ký `payment_amount` (§5.3). Sửa lệch một trong hai =
+    mọi giao dịch ví "amount mismatch".
+    **Bỏ qua bước này là hỏng ví**: đơn ví mới sẽ có `payment_received_at = NULL` →
     không vào doanh thu, đơn khách tự đặt không vào bếp, badge báo chưa thanh toán dù callback
     thành công. Backfill §5.2 chỉ cứu đơn cũ, không cứu đơn mới.
 - Doanh thu + **mọi predicate "đã thanh toán" toàn repo** về một luật `payment_received_at` —
   gồm `get_spin_state`, `spin_wheel`, `voucher_uses` (§4), không chỉ báo cáo.
 - Test: bấm trả tiền → thoát app ngân hàng → **đơn KHÔNG vào bếp, KHÔNG vào doanh thu**.
 - Test regression: đơn ví mới **vẫn vào doanh thu** sau khi sửa (bẫy dễ sập nhất của sprint này).
-- Test: đơn `bank_transfer` đã thu tiền **quay được** vòng quay.
+- Test: đơn chuyển khoản đã thu tiền **quay được** vòng quay; đơn **staff KHÔNG quay được**
+  (Rủi ro #6).
+- `get_spin_state`/`spin_wheel` thêm điều kiện `order_source='customer_zalo'` + có `zalo_user_id`.
 
 **Điểm dừng:** PM-1 PASS.
 
@@ -575,6 +718,9 @@ cột với bếp bấm, nên **không đụng bếp/doanh thu/UI**.
 7. **Khách KHÔNG huỷ được đơn đã thu tiền hoặc đã vào bếp** qua `cancel_order` *(§7.1)*.
 8. Hai đơn cùng giá gốc → `payment_amount` khác nhau, `total_amount` **giống nhau**.
 9. **`total_amount` luôn = tổng món − voucher**, không bao giờ mang đuôi *(§5.3)*.
+9b. **Quán chỉ bật ví: hai đơn cùng giá KHÔNG vỡ unique index** *(§5.3)*.
+9c. **Đơn staff KHÔNG quay được vòng quay** *(Rủi ro #6)*.
+9d. Backfill xong: 90 đơn `zalopay` → `zalo_checkout`; instrument 7 bank / 29 ví / 54 NULL.
 6. Bếp bấm hai lần / hai máy cùng bấm → `payment_received_at` không đổi sau lần đầu.
 7. `kitchen_can_confirm_cash=false` → bếp không thấy nút cho đơn tiền mặt; gọi thẳng RPC bị từ chối.
 8. Bếp gọi `kitchen_confirm_payment` cho đơn **quán khác** → từ chối.
@@ -610,7 +756,9 @@ supabase/migrations/029_multi_method_payment.sql
 supabase/functions/checkout-notify/index.ts     ← sửa CẢ HAI nhánh:
                                                    ví phải ghi payment_received_at (§12 PM-1)
                                                    BANK thôi confirm + fail-closed
-supabase/functions/checkout-create-mac/index.ts ← ký payment_amount cho bank_transfer (§5.3)
+supabase/functions/checkout-create-mac/index.ts ← :77 ký payment_amount THAY total_amount (§5.3)
+mini-app/src/pages/checkout/index.tsx           ← rename kênh + 2 lựa chọn (§2, §8.2)
+supabase/migrations/027_vouchers.sql (qua 029)  ← spin: chi customer_zalo + co zalo_user_id
 admin-web/lib/kitchen-announce.ts               ← predicate theo order_source (§7)
 admin-web/lib/revenue.ts (mới)                  ← một luật dùng chung
 admin-web/app/kitchen/[storeSlug]/kitchen-display.tsx  ← cột 4 + nút Đã nhận tiền
@@ -645,7 +793,9 @@ Rẻ vì chưa có dòng code nào.
 |---|---|
 | Notify Zalo = "khách chọn phương thức", KHÔNG phải bằng chứng trả tiền | Tài liệu Zalo xếp COD chung nhóm chuyển khoản; payload không có `resultCode`/`amount`; test thực tế 2026-07-15 xác nhận thoát app NH đơn vẫn confirmed |
 | Chỉ một method `bank_transfer`, Zalo Checkout chỉ là cách khởi tạo | Tiền đi cùng một đường bank→bank; Zalo không giữ tiền |
-| Hai trục `payment_method` × `payment_received_via` | Bật SePay không phải migrate dữ liệu; tên cột không nói dối |
+| Ba cột: `payment_method` (kênh) × `payment_instrument` (báo cáo) × `payment_received_via` (ai xác nhận) | Bản đầu gộp kênh+instrument rồi khai "cố định theo đơn" — sai: Zalo không ghim method, instrument chỉ lộ ra lúc callback. 54/90 đơn `zalopay` chưa từng có instrument nào |
+| Rename `zalopay` → `zalo_checkout` | Nhãn cũ là KÊNH, không phải phương thức. Giữ tên cũ = tái phạm đúng bệnh đã chữa cho `bank_manual` |
+| `payment_amount` là số duy nhất được ký + đối chiếu cho MỌI instrument | MAC ký trước khi biết instrument. Rẽ nhánh total/payment = mọi giao dịch ví amount mismatch |
 | `payment_received_at` là nguồn sự thật duy nhất, cả ví cũng ghi | Gộp 3 luật doanh thu chép ở 4 nơi về 1 |
 | Vào bếp theo `order_source`, không theo phương thức/`table_id` | `table_id` không chứng minh khách có mặt (QR bị chụp/chia sẻ). Đơn staff = có nhân viên đứng cạnh khách, bằng chứng hiện diện duy nhất hệ thống thật sự có. Giữ trọn chống-abuse 2026-06-26 cho đơn khách |
 | Bếp xác nhận CK; tiền mặt theo cờ `kitchen_can_confirm_cash` (default false) | CK bếp không cầm được tiền; tiền mặt cầm được nên default an toàn |
