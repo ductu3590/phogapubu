@@ -354,30 +354,45 @@ chuyển khoản và tiền mặt khác hẳn nhau.
 
 ---
 
-## 7. Vào bếp — một predicate, không quan tâm phương thức
+## 7. Vào bếp — theo bằng chứng hiện diện, không theo phương thức
 
 ```text
 Đơn cancelled → không bao giờ vào bếp (chặn trước mọi nhánh dưới)
 
-Đơn tại bàn  (table_id IS NOT NULL) → vào bếp NGAY, không cần tiền
-Đơn mang về  (table_id IS NULL)     → chỉ vào bếp khi payment_received_at IS NOT NULL
+order_source = 'staff'   → vào bếp NGAY, không cần tiền
+                            (nhân viên đứng tại bàn = bằng chứng hiện diện thật)
+
+order_source = 'customer_zalo' → vào bếp khi:
+    payment_received_at IS NOT NULL          (đã có tiền thật)
+    OR payment_method = 'cash'               (giữ nguyên hành vi hôm nay)
 ```
 
 Thay `orderInKitchen(status, paymentMethod)` hiện tại
-(`admin-web/lib/kitchen-announce.ts:10`). Predicate mới **không còn nhìn `payment_method`** —
-đúng tinh thần hai trục.
+(`admin-web/lib/kitchen-announce.ts:10`).
 
-**Lý do tách theo `table_id`, không theo phương thức:** rủi ro không đều nhau. Đơn tại bàn mà
-bùng thì đồ ăn ra bàn trống, nhân viên thấy ngay — trò nghịch, không phải gian lận có lợi.
-Đơn mang về/ship mà bùng thì mất đồ thật. Đây là tinh chỉnh của quyết định 2026-06-26
-(bắt trả trước chống QR abuse): giữ nguyên tinh thần, nhưng nhắm đúng chỗ rủi ro thật.
+**Vì sao `order_source` chứ không phải `table_id`:** `table_id` **không chứng minh khách có
+mặt**. QR bàn bị chụp/chia sẻ thì người ở nhà vẫn tạo được đơn chưa trả tiền vào một bàn đang
+có khách — quán mất đồ thật, và "nhân viên thấy bàn trống" chỉ là **phát hiện sau khi đã nấu**,
+không phải phòng ngừa. Ngược lại, đơn `staff` chỉ tồn tại khi có nhân viên đăng nhập đứng cạnh
+khách: đó là bằng chứng hiện diện duy nhất mà hệ thống thật sự có.
+
+Cách này giữ **trọn vẹn** ý chống-abuse của quyết định 2026-06-26 cho đơn khách tự đặt, thay vì
+nới ra như bản trước của spec này.
+
+**Giá phải trả:** khách tự đặt tại bàn + chuyển khoản phải chờ bếp bấm xác nhận (~30s sau khi
+loa đọc) thay vì vào bếp ngay. Chấp nhận — nút thắt chỉ rơi vào đơn khách tự đặt bằng chuyển
+khoản, không rơi vào luồng staff.
+
+Nhánh `cash` cho đơn khách giữ nguyên hành vi hiện tại (`pending + cash` → vào bếp) để **không
+regression**: quán nào bật tiền mặt là đã chấp nhận đánh đổi đó từ trước (quyết định
+2026-06-28, tiền mặt mặc định tắt).
 
 Loa TTS vẫn báo đúng khoảnh khắc vào bếp (quyết định 2026-07-06) — chỉ định nghĩa "vào bếp"
 đổi. Dedupe theo order ID giữ nguyên.
 
 ### 7.1 ⚠️ Predicate mới làm vỡ `cancel_order` — phải vá cùng lúc
 
-Xác nhận thanh toán **không đổi `status`** (§6.1), nên đơn tại bàn nằm ở `pending` suốt từ lúc
+Xác nhận thanh toán **không đổi `status`** (§6.1), nên đơn staff nằm ở `pending` suốt từ lúc
 vào bếp tới khi bếp bấm "Bắt đầu làm". Mà `cancel_order` (`007a:99`) cho huỷ **mọi đơn
 `pending`** có capability token:
 
@@ -386,10 +401,13 @@ UPDATE orders SET status = 'cancelled'
 WHERE id = p_order_id AND status = 'pending' AND capability_token = p_token;
 ```
 
-Trước đây đơn tại bàn phải trả tiền → `confirmed` rồi mới vào bếp, nên `cancel_order` (chỉ
-đụng `pending`) không với tới được. Predicate mới phá đúng lớp bảo vệ tình cờ đó. Sau khi đổi,
-khách có thể huỷ đơn **đã được báo bếp, bếp đang chuẩn bị, thậm chí đã xác nhận nhận tiền** —
-chỉ cần bếp chưa bấm "Bắt đầu làm".
+Trước đây đơn phải trả tiền → `confirmed` rồi mới vào bếp, nên `cancel_order` (chỉ đụng
+`pending`) không với tới được. Predicate mới phá đúng lớp bảo vệ tình cờ đó. Sau khi đổi, đơn
+**đã được báo bếp, bếp đang chuẩn bị, thậm chí đã xác nhận nhận tiền** vẫn có thể bị huỷ — chỉ
+cần bếp chưa bấm "Bắt đầu làm".
+
+Áp cho **cả đơn staff** (vào bếp ngay từ `pending`) lẫn đơn khách tiền mặt (`pending + cash`,
+hành vi sẵn có).
 
 `cancel_order` phải từ chối khi:
 
@@ -407,12 +425,13 @@ Vá này **bắt buộc nằm cùng sprint với predicate mới (PM-2)**, khôn
 
 ```text
 [💰 CHỜ THANH TOÁN]  [⏳ CHỜ XỬ LÝ]  [🔥 ĐANG LÀM]  [✅ SẴN SÀNG]
-   đơn mang về            như hiện tại
+   đơn khách tự đặt        như hiện tại
+   chưa có tiền
    chưa có tiền
 ```
 
 - Cột 1 **chỉ render khi có đơn trong đó** → bình thường bếp vẫn thấy đúng 3 cột như hiện tại.
-- Đơn tại bàn không bao giờ vào cột này.
+- Đơn staff không bao giờ vào cột này (vào bếp ngay, §7).
 - Card hiện **số tiền có đuôi** (105.**037**đ) to, rõ — để đối chiếu với loa.
 - Nút "Đã nhận tiền" → `kitchen_confirm_payment` → đơn nhảy sang Chờ xử lý → TTS đọc đơn.
 - Đơn `cash` chỉ hiện nút này khi `kitchen_can_confirm_cash = true`.
@@ -481,7 +500,7 @@ cột với bếp bấm, nên **không đụng bếp/doanh thu/UI**.
 | # | Rủi ro | Xử lý |
 |---|---|---|
 | 1 | **Momo/VNPay có thật sự đi đường Callback (auto-confirm) không?** Chưa test. Nếu chúng rơi vào nhánh `resultCode == null` thì **dính y hệt bug §1.1**. | `checkout-notify` phải **fail-closed**: method lạ + không có `resultCode` → **KHÔNG confirm**, chỉ log + ack. Không mở rộng nhánh custom-method cho bất kỳ method nào chưa test. |
-| 2 | Quán bật `bank_transfer` nhưng chưa có ai xác nhận (không loa, không SePay) → đơn mang về kẹt ở cột chờ | Admin cảnh báo khi bật `bank_transfer` mà chưa cấu hình nguồn xác nhận nào |
+| 2 | Quán bật `bank_transfer` nhưng chưa có ai xác nhận (không loa, không SePay) → đơn khách tự đặt kẹt ở cột chờ | Admin cảnh báo khi bật `bank_transfer` mà chưa cấu hình nguồn xác nhận nào |
 | 3 | Bếp bấm bừa "đã nhận" cho đủ chỉ tiêu | Đối chiếu sao kê cuối ngày; báo cáo lọc theo `payment_received_via` để thấy tỉ lệ xác nhận tay |
 | 4 | Đuôi số tiền trùng nhau trong tập đơn chưa thanh toán | Bất biến ở §5.3 kiểm lúc gán; test riêng |
 | 5 | **Khách đổi ý phương thức lúc ra quầy** (đặt `bank_transfer`, đến quầy lại trả tiền mặt). `payment_method` ghi lúc đặt nên sẽ sai. | Chấp nhận: `payment_received_at` vẫn đúng nên **doanh thu không sai**, chỉ thống kê theo phương thức lệch chút. Khách trả đúng số tiền có đuôi. Không xây UI đổi method (YAGNI) — gặp nhiều mới làm. |
@@ -508,7 +527,7 @@ cột với bếp bấm, nên **không đụng bếp/doanh thu/UI**.
     payment_received_by  = null
     ```
     **Bỏ qua bước này là hỏng ví**: đơn ZaloPay mới sẽ có `payment_received_at = NULL` →
-    không vào doanh thu, đơn mang về không vào bếp, badge báo chưa thanh toán dù callback
+    không vào doanh thu, đơn khách tự đặt không vào bếp, badge báo chưa thanh toán dù callback
     thành công. Backfill §5.2 chỉ cứu đơn cũ, không cứu đơn mới.
 - Doanh thu + **mọi predicate "đã thanh toán" toàn repo** về một luật `payment_received_at` —
   gồm `get_spin_state`, `spin_wheel`, `voucher_uses` (§4), không chỉ báo cáo.
@@ -518,9 +537,10 @@ cột với bếp bấm, nên **không đụng bếp/doanh thu/UI**.
 
 **Điểm dừng:** PM-1 PASS.
 
-### Sprint PM-2 — Vào bếp theo `table_id` + số tiền duy nhất
+### Sprint PM-2 — Vào bếp theo `order_source` + số tiền định danh
 - Predicate §7, đuôi số tiền §5.3.
-- Test: đơn tại bàn vào bếp ngay; đơn mang về nằm chờ.
+- Test: đơn staff vào bếp ngay; đơn khách tự đặt + CK nằm chờ; đơn khách tiền mặt vào ngay (không regression).
+- **Vá `cancel_order` cùng sprint này** (§7.1) — không được tách ra sau.
 
 **Điểm dừng:** PM-2 PASS.
 
@@ -549,8 +569,9 @@ cột với bếp bấm, nên **không đụng bếp/doanh thu/UI**.
 2. Chuyển khoản thật → loa đọc → bếp bấm → đơn vào bếp + TTS đọc + doanh thu tăng đúng.
 3. **Đơn ví ZaloPay mới → callback → CÓ `payment_received_at` → vào doanh thu ngay.** *(bẫy §12 PM-1)*
 4. **Đơn `bank_transfer` đã thu tiền → quay được vòng quay** *(luật cũ trong `027`, §4)*.
-5. Đơn tại bàn vào bếp ngay dù chưa trả tiền.
-6. Đơn mang về nằm cột Chờ thanh toán tới khi xác nhận.
+5. Đơn staff vào bếp ngay dù chưa trả tiền.
+6. Đơn khách tự đặt + chuyển khoản nằm cột Chờ thanh toán tới khi xác nhận.
+6b. Đơn khách tiền mặt vẫn vào bếp ngay như hôm nay *(không regression)*.
 7. **Khách KHÔNG huỷ được đơn đã thu tiền hoặc đã vào bếp** qua `cancel_order` *(§7.1)*.
 8. Hai đơn cùng giá gốc → `payment_amount` khác nhau, `total_amount` **giống nhau**.
 9. **`total_amount` luôn = tổng món − voucher**, không bao giờ mang đuôi *(§5.3)*.
@@ -590,7 +611,7 @@ supabase/functions/checkout-notify/index.ts     ← sửa CẢ HAI nhánh:
                                                    ví phải ghi payment_received_at (§12 PM-1)
                                                    BANK thôi confirm + fail-closed
 supabase/functions/checkout-create-mac/index.ts ← ký payment_amount cho bank_transfer (§5.3)
-admin-web/lib/kitchen-announce.ts               ← predicate theo table_id
+admin-web/lib/kitchen-announce.ts               ← predicate theo order_source (§7)
 admin-web/lib/revenue.ts (mới)                  ← một luật dùng chung
 admin-web/app/kitchen/[storeSlug]/kitchen-display.tsx  ← cột 4 + nút Đã nhận tiền
 admin-web/app/admin/orders/*                    ← badge + bỏ luật tính riêng
@@ -626,6 +647,6 @@ Rẻ vì chưa có dòng code nào.
 | Chỉ một method `bank_transfer`, Zalo Checkout chỉ là cách khởi tạo | Tiền đi cùng một đường bank→bank; Zalo không giữ tiền |
 | Hai trục `payment_method` × `payment_received_via` | Bật SePay không phải migrate dữ liệu; tên cột không nói dối |
 | `payment_received_at` là nguồn sự thật duy nhất, cả ví cũng ghi | Gộp 3 luật doanh thu chép ở 4 nơi về 1 |
-| Vào bếp theo `table_id`, không theo phương thức | Rủi ro bùng đơn tại bàn ≪ đơn ship; nhắm đúng chỗ rủi ro thật |
+| Vào bếp theo `order_source`, không theo phương thức/`table_id` | `table_id` không chứng minh khách có mặt (QR bị chụp/chia sẻ). Đơn staff = có nhân viên đứng cạnh khách, bằng chứng hiện diện duy nhất hệ thống thật sự có. Giữ trọn chống-abuse 2026-06-26 cho đơn khách |
 | Bếp xác nhận CK; tiền mặt theo cờ `kitchen_can_confirm_cash` (default false) | CK bếp không cầm được tiền; tiền mặt cầm được nên default an toàn |
 | SePay thay VietQR Pro | Free 50 gd/tháng giữ được "miễn phí"; 11 ngân hàng + TK cá nhân vs MB/BIDV |
