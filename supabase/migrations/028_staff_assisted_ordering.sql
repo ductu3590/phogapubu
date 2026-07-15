@@ -114,3 +114,21 @@ begin
     where id=p_result_id and status='won';
   return jsonb_build_object('ok', true, 'already', v_res.status='redeemed');
 end $$;
+
+-- ============================================================
+-- 4) Nới role — CHỈ sau khi policy ghi đã siết (mục 2).
+--    018 có HAI constraint liệt kê role tường minh. Quên cái thứ hai
+--    thì store_staff bị chặn ngay lúc INSERT.
+-- ============================================================
+alter table mevo_operators drop constraint if exists mevo_operators_role_check;
+alter table mevo_operators
+  add constraint mevo_operators_role_check
+  check (role in ('mevo_superadmin', 'store_owner', 'store_staff'));
+
+alter table mevo_operators drop constraint if exists mevo_operators_role_store_check;
+alter table mevo_operators
+  add constraint mevo_operators_role_store_check
+  check (
+    (role = 'mevo_superadmin' and store_id is null)
+    or (role in ('store_owner','store_staff') and store_id is not null)
+  );
