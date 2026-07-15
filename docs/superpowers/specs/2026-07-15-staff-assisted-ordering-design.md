@@ -9,7 +9,8 @@
 >
 > 1. **§5.1 — RLS hiện tại không phân biệt role.** Chỉ cần thêm dòng `role='store_staff'`
 >    vào `mevo_operators` là nhân viên có ngay quyền ghi ngang owner (sửa giá, tự xác nhận
->    đã nhận tiền) qua Supabase REST. Migration 028 **phải** viết lại 8 policy ghi của `019`.
+>    đã nhận tiền) qua Supabase REST — gồm **tự tạo mã giảm giá** (`vouchers` FOR ALL).
+>    Migration 028 **phải** viết lại **11 policy ghi trên 6 bảng** + 2 guard RPC.
 > 2. **§3.1 — Notify của Zalo KHÔNG phải bằng chứng trả tiền.** Nó chỉ báo "khách vừa CHỌN
 >    phương thức" (Zalo xếp chung nhóm COD vì không giữ tiền). Code hiện tại hiểu sai →
 >    thoát app ngân hàng đơn vẫn confirmed + vẫn vào doanh thu. **Đây là bug đã xác nhận trên
@@ -110,8 +111,13 @@ Chi tiết phải làm — cả ba đều là constraint/union **có tên sẵn*
 | Nơi | Hiện tại | Ghi chú |
 |---|---|---|
 | `orders.payment_method` CHECK | `001_init.sql:76` — `('zalopay','cash')` | constraint inline, phải tìm đúng tên sinh tự động |
-| `stores.payment_methods` CHECK | `008` — `stores_payment_methods_valid`, `<@ ARRAY['zalopay','cash']` | drop/recreate theo tên |
+| `stores.payment_methods` CHECK | `008` — `stores_payment_methods_valid`, `<@ ARRAY['zalopay','cash']` | **KHÔNG đụng ở SA-1** — xem dưới |
 | TS union `PaymentMethod` | `admin-web/types/database.types.ts:3` **và** `mini-app/src/types/database.types.ts:100` | union bị lặp ở **2 file**, sửa cả hai |
+
+**`stores.payment_methods` giữ nguyên ở SA-1.** Cột này là danh sách phương thức **khách**
+thấy trong mini-app; thêm `bank_transfer` vào đó là mở đúng cái mục dưới đây dặn phải chặn.
+`staff_create_order` không đọc cột này — nó tự whitelist `cash|bank_transfer`. PM-4 mới mở
+cho khách, lúc đó constraint này mới cần sửa.
 
 #### ⚠️ `stores.payment_methods` đang điều khiển UI mini-app khách
 
@@ -235,7 +241,23 @@ quán này không* — nó **không đọc cột `role`**:
 and (role = 'mevo_superadmin' or store_id = target_store_id)
 ```
 
-Helper này đang gác **8 policy GHI** trong `019`: INSERT/UPDATE/DELETE trên `tables`,
+Helper này đang gác **11 policy GHI** trên **6 bảng** — không chỉ trong `019`. Đếm bằng
+`pg_policies` trên prod 2026-07-15 (đừng tin grep, migration sau có thêm policy):
+
+| Bảng | Policy | Lệnh | Staff sẽ làm được gì |
+|---|---|---|---|
+| **`vouchers`** (`027`) | `op_all_vouchers` | **ALL** | **Tự tạo mã giảm giá 100% cho mình** ← nguy hiểm nhất |
+| **`spin_rewards`** (`025`) | `op_all_spin_rewards` | **ALL** | Sửa tỉ lệ trúng vòng quay |
+| `spin_results` (`025`) | `op_update_spin_results` | UPDATE | Tự đánh dấu đã trúng thưởng |
+| `orders` (`019`) | `auth_update_orders` | UPDATE | Tự set `payment_received_at` |
+| `menu_items` (`019`) | `auth_insert/update/delete_menu_items` | INSERT/UPDATE/DELETE | Sửa giá món |
+| `tables` (`019`) | `auth_insert/update/delete_tables` | INSERT/UPDATE/DELETE | Xoá bàn |
+| `menu_categories` (`019`) | `auth_insert_menu_categories` | INSERT | Thêm danh mục |
+
+**Cộng 2 guard trong RPC** dùng helper làm kiểm tra quyền — policy không gác được:
+`redeem_spin_result()` ở `025:167` và bản overload ở `027:419`.
+
+Chi tiết `019` gồm: INSERT/UPDATE/DELETE trên `tables`,
 INSERT trên `menu_categories`, INSERT/UPDATE/DELETE trên `menu_items`, và
 UPDATE trên `orders` (`auth_update_orders`).
 
@@ -269,7 +291,9 @@ returns boolean language sql stable security definer set search_path = public as
 $$;
 ```
 
-3. **Viết lại 8 policy ghi** của `019` sang `is_store_owner_or_admin()`.
+3. **Viết lại 11 policy ghi** (bảng ở trên) sang `is_store_owner_or_admin()`, và sửa 2 guard
+   trong `redeem_spin_result()` (`025:167`, `027:419`).
+   Bỏ sót `vouchers`/`spin_rewards` thì mọi thứ còn lại vô nghĩa — staff tự cấp mã giảm giá.
    Đặc biệt `auth_update_orders` — nếu bỏ sót policy này thì mọi thứ còn lại vô nghĩa.
 4. Không cấp INSERT `orders` cho `authenticated`; đơn staff chỉ sinh qua `staff_create_order`.
 
@@ -433,8 +457,9 @@ Vòng quay/voucher:
 - Migration `bank_transfer` (3 nơi: CHECK orders, `stores_payment_methods_valid`, 2 file TS union).
 - Audit columns + `client_request_id` + unique index.
 - Nới `mevo_operators_role_check` **và** `mevo_operators_role_store_check` cho `store_staff`.
-- **Helper `is_store_owner_or_admin()` + viết lại 8 policy ghi của `019` (§5.1)** — việc lớn
-  nhất của sprint này, làm trước khi có bất kỳ dòng `store_staff` nào trong DB.
+- **Helper `is_store_owner_or_admin()` + viết lại 11 policy ghi trên 6 bảng + 2 guard RPC
+  (§5.1)** — việc lớn nhất của sprint này, làm TRƯỚC khi có bất kỳ dòng `store_staff` nào
+  trong DB. Đếm lại bằng `pg_policies` chứ đừng tin danh sách này.
 - Hai RPC (`staff_create_order` idempotent bằng `on conflict`, `confirm_manual_payment`).
 - Doanh thu: `get_daily_revenue()` + `cash_pending`, và 2 chỗ tính lại phía TS (§4.4).
 - Test cross-store **và cross-role** qua REST, giả giá/bàn/store/user, idempotency, doanh thu.
@@ -520,7 +545,11 @@ supabase/migrations/028_staff_assisted_ordering.sql
   ├─ payment_method CHECK (orders) + stores_payment_methods_valid
   ├─ audit columns + client_request_id + unique index
   ├─ mevo_operators: role_check + role_store_check
-  ├─ is_store_owner_or_admin() + VIẾT LẠI 8 policy ghi của 019   ← §5.1
+  ├─ is_store_owner_or_admin() + VIẾT LẠI 11 policy ghi / 6 bảng ← §5.1
+  │    (019: tables, menu_items, menu_categories, orders
+  │     025: spin_rewards FOR ALL, spin_results UPDATE
+  │     027: vouchers FOR ALL  ← staff tu tao ma giam gia)
+  ├─ SỬA 2 guard redeem_spin_result (025:167, 027:419)
   ├─ staff_create_order() + confirm_manual_payment()
   └─ get_daily_revenue() (revenue + cash_pending)                ← §4.4
 
