@@ -144,3 +144,42 @@ alter table mevo_operators
     (role = 'mevo_superadmin' and store_id is null)
     or (role in ('store_owner','store_staff') and store_id is not null)
   );
+
+-- ============================================================
+-- 5) Mở payment_method: thêm bank_transfer
+-- ============================================================
+alter table orders drop constraint if exists orders_payment_method_check;
+alter table orders
+  add constraint orders_payment_method_check
+  check (payment_method in ('zalopay','cash','bank_transfer'));
+
+-- stores.payment_methods: KHÔNG đụng vào.
+--
+-- ⚠️ LỆCH CÓ CHỦ Ý so với spec §4.1 (bảng ở đó bảo drop/recreate
+--    stores_payment_methods_valid để thêm bank_transfer).
+-- Lý do: stores.payment_methods là danh sách phương thức KHÁCH thấy trong
+-- mini-app. bank_transfer là staff-only tới hết SA-5, và staff_create_order
+-- không đọc cột này (nó tự whitelist cash|bank_transfer ở Task 5).
+-- Thêm vào = mở đúng cái §4.1 dặn phải chặn. Ít thay đổi hơn, an toàn hơn.
+-- PM-4 mới mở bank_transfer cho khách; lúc đó constraint này mới cần sửa.
+
+-- ============================================================
+-- 6) Cột audit + idempotency
+-- ============================================================
+alter table orders
+  add column if not exists order_source text not null default 'customer_zalo',
+  add column if not exists created_by uuid null references auth.users(id),
+  add column if not exists payment_received_at timestamptz null,
+  add column if not exists payment_received_by uuid null references auth.users(id),
+  add column if not exists client_request_id uuid null;
+
+alter table orders drop constraint if exists orders_order_source_check;
+alter table orders
+  add constraint orders_order_source_check
+  check (order_source in ('customer_zalo', 'staff'));
+
+-- Idempotency: một client_request_id chỉ ra một đơn cho mỗi quán.
+-- Partial index: đơn khách (client_request_id NULL) không bị ràng buộc.
+create unique index if not exists orders_store_client_request_unique
+  on orders(store_id, client_request_id)
+  where client_request_id is not null;
