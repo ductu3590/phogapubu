@@ -10,7 +10,7 @@
 > 1. **§5.1 — RLS hiện tại không phân biệt role.** Chỉ cần thêm dòng `role='store_staff'`
 >    vào `mevo_operators` là nhân viên có ngay quyền ghi ngang owner (sửa giá, tự xác nhận
 >    đã nhận tiền) qua Supabase REST — gồm **tự tạo mã giảm giá** (`vouchers` FOR ALL).
->    Migration 028 **phải** viết lại **11 policy ghi trên 6 bảng** + 2 guard RPC.
+>    Migration 028 **phải** viết lại **11 policy ghi trên 6 bảng** + guard trong redeem_spin_result.
 > 2. **§3.1 — Notify của Zalo KHÔNG phải bằng chứng trả tiền.** Nó chỉ báo "khách vừa CHỌN
 >    phương thức" (Zalo xếp chung nhóm COD vì không giữ tiền). Code hiện tại hiểu sai →
 >    thoát app ngân hàng đơn vẫn confirmed + vẫn vào doanh thu. **Đây là bug đã xác nhận trên
@@ -254,8 +254,11 @@ Helper này đang gác **11 policy GHI** trên **6 bảng** — không chỉ tro
 | `tables` (`019`) | `auth_insert/update/delete_tables` | INSERT/UPDATE/DELETE | Xoá bàn |
 | `menu_categories` (`019`) | `auth_insert_menu_categories` | INSERT | Thêm danh mục |
 
-**Cộng 2 guard trong RPC** dùng helper làm kiểm tra quyền — policy không gác được:
-`redeem_spin_result()` ở `025:167` và bản overload ở `027:419`.
+**Cộng 1 guard trong RPC** dùng helper làm kiểm tra quyền — policy không gác được:
+`redeem_spin_result(uuid)`. Lịch sử migration có 2 định nghĩa (`025:167`, `027:419`) nhưng
+**cùng chữ ký** nên `create or replace` của `027` đã đè lên `025` → DB chỉ có **một hàm sống**.
+Đã xác minh bằng `pg_proc` ngày 2026-07-15: `redeem_spin_result` là hàm **duy nhất** trong
+schema `public` còn gọi `is_store_scoped_operator()`.
 
 Chi tiết `019` gồm: INSERT/UPDATE/DELETE trên `tables`,
 INSERT trên `menu_categories`, INSERT/UPDATE/DELETE trên `menu_items`, và
@@ -291,8 +294,8 @@ returns boolean language sql stable security definer set search_path = public as
 $$;
 ```
 
-3. **Viết lại 11 policy ghi** (bảng ở trên) sang `is_store_owner_or_admin()`, và sửa 2 guard
-   trong `redeem_spin_result()` (`025:167`, `027:419`).
+3. **Viết lại 11 policy ghi** (bảng ở trên) sang `is_store_owner_or_admin()`, và sửa guard
+   trong `redeem_spin_result(uuid)` — một hàm duy nhất, dù có 2 định nghĩa trong lịch sử.
    Bỏ sót `vouchers`/`spin_rewards` thì mọi thứ còn lại vô nghĩa — staff tự cấp mã giảm giá.
    Đặc biệt `auth_update_orders` — nếu bỏ sót policy này thì mọi thứ còn lại vô nghĩa.
 4. Không cấp INSERT `orders` cho `authenticated`; đơn staff chỉ sinh qua `staff_create_order`.
@@ -457,7 +460,7 @@ Vòng quay/voucher:
 - Migration `bank_transfer` (3 nơi: CHECK orders, `stores_payment_methods_valid`, 2 file TS union).
 - Audit columns + `client_request_id` + unique index.
 - Nới `mevo_operators_role_check` **và** `mevo_operators_role_store_check` cho `store_staff`.
-- **Helper `is_store_owner_or_admin()` + viết lại 11 policy ghi trên 6 bảng + 2 guard RPC
+- **Helper `is_store_owner_or_admin()` + viết lại 11 policy ghi trên 6 bảng + guard redeem_spin_result
   (§5.1)** — việc lớn nhất của sprint này, làm TRƯỚC khi có bất kỳ dòng `store_staff` nào
   trong DB. Đếm lại bằng `pg_policies` chứ đừng tin danh sách này.
 - Hai RPC (`staff_create_order` idempotent bằng `on conflict`, `confirm_manual_payment`).
@@ -549,7 +552,7 @@ supabase/migrations/028_staff_assisted_ordering.sql
   │    (019: tables, menu_items, menu_categories, orders
   │     025: spin_rewards FOR ALL, spin_results UPDATE
   │     027: vouchers FOR ALL  ← staff tu tao ma giam gia)
-  ├─ SỬA 2 guard redeem_spin_result (025:167, 027:419)
+  ├─ SỬA guard redeem_spin_result (1 ham song, du 2 dinh nghia trong lich su)
   ├─ staff_create_order() + confirm_manual_payment()
   └─ get_daily_revenue() (revenue + cash_pending)                ← §4.4
 

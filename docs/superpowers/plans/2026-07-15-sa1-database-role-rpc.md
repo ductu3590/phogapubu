@@ -270,8 +270,10 @@ create policy "op_all_vouchers" on vouchers
 
 -- ============================================================
 -- 3) Guard trong RPC — policy không gác được, phải sửa riêng.
---    redeem_spin_result có 2 bản: 025:167 và overload 027:419.
---    Bản 027 (đang chạy) cho cả bếp lẫn operator; giữ bếp, siết operator.
+--    Lịch sử có 2 định nghĩa (025:167, 027:419) nhưng CÙNG chữ ký nên
+--    create-or-replace của 027 da de len 025 → DB chỉ có MỘT hàm sống.
+--    Xác minh bằng pg_proc: đây là hàm DUY NHẤT còn gọi helper cũ.
+--    Giữ nhánh kitchen (bếp phải đổi thưởng được), chỉ siết nhánh operator.
 -- ============================================================
 create or replace function redeem_spin_result(p_result_id uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
