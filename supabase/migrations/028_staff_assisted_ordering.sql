@@ -363,3 +363,51 @@ end $$;
 revoke all on function staff_create_order(uuid, jsonb, text, uuid, text) from public;
 revoke all on function staff_create_order(uuid, jsonb, text, uuid, text) from anon;
 grant execute on function staff_create_order(uuid, jsonb, text, uuid, text) to authenticated;
+
+-- ============================================================
+-- 8) RPC: chủ quán xác nhận đã nhận tiền.
+--    CHỈ owner — staff gọi phải bị từ chối.
+--    KHÔNG đụng orders.status: thanh toán và tiến độ bếp là hai trục độc lập.
+-- ============================================================
+create or replace function confirm_manual_payment(p_order_id uuid)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_order orders%rowtype;
+begin
+  select * into v_order from orders where id = p_order_id;
+  if not found then raise exception 'Không tìm thấy đơn'; end if;
+
+  if not is_store_owner_or_admin(v_order.store_id) then
+    raise exception 'Chỉ chủ quán được xác nhận nhận tiền';
+  end if;
+
+  if v_order.payment_method not in ('cash','bank_transfer') then
+    raise exception 'Đơn thanh toán online không xác nhận tay';
+  end if;
+
+  if v_order.status = 'cancelled' then
+    raise exception 'Đơn đã huỷ';
+  end if;
+
+  -- Idempotent: giữ nguyên người xác nhận ĐẦU TIÊN, không ghi đè.
+  if v_order.payment_received_at is not null then
+    return jsonb_build_object(
+      'ok', true, 'already', true,
+      'received_at', v_order.payment_received_at
+    );
+  end if;
+
+  update orders
+  set payment_received_at = now(),
+      payment_received_by = auth.uid()
+  where id = p_order_id;
+
+  return jsonb_build_object('ok', true, 'already', false);
+end $$;
+
+-- ⚠️ `revoke ... from public` KHÔNG ĐỦ trên Supabase — giống chú thích ở mục 7.
+-- ALTER DEFAULT PRIVILEGES cấp EXECUTE thẳng cho role `anon` trên mọi function
+-- mới trong schema public; `public` là pseudo-role khác, revoke nó không gỡ anon.
+revoke all on function confirm_manual_payment(uuid) from public;
+revoke all on function confirm_manual_payment(uuid) from anon;
+grant execute on function confirm_manual_payment(uuid) to authenticated;
