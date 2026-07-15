@@ -270,7 +270,7 @@ create policy "op_all_vouchers" on vouchers
 
 -- ============================================================
 -- 3) Guard trong RPC — policy không gác được, phải sửa riêng.
---    Lịch sử có 2 định nghĩa (025:167, 027:419) nhưng CÙNG chữ ký nên
+--    Lịch sử có 2 định nghĩa (025:161, 027:413) nhưng CÙNG chữ ký nên
 --    create-or-replace của 027 da de len 025 → DB chỉ có MỘT hàm sống.
 --    Xác minh bằng pg_proc: đây là hàm DUY NHẤT còn gọi helper cũ.
 --    Giữ nhánh kitchen (bếp phải đổi thưởng được), chỉ siết nhánh operator.

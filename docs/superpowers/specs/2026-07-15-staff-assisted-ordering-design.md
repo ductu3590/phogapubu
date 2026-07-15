@@ -255,7 +255,7 @@ Helper này đang gác **11 policy GHI** trên **6 bảng** — không chỉ tro
 | `menu_categories` (`019`) | `auth_insert_menu_categories` | INSERT | Thêm danh mục |
 
 **Cộng 1 guard trong RPC** dùng helper làm kiểm tra quyền — policy không gác được:
-`redeem_spin_result(uuid)`. Lịch sử migration có 2 định nghĩa (`025:167`, `027:419`) nhưng
+`redeem_spin_result(uuid)`. Lịch sử migration có 2 định nghĩa (`025:161`, `027:413`) nhưng
 **cùng chữ ký** nên `create or replace` của `027` đã đè lên `025` → DB chỉ có **một hàm sống**.
 Đã xác minh bằng `pg_proc` ngày 2026-07-15: `redeem_spin_result` là hàm **duy nhất** trong
 schema `public` còn gọi `is_store_scoped_operator()`.

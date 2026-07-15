@@ -1,15 +1,25 @@
 -- 028 — Staff Assisted Ordering: RLS theo role, audit đơn, RPC đặt hộ.
 --
--- THỨ TỰ TRONG FILE NÀY QUAN TRỌNG:
---   1) Helper phân quyền + viết lại policy ghi   ← PHẢI xong trước
---   2) Nới role cho phép 'store_staff'            ← chỉ sau khi (1) xong
--- Đảo thứ tự = có cửa sổ mà staff có quyền owner.
+-- THỨ TỰ TRONG FILE NÀY QUAN TRỌNG — siết quyền (mục 1-3) PHẢI đứng trước
+-- khi nới role (mục 4). Đảo lại = có cửa sổ mà staff có quyền owner.
+--   1) Helper phân quyền có đọc role
+--   2) Viết lại 11 policy ghi sang helper đó
+--   3) Guard trong RPC redeem_spin_result
+--   4) Nới role cho phép 'store_staff'   ← chỉ sau khi 1-3 xong
 --
 -- Gốc rễ: is_store_scoped_operator() (019:6) KHÔNG đọc cột role — nó chỉ hỏi
 -- "có phải operator của quán này không". Nên chỉ cần INSERT một dòng
 -- role='store_staff' là nhân viên có ngay quyền ghi ngang chủ quán:
 -- sửa giá món, xoá bàn, TỰ TẠO MÃ GIẢM GIÁ (vouchers FOR ALL), tự set
 -- payment_received_at. Kể cả khi gọi thẳng Supabase REST, không qua admin-web.
+--
+-- ⚠️ HỆ QUẢ CHO SA-3 (UI staff): vouchers và spin_rewards chỉ có ĐÚNG MỘT
+-- policy `authenticated` là `FOR ALL` — mà FOR ALL bao gồm cả SELECT. Nên sau
+-- file này, store_staff KHÔNG ĐỌC được vouchers/spin_rewards qua REST, chứ
+-- không chỉ mất quyền ghi. Hiện không phá gì (mini-app đọc voucher qua RPC
+-- security definer, bếp có policy riêng, /admin/vouchers là màn của owner).
+-- Nếu màn staff sau này cần hiện mã giảm giá → phải thêm policy SELECT riêng,
+-- ĐỪNG nới FOR ALL trở lại.
 
 -- ============================================================
 -- 1) Helper GHI: có đọc role. Giữ is_store_scoped_operator() cho ĐỌC.
@@ -97,7 +107,9 @@ create policy "op_all_vouchers" on vouchers
 
 -- ============================================================
 -- 3) Guard trong RPC — policy không gác được, phải sửa riêng.
---    redeem_spin_result có 2 bản: 025:167 và overload 027:419.
+--    Lịch sử có 2 định nghĩa (025:161, 027:413) nhưng CÙNG chữ ký, nên
+--    create-or-replace của 027 đã đè lên 025 → DB chỉ có MỘT hàm sống.
+--    Đã xác minh bằng pg_proc: đây là hàm DUY NHẤT còn gọi helper cũ.
 --    Bản 027 (đang chạy) cho cả bếp lẫn operator; giữ bếp, siết operator.
 -- ============================================================
 create or replace function redeem_spin_result(p_result_id uuid)
