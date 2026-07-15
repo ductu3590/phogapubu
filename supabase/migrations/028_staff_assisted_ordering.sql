@@ -183,3 +183,183 @@ alter table orders
 create unique index if not exists orders_store_client_request_unique
   on orders(store_id, client_request_id)
   where client_request_id is not null;
+
+-- ============================================================
+-- 7) RPC: nhân viên đặt món hộ khách.
+--    SECURITY DEFINER — staff KHÔNG có quyền INSERT orders trực tiếp (mục 2).
+--
+--    Cùng luật với create_order v5 (027:169), TRỪ voucher và TRỪ zalopay.
+--    Ba chỗ BẮT BUỘC giống bản đang chạy, đừng "đơn giản hoá":
+--      a) item_price = giá món CHƯA gồm topping; phụ thu topping nằm trong
+--         selected_toppings. Cộng topping vào item_price = bếp/hoá đơn cộng
+--         topping lần hai (spec 2026-06-30-menu-toppings-design.md §2.2).
+--      b) Topping phải JOIN menu_item_toppings — topping đúng quán nhưng
+--         chưa gán cho món này vẫn là topping bịa.
+--      c) Đếm topping khớp số id gửi lên — id rác/đã tắt bị lọc âm thầm
+--         thì khách bị tính thiếu tiền, không ai biết.
+-- ============================================================
+create or replace function staff_create_order(
+  p_table_id          uuid,
+  p_items             jsonb,
+  p_payment_method    text,
+  p_client_request_id uuid,
+  p_note              text default null
+) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_uid          uuid := auth.uid();
+  v_store        uuid;
+  v_role         text;
+  v_order_id     uuid;
+  v_total        int := 0;
+  v_item         jsonb;
+  v_menu         menu_items%rowtype;
+  v_qty          int;
+  v_topping_ids  uuid[];
+  v_item_tops    jsonb;
+  v_top_total    int;
+  v_top_count    int;
+begin
+  -- 1) Ai đang gọi? store_id suy từ operator, KHÔNG tin client.
+  select store_id, role into v_store, v_role
+  from mevo_operators where user_id = v_uid;
+  if v_store is null or v_role not in ('store_owner','store_staff') then
+    raise exception 'Không có quyền đặt món hộ';
+  end if;
+
+  -- client_request_id là khoá chống trùng. NULL = partial index không áp,
+  -- bấm hai lần thành hai đơn. Bắt buộc có.
+  if p_client_request_id is null then
+    raise exception 'Thiếu client_request_id';
+  end if;
+
+  -- 2) Idempotent: request cũ thì trả đơn cũ, không tạo thêm.
+  --    Trả ĐỦ total + items như lần đầu — retry sau lỗi mạng cũng phải đủ
+  --    dữ liệu để UI hiện màn thành công.
+  select id into v_order_id from orders
+  where store_id = v_store and client_request_id = p_client_request_id;
+  if v_order_id is not null then
+    return jsonb_build_object(
+      'order_id',   v_order_id,
+      'total',      (select total_amount from orders where id = v_order_id),
+      'idempotent', true,
+      'items',      coalesce((select jsonb_agg(to_jsonb(oi))
+                              from order_items oi where oi.order_id = v_order_id), '[]'::jsonb)
+    );
+  end if;
+
+  -- 3) Quán còn nhận đơn không (dùng chung helper với create_order)
+  if not store_accepting_now(v_store) then
+    raise exception 'Quán đang tạm nghỉ hoặc ngoài giờ phục vụ';
+  end if;
+
+  -- 4) Bàn phải active và thuộc đúng quán
+  if not exists (
+    select 1 from tables
+    where id = p_table_id and store_id = v_store and is_active
+  ) then
+    raise exception 'Bàn không thuộc quán hoặc đã ngừng dùng';
+  end if;
+
+  -- 5) Staff chỉ nhận tiền mặt / chuyển khoản. KHÔNG nhận zalopay:
+  --    staff không thu hộ tiền online.
+  if p_payment_method not in ('cash','bank_transfer') then
+    raise exception 'Phương thức không hợp lệ cho đơn đặt hộ: %', p_payment_method;
+  end if;
+
+  if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
+    raise exception 'Đơn phải có ít nhất một món';
+  end if;
+
+  -- 6) Tạo đơn. total_amount tính ở bước 7, tạm 0.
+  --    order_source/created_by do SERVER gán — client không gửi được.
+  --    ON CONFLICT phải kèm WHERE khớp predicate của partial index (mục 6)
+  --    thì Postgres mới suy ra được index đó.
+  insert into orders (
+    store_id, table_id, total_amount, payment_method, status,
+    note, order_source, created_by, client_request_id
+  ) values (
+    v_store, p_table_id, 0, p_payment_method, 'pending',
+    p_note, 'staff', v_uid, p_client_request_id
+  )
+  on conflict (store_id, client_request_id) where client_request_id is not null
+  do nothing
+  returning id into v_order_id;
+
+  -- Hai request đồng thời cùng client_request_id: cái thua race rơi vào đây.
+  -- Trả đơn của cái thắng, KHÔNG insert order_items lần hai.
+  if v_order_id is null then
+    select id into v_order_id from orders
+    where store_id = v_store and client_request_id = p_client_request_id;
+    return jsonb_build_object(
+      'order_id',   v_order_id,
+      'total',      (select total_amount from orders where id = v_order_id),
+      'idempotent', true,
+      'items',      coalesce((select jsonb_agg(to_jsonb(oi))
+                              from order_items oi where oi.order_id = v_order_id), '[]'::jsonb)
+    );
+  end if;
+
+  -- 7) Từng món: giá LẤY TỪ DB, không tin client.
+  for v_item in select * from jsonb_array_elements(p_items) loop
+    v_qty := coalesce((v_item->>'quantity')::int, 0);
+    if v_qty <= 0 then raise exception 'Số lượng không hợp lệ'; end if;
+
+    select * into v_menu from menu_items
+    where id = (v_item->>'menu_item_id')::uuid
+      and store_id = v_store
+      and is_available = true;
+    if not found then
+      raise exception 'Món không thuộc quán hoặc ngừng bán: %', v_item->>'menu_item_id';
+    end if;
+
+    -- Topping: giá + tên lấy từ DB, chặn topping quán khác / đã tắt /
+    -- chưa gán cho món này.
+    v_item_tops := '[]'::jsonb; v_top_total := 0;
+    if v_item ? 'topping_ids' and jsonb_typeof(v_item->'topping_ids') = 'array'
+       and jsonb_array_length(v_item->'topping_ids') > 0 then
+      select array_agg(distinct value::uuid) into v_topping_ids
+        from jsonb_array_elements_text(v_item->'topping_ids');
+      select
+        coalesce(jsonb_agg(jsonb_build_object('id',t.id,'name',t.name,'price',t.price)
+                 order by t.sort_order, t.created_at), '[]'::jsonb),
+        coalesce(sum(t.price),0), count(*)
+      into v_item_tops, v_top_total, v_top_count
+      from toppings t
+      join menu_item_toppings mit on mit.topping_id = t.id and mit.menu_item_id = v_menu.id
+      where t.id = any(v_topping_ids) and t.store_id = v_store and t.is_available = true;
+      if v_top_count <> array_length(v_topping_ids,1) then
+        raise exception 'Topping không hợp lệ / chưa gán cho món / ngừng bán: %', v_menu.name;
+      end if;
+    end if;
+
+    -- Snapshot tên + giá lúc order (CLAUDE.md quy tắc bắt buộc).
+    -- item_price = giá món, CHƯA gồm topping — xem chú thích (a) đầu mục 7.
+    insert into order_items (order_id, menu_item_id, item_name, item_price, quantity, note, selected_toppings)
+    values (v_order_id, v_menu.id, v_menu.name, v_menu.price, v_qty,
+            nullif(v_item->>'note',''), v_item_tops);
+
+    v_total := v_total + (v_menu.price + v_top_total) * v_qty;
+  end loop;
+
+  update orders set total_amount = v_total where id = v_order_id;
+
+  -- 8) Trả đủ để UI hiện ngay, không phải query lại
+  return jsonb_build_object(
+    'order_id',   v_order_id,
+    'total',      v_total,
+    'idempotent', false,
+    'items',      coalesce((select jsonb_agg(to_jsonb(oi))
+                            from order_items oi where oi.order_id = v_order_id), '[]'::jsonb)
+  );
+end $$;
+
+-- ⚠️ `revoke ... from public` KHÔNG đủ ở Supabase. ALTER DEFAULT PRIVILEGES của
+-- Supabase cấp EXECUTE THẲNG cho `anon` (và service_role) trên MỌI function mới
+-- trong schema public — đã xác minh bằng pg_default_acl. Grant thẳng cho role thì
+-- revoke từ `public` không gỡ được. Không revoke anon = mini-app cầm anon key gọi
+-- được staff_create_order. Hiện chưa khai thác được (auth.uid() null → không có
+-- dòng mevo_operators → raise), nhưng đó là phòng tuyến DUY NHẤT — đừng bỏ lớp thứ hai.
+revoke all on function staff_create_order(uuid, jsonb, text, uuid, text) from public;
+revoke all on function staff_create_order(uuid, jsonb, text, uuid, text) from anon;
+grant execute on function staff_create_order(uuid, jsonb, text, uuid, text) to authenticated;
