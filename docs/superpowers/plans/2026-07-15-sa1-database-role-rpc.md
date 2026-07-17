@@ -733,7 +733,14 @@ begin
   return jsonb_build_object('ok', true, 'already', false);
 end $$;
 
-revoke all on function confirm_manual_payment(uuid) from public;
+-- ⚠️ REVOKE FROM public KHÔNG ĐỦ trên Supabase.
+-- pg_default_acl của schema public cấp EXECUTE THẲNG cho role `anon` trên mọi
+-- function mới: {postgres=X, anon=X, authenticated=X, service_role=X}.
+-- `public` là pseudo-role "mọi người" — revoke nó KHÔNG gỡ grant đích danh anon.
+-- Đã đo trên prod 2026-07-15: kitchen_set_status, spin_wheel, get_daily_revenue...
+-- đều anon-callable dù migration có `revoke from public`.
+-- Phải revoke anon TƯỜNG MINH:
+revoke all on function confirm_manual_payment(uuid) from public, anon;
 grant execute on function confirm_manual_payment(uuid) to authenticated;
 ```
 
