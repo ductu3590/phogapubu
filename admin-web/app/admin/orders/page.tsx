@@ -5,6 +5,7 @@ import { redeemSpin } from '@/lib/actions/spin'
 import { DatePicker } from './date-picker'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { redirect } from 'next/navigation'
+import { hasRealMoney, isAwaitingPayment } from '@/lib/revenue'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Chờ', confirmed: 'Xác nhận', cooking: 'Đang làm',
@@ -59,11 +60,9 @@ export default async function OrdersPage({
   const spinByOrder = new Map(
     (spinResults ?? []).map((s) => [s.order_id, s]),
   )
-  // Doanh thu = tiền THẬT đã nhận: ZaloPay đã có trans_id (chưa huỷ) HOẶC tiền mặt đã thu
-  const isReceived = (o: { payment_method: string; zalopay_trans_id: string | null; status: string }) =>
-    (o.payment_method === 'zalopay' && !!o.zalopay_trans_id && o.status !== 'cancelled') ||
-    (o.payment_method === 'cash' && o.status === 'paid')
-  const totalRevenue = list.filter(isReceived).reduce((s, o) => s + o.total_amount, 0)
+  // Doanh thu = tiền THẬT đã nhận — luật gộp về lib/revenue.ts, khớp SQL
+  // get_daily_revenue (028 mục 9). Đừng chép lại luật ở đây lần nữa.
+  const totalRevenue = list.filter(hasRealMoney).reduce((s, o) => s + o.total_amount, 0)
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -91,7 +90,7 @@ export default async function OrdersPage({
           const items = (order.order_items ?? []) as any[]
           const tableNumber = (order.tables as { table_number: string } | null)?.table_number ?? 'Bàn ?'
           const shortId = order.id.slice(-6).toUpperCase()
-          const isCashUnpaid = order.payment_method === 'cash' && !['paid', 'cancelled'].includes(order.status)
+          const isCashUnpaid = isAwaitingPayment(order)
 
           return (
             <div key={order.id} className="rounded-xl border border-gray-200 bg-white p-4">
