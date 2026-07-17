@@ -1,6 +1,6 @@
 // Database types tương ứng với schema Supabase
 export type OrderStatus = 'pending' | 'confirmed' | 'cooking' | 'ready' | 'paid' | 'cancelled'
-export type PaymentMethod = 'zalopay' | 'cash'
+export type PaymentMethod = 'zalopay' | 'cash' | 'bank_transfer'
 export type OrderType = 'dine_in' | 'pickup' | 'delivery'
 
 // --- Row types ---
