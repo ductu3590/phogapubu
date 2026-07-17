@@ -541,45 +541,20 @@ Viết code → Chạy được → Test trên browser → Test trên điện th
 
 ## SPRINT SA-1 — Database, role và RPC (Staff Assisted Ordering) — 2026-07-16
 
-> **Sprint này KHÔNG có giao diện.** Nhân viên chưa có gì để bấm — UI `/staff` nằm ở SA-3.
-> Giá trị của SA-1 đo bằng **những việc nhân viên KHÔNG làm được nữa**, không phải tính năng mới.
-> Kiểm bằng script + đối chiếu quyền chủ quán, không phải mở app bấm thử.
+> 📄 **Checklist đầy đủ nằm ở file riêng: [`TESTING-SA1.md`](TESTING-SA1.md)** (theo lệ
+> `TESTING-V2.md`, `TESTING-VOUCHER.md`). Đừng chép lại nội dung vào đây — hai bản song song
+> chắc chắn sẽ lệch nhau.
 
-### Claude Code làm xong khi:
-- Migration `028_staff_assisted_ordering.sql` đã áp lên prod (đã áp 2026-07-16, đã tự kiểm 15/15).
-- Helper `is_store_owner_or_admin()` (đọc `role`) thay `is_store_scoped_operator()` ở **11 policy GHI / 6 bảng**.
-- Role `store_staff` được phép tồn tại; RPC `staff_create_order` + `confirm_manual_payment`.
-- `bank_transfer` là phương thức hợp lệ; cột audit đơn (`order_source`, `created_by`, `payment_received_at`...).
-- `admin-web`: `lib/revenue.ts` gộp luật doanh thu, 27 test pass, tsc 0 lỗi.
+**Tóm tắt:** sprint hạ tầng, **không có giao diện** (nhân viên chưa có gì để bấm; UI `/staff` ở
+SA-3). Giá trị đo bằng những việc nhân viên **KHÔNG làm được nữa** → test bằng script SQL +
+đối chiếu quyền chủ quán, không phải mở app bấm thử.
 
-### ✅ Checklist test — Anh Tú tự làm:
+**Xong khi:** migration `028` áp prod (2026-07-16) · helper `is_store_owner_or_admin()` gác 11
+policy GHI / 6 bảng · role `store_staff` · RPC `staff_create_order` + `confirm_manual_payment` ·
+`bank_transfer` + cột audit đơn · `lib/revenue.ts` gộp luật doanh thu (27 test pass, tsc 0 lỗi).
 
-**Test 1 — Script tự động (bằng chứng chính)**
-1. Mở script `docs/superpowers/plans/sa1-verify.sql`.
-2. Chạy toàn bộ nội dung qua Supabase (SQL Editor hoặc nhờ Claude chạy qua MCP).
-3. PASS = **15 dòng kết thúc `: OK`**, KHÔNG dòng nào chứa `SAI:`.
-4. Đặc biệt để ý dòng **SANITY 0** — nó chứng minh test RLS thật sự có tác dụng (staff 0 dòng, postgres 1 dòng). Không có nó thì 12 test kia có thể "xanh giả".
-   *(Script tự dựng dữ liệu giả rồi rollback — KHÔNG để lại rác trong DB.)*
-
-**Test 2 — Chủ quán KHÔNG bị khoá nhầm (quan trọng nhất với Pubu)**
-1. Đăng nhập `/admin` bằng tài khoản chủ quán Phở Gà Pubu thật.
-2. Trang Menu: sửa giá một món → **lưu được** như trước.
-3. Trang Bàn: thêm rồi xoá một bàn test → **được**.
-4. Trang Ưu đãi (`/admin/vouchers`): tạo một mã shipper → **được**.
-   *(Nếu bất kỳ bước nào bị chặn → migration đã khoá nhầm chủ quán, báo Claude ngay.)*
-
-**Test 3 — Doanh thu khớp nhau**
-1. Mở Dashboard, ghi lại số doanh thu hôm nay.
-2. Mở trang Đơn hàng, đối chiếu số "đã thu" → **phải khớp Dashboard** (giờ dùng chung một luật).
-
-**Test 4 — Khách vẫn đặt món bình thường (không regression)**
-1. Mở mini-app quán Pubu, đặt một đơn **tiền mặt** → vào bếp bình thường.
-2. Đặt một đơn **ZaloPay** → thanh toán → vào bếp bình thường.
-3. Bếp vẫn nhận đơn realtime, loa đọc đơn vẫn kêu như trước.
-
-**Ghi chú cho SA-3 (chưa cần test bây giờ):** sau migration này, tài khoản `store_staff` KHÔNG
-đọc được bảng `vouchers`/`spin_rewards` qua REST (vì policy là `FOR ALL` gồm cả SELECT). Không
-phá gì hiện tại; chỉ cần nhớ khi làm màn hình staff nếu nó cần hiện mã giảm giá.
+**Hai test quan trọng nhất:** Test 1 (script `sa1-verify.sql` → 15 dòng `: OK`) và Test 2 (chủ
+quán Pubu **không** bị khoá nhầm khỏi `/admin`).
 
 ---
 
