@@ -33,11 +33,27 @@ export async function toggleTable(tableId: string, isActive: boolean) {
   revalidatePath('/admin/tables')
 }
 
-// Xoá bàn
-export async function deleteTable(tableId: string) {
-  await getStoreId() // xác thực user
+// Xoá bàn — trả về { error } thay vì throw để không làm crash trang.
+export async function deleteTable(tableId: string): Promise<{ error?: string }> {
+  const storeId = await getStoreId() // xác thực user + lấy đúng quán
   const admin = createAdminClient()
-  const { error } = await admin.from('tables').delete().eq('id', tableId)
-  if (error) throw new Error(`deleteTable: ${error.message}`)
+
+  // Bàn đã có đơn hàng thì KHÔNG xoá cứng: orders.table_id là khoá ngoại RESTRICT,
+  // xoá sẽ vỡ và làm mất liên kết lịch sử đơn/doanh thu. Hướng dẫn "Đóng" bàn thay vì xoá.
+  const { count } = await admin
+    .from('orders')
+    .select('id', { count: 'exact', head: true })
+    .eq('table_id', tableId)
+  if (count && count > 0) {
+    return { error: 'Bàn này đã có đơn hàng nên không thể xoá. Bấm "Đóng" để ẩn bàn thay vì xoá.' }
+  }
+
+  const { error } = await admin
+    .from('tables')
+    .delete()
+    .eq('id', tableId)
+    .eq('store_id', storeId) // chỉ xoá bàn của đúng quán mình
+  if (error) return { error: `Không xoá được bàn: ${error.message}` }
   revalidatePath('/admin/tables')
+  return {}
 }

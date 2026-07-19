@@ -145,12 +145,15 @@ where o.user_id = '<user-id>';
 ```
 → phải thấy `store_staff | Phở Gà Pubu`.
 
-**Bước 2 — thử quyền:**
+**Bước 2 — thử đăng nhập:**
 4. Đăng nhập `/admin` bằng tài khoản nhân viên đó.
-   → Hiện tại **chưa có gì chặn ở tầng web** (điều hướng theo role làm ở SA-2), nên có thể vào
-   được `/admin`. **Đó không phải lỗi của SA-1.** Nhưng:
-5. Thử **sửa giá một món** → **phải báo lỗi / không lưu được** (RLS chặn ở tầng DB).
-6. Thử **tạo mã giảm giá** ở `/admin/vouchers` → **phải không tạo được**.
+   → **Phải bị chặn ngay ở màn login** với thông báo *"Tài khoản chưa được cấp quyền vận hành.
+   Liên hệ MEVO để được cấp quyền."* — vì cổng login chỉ cho `mevo_superadmin` và `store_owner`,
+   `store_staff` không vào được `/admin`. **Bị chặn ở đây chính là kết quả PASS** (nhân viên
+   không có cửa vào khu quản trị của chủ quán).
+   > Ghi chú: bản thân việc "chặn RLS khi nhân viên cố sửa giá/tạo voucher" đã được **Test 1
+   > (script SQL)** chứng minh ở tầng DB rồi — không cần vào được web mới thấy. Nhân viên sẽ có
+   > màn hình riêng `/staff` ở SA-3; `/admin` không bao giờ mở cho `store_staff`.
 
 **Bước 3 — dọn:**
 ```sql

@@ -32,8 +32,15 @@ export default function TablesClient({
 
   const handleDelete = (tableId: string, name: string) => {
     if (!confirm(`Xoá "${name}"? Thao tác không thể hoàn tác.`)) return
+    const snapshot = tables
     setTables((prev) => prev.filter((t) => t.id !== tableId))
-    startTransition(() => deleteTable(tableId))
+    startTransition(async () => {
+      const res = await deleteTable(tableId)
+      if (res?.error) {
+        setTables(snapshot) // hoàn tác optimistic update khi xoá thất bại
+        alert(res.error)
+      }
+    })
   }
 
   const handleDownloadQR = async (table: Table) => {
