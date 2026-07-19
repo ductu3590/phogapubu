@@ -17,14 +17,17 @@ export async function signIn(formData: FormData) {
 
   const { data: op } = await supabase
     .from('mevo_operators')
-    .select('role, store_id')
+    .select('role, store_id, is_active')
     .eq('user_id', data.user.id)
     .maybeSingle()
 
-  const isValidSuperadmin = op?.role === 'mevo_superadmin' && op.store_id === null
-  const isValidStoreOwner = op?.role === 'store_owner' && !!op.store_id
+  // Nhân viên bị vô hiệu hoá (is_active=false) không đăng nhập được.
+  const active = op?.is_active !== false
+  const isValidSuperadmin = active && op?.role === 'mevo_superadmin' && op.store_id === null
+  const isValidStoreOwner = active && op?.role === 'store_owner' && !!op.store_id
+  const isValidStoreStaff = active && op?.role === 'store_staff' && !!op.store_id
 
-  if (!isValidSuperadmin && !isValidStoreOwner) {
+  if (!isValidSuperadmin && !isValidStoreOwner && !isValidStoreStaff) {
     await supabase.auth.signOut()
     return { error: 'Tài khoản chưa được cấp quyền vận hành. Liên hệ MEVO để được cấp quyền.' }
   }
@@ -32,7 +35,8 @@ export async function signIn(formData: FormData) {
   // Không gọi redirect() trong Server Action được invoke từ Client Component —
   // React 19 sẽ treat NEXT_REDIRECT throw như unhandled error.
   // Trả về success + đích đến, để client tự navigate.
-  return { success: true, redirectTo: isValidSuperadmin ? '/mevo' : '/admin' }
+  const redirectTo = isValidSuperadmin ? '/mevo' : isValidStoreStaff ? '/staff/order' : '/admin'
+  return { success: true, redirectTo }
 }
 
 export async function signOut() {
