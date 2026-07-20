@@ -23,7 +23,15 @@ export default async function StaffLayout({ children }: { children: React.ReactN
         <div className="flex flex-shrink-0 items-center gap-3">
           <span className="hidden truncate text-xs text-gray-400 sm:inline">{user?.email}</span>
           <form action={signOut}>
-            <button type="submit" className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50">
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm active:bg-gray-100"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <path d="m16 17 5-5-5-5" />
+                <path d="M21 12H9" />
+              </svg>
               Đăng xuất
             </button>
           </form>
