@@ -122,7 +122,7 @@ export default function StaffOrderClient({ tables, categories }: { tables: Table
   // ---- Màn thành công ----
   if (success) {
     return (
-      <div className="mx-auto max-w-md px-4 py-10 text-center">
+      <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center overflow-y-auto px-4 py-8 text-center">
         <div className="mb-3 text-6xl">✅</div>
         <h1 className="text-xl font-bold text-gray-900">Đã gửi vào bếp</h1>
         <div className="mx-auto mt-5 max-w-xs space-y-1 rounded-2xl border border-gray-200 bg-white p-5 text-left text-sm">
@@ -141,7 +141,7 @@ export default function StaffOrderClient({ tables, categories }: { tables: Table
   // ---- Màn chọn bàn ----
   if (!tableId) {
     return (
-      <div className="mx-auto max-w-md px-4 py-6">
+      <div className="mx-auto h-full max-w-md overflow-y-auto px-4 py-6">
         <h1 className="mb-4 text-lg font-bold text-gray-900">Chọn bàn</h1>
         {tables.length === 0 ? (
           <p className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-400">Quán chưa có bàn nào đang bật.</p>
@@ -164,9 +164,9 @@ export default function StaffOrderClient({ tables, categories }: { tables: Table
 
   // ---- Màn menu ----
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-52px)] max-w-md flex-col">
+    <div className="mx-auto flex h-full max-w-md flex-col">
       {/* Bàn hiện tại + đổi bàn */}
-      <div className="sticky top-[52px] z-10 border-b border-gray-100 bg-white px-4 py-2.5">
+      <div className="flex-shrink-0 border-b border-gray-100 bg-white px-4 py-2.5">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-semibold text-gray-900">🪑 {tableNumber}</span>
           <button onClick={() => setTableId(null)} className="rounded-lg px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50">Đổi bàn</button>
@@ -193,7 +193,7 @@ export default function StaffOrderClient({ tables, categories }: { tables: Table
       </div>
 
       {/* Danh sách món */}
-      <div className="flex-1 px-4 py-3 pb-28">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {visibleItems.length === 0 ? (
           <p className="py-10 text-center text-sm text-gray-400">Không có món phù hợp.</p>
         ) : (
@@ -224,9 +224,9 @@ export default function StaffOrderClient({ tables, categories }: { tables: Table
         )}
       </div>
 
-      {/* Sticky cart bar */}
+      {/* Thanh giỏ cố định đáy (trong luồng flex, không dùng fixed để khỏi tràn viewport) */}
       {cartCount > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md p-3">
+        <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50 p-3">
           <button
             onClick={() => setShowCart(true)}
             className="flex w-full items-center justify-between rounded-2xl bg-orange-500 px-5 py-3.5 text-white shadow-lg active:bg-orange-600"

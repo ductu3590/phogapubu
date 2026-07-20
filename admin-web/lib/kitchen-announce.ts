@@ -7,7 +7,13 @@
 // Đơn đang ở trạng thái "trong bếp" (đã trả tiền hoặc tiền mặt chờ làm)?
 // Khớp đúng điều kiện cột "CHỜ XỬ LÝ": ZaloPay pending chưa trả tiền KHÔNG tính.
 export function orderInKitchen(status: string, paymentMethod: string): boolean {
-  return status === 'confirmed' || (status === 'pending' && paymentMethod === 'cash')
+  // Đơn staff tiền mặt / chuyển khoản vào bếp NGAY ở 'pending' (chưa thu tiền, thu tại quầy sau —
+  // spec staff §8.1). ZaloPay (ví) vẫn phải 'confirmed'. Khách tự đặt không tạo đơn bank_transfer
+  // (create_order chỉ nhận zalopay/cash) nên mở predicate này chỉ ảnh hưởng đơn staff.
+  return (
+    status === 'confirmed' ||
+    (status === 'pending' && (paymentMethod === 'cash' || paymentMethod === 'bank_transfer'))
+  )
 }
 
 // Có nên "báo bếp" (chuông + đọc) cho sự kiện đơn này không?
