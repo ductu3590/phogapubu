@@ -6,6 +6,7 @@ import { DatePicker } from './date-picker'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { redirect } from 'next/navigation'
 import { hasRealMoney, isAwaitingPayment } from '@/lib/revenue'
+import OrdersRealtime from './orders-realtime'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Chờ', confirmed: 'Xác nhận', cooking: 'Đang làm',
@@ -66,6 +67,8 @@ export default async function OrdersPage({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Tự làm mới khi có đơn/thanh toán thay đổi — không bắt F5 */}
+      <OrdersRealtime storeId={storeId} />
       {/* Header */}
       <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
         <div className="flex items-center justify-between">
