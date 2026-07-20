@@ -14,7 +14,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   return (
     // App-shell: cao đúng viewport (dvh chuẩn cho mobile), chỉ vùng nội dung cuộn — không để
     // trang tự dài ra gây scroll thừa/khoảng trống.
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-gray-50">
+    <div className="flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-gray-50">
       <header className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-wider text-orange-500">MEVO · Đặt hộ</p>
