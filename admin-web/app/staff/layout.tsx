@@ -1,6 +1,7 @@
 import { requireStaffAreaOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { signOut } from '@/app/(auth)/login/actions'
+import StaffNav from './staff-nav'
 
 // Khu nhân viên đặt hộ — mobile-first. Cho store_staff và store_owner (owner vào để hỗ trợ/test).
 // UI đặt món thật hoàn thiện ở SA-3; SA-2 chỉ dựng auth + khung.
@@ -37,6 +38,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
           </form>
         </div>
       </header>
+      <StaffNav />
       <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
     </div>
   )
