@@ -558,6 +558,26 @@ quán Pubu **không** bị khoá nhầm khỏi `/admin`).
 
 ---
 
+## SPRINT PM-1 — Vá bug notify + gộp doanh thu (Multi-method Payment) — 2026-07-21
+
+> 📄 **Checklist đầy đủ nằm ở file riêng: [`TESTING-PM1.md`](TESTING-PM1.md)** (theo lệ
+> `TESTING-SA1.md`, `TESTING-VOUCHER.md`).
+
+**Tóm tắt:** sprint **additive** — vá bug "notify BANK = đã trả tiền" (thoát app ngân hàng vẫn
+được tính doanh thu), gộp mọi luật "đã thu tiền" về `payment_received_at`. **KHÔNG rename kênh**
+(mini-app vẫn gửi `zalopay`) nên mini-app KHÔNG cần deploy lại.
+
+**Xong khi:** migration `030` áp prod (2026-07-21) · `checkout-notify` v13 (BANK chỉ handoff) ·
+`confirm_manual_payment` set `via='owner'` · `staff_create_order`/`create_order` set
+`payment_amount` · cột `payment_instrument`/`payment_received_via`/`bank_handoff_at`/
+`has_payment_tail`/`payment_amount` · doanh thu/spin/voucher gộp về `payment_received_at`
+(revenue 63 test + decide 10 test pass).
+
+**Test quan trọng nhất:** Test 1 (thoát app ngân hàng → đơn KHÔNG vào bếp/doanh thu) và Test 2
+(ví ZaloPay mới vẫn vào doanh thu — bẫy regression).
+
+---
+
 ## KHI GẶP LỖI — Cách báo cáo hiệu quả
 
 Khi test FAIL, báo Claude Code theo format này để fix nhanh nhất:
