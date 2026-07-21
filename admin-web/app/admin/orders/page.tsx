@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { formatVND } from '@/lib/utils'
-import { confirmManualPayment, cancelOrder } from '@/lib/actions/orders'
+import { confirmManualPayment, completeOrder, cancelOrder } from '@/lib/actions/orders'
 import { redeemSpin } from '@/lib/actions/spin'
 import { DatePicker } from './date-picker'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
@@ -116,6 +116,7 @@ export default async function OrdersPage({
           const tableNumber = (order.tables as { table_number: string } | null)?.table_number ?? 'Bàn ?'
           const shortId = order.id.slice(-6).toUpperCase()
           const isCashUnpaid = isAwaitingPayment(order)
+          const isActive = order.status !== 'paid' && order.status !== 'cancelled'
 
           return (
             <div key={order.id} className="rounded-xl border border-gray-200 bg-white p-4">
@@ -190,25 +191,37 @@ export default async function OrdersPage({
                 )
               })()}
 
-              {/* Actions */}
-              {isCashUnpaid && (
-                <div className="flex gap-2">
-                  <form action={confirmManualPayment.bind(null, order.id)}>
+              {/* Actions — đơn còn đang xử lý (chưa đóng/huỷ) */}
+              {isActive && (
+                <div className="flex flex-wrap gap-2">
+                  {isCashUnpaid && (
+                    <form action={confirmManualPayment.bind(null, order.id)}>
+                      <button
+                        type="submit"
+                        className="rounded-xl border border-green-500 px-4 py-2 text-sm font-semibold text-green-600 hover:bg-green-50"
+                      >
+                        ✓ Đã nhận tiền
+                      </button>
+                    </form>
+                  )}
+                  <form action={completeOrder.bind(null, order.id)}>
                     <button
                       type="submit"
                       className="rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
                     >
-                      ✓ Đã nhận tiền
+                      ✓ Hoàn tất
                     </button>
                   </form>
-                  <form action={cancelOrder.bind(null, order.id)}>
-                    <button
-                      type="submit"
-                      className="rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50"
-                    >
-                      Huỷ đơn
-                    </button>
-                  </form>
+                  {isCashUnpaid && (
+                    <form action={cancelOrder.bind(null, order.id)}>
+                      <button
+                        type="submit"
+                        className="rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50"
+                      >
+                        Huỷ đơn
+                      </button>
+                    </form>
+                  )}
                 </div>
               )}
             </div>

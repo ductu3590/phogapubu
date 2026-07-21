@@ -3,6 +3,7 @@ import { formatVND } from '@/lib/utils'
 import Link from 'next/link'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { redirect } from 'next/navigation'
+import { completeOrder } from '@/lib/actions/orders'
 
 export default async function DashboardPage() {
   const operator = await requireOperatorOrRedirect()
@@ -99,6 +100,15 @@ export default async function DashboardPage() {
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium text-gray-700">{formatVND(Number(order.total_amount))}</span>
                   <StatusBadge status={order.status as string} />
+                  {/* Hoàn tất & đã thu: đóng đơn treo (xác nhận tiền nếu chưa thu) */}
+                  <form action={completeOrder.bind(null, order.id as string)}>
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-green-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-600"
+                    >
+                      ✓ Hoàn tất
+                    </button>
+                  </form>
                 </div>
               </div>
             ))}

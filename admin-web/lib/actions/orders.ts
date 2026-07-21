@@ -18,6 +18,35 @@ export async function confirmManualPayment(orderId: string) {
   revalidatePath('/admin/dashboard')
 }
 
+// Hoàn tất đơn ("Hoàn tất & đã thu"): xác nhận đã nhận tiền (nếu là tiền mặt/chuyển khoản chưa thu)
+// RỒI đóng đơn (status='paid') để nó rời khỏi "Đang xử lý" + màn bếp. Chỉ chủ quán.
+// Đơn zalopay/đã thu thì bỏ qua bước xác nhận, chỉ đóng. Update qua client authenticated → RLS
+// auth_update_orders (owner-only) gác, không dùng service role.
+export async function completeOrder(orderId: string) {
+  await requireStoreOwnerStoreId()
+  const supabase = await createClient()
+
+  const { data: order, error: readErr } = await supabase
+    .from('orders')
+    .select('payment_method, payment_received_at, status')
+    .eq('id', orderId)
+    .single()
+  if (readErr || !order) throw new Error(`completeOrder(read): ${readErr?.message ?? 'không tìm thấy đơn'}`)
+  if (order.status === 'cancelled') throw new Error('Đơn đã huỷ, không hoàn tất được')
+
+  // Tiền mặt/chuyển khoản chưa xác nhận → ghi nhận đã nhận tiền (RPC idempotent, chỉ owner).
+  if ((order.payment_method === 'cash' || order.payment_method === 'bank_transfer') && !order.payment_received_at) {
+    const { error: payErr } = await supabase.rpc('confirm_manual_payment', { p_order_id: orderId })
+    if (payErr) throw new Error(`completeOrder(pay): ${payErr.message}`)
+  }
+
+  const { error: closeErr } = await supabase.from('orders').update({ status: 'paid' }).eq('id', orderId)
+  if (closeErr) throw new Error(`completeOrder(close): ${closeErr.message}`)
+
+  revalidatePath('/admin/orders')
+  revalidatePath('/admin/dashboard')
+}
+
 // Huỷ đơn
 export async function cancelOrder(orderId: string) {
   const admin = createAdminClient()
