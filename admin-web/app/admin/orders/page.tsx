@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
 import { formatVND } from '@/lib/utils'
-import { markOrderPaid, cancelOrder } from '@/lib/actions/orders'
+import { confirmManualPayment, cancelOrder } from '@/lib/actions/orders'
 import { redeemSpin } from '@/lib/actions/spin'
 import { DatePicker } from './date-picker'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { redirect } from 'next/navigation'
 import { hasRealMoney, isAwaitingPayment } from '@/lib/revenue'
+import { paymentBadge } from '@/lib/order-payment-badge'
 import OrdersRealtime from './orders-realtime'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -24,9 +26,10 @@ const STATUS_COLOR: Record<string, string> = {
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>
+  searchParams: Promise<{ date?: string; unpaid?: string }>
 }) {
-  const { date } = await searchParams
+  const { date, unpaid } = await searchParams
+  const showUnpaidOnly = unpaid === '1'
   const operator = await requireOperatorOrRedirect()
   if (operator.role !== 'store_owner') redirect('/mevo')
   const storeId = operator.storeId
@@ -48,9 +51,12 @@ export default async function OrdersPage({
     .lte('created_at', dayEnd.toISOString())
     .order('created_at', { ascending: false })
 
-  const list = orders ?? []
+  const fullList = orders ?? []
+  const unpaidCount = fullList.filter(isAwaitingPayment).length
+  // Filter "chưa thu": chỉ đơn tiền mặt/chuyển khoản chưa xác nhận nhận tiền.
+  const list = showUnpaidOnly ? fullList.filter(isAwaitingPayment) : fullList
 
-  // Kết quả vòng quay cho các đơn trong ngày (badge + nút "Đã đổi thưởng")
+  // Kết quả vòng quay cho các đơn hiển thị (badge + nút "Đã đổi thưởng")
   const orderIds = list.map((o) => o.id)
   const { data: spinResults } = orderIds.length
     ? await supabase
@@ -62,8 +68,8 @@ export default async function OrdersPage({
     (spinResults ?? []).map((s) => [s.order_id, s]),
   )
   // Doanh thu = tiền THẬT đã nhận — luật gộp về lib/revenue.ts, khớp SQL
-  // get_daily_revenue (028 mục 9). Đừng chép lại luật ở đây lần nữa.
-  const totalRevenue = list.filter(hasRealMoney).reduce((s, o) => s + o.total_amount, 0)
+  // get_daily_revenue (028 mục 9). Tính trên TOÀN BỘ đơn trong ngày (không phụ thuộc filter hiển thị).
+  const totalRevenue = fullList.filter(hasRealMoney).reduce((s, o) => s + o.total_amount, 0)
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -74,10 +80,26 @@ export default async function OrdersPage({
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900">📋 Đơn hàng</h1>
-            <p className="text-sm text-gray-500">{list.length} đơn • Doanh thu: {formatVND(totalRevenue)}</p>
+            <p className="text-sm text-gray-500">
+              {fullList.length} đơn • Doanh thu: {formatVND(totalRevenue)}
+              {unpaidCount > 0 && <span className="text-yellow-600"> • Chưa thu: {unpaidCount}</span>}
+            </p>
           </div>
-          {/* Date picker — phải là Client Component vì dùng onChange */}
-          <DatePicker defaultValue={selectedDate} />
+          <div className="flex items-center gap-2">
+            {/* Filter "chưa thu" — chỉ đơn tiền mặt/chuyển khoản chưa xác nhận nhận tiền */}
+            <Link
+              href={showUnpaidOnly ? `/admin/orders?date=${selectedDate}` : `/admin/orders?date=${selectedDate}&unpaid=1`}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
+                showUnpaidOnly
+                  ? 'border-yellow-300 bg-yellow-50 text-yellow-700'
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {showUnpaidOnly ? '✓ Chưa thu' : 'Chưa thu'}
+            </Link>
+            {/* Date picker — phải là Client Component vì dùng onChange */}
+            <DatePicker defaultValue={selectedDate} />
+          </div>
         </div>
       </div>
 
@@ -105,9 +127,14 @@ export default async function OrdersPage({
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[order.status] ?? 'bg-gray-100'}`}>
                       {STATUS_LABEL[order.status] ?? order.status}
                     </span>
-                    {order.payment_method === 'cash' && (
-                      <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-xs text-yellow-600">💵 Tiền mặt</span>
-                    )}
+                    {(() => {
+                      const pay = paymentBadge(order.payment_method, hasRealMoney(order))
+                      return (
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${pay.tone === 'received' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-700'}`}>
+                          {pay.label}
+                        </span>
+                      )
+                    })()}
                   </div>
                   <p className="mt-0.5 text-xs text-gray-400">
                     {new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
@@ -166,12 +193,12 @@ export default async function OrdersPage({
               {/* Actions */}
               {isCashUnpaid && (
                 <div className="flex gap-2">
-                  <form action={markOrderPaid.bind(null, order.id)}>
+                  <form action={confirmManualPayment.bind(null, order.id)}>
                     <button
                       type="submit"
                       className="rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
                     >
-                      ✓ Đã thanh toán
+                      ✓ Đã nhận tiền
                     </button>
                   </form>
                   <form action={cancelOrder.bind(null, order.id)}>

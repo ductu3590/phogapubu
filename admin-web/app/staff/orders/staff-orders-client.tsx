@@ -125,7 +125,7 @@ export default function StaffOrdersClient({
         ) : (
           <ul className="space-y-2.5">
             {orders.map((o) => {
-              const pay = paymentBadge(o)
+              const pay = paymentBadge(o.paymentMethod, !!(o.paymentReceivedAt || o.zalopayTransId))
               return (
                 <li key={o.id} className="rounded-xl border border-gray-100 bg-white p-3">
                   <div className="mb-2 flex items-start justify-between gap-2">
