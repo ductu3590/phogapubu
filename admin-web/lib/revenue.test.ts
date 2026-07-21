@@ -2,14 +2,21 @@ import { describe, it, expect } from 'vitest'
 import { hasRealMoney } from './revenue'
 
 describe('hasRealMoney', () => {
-  it('ZaloPay có trans_id → đã có tiền', () => {
+  it('ZaloPay đã callback (payment_received_at) → đã có tiền', () => {
     expect(hasRealMoney({
       payment_method: 'zalopay', status: 'confirmed',
-      zalopay_trans_id: 'ZP123', payment_received_at: null,
+      zalopay_trans_id: 'ZP123', payment_received_at: '2026-07-21T10:00:00Z',
     })).toBe(true)
   })
 
-  it('ZaloPay chưa có trans_id → chưa có tiền', () => {
+  it('ZaloPay chỉ có trans_id, CHƯA payment_received_at → chưa có tiền (bug §1.1: notify ≠ đã trả)', () => {
+    expect(hasRealMoney({
+      payment_method: 'zalopay', status: 'confirmed',
+      zalopay_trans_id: 'BANK:x', payment_received_at: null,
+    })).toBe(false)
+  })
+
+  it('ZaloPay chưa có gì → chưa có tiền', () => {
     expect(hasRealMoney({
       payment_method: 'zalopay', status: 'pending',
       zalopay_trans_id: null, payment_received_at: null,
@@ -48,13 +55,6 @@ describe('hasRealMoney', () => {
     expect(hasRealMoney({
       payment_method: 'bank_transfer', status: 'cancelled',
       zalopay_trans_id: null, payment_received_at: '2026-07-15T10:00:00Z',
-    })).toBe(false)
-  })
-
-  it('ZaloPay có trans_id nhưng cancelled → KHÔNG tính', () => {
-    expect(hasRealMoney({
-      payment_method: 'zalopay', status: 'cancelled',
-      zalopay_trans_id: 'ZP123', payment_received_at: null,
     })).toBe(false)
   })
 })
