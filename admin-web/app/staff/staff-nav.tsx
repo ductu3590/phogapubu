@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 
 const tabs = [
   { href: '/staff/order', label: 'Đặt món', icon: '🧾' },
-  { href: '/staff/orders', label: 'Đơn đang xử lý', icon: '📋' },
+  { href: '/staff/orders', label: 'Đang xử lý', icon: '📋' },
 ]
 
 export default function StaffNav() {
