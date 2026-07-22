@@ -55,13 +55,20 @@ export const orderService = {
     while (Date.now() < deadline) {
       const { data } = await supabase
         .from("orders")
-        .select("status, zalopay_trans_id")
+        .select("status, zalopay_trans_id, bank_handoff_at")
         .eq("id", orderId)
         .single();
       if (data) {
         const status = data.status as string;
         if (status === "cancelled") return false;
-        if (data.zalopay_trans_id || (status !== "pending" && status !== "cancelled")) {
+        // Ví: confirmed / có trans_id. Chuyển khoản (PM-1): notify CHỈ set bank_handoff_at, KHÔNG
+        // còn tự confirm nữa → coi handoff là "đã ghi nhận, chờ quán xác nhận" để KHÔNG chờ hết
+        // 12s rồi đòi khách thanh toán lại (bug UX sau khi vá notify).
+        if (
+          data.zalopay_trans_id ||
+          data.bank_handoff_at ||
+          (status !== "pending" && status !== "cancelled")
+        ) {
           return true;
         }
       }

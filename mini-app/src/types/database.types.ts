@@ -99,6 +99,7 @@ export interface Database {
           note: string | null
           payment_method: 'zalopay' | 'cash' | 'bank_transfer'
           capability_token: string | null
+          bank_handoff_at: string | null
           created_at: string
           updated_at: string
         }
