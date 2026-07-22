@@ -57,7 +57,7 @@ export default function CheckoutPage() {
   const queryClient = useQueryClient();
   const [note, setNote] = useState("");
   const [voucher, setVoucher] = useState<MyVoucher | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("zalopay");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("zalo_checkout");
   const [isProcessing, setIsProcessing] = useState(false);
   // Đơn ZaloPay đang chờ xử lý (kèm capability token để chuyển sang tiền mặt nếu bỏ dở)
   const [pendingZp, setPendingZp] = useState<{ id: string; token: string | null } | null>(null);
@@ -85,7 +85,7 @@ export default function CheckoutPage() {
   const warmedRef = useRef(false);
   useEffect(() => {
     if (warmedRef.current) return;
-    const willUseOnlinePay = isTakeaway || paymentMethods.includes("zalopay");
+    const willUseOnlinePay = isTakeaway || paymentMethods.includes("zalo_checkout");
     if (!willUseOnlinePay) return;
     warmedRef.current = true;
     void paymentService.warmupCheckout();
@@ -171,7 +171,7 @@ export default function CheckoutPage() {
             .map((v) => v.optionId),
         })),
         note: note.trim() || undefined,
-        paymentMethod: isTakeaway ? "zalopay" : paymentMethod,
+        paymentMethod: isTakeaway ? "zalo_checkout" : paymentMethod,
         zaloUserId: zaloUserId || undefined,
         voucherCode: voucher?.code,
         ...(isTakeaway && {
@@ -187,7 +187,7 @@ export default function CheckoutPage() {
         onSuccess: async (order) => {
           // Invalidate tab "Đã gọi" để hiện đơn mới ngay lập tức
           void queryClient.invalidateQueries({ queryKey: [GET_SESSION_ORDERS_KEY] });
-          if (isTakeaway || paymentMethod === "zalopay") {
+          if (isTakeaway || paymentMethod === "zalo_checkout") {
             if (isTakeaway) {
               localStorage.setItem("mevo_last_takeaway_order", order.id);
             }
@@ -432,14 +432,14 @@ export default function CheckoutPage() {
           <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-4">
             <p className="mb-3 text-large-m font-semibold">Thanh toán</p>
             <div className="flex flex-col gap-2">
-              {paymentMethods.includes("zalopay") && (
+              {paymentMethods.includes("zalo_checkout") && (
                 <PaymentOption
-                  id="zalopay"
+                  id="zalo_checkout"
                   label="ZaloPay"
                   sublabel="Thanh toán trong Zalo, nhanh 1 chạm"
                   emoji="💳"
-                  selected={paymentMethod === "zalopay"}
-                  onSelect={() => setPaymentMethod("zalopay")}
+                  selected={paymentMethod === "zalo_checkout"}
+                  onSelect={() => setPaymentMethod("zalo_checkout")}
                 />
               )}
               {paymentMethods.includes("cash") && (
@@ -548,7 +548,7 @@ export default function CheckoutPage() {
               : "Đang mở thanh toán..."
             : isTakeaway
               ? "Đặt mang về & Thanh toán"
-              : paymentMethod === "zalopay"
+              : paymentMethod === "zalo_checkout"
                 ? "Đặt món & Thanh toán"
                 : "Đặt món (Trả tiền mặt)"}
         </Button>

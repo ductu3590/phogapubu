@@ -62,9 +62,9 @@ function AppInit() {
           paymentMethods: (() => {
             const raw = (storeRes.data.payment_methods ?? []) as string[];
             const valid = raw.filter((m): m is PaymentMethod =>
-              m === "zalopay" || m === "cash"
+              m === "zalo_checkout" || m === "cash"
             );
-            return valid.length > 0 ? valid : ["zalopay", "cash"];
+            return valid.length > 0 ? valid : ["zalo_checkout", "cash"];
           })(),
           takeawayBannerUrl: storeRes.data.takeaway_banner_url ?? "",
           aboutText: storeRes.data.about_text ?? "",

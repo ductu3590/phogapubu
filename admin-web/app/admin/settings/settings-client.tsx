@@ -375,12 +375,12 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
         </p>
         <div className="flex flex-col gap-2">
           <PaymentToggle
-            id="zalopay"
+            id="zalo_checkout"
             label="ZaloPay"
             description="Khách thanh toán trong Zalo trước khi bếp làm"
-            checked={methods.has('zalopay')}
-            disabled={methods.size === 1 && methods.has('zalopay')}
-            onChange={() => toggleMethod('zalopay')}
+            checked={methods.has('zalo_checkout')}
+            disabled={methods.size === 1 && methods.has('zalo_checkout')}
+            onChange={() => toggleMethod('zalo_checkout')}
           />
           <PaymentToggle
             id="cash"

@@ -25,7 +25,7 @@ export interface Order {
   status: OrderState;
   totalAmount: number;
   discountAmount: number;
-  paymentMethod: "zalopay" | "cash";
+  paymentMethod: "zalo_checkout" | "cash";
   zalopayTransId: string | null;
   note: string | null;
   createdAt: string;
@@ -55,7 +55,7 @@ export interface CreateOrderRequest {
     toppingIds?: string[];
   }[];
   note?: string;
-  paymentMethod: "zalopay" | "cash";
+  paymentMethod: "zalo_checkout" | "cash";
   zaloUserId?: string;
   orderType?: OrderType;
   customerName?: string;
@@ -70,7 +70,7 @@ export interface SessionOrder {
   tableId: string;
   status: OrderState;
   totalAmount: number;
-  paymentMethod: "zalopay" | "cash";
+  paymentMethod: "zalo_checkout" | "cash";
   note: string | null;
   createdAt: string;
   updatedAt: string;
@@ -82,7 +82,7 @@ export interface TakeawayOrder {
   storeId: string;
   status: OrderState;
   totalAmount: number;
-  paymentMethod: "zalopay" | "cash";
+  paymentMethod: "zalo_checkout" | "cash";
   note: string | null;
   orderType: OrderType;
   customerName: string | null;

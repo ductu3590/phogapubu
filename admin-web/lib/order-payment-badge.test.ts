@@ -13,10 +13,10 @@ describe('paymentBadge', () => {
   it('đã nhận tiền (received=true) → received, bất kể phương thức', () => {
     expect(paymentBadge('cash', true)).toEqual({ label: '✓ Đã nhận tiền', tone: 'received' })
     expect(paymentBadge('bank_transfer', true).tone).toBe('received')
-    expect(paymentBadge('zalopay', true).tone).toBe('received')
+    expect(paymentBadge('zalo_checkout', true).tone).toBe('received')
   })
 
   it('ZaloPay chưa trả → chờ thanh toán', () => {
-    expect(paymentBadge('zalopay', false)).toEqual({ label: 'Chờ thanh toán', tone: 'pending' })
+    expect(paymentBadge('zalo_checkout', false)).toEqual({ label: 'Chờ thanh toán', tone: 'pending' })
   })
 })

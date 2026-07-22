@@ -4,21 +4,21 @@ import { hasRealMoney } from './revenue'
 describe('hasRealMoney', () => {
   it('ZaloPay đã callback (payment_received_at) → đã có tiền', () => {
     expect(hasRealMoney({
-      payment_method: 'zalopay', status: 'confirmed',
+      payment_method: 'zalo_checkout', status: 'confirmed',
       zalopay_trans_id: 'ZP123', payment_received_at: '2026-07-21T10:00:00Z',
     })).toBe(true)
   })
 
   it('ZaloPay chỉ có trans_id, CHƯA payment_received_at → chưa có tiền (bug §1.1: notify ≠ đã trả)', () => {
     expect(hasRealMoney({
-      payment_method: 'zalopay', status: 'confirmed',
+      payment_method: 'zalo_checkout', status: 'confirmed',
       zalopay_trans_id: 'BANK:x', payment_received_at: null,
     })).toBe(false)
   })
 
   it('ZaloPay chưa có gì → chưa có tiền', () => {
     expect(hasRealMoney({
-      payment_method: 'zalopay', status: 'pending',
+      payment_method: 'zalo_checkout', status: 'pending',
       zalopay_trans_id: null, payment_received_at: null,
     })).toBe(false)
   })

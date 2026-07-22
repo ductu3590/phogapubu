@@ -14,10 +14,10 @@ const UNPAID_STATUSES = new Set(["pending", "confirmed", "cooking", "ready"]);
 
 // Hình thức thanh toán + trạng thái thanh toán (dine-in)
 function getPaymentInfo(
-  paymentMethod: "zalopay" | "cash",
+  paymentMethod: "zalo_checkout" | "cash",
   status: string,
 ): { icon: string; label: string; paid: boolean } {
-  if (paymentMethod === "zalopay") {
+  if (paymentMethod === "zalo_checkout") {
     return { icon: "💳", label: "ZaloPay", paid: status !== "pending" };
   }
   return { icon: "💵", label: "Tiền mặt", paid: status === "paid" };

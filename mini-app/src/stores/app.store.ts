@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { ServingShift } from "@/utils/store-hours";
 
-export type PaymentMethod = "zalopay" | "cash";
+export type PaymentMethod = "zalo_checkout" | "cash";
 export type OrderMode = "dine_in" | "takeaway";
 
 interface AppStore {
@@ -60,7 +60,7 @@ export const useAppStore = create<AppStore>((set) => ({
   storePhone: "",
   zaloOaId: "",
   zaloOaUrl: "",
-  paymentMethods: ["zalopay", "cash"],
+  paymentMethods: ["zalo_checkout", "cash"],
   takeawayBannerUrl: "",
   aboutText: "",
   wifiName: "",

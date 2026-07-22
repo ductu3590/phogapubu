@@ -97,7 +97,7 @@ export interface Database {
           zalopay_trans_id: string | null
           zalo_user_id: string | null
           note: string | null
-          payment_method: 'zalopay' | 'cash' | 'bank_transfer'
+          payment_method: 'zalo_checkout' | 'cash' | 'bank_transfer'
           capability_token: string | null
           bank_handoff_at: string | null
           created_at: string

@@ -14,7 +14,7 @@ export const formatOrderDate = (date: string | Date) => {
 export const getPaymentMethodLabel = (method: string) => {
   const labels: Record<string, string> = {
     cash: copy.checkout.paymentMethodCash,
-    zalopay: copy.checkout.paymentMethodZaloPay,
+    zalo_checkout: copy.checkout.paymentMethodZaloPay,
     momo: copy.checkout.paymentMethodMomo,
     credit_card: copy.checkout.paymentMethodCard,
   };

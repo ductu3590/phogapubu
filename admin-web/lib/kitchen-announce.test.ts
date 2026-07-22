@@ -11,11 +11,11 @@ describe('orderInKitchen', () => {
   })
 
   it('đơn ZaloPay pending (chưa trả tiền) → CHƯA vào bếp', () => {
-    expect(orderInKitchen('pending', 'zalopay')).toBe(false)
+    expect(orderInKitchen('pending', 'zalo_checkout')).toBe(false)
   })
 
   it('mọi đơn confirmed → vào bếp (ví đã trả / chuyển khoản qua Zalo)', () => {
-    expect(orderInKitchen('confirmed', 'zalopay')).toBe(true)
+    expect(orderInKitchen('confirmed', 'zalo_checkout')).toBe(true)
     expect(orderInKitchen('confirmed', 'bank_transfer')).toBe(true)
   })
 })

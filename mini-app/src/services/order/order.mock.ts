@@ -91,7 +91,7 @@ export const mockOrders: Order[] = [
     estimatedTime: new Date("2026-01-05T15:00:00"),
     totalAmount: 60000,
     payment: {
-      method: "zalopay",
+      method: "zalo_checkout",
       subtotal: 65000,
       shippingFee: 0,
       discount: 5000,

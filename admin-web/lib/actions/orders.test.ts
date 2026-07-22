@@ -74,7 +74,7 @@ describe('completeOrder', () => {
   })
 
   it('zalopay: KHÔNG gọi xác nhận tay, chỉ đóng đơn', async () => {
-    mocks.orderRow.value = { payment_method: 'zalopay', payment_received_at: null, status: 'confirmed' }
+    mocks.orderRow.value = { payment_method: 'zalo_checkout', payment_received_at: null, status: 'confirmed' }
     await completeOrder('o1')
     expect(mocks.rpc).not.toHaveBeenCalled()
     expect(mocks.updateArgs.value).toEqual({ status: 'paid' })

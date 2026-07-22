@@ -26,7 +26,7 @@ export default async function SettingsPage() {
         <SettingsClient
           name={store?.name ?? ''}
           logoUrl={store?.logo_url ?? null}
-          paymentMethods={(store?.payment_methods as string[] | null) ?? ['zalopay']}
+          paymentMethods={(store?.payment_methods as string[] | null) ?? ['zalo_checkout']}
           zaloOaUrl={(store?.zalo_oa_url as string | null) ?? ''}
           address={(store?.address as string | null) ?? ''}
           phone={(store?.phone as string | null) ?? ''}

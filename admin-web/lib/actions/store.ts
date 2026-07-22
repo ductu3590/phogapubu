@@ -95,7 +95,7 @@ export async function updateStoreSettings(formData: FormData) {
 
   // payment_methods — ít nhất 1 phương thức (luôn validate, không bỏ qua khi rỗng)
   const rawMethods = formData.getAll('payment_methods') as string[]
-  const valid = rawMethods.filter((m) => m === 'zalopay' || m === 'cash')
+  const valid = rawMethods.filter((m) => m === 'zalo_checkout' || m === 'cash')
   if (valid.length === 0) throw new Error('Phải chọn ít nhất 1 phương thức thanh toán')
   patch.payment_methods = valid
 
