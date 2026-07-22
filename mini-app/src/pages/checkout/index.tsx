@@ -59,8 +59,6 @@ export default function CheckoutPage() {
   const [voucher, setVoucher] = useState<MyVoucher | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("zalopay");
   const [isProcessing, setIsProcessing] = useState(false);
-  // Overlay "Đang xác nhận thanh toán" khi chờ webhook chuyển khoản (notify về trễ vài giây)
-  const [verifying, setVerifying] = useState(false);
   // Đơn ZaloPay đang chờ xử lý (kèm capability token để chuyển sang tiền mặt nếu bỏ dở)
   const [pendingZp, setPendingZp] = useState<{ id: string; token: string | null } | null>(null);
 
@@ -232,31 +230,18 @@ export default function CheckoutPage() {
       }
     };
 
-    // ĐÃ khởi tạo giao dịch nhưng SDK báo chưa trả → có thể là chuyển khoản (notify trễ vài
-    // giây). CHỜ server confirm trước khi kết luận, có overlay "đang xác nhận" cho khách yên tâm.
-    const settleUnpaid = async () => {
-      setVerifying(true);
-      let confirmed = false;
-      try {
-        confirmed = await orderService.waitForConfirmation(orderId);
-      } finally {
-        setVerifying(false);
-      }
-      if (confirmed) {
-        goSuccess();
-        return;
-      }
-      // Hết thời gian chờ mà server chưa confirm → xử như huỷ
-      await settleCancelled();
-    };
-
     try {
       const outcome = await paymentService.payWithCheckoutSDK(orderId);
       if (outcome === "success") goSuccess();
       else if (outcome === "cancelled") await settleCancelled();
-      else await settleUnpaid();
+      // 'unpaid' = khách ĐÃ chọn chuyển khoản (isCustom) → đơn đã được gửi. Notify BANK của Zalo
+      // về RẤT thất thường (6s–vài phút sau PM-1, đã đo trên prod) nên KHÔNG chờ confirm nữa —
+      // chờ chỉ tổ treo 20-30s rồi đòi "thanh toán lại" sai. Vào thẳng màn trạng thái đơn; quán
+      // xác nhận khi thấy tiền, đơn không trả tự huỷ sau 30' (sweep_abandoned_orders, mig 031).
+      else goSuccess();
     } catch (_err) {
-      await settleUnpaid();
+      // Đã tạo đơn nhưng SDK lỗi bất ngờ → vẫn đưa về màn trạng thái, không chặn khách.
+      goSuccess();
     } finally {
       setIsProcessing(false);
     }
@@ -497,20 +482,6 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Overlay chờ server xác nhận chuyển khoản (notify về trễ vài giây) */}
-      {verifying && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="mx-8 flex flex-col items-center gap-3 rounded-2xl bg-white px-8 py-6 text-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-neutral100 border-t-primary" />
-            <p className="text-normal-sb font-semibold text-text-primary">
-              Đang xác nhận thanh toán…
-            </p>
-            <p className="text-xxsmall text-text-secondary">
-              Vui lòng đợi trong giây lát, đừng đóng ứng dụng.
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Dialog khi thanh toán bỏ dở/thất bại.
           Chỉ đề nghị tiền mặt khi quán bật tiền mặt trong cấu hình admin. */}
