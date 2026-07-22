@@ -578,6 +578,20 @@ quán Pubu **không** bị khoá nhầm khỏi `/admin`).
 
 ---
 
+## SPRINT — 3 việc sau PM-1 (UX CK mini-app + badge + tự huỷ/tự hoàn tất) — 2026-07-22
+
+> 📄 **Checklist đầy đủ: [`TESTING-PM-FOLLOWUPS.md`](TESTING-PM-FOLLOWUPS.md).**
+
+**Tóm tắt:** ① mini-app đơn chuyển khoản bỏ chờ 20-30s + hộp "thanh toán lại" (coi
+`bank_handoff_at` = đã ghi nhận); ② badge nguồn/loại đơn ở Admin Đơn hàng; ③ migration `031`:
+tự hoàn tất đơn TẠI BÀN khi bếp xong + đã nhận tiền (trigger, live prod) + tự huỷ đơn khách
+online bỏ dở > 30' (lazy quét khi mở Admin Đơn hàng).
+
+**Cần deploy:** admin-web (②③a lên Vercel khi merge) + **mini-app `zmp deploy`** (①). ③b (auto
+hoàn tất) đã live prod.
+
+---
+
 ## KHI GẶP LỖI — Cách báo cáo hiệu quả
 
 Khi test FAIL, báo Claude Code theo format này để fix nhanh nhất:

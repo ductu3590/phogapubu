@@ -8,6 +8,7 @@ import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { redirect } from 'next/navigation'
 import { hasRealMoney, isAwaitingPayment } from '@/lib/revenue'
 import { paymentBadge } from '@/lib/order-payment-badge'
+import { orderTags } from '@/lib/order-tags'
 import OrdersRealtime from './orders-realtime'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -35,6 +36,12 @@ export default async function OrdersPage({
   const storeId = operator.storeId
 
   const supabase = await createClient()
+
+  // Lazy-quét huỷ đơn khách online 'pending' bỏ dở > 30' (item 1) — không chặn trang nếu lỗi.
+  await supabase.rpc('sweep_abandoned_orders', { p_store_id: storeId }).then(
+    () => {},
+    () => {},
+  )
 
   // Lọc theo ngày (mặc định hôm nay)
   const selectedDate = date ?? new Date().toISOString().slice(0, 10)
@@ -136,6 +143,21 @@ export default async function OrdersPage({
                         </span>
                       )
                     })()}
+                  </div>
+                  {/* Nhãn nguồn đơn (khách tự đặt / nhân viên đặt hộ) + loại đơn (tại bàn / mang về / ship) */}
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {orderTags(order.order_source, order.order_type).map((tag) => (
+                      <span
+                        key={tag.label}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          tag.tone === 'source'
+                            ? 'bg-indigo-50 text-indigo-600'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {tag.label}
+                      </span>
+                    ))}
                   </div>
                   <p className="mt-0.5 text-xs text-gray-400">
                     {new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
