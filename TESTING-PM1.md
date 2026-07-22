@@ -5,12 +5,21 @@
 > Giá trị lớn nhất: **thoát app ngân hàng không còn được tính là đã trả tiền**.
 
 ## Chuẩn bị
-- Admin web đã deploy bản nhánh `feat/multi-method-payment-pm1` (Vercel) — cần cho test doanh thu
-  đúng luật mới. (Migration + edge function đã ở prod sẵn.)
+- **KHÔNG cần deploy admin-web.** Migration `030` + edge function `checkout-notify` v13 đã ở prod
+  là ĐỦ. Dashboard đọc `get_daily_revenue` (đã cập nhật trong DB); trang Đơn hàng dùng
+  `hasRealMoney` bản cũ nhưng cho **cùng con số** với luật mới trên mọi đơn (bản cũ tính đơn
+  zalopay theo `trans_id`, mà `checkout-notify` v13 không còn ghi `trans_id` cho BANK → tự loại
+  đúng đơn bỏ dở). PM-1 không đổi giao diện admin nào, chỉ đổi `revenue.ts` — sẽ tự lên Vercel
+  khi merge vào `main`.
 - 1 điện thoại Zalo thật (khách), 1 màn admin/bếp.
 
-## Test tự động (Claude đã chạy, anh xem log nếu muốn)
-- [ ] `cd admin-web && npx vitest run` → **63+ pass** (gồm `revenue.test.ts` luật mới).
+## Test tự động (Claude đã chạy prod — anh không phải làm)
+- [x] Migration `030` applied + backfill verify (7 BANK rời doanh thu, 32 ví giữ, 0 lỗi state/amount).
+- [x] `checkout-notify` v13 deployed + smoke test (input xấu → từ chối, không mutation).
+- [x] `create_order` e2e (rollback): `payment_amount = total_amount`, `has_payment_tail=false`.
+- [x] Function bodies prod: `confirm_manual_payment` có `via='owner'`; `staff_create_order` set
+  `payment_amount`+instrument; `spin_wheel` chặn đơn staff.
+- [ ] `cd admin-web && npx vitest run` → **63 pass** (gồm `revenue.test.ts` luật mới).
 - [ ] `cd admin-web && npx vitest run --root ../supabase/functions/checkout-notify` → **10 pass**
   (`decide.test.ts`: BANK chỉ handoff, ví đủ 5 trường, method lạ no-op, mismatch reject, idempotent).
 
@@ -50,5 +59,6 @@
 ## Ghi chú kỹ thuật
 - Migration `030` **additive** — an toàn với mini-app prod đang gửi `'zalopay'`. Rename kênh
   `zalopay→zalo_checkout` là **rollout riêng** sau khi mini-app mới publish (xem plan).
-- Nếu doanh thu Dashboard vs Đơn hàng lệch nhau ở đơn tạo trong ~vài phút giữa lúc áp migration
-  và deploy edge function (2026-07-21), đó là cửa sổ chuyển tiếp rất ngắn — báo lại để đối soát.
+- Dashboard (`get_daily_revenue`, đã ở DB) và Đơn hàng (`hasRealMoney` cũ) **cho cùng số** — nếu
+  lệch nhau ở bất kỳ đơn nào, báo lại (đó sẽ là dấu hiệu có đường set `payment_received_at` ngoài
+  dự kiến).
