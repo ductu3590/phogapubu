@@ -234,7 +234,10 @@ export default async function OrdersPage({
                       ✓ Hoàn tất
                     </button>
                   </form>
-                  {isCashUnpaid && (
+                  {/* Huỷ đơn: mọi đơn đang xử lý mà CHƯA nhận tiền thật — gồm cả đơn khách tự đặt
+                      online bỏ dở ("Chờ thanh toán"), khỏi chờ tự huỷ 30'. Đơn đã có tiền KHÔNG
+                      hiện nút này (huỷ đơn đã thu là lỗ đối soát — xử lý riêng nếu cần). */}
+                  {!hasRealMoney(order) && (
                     <form action={cancelOrder.bind(null, order.id)}>
                       <button
                         type="submit"
