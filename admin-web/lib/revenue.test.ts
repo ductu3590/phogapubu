@@ -67,14 +67,12 @@ describe('isAwaitingPayment (đơn chưa thu, xác nhận tay được)', () => 
   it('bank_transfer (staff) chưa thu → true', () => {
     expect(isAwaitingPayment({ ...base, payment_method: 'bank_transfer' })).toBe(true)
   })
-  it('KHÁCH zalo_checkout đã sang app NH (bank_handoff, không phải ví) → true', () => {
-    expect(isAwaitingPayment({ ...base, payment_method: 'zalo_checkout', bank_handoff_at: '2026-07-22T00:00:00Z', payment_instrument: 'bank' })).toBe(true)
+  it('KHÁCH zalo_checkout chưa thu tiền (không phải ví) → true (không cần bank_handoff)', () => {
+    expect(isAwaitingPayment({ ...base, payment_method: 'zalo_checkout' })).toBe(true)
+    expect(isAwaitingPayment({ ...base, payment_method: 'zalo_checkout', payment_instrument: 'bank' })).toBe(true)
   })
   it('zalo_checkout ví → false (callback tự lo)', () => {
-    expect(isAwaitingPayment({ ...base, payment_method: 'zalo_checkout', bank_handoff_at: '2026-07-22T00:00:00Z', payment_instrument: 'wallet' })).toBe(false)
-  })
-  it('zalo_checkout chưa chọn gì (không bank_handoff) → false', () => {
-    expect(isAwaitingPayment({ ...base, payment_method: 'zalo_checkout' })).toBe(false)
+    expect(isAwaitingPayment({ ...base, payment_method: 'zalo_checkout', payment_instrument: 'wallet' })).toBe(false)
   })
   it('đã có payment_received_at → false', () => {
     expect(isAwaitingPayment({ ...base, payment_method: 'cash', payment_received_at: '2026-07-22T00:00:00Z' })).toBe(false)

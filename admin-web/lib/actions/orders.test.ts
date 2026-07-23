@@ -73,8 +73,15 @@ describe('completeOrder', () => {
     expect(mocks.updateArgs.value).toEqual({ status: 'paid' })
   })
 
-  it('zalopay: KHÔNG gọi xác nhận tay, chỉ đóng đơn', async () => {
-    mocks.orderRow.value = { payment_method: 'zalo_checkout', payment_received_at: null, status: 'confirmed' }
+  it('khách chuyển khoản (zalo_checkout, không phải ví): xác nhận đã nhận tiền RỒI đóng', async () => {
+    mocks.orderRow.value = { payment_method: 'zalo_checkout', payment_received_at: null, status: 'confirmed', payment_instrument: 'bank' }
+    await completeOrder('o1')
+    expect(mocks.rpc).toHaveBeenCalledWith('confirm_manual_payment', { p_order_id: 'o1' })
+    expect(mocks.updateArgs.value).toEqual({ status: 'paid' })
+  })
+
+  it('đơn ví (zalo_checkout wallet): KHÔNG xác nhận tay (callback lo), chỉ đóng', async () => {
+    mocks.orderRow.value = { payment_method: 'zalo_checkout', payment_received_at: null, status: 'confirmed', payment_instrument: 'wallet' }
     await completeOrder('o1')
     expect(mocks.rpc).not.toHaveBeenCalled()
     expect(mocks.updateArgs.value).toEqual({ status: 'paid' })

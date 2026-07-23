@@ -39,9 +39,7 @@ export async function completeOrder(orderId: string) {
   const canConfirmManual =
     order.payment_method === 'cash' ||
     order.payment_method === 'bank_transfer' ||
-    (order.payment_method === 'zalo_checkout' &&
-      order.bank_handoff_at != null &&
-      order.payment_instrument !== 'wallet')
+    (order.payment_method === 'zalo_checkout' && order.payment_instrument !== 'wallet')
   if (canConfirmManual && !order.payment_received_at) {
     const { error: payErr } = await supabase.rpc('confirm_manual_payment', { p_order_id: orderId })
     if (payErr) throw new Error(`completeOrder(pay): ${payErr.message}`)

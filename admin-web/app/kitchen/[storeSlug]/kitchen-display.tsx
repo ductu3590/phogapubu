@@ -586,14 +586,14 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   const waitingOrders = orders.filter((o) => orderInKitchen(o))
   const cookingOrders = orders.filter((o) => o.status === 'cooking')
   const readyOrders = orders.filter((o) => o.status === 'ready')
-  // Cột "Chờ thanh toán" (PM-3): đơn KHÁCH chuyển khoản đã sang app NH nhưng chưa xác nhận tiền
-  // → bếp bấm "Đã nhận tiền" khi thấy tiền về. Đơn ví tự xác nhận nên KHÔNG vào đây.
+  // Cột "Chờ thanh toán" (PM-3): đơn KHÁCH online chưa thu tiền → bếp bấm "Đã nhận tiền" khi
+  // thấy tiền về. KHÔNG lọc theo bank_handoff_at (notify Zalo chập chờn). Đơn ví tự xác nhận
+  // (instrument='wallet') nên KHÔNG vào đây.
   const awaitingPaymentOrders = orders.filter(
     (o) =>
       o.status === 'pending' &&
       o.paymentReceivedAt === null &&
       o.paymentMethod === 'zalo_checkout' &&
-      o.bankHandoffAt !== null &&
       o.paymentInstrument !== 'wallet',
   )
 
