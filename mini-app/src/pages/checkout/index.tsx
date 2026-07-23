@@ -5,8 +5,7 @@ import { useCartStore } from "@/stores/cart.store";
 import { useAppStore, PaymentMethod } from "@/stores/app.store";
 import { useCreateOrder } from "@/services/order/order.mutations";
 import { paymentService } from "@/services/payment.service";
-import { Button, Modal, useSnackbar } from "zmp-ui";
-import { orderService } from "@/services/order/order.api";
+import { Button, useSnackbar } from "zmp-ui";
 import { formatCurrency } from "@/utils/format";
 import { calculateCartTotal, calculateCartItemPrice } from "@/utils/cart";
 import QuantityStepper from "@/components/common/quantity-stepper";
@@ -60,7 +59,6 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("zalo_checkout");
   const [isProcessing, setIsProcessing] = useState(false);
   // Đơn ZaloPay đang chờ xử lý (kèm capability token để chuyển sang tiền mặt nếu bỏ dở)
-  const [pendingZp, setPendingZp] = useState<{ id: string; token: string | null } | null>(null);
 
   // Takeaway form state
   const initialForm = useRef(loadTakeawayForm()).current;
@@ -77,8 +75,6 @@ export default function CheckoutPage() {
   const isTakeaway = orderMode === "takeaway";
   const storeOpen = isStoreOpen({ isAcceptingOrders, servingHours });
   const singleMethod = paymentMethods.length === 1;
-  // Chỉ đề nghị "Trả tiền mặt" khi quán thật sự bật tiền mặt trong cấu hình admin
-  const cashAllowed = paymentMethods.includes("cash");
 
   // Làm nóng edge function ký MAC một lần khi vào trang, nếu đơn này sẽ dùng thanh toán online
   // (takeaway luôn dùng, dine-in dùng khi quán bật zalopay) → bấm thanh toán không phải chờ cold-start.
@@ -191,7 +187,7 @@ export default function CheckoutPage() {
             if (isTakeaway) {
               localStorage.setItem("mevo_last_takeaway_order", order.id);
             }
-            await handleZaloPayPayment(order.id, order.capabilityToken);
+            await handleZaloPayPayment(order.id);
           } else {
             // Tiền mặt: navigate thẳng đến trang trạng thái
             clearCart();
@@ -208,63 +204,20 @@ export default function CheckoutPage() {
     );
   };
 
-  const handleZaloPayPayment = async (orderId: string, token: string | null) => {
-    const goSuccess = () => {
-      clearCart();
-      navigate(`/order-status/${orderId}`);
-    };
-
-    // Khách bỏ ngang khi CHƯA khởi tạo giao dịch (bấm back ở màn chọn PT) → kết luận NGAY,
-    // không chờ webhook (sẽ không có notify nào về).
-    const settleCancelled = async () => {
-      if (isTakeaway) {
-        try {
-          await orderService.cancelOrder(orderId, token ?? "");
-        } catch { /* bỏ qua nếu đơn không tìm thấy hoặc token sai */ }
-        localStorage.removeItem("mevo_last_takeaway_order");
-        openSnackbar({ text: "Đã huỷ thanh toán.", type: "warning" });
-        navigate("/");
-      } else {
-        // Dine-in: mở hộp thoại thử lại (kèm tuỳ chọn tiền mặt nếu quán có bật)
-        setPendingZp({ id: orderId, token });
-      }
-    };
-
+  const handleZaloPayPayment = async (orderId: string) => {
     try {
-      const outcome = await paymentService.payWithCheckoutSDK(orderId);
-      if (outcome === "success") goSuccess();
-      else if (outcome === "cancelled") await settleCancelled();
-      // 'unpaid' = khách ĐÃ chọn chuyển khoản (isCustom) → đơn đã được gửi. Notify BANK của Zalo
-      // về RẤT thất thường (6s–vài phút sau PM-1, đã đo trên prod) nên KHÔNG chờ confirm nữa —
-      // chờ chỉ tổ treo 20-30s rồi đòi "thanh toán lại" sai. Vào thẳng màn trạng thái đơn; quán
-      // xác nhận khi thấy tiền, đơn không trả tự huỷ sau 30' (sweep_abandoned_orders, mig 031).
-      else goSuccess();
-    } catch (_err) {
-      // Đã tạo đơn nhưng SDK lỗi bất ngờ → vẫn đưa về màn trạng thái, không chặn khách.
-      goSuccess();
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const confirmCashFallback = async () => {
-    if (!pendingZp) return;
-    const { id, token } = pendingZp;
-    try {
-      // Cần capability token để đổi sang tiền mặt; nếu thiếu vẫn điều hướng (đơn giữ pending)
-      if (token) await orderService.abandonToCash(id, token);
+      await paymentService.payWithCheckoutSDK(orderId);
     } catch {
-      // lỗi đổi sang cash vẫn điều hướng — đơn giữ pending, không chặn khách
+      // SDK lỗi bất ngờ — đơn đã tạo rồi, không chặn khách.
     }
-    setPendingZp(null);
+    setIsProcessing(false);
+    // Dù Zalo báo kết quả gì (success/unpaid/cancelled) — SDK báo RẤT thất thường khi khách mở
+    // app ngân hàng ngoài rồi quay lại — đơn ĐÃ được tạo. Luôn vào màn trạng thái đơn
+    // "Đơn đã gửi / chờ quán xác nhận"; quán xác nhận khi thấy tiền, đơn không trả tự huỷ sau 30'
+    // (sweep_abandoned_orders, mig 031). KHÔNG hiện dialog "thử lại" (gây hiểu nhầm cho khách đã
+    // chuyển khoản mà Zalo báo outcome sai).
     clearCart();
-    navigate(`/order-status/${id}`);
-  };
-
-  const retryZaloPay = () => {
-    const pending = pendingZp;
-    setPendingZp(null);
-    if (pending) handleZaloPayPayment(pending.id, pending.token);
+    navigate(`/order-status/${orderId}`);
   };
 
   const isLoading = isPending || isProcessing;
@@ -483,43 +436,6 @@ export default function CheckoutPage() {
       </div>
 
 
-      {/* Dialog khi thanh toán bỏ dở/thất bại.
-          Chỉ đề nghị tiền mặt khi quán bật tiền mặt trong cấu hình admin. */}
-      <Modal
-        visible={pendingZp !== null}
-        title="Thanh toán chưa hoàn tất"
-        description={
-          cashAllowed
-            ? "Bạn muốn chuyển sang trả tiền mặt (thu khi ra về) hay thử lại thanh toán?"
-            : "Đơn của bạn chưa được thanh toán. Vui lòng thử lại để hoàn tất."
-        }
-        onClose={() => setPendingZp(null)}
-        actions={
-          cashAllowed
-            ? [
-                {
-                  text: "Trả tiền mặt",
-                  highLight: true,
-                  onClick: () => { void confirmCashFallback(); },
-                },
-                {
-                  text: "Thử lại",
-                  onClick: retryZaloPay,
-                },
-              ]
-            : [
-                {
-                  text: "Thử lại",
-                  highLight: true,
-                  onClick: retryZaloPay,
-                },
-                {
-                  text: "Để sau",
-                  onClick: () => setPendingZp(null),
-                },
-              ]
-        }
-      />
 
       {/* Nút đặt món — fixed bottom */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-divider01 bg-white px-4 py-4 pb-5">
