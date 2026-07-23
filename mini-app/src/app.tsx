@@ -61,7 +61,9 @@ function AppInit() {
           zaloOaUrl: storeRes.data.zalo_oa_url ?? "",
           paymentMethods: (() => {
             const raw = (storeRes.data.payment_methods ?? []) as string[];
-            const valid = raw.filter((m): m is PaymentMethod =>
+            // Chuẩn hoá tên cũ 'zalopay' → 'zalo_checkout' (đề phòng config cache/cũ sau rename).
+            const norm = raw.map((m) => (m === "zalopay" ? "zalo_checkout" : m));
+            const valid = norm.filter((m): m is PaymentMethod =>
               m === "zalo_checkout" || m === "cash"
             );
             return valid.length > 0 ? valid : ["zalo_checkout", "cash"];
