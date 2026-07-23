@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasRealMoney } from './revenue'
+import { hasRealMoney, isAwaitingPayment } from './revenue'
 
 describe('hasRealMoney', () => {
   it('ZaloPay đã callback (payment_received_at) → đã có tiền', () => {
@@ -56,5 +56,27 @@ describe('hasRealMoney', () => {
       payment_method: 'bank_transfer', status: 'cancelled',
       zalopay_trans_id: null, payment_received_at: '2026-07-15T10:00:00Z',
     })).toBe(false)
+  })
+})
+
+describe('isAwaitingPayment (đơn chưa thu, xác nhận tay được)', () => {
+  const base = { status: 'pending', zalopay_trans_id: null, payment_received_at: null }
+  it('tiền mặt chưa thu → true', () => {
+    expect(isAwaitingPayment({ ...base, payment_method: 'cash' })).toBe(true)
+  })
+  it('bank_transfer (staff) chưa thu → true', () => {
+    expect(isAwaitingPayment({ ...base, payment_method: 'bank_transfer' })).toBe(true)
+  })
+  it('KHÁCH zalo_checkout đã sang app NH (bank_handoff, không phải ví) → true', () => {
+    expect(isAwaitingPayment({ ...base, payment_method: 'zalo_checkout', bank_handoff_at: '2026-07-22T00:00:00Z', payment_instrument: 'bank' })).toBe(true)
+  })
+  it('zalo_checkout ví → false (callback tự lo)', () => {
+    expect(isAwaitingPayment({ ...base, payment_method: 'zalo_checkout', bank_handoff_at: '2026-07-22T00:00:00Z', payment_instrument: 'wallet' })).toBe(false)
+  })
+  it('zalo_checkout chưa chọn gì (không bank_handoff) → false', () => {
+    expect(isAwaitingPayment({ ...base, payment_method: 'zalo_checkout' })).toBe(false)
+  })
+  it('đã có payment_received_at → false', () => {
+    expect(isAwaitingPayment({ ...base, payment_method: 'cash', payment_received_at: '2026-07-22T00:00:00Z' })).toBe(false)
   })
 })

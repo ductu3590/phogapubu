@@ -28,14 +28,21 @@ export async function completeOrder(orderId: string) {
 
   const { data: order, error: readErr } = await supabase
     .from('orders')
-    .select('payment_method, payment_received_at, status')
+    .select('payment_method, payment_received_at, status, bank_handoff_at, payment_instrument')
     .eq('id', orderId)
     .single()
   if (readErr || !order) throw new Error(`completeOrder(read): ${readErr?.message ?? 'không tìm thấy đơn'}`)
   if (order.status === 'cancelled') throw new Error('Đơn đã huỷ, không hoàn tất được')
 
-  // Tiền mặt/chuyển khoản chưa xác nhận → ghi nhận đã nhận tiền (RPC idempotent, chỉ owner).
-  if ((order.payment_method === 'cash' || order.payment_method === 'bank_transfer') && !order.payment_received_at) {
+  // Chưa thu tiền + đơn xác nhận tay được → ghi nhận đã nhận tiền (RPC idempotent, chỉ owner).
+  // Gồm tiền mặt, CK nhân viên, và KHÁCH chuyển khoản (zalo_checkout đã sang app NH, không phải ví).
+  const canConfirmManual =
+    order.payment_method === 'cash' ||
+    order.payment_method === 'bank_transfer' ||
+    (order.payment_method === 'zalo_checkout' &&
+      order.bank_handoff_at != null &&
+      order.payment_instrument !== 'wallet')
+  if (canConfirmManual && !order.payment_received_at) {
     const { error: payErr } = await supabase.rpc('confirm_manual_payment', { p_order_id: orderId })
     if (payErr) throw new Error(`completeOrder(pay): ${payErr.message}`)
   }

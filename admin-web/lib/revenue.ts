@@ -17,6 +17,8 @@ export type MoneyFields = {
   status: string
   zalopay_trans_id: string | null
   payment_received_at: string | null
+  bank_handoff_at?: string | null
+  payment_instrument?: string | null
 }
 
 export function hasRealMoney(o: MoneyFields): boolean {
@@ -29,9 +31,20 @@ export function hasRealMoney(o: MoneyFields): boolean {
   return false
 }
 
-// Đơn đã vào bếp/đang phục vụ nhưng chưa thu được tiền.
+// Đơn CHƯA thu tiền nhưng có thể xác nhận TAY (bếp/owner bấm "Đã nhận tiền"):
+//  • tiền mặt, chuyển khoản nhân viên (bank_transfer);
+//  • KHÁCH tự đặt chuyển khoản (zalo_checkout đã sang app ngân hàng = bank_handoff_at, không phải ví).
+// Đơn ví (instrument 'wallet') do callback tự xác nhận → KHÔNG nằm nhóm này.
 export function isAwaitingPayment(o: MoneyFields): boolean {
   if (o.status === 'cancelled' || o.status === 'paid') return false
-  if (o.payment_method !== 'cash' && o.payment_method !== 'bank_transfer') return false
-  return o.payment_received_at === null
+  if (o.payment_received_at !== null) return false
+  if (o.payment_method === 'cash' || o.payment_method === 'bank_transfer') return true
+  if (
+    o.payment_method === 'zalo_checkout' &&
+    o.bank_handoff_at != null &&
+    o.payment_instrument !== 'wallet'
+  ) {
+    return true
+  }
+  return false
 }

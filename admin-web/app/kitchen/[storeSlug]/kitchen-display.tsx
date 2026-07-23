@@ -83,6 +83,10 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenOrder {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     orderType: (row.order_type ?? 'dine_in') as KitchenOrder['orderType'],
+    orderSource: row.order_source ?? 'customer_zalo',
+    paymentReceivedAt: row.payment_received_at ?? null,
+    bankHandoffAt: row.bank_handoff_at ?? null,
+    paymentInstrument: row.payment_instrument ?? null,
     customerName: row.customer_name ?? null,
     customerPhone: row.customer_phone ?? null,
     pickupTime: row.pickup_time ?? null,
@@ -326,7 +330,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         knownOrderIds.current.add(o.id)
         // Đơn đã ở trong bếp lúc tải trang → coi như đã báo, reload không kêu lại.
         // ZaloPay còn pending (chưa trả) KHÔNG đánh dấu → lúc confirmed sẽ báo.
-        if (orderInKitchen(o.status, o.paymentMethod)) announcedOrderIds.current.add(o.id)
+        if (orderInKitchen(o)) announcedOrderIds.current.add(o.id)
       })
       setOrders(mapped)
       setLoading(false)
@@ -355,14 +359,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
       // Báo bếp: chuông + (nếu bật) đọc đơn. Chỉ báo LẦN ĐẦU đơn vào bếp.
       const announce = (order: KitchenOrder) => {
-        if (
-          !shouldAnnounceOrder(
-            order.status,
-            order.paymentMethod,
-            announcedOrderIds.current.has(order.id),
-          )
-        )
-          return
+        if (!shouldAnnounceOrder(order, announcedOrderIds.current.has(order.id))) return
         announcedOrderIds.current.add(order.id)
         playBell()
         // Chuông kêu trước, đọc sau ~300ms cho khỏi đè tiếng
@@ -409,6 +406,8 @@ export default function KitchenDisplay({ storeSlug }: Props) {
           async (payload) => {
             const updated = payload.new as {
               id: string; status: string; updated_at: string; payment_method: string
+              order_source?: string; payment_received_at?: string | null
+              bank_handoff_at?: string | null; payment_instrument?: string | null
             }
             setOrders((prev) =>
               prev
@@ -419,18 +418,25 @@ export default function KitchenDisplay({ storeSlug }: Props) {
                         status: updated.status as OrderStatus,
                         updatedAt: updated.updated_at,
                         paymentMethod: updated.payment_method as KitchenOrder['paymentMethod'],
+                        paymentReceivedAt: updated.payment_received_at ?? o.paymentReceivedAt,
+                        bankHandoffAt: updated.bank_handoff_at ?? o.bankHandoffAt,
+                        paymentInstrument: updated.payment_instrument ?? o.paymentInstrument,
                       }
                     : o,
                 )
                 // Xoá khỏi màn hình khi đã thanh toán hoặc huỷ
                 .filter((o) => !['paid', 'cancelled'].includes(o.status)),
             )
-            // Báo khi đơn VỪA vào bếp — vd ZaloPay pending→confirmed sau khi khách
-            // trả tiền xong. Đã báo rồi (cooking/ready...) → bỏ qua, khỏi fetch thừa.
+            // Báo khi đơn VỪA vào bếp — ví pending→confirmed, HOẶC khách chuyển khoản vừa được
+            // xác nhận (payment_received_at set, status vẫn pending). Đã báo rồi → bỏ qua.
             if (
               shouldAnnounceOrder(
-                updated.status,
-                updated.payment_method,
+                {
+                  status: updated.status,
+                  orderSource: updated.order_source ?? 'customer_zalo',
+                  paymentReceivedAt: updated.payment_received_at ?? null,
+                  paymentMethod: updated.payment_method,
+                },
                 announcedOrderIds.current.has(updated.id),
               )
             ) {
@@ -562,12 +568,34 @@ export default function KitchenDisplay({ storeSlug }: Props) {
     if (error) alert('Không đánh dấu được, thử lại!')
   }
 
+  // Bếp bấm "Đã nhận tiền" cho đơn khách chuyển khoản (RPC kitchen_confirm_payment, role kitchen).
+  const confirmPayment = async (orderId: string) => {
+    if (!supabase) return
+    const now = new Date().toISOString()
+    // Optimistic: gán payment_received_at → card rời cột "Chờ thanh toán" sang "Chờ xử lý" ngay.
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, paymentReceivedAt: now } : o)))
+    const { error } = await supabase.rpc('kitchen_confirm_payment', { p_order_id: orderId })
+    if (error) {
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, paymentReceivedAt: null } : o)))
+      alert('Xác nhận thất bại: ' + error.message)
+    }
+  }
+
   // ── Chia đơn theo cột ─────────────────────────────────────────────────────
-  // pending chỉ hiện cho tiền mặt — ZaloPay pending chưa thanh toán không vào bếp.
-  // Dùng chung predicate với logic "báo bếp" (lib/kitchen-announce) cho khỏi lệch.
-  const waitingOrders = orders.filter((o) => orderInKitchen(o.status, o.paymentMethod))
+  // Dùng chung predicate §7 với logic "báo bếp" (lib/kitchen-announce) cho khỏi lệch.
+  const waitingOrders = orders.filter((o) => orderInKitchen(o))
   const cookingOrders = orders.filter((o) => o.status === 'cooking')
   const readyOrders = orders.filter((o) => o.status === 'ready')
+  // Cột "Chờ thanh toán" (PM-3): đơn KHÁCH chuyển khoản đã sang app NH nhưng chưa xác nhận tiền
+  // → bếp bấm "Đã nhận tiền" khi thấy tiền về. Đơn ví tự xác nhận nên KHÔNG vào đây.
+  const awaitingPaymentOrders = orders.filter(
+    (o) =>
+      o.status === 'pending' &&
+      o.paymentReceivedAt === null &&
+      o.paymentMethod === 'zalo_checkout' &&
+      o.bankHandoffAt !== null &&
+      o.paymentInstrument !== 'wallet',
+  )
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (tokenMissing) {
@@ -693,8 +721,28 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         </div>
       </header>
 
-      {/* 3 cột */}
-      <div className="grid flex-1 grid-cols-3 gap-0 divide-x divide-gray-800 overflow-hidden">
+      {/* 3–4 cột (thêm "Chờ thanh toán" khi có đơn khách CK chờ xác nhận) */}
+      <div
+        className={cn(
+          'grid flex-1 gap-0 divide-x divide-gray-800 overflow-hidden',
+          awaitingPaymentOrders.length > 0 ? 'grid-cols-4' : 'grid-cols-3',
+        )}
+      >
+        {/* Cột 0 — Chờ thanh toán (chỉ hiện khi có đơn) — bếp bấm "Đã nhận tiền" */}
+        {awaitingPaymentOrders.length > 0 && (
+          <Column
+            title="💰 CHỜ THANH TOÁN"
+            titleColor="text-amber-400"
+            orders={awaitingPaymentOrders}
+            now={now}
+            action={{
+              label: '✓ Đã nhận tiền',
+              color: 'bg-amber-600 hover:bg-amber-500',
+            }}
+            onAction={(id) => confirmPayment(id)}
+          />
+        )}
+
         {/* Cột 1 — Chờ xử lý */}
         <Column
           title="⏳ CHỜ XỬ LÝ"
@@ -748,7 +796,7 @@ function Column({
   titleColor: string
   orders: KitchenOrder[]
   now: number
-  action?: { label: string; color: string; nextStatus: OrderStatus }
+  action?: { label: string; color: string; nextStatus?: OrderStatus }
   onAction?: (id: string) => void
 }) {
   return (
@@ -786,7 +834,7 @@ function OrderCard({
 }: {
   order: KitchenOrder
   now: number
-  action?: { label: string; color: string; nextStatus: OrderStatus }
+  action?: { label: string; color: string; nextStatus?: OrderStatus }
   onAction?: (id: string) => void
 }) {
   const shortId = order.id.slice(-6).toUpperCase()

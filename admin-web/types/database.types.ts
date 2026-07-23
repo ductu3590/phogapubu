@@ -188,6 +188,10 @@ export interface KitchenOrder {
   createdAt: string
   updatedAt: string
   orderType: OrderType
+  orderSource: string
+  paymentReceivedAt: string | null
+  bankHandoffAt: string | null
+  paymentInstrument: string | null
   customerName: string | null
   customerPhone: string | null
   pickupTime: string | null

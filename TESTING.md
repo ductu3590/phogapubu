@@ -592,6 +592,20 @@ hoàn tất) đã live prod.
 
 ---
 
+## SPRINT PM-3 — Bếp/quán xác nhận đơn khách chuyển khoản + vào bếp theo order_source — 2026-07-22
+
+> 📄 **Checklist đầy đủ: [`TESTING-PM3.md`](TESTING-PM3.md).** KHÔNG đụng mini-app → không cần zmp deploy.
+
+**Tóm tắt:** vá lỗ đơn khách chuyển khoản bị KẸT (không ai xác nhận được → không vào doanh thu).
+Migration `033`: `kitchen_confirm_payment` (bếp bấm trên màn bếp) + nới `confirm_manual_payment`
+(owner xác nhận đơn khách CK). Màn bếp thêm cột "💰 CHỜ THANH TOÁN" (tự ẩn khi rỗng). Predicate
+vào bếp đổi theo `order_source` (§7): khách tự đặt chỉ vào bếp khi đã có tiền; staff vào ngay.
+
+**Test quan trọng nhất:** khách CK → cột "Chờ thanh toán" ở màn bếp → bấm "Đã nhận tiền" → đơn
+vào bếp + vào doanh thu.
+
+---
+
 ## KHI GẶP LỖI — Cách báo cáo hiệu quả
 
 Khi test FAIL, báo Claude Code theo format này để fix nhanh nhất:
