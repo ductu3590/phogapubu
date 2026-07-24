@@ -19,6 +19,9 @@ export default function StoreWizard() {
   const params = useSearchParams()
   const [step, setStep] = useState(() => {
     const n = Number(params.get('step') ?? 1)
+    // Vào thẳng bước >1 bằng URL tay mà chưa có store → ép về bước 1, tránh submit với storeId
+    // rỗng (Postgres văng lỗi uuid thô). step=6 cũng ép về 1 cho nhất quán.
+    if (n > 1 && !params.get('store')) return 1
     return n >= 1 && n <= 6 ? n : 1
   })
   const [storeId, setStoreId] = useState(params.get('store') ?? '')
@@ -302,7 +305,14 @@ function CopyInline({ text }: { text: string }) {
     <span className="inline-flex items-center gap-2">
       <code className="rounded bg-white px-2 py-0.5 font-mono text-xs">{text}</code>
       <button type="button" className="text-xs font-medium text-orange-600 hover:underline"
-        onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500) }}>
+        onClick={async () => {
+          // clipboard API chỉ có ở secure context (https/localhost); ghi lỗi thì không báo copy giả.
+          try {
+            await navigator.clipboard?.writeText(text)
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1500)
+          } catch { /* clipboard không khả dụng — giữ nguyên nút "Copy" */ }
+        }}>
         {copied ? '✓ Đã copy' : 'Copy'}
       </button>
     </span>
