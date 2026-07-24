@@ -11,6 +11,9 @@ describe('suggestSlug', () => {
     expect(suggestSlug('  Bún!! Chả---Hà Nội  ')).toBe('bun-cha-ha-noi')
     expect(suggestSlug('***')).toBe('')
   })
+  it('tên không có ký tự Latin/số (vd tiếng Trung) trả về rỗng', () => {
+    expect(suggestSlug('北京烤鸭')).toBe('')
+  })
 })
 
 describe('SLUG_RE', () => {
