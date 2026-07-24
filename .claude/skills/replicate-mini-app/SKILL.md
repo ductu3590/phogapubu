@@ -1,6 +1,6 @@
 ---
 name: replicate-mini-app
-description: Use when onboarding a new restaurant/cafe onto MEVO — creating its own Zalo Mini App, bank-transfer payment (primary; ZaloPay wallet optional/deferred), Zalo OA, database rows, and admin access so it runs on the shared MEVO backend. Also use when asked to check whether MEVO is "ready" for a second store, or when touching any code path keyed by store_id/zalo_mini_app_id.
+description: Use when onboarding a new restaurant/cafe onto MEVO — creating its own Zalo Mini App, bank-transfer payment (primary; ZaloPay wallet optional/deferred), Zalo OA, database rows, and admin access so it runs on the shared MEVO backend. Also use when asked to check whether MEVO is "ready" for a second store, or when touching any code path keyed by store_id/zalo_mini_app_id. Also triggers on the quick command 'onboard quán <slug>'.
 ---
 
 # Replicate MEVO Mini App to a New Restaurant
@@ -41,6 +41,37 @@ These were real gaps found 2026-07-01 and fixed as part of the Onboarding Cockpi
 
 If any of these checks fail when you read this, stop and tell the human — don't onboard a 2nd+
 restaurant on top of a regression.
+
+## Lệnh nhanh: `onboard quán <slug>` (Claude tự sinh thư mục mini-app)
+
+Khi anh Tú gõ `onboard quán <slug>` (thường sau khi chạy xong wizard `/mevo/stores/new`),
+Claude làm TỰ ĐỘNG các bước sau — mỗi bước fail thì DỪNG và báo, không làm tiếp:
+
+1. **Đọc DB** (Supabase MCP, KHÔNG đọc secret):
+   ```sql
+   select s.id, s.name, s.slug, c.zalo_mini_app_id
+   from stores s
+   left join store_checkout_configs c on c.store_id = s.id
+   where s.slug = '<slug>';
+   ```
+   Không có row → dừng: "Chưa có quán slug này — chạy wizard /mevo/stores/new trước."
+2. **Tạo worktree**: `bash scripts/create-mini-app-instance.sh <slug> "<name từ DB>"`
+   (thư mục đã tồn tại → script tự chặn; báo lại nguyên văn cho anh Tú).
+3. **Điền `.env`** trong `mini-app-instances/<slug>/mini-app/.env`:
+   - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`: chép từ instance có sẵn
+     (vd `mini-app-instances/pho-ga-pubu/mini-app/.env`) — anon key là key công khai.
+   - `VITE_ZALO_APP_ID` + `APP_ID`: = `zalo_mini_app_id` từ DB. Nếu NULL (wizard bỏ qua
+     bước Zalo Mini App) → để nguyên placeholder và GHI RÕ trong báo cáo cuối.
+   - `VITE_DEFAULT_STORE_SLUG`: script đã điền sẵn, kiểm tra lại.
+4. **`npm install`** trong `mini-app-instances/<slug>/mini-app`.
+5. **Báo cáo** những việc chỉ người thật làm được (Zalo bắt tương tác):
+   - `npx zmp login` rồi `npx zmp deploy` — NHẮC chọn Development (tự test) vs Testing
+     (release) theo quy ước deploy.
+   - Đăng ký webhook `https://<domain>/api/zalo-webhook/<store_id>` trên console Zalo của quán.
+   - Set Notify Url phương thức Chuyển khoản ngân hàng (xem mục Checklist bên dưới).
+   - In QR bàn ở /admin → Bàn & QR.
+
+`ZMP_TOKEN` không tự lấy được — nằm ngoài phạm vi lệnh này.
 
 ## Checklist
 
