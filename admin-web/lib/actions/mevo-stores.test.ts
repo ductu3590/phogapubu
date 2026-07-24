@@ -43,7 +43,7 @@ describe('updateStoreOaId', () => {
     vi.clearAllMocks()
     mocks.admin._updateArgs.value = null
     mocks.admin._eqCalls.value = []
-    mocks.requireOperator.mockResolvedValue({ role: 'mevo_superadmin', store_id: null })
+    mocks.requireOperator.mockResolvedValue({ userId: 'u1', role: 'mevo_superadmin', storeId: null })
   })
 
   it('ghi zalo_oa_id đúng store', async () => {
@@ -60,7 +60,7 @@ describe('updateStoreOaId', () => {
   })
 
   it('chặn người không phải superadmin', async () => {
-    mocks.requireOperator.mockResolvedValue({ role: 'store_owner', store_id: 'store-1' })
+    mocks.requireOperator.mockResolvedValue({ userId: 'u1', role: 'store_owner', storeId: 'store-1' })
     await expect(updateStoreOaId('store-1', oaForm('123'))).rejects.toThrow('superadmin')
     expect(mocks.admin.from).not.toHaveBeenCalled()
   })
