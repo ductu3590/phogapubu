@@ -153,3 +153,14 @@ export async function assignStoreOwner(storeId: string, formData: FormData) {
   revalidatePath(`/mevo/stores/${storeId}`)
   return { email, tempPassword }
 }
+
+// Ghi riêng Zalo OA ID — wizard bước 4 (OA/Webhook) chỉ có field này;
+// updateStoreBasicInfo bắt gửi kèm name/phone/address nên không dùng lẻ được.
+export async function updateStoreOaId(storeId: string, formData: FormData) {
+  await requireSuperadmin()
+  const admin = createAdminClient()
+  const oaId = (formData.get('zalo_oa_id') as string | null)?.trim() || null
+  const { error } = await admin.from('stores').update({ zalo_oa_id: oaId }).eq('id', storeId)
+  if (error) throw new Error(`updateStoreOaId: ${error.message}`)
+  revalidatePath(`/mevo/stores/${storeId}`)
+}
