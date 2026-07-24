@@ -606,6 +606,29 @@ vào bếp + vào doanh thu.
 
 ---
 
+## SPRINT — Wizard tạo quán + onboard mini-app — 2026-07-24
+
+> Cần tài khoản mevo_superadmin. Dùng quán thử slug `test-wizard`, XOÁ sau khi test xong.
+
+**Test 1 — Wizard đủ 5 bước:**
+1. `/mevo/stores/new` → điền tên "Quán Test Wizard" → slug tự gợi ý `quan-test-wizard`, sửa thành `test-wizard` → Tiếp tục.
+2. Bước 2 chọn màu → Lưu & tiếp tục. Bước 3 điền tên Mini App + ID giả `9999` + secret giả → Lưu. Bước 4 điền OA ID giả + copy được webhook URL. Bước 5 gán email thử → thấy mật khẩu tạm hiện 1 lần + copy được.
+3. Màn cuối: 5 dòng checklist đều ✅, lệnh `onboard quán test-wizard` copy được.
+4. Kiểm DB: `stores`, `store_app_configs`, `store_checkout_configs`, `store_zalo_configs`, `mevo_operators` đều có row đúng store_id.
+
+**Test 2 — Bỏ qua + F5:**
+1. Tạo quán thứ 2 slug `test-wizard-2`, bước 2 bấm "Bỏ qua, điền sau", đứng ở bước 3 thì F5 → vẫn ở bước 3, URL có `?store=...&step=3`.
+2. Bỏ qua nốt tới màn cuối → checklist hiện ⏳ cho các mục bỏ qua, link "Mở trang chi tiết quán" điền tiếp được (mục ZaloPay Checkout lưu bình thường).
+3. Tạo quán slug trùng `test-wizard` → bước 1 báo lỗi ngay, không văng trang.
+
+**Test 3 — onboard quán:**
+1. Claude Code tại repo: gõ `onboard quán test-wizard` → tạo `mini-app-instances/test-wizard/mini-app` có `.env` điền đúng slug + Mini App ID `9999`, `npm install` chạy xong, báo cáo liệt kê đủ việc thủ công (zmp login/deploy, webhook, Notify Url).
+2. Gõ `onboard quán khong-ton-tai` → dừng, báo chưa có quán, KHÔNG tạo thư mục.
+
+**Dọn dẹp:** xoá 2 quán thử (rows các bảng trên) + `git worktree remove mini-app-instances/test-wizard --force` + `git branch -D deploy/test-wizard`.
+
+---
+
 ## KHI GẶP LỖI — Cách báo cáo hiệu quả
 
 Khi test FAIL, báo Claude Code theo format này để fix nhanh nhất:
