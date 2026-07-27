@@ -1,8 +1,8 @@
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { signOut } from '@/app/(auth)/login/actions'
+import AdminNav from './admin-nav'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const operator = await requireOperatorOrRedirect()
@@ -33,19 +33,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
 
-        {/* Nav links */}
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          <NavLink href="/admin/dashboard" icon="📊">Dashboard</NavLink>
-          <NavLink href="/admin/menu" icon="🍽️">Quản lý menu</NavLink>
-          <NavLink href="/admin/tables" icon="🪑">Bàn & QR</NavLink>
-          <NavLink href="/admin/orders" icon="📋">Đơn hàng</NavLink>
-          <NavLink href="/admin/kitchen" icon="🍳">Màn hình bếp</NavLink>
-          <NavLink href="/admin/spin" icon="🎁">Vòng quay</NavLink>
-          <NavLink href="/admin/vouchers" icon="🎟️">Ưu đãi</NavLink>
-          <NavLink href="/admin/staff" icon="🧑‍🍳">Nhân viên</NavLink>
-          <NavLink href="/admin/settings" icon="⚙️">Cài đặt quán</NavLink>
-          <NavLink href="/admin/account" icon="👤">Tài khoản</NavLink>
-        </nav>
+        {/* Nav links (accordion — xem admin-nav.tsx) */}
+        <AdminNav />
 
         {/* Bottom: đăng xuất */}
         <div className="border-t border-gray-100 px-3 py-4">
@@ -66,25 +55,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {children}
       </main>
     </div>
-  )
-}
-
-function NavLink({
-  href,
-  icon,
-  children,
-}: {
-  href: string
-  icon: string
-  children: React.ReactNode
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-orange-50 hover:text-orange-600"
-    >
-      <span className="text-base">{icon}</span>
-      {children}
-    </Link>
   )
 }
