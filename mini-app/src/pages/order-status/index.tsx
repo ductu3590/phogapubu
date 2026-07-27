@@ -271,7 +271,7 @@ export default function OrderStatusPage() {
 
         {/* Vòng quay may mắn — chỉ khi đơn có tiền thật; tự ẩn nếu quán tắt / lỗi */}
         {orderId &&
-          ((order.paymentMethod === "zalopay" && !!order.zalopayTransId) ||
+          ((order.paymentMethod === "zalo_checkout" && !!order.zalopayTransId) ||
             (order.paymentMethod === "cash" && order.status === "paid")) && (
             <SpinSection orderId={orderId} />
           )}
