@@ -141,7 +141,7 @@ export interface Database {
       }
       cancel_order: {
         Args: { p_order_id: string; p_token: string }
-        Returns: undefined
+        Returns: Json
       }
       create_order: {
         Args: {
