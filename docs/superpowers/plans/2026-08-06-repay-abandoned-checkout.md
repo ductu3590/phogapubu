@@ -23,6 +23,37 @@ Bản 1 của plan này dính cả bốn; đừng làm lại:
 
 ---
 
+## ⚠️ Baseline type-check — ĐỌC TRƯỚC KHI CHẠY `npm run typecheck`
+
+`cd mini-app && npm run typecheck` **đã sai sẵn từ trước thay đổi này**: exit code 2, **9 lỗi**.
+Đừng đi chữa chúng — chúng không thuộc phạm vi task nào ở đây.
+
+| File | Lỗi |
+|---|---|
+| `src/app.tsx(98,8)` | TS2604 + TS2786 — `SnackbarProvider` không dùng được như JSX component (2 lỗi) |
+| `src/index.ts(16,23)` | TS2307 — không tìm thấy `../app-config.json` (cố ý: file này gitignored, chỉ có ở worktree quán) |
+| `src/services/category/category.api.ts(45,19)` | TS2352 — ép kiểu `SelectQueryError` |
+| `src/services/order/order.api.ts(9,7)` | TS2322 — `string \| null` gán vào `string` |
+| `src/services/order/order.api.ts(147,48)` | TS2345 — `get_session_orders` thiếu trong `database.types.ts` |
+| `src/services/order/order.api.ts(192,43)` | TS2769 — bảng `service_requests` thiếu trong `database.types.ts` |
+| `src/services/order/order.api.ts(196,7)` | TS2353 — hệ quả của lỗi trên |
+
+**Tiêu chí đúng cho MỌI bước type-check trong plan này: KHÔNG PHÁT SINH LỖI MỚI so với 9 lỗi trên**
+— không phải "PASS". Cách kiểm nhanh bằng cách đếm:
+
+```bash
+cd mini-app && npm run typecheck 2>&1 | grep -c "error TS"
+```
+
+Trước thay đổi: `9`. Sau mỗi task: vẫn phải là `9`, trừ khi bước đó nói rõ có lỗi tạm thời vì
+task sau mới vá.
+
+⚠️ **`order.api.ts` đã mang sẵn 4 trong 9 lỗi đó** — Task 5 sửa đúng file này. Đừng nhầm lỗi cũ
+thành lỗi mình vừa gây ra, và cũng đừng tiện tay sửa chúng: bổ sung `service_requests` /
+`get_session_orders` vào `database.types.ts` là việc khác, ngoài phạm vi.
+
+---
+
 ## Cấu trúc file
 
 | File | Trách nhiệm | Trạng thái |
@@ -321,7 +352,8 @@ Expected: không dòng nào khớp (exit code 1).
 - [ ] **Step 5: Type-check**
 
 Run: `cd mini-app && npm run typecheck`
-Expected: chỉ còn lỗi ở `pages/checkout/index.tsx` (Task 7 sửa). Ghi lại đúng thông báo lỗi để đối chiếu.
+Expected: 9 lỗi baseline **cộng thêm** lỗi ở `pages/checkout/index.tsx` (Task 7 sửa) — đây là lỗi tạm thời
+đã lường trước. Ghi lại đúng thông báo lỗi ở checkout để đối chiếu về sau.
 
 - [ ] **Step 6: Commit**
 
@@ -600,7 +632,8 @@ Type `Json` đã khai báo sẵn ở dòng 4 của file này, không cần impor
 - [ ] **Step 6: Type-check**
 
 Run: `cd mini-app && npm run typecheck`
-Expected: vẫn chỉ còn lỗi ở `pages/checkout/index.tsx`, không phát sinh lỗi mới.
+Expected: vẫn là 9 lỗi baseline + lỗi tạm ở `pages/checkout/index.tsx`. Không phát sinh lỗi mới,
+đặc biệt KHÔNG có lỗi mới trong `database.types.ts`.
 
 - [ ] **Step 7: Commit**
 
@@ -719,7 +752,8 @@ không dùng được và Task 8 phải đổi cách.
 - [ ] **Step 6: Type-check**
 
 Run: `cd mini-app && npm run typecheck`
-Expected: chỉ còn lỗi ở `pages/checkout/index.tsx`.
+Expected: 9 lỗi baseline + lỗi tạm ở `pages/checkout/index.tsx`. `order.api.ts` vẫn đúng 4 lỗi cũ
+(dòng 9, 147, 192, 196) — không nhiều hơn. Đừng sửa 4 lỗi đó.
 
 - [ ] **Step 7: Commit**
 
@@ -825,7 +859,7 @@ Cụ thể, `addToCart` thành:
 - [ ] **Step 5: Type-check**
 
 Run: `cd mini-app && npm run typecheck`
-Expected: chỉ còn lỗi ở `pages/checkout/index.tsx`.
+Expected: 9 lỗi baseline + lỗi tạm ở `pages/checkout/index.tsx`, không có lỗi mới trong `cart.store.tsx`.
 
 - [ ] **Step 6: Commit**
 
@@ -1037,7 +1071,8 @@ Trong `onSuccess` của `createOrder`, thêm dòng đầu tiên rồi sửa lờ
 - [ ] **Step 9: Type-check**
 
 Run: `cd mini-app && npm run typecheck`
-Expected: PASS hoàn toàn (banner UI chưa có nhưng không lỗi kiểu).
+Expected: về đúng **9 lỗi baseline** — lỗi tạm ở `pages/checkout/index.tsx` đã hết. Banner UI chưa có
+nhưng không được sinh lỗi kiểu nào.
 
 - [ ] **Step 10: Commit**
 
@@ -1165,7 +1200,7 @@ git commit -m "feat(mini-app): doi chieu DB o moi nga re, khong bao gio xoa gio 
 - [ ] **Step 3: Type-check**
 
 Run: `cd mini-app && npm run typecheck`
-Expected: PASS.
+Expected: đúng **9 lỗi baseline**, không hơn.
 
 - [ ] **Step 4: Commit**
 
@@ -1269,7 +1304,7 @@ Thay dòng mở khối form mang về (dòng 243–244):
 - [ ] **Step 6: Type-check + chạy toàn bộ test**
 
 Run: `cd mini-app && npm run typecheck && npm test`
-Expected: typecheck PASS; 17 test PASS.
+Expected: typecheck đúng **9 lỗi baseline**, không hơn; 17 test PASS.
 
 - [ ] **Step 7: Commit**
 
