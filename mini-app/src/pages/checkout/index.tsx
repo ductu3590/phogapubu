@@ -4,6 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore, PaymentMethod } from "@/stores/app.store";
 import { useCreateOrder } from "@/services/order/order.mutations";
+import { orderService, OrderPaymentState } from "@/services/order/order.api";
+import type { CheckoutOutcome } from "@/services/checkout-result";
 import { paymentService } from "@/services/payment.service";
 import { Button, useSnackbar } from "zmp-ui";
 import { formatCurrency } from "@/utils/format";
@@ -20,6 +22,34 @@ function isPhoneValid(phone: string): boolean {
 }
 
 const TAKEAWAY_FORM_KEY = "mevo_takeaway_form";
+
+// Đơn đã tạo nhưng khách chưa trả tiền — giữ qua điều hướng để dựng lại banner khi quay lại trang.
+const UNPAID_ORDER_KEY = "mevo_unpaid_order";
+
+type UnpaidOrder = { id: string; token: string };
+
+function loadUnpaidOrder(): UnpaidOrder | null {
+  try {
+    const raw = localStorage.getItem(UNPAID_ORDER_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as Partial<UnpaidOrder>;
+    // Thiếu token thì banner vô dụng: "Sửa món" không huỷ được đơn → coi như không có.
+    if (typeof p.id !== "string" || !p.id) return null;
+    if (typeof p.token !== "string" || !p.token) return null;
+    return { id: p.id, token: p.token };
+  } catch {
+    return null;
+  }
+}
+
+function saveUnpaidOrder(o: UnpaidOrder | null) {
+  try {
+    if (o) localStorage.setItem(UNPAID_ORDER_KEY, JSON.stringify(o));
+    else localStorage.removeItem(UNPAID_ORDER_KEY);
+  } catch {
+    /* localStorage đầy hoặc bị chặn — chỉ mất khả năng dựng lại banner */
+  }
+}
 
 interface TakeawayFormData {
   takeawayType: "pickup" | "delivery";
@@ -58,7 +88,13 @@ export default function CheckoutPage() {
   const [voucher, setVoucher] = useState<MyVoucher | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("zalo_checkout");
   const [isProcessing, setIsProcessing] = useState(false);
-  // Đơn ZaloPay đang chờ xử lý (kèm capability token để chuyển sang tiền mặt nếu bỏ dở)
+  // Đơn ZaloPay đang chờ xử lý (kèm capability token để huỷ đơn nếu khách muốn sửa món).
+  // Khởi tạo ĐỒNG BỘ từ localStorage: banner phải có ngay từ khung hình đầu tiên, nếu không
+  // sẽ có một khoảnh khắc nút "Đặt món" còn bấm được → tạo đơn thứ hai cho cùng giỏ hàng.
+  // Việc hỏi DB sau đó (effect bên dưới) chỉ được phép GỠ banner xuống, không bao giờ dựng lên.
+  const [unpaidOrder, setUnpaidOrder] = useState<UnpaidOrder | null>(() => loadUnpaidOrder());
+  const [isCancelling, setIsCancelling] = useState(false);
+  const isLocked = unpaidOrder !== null;
 
   // Takeaway form state
   const initialForm = useRef(loadTakeawayForm()).current;
@@ -70,7 +106,7 @@ export default function CheckoutPage() {
   const [phoneError, setPhoneError] = useState("");
   const [addressError, setAddressError] = useState("");
 
-  const { items: cartItems, updateQuantity, clearCart } = useCartStore();
+  const { items: cartItems, updateQuantity, clearCart, setCartLock } = useCartStore();
   const { storeId, tableId, tableNumber, zaloUserId, paymentMethods, orderMode, isAcceptingOrders, servingHours } = useAppStore();
   const isTakeaway = orderMode === "takeaway";
   const storeOpen = isStoreOpen({ isAcceptingOrders, servingHours });
@@ -86,6 +122,25 @@ export default function CheckoutPage() {
     warmedRef.current = true;
     void paymentService.warmupCheckout();
   }, [isTakeaway, paymentMethods]);
+
+  // Đối chiếu đơn cũ với DB khi vào trang. Banner ĐÃ hiện sẵn từ useState khởi tạo đồng bộ;
+  // effect này chỉ có quyền gỡ nó xuống. Lỗi mạng thì không gỡ gì cả.
+  useEffect(() => {
+    const saved = loadUnpaidOrder();
+    if (!saved) return;
+    setCartLock(saved.id); // khoá ngay, không chờ mạng
+    let aborted = false;
+    (async () => {
+      const st = await orderService.getPaymentState(saved.id);
+      if (aborted) return;
+      applyPaymentState(st, saved.id);
+    })();
+    return () => {
+      aborted = true;
+    };
+    // Chỉ chạy một lần khi vào trang
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Syncs selected method when store config loads (e.g. nếu zalopay bị tắt)
   useEffect(() => {
@@ -118,6 +173,38 @@ export default function CheckoutPage() {
   const totalAmount = calculateCartTotal(cartItems);
   const discount = voucher ? estimateDiscount(voucher, totalAmount) : 0;
   const payableAmount = totalAmount - discount;
+
+  // Bật/tắt banner ở cả ba nơi cùng lúc: state, localStorage, khoá giỏ hàng.
+  const applyUnpaidOrder = (u: UnpaidOrder | null) => {
+    setUnpaidOrder(u);
+    saveUnpaidOrder(u);
+    setCartLock(u ? u.id : null);
+  };
+
+  // Hàm đối chiếu DUY NHẤT. Mọi ngã rẽ ra khỏi banner đều đi qua đây.
+  // Trả về true nếu đơn còn dùng được để thanh toán lại.
+  const applyPaymentState = (st: OrderPaymentState, orderId: string): boolean => {
+    if (st.kind === "unpaid_pending") return true;
+
+    if (st.kind === "query_failed") {
+      // KHÔNG đụng gì cả — giữ nguyên banner, giữ nguyên giỏ, giữ nguyên khoá.
+      openSnackbar({ text: "Không kiểm tra được đơn, vui lòng thử lại.", type: "error" });
+      return false;
+    }
+
+    if (st.kind === "cancelled") {
+      // Đơn đã bị huỷ (sweep / nơi khác). Bỏ banner nhưng GIỮ giỏ để khách đặt lại ngay.
+      applyUnpaidOrder(null);
+      openSnackbar({ text: "Đơn cũ đã hết hạn. Mời bạn đặt lại.", type: "warning" });
+      return false;
+    }
+
+    // settled — đơn đã có tiền hoặc đã vào bếp. Giờ mới được xoá giỏ.
+    applyUnpaidOrder(null);
+    clearCart();
+    navigate(`/order-status/${orderId}`);
+    return false;
+  };
 
   const handleOrder = () => {
     if (cartItems.length === 0) {
@@ -181,13 +268,15 @@ export default function CheckoutPage() {
       },
       {
         onSuccess: async (order) => {
+          // Đơn mới đã tạo → banner của đơn cũ không còn nghĩa gì
+          applyUnpaidOrder(null);
           // Invalidate tab "Đã gọi" để hiện đơn mới ngay lập tức
           void queryClient.invalidateQueries({ queryKey: [GET_SESSION_ORDERS_KEY] });
           if (isTakeaway || paymentMethod === "zalo_checkout") {
             if (isTakeaway) {
               localStorage.setItem("mevo_last_takeaway_order", order.id);
             }
-            await handleZaloPayPayment(order.id);
+            await handleZaloPayPayment(order.id, order.capabilityToken);
           } else {
             // Tiền mặt: navigate thẳng đến trang trạng thái
             clearCart();
@@ -204,18 +293,52 @@ export default function CheckoutPage() {
     );
   };
 
-  const handleZaloPayPayment = async (orderId: string) => {
+  const handleZaloPayPayment = async (orderId: string, token: string | null) => {
+    let outcome: CheckoutOutcome = "pending_confirm";
+    let threw = false;
     try {
-      await paymentService.payWithCheckoutSDK(orderId);
+      outcome = await paymentService.payWithCheckoutSDK(orderId);
     } catch {
-      // SDK lỗi bất ngờ — đơn đã tạo rồi, không chặn khách.
+      // Không lấy được MAC: mạng lỗi, hoặc 409 vì đơn không còn 'pending' (đã bị sweep / đã trả).
+      // TUYỆT ĐỐI không xoá giỏ ở đây — phải hỏi DB xem thực sự chuyện gì đã xảy ra.
+      threw = true;
     }
     setIsProcessing(false);
-    // Dù Zalo báo kết quả gì (success/unpaid/cancelled) — SDK báo RẤT thất thường khi khách mở
-    // app ngân hàng ngoài rồi quay lại — đơn ĐÃ được tạo. Luôn vào màn trạng thái đơn
-    // "Đơn đã gửi / chờ quán xác nhận"; quán xác nhận khi thấy tiền, đơn không trả tự huỷ sau 30'
-    // (sweep_abandoned_orders, mig 031). KHÔNG hiện dialog "thử lại" (gây hiểu nhầm cho khách đã
-    // chuyển khoản mà Zalo báo outcome sai).
+
+    if (threw) {
+      const st = await orderService.getPaymentState(orderId);
+      if (applyPaymentState(st, orderId)) {
+        // Đơn vẫn còn chờ trả tiền → giữ banner, chỉ báo lỗi mở thanh toán
+        if (token) applyUnpaidOrder({ id: orderId, token });
+        openSnackbar({ text: "Chưa mở được thanh toán, vui lòng thử lại.", type: "error" });
+      }
+      return;
+    }
+
+    // Chỉ hai trạng thái này đủ chắc chắn để nói với khách "chưa thanh toán".
+    if (outcome === "abandoned" || outcome === "failed") {
+      if (!token) {
+        // Không có capability token thì "Sửa món" không huỷ được đơn → banner thành ngõ cụt.
+        // Fail-safe: đi đường cũ, khách vẫn thấy đơn ở trang trạng thái.
+        clearCart();
+        navigate(`/order-status/${orderId}`);
+        return;
+      }
+      applyUnpaidOrder({ id: orderId, token });
+      // Đơn này sắp bị bỏ hoặc trả lại — đừng để app nhớ nó như đơn mang về gần nhất
+      try {
+        localStorage.removeItem("mevo_last_takeaway_order");
+      } catch {
+        /* bỏ qua */
+      }
+      return; // Ở LẠI trang giỏ hàng, KHÔNG clearCart, KHÔNG navigate
+    }
+
+    // 'success' | 'pending_confirm' → giữ nguyên hành vi cũ. SDK báo RẤT thất thường khi khách mở
+    // app ngân hàng ngoài rồi quay lại → luôn vào màn trạng thái "Đơn đã gửi / chờ quán xác nhận".
+    // Quán xác nhận khi thấy tiền, đơn không trả tự huỷ sau 30' (sweep_abandoned_orders, mig 031).
+    // KHÔNG hiện dialog "thử lại" (gây hiểu nhầm cho khách đã chuyển khoản).
+    applyUnpaidOrder(null);
     clearCart();
     navigate(`/order-status/${orderId}`);
   };
