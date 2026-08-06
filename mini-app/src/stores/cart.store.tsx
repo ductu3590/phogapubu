@@ -11,6 +11,10 @@ interface CartStore {
   updateQuantity: (id: string, quantity: number) => void;
   removeItem: (id: string) => void;
   clearCart: () => void;
+  // Id đơn đang chờ thanh toán. Khác null = giỏ bị đóng băng vì đã chốt vào một đơn pending;
+  // mọi thao tác sửa giỏ (kể cả từ trang menu) đều bị chặn cho tới khi đơn được huỷ hoặc trả xong.
+  lockedByOrderId: string | null;
+  setCartLock: (orderId: string | null) => void;
   openCheckoutSheet: () => void;
   closeCheckoutSheet: () => void;
 }
@@ -41,13 +45,15 @@ const calculateTotals = (items: CartItem[]) => {
   return { totalItems, totalAmount };
 };
 
-export const useCartStore = create<CartStore>((set) => ({
+export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
   totalItems: 0,
   totalAmount: 0,
   checkoutSheetVisible: false,
+  lockedByOrderId: null,
 
   addToCart: (newItem) => {
+    if (get().lockedByOrderId) return;
     const itemId = generateCartItemId(newItem);
 
     set((state) => {
@@ -72,6 +78,7 @@ export const useCartStore = create<CartStore>((set) => ({
   },
 
   updateCartItem: (id, updatedItem) => {
+    if (get().lockedByOrderId) return;
     set((state) => {
       // Remove the old item and add the updated one
       const newItems = state.items.filter((item) => item.id !== id);
@@ -97,6 +104,7 @@ export const useCartStore = create<CartStore>((set) => ({
   },
 
   updateQuantity: (id, quantity) => {
+    if (get().lockedByOrderId) return;
     set((state) => {
       let newItems: CartItem[];
       if (quantity <= 0) {
@@ -114,6 +122,7 @@ export const useCartStore = create<CartStore>((set) => ({
   },
 
   removeItem: (id) => {
+    if (get().lockedByOrderId) return;
     set((state) => {
       const newItems = state.items.filter((item) => item.id !== id);
       const { totalItems, totalAmount } = calculateTotals(newItems);
@@ -122,7 +131,11 @@ export const useCartStore = create<CartStore>((set) => ({
   },
 
   clearCart: () => {
-    set({ items: [], totalItems: 0, totalAmount: 0 });
+    set({ items: [], totalItems: 0, totalAmount: 0, lockedByOrderId: null });
+  },
+
+  setCartLock: (orderId) => {
+    set({ lockedByOrderId: orderId });
   },
 
   openCheckoutSheet: () => {
