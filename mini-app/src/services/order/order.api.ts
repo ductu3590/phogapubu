@@ -1,6 +1,20 @@
 import { supabase } from "../supabase";
 import { CreateOrderRequest, Order, OrderState, OrderType, SessionOrder, TakeawayOrder, ServiceRequest } from "@/types/order.types";
 
+// Kết quả huỷ đơn từ RPC cancel_order (mig 038). 'blocked' = đơn CÒN NGUYÊN.
+export type CancelResult =
+  | { result: "cancelled" }
+  | { result: "already_cancelled" }
+  | { result: "blocked"; reason: string };
+
+// Trạng thái đơn dưới góc nhìn "có thể thanh toán lại không".
+// query_failed PHẢI tách khỏi cancelled — gộp lại là fail-open, mất giỏ hàng của khách.
+export type OrderPaymentState =
+  | { kind: "unpaid_pending" }  // còn pending, chưa thu tiền → giữ banner
+  | { kind: "cancelled" }       // đã huỷ / không còn → bỏ banner nhưng GIỮ giỏ để đặt lại
+  | { kind: "settled" }         // đã thu tiền hoặc đã qua pending → xoá giỏ, sang trạng thái đơn
+  | { kind: "query_failed" };   // không hỏi được → GIỮ NGUYÊN mọi thứ
+
 export const orderService = {
   createOrder: async (req: CreateOrderRequest): Promise<Order> => {
     // Giá + tên tính phía server trong RPC create_order (không tin client gửi giá)
@@ -38,13 +52,42 @@ export const orderService = {
     return data ? mapOrder(data as Record<string, unknown>) : null;
   },
 
-  cancelOrder: async (orderId: string, token: string): Promise<void> => {
-    // Huỷ qua RPC (anon UPDATE orders đã bị khoá) — chỉ huỷ đơn pending đúng token
-    const { error } = await supabase.rpc("cancel_order", {
+  cancelOrder: async (orderId: string, token: string): Promise<CancelResult> => {
+    // capability_token bắt buộc — chỉ chủ đơn mới huỷ được.
+    // RPC trả {result, reason}; 'blocked' nghĩa là đơn CÒN NGUYÊN, caller không được coi là đã huỷ.
+    const { data, error } = await supabase.rpc("cancel_order", {
       p_order_id: orderId,
       p_token: token,
     });
     if (error) throw error;
+    const r = data as { result?: string; reason?: string } | null;
+    if (!r || typeof r.result !== "string") {
+      return { result: "blocked", reason: "unknown" };
+    }
+    if (r.result === "cancelled") return { result: "cancelled" };
+    if (r.result === "already_cancelled") return { result: "already_cancelled" };
+    return { result: "blocked", reason: r.reason ?? "unknown" };
+  },
+
+  // Hỏi DB trạng thái thật của đơn. Dùng ở MỌI ngã rẽ ra khỏi banner: lúc vào trang, trước khi
+  // thanh toán lại, và sau khi mở thanh toán thất bại. Đơn có thể đã được bếp xác nhận tiền,
+  // đã bị sweep huỷ, hoặc callback ví đã về trong lúc khách đi chỗ khác.
+  getPaymentState: async (orderId: string): Promise<OrderPaymentState> => {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("status, payment_received_at")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (error) return { kind: "query_failed" };
+    if (!data) return { kind: "cancelled" }; // không thấy đơn → không dùng lại được nữa
+    // database.types.ts chưa có cột payment_received_at (types cũ, không sửa ở task này)
+    // → ép kiểu qua unknown như category.api.ts đang làm với SelectQueryError tương tự.
+    const row = data as unknown as { status: string; payment_received_at: string | null };
+    const status = row.status;
+    const paid = row.payment_received_at !== null;
+    if (status === "cancelled") return { kind: "cancelled" };
+    if (status === "pending" && !paid) return { kind: "unpaid_pending" };
+    return { kind: "settled" };
   },
 
   // Chờ server xác nhận đơn đã trả tiền (qua webhook checkout-notify).

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CreateOrderRequest, Order, ServiceRequest } from "@/types/order.types";
-import { orderService, sessionOrderService } from "./order.api";
+import { orderService, sessionOrderService, CancelResult } from "./order.api";
 import {
   CREATE_ORDER_KEY,
   CONFIRM_RECEIVED_KEY,
@@ -16,7 +16,7 @@ export function useCreateOrder() {
 }
 
 export function useCancelOrder() {
-  return useMutation<void, Error, { orderId: string; token: string }>({
+  return useMutation<CancelResult, Error, { orderId: string; token: string }>({
     mutationFn: ({ orderId, token }) => orderService.cancelOrder(orderId, token),
   });
 }
