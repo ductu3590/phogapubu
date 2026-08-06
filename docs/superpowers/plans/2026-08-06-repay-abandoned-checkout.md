@@ -4,7 +4,7 @@
 
 **Goal:** Khách bấm "Quay lại" ở màn chọn phương thức thanh toán thì giữ nguyên giỏ hàng, ở lại trang, và có nút "Thanh toán lại" / "Sửa món" — thay vì bị xoá giỏ rồi đẩy sang trang trạng thái đơn như hiện nay.
 
-**Architecture:** Nguồn sự thật đổi từ biến cục bộ `zpOrderId` sang `resultCode` mà `checkTransaction({ data })` trả về, với `data` lấy từ payload sự kiện `PaymentDone` (đúng tài liệu Zalo, SDK ≥ 2.45). Logic phân loại tách thành hàm thuần `mapCheckoutResult` để unit test được. Đơn `pending` đã tạo được **giữ lại** và trả tiền lại trên chính nó; chỉ huỷ khi khách bấm "Sửa món", qua RPC `cancel_order` được sửa để trả kết quả rõ ràng thay vì `void` im lặng.
+**Architecture:** Nguồn sự thật đổi từ biến cục bộ `zpOrderId` sang `resultCode` mà `checkTransaction({ data })` trả về, với `data` lấy từ payload sự kiện `PaymentDone` (tài liệu Zalo, SDK ≥ 2.45). Logic phân loại tách thành hàm thuần `mapCheckoutResult` để unit test. Đơn `pending` được **giữ lại** và trả tiền lại trên chính nó; chỉ huỷ khi khách bấm "Sửa món". Mọi ngã rẽ ra khỏi banner đều đi qua **một hàm đối chiếu duy nhất** hỏi DB trạng thái thật của đơn, nên không có đường nào xoá giỏ hàng nhầm.
 
 **Tech Stack:** React 18 + TypeScript + Zustand + zmp-sdk 2.49.4 (mini-app), Supabase PostgreSQL (RPC), vitest (mới dựng cho mini-app).
 
@@ -12,30 +12,46 @@
 
 ---
 
+## Bốn cái bẫy đã biết — đọc trước khi code
+
+Bản 1 của plan này dính cả bốn; đừng làm lại:
+
+1. **`clearCart()` chỉ được gọi khi CHẮC CHẮN đơn đã xong.** `checkout-create-mac` trả **409** khi đơn không còn `pending` ([index.ts:62](../../../supabase/functions/checkout-create-mac/index.ts)) — đơn bị sweep rồi bấm "Thanh toán lại" sẽ ném lỗi. Không được coi lỗi là "thanh toán xong" rồi xoá giỏ.
+2. **Không có cửa sổ nào giữa mount và lúc biết đơn cũ.** State `unpaidOrder` khởi tạo **đồng bộ** từ localStorage; hỏi DB sau đó chỉ được phép *gỡ* banner.
+3. **Lỗi hỏi DB ≠ đơn không còn.** Phân biệt `query_failed` với `cancelled`; lỗi mạng phải **giữ nguyên** khoá.
+4. **Khoá phải nằm ở cart store, không phải ở trang checkout.** `/checkout` có `back: true` ([router.tsx:33](../../../mini-app/src/router.tsx)) nên khách rời về menu sửa giỏ được.
+
+---
+
 ## Cấu trúc file
 
 | File | Trách nhiệm | Trạng thái |
 |---|---|---|
-| `mini-app/src/services/checkout-result.ts` | Hàm thuần `mapCheckoutResult` + type `CheckoutOutcome`. KHÔNG import gì (để vitest chạy zero-config) | Tạo mới |
-| `mini-app/src/services/checkout-result.test.ts` | Unit test cho hàm trên | Tạo mới |
+| `mini-app/src/services/checkout-result.ts` | Hàm thuần `mapCheckoutResult` + type `CheckoutOutcome`. KHÔNG import gì | Tạo mới |
+| `mini-app/src/services/checkout-result.test.ts` | Unit test hàm phân loại | Tạo mới |
+| `mini-app/src/services/payment.service.test.ts` | Test phần nối SDK (mock `zmp-sdk` + `fetch`) | Tạo mới |
 | `mini-app/vitest.config.mts` | Cấu hình vitest tối thiểu | Tạo mới |
-| `mini-app/package.json` | Thêm devDependency `vitest` + script `test` | Sửa |
-| `mini-app/src/services/payment.service.ts` | Nhận `data` từ `PaymentDone`, gọi `checkTransaction`, uỷ quyền phân loại cho `mapCheckoutResult` | Sửa |
-| `mini-app/src/services/order/order.api.ts` | Thêm `getPaymentState`; `cancelOrder` trả `CancelResult` thay vì `void` | Sửa |
+| `mini-app/package.json` | devDependency `vitest` + script `test` | Sửa |
+| `mini-app/src/services/payment.service.ts` | Nhận `data` từ `PaymentDone`, uỷ quyền phân loại | Sửa |
+| `mini-app/src/types/database.types.ts` | `cancel_order` Returns đổi `undefined` → `Json` | Sửa |
+| `mini-app/src/services/order/order.api.ts` | `getPaymentState` trả union; `cancelOrder` trả `CancelResult` | Sửa |
 | `mini-app/src/services/order/order.mutations.ts` | `useCancelOrder` đổi kiểu trả về | Sửa |
-| `mini-app/src/pages/checkout/index.tsx` | Rẽ nhánh theo outcome, state `unpaidOrder`, banner, khoá form, khôi phục localStorage | Sửa |
-| `supabase/migrations/038_cancel_order_result.sql` | `cancel_order` trả `jsonb` + chặn đơn đã có tiền | Tạo mới |
+| `mini-app/src/stores/cart.store.tsx` | Cờ khoá toàn cục + guard 4 hàm mutation | Sửa |
+| `mini-app/src/pages/checkout/index.tsx` | Đối chiếu, banner, khoá form, khôi phục | Sửa |
+| `supabase/migrations/038_cancel_order_result.sql` | `cancel_order` trả `jsonb` + chặn đơn đã thu tiền | Tạo mới |
 | `TESTING.md` | Checklist test tay | Sửa |
 
 ---
 
-## Task 1: Dựng vitest cho mini-app
+## Task 1: Dựng vitest + hàm thuần `mapCheckoutResult` (TDD)
 
 **Files:**
 - Modify: `mini-app/package.json`
 - Create: `mini-app/vitest.config.mts`
+- Create: `mini-app/src/services/checkout-result.ts`
+- Test: `mini-app/src/services/checkout-result.test.ts`
 
-Mini-app hiện chỉ có script `typecheck`, không có hạ tầng test nào. Task này chỉ dựng khung, chưa viết test.
+Dựng khung test và viết test đầu tiên **trong cùng một task** — `vitest run` không tìm thấy file test nào sẽ thoát với exit code khác 0, nên không được để repo ở trạng thái "có vitest mà chưa có test".
 
 - [ ] **Step 1: Cài vitest**
 
@@ -47,7 +63,7 @@ Dùng đúng version `admin-web` đang dùng để không lệch hai nơi.
 
 - [ ] **Step 2: Thêm script `test` vào `mini-app/package.json`**
 
-Trong khối `"scripts"`, thêm dòng `"test"` ngay sau `"typecheck"`:
+Trong khối `"scripts"`, thêm dòng `"test"` sau `"typecheck"`:
 
 ```json
   "scripts": {
@@ -64,10 +80,15 @@ Trong khối `"scripts"`, thêm dòng `"test"` ngay sau `"typecheck"`:
 
 ```ts
 import { defineConfig } from 'vitest/config'
+import { fileURLToPath } from 'node:url'
 
-// Cấu hình tối thiểu: chỉ chạy test cho logic THUẦN (không jsdom, không test component).
-// Nêu rõ include để vitest không đi lạc vào node_modules hay thư mục build.
+// Chỉ chạy test cho logic thuần + phần nối SDK đã mock. Không jsdom, không test component.
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node',
@@ -75,29 +96,9 @@ export default defineConfig({
 })
 ```
 
-- [ ] **Step 4: Chạy thử để xác nhận khung hoạt động**
+Alias `@` cần cho `payment.service.test.ts` ở Task 4.
 
-Run: `cd mini-app && npm test`
-Expected: vitest khởi động và báo `No test files found` (chưa có file test — đúng như mong đợi ở bước này). Lệnh **không** được báo lỗi cấu hình.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add mini-app/package.json mini-app/package-lock.json mini-app/vitest.config.mts
-git commit -m "chore(mini-app): dung vitest cho logic thuan"
-```
-
----
-
-## Task 2: Hàm thuần `mapCheckoutResult` (TDD)
-
-**Files:**
-- Create: `mini-app/src/services/checkout-result.ts`
-- Test: `mini-app/src/services/checkout-result.test.ts`
-
-Đây là phần rủi ro nhất của cả thay đổi — viết test trước.
-
-- [ ] **Step 1: Viết test thất bại**
+- [ ] **Step 4: Viết test thất bại**
 
 Tạo `mini-app/src/services/checkout-result.test.ts`:
 
@@ -149,17 +150,17 @@ describe('mapCheckoutResult', () => {
 })
 ```
 
-- [ ] **Step 2: Chạy test để xác nhận nó THẤT BẠI**
+- [ ] **Step 5: Chạy test để xác nhận nó THẤT BẠI**
 
 Run: `cd mini-app && npm test`
 Expected: FAIL — `Failed to resolve import "./checkout-result"` (file chưa tồn tại).
 
-- [ ] **Step 3: Viết implementation tối thiểu**
+- [ ] **Step 6: Viết implementation tối thiểu**
 
 Tạo `mini-app/src/services/checkout-result.ts`:
 
 ```ts
-// Phân loại kết quả thanh toán Zalo Checkout — logic THUẦN, không import gì để vitest chạy được.
+// Phân loại kết quả thanh toán Zalo Checkout — logic THUẦN, không import gì.
 //
 // Nguồn: https://docs.zaloplatforms.com/docs/MA/checkoutSdk/integration-process/overview/maResult
 //   resultCode  1 = thanh toán thành công
@@ -167,8 +168,8 @@ Tạo `mini-app/src/services/checkout-result.ts`:
 //   resultCode -1 = thanh toán thất bại
 //   resultCode -2 = người dùng KHÔNG chọn phương thức và thoát Checkout SDK
 //
-// NGUYÊN TẮC: mọi trường hợp không chắc chắn đều rơi về 'pending_confirm'. Không bao giờ
-// suy đoán "khách chưa trả tiền" — báo nhầm cho người đã chuyển khoản là lỗi nặng nhất.
+// NGUYÊN TẮC: mọi trường hợp không chắc chắn đều rơi về 'pending_confirm'. Không bao giờ suy đoán
+// "khách chưa trả tiền" — báo nhầm cho người đã chuyển khoản là lỗi nặng nhất.
 
 export type CheckoutOutcome =
   | 'success'          // đã trả tiền
@@ -197,30 +198,29 @@ export function mapCheckoutResult(r: TransactionResult | null | undefined): Chec
 }
 ```
 
-- [ ] **Step 4: Chạy test để xác nhận PASS**
+- [ ] **Step 7: Chạy test để xác nhận PASS**
 
 Run: `cd mini-app && npm test`
-Expected: PASS — 10 test đều xanh.
+Expected: PASS — 10 test xanh, exit code 0.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add mini-app/src/services/checkout-result.ts mini-app/src/services/checkout-result.test.ts
-git commit -m "feat(mini-app): ham thuan mapCheckoutResult theo resultCode Zalo"
+git add mini-app/package.json mini-app/package-lock.json mini-app/vitest.config.mts \
+        mini-app/src/services/checkout-result.ts mini-app/src/services/checkout-result.test.ts
+git commit -m "feat(mini-app): vitest + ham thuan mapCheckoutResult theo resultCode Zalo"
 ```
 
 ---
 
-## Task 3: Nối `mapCheckoutResult` vào `payment.service.ts`
+## Task 2: Nối `mapCheckoutResult` vào `payment.service.ts`
 
 **Files:**
 - Modify: `mini-app/src/services/payment.service.ts`
 
-Bỏ hẳn cơ chế `zpOrderId`; nhận `data` từ sự kiện `PaymentDone` và đưa thẳng vào `checkTransaction`.
+Bỏ hẳn cơ chế `zpOrderId`; nhận `data` từ `PaymentDone` và đưa thẳng vào `checkTransaction`.
 
 - [ ] **Step 1: Thay phần đầu file (dòng 1–16)**
-
-Thay khối import + khai báo type cũ:
 
 ```ts
 // Payment service — Zalo Checkout SDK
@@ -228,6 +228,9 @@ Thay khối import + khai báo type cũ:
 // Sự kiện PaymentDone bắn khi khách hoàn tất HOẶC thoát; nó truyền `data`, đưa thẳng `data` đó
 // vào checkTransaction để lấy resultCode thật (tài liệu Zalo, SDK ≥ 2.45 — mình đang ở 2.49.4).
 // Phân loại resultCode nằm ở ./checkout-result.ts (thuần, có test).
+//
+// ⚠️ Hàm này NÉM lỗi khi không lấy được MAC (mạng lỗi, hoặc 409 vì đơn không còn 'pending').
+// Caller PHẢI bắt và đối chiếu lại với DB — tuyệt đối không coi lỗi là "đã thanh toán xong".
 
 import { Payment, events, EventName } from 'zmp-sdk'
 import { mapCheckoutResult, CheckoutOutcome, TransactionResult } from './checkout-result'
@@ -241,13 +244,23 @@ export type { CheckoutOutcome }
 Xoá hoàn toàn khối comment cũ mô tả `success | unpaid | cancelled` và dòng
 `export type ZaloPayOutcome = 'success' | 'unpaid' | 'cancelled'`.
 
-- [ ] **Step 2: Thay toàn bộ thân `payWithCheckoutSDK` từ khối `return await new Promise` tới hết hàm**
+- [ ] **Step 2: Sửa JSDoc của `payWithCheckoutSDK`**
+
+Thay dòng `* Trả về 'success' nếu thanh toán xong, 'unpaid' nếu khách huỷ/thất bại.` bằng:
+
+```ts
+   * Trả về CheckoutOutcome — xem ./checkout-result.ts. 'abandoned'/'failed' là hai trạng thái
+   * duy nhất đủ chắc chắn để nói với khách "chưa thanh toán".
+   * NÉM lỗi nếu không lấy được MAC — caller phải đối chiếu DB, không được xoá giỏ hàng.
+```
+
+- [ ] **Step 3: Thay toàn bộ từ `return await new Promise` tới hết hàm**
 
 ```ts
     return await new Promise<CheckoutOutcome>((resolve) => {
       let settled = false
 
-      // Dọn sự kiện và resolve một lần duy nhất
+      // Dọn listener và resolve đúng một lần
       const finish = (outcome: CheckoutOutcome) => {
         if (settled) return
         settled = true
@@ -256,11 +269,11 @@ Xoá hoàn toàn khối comment cũ mô tả `success | unpaid | cancelled` và 
         resolve(outcome)
       }
 
-      // PaymentDone truyền `data` — đưa thẳng vào checkTransaction theo đúng tài liệu Zalo.
+      // PaymentDone truyền `data` — đưa THẲNG vào checkTransaction theo đúng tài liệu Zalo.
       const onPaymentDone = async (data?: unknown) => {
         try {
           if (!data) {
-            // Không có payload → không đủ căn cứ kết luận. Chờ webhook cho an toàn.
+            // Không có payload → không đủ căn cứ. Chờ webhook cho an toàn.
             console.warn('[checkout] PaymentDone không kèm data → pending_confirm')
             finish('pending_confirm')
             return
@@ -272,7 +285,6 @@ Xoá hoàn toàn khối comment cũ mô tả `success | unpaid | cancelled` và 
           finish(mapCheckoutResult(r as TransactionResult))
         } catch (e) {
           console.error('[checkout] checkTransaction lỗi:', e)
-          // Không rõ trạng thái → chờ webhook (tránh báo nhầm cho khách đã chuyển khoản)
           finish('pending_confirm')
         }
       }
@@ -288,7 +300,7 @@ Xoá hoàn toàn khối comment cũ mô tả `success | unpaid | cancelled` và 
         extradata: body.extradata,
         mac: body.mac,
         fail: () => {
-          // Lỗi tạo giao dịch — giao dịch chưa hình thành nên chắc chắn chưa mất tiền
+          // Lỗi tạo giao dịch — sheet chưa mở nên chắc chắn chưa mất tiền
           console.warn('[checkout] createOrder fail callback')
           finish('failed')
         },
@@ -299,26 +311,17 @@ Xoá hoàn toàn khối comment cũ mô tả `success | unpaid | cancelled` và 
     })
 ```
 
-Lưu ý: callback `success` và biến `zpOrderId` bị xoá hẳn — không còn ai đọc `orderId` từ đó nữa.
+Callback `success` và biến `zpOrderId` bị xoá hẳn.
 
-- [ ] **Step 3: Sửa comment JSDoc của `payWithCheckoutSDK`**
+- [ ] **Step 4: Kiểm tra không còn tên cũ**
 
-Thay dòng `* Trả về 'success' nếu thanh toán xong, 'unpaid' nếu khách huỷ/thất bại.` bằng:
-
-```ts
-   * Trả về CheckoutOutcome — xem ./checkout-result.ts. 'abandoned'/'failed' là hai trạng thái
-   * duy nhất đủ chắc chắn để nói với khách "chưa thanh toán".
-```
-
-- [ ] **Step 4: Kiểm tra không còn tham chiếu tên cũ**
-
-Run: `cd mini-app && grep -rn "ZaloPayOutcome\|zpOrderId\|'unpaid'\|'cancelled'" src/services/payment.service.ts`
-Expected: không có dòng nào khớp (exit code 1).
+Run: `cd mini-app && grep -n "ZaloPayOutcome\|zpOrderId\|'unpaid'\|'cancelled'" src/services/payment.service.ts`
+Expected: không dòng nào khớp (exit code 1).
 
 - [ ] **Step 5: Type-check**
 
 Run: `cd mini-app && npm run typecheck`
-Expected: PASS, không lỗi. Nếu báo lỗi ở `checkout/index.tsx` vì nó vẫn dùng kiểu cũ thì bỏ qua ở bước này — Task 6 sẽ sửa. Ghi lại đúng thông báo lỗi để đối chiếu.
+Expected: chỉ còn lỗi ở `pages/checkout/index.tsx` (Task 7 sửa). Ghi lại đúng thông báo lỗi để đối chiếu.
 
 - [ ] **Step 6: Commit**
 
@@ -329,12 +332,147 @@ git commit -m "fix(mini-app): doc resultCode tu PaymentDone data thay vi doan qu
 
 ---
 
+## Task 3: Test phần nối SDK
+
+**Files:**
+- Test: `mini-app/src/services/payment.service.test.ts`
+
+`mapCheckoutResult` đã có test, nhưng chỗ dễ hỏng thật là **phần nối**: payload có được truyền nguyên vẹn không, listener có được gỡ không, lỗi có rơi đúng nhánh không.
+
+- [ ] **Step 1: Viết test**
+
+Tạo `mini-app/src/services/payment.service.test.ts`:
+
+```ts
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Bộ nhớ giả cho listener PaymentDone để test tự bắn sự kiện
+const listeners = new Map<string, (data?: unknown) => void>()
+const checkTransaction = vi.fn()
+const createOrder = vi.fn()
+
+vi.mock('zmp-sdk', () => ({
+  Payment: {
+    checkTransaction: (...a: unknown[]) => checkTransaction(...a),
+    createOrder: (...a: unknown[]) => createOrder(...a),
+  },
+  events: {
+    on: (name: string, cb: (data?: unknown) => void) => listeners.set(name, cb),
+    off: (name: string) => listeners.delete(name),
+  },
+  EventName: { PaymentDone: 'action.payment.done' },
+}))
+
+const { paymentService } = await import('./payment.service')
+
+// Giả lập môi trường Zalo (payment.service bỏ qua SDK khi thiếu window.APP_ID)
+;(globalThis as { window?: unknown }).window = { APP_ID: 'test-app' }
+
+function mockMacOk() {
+  globalThis.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ desc: 'd', item: '[]', amount: 1000, extradata: '{}', mac: 'm' }),
+  }) as unknown as typeof fetch
+}
+
+function firePaymentDone(data?: unknown) {
+  const cb = listeners.get('action.payment.done')
+  if (!cb) throw new Error('listener chưa được đăng ký')
+  cb(data)
+}
+
+beforeEach(() => {
+  listeners.clear()
+  checkTransaction.mockReset()
+  createOrder.mockReset()
+  createOrder.mockReturnValue(new Promise(() => {})) // treo, để PaymentDone quyết định
+  mockMacOk()
+})
+
+describe('payWithCheckoutSDK', () => {
+  it('truyền NGUYÊN payload của PaymentDone vào checkTransaction', async () => {
+    checkTransaction.mockResolvedValue({ resultCode: 1, isCustom: false })
+    const p = paymentService.payWithCheckoutSDK('order-1')
+    await Promise.resolve()
+    const payload = { orderId: 'zp-9', extra: 'giữ nguyên' }
+    firePaymentDone(payload)
+    await expect(p).resolves.toBe('success')
+    expect(checkTransaction).toHaveBeenCalledWith({ data: payload })
+  })
+
+  it('gỡ listener sau khi xong', async () => {
+    checkTransaction.mockResolvedValue({ resultCode: -2 })
+    const p = paymentService.payWithCheckoutSDK('order-1')
+    await Promise.resolve()
+    firePaymentDone({ orderId: 'zp-9' })
+    await expect(p).resolves.toBe('abandoned')
+    expect(listeners.has('action.payment.done')).toBe(false)
+  })
+
+  it('checkTransaction ném lỗi → pending_confirm, KHÔNG kết luận chưa trả tiền', async () => {
+    checkTransaction.mockRejectedValue(new Error('mạng lỗi'))
+    const p = paymentService.payWithCheckoutSDK('order-1')
+    await Promise.resolve()
+    firePaymentDone({ orderId: 'zp-9' })
+    await expect(p).resolves.toBe('pending_confirm')
+  })
+
+  it('PaymentDone không kèm data → pending_confirm', async () => {
+    const p = paymentService.payWithCheckoutSDK('order-1')
+    await Promise.resolve()
+    firePaymentDone(undefined)
+    await expect(p).resolves.toBe('pending_confirm')
+    expect(checkTransaction).not.toHaveBeenCalled()
+  })
+
+  it('createOrder gọi callback fail → failed', async () => {
+    createOrder.mockImplementation((args: { fail: () => void }) => {
+      args.fail()
+      return new Promise(() => {})
+    })
+    await expect(paymentService.payWithCheckoutSDK('order-1')).resolves.toBe('failed')
+  })
+
+  it('createOrder promise reject → failed', async () => {
+    createOrder.mockReturnValue(Promise.reject(new Error('hỏng')))
+    await expect(paymentService.payWithCheckoutSDK('order-1')).resolves.toBe('failed')
+  })
+
+  it('lấy MAC lỗi 409 → NÉM lỗi để caller đối chiếu DB, không tự kết luận', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({ error: 'Đơn không ở trạng thái chờ thanh toán' }),
+    }) as unknown as typeof fetch
+    await expect(paymentService.payWithCheckoutSDK('order-1')).rejects.toThrow(
+      'Đơn không ở trạng thái chờ thanh toán',
+    )
+  })
+})
+```
+
+- [ ] **Step 2: Chạy test**
+
+Run: `cd mini-app && npm test`
+Expected: PASS — 10 test của `checkout-result` + 7 test của `payment.service`, tổng 17.
+
+Nếu test "truyền NGUYÊN payload" fail vì `checkTransaction` nhận khác `{ data: payload }`, DỪNG
+lại: nghĩa là Task 2 gói payload sai, sửa `payment.service.ts` chứ đừng nới test.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add mini-app/src/services/payment.service.test.ts
+git commit -m "test(mini-app): phu phan noi PaymentDone -> checkTransaction"
+```
+
+---
+
 ## Task 4: Migration 038 — `cancel_order` trả kết quả rõ ràng
 
 **Files:**
 - Create: `supabase/migrations/038_cancel_order_result.sql`
-
-RPC hiện `RETURNS void`; UPDATE trúng 0 dòng không sinh lỗi nên client tưởng đã huỷ. `useCancelOrder` hiện chưa nơi nào gọi nên đổi kiểu trả về là an toàn.
+- Modify: `mini-app/src/types/database.types.ts`
 
 - [ ] **Step 1: Viết migration**
 
@@ -389,35 +527,28 @@ revoke all on function cancel_order(uuid, text) from public;
 grant execute on function cancel_order(uuid, text) to anon;
 ```
 
-- [ ] **Step 2: Áp migration lên Supabase**
+- [ ] **Step 2: Áp migration**
 
-Dùng Supabase MCP `apply_migration` với name `038_cancel_order_result` và nội dung file trên.
+Dùng Supabase MCP `apply_migration`, name `038_cancel_order_result`, nội dung file trên.
 Expected: áp thành công, không lỗi.
 
 - [ ] **Step 3: Kiểm chứng bằng SQL thật**
 
-Chạy qua Supabase MCP `execute_sql`. Tạo một đơn nháp rồi thử từng nhánh:
+Qua Supabase MCP `execute_sql`. Tạo đơn nháp:
 
 ```sql
--- Chuẩn bị: lấy 1 store + table đang hoạt động
-with s as (select id from stores where is_active limit 1),
-     t as (select id, store_id from tables where is_active limit 1)
 insert into orders (store_id, table_id, total_amount, payment_amount, status,
                     payment_method, capability_token)
 select t.store_id, t.id, 1000, 1000, 'pending', 'zalo_checkout', 'TEST-TOKEN-038'
-from t returning id;
+from tables t where t.is_active limit 1
+returning id;
 ```
 
-Ghi lại `id` trả về, gọi nó là `<OID>`, rồi chạy lần lượt:
+Ghi lại `id` trả về (gọi là `<OID>`), rồi chạy lần lượt:
 
 ```sql
--- 1) Sai token → blocked/not_found_or_bad_token
 select cancel_order('<OID>'::uuid, 'SAI-TOKEN');
-
--- 2) Đúng token, đơn pending sạch → cancelled
 select cancel_order('<OID>'::uuid, 'TEST-TOKEN-038');
-
--- 3) Gọi lại lần nữa → already_cancelled
 select cancel_order('<OID>'::uuid, 'TEST-TOKEN-038');
 ```
 
@@ -426,16 +557,15 @@ Expected lần lượt:
 `{"result":"cancelled"}`,
 `{"result":"already_cancelled"}`.
 
-Tiếp tục kiểm nhánh đã trả tiền:
+Ca quan trọng nhất — đơn đã thu tiền:
 
 ```sql
-with s as (select id from stores where is_active limit 1),
-     t as (select id, store_id from tables where is_active limit 1)
 insert into orders (store_id, table_id, total_amount, payment_amount, status,
                     payment_method, capability_token, payment_received_at, payment_received_via)
 select t.store_id, t.id, 1000, 1000, 'pending', 'zalo_checkout', 'TEST-TOKEN-038B',
        now(), 'kitchen'
-from t returning id;
+from tables t where t.is_active limit 1
+returning id;
 ```
 
 Với `id` mới `<OID2>`:
@@ -444,7 +574,7 @@ Với `id` mới `<OID2>`:
 select cancel_order('<OID2>'::uuid, 'TEST-TOKEN-038B');
 ```
 
-Expected: `{"result":"blocked","reason":"already_paid"}` — **đây là ca quan trọng nhất**, đơn đã thu tiền không được huỷ.
+Expected: `{"result":"blocked","reason":"already_paid"}`. Nếu ra `cancelled` thì DỪNG — migration sai.
 
 - [ ] **Step 4: Dọn dữ liệu test**
 
@@ -454,40 +584,61 @@ delete from orders where capability_token in ('TEST-TOKEN-038','TEST-TOKEN-038B'
 
 Expected: `DELETE 2`.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Cập nhật generated types**
+
+Trong `mini-app/src/types/database.types.ts`, tại khối `cancel_order` (khoảng dòng 142–145), đổi:
+
+```ts
+      cancel_order: {
+        Args: { p_order_id: string; p_token: string }
+        Returns: Json
+      }
+```
+
+Type `Json` đã khai báo sẵn ở dòng 4 của file này, không cần import gì thêm.
+
+- [ ] **Step 6: Type-check**
+
+Run: `cd mini-app && npm run typecheck`
+Expected: vẫn chỉ còn lỗi ở `pages/checkout/index.tsx`, không phát sinh lỗi mới.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations/038_cancel_order_result.sql
+git add supabase/migrations/038_cancel_order_result.sql mini-app/src/types/database.types.ts
 git commit -m "feat(db): cancel_order tra jsonb + chan huy don da thu tien (mig 038)"
 ```
 
 ---
 
-## Task 5: `order.api.ts` — `getPaymentState` + `cancelOrder` trả kết quả
+## Task 5: `order.api.ts` — trạng thái đơn phân biệt được lỗi
 
 **Files:**
 - Modify: `mini-app/src/services/order/order.api.ts`
 - Modify: `mini-app/src/services/order/order.mutations.ts`
 
-- [ ] **Step 1: Thêm type `CancelResult` vào đầu `order.api.ts`**
+Điểm mấu chốt: **lỗi hỏi DB phải phân biệt được với "đơn không còn"**. Trả `null` cho cả hai là
+nguồn gốc của lỗi fail-open.
 
-Ngay sau khối `import` ở đầu file:
+- [ ] **Step 1: Thêm type vào đầu `order.api.ts`, ngay sau khối import**
 
 ```ts
-// Kết quả huỷ đơn từ RPC cancel_order (mig 038). 'blocked' = đơn KHÔNG bị huỷ.
+// Kết quả huỷ đơn từ RPC cancel_order (mig 038). 'blocked' = đơn CÒN NGUYÊN.
 export type CancelResult =
-  | { result: 'cancelled' }
-  | { result: 'already_cancelled' }
-  | { result: 'blocked'; reason: string }
+  | { result: "cancelled" }
+  | { result: "already_cancelled" }
+  | { result: "blocked"; reason: string };
 
-// Trạng thái thanh toán tối giản, dùng để quyết định có dựng lại banner hay không.
-export type PaymentState = {
-  status: string
-  paymentReceivedAt: string | null
-}
+// Trạng thái đơn dưới góc nhìn "có thể thanh toán lại không".
+// query_failed PHẢI tách khỏi cancelled — gộp lại là fail-open, mất giỏ hàng của khách.
+export type OrderPaymentState =
+  | { kind: "unpaid_pending" }  // còn pending, chưa thu tiền → giữ banner
+  | { kind: "cancelled" }       // đã huỷ / không còn → bỏ banner nhưng GIỮ giỏ để đặt lại
+  | { kind: "settled" }         // đã thu tiền hoặc đã qua pending → xoá giỏ, sang trạng thái đơn
+  | { kind: "query_failed" };   // không hỏi được → GIỮ NGUYÊN mọi thứ
 ```
 
-- [ ] **Step 2: Thay `cancelOrder` (hiện ở khoảng dòng 42–48)**
+- [ ] **Step 2: Thay `cancelOrder` (khoảng dòng 42–48)**
 
 ```ts
   cancelOrder: async (orderId: string, token: string): Promise<CancelResult> => {
@@ -511,25 +662,29 @@ export type PaymentState = {
 - [ ] **Step 3: Thêm `getPaymentState` ngay sau `cancelOrder`**
 
 ```ts
-  // Hỏi DB trạng thái thật của đơn. Dùng khi dựng lại banner sau khi khách rời trang:
-  // đơn có thể đã được bếp xác nhận tiền / bị huỷ / callback ví đã về trong lúc khách đi chỗ khác.
-  getPaymentState: async (orderId: string): Promise<PaymentState | null> => {
+  // Hỏi DB trạng thái thật của đơn. Dùng ở MỌI ngã rẽ ra khỏi banner: lúc vào trang, trước khi
+  // thanh toán lại, và sau khi mở thanh toán thất bại. Đơn có thể đã được bếp xác nhận tiền,
+  // đã bị sweep huỷ, hoặc callback ví đã về trong lúc khách đi chỗ khác.
+  getPaymentState: async (orderId: string): Promise<OrderPaymentState> => {
     const { data, error } = await supabase
       .from("orders")
       .select("status, payment_received_at")
       .eq("id", orderId)
-      .single();
-    if (error || !data) return null;
-    return {
-      status: data.status as string,
-      paymentReceivedAt: (data.payment_received_at as string | null) ?? null,
-    };
+      .maybeSingle();
+    if (error) return { kind: "query_failed" };
+    if (!data) return { kind: "cancelled" }; // không thấy đơn → không dùng lại được nữa
+    const status = data.status as string;
+    const paid = (data.payment_received_at as string | null) !== null;
+    if (status === "cancelled") return { kind: "cancelled" };
+    if (status === "pending" && !paid) return { kind: "unpaid_pending" };
+    return { kind: "settled" };
   },
 ```
 
-- [ ] **Step 4: Sửa `useCancelOrder` trong `order.mutations.ts`**
+Dùng `maybeSingle()` chứ không phải `single()` — `single()` coi "0 dòng" là lỗi, làm ta không
+phân biệt được đơn đã bị xoá với lỗi mạng.
 
-Thay khối hiện tại (dòng 18–22):
+- [ ] **Step 4: Sửa `useCancelOrder` trong `order.mutations.ts`**
 
 ```ts
 export function useCancelOrder() {
@@ -539,7 +694,7 @@ export function useCancelOrder() {
 }
 ```
 
-Và bổ sung `CancelResult` vào import ở đầu file:
+Và sửa dòng import ở đầu file:
 
 ```ts
 import { orderService, sessionOrderService, CancelResult } from "./order.api";
@@ -547,7 +702,7 @@ import { orderService, sessionOrderService, CancelResult } from "./order.api";
 
 - [ ] **Step 5: Kiểm chứng anon đọc được `payment_received_at`**
 
-RLS là row-level, nhưng phải xác nhận anon thật sự select được cột này. Chạy qua Supabase MCP `execute_sql`:
+RLS là row-level, nhưng phải xác nhận anon thật sự select được. Qua Supabase MCP `execute_sql`:
 
 ```sql
 set role anon;
@@ -558,36 +713,146 @@ reset role;
 Dùng `set role` chứ KHÔNG phải `set local role` — `set local` chỉ có tác dụng trong transaction,
 chạy lẻ sẽ im lặng không đổi role và cho kết quả sai (đọc bằng quyền service role, luôn thành công).
 
-Expected: trả về 1 dòng, không lỗi permission. Nếu lỗi thì DỪNG và báo lại — `getPaymentState` sẽ không dùng được và Task 9 phải đổi cách.
+Expected: trả về 1 dòng, không lỗi permission. Nếu lỗi thì **DỪNG và báo lại** — `getPaymentState`
+không dùng được và Task 8 phải đổi cách.
 
 - [ ] **Step 6: Type-check**
 
 Run: `cd mini-app && npm run typecheck`
-Expected: chỉ còn lỗi ở `checkout/index.tsx` (Task 6 sửa). Không lỗi trong `order.api.ts` / `order.mutations.ts`.
+Expected: chỉ còn lỗi ở `pages/checkout/index.tsx`.
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add mini-app/src/services/order/order.api.ts mini-app/src/services/order/order.mutations.ts
-git commit -m "feat(mini-app): cancelOrder tra ket qua + them getPaymentState"
+git commit -m "feat(mini-app): getPaymentState phan biet loi mang voi don khong con"
 ```
 
 ---
 
-## Task 6: Rẽ nhánh theo outcome ở trang giỏ hàng
+## Task 6: Khoá giỏ hàng ở tầng store
+
+**Files:**
+- Modify: `mini-app/src/stores/cart.store.tsx`
+
+Khoá đặt ở trang checkout là bịt được một cửa. `/checkout` có `back: true`
+([router.tsx:33](../../../mini-app/src/router.tsx)) nên khách rời về menu rồi sửa giỏ ở đó được —
+quay lại thì banner dựng lại nhưng giỏ đã khác snapshot của đơn. Khoá phải nằm ở store.
+
+- [ ] **Step 1: Thêm cờ khoá vào interface**
+
+Trong `interface CartStore`, thêm hai dòng sau `clearCart`:
+
+```ts
+  // Id đơn đang chờ thanh toán. Khác null = giỏ bị đóng băng vì đã chốt vào một đơn pending;
+  // mọi thao tác sửa giỏ (kể cả từ trang menu) đều bị chặn cho tới khi đơn được huỷ hoặc trả xong.
+  lockedByOrderId: string | null;
+  setCartLock: (orderId: string | null) => void;
+```
+
+- [ ] **Step 2: Đổi `create` để lấy được `get`**
+
+Thay dòng `export const useCartStore = create<CartStore>((set) => ({` bằng:
+
+```ts
+export const useCartStore = create<CartStore>((set, get) => ({
+```
+
+Và thêm giá trị khởi tạo sau `checkoutSheetVisible: false,`:
+
+```ts
+  lockedByOrderId: null,
+```
+
+- [ ] **Step 3: Guard bốn hàm mutation**
+
+Thêm dòng chặn vào **đầu thân** của `addToCart`, `updateCartItem`, `updateQuantity`, `removeItem`:
+
+```ts
+    if (get().lockedByOrderId) return;
+```
+
+Cụ thể, `addToCart` thành:
+
+```ts
+  addToCart: (newItem) => {
+    if (get().lockedByOrderId) return;
+    const itemId = generateCartItemId(newItem);
+    ...
+```
+
+`updateCartItem` thành:
+
+```ts
+  updateCartItem: (id, updatedItem) => {
+    if (get().lockedByOrderId) return;
+    set((state) => {
+    ...
+```
+
+`updateQuantity` thành:
+
+```ts
+  updateQuantity: (id, quantity) => {
+    if (get().lockedByOrderId) return;
+    set((state) => {
+    ...
+```
+
+`removeItem` thành:
+
+```ts
+  removeItem: (id) => {
+    if (get().lockedByOrderId) return;
+    set((state) => {
+    ...
+```
+
+`clearCart` **không** guard — nó chỉ được gọi khi đơn đã xong, và nó tự mở khoá.
+
+- [ ] **Step 4: `clearCart` mở khoá + thêm `setCartLock`**
+
+```ts
+  clearCart: () => {
+    set({ items: [], totalItems: 0, totalAmount: 0, lockedByOrderId: null });
+  },
+
+  setCartLock: (orderId) => {
+    set({ lockedByOrderId: orderId });
+  },
+```
+
+- [ ] **Step 5: Type-check**
+
+Run: `cd mini-app && npm run typecheck`
+Expected: chỉ còn lỗi ở `pages/checkout/index.tsx`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add mini-app/src/stores/cart.store.tsx
+git commit -m "feat(mini-app): khoa gio hang o tang store khi co don cho thanh toan"
+```
+
+---
+
+## Task 7: Đối chiếu + rẽ nhánh ở trang giỏ hàng
 
 **Files:**
 - Modify: `mini-app/src/pages/checkout/index.tsx`
 
-- [ ] **Step 1: Thêm import và hằng số**
+- [ ] **Step 1: Thêm import**
 
-Bổ sung vào khối import ở đầu file:
+Bổ sung vào khối import đầu file:
 
 ```ts
-import { orderService } from "@/services/order/order.api";
+import { orderService, OrderPaymentState } from "@/services/order/order.api";
+import type { CheckoutOutcome } from "@/services/checkout-result";
 ```
 
-Thêm hằng số ngay dưới `const TAKEAWAY_FORM_KEY = "mevo_takeaway_form";`:
+- [ ] **Step 2: Thêm hằng số và helper localStorage**
+
+Ngay dưới `const TAKEAWAY_FORM_KEY = "mevo_takeaway_form";`:
 
 ```ts
 // Đơn đã tạo nhưng khách chưa trả tiền — giữ qua điều hướng để dựng lại banner khi quay lại trang.
@@ -600,7 +865,9 @@ function loadUnpaidOrder(): UnpaidOrder | null {
     const raw = localStorage.getItem(UNPAID_ORDER_KEY);
     if (!raw) return null;
     const p = JSON.parse(raw) as Partial<UnpaidOrder>;
-    if (typeof p.id !== "string" || typeof p.token !== "string") return null;
+    // Thiếu token thì banner vô dụng: "Sửa món" không huỷ được đơn → coi như không có.
+    if (typeof p.id !== "string" || !p.id) return null;
+    if (typeof p.token !== "string" || !p.token) return null;
     return { id: p.id, token: p.token };
   } catch {
     return null;
@@ -612,40 +879,103 @@ function saveUnpaidOrder(o: UnpaidOrder | null) {
     if (o) localStorage.setItem(UNPAID_ORDER_KEY, JSON.stringify(o));
     else localStorage.removeItem(UNPAID_ORDER_KEY);
   } catch {
-    /* localStorage đầy hoặc bị chặn — bỏ qua, chỉ mất khả năng dựng lại banner */
+    /* localStorage đầy hoặc bị chặn — chỉ mất khả năng dựng lại banner */
   }
 }
 ```
 
-- [ ] **Step 2: Thêm state `unpaidOrder`**
+- [ ] **Step 3: Thêm state, khởi tạo ĐỒNG BỘ**
 
-Thay dòng comment mồ côi ở dòng 61 (`// Đơn ZaloPay đang chờ xử lý (kèm capability token...)`) bằng:
+Thay dòng comment mồ côi ở dòng 61 (`// Đơn ZaloPay đang chờ xử lý (kèm capability token...)`):
 
 ```ts
-  // Đơn đã tạo nhưng khách chưa trả tiền (kèm capability token để huỷ khi bấm "Sửa món")
-  const [unpaidOrder, setUnpaidOrder] = useState<UnpaidOrder | null>(null);
+  // Khởi tạo ĐỒNG BỘ từ localStorage: banner phải có ngay từ khung hình đầu tiên, nếu không
+  // sẽ có một khoảnh khắc nút "Đặt món" còn bấm được → tạo đơn thứ hai cho cùng giỏ hàng.
+  // Việc hỏi DB sau đó (effect bên dưới) chỉ được phép GỠ banner xuống, không bao giờ dựng lên.
+  const [unpaidOrder, setUnpaidOrder] = useState<UnpaidOrder | null>(() => loadUnpaidOrder());
   const [isCancelling, setIsCancelling] = useState(false);
   const isLocked = unpaidOrder !== null;
 ```
 
-- [ ] **Step 3: Thay `handleZaloPayPayment` (dòng 207–221)**
+- [ ] **Step 4: Lấy `setCartLock` từ store**
+
+Sửa dòng 73:
+
+```ts
+  const { items: cartItems, updateQuantity, clearCart, setCartLock } = useCartStore();
+```
+
+- [ ] **Step 5: Viết hai hàm trung tâm — đặt ngay trước `handleOrder`**
+
+```ts
+  // Bật/tắt banner ở cả ba nơi cùng lúc: state, localStorage, khoá giỏ hàng.
+  const applyUnpaidOrder = (u: UnpaidOrder | null) => {
+    setUnpaidOrder(u);
+    saveUnpaidOrder(u);
+    setCartLock(u ? u.id : null);
+  };
+
+  // Hàm đối chiếu DUY NHẤT. Mọi ngã rẽ ra khỏi banner đều đi qua đây.
+  // Trả về true nếu đơn còn dùng được để thanh toán lại.
+  const applyPaymentState = (st: OrderPaymentState, orderId: string): boolean => {
+    if (st.kind === "unpaid_pending") return true;
+
+    if (st.kind === "query_failed") {
+      // KHÔNG đụng gì cả — giữ nguyên banner, giữ nguyên giỏ, giữ nguyên khoá.
+      openSnackbar({ text: "Không kiểm tra được đơn, vui lòng thử lại.", type: "error" });
+      return false;
+    }
+
+    if (st.kind === "cancelled") {
+      // Đơn đã bị huỷ (sweep / nơi khác). Bỏ banner nhưng GIỮ giỏ để khách đặt lại ngay.
+      applyUnpaidOrder(null);
+      openSnackbar({ text: "Đơn cũ đã hết hạn. Mời bạn đặt lại.", type: "warning" });
+      return false;
+    }
+
+    // settled — đơn đã có tiền hoặc đã vào bếp. Giờ mới được xoá giỏ.
+    applyUnpaidOrder(null);
+    clearCart();
+    navigate(`/order-status/${orderId}`);
+    return false;
+  };
+```
+
+- [ ] **Step 6: Thay `handleZaloPayPayment` (dòng 207–221)**
 
 ```ts
   const handleZaloPayPayment = async (orderId: string, token: string | null) => {
     let outcome: CheckoutOutcome = "pending_confirm";
+    let threw = false;
     try {
       outcome = await paymentService.payWithCheckoutSDK(orderId);
     } catch {
-      // SDK lỗi bất ngờ — không đủ căn cứ kết luận, coi như chờ xác nhận
-      outcome = "pending_confirm";
+      // Không lấy được MAC: mạng lỗi, hoặc 409 vì đơn không còn 'pending' (đã bị sweep / đã trả).
+      // TUYỆT ĐỐI không xoá giỏ ở đây — phải hỏi DB xem thực sự chuyện gì đã xảy ra.
+      threw = true;
     }
     setIsProcessing(false);
 
+    if (threw) {
+      const st = await orderService.getPaymentState(orderId);
+      if (applyPaymentState(st, orderId)) {
+        // Đơn vẫn còn chờ trả tiền → giữ banner, chỉ báo lỗi mở thanh toán
+        if (token) applyUnpaidOrder({ id: orderId, token });
+        openSnackbar({ text: "Chưa mở được thanh toán, vui lòng thử lại.", type: "error" });
+      }
+      return;
+    }
+
     // Chỉ hai trạng thái này đủ chắc chắn để nói với khách "chưa thanh toán".
     if (outcome === "abandoned" || outcome === "failed") {
-      const u = { id: orderId, token: token ?? "" };
-      setUnpaidOrder(u);
-      saveUnpaidOrder(u);
+      if (!token) {
+        // Không có capability token thì "Sửa món" không huỷ được đơn → banner thành ngõ cụt.
+        // Fail-safe: đi đường cũ, khách vẫn thấy đơn ở trang trạng thái.
+        clearCart();
+        navigate(`/order-status/${orderId}`);
+        return;
+      }
+      applyUnpaidOrder({ id: orderId, token });
       // Đơn này sắp bị bỏ hoặc trả lại — đừng để app nhớ nó như đơn mang về gần nhất
       try {
         localStorage.removeItem("mevo_last_takeaway_order");
@@ -657,91 +987,104 @@ Thay dòng comment mồ côi ở dòng 61 (`// Đơn ZaloPay đang chờ xử l�
 
     // 'success' | 'pending_confirm' → giữ nguyên hành vi cũ. Quán xác nhận khi thấy tiền;
     // KHÔNG hiện dialog "thử lại" (gây hiểu nhầm cho khách đã chuyển khoản).
+    applyUnpaidOrder(null);
     clearCart();
     navigate(`/order-status/${orderId}`);
   };
 ```
 
-Bổ sung import kiểu ở đầu file:
+- [ ] **Step 7: Truyền token ở nơi gọi và dọn đơn cũ**
+
+Trong `onSuccess` của `createOrder`, thêm dòng đầu tiên rồi sửa lời gọi:
 
 ```ts
-import { paymentService } from "@/services/payment.service";
-import type { CheckoutOutcome } from "@/services/checkout-result";
-```
-
-(dòng `import { paymentService }` đã có sẵn — chỉ thêm dòng `import type`.)
-
-- [ ] **Step 4: Truyền token ở nơi gọi (dòng 190)**
-
-Trong `onSuccess` của `createOrder`, thay `await handleZaloPayPayment(order.id);` bằng:
-
-```ts
-            await handleZaloPayPayment(order.id, order.capabilityToken);
-```
-
-- [ ] **Step 5: Dọn đơn cũ khi đặt đơn mới thành công**
-
-Ngay đầu `onSuccess`, trước `queryClient.invalidateQueries`, thêm:
-
-```ts
+        onSuccess: async (order) => {
           // Đơn mới đã tạo → banner của đơn cũ không còn nghĩa gì
-          setUnpaidOrder(null);
-          saveUnpaidOrder(null);
+          applyUnpaidOrder(null);
+          // Invalidate tab "Đã gọi" để hiện đơn mới ngay lập tức
+          void queryClient.invalidateQueries({ queryKey: [GET_SESSION_ORDERS_KEY] });
+          if (isTakeaway || paymentMethod === "zalo_checkout") {
+            if (isTakeaway) {
+              localStorage.setItem("mevo_last_takeaway_order", order.id);
+            }
+            await handleZaloPayPayment(order.id, order.capabilityToken);
+          } else {
 ```
 
-- [ ] **Step 6: Type-check**
+- [ ] **Step 8: Thêm effect khôi phục — đặt ngay sau effect làm nóng edge function (sau dòng 88)**
+
+```ts
+  // Đối chiếu đơn cũ với DB khi vào trang. Banner ĐÃ hiện sẵn từ useState khởi tạo đồng bộ;
+  // effect này chỉ có quyền gỡ nó xuống. Lỗi mạng thì không gỡ gì cả.
+  useEffect(() => {
+    const saved = loadUnpaidOrder();
+    if (!saved) return;
+    setCartLock(saved.id); // khoá ngay, không chờ mạng
+    let aborted = false;
+    (async () => {
+      const st = await orderService.getPaymentState(saved.id);
+      if (aborted) return;
+      applyPaymentState(st, saved.id);
+    })();
+    return () => {
+      aborted = true;
+    };
+    // Chỉ chạy một lần khi vào trang
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+```
+
+- [ ] **Step 9: Type-check**
 
 Run: `cd mini-app && npm run typecheck`
-Expected: PASS hoàn toàn, không còn lỗi nào.
+Expected: PASS hoàn toàn (banner UI chưa có nhưng không lỗi kiểu).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add mini-app/src/pages/checkout/index.tsx
-git commit -m "feat(mini-app): o lai gio hang khi khach thoat man chon phuong thuc"
+git commit -m "feat(mini-app): doi chieu DB o moi nga re, khong bao gio xoa gio nham"
 ```
 
 ---
 
-## Task 7: Banner thay nút đặt món
+## Task 8: Banner thay nút đặt món
 
 **Files:**
 - Modify: `mini-app/src/pages/checkout/index.tsx`
 
-Banner phải **thay thế** nút "Đặt món & Thanh toán", không nằm cạnh — để cả hai thì khách bấm nút gốc sẽ tạo đơn thứ hai cho cùng một giỏ.
-
-- [ ] **Step 1: Viết hàm xử lý hai nút**
-
-Thêm ngay sau `handleZaloPayPayment`:
+- [ ] **Step 1: Viết hai hàm xử lý nút — đặt ngay sau `handleZaloPayPayment`**
 
 ```ts
   // "Thanh toán lại" — trả tiền cho ĐÚNG đơn cũ, không tạo đơn mới.
+  // Hỏi DB TRƯỚC khi mở SDK: đơn có thể đã bị sweep (mở ra sẽ ăn 409) hoặc đã được trả rồi.
   const handleRetryPayment = async () => {
-    if (!unpaidOrder) return;
+    if (!unpaidOrder || isProcessing || isCancelling) return;
     setIsProcessing(true);
+    const st = await orderService.getPaymentState(unpaidOrder.id);
+    if (!applyPaymentState(st, unpaidOrder.id)) {
+      setIsProcessing(false);
+      return;
+    }
     await handleZaloPayPayment(unpaidOrder.id, unpaidOrder.token);
   };
 
   // "Sửa món" — huỷ đơn cũ rồi mở khoá giỏ. CHỈ tắt banner khi RPC xác nhận đã huỷ thật.
   const handleEditItems = async () => {
-    if (!unpaidOrder || isCancelling) return;
+    if (!unpaidOrder || isProcessing || isCancelling) return;
     setIsCancelling(true);
     try {
       const res = await orderService.cancelOrder(unpaidOrder.id, unpaidOrder.token);
       if (res.result === "cancelled" || res.result === "already_cancelled") {
-        setUnpaidOrder(null);
-        saveUnpaidOrder(null);
+        applyUnpaidOrder(null);
       } else if (res.reason === "already_paid") {
-        // Đơn đã có tiền thật — không được huỷ, và cũng không nên bắt khách trả lại
-        saveUnpaidOrder(null);
-        openSnackbar({ text: "Đơn này đã được thanh toán.", type: "success" });
+        // Đơn đã có tiền thật — không huỷ được, và cũng không nên bắt khách trả lại
+        applyUnpaidOrder(null);
         clearCart();
+        openSnackbar({ text: "Đơn này đã được thanh toán.", type: "success" });
         navigate(`/order-status/${unpaidOrder.id}`);
       } else {
-        openSnackbar({
-          text: "Chưa huỷ được đơn, vui lòng thử lại.",
-          type: "error",
-        });
+        openSnackbar({ text: "Chưa huỷ được đơn, vui lòng thử lại.", type: "error" });
       }
     } catch {
       openSnackbar({ text: "Lỗi mạng, chưa huỷ được đơn.", type: "error" });
@@ -752,8 +1095,6 @@ Thêm ngay sau `handleZaloPayPayment`:
 ```
 
 - [ ] **Step 2: Thay khối nút cuối trang (dòng 440–471)**
-
-Thay toàn bộ `<div className="fixed bottom-0 ...">` bằng:
 
 ```tsx
       {/* Nút đặt món / banner chưa thanh toán — fixed bottom */}
@@ -835,19 +1176,24 @@ git commit -m "feat(mini-app): banner thanh toan chua thanh cong thay nut dat mo
 
 ---
 
-## Task 8: Khoá toàn bộ form khi banner hiện
+## Task 9: Khoá form hiển thị
 
 **Files:**
 - Modify: `mini-app/src/pages/checkout/index.tsx`
 
-Đơn `pending` đã chốt món, giá và voucher. Sửa bất cứ thứ gì trong lúc banner hiện đều làm màn hình nói dối, vì "Thanh toán lại" trả theo `total_amount` của đơn cũ. Khoá bằng wrapper `pointer-events-none` — cuộn trang vẫn hoạt động vì touch rơi xuống phần tử cha.
+Store đã chặn mọi mutation giỏ hàng (Task 6). Task này làm phần **nhìn thấy được**: các ô nhập mờ
+đi và không bấm được, để khách hiểu vì sao không sửa được chứ không tưởng app đơ.
+
+Khoá bằng wrapper `pointer-events-none` — cuộn trang vẫn chạy vì touch rơi xuống phần tử cha.
 
 - [ ] **Step 1: Khoá nút tăng/giảm số lượng**
 
-`QuantityStepper` đã có sẵn prop `disabled`. Tại chỗ dùng (khoảng dòng 358–365), thêm:
+Tại chỗ dùng `QuantityStepper` (khoảng dòng 358), thêm prop `disabled`.
+**Giữ nguyên `variant="rounded"`** — bỏ đi là đổi hình dáng nút:
 
 ```tsx
                   <QuantityStepper
+                    variant="rounded"
                     value={item.quantity}
                     disabled={isLocked}
                     onDecrease={() =>
@@ -880,7 +1226,7 @@ Thay khối `{/* Ghi chú */}` (dòng 372–381):
 
 - [ ] **Step 3: Khoá chọn phương thức thanh toán**
 
-Thay dòng mở khối `{!singleMethod && !isTakeaway && (` (dòng 384–385):
+Thay dòng mở khối (dòng 384–385):
 
 ```tsx
         {!singleMethod && !isTakeaway && (
@@ -909,7 +1255,7 @@ Bọc `<VoucherSection ... />` (dòng 413–419):
 
 - [ ] **Step 5: Khoá form mang về**
 
-Thay dòng mở khối `{isTakeaway && (` của form mang về (dòng 243–244):
+Thay dòng mở khối form mang về (dòng 243–244):
 
 ```tsx
         {isTakeaway && (
@@ -920,76 +1266,16 @@ Thay dòng mở khối `{isTakeaway && (` của form mang về (dòng 243–244)
           >
 ```
 
-- [ ] **Step 6: Type-check**
+- [ ] **Step 6: Type-check + chạy toàn bộ test**
 
-Run: `cd mini-app && npm run typecheck`
-Expected: PASS.
+Run: `cd mini-app && npm run typecheck && npm test`
+Expected: typecheck PASS; 17 test PASS.
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add mini-app/src/pages/checkout/index.tsx
-git commit -m "feat(mini-app): khoa toan bo form khi banner chua thanh toan hien"
-```
-
----
-
-## Task 9: Khôi phục banner khi quay lại trang
-
-**Files:**
-- Modify: `mini-app/src/pages/checkout/index.tsx`
-
-React state mất khi rời trang. Không xử lý thì khách quay lại sẽ mất banner nhưng đơn cũ vẫn sống → bấm đặt món là có **hai** đơn `pending`.
-
-- [ ] **Step 1: Thêm effect khôi phục**
-
-Đặt ngay sau effect làm nóng edge function (sau dòng 88):
-
-```ts
-  // Dựng lại banner khi khách quay lại trang. LUÔN hỏi DB thay vì tin localStorage:
-  // đơn có thể đã được bếp xác nhận tiền, đã bị huỷ, hoặc callback ví đã về.
-  useEffect(() => {
-    const saved = loadUnpaidOrder();
-    if (!saved) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const st = await orderService.getPaymentState(saved.id);
-        if (cancelled) return;
-        const stillUnpaid =
-          st !== null && st.status === "pending" && st.paymentReceivedAt === null;
-        if (stillUnpaid) {
-          setUnpaidOrder(saved);
-        } else {
-          saveUnpaidOrder(null);
-        }
-      } catch {
-        // Không hỏi được DB → không dựng banner, và giữ nguyên key để thử lại lần sau
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // Chỉ chạy một lần khi vào trang
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-```
-
-- [ ] **Step 2: Type-check**
-
-Run: `cd mini-app && npm run typecheck`
-Expected: PASS.
-
-- [ ] **Step 3: Chạy toàn bộ unit test**
-
-Run: `cd mini-app && npm test`
-Expected: PASS — 10 test của `mapCheckoutResult` vẫn xanh.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add mini-app/src/pages/checkout/index.tsx
-git commit -m "feat(mini-app): dung lai banner chua thanh toan khi quay lai gio hang"
+git commit -m "feat(mini-app): khoa hien thi form khi banner chua thanh toan hien"
 ```
 
 ---
@@ -1010,24 +1296,36 @@ git commit -m "feat(mini-app): dung lai banner chua thanh toan khi quay lai gio 
 Spec: `docs/superpowers/specs/2026-08-06-repay-abandoned-checkout-design.md`
 Cần `zmp deploy` bản Development rồi thử trên Zalo thật — SDK không chạy trên trình duyệt.
 
+Ghi lại `orderId` của đơn vừa tạo để kiểm DB đúng đơn đó, đừng lọc theo thời gian.
+
 1. Bấm "Đặt món & Thanh toán" → thoát ngay ở màn chọn phương thức
    → **giỏ còn nguyên món**, banner đỏ "Thanh toán chưa thành công" hiện, KHÔNG bị chuyển trang.
 2. Khi banner hiện: KHÔNG thấy nút "Đặt món & Thanh toán" gốc; nút tăng/giảm số lượng, ghi chú,
    mã giảm giá, chọn phương thức thanh toán, form mang về đều mờ và KHÔNG bấm được.
-3. Bấm "Thanh toán lại" → sheet Zalo mở lại → chọn chuyển khoản và trả tiền
-   → vào trang trạng thái đơn. Kiểm DB: `select status, count(*) from orders where created_at > now() - interval '10 minutes' group by 1;`
-   → KHÔNG có đơn `cancelled` nào.
-4. Bấm "Sửa món" → banner tắt, nút "Đặt món & Thanh toán" quay lại, form mở khoá
-   → thêm 1 món → đặt lại → đơn cũ `cancelled`, đơn mới có tổng tiền đúng.
-5. Chuyển khoản: bấm Xác nhận → sang app ngân hàng → quay lại Zalo
+3. **Thử lách qua menu:** đang có banner → bấm back về menu → thử thêm món / đổi số lượng
+   → giỏ KHÔNG đổi → quay lại giỏ hàng → banner còn nguyên, món vẫn đúng như cũ.
+4. Bấm "Thanh toán lại" → sheet Zalo mở lại → chọn chuyển khoản và trả tiền
+   → vào trang trạng thái đơn. Kiểm DB đúng đơn đó:
+   `select status, payment_received_at from orders where id = '<orderId>';`
+   → status khác `cancelled`.
+5. Bấm "Sửa món" → banner tắt, nút "Đặt món & Thanh toán" quay lại, form mở khoá
+   → thêm 1 món → đặt lại → `select status from orders where id = '<orderId cũ>';` ra `cancelled`,
+   đơn mới có tổng tiền đúng.
+6. Chuyển khoản: bấm Xác nhận → sang app ngân hàng → quay lại Zalo
    → vào trang trạng thái đơn như cũ, KHÔNG thấy banner.
-6. Đang có banner → rời sang trang menu → quay lại giỏ hàng → banner dựng lại đúng.
-7. Đang có banner → nhờ bếp bấm "Đã nhận tiền" trên màn bếp → quay lại giỏ hàng
-   → banner KHÔNG dựng lại.
-8. Đơn mang về, thoát ở màn chọn phương thức → kiểm `localStorage`:
-   `mevo_last_takeaway_order` đã bị xoá, `mevo_unpaid_order` có giá trị.
-9. Ví ZaloPay (quán đã đăng ký Zalo Merchant): trả xong → đơn tự `confirmed`, vào bếp,
-   KHÔNG thấy banner.
+7. Đang có banner → rời sang trang menu → quay lại giỏ hàng → banner dựng lại đúng.
+8. **Đơn bị sweep:** đang có banner → chạy
+   `update orders set status='cancelled' where id='<orderId>';` → bấm "Thanh toán lại"
+   → banner tắt, hiện "Đơn cũ đã hết hạn. Mời bạn đặt lại.", **giỏ hàng VẪN CÒN MÓN**,
+   nút "Đặt món & Thanh toán" quay lại.
+9. **Đơn đã thu tiền:** đang có banner → nhờ bếp bấm "Đã nhận tiền" trên màn bếp
+   → bấm "Thanh toán lại" → chuyển thẳng sang trang trạng thái đơn, giỏ được xoá.
+10. **Mất mạng:** đang có banner → bật chế độ máy bay → bấm "Thanh toán lại"
+    → banner **VẪN CÒN**, giỏ vẫn còn món, hiện thông báo lỗi. Không được tự tắt banner.
+11. Đơn mang về, thoát ở màn chọn phương thức → kiểm `localStorage`:
+    `mevo_last_takeaway_order` đã bị xoá, `mevo_unpaid_order` có giá trị.
+12. Ví ZaloPay (quán đã đăng ký Zalo Merchant): trả xong → đơn tự `confirmed`, vào bếp,
+    KHÔNG thấy banner.
 ```
 
 - [ ] **Step 2: Commit**
@@ -1039,12 +1337,26 @@ git commit -m "docs: checklist test thanh toan lai khi thoat man chon phuong thu
 
 ---
 
+## Giới hạn đã biết, cố ý không xử lý
+
+**Menu không báo gì khi giỏ bị khoá.** Khách đang có banner mà quay về menu bấm thêm món thì
+không có gì xảy ra — đúng về mặt dữ liệu (Task 6 chặn ở store) nhưng im lặng. Thêm thông báo ở
+menu đòi sửa thêm vài component ngoài phạm vi của thay đổi này. Tình huống này hiếm: khách đang
+có banner thường bấm luôn một trong hai nút trước mắt. Bước 3 của checklist ghi nhận hành vi
+hiện tại để sau này còn đối chiếu.
+
+**Đơn `pending` bỏ dở vẫn nằm trên màn bếp** ở cột "CHỜ THANH TOÁN" cho tới khi chủ quán mở trang
+Đơn hàng (sweep là lazy). Đây không phải hồi quy — hôm nay khách bấm back cũng để lại y hệt. Dọn
+tự động là việc riêng, xem §8 của spec.
+
+---
+
 ## Sau khi xong
 
 Dừng lại, KHÔNG tự chuyển việc khác. Báo anh Tú:
 
 > Xong rồi anh. Cần `zmp deploy` bản **Development** cho Pubu rồi test theo `TESTING.md`
-> — mục "Thanh toán lại khi khách thoát màn chọn phương thức", 9 bước.
+> — mục "Thanh toán lại khi khách thoát màn chọn phương thức", 12 bước.
 > Migration 038 đã áp prod. Anh chạy `zmp deploy` giúp em (lệnh interactive, em không chạy được).
 
 ⚠️ Nhắc anh Tú chọn **Development** (tự test) chứ không phải **Testing** (release) — Zalo giới hạn
