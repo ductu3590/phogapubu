@@ -334,6 +334,26 @@ Lưu ý kèm theo: `decide.test.ts` hiện nằm ngoài `admin-web/` nên `npm t
 không có config) **không quét tới nó**. Nếp test của repo mỏng hơn vẻ ngoài — không nên coi việc
 "đã có decide.test.ts" là bằng chứng hạ tầng test đang chạy.
 
+## 7b. Rủi ro còn lại đã biết (ghi nhận khi triển khai)
+
+**`getPaymentState` không phân biệt được "đơn đã mất" với "RLS che đơn".** `maybeSingle()` trả
+`{data: null, error: null}` trong CẢ HAI trường hợp — RLS chặn thì Postgres trả 0 dòng chứ không
+trả lỗi. Nếu policy anon SELECT trên `orders` hỏng, hàm sẽ báo `cancelled` và banner bị gỡ dù đơn
+còn sống. Đây đúng là kiểu fail-open mà union 4 nhánh sinh ra để chặn, chỉ là nó quay lại bằng cửa
+RLS thay vì cửa mạng.
+
+**Chấp nhận, không vá.** Bán kính thiệt hại nhỏ: nhánh `cancelled` **vẫn giữ nguyên giỏ hàng**,
+chỉ gỡ banner và mở khoá. Xấu nhất khách đặt lại → một đơn pending trùng, `sweep_abandoned_orders`
+dọn. Không mất dữ liệu, không mất tiền. Và nếu RLS thật sự hỏng thì `waitForConfirmation` cùng
+nhiều thứ khác đã hỏng trước đó rồi — sửa ở tầng này là chữa triệu chứng.
+
+**Hai ca hẹp cùng dạng** (phát hiện lúc hand-trace Task 7): khi `payWithCheckoutSDK` ném lỗi mà
+`capability_token` rỗng, hoặc khi `getPaymentState` cũng lỗi ngay lần thanh toán đầu, ta cố ý
+KHÔNG dựng banner (bất biến "hàm đối chiếu chỉ được phép gỡ, không được dựng"). Khách bấm lại
+"Đặt món" sẽ tạo đơn thứ hai. Cần hai lỗi mạng liên tiếp, và `capability_token` thực tế luôn có.
+
+---
+
 ## 8. Ngoài phạm vi
 
 - Phân biệt "đã chuyển khoản thật" với "sang app ngân hàng rồi thoát" (Zalo không thấy giao dịch
