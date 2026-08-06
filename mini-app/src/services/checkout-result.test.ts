@@ -34,6 +34,18 @@ describe('mapCheckoutResult', () => {
     expect(mapCheckoutResult({ isCustom: false })).toBe('pending_confirm')
   })
 
+  it('resultCode kiểu boolean không được coi là mã hợp lệ', () => {
+    expect(mapCheckoutResult({ resultCode: true as unknown as number })).toBe('pending_confirm')
+  })
+
+  it('resultCode kiểu mảng không được coi là mã hợp lệ', () => {
+    expect(mapCheckoutResult({ resultCode: [-2] as unknown as number })).toBe('pending_confirm')
+  })
+
+  it('chuỗi rỗng không được coi là mã hợp lệ', () => {
+    expect(mapCheckoutResult({ resultCode: '' })).toBe('pending_confirm')
+  })
+
   it('không có kết quả = không suy đoán', () => {
     expect(mapCheckoutResult(null)).toBe('pending_confirm')
     expect(mapCheckoutResult(undefined)).toBe('pending_confirm')

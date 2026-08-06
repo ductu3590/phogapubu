@@ -23,6 +23,12 @@ export type TransactionResult = {
 export function mapCheckoutResult(r: TransactionResult | null | undefined): CheckoutOutcome {
   if (!r) return 'pending_confirm'
 
+  // resultCode đọc từ object SDK không có kiểu → chặn rác ở runtime, đừng tin TransactionResult.
+  // Number(true)=1 và Number([-2])=-2 sẽ lọt thành 'success'/'abandoned' nếu không chặn ở đây.
+  if (typeof r.resultCode !== 'number' && typeof r.resultCode !== 'string') {
+    return 'pending_confirm'
+  }
+
   const code = Number(r.resultCode)
   if (!Number.isFinite(code)) return 'pending_confirm'
 
