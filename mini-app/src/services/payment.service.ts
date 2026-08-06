@@ -1,17 +1,19 @@
 // Payment service — Zalo Checkout SDK
-// Thay cho zalopay.service.ts cũ (mô hình openapi đã hỏng — zmp-sdk không có openPayment).
 // Luồng: server ký MAC (số tiền server tự lấy từ DB) → mở Payment.createOrder.
-// Khi khách bỏ dở hoặc huỷ → sự kiện PaymentDone vẫn bắn → dùng checkTransaction để biết kết quả thật.
+// Sự kiện PaymentDone bắn khi khách hoàn tất HOẶC thoát; nó truyền `data`, đưa thẳng `data` đó
+// vào checkTransaction để lấy resultCode thật (tài liệu Zalo, SDK ≥ 2.45 — mình đang ở 2.49.4).
+// Phân loại resultCode nằm ở ./checkout-result.ts (thuần, có test).
+//
+// ⚠️ Hàm này NÉM lỗi khi không lấy được MAC (mạng lỗi, hoặc 409 vì đơn không còn 'pending').
+// Caller PHẢI bắt và đối chiếu lại với DB — tuyệt đối không coi lỗi là "đã thanh toán xong".
 
 import { Payment, events, EventName } from 'zmp-sdk'
+import { mapCheckoutResult, CheckoutOutcome, TransactionResult } from './checkout-result'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-// success = đã trả xong; unpaid = ĐÃ khởi tạo giao dịch nhưng SDK chưa thấy trả (có thể là
-// chuyển khoản, notify về trễ → phải chờ webhook); cancelled = khách bỏ ngang khi CHƯA khởi tạo
-// giao dịch (bấm back ở màn chọn PT) → không có webhook nào sẽ về, kết luận ngay, khỏi chờ.
-export type ZaloPayOutcome = 'success' | 'unpaid' | 'cancelled'
+export type { CheckoutOutcome }
 
 export const paymentService = {
   /**
@@ -38,14 +40,16 @@ export const paymentService = {
   /**
    * Mở thanh toán Checkout SDK cho 1 đơn đã tạo (pending).
    * Server tự đọc total_amount từ DB và ký MAC — client không truyền số tiền.
-   * Trả về 'success' nếu thanh toán xong, 'unpaid' nếu khách huỷ/thất bại.
+   * Trả về CheckoutOutcome — xem ./checkout-result.ts. 'abandoned'/'failed' là hai trạng thái
+   * duy nhất đủ chắc chắn để nói với khách "chưa thanh toán".
+   * NÉM lỗi nếu không lấy được MAC — caller phải đối chiếu DB, không được xoá giỏ hàng.
    *
    * Ghi chú kỹ thuật:
    * - Payment.createOrder mở sheet ZaloPay; success/fail callback KHÔNG đáng tin khi khách bấm back.
    * - Sự kiện PaymentDone ("action.payment.done") luôn bắn khi khách hoàn tất HOẶC huỷ.
    * - Sau PaymentDone ta gọi checkTransaction để lấy resultCode thật (1 = thành công).
    */
-  payWithCheckoutSDK: async (appOrderId: string): Promise<ZaloPayOutcome> => {
+  payWithCheckoutSDK: async (appOrderId: string): Promise<CheckoutOutcome> => {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/checkout-create-mac`, {
       method: 'POST',
       headers: {
@@ -67,12 +71,11 @@ export const paymentService = {
       return 'success'
     }
 
-    return await new Promise<ZaloPayOutcome>((resolve) => {
+    return await new Promise<CheckoutOutcome>((resolve) => {
       let settled = false
-      let zpOrderId = ''
 
-      // Dọn sự kiện và resolve một lần duy nhất
-      const finish = (outcome: ZaloPayOutcome) => {
+      // Dọn listener và resolve đúng một lần
+      const finish = (outcome: CheckoutOutcome) => {
         if (settled) return
         settled = true
         events.off(EventName.PaymentDone, onPaymentDone)
@@ -80,69 +83,45 @@ export const paymentService = {
         resolve(outcome)
       }
 
-      // Gọi checkTransaction sau khi PaymentDone bắn để biết kết quả thật
-      const onPaymentDone = async () => {
+      // PaymentDone truyền `data` — đưa THẲNG vào checkTransaction theo đúng tài liệu Zalo.
+      const onPaymentDone = async (data?: unknown) => {
         try {
-          if (!zpOrderId) {
-            // Không có zpOrderId = khách bấm back trước khi chọn/khởi tạo giao dịch → huỷ ngay
-            console.warn('[checkout] PaymentDone bắn nhưng chưa có zpOrderId → cancelled')
-            finish('cancelled')
+          if (!data) {
+            // Không có payload → không đủ căn cứ. Chờ webhook cho an toàn.
+            console.warn('[checkout] PaymentDone không kèm data → pending_confirm')
+            finish('pending_confirm')
             return
           }
-          const r = await Payment.checkTransaction({ data: { orderId: zpOrderId } })
+          const r = await Payment.checkTransaction({ data } as Parameters<
+            typeof Payment.checkTransaction
+          >[0])
           console.info('[checkout] checkTransaction result:', r)
-          // resultCode === 1: thanh toán thành công
-          if (Number(r.resultCode) === 1) {
-            finish('success')
-            return
-          }
-          // isCustom = phương thức custom (chuyển khoản ngân hàng) — Zalo KHÔNG tự thấy được
-          // giao dịch bank→bank, phải chờ webhook server xác nhận → 'unpaid' (chờ).
-          // Ngược lại (ví thường / chưa chọn PT rồi bấm back): resultCode≠1 là huỷ THẬT,
-          // không webhook nào về → 'cancelled' (kết luận ngay, khỏi chờ 12s).
-          finish(r.isCustom ? 'unpaid' : 'cancelled')
+          finish(mapCheckoutResult(r as TransactionResult))
         } catch (e) {
           console.error('[checkout] checkTransaction lỗi:', e)
-          // Không rõ trạng thái → chờ webhook cho an toàn (tránh huỷ nhầm đơn đã chuyển khoản)
-          finish('unpaid')
+          finish('pending_confirm')
         }
       }
 
-      // Đăng ký lắng nghe PaymentDone TRƯỚC khi mở sheet
+      // Đăng ký lắng nghe TRƯỚC khi mở sheet
       events.on(EventName.PaymentDone, onPaymentDone)
 
-      // Mở sheet ZaloPay — zpOrderId được lưu từ success callback VÀ từ promise resolve
-      // (tuỳ SDK version, một trong hai sẽ cung cấp trước)
-      // KHÔNG truyền `method` → Zalo tự mở màn chọn phương thức (ví ZaloPay, chuyển khoản...)
+      // KHÔNG truyền `method` → Zalo tự mở màn chọn phương thức thanh toán
       Payment.createOrder({
         desc: body.desc,
         item: body.item,
         amount: body.amount,
         extradata: body.extradata,
         mac: body.mac,
-        success: (r: { orderId?: string }) => {
-          if (r?.orderId) {
-            zpOrderId = r.orderId
-            console.info('[checkout] createOrder success callback, zpOrderId:', zpOrderId)
-          }
-        },
         fail: () => {
-          // fail callback bắn khi có lỗi tạo order (không phải khi khách bấm back)
-          // Chưa khởi tạo được giao dịch → không webhook nào về → huỷ ngay, khỏi chờ
+          // Lỗi tạo giao dịch — sheet chưa mở nên chắc chắn chưa mất tiền
           console.warn('[checkout] createOrder fail callback')
-          finish('cancelled')
+          finish('failed')
         },
-      } as Parameters<typeof Payment.createOrder>[0])
-        .then((created: { orderId?: string }) => {
-          if (created?.orderId) {
-            zpOrderId = created.orderId
-            console.info('[checkout] createOrder promise resolved, zpOrderId:', zpOrderId)
-          }
-        })
-        .catch((e: unknown) => {
-          console.error('[checkout] createOrder promise rejected:', e)
-          finish('cancelled')
-        })
+      } as Parameters<typeof Payment.createOrder>[0]).catch((e: unknown) => {
+        console.error('[checkout] createOrder promise rejected:', e)
+        finish('failed')
+      })
     })
   },
 }
