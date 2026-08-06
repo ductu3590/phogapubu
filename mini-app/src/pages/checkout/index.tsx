@@ -133,6 +133,8 @@ export default function CheckoutPage() {
     (async () => {
       const st = await orderService.getPaymentState(saved.id);
       if (aborted) return;
+      // Trong lúc chờ mạng có thể đã có đơn khác — đừng áp trạng thái của đơn cũ lên đơn mới
+      if (loadUnpaidOrder()?.id !== saved.id) return;
       applyPaymentState(st, saved.id);
     })();
     return () => {
@@ -179,6 +181,14 @@ export default function CheckoutPage() {
     setUnpaidOrder(u);
     saveUnpaidOrder(u);
     setCartLock(u ? u.id : null);
+    // Đơn đang chờ trả tiền — đừng để app nhớ nó như "đơn mang về gần nhất"
+    if (u) {
+      try {
+        localStorage.removeItem("mevo_last_takeaway_order");
+      } catch {
+        /* bỏ qua */
+      }
+    }
   };
 
   // Hàm đối chiếu DUY NHẤT. Mọi ngã rẽ ra khỏi banner đều đi qua đây.
@@ -306,10 +316,13 @@ export default function CheckoutPage() {
     setIsProcessing(false);
 
     if (threw) {
+      // Vừa tạo đơn xong mà sheet chưa mở được → dựng banner TRƯỚC, rồi để đối chiếu gỡ xuống
+      // nếu DB nói khác. Đối chiếu trước rồi mới dựng thì khi getPaymentState CŨNG lỗi
+      // (query_failed) sẽ không dựng được gì: khách còn nguyên giỏ + nút đặt món còn sống
+      // → bấm lại là đẻ đơn thứ hai.
+      if (token) applyUnpaidOrder({ id: orderId, token });
       const st = await orderService.getPaymentState(orderId);
       if (applyPaymentState(st, orderId)) {
-        // Đơn vẫn còn chờ trả tiền → giữ banner, chỉ báo lỗi mở thanh toán
-        if (token) applyUnpaidOrder({ id: orderId, token });
         openSnackbar({ text: "Chưa mở được thanh toán, vui lòng thử lại.", type: "error" });
       }
       return;
@@ -325,12 +338,6 @@ export default function CheckoutPage() {
         return;
       }
       applyUnpaidOrder({ id: orderId, token });
-      // Đơn này sắp bị bỏ hoặc trả lại — đừng để app nhớ nó như đơn mang về gần nhất
-      try {
-        localStorage.removeItem("mevo_last_takeaway_order");
-      } catch {
-        /* bỏ qua */
-      }
       return; // Ở LẠI trang giỏ hàng, KHÔNG clearCart, KHÔNG navigate
     }
 
