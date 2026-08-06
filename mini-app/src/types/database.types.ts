@@ -100,6 +100,7 @@ export interface Database {
           payment_method: 'zalo_checkout' | 'cash' | 'bank_transfer'
           capability_token: string | null
           bank_handoff_at: string | null
+          payment_received_at: string | null
           created_at: string
           updated_at: string
         }

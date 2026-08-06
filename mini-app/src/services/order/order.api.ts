@@ -80,11 +80,8 @@ export const orderService = {
       .maybeSingle();
     if (error) return { kind: "query_failed" };
     if (!data) return { kind: "cancelled" }; // không thấy đơn → không dùng lại được nữa
-    // database.types.ts chưa có cột payment_received_at (types cũ, không sửa ở task này)
-    // → ép kiểu qua unknown như category.api.ts đang làm với SelectQueryError tương tự.
-    const row = data as unknown as { status: string; payment_received_at: string | null };
-    const status = row.status;
-    const paid = row.payment_received_at !== null;
+    const status = data.status;
+    const paid = data.payment_received_at !== null;
     if (status === "cancelled") return { kind: "cancelled" };
     if (status === "pending" && !paid) return { kind: "unpaid_pending" };
     return { kind: "settled" };
