@@ -13,6 +13,13 @@ import { mapCheckoutResult, CheckoutOutcome, TransactionResult } from './checkou
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
+// Chỉ cho phép MỘT phiên thanh toán tại một thời điểm. `events` của zmp-sdk là emitter TOÀN CỤC:
+// hai lần gọi chồng nhau sẽ cùng nghe một sự kiện PaymentDone và nhận kết quả của nhau.
+// Gọi mới sẽ đóng phiên cũ bằng 'pending_confirm' (an toàn — không kết luận gì) rồi tiếp quản.
+// KHÔNG chặn lượt gọi mới: nếu PaymentDone không bao giờ bắn, khoá cứng sẽ giết luôn nút
+// "Thanh toán lại" của khách.
+let activeFinish: ((outcome: CheckoutOutcome) => void) | null = null
+
 export type { CheckoutOutcome }
 
 export const paymentService = {
@@ -78,6 +85,7 @@ export const paymentService = {
       const finish = (outcome: CheckoutOutcome) => {
         if (settled) return
         settled = true
+        if (activeFinish === finish) activeFinish = null
         events.off(EventName.PaymentDone, onPaymentDone)
         console.info('[checkout] outcome:', outcome)
         resolve(outcome)
@@ -96,12 +104,16 @@ export const paymentService = {
             typeof Payment.checkTransaction
           >[0])
           console.info('[checkout] checkTransaction result:', r)
-          finish(mapCheckoutResult(r as TransactionResult))
+          finish(mapCheckoutResult(r))
         } catch (e) {
           console.error('[checkout] checkTransaction lỗi:', e)
           finish('pending_confirm')
         }
       }
+
+      // Đóng phiên trước đó (nếu còn treo) trước khi tiếp quản listener
+      activeFinish?.('pending_confirm')
+      activeFinish = finish
 
       // Đăng ký lắng nghe TRƯỚC khi mở sheet
       events.on(EventName.PaymentDone, onPaymentDone)
