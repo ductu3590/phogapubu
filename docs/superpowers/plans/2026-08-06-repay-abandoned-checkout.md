@@ -354,8 +354,15 @@ Expected: không dòng nào khớp (exit code 1).
 - [ ] **Step 5: Type-check**
 
 Run: `cd mini-app && npm run typecheck`
-Expected: 8 lỗi baseline **cộng thêm** lỗi ở `pages/checkout/index.tsx` (Task 7 sửa) — đây là lỗi tạm thời
-đã lường trước. Ghi lại đúng thông báo lỗi ở checkout để đối chiếu về sau.
+Expected: vẫn đúng **8 lỗi baseline**, không hơn.
+
+⚠️ Plan ban đầu đoán sẽ có thêm 1 lỗi ở `pages/checkout/index.tsx` — **đoán sai**. Trang đó gọi
+`await paymentService.payWithCheckoutSDK(orderId);` mà **vứt luôn giá trị trả về**, không gán vào
+đâu cả, nên đổi kiểu trả về không sinh lỗi kiểu nào.
+
+Hệ quả cho Task 7: **không có lưới an toàn từ type-checker**. Compiler sẽ không nhắc nếu Task 7
+quên xử lý `CheckoutOutcome`. Phải tự kiểm bằng mắt và bằng checklist test tay, đừng trông chờ
+`npm run typecheck` bắt hộ.
 
 - [ ] **Step 6: Commit**
 
