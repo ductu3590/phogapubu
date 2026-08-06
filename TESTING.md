@@ -658,6 +658,70 @@ Báo lỗi theo format trên
 Claude Code fix → test lại từ đầu Sprint đó
 ```
 
+## Thanh toán lại khi khách thoát màn chọn phương thức (2026-08-06)
+
+Spec: `docs/superpowers/specs/2026-08-06-repay-abandoned-checkout-design.md`
+Cần `zmp deploy` bản **Development** rồi thử trên Zalo thật — Checkout SDK không chạy trên trình duyệt.
+
+**Ghi lại `orderId` của đơn vừa tạo** để kiểm DB đúng đơn đó. Đừng lọc theo "10 phút gần nhất" —
+quán có thể đang có đơn thật chạy song song.
+
+Câu kiểm dùng chung (thay `<orderId>`):
+```sql
+select status, payment_received_at, payment_method from orders where id = '<orderId>';
+```
+
+### Nhóm 1 — luồng chính
+
+1. Bấm "Đặt món & Thanh toán" → thoát ngay ở màn chọn phương thức
+   → **giỏ còn nguyên món**, banner đỏ "Thanh toán chưa thành công" hiện, KHÔNG bị chuyển trang.
+2. Khi banner hiện: KHÔNG thấy nút "Đặt món & Thanh toán" gốc; nút tăng/giảm số lượng, ghi chú,
+   mã giảm giá, chọn phương thức thanh toán, form mang về đều mờ và KHÔNG bấm được.
+3. Bấm "Thanh toán lại" → sheet Zalo mở lại → chọn chuyển khoản và trả tiền
+   → vào trang trạng thái đơn. Kiểm DB: status khác `cancelled`, và **không có đơn thứ hai**
+   (`select count(*) from orders where store_id='<storeId>' and created_at > '<lúc bắt đầu test>';`)
+4. Bấm "Sửa món" → banner tắt, nút "Đặt món & Thanh toán" quay lại, form mở khoá
+   → thêm 1 món → đặt lại → đơn cũ `cancelled`, đơn mới tổng tiền đúng.
+5. Chuyển khoản: bấm Xác nhận → sang app ngân hàng → quay lại Zalo
+   → vào trang trạng thái đơn như cũ, **KHÔNG** thấy banner.
+6. Ví ZaloPay (chỉ quán đã đăng ký Zalo Merchant): trả xong → đơn tự `confirmed`, vào bếp,
+   KHÔNG thấy banner.
+
+### Nhóm 2 — lách khoá (đây là chỗ dễ hỏng nhất)
+
+7. Đang có banner → bấm back về menu → thử **thêm món** và **đổi số lượng** ở menu
+   → giỏ KHÔNG đổi → quay lại giỏ hàng → banner còn nguyên, món vẫn đúng như trước.
+8. Đang có banner → rời sang tab khác rồi quay lại giỏ hàng → banner dựng lại đúng.
+9. Đang có banner → **thoát hẳn mini-app rồi quét QR mở lại** → giỏ hàng trống (giỏ không được
+   lưu) nhưng banner VẪN hiện vì đơn còn sống. Bấm "Thanh toán lại" phải trả đúng số tiền của
+   **đơn cũ**, không phải 0đ.
+
+### Nhóm 3 — ba ca mà bản plan đầu tiên làm sai
+
+10. **Đơn bị sweep:** đang có banner → chạy
+    `update orders set status='cancelled' where id='<orderId>';`
+    → bấm "Thanh toán lại" → banner tắt, hiện "Đơn cũ đã hết hạn. Mời bạn đặt lại.",
+    **giỏ hàng VẪN CÒN MÓN**, nút "Đặt món & Thanh toán" quay lại.
+11. **Đơn đã thu tiền:** đang có banner → nhờ bếp bấm "Đã nhận tiền" trên màn bếp
+    → bấm "Thanh toán lại" → chuyển thẳng sang trang trạng thái đơn, giỏ được xoá.
+12. **Mất mạng:** đang có banner → bật chế độ máy bay → bấm "Thanh toán lại"
+    → banner **VẪN CÒN**, giỏ vẫn còn món, hiện thông báo lỗi.
+    Tắt chế độ máy bay → bấm lại → thanh toán bình thường.
+
+### Nhóm 4 — dọn dẹp
+
+13. Đơn mang về, thoát ở màn chọn phương thức → kiểm `localStorage`:
+    `mevo_last_takeaway_order` đã bị xoá, `mevo_unpaid_order` có giá trị.
+14. Sau khi hoàn tất thanh toán (bất kỳ đường nào) → `mevo_unpaid_order` đã bị xoá.
+
+### Nhóm 5 — không được hồi quy
+
+15. Đặt món trả tiền mặt (quán có bật) → vẫn vào thẳng trang trạng thái đơn như trước,
+    không banner, không khoá giỏ.
+16. Quán tạm nghỉ / ngoài giờ → vẫn chặn đặt đơn như cũ.
+
+---
+
 ---
 
 *File này là bộ nhớ test của dự án MEVO.*
