@@ -19,7 +19,8 @@
     "dev": "vite --config vite.dev.config.mts",
     "start": "zmp start",
     "deploy": "zmp deploy",
-    "typecheck": "tsc --noEmit --pretty false"
+    "typecheck": "tsc --noEmit --pretty false",
+    "test": "vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
@@ -48,6 +49,7 @@
     "tailwindcss": "^3.4.3",
     "typescript": "~5.9.3",
     "vite": "^5.2.13",
+    "vitest": "^4.1.9",
     "zmp-vite-plugin": "^1.1.6"
   }
 }
