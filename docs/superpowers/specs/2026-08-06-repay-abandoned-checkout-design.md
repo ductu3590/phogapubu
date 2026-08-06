@@ -1,7 +1,7 @@
 # Thiết kế: Thanh toán lại khi khách thoát màn chọn phương thức
 
 **Ngày:** 2026-08-06
-**Trạng thái:** Bản 2 — đã sửa theo review CODEX, chờ anh Tú duyệt
+**Trạng thái:** Bản 2 — **anh Tú đã duyệt 2026-08-06** sau khi chạy thử mockup so sánh với luồng hiện tại
 **Phạm vi:** mini-app (`payment.service.ts` + `checkout`) + 1 migration `cancel_order`
 
 ---
@@ -323,12 +323,16 @@ sai token → `blocked/not_found_or_bad_token`; gọi hai lần → `already_can
 7. Sau khi bếp bấm "Đã nhận tiền", quay lại giỏ hàng → banner **không** dựng lại
 8. Đơn mang về nhánh `abandoned`: `localStorage` đã xoá `mevo_last_takeaway_order`
 
-## 7. Câu hỏi còn mở
+## 7. Quyết định đã chốt
 
-**Có dựng vitest cho mini-app không?** Cần cho §6.1. Lợi: `mapCheckoutResult` đúng là loại logic
-thuần đáng test, và nó là phần rủi ro nhất của thay đổi này. Tốn: thêm devDependency + config vào
-`mini-app/`. Lưu ý `decide.test.ts` hiện nằm ngoài `admin-web/` nên `npm test` của admin-web
-(vitest, không có config) **không quét tới** — nếp test của repo mỏng hơn vẻ ngoài.
+**Dựng vitest cho mini-app — CÓ** (mặc định đã nêu, anh Tú không phản đối khi duyệt bản 2).
+`mapCheckoutResult` là phần dễ sai nhất của thay đổi này, mà kiểm bằng tay trên Zalo thì mỗi lần thử
+tốn một lượt `zmp deploy` (Zalo giới hạn số lần deploy mỗi tháng). Thêm `vitest` + config vào
+`mini-app/`, chỉ chạy trên hàm thuần — không dựng jsdom, không test component.
+
+Lưu ý kèm theo: `decide.test.ts` hiện nằm ngoài `admin-web/` nên `npm test` của admin-web (vitest,
+không có config) **không quét tới nó**. Nếp test của repo mỏng hơn vẻ ngoài — không nên coi việc
+"đã có decide.test.ts" là bằng chứng hạ tầng test đang chạy.
 
 ## 8. Ngoài phạm vi
 
