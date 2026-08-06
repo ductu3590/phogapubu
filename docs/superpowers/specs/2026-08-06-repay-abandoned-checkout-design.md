@@ -1,193 +1,339 @@
-# Thiết kế: Thanh toán lại khi khách bấm back ở màn chọn phương thức
+# Thiết kế: Thanh toán lại khi khách thoát màn chọn phương thức
 
 **Ngày:** 2026-08-06
-**Trạng thái:** Đã duyệt (anh Tú), chờ viết plan
-**Phạm vi:** mini-app `checkout` + 1 migration siết `cancel_order`
+**Trạng thái:** Bản 2 — đã sửa theo review CODEX, chờ anh Tú duyệt
+**Phạm vi:** mini-app (`payment.service.ts` + `checkout`) + 1 migration `cancel_order`
 
 ---
 
 ## 1. Vấn đề
 
 Khi khách bấm "Đặt món và thanh toán", `create_order` tạo đơn `pending` trong DB **trước**, rồi
-mini-app mới mở sheet Zalo Checkout. Sheet đó hiện màn **chọn phương thức thanh toán** có nút
+mini-app mới mở sheet Zalo Checkout. Sheet hiện màn **chọn phương thức thanh toán** có nút
 **Xác nhận** và nút **Quay lại**.
 
 Hiện tại [`handleZaloPayPayment`](../../../mini-app/src/pages/checkout/index.tsx) **bỏ hoàn toàn
 kết quả** mà `payWithCheckoutSDK` trả về: mọi trường hợp đều `clearCart()` rồi `navigate` sang
-trang trạng thái đơn. Hệ quả:
-
-- Khách bấm nhầm **Quay lại** → chưa trả đồng nào, nhưng **giỏ hàng bị xoá sạch** và bị đẩy sang
-  màn trạng thái đơn, không có đường nào để trả tiền lại.
-- Khách gọi món cho cả bàn xong mới bấm nhầm → phải hỏi lại cả bàn từ đầu. Đây là lý do chính
-  khiến tính năng này đáng làm.
+trang trạng thái đơn. Hệ quả: khách bấm nhầm **Quay lại** → chưa trả đồng nào nhưng **giỏ hàng bị
+xoá sạch**, bị đẩy sang màn trạng thái đơn, không có đường nào trả tiền lại. Khách gọi món cho cả
+bàn xong mới bấm nhầm thì phải hỏi lại từ đầu — đây là lý do chính khiến tính năng này đáng làm.
 
 Hành vi "luôn navigate" là **có chủ đích** (commit `2a5d159` gỡ dialog "Thanh toán chưa hoàn tất"
 vì nó báo nhầm cho khách đã chuyển khoản thật). Thiết kế này **không quay lại dialog đó** — nó chỉ
-tách riêng đúng một nhánh mà tín hiệu là chắc chắn.
+tách riêng những nhánh mà tín hiệu là chắc chắn.
 
-## 2. Bốn nhánh và độ tin cậy của tín hiệu
+## 2. Nguồn sự thật: `resultCode` từ `PaymentDone`
 
-Từ màn chọn phương thức, luồng rẽ 4 nhánh:
+### 2.1 Cách làm đúng theo tài liệu Zalo
 
-| Nhánh | Khách làm gì | Tín hiệu SDK | Kết luận |
-|---|---|---|---|
-| **A** | Bấm **Quay lại** ngay | `PaymentDone` bắn nhưng `zpOrderId` rỗng → `outcome='cancelled'` | ✅ **Chắc chắn chưa trả tiền.** Zalo chưa hề tạo giao dịch nên không webhook nào sẽ về |
-| **B** | Bấm Xác nhận → app NH → **chuyển tiền thật** | `resultCode≠1` + `isCustom=true` → `outcome='unpaid'` | ❌ Không phân biệt được với C |
-| **C** | Bấm Xác nhận → app NH → **không chuyển** | Giống hệt B | ❌ Không phân biệt được với B |
-| **D** | Ví ZaloPay, trả xong | `resultCode=1` → `outcome='success'` | ✅ Đã trả tiền |
+[Tài liệu Checkout SDK](https://docs.zaloplatforms.com/docs/MA/checkoutSdk/integration-process/overview/maResult)
+(cập nhật 2026-08-05) quy định với **ZMP SDK ≥ 2.45.0**: sự kiện `PaymentDone` truyền `data` cho
+handler, đưa **thẳng** `data` đó vào `checkTransaction({ data })`, rồi đọc `resultCode`:
 
-Zalo **không nhìn thấy giao dịch bank→bank**, nên B và C là một khối mù — đây là giới hạn Option A
-đã ghi trong `CLAUDE.md` (2026-07-08), thiết kế này **không cố giải quyết**. B/C vẫn giữ nguyên
-luồng cũ: chủ quán/bếp liếc app ngân hàng rồi bấm xác nhận.
+| `resultCode` | Ý nghĩa (nguyên văn tài liệu) |
+|---|---|
+| `1` | Thanh toán thành công |
+| `0` | Giao dịch đang được thực hiện hoặc chờ xử lý |
+| `-1` | Thanh toán thất bại |
+| `-2` | **Người dùng không chọn phương thức thanh toán và thoát Checkout SDK** |
 
-`orders.bank_handoff_at` **không dùng làm tín hiệu** — migration 035 đã ghi nhận notify BANK của
-Zalo về rất chập chờn và phải bỏ phụ thuộc vào nó.
+Mini-app đang ở `zmp-sdk` **2.49.4** → thoả điều kiện.
 
-**Nhánh D đã chạy sẵn ở server**, không phải viết mới: [`decide.ts`](../../../supabase/functions/checkout-notify/decide.ts)
-nhánh `wallet_confirm` tự set `status='confirmed'` + `payment_received_at` + `payment_instrument='wallet'`.
-Quán nào bật Zalo Merchant là đơn tự vào bếp. Yêu cầu với thiết kế này là **không được làm hỏng
-nhánh D**, chứ không phải bổ sung gì.
+### 2.2 Code hiện tại đang làm sai
 
-## 3. Quyết định thiết kế
+Handler [`onPaymentDone`](../../../mini-app/src/services/payment.service.ts) **nhận 0 tham số** —
+vứt đúng cái `data` cần dùng — rồi chống chế bằng `zpOrderId` bắt từ callback `createOrder`. Hệ quả
+là `outcome='cancelled'` bị gộp từ **bốn** đường khác hẳn nhau:
 
-### 3.1 Chỉ tách riêng nhánh A
+| Nơi sinh ra `'cancelled'` | Thực chất |
+|---|---|
+| `zpOrderId` rỗng | Khách thoát không chọn PT |
+| `resultCode ≠ 1` và `isCustom = false` | Ví thanh toán thất bại/huỷ |
+| callback `fail` | Lỗi tạo giao dịch |
+| promise `.catch()` | Lỗi tạo giao dịch |
 
-Chỉ `outcome === 'cancelled'` mới đổi hành vi. B/C/D giữ nguyên đường cũ (`clearCart` + navigate).
-Lý do: A là nhánh duy nhất mà tín hiệu chắc chắn, nên là nhánh duy nhất được phép nói với khách
-"chưa thanh toán".
+Bản 1 của spec này khẳng định "nhánh A ⟺ `cancelled`" — **sai**. Nguy hiểm thật nằm ở dòng thứ 2:
+nếu `isCustom` báo sai cho một đơn chuyển khoản, khách đang trả tiền sẽ bị gán `'cancelled'` và bị
+báo "chưa thanh toán" — đúng con bug mà `2a5d159` từng gỡ dialog vì nó.
 
-### 3.2 Ở lại trang giỏ hàng, không chuyển trang
+### 2.3 Phân loại mới
 
-Nhánh A **không** `clearCart()`, **không** `navigate`. Khách ở nguyên trang giỏ hàng với giỏ còn
-nguyên vẹn. Lý do: khách bấm nhầm khi "chưa chọn xong món" cần sửa món ngay tại chỗ — đẩy sang màn
-trạng thái đơn rồi bắt nạp `order_items` ngược về giỏ là vòng vo và dễ sai (topping, voucher phải
-dựng lại đúng).
+Thay `ZaloPayOutcome` bằng bốn trạng thái tách bạch:
 
-### 3.3 Giữ đơn `pending`, huỷ có chọn lọc
+```ts
+export type CheckoutOutcome =
+  | 'success'          // resultCode 1 — đã trả tiền
+  | 'abandoned'        // resultCode -2 — thoát không chọn phương thức
+  | 'failed'           // resultCode -1 (không phải custom) hoặc lỗi tạo giao dịch
+  | 'pending_confirm'  // resultCode 0, chuyển khoản, hoặc KHÔNG RÕ → chờ webhook/quán xác nhận
+```
 
-Đơn đã tạo **không huỷ ngay**. Chỉ huỷ khi khách chủ động bấm "Sửa món".
+Thứ tự phân loại trong `onPaymentDone(data)`:
 
-| Nút | Hành động | Vì sao |
+```
+r = await checkTransaction({ data })
+
+r.resultCode === 1   → 'success'
+r.resultCode === -2  → 'abandoned'
+r.isCustom === true  → 'pending_confirm'   // CK: Zalo không thấy giao dịch bank→bank
+r.resultCode === -1  → 'failed'
+ngược lại (0, lạ)    → 'pending_confirm'
+```
+
+Fail-safe ở mọi chỗ không chắc chắn:
+
+- `checkTransaction` ném lỗi, hoặc `PaymentDone` không kèm `data` → `'pending_confirm'`.
+  **Không bao giờ suy đoán "chưa trả tiền" khi không rõ.**
+- `createOrder` callback `fail` / promise reject → `'failed'` (giao dịch chưa hình thành,
+  chắc chắn chưa mất tiền).
+
+`isCustom` được kiểm **trước** `-1` vì Zalo không nhìn thấy giao dịch bank→bank, nên với chuyển
+khoản `resultCode` không đáng tin — giữ nguyên kết luận đã rút ra từ thực nghiệm (commit `11c6931`).
+
+### 2.4 Nhánh nào hiện banner
+
+| Outcome | Hành vi | Vì sao |
 |---|---|---|
-| **Thanh toán lại** | `payWithCheckoutSDK(orderId cũ)` | Trả tiền cho đúng đơn đó. Không đẻ đơn mới, không rác. MAC ký lại từ `total_amount` trong DB nên số tiền luôn đúng |
-| **Sửa món** | `cancel_order(orderId, token)` → tắt banner | Khách đổi ý thật thì đơn cũ mới thành vô nghĩa |
+| `abandoned`, `failed` | **Ở lại trang giỏ hàng + banner** | Chắc chắn chưa mất tiền, khách cần trả lại |
+| `success`, `pending_confirm` | `clearCart()` + `navigate` (đường cũ) | Đã trả tiền, hoặc không đủ chắc để nói "chưa" |
 
-Phương án bị loại: *huỷ ngay rồi hai nút đều tạo đơn mới* — ít code hơn nhưng mỗi lần bấm nhầm đẻ
-một đơn `cancelled`, mà `get_daily_revenue` đếm `total_orders = count(*)` **không lọc cancelled**
-(mig 030) → số đơn/ngày của quán phồng lên vì thao tác nhầm.
+`orders.bank_handoff_at` **không dùng làm tín hiệu** — mig 035 đã ghi nhận notify BANK của Zalo về
+rất chập chờn và phải bỏ phụ thuộc vào nó.
 
-Phương án bị loại: *không huỷ gì, để sweep 30' dọn* — đơn rác treo nửa tiếng, chiếm lượt voucher và
-hiện trên màn bếp.
+**Nhánh ví ZaloPay đã chạy sẵn ở server**, không phải viết mới:
+[`decide.ts`](../../../supabase/functions/checkout-notify/decide.ts) nhánh `wallet_confirm` tự set
+`status='confirmed'` + `payment_received_at` + `payment_instrument='wallet'`. Quán bật Zalo Merchant
+là đơn tự vào bếp. Yêu cầu ở đây là **không làm hỏng nó**, chứ không phải bổ sung gì.
 
-### 3.4 Banner không cần sống sót qua reload
+## 3. Vòng đời đơn `pending`
 
-Tín hiệu nhánh A truyền qua React state trong phiên, không ghi DB. Khách thoát app rồi quét QR lại
-sẽ không thấy banner — chấp nhận được, vì đơn `pending` bỏ dở sẽ được `sweep_abandoned_orders` dọn
-sau 30 phút. Đổi lại: không migration cho tín hiệu, không RPC mới, không có chuyện client tự khai
-trạng thái thanh toán.
+### 3.1 Giữ đơn, huỷ có chọn lọc
+
+Đơn đã tạo **không huỷ ngay** khi phát hiện `abandoned`/`failed`. Chỉ huỷ khi khách chủ động bấm
+"Sửa món".
+
+| Nút | Hành động |
+|---|---|
+| **Thanh toán lại** | `payWithCheckoutSDK(orderId cũ)` — trả tiền cho đúng đơn đó. Không đơn mới, không rác. MAC ký lại từ `total_amount` trong DB nên số tiền luôn đúng |
+| **Sửa món** | `cancel_order(orderId, token)` → chỉ tắt banner khi RPC báo huỷ thành công (§4.3) |
+
+Phương án bị loại — *huỷ ngay rồi hai nút đều tạo đơn mới*: mỗi lần bấm nhầm đẻ một đơn `cancelled`,
+mà `get_daily_revenue` đếm `total_orders = count(*)` **không lọc cancelled** (mig 030) → số đơn/ngày
+của quán phồng lên vì thao tác nhầm.
+
+### 3.2 Đơn bỏ dở nằm trên màn bếp — và sweep không chạy đúng 30'
+
+Đơn `abandoned` khớp **cả bốn** điều kiện cột "💰 CHỜ THANH TOÁN" của màn bếp
+([kitchen-display.tsx:592](../../../admin-web/app/kitchen/[storeSlug]/kitchen-display.tsx)):
+`status='pending'` + `payment_received_at=null` + `payment_method='zalo_checkout'` +
+`instrument≠'wallet'`. Nghĩa là **nó đang hiện trên màn bếp thật**.
+
+`sweep_abandoned_orders` là **lazy sweep**: nơi gọi duy nhất là
+[admin/orders/page.tsx:41](../../../admin-web/app/admin/orders/page.tsx). Không có cron. Quán không
+mở trang Đơn hàng thì đơn treo vô hạn — **không phải "tự huỷ sau 30 phút"** như bản 1 viết.
+
+**Đây không phải hồi quy do thiết kế này gây ra**: hôm nay khách bấm back cũng để lại y hệt một đơn
+`pending` như vậy (`clearCart` + `navigate` không huỷ gì cả). Thiết kế này chỉ *không* làm nó tệ hơn,
+và cho khách một đường thoát mà trước đây không có. Tự động dọn đơn treo nằm ngoài phạm vi (§8).
+
+### 3.3 Khôi phục khi rời trang
+
+React state mất khi rời trang giỏ hàng, không chỉ khi reload. Nếu không xử lý, khách rời đi rồi quay
+lại sẽ mất banner nhưng đơn cũ vẫn sống → bấm "Đặt món và thanh toán" là có **hai** đơn `pending`.
+
+Cách xử lý:
+
+- Khi vào `abandoned`/`failed`: ghi `localStorage['mevo_unpaid_order'] = {orderId, token}`
+- Mỗi lần trang giỏ hàng mount: nếu có key → hỏi DB trạng thái thật của đơn
+  (`status`, `payment_received_at`). Chỉ dựng lại banner khi `status='pending'` **và**
+  `payment_received_at IS NULL`; ngược lại xoá key, không banner.
+- Xoá key khi: "Sửa món" huỷ thành công, hoặc tạo đơn mới thành công, hoặc kiểm tra thấy không còn
+  đủ điều kiện.
+
+Luôn hỏi lại DB thay vì tin localStorage: đơn có thể đã được bếp xác nhận tiền, đã bị sweep, hoặc
+callback ví đã về trong lúc khách đi chỗ khác.
 
 ## 4. Thay đổi cụ thể
 
-### 4.1 `mini-app/src/pages/checkout/index.tsx`
+| Chỗ sửa | Việc |
+|---|---|
+| `mini-app/src/services/payment.service.ts` | `onPaymentDone(data)` nhận payload; tách hàm map thuần `mapCheckoutResult`; đổi `ZaloPayOutcome` → `CheckoutOutcome` |
+| `mini-app/src/services/order/order.api.ts` | Thêm `getPaymentState(orderId)`; `cancelOrder` trả về `result` của RPC |
+| `mini-app/src/pages/checkout/index.tsx` | Rẽ nhánh theo outcome; state `unpaidOrder`; banner; **khoá toàn bộ form**; khôi phục khi mount |
+| Migration 038 | `cancel_order` trả kết quả rõ ràng + không huỷ đơn đã có tiền |
 
-Thêm state:
+Không đụng: edge function, admin-web, trang trạng thái đơn.
 
-```ts
-const [unpaidOrder, setUnpaidOrder] = useState<{ id: string; token: string } | null>(null);
-```
-
-`handleZaloPayPayment` rẽ nhánh theo outcome (hiện đang bỏ giá trị trả về):
+### 4.1 Luồng
 
 ```
 handleZaloPayPayment(orderId, capabilityToken)
    │
-   ├── outcome === 'cancelled'  ────────────► Ở LẠI trang giỏ hàng
-   │      (nhánh A)                             • KHÔNG clearCart()
+   ├── 'abandoned' | 'failed' ──────────────► Ở LẠI trang giỏ hàng
+   │                                            • KHÔNG clearCart()
    │                                            • KHÔNG navigate
    │                                            • setUnpaidOrder({ id, token })
-   │                                            • localStorage.removeItem('mevo_last_takeaway_order')
+   │                                            • localStorage: ghi mevo_unpaid_order
+   │                                            •              xoá mevo_last_takeaway_order
    │
-   └── 'success' | 'unpaid' | SDK ném lỗi ──► giữ nguyên hành vi hiện tại
-          (nhánh B/C/D)                         • clearCart() + navigate(`/order-status/${id}`)
+   └── 'success' | 'pending_confirm' ───────► giữ nguyên hành vi hiện tại
+                                                • clearCart() + navigate(`/order-status/${id}`)
 ```
 
 `capabilityToken` lấy từ `order.capabilityToken` mà `create_order` trả về — đã có sẵn trong RAM ở
-callback `onSuccess`, không cần query lại.
+callback `onSuccess`.
 
-**SDK ném lỗi vẫn đi đường cũ** (navigate): không rõ trạng thái thì không được kết luận "chưa trả tiền".
-
-### 4.2 Banner
+### 4.2 Banner và khoá form
 
 Hiện khi `unpaidOrder !== null`, ở cuối trang giỏ hàng.
 
 - Tiêu đề: **Thanh toán chưa thành công**
-- Phụ đề: *Đơn chưa được gửi tới bếp. Bạn có thể thanh toán lại hoặc sửa món.*
+- Phụ đề: *Bếp chưa bắt đầu làm đơn này. Bạn có thể thanh toán lại hoặc sửa món.*
 - Nút chính: **Thanh toán lại**
 - Nút phụ: **Sửa món**
 
-**Banner THAY THẾ nút "Đặt món và thanh toán" gốc, không nằm cạnh nó.** Nếu để cả hai cùng hiện,
-khách bấm nút gốc sẽ gọi `create_order` lần nữa → hai đơn `pending` cùng lúc cho một giỏ hàng, đơn
-cũ thành rác treo 30' và chiếm lượt voucher. Nút gốc chỉ quay lại sau khi khách bấm "Sửa món"
-(lúc đó đơn cũ đã `cancelled`).
+Chữ "chưa được gửi tới bếp" ở bản 1 là **sai sự thật** — đơn đã hiện ở cột "CHỜ THANH TOÁN" của màn
+bếp (§3.2). "Bếp chưa bắt đầu làm" mới đúng.
 
-Hệ quả với việc sửa giỏ: khi banner đang hiện, khách vẫn **nhìn** thấy giỏ nhưng chưa nên đổi số
-lượng — vì đơn `pending` đã chốt món rồi, sửa giỏ mà bấm "Thanh toán lại" thì trả tiền theo đơn cũ,
-không theo giỏ đã sửa. Để tránh lệch: khi banner hiện, **khoá các nút tăng/giảm số lượng** trong
-giỏ. Muốn sửa thì bấm "Sửa món" trước — đúng tên nút.
+**Banner THAY THẾ nút "Đặt món và thanh toán" gốc, không nằm cạnh nó.** Để cả hai cùng hiện thì khách
+bấm nút gốc sẽ gọi `create_order` lần nữa → hai đơn `pending` cho một giỏ hàng.
 
-Trong lúc một trong hai nút đang chạy, khoá cả hai (dùng lại `isProcessing` sẵn có).
+**Khoá TOÀN BỘ dữ liệu đã chốt vào đơn**, không chỉ số lượng. Đơn `pending` đã snapshot món, giá,
+voucher và tổng tiền; sửa bất cứ thứ gì trong lúc banner hiện đều làm màn hình nói dối, vì
+"Thanh toán lại" trả theo `total_amount` của **đơn cũ**, không theo giỏ đang hiển thị. Đổi voucher là
+ca lệch rõ nhất. Danh sách phải khoá:
 
-### 4.3 Migration 038 — siết `cancel_order`
+| Thành phần | Vị trí |
+|---|---|
+| Nút tăng/giảm số lượng | `updateQuantity` trong danh sách món |
+| Ghi chú đơn | [checkout:379](../../../mini-app/src/pages/checkout/index.tsx) |
+| Chọn phương thức thanh toán | [checkout:395,405](../../../mini-app/src/pages/checkout/index.tsx) |
+| Mã giảm giá | [`VoucherSection`](../../../mini-app/src/components/checkout/voucher-section.tsx) |
+| Form mang về (kiểu, tên, SĐT, địa chỉ) | [checkout:248-310](../../../mini-app/src/pages/checkout/index.tsx) |
 
-`cancel_order` hiện chỉ guard `status='pending'` + đúng `capability_token` (mig 007a). Đơn ví đã trả
-có `status='confirmed'` nên không huỷ được — an toàn sẵn. Nhưng **đơn chuyển khoản đã handoff vẫn
-`pending`**, về lý thuyết huỷ được đơn khách đã trả tiền. Thêm một dòng guard:
+Cài bằng một cờ duy nhất `isLocked = unpaidOrder !== null`, truyền xuống các khối. Muốn sửa thì bấm
+"Sửa món" — đúng tên nút. Trong lúc một trong hai nút đang chạy, khoá cả hai (dùng lại `isProcessing`).
+
+### 4.3 Migration 038 — `cancel_order` trả kết quả
+
+`cancel_order` hiện `RETURNS void` với `UPDATE ... WHERE status='pending' AND capability_token=...`
+(mig 007a). UPDATE trúng 0 dòng **không sinh lỗi**, mà [order.api.ts](../../../mini-app/src/services/order/order.api.ts)
+chỉ kiểm `error` → client tưởng đã huỷ trong khi đơn còn nguyên. Với thiết kế này, đó là ca: khách
+bấm "Sửa món" đúng lúc bếp vừa bấm "Đã nhận tiền" → banner tắt, khách đặt đơn mới, quán ôm **hai**
+đơn mà một đơn đã thu tiền.
+
+Đổi kiểu trả về đòi `DROP` trước (Postgres không cho `CREATE OR REPLACE` khi đổi return type).
+An toàn: `useCancelOrder` hiện **chưa nơi nào gọi**, RPC này đang không có consumer.
 
 ```sql
-create or replace function cancel_order(p_order_id uuid, p_token text)
-  returns void language plpgsql security definer set search_path = public as $$
+drop function if exists cancel_order(uuid, text);
+
+create function cancel_order(p_order_id uuid, p_token text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_order orders%rowtype;
 begin
+  select * into v_order from orders
+   where id = p_order_id and capability_token = p_token;
+  if not found then
+    return jsonb_build_object('result','blocked','reason','not_found_or_bad_token');
+  end if;
+  if v_order.status = 'cancelled' then
+    return jsonb_build_object('result','already_cancelled');
+  end if;
+  if v_order.payment_received_at is not null then
+    return jsonb_build_object('result','blocked','reason','already_paid');
+  end if;
+  if v_order.status <> 'pending' then
+    return jsonb_build_object('result','blocked','reason','in_progress');
+  end if;
+
   update orders set status = 'cancelled'
-  where id = p_order_id
-    and status = 'pending'
-    and capability_token = p_token
-    and payment_received_at is null;   -- ← THÊM: không huỷ đơn đã có tiền
+   where id = p_order_id and status = 'pending' and payment_received_at is null;
+  if not found then
+    return jsonb_build_object('result','blocked','reason','race');
+  end if;
+  return jsonb_build_object('result','cancelled');
 end $$;
+revoke all on function cancel_order(uuid, text) from public;
+grant execute on function cancel_order(uuid, text) to anon;
 ```
 
-Đây là siết chặt thuần tuý, không đổi hành vi của bất kỳ luồng nào đang chạy đúng.
+Quy tắc UI:
+
+| `result` | UI làm gì |
+|---|---|
+| `cancelled`, `already_cancelled` | Tắt banner, xoá localStorage, mở khoá form |
+| `blocked` + `already_paid` | **Giữ banner**, snackbar "Đơn này đã được thanh toán", chuyển sang trang trạng thái đơn |
+| `blocked` (còn lại) | **Giữ banner**, snackbar lỗi, không mở khoá |
+| Lỗi mạng | **Giữ banner**, snackbar lỗi |
 
 ## 5. Ca biên
 
 | Tình huống | Xử lý |
 |---|---|
-| Khách thoát app khi banner đang hiện | Đơn `pending` treo → `sweep_abandoned_orders` dọn sau 30'. Không cần làm gì thêm |
-| `cancel_order` lỗi mạng khi bấm "Sửa món" | Snackbar lỗi, **giữ banner**, không tắt. Không để khách tưởng đã huỷ mà thực ra chưa |
-| Đơn có voucher, khách bấm "Sửa món" | `voucher_uses` đếm `status <> 'cancelled'` (mig 030) → **tự nhả lượt ngay**. Riêng mã shipper đã khoá `zalo_user_id` vĩnh viễn lúc `create_order`, không rollback — nhưng khoá đúng người đang dùng nên vô hại |
+| Khách rời trang giỏ hàng rồi quay lại | Khôi phục từ localStorage + hỏi lại DB (§3.3) |
+| Khách thoát app hẳn | Đơn `pending` treo trên màn bếp tới khi chủ quán mở trang Đơn hàng (§3.2). Không phải hồi quy |
+| Đơn có voucher, khách bấm "Sửa món" | `voucher_uses` đếm `status <> 'cancelled'` (mig 030) → **tự nhả lượt ngay**. Mã shipper đã khoá `zalo_user_id` lúc `create_order`, không rollback — nhưng khoá đúng người đang dùng nên vô hại |
 | Voucher đã chọn ở giỏ hàng | **Giữ nguyên**, không reset. Khách sẽ trả lại ngay |
-| Đơn mang về (`pickup`/`delivery`) | `mevo_last_takeaway_order` được set **trước** khi gọi thanh toán → nhánh A phải xoá key này, không thì app nhớ nhầm một đơn sắp bị bỏ |
-| Bấm "Thanh toán lại" rồi lại bấm back | Đệ quy an toàn: lại rơi vào nhánh A, `setUnpaidOrder` cùng orderId. Không tạo đơn, không tích luỹ gì |
-| Khách sửa số lượng khi banner đang hiện | Không xảy ra — nút tăng/giảm bị khoá khi banner hiện (§4.2). Muốn sửa phải bấm "Sửa món" |
-| Nhánh D (ví ZaloPay) | Không ảnh hưởng. `resultCode=1` → `'success'` → đường cũ; callback server tự `confirmed` |
+| Đơn mang về | `mevo_last_takeaway_order` set **trước** khi gọi thanh toán → `abandoned`/`failed` phải xoá key này |
+| Bấm "Thanh toán lại" rồi lại thoát | Đệ quy an toàn: lại `abandoned`, cùng orderId. Không tạo đơn, không tích luỹ |
+| `PaymentDone` không kèm `data` (SDK cũ/lỗi) | → `pending_confirm` → đi đường cũ. Banner không hiện; không nói sai với khách |
+| Ví ZaloPay | `resultCode=1` → `success` → đường cũ; callback server tự `confirmed` |
 
 ## 6. Test
 
-Tín hiệu đến từ SDK Zalo nên phần lớn phải test tay trên Zalo thật. Bổ sung vào `TESTING.md`:
+### 6.1 Unit test hàm map (cần dựng vitest cho mini-app)
 
-1. Bấm thanh toán → back ngay ở màn chọn PT → **giỏ còn nguyên**, banner hiện, ở lại trang giỏ hàng
-2. Bấm "Thanh toán lại" → sheet mở lại → trả bằng chuyển khoản → vào trang trạng thái đơn; kiểm DB
+`mapCheckoutResult` là hàm **thuần**, tách khỏi SDK — theo đúng nếp
+[`decide.ts`](../../../supabase/functions/checkout-notify/decide.ts). Ca cần phủ:
+
+| Input | Kỳ vọng |
+|---|---|
+| `resultCode=1` | `success` |
+| `resultCode=-2` | `abandoned` |
+| `resultCode=-1`, `isCustom=false` | `failed` |
+| `resultCode=-1`, `isCustom=true` | `pending_confirm` |
+| `resultCode=0` | `pending_confirm` |
+| `resultCode` giá trị lạ | `pending_confirm` |
+| `checkTransaction` ném lỗi | `pending_confirm` |
+| không có `data` | `pending_confirm` |
+| `createOrder` fail / reject | `failed` |
+
+⚠️ **Mini-app hiện KHÔNG có hạ tầng test** — `package.json` chỉ có `typecheck`, không có vitest,
+không có file `.test.ts` nào. Chạy được mục này cần thêm `vitest` + config vào `mini-app/`. Xem §7.
+
+### 6.2 SQL test `cancel_order`
+
+Chạy trực tiếp trên Supabase, kiểm `result` trả về đúng với: đơn `pending` sạch → `cancelled`;
+đơn đã `payment_received_at` → `blocked/already_paid`; đơn `confirmed` → `blocked/in_progress`;
+sai token → `blocked/not_found_or_bad_token`; gọi hai lần → `already_cancelled`.
+
+### 6.3 Test tay trên Zalo thật (bổ sung `TESTING.md`)
+
+1. Bấm thanh toán → thoát ngay ở màn chọn PT → **giỏ còn nguyên**, banner hiện, ở lại trang
+2. Khi banner hiện: **không** thấy nút "Đặt món và thanh toán" gốc; số lượng, ghi chú, voucher,
+   phương thức thanh toán, form mang về đều **không sửa được**
+3. Bấm "Thanh toán lại" → sheet mở lại → trả bằng chuyển khoản → vào trang trạng thái đơn; DB
    **không có đơn `cancelled` nào**
-3. Bấm "Sửa món" → banner tắt, nút "Đặt món và thanh toán" quay lại → thêm 1 món → đặt lại → đơn cũ
-   `cancelled`, đơn mới đúng tổng tiền
-3b. Khi banner đang hiện: **không** thấy nút "Đặt món và thanh toán" gốc, nút tăng/giảm số lượng bị khoá
-4. Nhánh B/C: bấm Xác nhận → sang app NH → quay lại → vào trang trạng thái đơn như cũ, **không**
-   thấy banner
-5. Đơn mang về nhánh A: kiểm `localStorage` đã xoá `mevo_last_takeaway_order`
-6. Migration 038: với một đơn `pending` đã set `payment_received_at`, gọi `cancel_order` đúng token
-   → đơn **không** bị huỷ
+4. Bấm "Sửa món" → banner tắt, nút gốc quay lại → thêm 1 món → đặt lại → đơn cũ `cancelled`,
+   đơn mới đúng tổng tiền
+5. Chuyển khoản (`pending_confirm`): bấm Xác nhận → sang app NH → quay lại → vào trang trạng thái
+   đơn như cũ, **không** thấy banner
+6. Rời trang giỏ hàng rồi quay lại khi đang có banner → banner dựng lại đúng
+7. Sau khi bếp bấm "Đã nhận tiền", quay lại giỏ hàng → banner **không** dựng lại
+8. Đơn mang về nhánh `abandoned`: `localStorage` đã xoá `mevo_last_takeaway_order`
 
-## 7. Ngoài phạm vi
+## 7. Câu hỏi còn mở
 
-- Phân biệt nhánh B với C (Zalo không cung cấp đủ dữ liệu — giới hạn Option A)
-- Nút "Thanh toán lại" trên trang trạng thái đơn (cho khách nhánh B/C đổi ý, hoặc mở lại app sau)
-- Đối chiếu tiền về tài khoản ngân hàng tự động (SePay đã bị loại 2026-07-24)
+**Có dựng vitest cho mini-app không?** Cần cho §6.1. Lợi: `mapCheckoutResult` đúng là loại logic
+thuần đáng test, và nó là phần rủi ro nhất của thay đổi này. Tốn: thêm devDependency + config vào
+`mini-app/`. Lưu ý `decide.test.ts` hiện nằm ngoài `admin-web/` nên `npm test` của admin-web
+(vitest, không có config) **không quét tới** — nếp test của repo mỏng hơn vẻ ngoài.
+
+## 8. Ngoài phạm vi
+
+- Phân biệt "đã chuyển khoản thật" với "sang app ngân hàng rồi thoát" (Zalo không thấy giao dịch
+  bank→bank — giới hạn Option A, `CLAUDE.md` 2026-07-08)
+- Tự động dọn đơn `pending` treo (sweep hiện là lazy; cron/Edge Function định kỳ là việc riêng)
+- Nút "Thanh toán lại" trên trang trạng thái đơn
+- Đối chiếu tiền về tài khoản ngân hàng tự động (SePay đã loại 2026-07-24)
