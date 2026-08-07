@@ -4,8 +4,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Dùng vi.hoisted() vì vi.mock() bị hoist lên đầu file — nếu khai báo const thường thì factory
 // bên dưới sẽ đọc biến trước khi nó được gán (tsconfig repo này target es6, không cho phép
 // top-level await để dùng dynamic import() thay thế).
+// ⚠️ `events` thật của zmp-sdk là eventemitter3 — NHIỀU listener trên cùng một tên sự kiện.
+// Mock phải giữ đúng tính chất đó: bản đầu dùng Map<string, cb> (một slot mỗi tên) nên `on()`
+// thứ hai chỉ ghi đè im lặng, và bug cross-talk mà activeFinish sinh ra để chặn KHÔNG BAO GIỜ
+// tái hiện được. Dùng mảng + off theo THAM CHIẾU mới kiểm được thật.
 const { listeners, checkTransaction, createOrder } = vi.hoisted(() => ({
-  listeners: new Map<string, (data?: unknown) => void>(),
+  listeners: new Map<string, ((data?: unknown) => void)[]>(),
   checkTransaction: vi.fn(),
   createOrder: vi.fn(),
 }))
@@ -16,8 +20,12 @@ vi.mock('zmp-sdk', () => ({
     createOrder: (...a: unknown[]) => createOrder(...a),
   },
   events: {
-    on: (name: string, cb: (data?: unknown) => void) => listeners.set(name, cb),
-    off: (name: string) => listeners.delete(name),
+    on: (name: string, cb: (data?: unknown) => void) => {
+      listeners.set(name, [...(listeners.get(name) ?? []), cb])
+    },
+    off: (name: string, cb: (data?: unknown) => void) => {
+      listeners.set(name, (listeners.get(name) ?? []).filter((x) => x !== cb))
+    },
   },
   EventName: { PaymentDone: 'action.payment.done' },
 }))
@@ -34,22 +42,32 @@ function mockMacOk() {
   }) as unknown as typeof fetch
 }
 
+function listenerCount() {
+  return (listeners.get('action.payment.done') ?? []).length
+}
+
+// Bắn cho MỌI listener đang đăng ký — đúng như emitter thật. Copy mảng trước khi lặp vì handler
+// sẽ gọi off() ngay trong lúc chạy.
 function firePaymentDone(data?: unknown) {
-  const cb = listeners.get('action.payment.done')
-  if (!cb) throw new Error('listener chưa được đăng ký')
-  cb(data)
+  const cbs = [...(listeners.get('action.payment.done') ?? [])]
+  if (cbs.length === 0) throw new Error('listener chưa được đăng ký')
+  cbs.forEach((cb) => cb(data))
 }
 
 // payWithCheckoutSDK đăng ký listener SAU 2 lượt await (fetch + res.json()) — chờ bằng cách
 // polling thay vì đếm tick cứng, để không phụ thuộc số microtask nội bộ của engine.
 async function waitForListener() {
   for (let i = 0; i < 50; i++) {
-    if (listeners.has('action.payment.done')) return
+    if (listenerCount() > 0) return
     await new Promise((r) => setTimeout(r, 0))
   }
   throw new Error('listener không được đăng ký kịp')
 }
 
+// ⚠️ BẤT BIẾN: mọi test PHẢI để promise của mình settle trước khi kết thúc.
+// `activeFinish` là state cấp module trong payment.service.ts và beforeEach KHÔNG reset được nó.
+// Một test bỏ promise treo sẽ để lại closure cũ trong activeFinish, và lượt gọi của test KẾ TIẾP
+// sẽ âm thầm đóng promise bỏ rơi đó — sinh ràng buộc chéo rất khó lần ra.
 beforeEach(() => {
   listeners.clear()
   checkTransaction.mockReset()
@@ -75,7 +93,32 @@ describe('payWithCheckoutSDK', () => {
     await waitForListener()
     firePaymentDone({ orderId: 'zp-9' })
     await expect(p).resolves.toBe('abandoned')
-    expect(listeners.has('action.payment.done')).toBe(false)
+    expect(listenerCount()).toBe(0)
+  })
+
+  // Bug này chỉ tái hiện được với mock đa listener: `events` là emitter TOÀN CỤC, hai lượt gọi
+  // chồng nhau sẽ cùng nghe một PaymentDone và nhận kết quả của nhau.
+  it('lượt gọi mới tiếp quản: lượt cũ đóng an toàn, chỉ còn MỘT listener sống', async () => {
+    checkTransaction.mockResolvedValue({ resultCode: 1, isCustom: false })
+
+    const pA = paymentService.payWithCheckoutSDK('order-A')
+    await waitForListener()
+    expect(listenerCount()).toBe(1)
+
+    // B tiếp quản. A phải tự đóng bằng 'pending_confirm' — KHÔNG cần bắn sự kiện nào,
+    // và không được kết luận A "chưa trả tiền".
+    const pB = paymentService.payWithCheckoutSDK('order-B')
+    await expect(pA).resolves.toBe('pending_confirm')
+
+    // Listener của A đã bị gỡ đúng theo tham chiếu, chỉ còn của B
+    expect(listenerCount()).toBe(1)
+
+    firePaymentDone({ orderId: 'zp-B' })
+    await expect(pB).resolves.toBe('success')
+
+    // Chốt hạ: nếu listener của A còn sống thì checkTransaction bị gọi 2 lần và A nhận
+    // nhầm kết quả của B. Đây là assertion thật sự bắt được cross-talk.
+    expect(checkTransaction).toHaveBeenCalledTimes(1)
   })
 
   it('checkTransaction ném lỗi → pending_confirm, KHÔNG kết luận chưa trả tiền', async () => {
