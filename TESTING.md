@@ -692,9 +692,17 @@ select status, payment_received_at, payment_method from orders where id = '<orde
 7. Đang có banner → bấm back về menu → thử **thêm món** và **đổi số lượng** ở menu
    → giỏ KHÔNG đổi → quay lại giỏ hàng → banner còn nguyên, món vẫn đúng như trước.
 8. Đang có banner → rời sang tab khác rồi quay lại giỏ hàng → banner dựng lại đúng.
-9. Đang có banner → **thoát hẳn mini-app rồi quét QR mở lại** → giỏ hàng trống (giỏ không được
-   lưu) nhưng banner VẪN hiện vì đơn còn sống. Bấm "Thanh toán lại" phải trả đúng số tiền của
-   **đơn cũ**, không phải 0đ.
+9. Đang có banner → **thoát hẳn mini-app rồi quét QR mở lại** → hiện hộp thoại
+   **"Bạn còn đơn chưa thanh toán"** kèm đúng số tiền của đơn cũ, với hai nút.
+   (Giỏ hàng trống là đúng — giỏ không được lưu qua lần mở app; đơn mới là thứ còn sống.)
+9a. Bấm **"Tiếp tục đặt món"** → sang màn giỏ hàng, hiện banner "Thanh toán chưa thành công"
+    trên danh sách món TRỐNG, chữ phụ phải là bản dành cho giỏ rỗng.
+    Bấm "Thanh toán lại" → trả đúng số tiền **đơn cũ**, không phải 0đ.
+9b. Làm lại từ bước 9, lần này bấm **"Huỷ món"** → hộp thoại tắt, hiện "Đã huỷ đơn cũ",
+    ở lại menu. Kiểm DB: `select status from orders where id='<orderId>';` ra `cancelled`.
+9c. Mở lại app lần nữa → **KHÔNG** còn hộp thoại (đơn đã chết, key đã được dọn im lặng).
+9d. Nhờ bếp bấm "Đã nhận tiền" cho đơn cũ → thoát app → mở lại
+    → **KHÔNG** hiện hộp thoại (đơn đã thu tiền thì không làm phiền khách).
 
 ### Nhóm 3 — ba ca mà bản plan đầu tiên làm sai
 
