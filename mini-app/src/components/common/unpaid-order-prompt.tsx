@@ -16,11 +16,14 @@ import { useNavigate } from "react-router-dom";
 import { useSnackbar } from "zmp-ui";
 import { orderService } from "@/services/order/order.api";
 import { UnpaidOrder, loadUnpaidOrder, saveUnpaidOrder } from "@/services/unpaid-order";
+import { useCartStore } from "@/stores/cart.store";
 import { formatCurrency } from "@/utils/format";
 
 export default function UnpaidOrderPrompt() {
   const navigate = useNavigate();
   const { openSnackbar } = useSnackbar();
+  const setCartLock = useCartStore((s) => s.setCartLock);
+  const clearCart = useCartStore((s) => s.clearCart);
   const [order, setOrder] = useState<UnpaidOrder | null>(null);
   const [amount, setAmount] = useState(0);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -28,6 +31,10 @@ export default function UnpaidOrderPrompt() {
   useEffect(() => {
     const saved = loadUnpaidOrder();
     if (!saved) return;
+    // Khoá NGAY, trước khi hỏi mạng. Giỏ hàng được khôi phục từ localStorage ngay lúc mở app,
+    // nên nếu không khoá thì trong lúc chờ DB trả lời khách kịp thêm món — rồi bấm "Tiếp tục
+    // đặt món" là giỏ hiển thị một đằng, tiền trừ theo đơn cũ một nẻo.
+    setCartLock(saved.id);
     let aborted = false;
     (async () => {
       const st = await orderService.getPaymentState(saved.id);
@@ -37,13 +44,23 @@ export default function UnpaidOrderPrompt() {
         setOrder(saved);
         return;
       }
-      // Đơn đã trả / đã huỷ / đã vào bếp → dọn key im lặng, không làm phiền khách.
-      // query_failed thì KHÔNG đụng gì: giữ key để lần mở app sau thử lại.
-      if (st.kind !== "query_failed") saveUnpaidOrder(null);
+      // query_failed thì KHÔNG đụng gì: giữ key VÀ giữ khoá, lần mở app sau thử lại.
+      if (st.kind === "query_failed") return;
+      saveUnpaidOrder(null);
+      if (st.kind === "settled") {
+        // Đơn đã thu tiền / đã vào bếp → món trong giỏ chính là món đã mua, xoá đi.
+        // clearCart tự mở khoá luôn.
+        clearCart();
+      } else {
+        // cancelled → GIỮ giỏ để khách đặt lại ngay, chỉ mở khoá.
+        setCartLock(null);
+      }
     })();
     return () => {
       aborted = true;
     };
+    // Chỉ chạy một lần khi mở app
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!order) return null;
@@ -60,11 +77,14 @@ export default function UnpaidOrderPrompt() {
       const res = await orderService.cancelOrder(order.id, order.token);
       if (res.result === "cancelled" || res.result === "already_cancelled") {
         saveUnpaidOrder(null);
+        setCartLock(null); // mở khoá để khách sửa/thêm rồi đặt lại — giỏ vẫn còn nguyên món
         setOrder(null);
         openSnackbar({ text: "Đã huỷ đơn cũ.", type: "success" });
       } else if (res.reason === "already_paid") {
-        // Bếp vừa xác nhận tiền — không huỷ được, và cũng không nên bắt khách trả lại
+        // Bếp vừa xác nhận tiền — không huỷ được, và cũng không nên bắt khách trả lại.
+        // Món trong giỏ chính là món đã mua → xoá giỏ (clearCart tự mở khoá).
         saveUnpaidOrder(null);
+        clearCart();
         setOrder(null);
         openSnackbar({ text: "Đơn này đã được thanh toán.", type: "success" });
         navigate(`/order-status/${order.id}`);

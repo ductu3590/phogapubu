@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import { CartItem, SelectedVariant } from "@/types/cart.types";
 
 interface CartStore {
@@ -45,7 +46,53 @@ const calculateTotals = (items: CartItem[]) => {
   return { totalItems, totalAmount };
 };
 
-export const useCartStore = create<CartStore>((set, get) => ({
+const CART_KEY = "mevo_cart";
+
+// Giỏ để quá 6 tiếng thì coi như phiên ăn đã xong — cùng cửa sổ với "Món đã gọi"
+// (zalo_user_id + table_id + 6h). Khách hôm sau quét lại không nên thấy giỏ hôm trước.
+const CART_TTL_MS = 6 * 60 * 60 * 1000;
+
+// Storage tự đóng dấu thời gian. Đặt savedAt CẠNH {state, version} của zustand chứ không lồng
+// vào trong, để zustand đọc phần nó cần và bỏ qua phần của mình.
+// KHÔNG dùng mini-app riêng của quán khác được: mỗi quán là một Zalo Mini App riêng nên
+// localStorage đã tách sẵn theo quán, không cần scope thêm store_id.
+const cartStorage = createJSONStorage(() => ({
+  getItem: (name: string): string | null => {
+    try {
+      const raw = localStorage.getItem(name);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { savedAt?: number };
+      if (typeof parsed.savedAt !== "number" || Date.now() - parsed.savedAt > CART_TTL_MS) {
+        localStorage.removeItem(name);
+        return null;
+      }
+      return raw;
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name: string, value: string): void => {
+    try {
+      localStorage.setItem(
+        name,
+        JSON.stringify({ ...(JSON.parse(value) as object), savedAt: Date.now() }),
+      );
+    } catch {
+      /* localStorage đầy hoặc bị chặn — chỉ mất khả năng khôi phục giỏ */
+    }
+  },
+  removeItem: (name: string): void => {
+    try {
+      localStorage.removeItem(name);
+    } catch {
+      /* bỏ qua */
+    }
+  },
+}));
+
+export const useCartStore = create<CartStore>()(
+  persist(
+    (set, get) => ({
   items: [],
   totalItems: 0,
   totalAmount: 0,
@@ -145,4 +192,22 @@ export const useCartStore = create<CartStore>((set, get) => ({
   closeCheckoutSheet: () => {
     set({ checkoutSheetVisible: false });
   },
-}));
+    }),
+    {
+      name: CART_KEY,
+      storage: cartStorage,
+      // CHỈ lưu items. totalItems/totalAmount là giá trị dẫn xuất — lưu lại là mời hai nguồn
+      // sự thật lệch nhau; tính lại lúc khôi phục.
+      // lockedByOrderId KHÔNG lưu: khoá do trang giỏ hàng / hộp thoại nhắc đặt lại sau khi
+      // đã đối chiếu DB. Lưu khoá mà đơn đã chết thì giỏ đóng băng mà không ai mở ra được.
+      // checkoutSheetVisible là trạng thái UI nhất thời.
+      partialize: (s) => ({ items: s.items }) as unknown as CartStore,
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const { totalItems, totalAmount } = calculateTotals(state.items);
+        state.totalItems = totalItems;
+        state.totalAmount = totalAmount;
+      },
+    },
+  ),
+);
