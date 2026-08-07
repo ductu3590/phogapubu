@@ -5,6 +5,7 @@ import { useStoreMenu } from "@/services/category/category.queries";
 import { CategoryWithProducts } from "@/types/category.types";
 import { Product } from "@/types/product.types";
 import ToppingSheet from "@/components/menu/topping-sheet";
+import UnpaidOrderPrompt from "@/components/common/unpaid-order-prompt";
 import { SelectedVariant } from "@/types/cart.types";
 import { formatCurrency } from "@/utils/format";
 import { PlusIcon, MinusIcon } from "@/components/common/vectors";
@@ -267,6 +268,9 @@ export default function MenuPage() {
         onClose={() => setToppingProduct(null)}
         onConfirm={handleConfirmToppings}
       />
+
+      {/* Nhắc đơn chưa thanh toán khi khách mở lại app — tự ẩn nếu không có đơn nào */}
+      <UnpaidOrderPrompt />
     </div>
   );
 }

@@ -10,7 +10,9 @@ export type CancelResult =
 // Trạng thái đơn dưới góc nhìn "có thể thanh toán lại không".
 // query_failed PHẢI tách khỏi cancelled — gộp lại là fail-open, mất giỏ hàng của khách.
 export type OrderPaymentState =
-  | { kind: "unpaid_pending" }  // còn pending, chưa thu tiền → giữ banner
+  // còn pending, chưa thu tiền → giữ banner. Kèm totalAmount để hộp thoại nhắc lúc mở app
+  // hiển thị được số tiền, khỏi phải query thêm một lượt.
+  | { kind: "unpaid_pending"; totalAmount: number }
   | { kind: "cancelled" }       // đã huỷ / không còn → bỏ banner nhưng GIỮ giỏ để đặt lại
   | { kind: "settled" }         // đã thu tiền hoặc đã qua pending → xoá giỏ, sang trạng thái đơn
   | { kind: "query_failed" };   // không hỏi được → GIỮ NGUYÊN mọi thứ
@@ -75,7 +77,7 @@ export const orderService = {
   getPaymentState: async (orderId: string): Promise<OrderPaymentState> => {
     const { data, error } = await supabase
       .from("orders")
-      .select("status, payment_received_at")
+      .select("status, payment_received_at, total_amount")
       .eq("id", orderId)
       .maybeSingle();
     if (error) return { kind: "query_failed" };
@@ -83,7 +85,9 @@ export const orderService = {
     const status = data.status;
     const paid = data.payment_received_at !== null;
     if (status === "cancelled") return { kind: "cancelled" };
-    if (status === "pending" && !paid) return { kind: "unpaid_pending" };
+    if (status === "pending" && !paid) {
+      return { kind: "unpaid_pending", totalAmount: data.total_amount };
+    }
     return { kind: "settled" };
   },
 

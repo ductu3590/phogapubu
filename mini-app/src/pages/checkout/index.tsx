@@ -5,6 +5,7 @@ import { useCartStore } from "@/stores/cart.store";
 import { useAppStore, PaymentMethod } from "@/stores/app.store";
 import { useCreateOrder } from "@/services/order/order.mutations";
 import { orderService, OrderPaymentState } from "@/services/order/order.api";
+import { UnpaidOrder, loadUnpaidOrder, saveUnpaidOrder } from "@/services/unpaid-order";
 import type { CheckoutOutcome } from "@/services/checkout-result";
 import { paymentService } from "@/services/payment.service";
 import { Button, useSnackbar } from "zmp-ui";
@@ -22,34 +23,6 @@ function isPhoneValid(phone: string): boolean {
 }
 
 const TAKEAWAY_FORM_KEY = "mevo_takeaway_form";
-
-// Đơn đã tạo nhưng khách chưa trả tiền — giữ qua điều hướng để dựng lại banner khi quay lại trang.
-const UNPAID_ORDER_KEY = "mevo_unpaid_order";
-
-type UnpaidOrder = { id: string; token: string };
-
-function loadUnpaidOrder(): UnpaidOrder | null {
-  try {
-    const raw = localStorage.getItem(UNPAID_ORDER_KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw) as Partial<UnpaidOrder>;
-    // Thiếu token thì banner vô dụng: "Sửa món" không huỷ được đơn → coi như không có.
-    if (typeof p.id !== "string" || !p.id) return null;
-    if (typeof p.token !== "string" || !p.token) return null;
-    return { id: p.id, token: p.token };
-  } catch {
-    return null;
-  }
-}
-
-function saveUnpaidOrder(o: UnpaidOrder | null) {
-  try {
-    if (o) localStorage.setItem(UNPAID_ORDER_KEY, JSON.stringify(o));
-    else localStorage.removeItem(UNPAID_ORDER_KEY);
-  } catch {
-    /* localStorage đầy hoặc bị chặn — chỉ mất khả năng dựng lại banner */
-  }
-}
 
 interface TakeawayFormData {
   takeawayType: "pickup" | "delivery";
