@@ -694,15 +694,25 @@ select status, payment_received_at, payment_method from orders where id = '<orde
 8. Đang có banner → rời sang tab khác rồi quay lại giỏ hàng → banner dựng lại đúng.
 9. Đang có banner → **thoát hẳn mini-app rồi quét QR mở lại** → hiện hộp thoại
    **"Bạn còn đơn chưa thanh toán"** kèm đúng số tiền của đơn cũ, với hai nút.
-   (Giỏ hàng trống là đúng — giỏ không được lưu qua lần mở app; đơn mới là thứ còn sống.)
-9a. Bấm **"Tiếp tục đặt món"** → sang màn giỏ hàng, hiện banner "Thanh toán chưa thành công"
-    trên danh sách món TRỐNG, chữ phụ phải là bản dành cho giỏ rỗng.
-    Bấm "Thanh toán lại" → trả đúng số tiền **đơn cũ**, không phải 0đ.
+9a. Bấm **"Tiếp tục đặt món"** → sang màn giỏ hàng: **món vẫn còn nguyên trong giỏ**, tổng tiền
+    khớp đúng số hiện trong hộp thoại (KHÔNG phải 0đ), banner "Thanh toán chưa thành công"
+    nằm trên. Bấm "Thanh toán lại" → trả đúng số tiền đó.
 9b. Làm lại từ bước 9, lần này bấm **"Huỷ món"** → hộp thoại tắt, hiện "Đã huỷ đơn cũ",
     ở lại menu. Kiểm DB: `select status from orders where id='<orderId>';` ra `cancelled`.
 9c. Mở lại app lần nữa → **KHÔNG** còn hộp thoại (đơn đã chết, key đã được dọn im lặng).
 9d. Nhờ bếp bấm "Đã nhận tiền" cho đơn cũ → thoát app → mở lại
-    → **KHÔNG** hiện hộp thoại (đơn đã thu tiền thì không làm phiền khách).
+    → **KHÔNG** hiện hộp thoại, và **giỏ hàng trống** (món đó đã mua rồi).
+9e. Sau 9b (đã huỷ món) → **giỏ hàng vẫn còn nguyên món**, sửa/thêm được bình thường,
+    bấm "Đặt món & Thanh toán" tạo đơn mới đúng tổng tiền.
+
+### Nhóm 2b — lưu giỏ hàng (mới)
+
+9f. Chọn vài món, **KHÔNG** bấm thanh toán → thoát hẳn app → mở lại
+    → giỏ còn nguyên món, nút giỏ nổi hiện đúng số lượng và tổng tiền.
+    (Đây là ca "chọn cả loạt cho bạn bè rồi lỡ thoát app".)
+9g. Thanh toán xong một đơn (trả tiền thật) → thoát app → mở lại → **giỏ trống**.
+9h. Để máy qua hơn 6 tiếng rồi mở lại → giỏ cũ đã bị bỏ, không hiện lại.
+    (Khó test nhanh — có thể sửa tay `savedAt` trong localStorage key `mevo_cart` để giả lập.)
 
 ### Nhóm 3 — ba ca mà bản plan đầu tiên làm sai
 
