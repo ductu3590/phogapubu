@@ -95,6 +95,11 @@ export default function CheckoutPage() {
   const [unpaidOrder, setUnpaidOrder] = useState<UnpaidOrder | null>(() => loadUnpaidOrder());
   const [isCancelling, setIsCancelling] = useState(false);
   const isLocked = unpaidOrder !== null;
+  // Khoá phần NHÌN THẤY của form khi banner hiện. Tầng store đã chặn mọi mutation giỏ hàng rồi
+  // (kể cả từ trang menu); lớp này chỉ để khách hiểu vì sao bấm không ăn, khỏi tưởng app đơ.
+  // Dùng pointer-events-none thay vì disabled từng component: cuộn trang vẫn chạy vì chạm rơi
+  // xuống phần tử cha, và không phải sửa NoteInput/VoucherSection (chúng không có prop disabled).
+  const lockedClass = isLocked ? "pointer-events-none opacity-50" : "";
 
   // Takeaway form state
   const initialForm = useRef(loadTakeawayForm()).current;
@@ -408,7 +413,7 @@ export default function CheckoutPage() {
 
         {/* Form mang về */}
         {isTakeaway && (
-          <div className="mx-3.5 mt-4 rounded-xl bg-white p-4">
+          <div className={`mx-3.5 mt-4 rounded-xl bg-white p-4 ${lockedClass}`}>
             {/* Toggle */}
             <div className="mb-4 flex gap-1 rounded-xl bg-neutral100 p-1">
               <button
@@ -524,6 +529,7 @@ export default function CheckoutPage() {
                   </div>
                   <QuantityStepper
                     variant="rounded"
+                    disabled={isLocked}
                     value={item.quantity}
                     onDecrease={() =>
                       updateQuantity(item.id, Math.max(0, item.quantity - 1))
@@ -537,7 +543,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* Ghi chú */}
-        <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-3">
+        <div className={`mx-3.5 mt-3 rounded-xl bg-white px-4 py-3 ${lockedClass}`}>
           <NoteInput
             label="Ghi chú cho bếp"
             placeholder="VD: Ít đường, không hành, ít cay..."
@@ -549,7 +555,7 @@ export default function CheckoutPage() {
 
         {/* Hình thức thanh toán — ẩn khi chỉ có 1 phương thức hoặc đang mang về */}
         {!singleMethod && !isTakeaway && (
-          <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-4">
+          <div className={`mx-3.5 mt-3 rounded-xl bg-white px-4 py-4 ${lockedClass}`}>
             <p className="mb-3 text-large-m font-semibold">Thanh toán</p>
             <div className="flex flex-col gap-2">
               {paymentMethods.includes("zalo_checkout") && (
@@ -577,13 +583,15 @@ export default function CheckoutPage() {
         )}
 
         {/* Mã giảm giá */}
-        <VoucherSection
-          storeId={storeId ?? ""}
-          zaloUserId={zaloUserId || null}
-          subtotal={totalAmount}
-          selected={voucher}
-          onSelect={setVoucher}
-        />
+        <div className={lockedClass}>
+          <VoucherSection
+            storeId={storeId ?? ""}
+            zaloUserId={zaloUserId || null}
+            subtotal={totalAmount}
+            selected={voucher}
+            onSelect={setVoucher}
+          />
+        </div>
 
         {/* Tóm tắt tiền */}
         <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-4">
