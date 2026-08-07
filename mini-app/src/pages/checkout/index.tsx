@@ -348,7 +348,8 @@ export default function CheckoutPage() {
 
     // 'success' | 'pending_confirm' → giữ nguyên hành vi cũ. SDK báo RẤT thất thường khi khách mở
     // app ngân hàng ngoài rồi quay lại → luôn vào màn trạng thái "Đơn đã gửi / chờ quán xác nhận".
-    // Quán xác nhận khi thấy tiền, đơn không trả tự huỷ sau 30' (sweep_abandoned_orders, mig 031).
+    // Quán xác nhận khi thấy tiền. Đơn không trả sẽ bị sweep_abandoned_orders (mig 031) huỷ —
+    // nhưng đó là LAZY sweep, chỉ chạy khi chủ quán mở trang Đơn hàng, KHÔNG tự động sau 30'.
     // KHÔNG hiện dialog "thử lại" (gây hiểu nhầm cho khách đã chuyển khoản).
     applyUnpaidOrder(null);
     clearCart();
