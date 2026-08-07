@@ -350,6 +350,43 @@ export default function CheckoutPage() {
     navigate(`/order-status/${orderId}`);
   };
 
+  // "Thanh toán lại" — trả tiền cho ĐÚNG đơn cũ, không tạo đơn mới.
+  // Hỏi DB TRƯỚC khi mở SDK: đơn có thể đã bị sweep (mở ra sẽ ăn 409) hoặc đã được trả rồi.
+  const handleRetryPayment = async () => {
+    if (!unpaidOrder || isProcessing || isCancelling) return;
+    setIsProcessing(true);
+    const st = await orderService.getPaymentState(unpaidOrder.id);
+    if (!applyPaymentState(st, unpaidOrder.id)) {
+      setIsProcessing(false);
+      return;
+    }
+    await handleZaloPayPayment(unpaidOrder.id, unpaidOrder.token);
+  };
+
+  // "Sửa món" — huỷ đơn cũ rồi mở khoá giỏ. CHỈ tắt banner khi RPC xác nhận đã huỷ thật.
+  const handleEditItems = async () => {
+    if (!unpaidOrder || isProcessing || isCancelling) return;
+    setIsCancelling(true);
+    try {
+      const res = await orderService.cancelOrder(unpaidOrder.id, unpaidOrder.token);
+      if (res.result === "cancelled" || res.result === "already_cancelled") {
+        applyUnpaidOrder(null);
+      } else if (res.reason === "already_paid") {
+        // Đơn đã có tiền thật — không huỷ được, và cũng không nên bắt khách trả lại
+        applyUnpaidOrder(null);
+        clearCart();
+        openSnackbar({ text: "Đơn này đã được thanh toán.", type: "success" });
+        navigate(`/order-status/${unpaidOrder.id}`);
+      } else {
+        openSnackbar({ text: "Chưa huỷ được đơn, vui lòng thử lại.", type: "error" });
+      }
+    } catch {
+      openSnackbar({ text: "Lỗi mạng, chưa huỷ được đơn.", type: "error" });
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   const isLoading = isPending || isProcessing;
 
   return (
@@ -567,37 +604,70 @@ export default function CheckoutPage() {
 
 
 
-      {/* Nút đặt món — fixed bottom */}
+      {/* Nút đặt món / banner chưa thanh toán — fixed bottom */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-divider01 bg-white px-4 py-4 pb-5">
-        <div className="mb-2 flex justify-between px-1">
-          <span className="text-small text-text-secondary">Tổng cộng</span>
-          <span className="text-large-m font-bold text-primary">
-            {formatCurrency(payableAmount)}đ
-          </span>
-        </div>
-        {!storeOpen && (
-          <p className="mb-2 text-center text-xxsmall font-medium text-[#C0341A]">
-            {isAcceptingOrders
-              ? "Quán đang ngoài giờ phục vụ, chưa nhận đơn."
-              : "Quán đang tạm nghỉ, chưa nhận đơn."}
-          </p>
+        {isLocked ? (
+          <>
+            <div className="mb-3 rounded-xl bg-[#FCEBEB] px-3 py-2.5">
+              <p className="text-small font-semibold text-[#501313]">
+                Thanh toán chưa thành công
+              </p>
+              <p className="mt-0.5 text-xxsmall leading-relaxed text-[#A32D2D]">
+                {cartItems.length === 0
+                  ? 'Đơn cũ chưa thanh toán xong. Bấm "Thanh toán lại" để trả tiền cho đơn đó, hoặc "Sửa món" để bỏ đơn và chọn lại.'
+                  : "Bếp chưa bắt đầu làm đơn này. Bạn có thể thanh toán lại hoặc sửa món."}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleRetryPayment}
+                disabled={isProcessing || isCancelling}
+                className="flex-1 rounded-xl bg-primary py-3 font-semibold text-white active:bg-primary disabled:opacity-50"
+              >
+                {isProcessing ? "Đang mở..." : "Thanh toán lại"}
+              </Button>
+              <Button
+                onClick={handleEditItems}
+                disabled={isProcessing || isCancelling}
+                className="flex-1 rounded-xl border-2 border-primary bg-white py-3 font-semibold text-primary disabled:opacity-50"
+              >
+                {isCancelling ? "Đang huỷ..." : "Sửa món"}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mb-2 flex justify-between px-1">
+              <span className="text-small text-text-secondary">Tổng cộng</span>
+              <span className="text-large-m font-bold text-primary">
+                {formatCurrency(payableAmount)}đ
+              </span>
+            </div>
+            {!storeOpen && (
+              <p className="mb-2 text-center text-xxsmall font-medium text-[#C0341A]">
+                {isAcceptingOrders
+                  ? "Quán đang ngoài giờ phục vụ, chưa nhận đơn."
+                  : "Quán đang tạm nghỉ, chưa nhận đơn."}
+              </p>
+            )}
+            <Button
+              onClick={handleOrder}
+              disabled={isLoading || cartItems.length === 0 || !isTakeawayFormValid || !storeOpen}
+              className="w-full rounded-xl bg-primary py-3 font-semibold text-white active:bg-primary disabled:opacity-50"
+              fullWidth
+            >
+              {isLoading
+                ? isPending
+                  ? "Đang tạo đơn..."
+                  : "Đang mở thanh toán..."
+                : isTakeaway
+                  ? "Đặt mang về & Thanh toán"
+                  : paymentMethod === "zalo_checkout"
+                    ? "Đặt món & Thanh toán"
+                    : "Đặt món (Trả tiền mặt)"}
+            </Button>
+          </>
         )}
-        <Button
-          onClick={handleOrder}
-          disabled={isLoading || cartItems.length === 0 || !isTakeawayFormValid || !storeOpen}
-          className="w-full rounded-xl bg-primary py-3 font-semibold text-white active:bg-primary disabled:opacity-50"
-          fullWidth
-        >
-          {isLoading
-            ? isPending
-              ? "Đang tạo đơn..."
-              : "Đang mở thanh toán..."
-            : isTakeaway
-              ? "Đặt mang về & Thanh toán"
-              : paymentMethod === "zalo_checkout"
-                ? "Đặt món & Thanh toán"
-                : "Đặt món (Trả tiền mặt)"}
-        </Button>
       </div>
     </div>
   );
