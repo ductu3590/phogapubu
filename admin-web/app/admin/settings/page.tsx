@@ -12,7 +12,7 @@ export default async function SettingsPage() {
 
   const { data: store } = await supabase
     .from('stores')
-    .select('name, logo_url, payment_methods, zalo_oa_url, address, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, is_accepting_orders, serving_hours, delivery_area_note, terms_of_use')
+    .select('name, logo_url, payment_methods, zalo_oa_url, address, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, is_accepting_orders, serving_hours, delivery_area_note, terms_of_use, order_flow, staff_order_needs_payment, kitchen_auto_print, printer_paper_width')
     .eq('id', storeId)
     .single()
 
@@ -42,6 +42,10 @@ export default async function SettingsPage() {
           }
           deliveryAreaNote={(store?.delivery_area_note as string | null) ?? ''}
           termsOfUse={(store?.terms_of_use as string | null) ?? ''}
+          orderFlow={store?.order_flow === 'postpay' ? 'postpay' : 'prepay'}
+          staffOrderNeedsPayment={(store?.staff_order_needs_payment as boolean | null) ?? false}
+          kitchenAutoPrint={(store?.kitchen_auto_print as boolean | null) ?? false}
+          printerPaperWidth={store?.printer_paper_width === '58' ? '58' : '80'}
         />
       </div>
     </div>
