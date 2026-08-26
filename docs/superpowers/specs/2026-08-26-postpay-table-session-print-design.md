@@ -1,7 +1,7 @@
-# MEVO Quy trình "Đặt trước — Trả sau" + In phiếu bếp 2 liên — đặc tả thiết kế
+# MEVO Quy trình "Đặt trước — Trả sau" + Màn quầy in phiếu 2 liên — đặc tả thiết kế
 
-> **Ngày:** 2026-08-26
-> **Trạng thái:** ĐỀ XUẤT — chờ anh Tú chốt, chưa code dòng nào
+> **Ngày:** 2026-08-26 (v2 — sau khi anh Tú chốt phần cứng và thứ tự vận hành)
+> **Trạng thái:** ĐÃ CHỐT hướng, sẵn sàng lập plan
 > **Quán mở đường:** Quán nhậu **Bảo Lương** (mini-app riêng, backend chung)
 > **Phạm vi:** Thêm quy trình vận hành thứ 2 cho MEVO, chủ quán tự chọn trong `/admin`.
 > **Không đụng:** Phở Gà Pubu giữ nguyên 100% luồng trả-trước hiện tại.
@@ -11,17 +11,17 @@
 > 1. **`order_flow` mặc định `prepay`.** Mọi nhánh mới chỉ chạy khi `order_flow='postpay'`.
 >    Nguyên tắc cũ của repo: *"cắm thêm, tắt là như chưa từng tồn tại"*. Quán đang chạy
 >    không được đổi hành vi dù chỉ một pixel.
-> 2. **Trả sau ≠ tiền mặt.** Đừng tái dùng `payment_method='cash'` cho tiện (§2.2). Repo này
+> 2. **Máy in ở QUẦY, không ở bếp — và bếp làm SAU khi khách xác nhận.** Thứ tự vật lý này
+>    (§4) là trụ chống đơn ma của cả thiết kế. Đừng "tối ưu" bằng cách cho đơn xuống bếp
+>    thẳng: làm thế là ném lại đúng lỗ hổng mà quy trình giấy đang bịt.
+> 3. **Trả sau ≠ tiền mặt.** Đừng tái dùng `payment_method='cash'` cho tiện (§2.2). Repo này
 >    đã ăn một lần đau vì cột `payment_method` bị hiểu sai nghĩa (mig 032 phải rename
->    `zalopay`→`zalo_checkout`). Thêm kênh `counter` và ghi instrument thật lúc thu tiền.
-> 3. **"Trả một lần cuối bữa" bắt buộc phải có PHIÊN BÀN.** Gộp theo `table_id` trần là sai:
+>    `zalopay`→`zalo_checkout`). Thêm kênh `counter`, ghi instrument thật lúc thu tiền.
+> 4. **"Trả một lần cuối bữa" bắt buộc phải có PHIÊN BÀN.** Gộp theo `table_id` trần là sai:
 >    bàn quay vòng, khách mới ngồi vào bàn cũ sẽ thấy — và bị tính — đơn của khách trước (§3.1).
-> 4. **Server KHÔNG in được.** Supabase không nói chuyện với máy in ở Lào Cai. In là việc của
->    trình duyệt trên máy cạnh máy in. Cái server phải lo là *"đơn này đã in chưa"* — và phải
->    lo bằng UPDATE nguyên tử, không phải bằng state trong React (§5.4).
 > 5. **Hộp thoại "Bạn còn đơn chưa thanh toán" phải TẮT ở postpay.** Ở luồng trả sau thì đơn
 >    nào cũng "chưa thanh toán" — quên guard chỗ này là khách Bảo Lương bị hỏi mỗi lần mở app,
->    và giỏ hàng bị khoá bởi `lockedByOrderId` không cho gọi thêm món (§6.3).
+>    và giỏ hàng bị khoá bởi `lockedByOrderId` không cho gọi thêm món (§8.2).
 
 ---
 
@@ -30,7 +30,7 @@
 Phần "tạo mini-app cho quán khác" đã có sẵn quy trình, không nằm trong spec này:
 
 - Skill `.claude/skills/replicate-mini-app/SKILL.md` → lệnh nhanh `onboard quán bao-luong`.
-- Tạo store ở `/mevo` (wizard, mig 2026-07-24), Zalo App ID + OA riêng, worktree riêng
+- Tạo store ở `/mevo` (wizard), Zalo App ID + OA riêng, worktree riêng
   `mini-app-instances/bao-luong/` (branch `deploy/bao-luong`, sparse-checkout chỉ `mini-app/`).
 - Backend Supabase dùng chung, phân theo `store_id`; admin-web dùng chung.
 
@@ -43,18 +43,18 @@ phải là một công tắc trong admin chứ không phải một nhánh code r
 
 | | **`prepay`** — Phở Gà Pubu (đang chạy) | **`postpay`** — Bảo Lương (mới) |
 |---|---|---|
-| Khách quét QR | chọn món → **trả tiền** → bếp mới nhận | chọn món → **gửi bếp ngay**, chưa trả tiền |
-| Bằng chứng khách có mặt thật | **tiền đã về** (`payment_received_at`) | **phiếu in mang ra tận bàn** — không có khách thì không ai nhận phiếu |
+| Khách quét QR | chọn món → **trả tiền** → bếp mới nhận | chọn món → gửi đơn, **chưa trả tiền** |
+| Bằng chứng khách có mặt thật | **tiền đã về** (`payment_received_at`) | **nhân viên cầm phiếu ra bàn, khách xác nhận** — rồi bếp mới làm |
 | Số lần gọi món | mỗi lần gọi = 1 đơn, trả 1 lần | gọi nhiều lượt suốt bữa, **trả 1 lần cuối** |
+| Thiết bị của quán | tablet ở bếp (Kitchen Display) | **1 máy tính ở quầy** + máy in nhiệt 80mm USB |
 | Theo dõi món ra | app + màn bếp | **gạch bút trên phiếu giấy tại bàn** |
-| Thanh toán | ZaloPay / chuyển khoản trong app, trước khi ăn | tại quầy, cuối bữa — CK hoặc quét QR quầy |
-| Rủi ro chính | khách bỏ dở giữa chừng (đã có sweep 30') | đơn ma từ QR bị chụp (§6) |
+| Thanh toán | ZaloPay / chuyển khoản trong app, trước khi ăn | tại quầy cuối bữa — tiền mặt hoặc quét QR tĩnh quán đã có |
 | Hợp với | quán ăn nhanh, một lượt gọi, khách vãng lai | **quán nhậu** — ngồi lâu, gọi thêm liên tục, gọi cả bàn |
 
-Điều đáng nói: MEVO hôm nay **đã làm được 60%** luồng postpay mà không ai nhận ra. Đơn
-`payment_method='cash'` vào bếp ngay lập tức không cần tiền (`admin-web/lib/kitchen-announce.ts`),
-`sweep_abandoned_orders` cố tình bỏ qua đơn cash, `hasRealMoney` đã tách "tiền thật" khỏi
-"status". Ba thứ còn thiếu là: **phiên bàn**, **in phiếu**, và **công tắc chọn quy trình**.
+MEVO hôm nay **đã làm được 60%** luồng postpay mà không ai nhận ra. Đơn `payment_method='cash'`
+vào bếp ngay không cần tiền (`admin-web/lib/kitchen-announce.ts`), `sweep_abandoned_orders`
+cố tình bỏ qua đơn cash, `hasRealMoney` đã tách "tiền thật" khỏi "status". Ba thứ còn thiếu:
+**phiên bàn**, **màn quầy + in phiếu**, và **công tắc chọn quy trình**.
 
 ---
 
@@ -69,48 +69,36 @@ alter table stores add constraint stores_order_flow_check
   check (order_flow in ('prepay','postpay'));
 ```
 
-- `prepay` — luồng hiện tại, mặc định mọi quán cũ và mọi quán mới.
-- `postpay` — đặt trước, thu tiền cuối bữa tại quầy.
-
-Chủ quán đổi ở `/admin/settings`, ngay dưới khối "Phương thức thanh toán", dạng 2 thẻ chọn
-kèm mô tả một câu — **không phải toggle trần**, vì đổi nhầm là đổi cả cách quán chạy:
+Chủ quán đổi ở `/admin/settings`, dạng 2 thẻ chọn kèm mô tả một câu — **không phải toggle
+trần**, vì đổi nhầm là đổi cả cách quán chạy:
 
 ```
 ◉ Trả trước  — Khách thanh toán trong app rồi bếp mới làm. Hợp quán ăn nhanh.
-○ Trả sau    — Khách gọi món nhiều lượt, in phiếu ra bàn, thanh toán một lần tại quầy.
-               Hợp quán nhậu, quán ngồi lâu.
+○ Trả sau    — Khách gọi món nhiều lượt, in phiếu xác nhận tại bàn, thanh toán
+               một lần tại quầy. Hợp quán nhậu, quán ngồi lâu.
 ```
 
-Đổi quy trình khi **đang có bàn mở** thì chặn, báo: *"Còn 3 bàn chưa thanh toán, đóng hết
-rồi mới đổi được"*. Không thì đơn nửa phiên treo lơ lửng giữa hai luật.
+Đổi quy trình khi **đang có bàn mở** thì chặn: *"Còn 3 bàn chưa thanh toán, đóng hết rồi mới
+đổi được"*. Không thì đơn nửa phiên treo lơ lửng giữa hai luật.
 
 ### 2.2 Kênh thanh toán mới: `counter`
 
-Cám dỗ lớn nhất của spec này là tái dùng `payment_method='cash'` cho đơn Bảo Lương — vì
-`cash` **đã** vào bếp ngay, **đã** không bị sweep, **đã** vào doanh thu đúng. Gần như free.
+Cám dỗ lớn nhất là tái dùng `payment_method='cash'` — vì `cash` **đã** vào bếp ngay, **đã**
+không bị sweep, **đã** vào doanh thu đúng. Gần như free.
 
-Đừng làm. Lý do:
-
-- Khách Bảo Lương phần lớn sẽ **chuyển khoản** ở quầy, không trả tiền mặt. Ghi `cash` là
-  ghi sai vào chính cột mà báo cáo đọc — đúng loại lỗi mà spec PM (§2) đã phải viết cả
-  chương để gỡ.
-- Quán `prepay` nào bật tiền mặt sẽ vô tình được nửa luồng postpay (đơn vào bếp không cần
-  tiền) mà không ai cố ý bật.
-
-Nên:
+Đừng làm. Khách Bảo Lương phần lớn **chuyển khoản** ở quầy chứ không đưa tiền mặt. Ghi `cash`
+cho mọi đơn là ghi sai vào đúng cột mà báo cáo đọc — báo cáo sẽ nói *"hôm nay thu tiền mặt
+12 triệu"* trong khi 10 triệu nằm trong tài khoản ngân hàng. Đúng loại lỗi mà spec PM (§2)
+đã phải viết cả chương để gỡ.
 
 ```sql
--- orders.payment_method: thêm 'counter'   (kênh: thu tại quầy, cuối bữa)
+-- orders.payment_method: thêm 'counter'   (KÊNH: thu tại quầy, cuối bữa)
 -- stores.payment_methods: thêm 'counter'  (Bảo Lương: payment_methods = '{counter}')
--- payment_instrument ghi lúc THU: 'cash' | 'bank'   ← chỗ trả lời "khách trả bằng gì"
+-- payment_instrument ghi lúc THU: 'cash' | 'bank'   ← PHƯƠNG TIỆN, để báo cáo tách 2 loại
 ```
 
 `counter` là **kênh**, `payment_instrument` là **phương tiện** — đúng mô hình 3 cột mà mig 030
-đã dựng, không phát minh gì mới.
-
-> **Đường tắt nếu cần chạy gấp trong 1 sprint:** dùng `cash` cho v1, ghi instrument thật lúc
-> thu, và trả nợ đổi tên ở sprint sau. Chi phí trả nợ: 1 migration backfill + sửa 6 chỗ ở §8.
-> Tôi không khuyên, nhưng nếu Bảo Lương cần khai trương gấp thì đây là chỗ cắt được.
+đã dựng, không phát minh gì mới. Chủ quán không bao giờ nhìn thấy chữ `counter` trên màn hình.
 
 ---
 
@@ -118,17 +106,11 @@ Nên:
 
 ### 3.1 Vì sao không gộp theo `table_id` trần
 
-Nghe thì đơn giản: bill của bàn 5 = tổng mọi đơn của bàn 5 chưa thanh toán. Nhưng:
-
-- Bàn 5 khách trước quên thanh toán / nhân viên quên bấm → khách sau ngồi vào **thấy luôn**
-  hoá đơn 800k của người lạ.
-- Không có mốc "bữa này bắt đầu lúc nào" → không in được "tạm tính từ đầu bữa", không biết
-  bàn nào đang mở bao lâu.
+- Bàn 5 khách trước quên thanh toán → khách sau ngồi vào **thấy luôn** hoá đơn 800k của người lạ.
+- Không có mốc "bữa này bắt đầu lúc nào" → không in được tạm tính, không biết bàn mở bao lâu.
 - Cửa sổ 6h của "Món đã gọi" (`zalo_user_id + table_id + 6h`) là luật của **khách**, không
-  phải luật của **bàn** — hai khách khác Zalo cùng bàn (đi nhậu theo nhóm, mỗi người gọi món
-  từ máy mình) phải chung một bill.
-
-Điểm cuối là quan trọng nhất với quán nhậu: **một bàn, nhiều điện thoại, một hoá đơn.**
+  phải luật của **bàn**. Quán nhậu thì **một bàn, nhiều điện thoại, một hoá đơn** — 4 người
+  cùng bàn mỗi người gọi từ máy mình phải chung một bill. Đây là lý do quan trọng nhất.
 
 ### 3.2 Schema
 
@@ -141,10 +123,11 @@ create table table_sessions (
   closed_at    timestamptz null,
   close_reason text null check (close_reason in ('paid','void','auto_stale')),
   closed_by    uuid null,           -- auth.uid() của người bấm thu tiền (audit)
+  instrument   text null check (instrument in ('cash','bank')),
   total_amount int not null default 0
 );
 
--- Một bàn chỉ có ĐÚNG MỘT phiên mở tại một thời điểm — chốt chặn ở DB, không ở app code.
+-- Một bàn chỉ có ĐÚNG MỘT phiên mở — chốt chặn ở DB, không ở app code.
 create unique index table_sessions_one_open_per_table
   on table_sessions(table_id) where closed_at is null;
 
@@ -158,80 +141,109 @@ create index orders_table_session_idx on orders(table_session_id) where table_se
 |---|---|---|
 | **Mở** | tự động, trong `create_order` | Quán `postpay` + đơn `dine_in` → tìm phiên mở của bàn; không có thì INSERT. Đơn gắn `table_session_id`. |
 | **Gọi thêm** | khách | Đơn mới rơi vào **đúng phiên đang mở**, bất kể Zalo UID nào gọi. |
-| **Đóng — thu tiền** | nhân viên/chủ quán tại quầy | RPC `close_table_session` → mọi đơn trong phiên nhận `payment_received_at`, `payment_instrument`; `close_reason='paid'`. |
-| **Đóng — huỷ** | chủ quán | Bàn đơn ma / khách bỏ về: `close_reason='void'`, đơn `cancelled`, **không** ghi tiền. |
+| **Đóng — thu tiền** | nhân viên tại quầy | RPC `close_table_session(session_id, instrument)` → mọi đơn trong phiên nhận `payment_received_at` + `payment_instrument`; `close_reason='paid'`. |
+| **Đóng — huỷ** | nhân viên/chủ quán | Bàn đơn ma / khách bỏ về: `close_reason='void'`, đơn `cancelled`, **không** ghi tiền. |
 | **Bỏ quên** | sweep | Phiên mở > 8h → `close_reason='auto_stale'`, **KHÔNG tự ghi tiền**, hiện cảnh báo ở `/admin`. Máy không được phép tự kết luận là quán đã thu tiền. |
 
 Một chi tiết đẹp: trigger `auto_complete_dine_in` (mig 031) đã tự đóng đơn `dine_in` khi
-`status='ready'` **và** có `payment_received_at`. Nên lúc đóng phiên, các đơn bếp đã làm xong
-**tự chuyển `paid`** — không cần viết thêm logic đóng đơn. Đơn còn `cooking` thì chuyển `paid`
-khi bếp bấm xong. Trigger cũ lo đúng việc, không đụng vào.
+`status='ready'` **và** có `payment_received_at`. Đơn Bảo Lương không ai bấm "ready" (không
+có màn bếp), nên phải cho `close_table_session` tự set `status='paid'` — **không** trông chờ
+trigger đó. Ghi rõ ở đây vì đọc mig 031 rất dễ tưởng nó lo hộ.
 
 ---
 
-## 4. Luồng đầy đủ Bảo Lương
+## 4. Luồng đầy đủ Bảo Lương — thứ tự vật lý là phần quan trọng nhất
 
 ```
 [19:40] Bàn 5 — 4 khách ngồi xuống, anh A quét QR
-        → Mini App Bảo Lương mở, menu quán nhậu
-        → chọn: Lòng nướng x2, Nem chua rán x1, Bia Hà Nội x3
-        → bấm "GỬI ĐƠN XUỐNG BẾP"   (không có bước thanh toán)
+        → Mini App Bảo Lương mở → chọn Lòng nướng x2, Nem chua x1, Bia Hà Nội x3
+        → bấm "GỬI ĐƠN"   (không có bước thanh toán)
 
 [19:40] Server: create_order → chưa có phiên bàn 5 → MỞ PHIÊN #S-118
-        → đơn #045 gắn vào phiên, payment_method='counter', vào bếp NGAY
+        → đơn #045 gắn vào phiên, payment_method='counter'
 
-[19:40] Màn bếp: chuông + loa đọc "Bàn 5, hai lòng nướng, một nem chua rán, ba bia Hà Nội"
-        → máy in nhiệt tự nhả 2 LIÊN:
-             LIÊN 1 — BẾP    (bếp kẹp lên dây, làm theo)
-             LIÊN 2 — KHÁCH  (nhân viên cầm ra bàn 5)
+[19:40] MÀN QUẦY kêu chuông + đọc "Bàn 5, hai lòng nướng, một nem chua, ba bia"
+        → máy in ở quầy nhả 2 LIÊN, nhân viên cầm CẢ HAI
 
-[19:41] Nhân viên mang LIÊN 2 ra bàn 5 → có khách thật, đưa phiếu.
-        (Bàn trống → biết ngay là đơn ma → bấm "Huỷ đơn này" ngay trên phiếu/màn bếp)
+[19:41] NV mang 2 liên ra bàn 5
+        ├─ CÓ khách  → khách nhìn phiếu xác nhận đúng món
+        │              → để lại LIÊN KHÁCH tại bàn (để gạch món)
+        │              → NV cầm LIÊN BẾP xuống bếp → BẾP MỚI BẮT ĐẦU LÀM
+        └─ BÀN TRỐNG → đơn ma. NV bấm "Huỷ đơn" trên điện thoại,
+                       vứt 2 mẩu giấy. BẾP CHƯA ĐỤNG VÀO GÌ — mất 0 nguyên liệu.
 
-[19:52] Bia ra trước → nhân viên gạch dòng "Bia Hà Nội" trên LIÊN 2 tại bàn
-[20:05] Lòng nướng ra → gạch tiếp. Khách nhìn phiếu biết còn nem chua chưa ra.
+[19:52] Bia ra → NV gạch dòng "Bia Hà Nội" trên liên khách tại bàn
+[20:05] Lòng nướng ra → gạch tiếp. Khách nhìn phiếu biết nem chua chưa ra.
 
-[20:30] Anh B (cùng bàn, Zalo khác) quét QR gọi thêm → đơn #051
-        → rơi vào ĐÚNG phiên #S-118 → in tiếp 2 liên "LƯỢT 2"
+[20:30] Anh B (cùng bàn, Zalo khác) gọi thêm → đơn #051
+        → rơi vào ĐÚNG phiên #S-118 → in tiếp 2 liên "LƯỢT 2" → lặp lại y hệt
 
 [22:10] Khách ra quầy thanh toán
-        → Nhân viên mở /staff/tables → Bàn 5 · 3 lượt · 1.240.000đ
-        → bấm "Thu tiền" → chọn Chuyển khoản → màn hình hiện QR VietQR
-          đúng 1.240.000đ, nội dung "BAN5 S118"
-        → khách quét bằng app ngân hàng, chuyển
-        → nhân viên liếc app NH thấy tiền về → bấm "Đã nhận"
-        → phiên đóng, 3 đơn nhận payment_received_at + instrument='bank'
-        → bàn 5 biến mất khỏi danh sách "Bàn đang mở", vào doanh thu ngày
+        → NV mở màn quầy → Bàn 5 · 3 lượt · 1.240.000đ
+        → bấm "THU TIỀN" → chọn [Tiền mặt] hoặc [Chuyển khoản]
+          (chuyển khoản: khách quét QR TĨNH đã dán sẵn ở quầy, NV liếc app NH)
+        → bấm xác nhận → phiên đóng, 3 đơn ghi payment_received_at + instrument
+        → bàn 5 rời danh sách "Bàn đang mở", vào doanh thu ngày đúng cột
 ```
+
+**Trụ của thiết kế nằm ở dòng "BẾP MỚI BẮT ĐẦU LÀM".** Bếp không nhận đơn từ máy — bếp nhận
+tờ giấy từ tay nhân viên, và tờ giấy đó chỉ tới bếp sau khi có người thật ngồi ở bàn xác nhận.
+Không có API nào, không có công tắc nào, không lách được. Đây là lý do spec này **không cần**
+cơ chế "xác nhận bàn có khách" trong phần mềm — quy trình giấy đã làm chặt hơn.
 
 ---
 
-## 5. In phiếu 2 liên
+## 5. Màn quầy + in phiếu
 
-### 5.1 Ba phương án phần cứng
+### 5.1 Màn quầy = Kitchen Display ở chế độ `postpay`
 
-| | Cách làm | Ưu | Nhược | Chi phí |
-|---|---|---|---|---|
-| **P1 ⭐ khuyến nghị** | Màn bếp (web) chạy trên **mini-PC/laptop Windows**, Chrome mở bằng cờ `--kiosk-printing`, máy in nhiệt 80mm cắm USB. Web gọi `window.print()` → in thẳng, **không hiện hộp thoại** | Không thêm hạ tầng nào. Cập nhật theo deploy web như mọi tính năng khác. Sửa mẫu phiếu = sửa CSS | Phải có máy tính ở bếp và Chrome mở sẵn | Máy in 80mm USB ~1–1,8tr + máy tính (dùng máy có sẵn) |
-| **P2** | **Android + RawBT**: máy in bluetooth 58mm, app RawBT làm print service, Chrome Android in qua nó | Rẻ nhất, chỉ cần điện thoại cũ | Vẫn phải bấm xác nhận in mỗi đơn (không thật sự tự động), bluetooth hay rớt giữa ca | Máy in BT ~700k–1,2tr |
-| **P3** | **Agent in cục bộ**: Node/Python trên mini-PC, nghe Supabase Realtime, bắn ESC/POS thẳng tới máy in LAN cổng 9100 | In cả khi không ai mở màn bếp; chắc chắn nhất | Phải cài, phải tự khởi động cùng máy, hỏng thì phải hỗ trợ từ xa — thứ khó nhất khi quán ở xa | +1 ngày công, +gánh vận hành |
+Máy tính quầy mở **một màn hình duy nhất**, làm hết mọi việc. Không dựng trang mới từ đầu —
+tái dùng `/kitchen/[storeSlug]` vì nó đã có sẵn đúng ba thứ khó:
 
-**Chốt: làm P1 cho Bảo Lương.** P3 chỉ làm nếu chạy thật một tháng và đo được là P1 sót phiếu.
-Đừng dựng agent khi chưa có bằng chứng là cần — nó là thứ duy nhất trong hệ thống mà MEVO
-không sửa được từ xa.
+- **Realtime** đơn mới (Supabase channel), đã chạy ổn định
+- **Chuông + loa đọc đơn TTS** (Web Speech, miễn phí) — ở quầy vẫn có ích: nhân viên đang bận
+  nghe tiếng là biết có đơn cần cầm ra bàn
+- **Đăng nhập bằng role `kitchen` + token, không qua Supabase Auth** — mở suốt ngày không phải
+  login lại, đúng thứ một máy tính quầy cần
 
-### 5.2 Vì sao không in từ server
+Ở `order_flow='postpay'`, màn này đổi bố cục thành 2 khối:
 
-Supabase không có đường tới máy in đặt trong bếp ở Lào Cai. Muốn server in được thì phải có
-máy in cloud (Sunmi/Xprinter cloud — phí thuê bao + phụ thuộc nhà cung cấp) hoặc agent cục bộ
-(P3). Trình duyệt ở bếp thì **đã** ngồi ngay cạnh máy in và **đã** nhận realtime đơn mới. Việc
-duy nhất server phải làm là chống in trùng (§5.4).
+```
+┌── ĐƠN MỚI — CẦN IN & MANG RA BÀN ──┐  ┌── BÀN ĐANG MỞ (4) ───────────┐
+│ 🔔 BÀN 5 · LƯỢT 1 · 19:40          │  │ BÀN 5   3 lượt  1.240.000đ   │
+│    2 Lòng nướng · 1 Nem chua       │  │         [Chi tiết][THU TIỀN] │
+│    3 Bia Hà Nội                    │  │ BÀN 2   1 lượt    285.000đ   │
+│    [ĐÃ IN ✓]  [In lại]  [Huỷ đơn]  │  │ ...                          │
+└────────────────────────────────────┘  └──────────────────────────────┘
+```
+
+Ba cột "Chờ xử lý / Đang làm / Xong" của luồng `prepay` **ẩn hẳn** — đơn Bảo Lương không có
+ai bấm chuyển trạng thái, tiến độ món nằm trên tờ giấy tại bàn.
+
+### 5.2 In: Chrome kiosk-printing
+
+Máy in nhiệt **80mm USB** cắm thẳng vào máy tính quầy, cài driver như máy in thường. Chrome
+mở màn quầy bằng cờ `--kiosk-printing` → `window.print()` **in thẳng, không hiện hộp thoại**.
+
+```
+chrome.exe --kiosk-printing --app=https://<admin-web>/kitchen/bao-luong?token=...
+```
+
+Không thêm hạ tầng nào: không agent cục bộ, không máy in cloud, không phụ thuộc nhà cung cấp
+nào. Sửa mẫu phiếu = sửa CSS, deploy như mọi thay đổi web khác.
+
+> **Đã cân nhắc và loại:** máy in cloud có API (FEIE/Xprinter cloud) — cần khi bếp/quầy **không**
+> có máy tính. Quầy Bảo Lương có sẵn máy tính nên phương án này chỉ thêm ~1tr tiền máy, thêm
+> phụ thuộc server nhà cung cấp, mà không được gì. Ghi lại ở đây để sau này quán nào không có
+> máy tính thì biết đường mở lại.
+
+⚠️ **Lưu ý mua máy in:** máy in **WiFi thường** ≠ máy in **cloud** — bài tiếng Việt gọi cả hai
+là "máy in wifi". Với phương án này thì chỉ cần loại **USB thường**, rẻ nhất, không cần WiFi.
 
 ### 5.3 Mẫu phiếu
 
-Khổ 80mm, font monospace, in đen trắng. Hai liên trong **một** trang, cách nhau đường cắt —
-bấm in **một lần** ra hai liên, không phụ thuộc chuyện đặt `copies=2` (web không set được
-tin cậy).
+Khổ 80mm, monospace. Hai liên trong **một** trang, cách nhau đường cắt — in **một lần** ra hai
+liên, không phụ thuộc chuyện đặt `copies=2` (web không set được tin cậy).
 
 ```
     ══════════════════════
@@ -257,18 +269,17 @@ tin cậy).
          nội dung y hệt)
 ```
 
-- Ô `☐` trước mỗi món — chỗ nhân viên gạch bút khi bê ra.
-- Ghi chú món (ít cay, không hành) in thụt vào dưới tên món, **không** bỏ qua — đây là thứ
-  hay mất nhất khi chuyển từ gọi miệng sang gọi app.
+- Ô `☐` trước mỗi món — chỗ gạch bút khi bê ra.
+- Ghi chú món (ít cay, không hành) in thụt dưới tên món, **không** bỏ qua — đây là thứ hay mất
+  nhất khi chuyển từ gọi miệng sang gọi app.
 - "Cả bàn (N lượt)" giúp khách tự đối chiếu cuối bữa, giảm cãi nhau ở quầy.
 
-CSS: `@page { size: 80mm auto; margin: 0 }`, `@media print` ẩn toàn bộ màn bếp, chỉ chừa
-`#print-ticket`. Khổ giấy đọc từ `stores.printer_paper_width` (`'58'|'80'`).
+CSS: `@page { size: 80mm auto; margin: 0 }`, `@media print` ẩn toàn bộ màn quầy, chỉ chừa
+`#print-ticket`.
 
-### 5.4 Chống in trùng và in sót — chỗ dễ vỡ nhất
+### 5.4 Chống in trùng — chỗ dễ vỡ nhất
 
-Vấn đề thật: bếp mở màn hình trên 2 thiết bị, hoặc F5 giữa ca → mỗi đơn in 2–4 lần. Ngược lại,
-trình duyệt sập lúc đơn về → phiếu không bao giờ ra.
+Bếp mở màn hình trên 2 thiết bị, hoặc F5 giữa ca → mỗi đơn in 2–4 lần.
 
 ```sql
 alter table orders
@@ -285,98 +296,76 @@ returning id;
 -- không trúng dòng nào → trả {ok:false, already:true}
 ```
 
-Luật ở màn bếp: **gọi RPC TRƯỚC, chỉ in khi RPC trả `ok:true`.** Hai tab cùng nhận realtime
-thì chỉ một tab thắng UPDATE — tab kia không in. Đây là chống-trùng nguyên tử ở DB, không
-phải `useRef` trong React (reload là mất).
+Luật: **gọi RPC TRƯỚC, chỉ in khi RPC trả `ok:true`.** Hai tab cùng nhận realtime thì chỉ một
+tab thắng UPDATE. Chống-trùng nguyên tử ở DB, không phải `useRef` trong React (reload là mất).
 
-Đánh đổi phải nói thẳng: **đánh dấu trước khi in** nghĩa là hết giấy / máy in tắt → đơn ghi
-"đã in" mà phiếu không ra. Bù bằng:
-- Nút **"In lại"** trên mọi đơn ở màn bếp (tăng `print_count`, không đụng `printed_at`).
-- Badge đỏ **"CHƯA IN"** cho đơn `printed_at is null` quá 2 phút — bếp nhìn thấy ngay là
-  máy in đang chết, không phát hiện lúc đóng ca.
+Đánh đổi phải nói thẳng: **đánh dấu trước khi in** nghĩa là hết giấy → đơn ghi "đã in" mà phiếu
+không ra. Bù bằng nút **"In lại"** (tăng `print_count`, không đụng `printed_at`) và badge đỏ
+**"CHƯA IN"** cho đơn quá 2 phút.
 
-Chiều ngược lại (in xong mới đánh dấu) thì mọi lần mạng chớp là in trùng — với giấy nhiệt
-và một quán nhậu đông thì in trùng khó chịu hơn in sót, vì in sót có badge báo còn in trùng
-thì bếp làm gấp đôi món.
-
-Cấu hình quán: `kitchen_auto_print boolean default false`, `print_copies int default 2`,
-`printer_paper_width text default '80'`.
+Chiều ngược lại (in xong mới đánh dấu) thì mỗi lần mạng chớp là in trùng — mà ở đây in trùng
+tệ hơn in sót: **in sót thì nhân viên vẫn thấy đơn trên màn quầy**, còn in trùng thì có 2 tờ
+phiếu cho cùng một lượt gọi, dễ thành 2 lần xuống bếp.
 
 ---
 
-## 6. Chống đơn phá hoại
+## 6. Chống đơn phá hoại — quy trình giấy đã lo
 
-### 6.1 Cơ chế anh mô tả — và chỗ nó hở
+Không cần cơ chế phần mềm nào thêm. Thứ tự ở §4 đã bịt kín:
 
-Phiếu mang ra bàn là kiểm soát tốt: bàn trống thì phiếu không có ai nhận, nhân viên biết ngay.
-Nhưng nó là kiểm soát **sau khi bếp đã bắt tay làm**. Trình tự thật:
+| Lớp | Có sẵn / mới | Chặn được gì |
+|---|---|---|
+| QR gắn cứng từng bàn | có sẵn | đơn không có bàn |
+| Chặn ngoài giờ / tạm nghỉ (mig 017, chặn ở RPC) | có sẵn | gọi lúc quán đóng cửa |
+| **Xác nhận tại bàn trước khi xuống bếp** | **§4** | **toàn bộ đơn ma — mất 0 nguyên liệu** |
+| Nút "Huỷ đơn" trên màn quầy + `/staff/orders` | mới/có sẵn | dọn đơn ma khỏi phiên |
 
-```
-đơn ma về ──→ bếp bắt đầu làm ──→ phiếu in ──→ NV ra bàn (~1-2') ──→ phát hiện bàn trống
-                    └─ 1-2 phút nguyên liệu đã lên bếp ─┘
-```
+Chi phí một đơn phá hoại = một mẩu giấy nhiệt + 30 giây của nhân viên. Chấp nhận được.
 
-Với món nhậu (nướng, lẩu, đồ chiên) 1–2 phút có thể đã là mất đồ thật. Không phải thảm hoạ,
-nhưng cũng không phải bằng không — và kẻ phá hoại có thể bắn liên tục 10 đơn.
-
-Ba lớp đã có sẵn, không phải làm gì: QR gắn cứng từng bàn, chặn ngoài giờ/tạm nghỉ
-(mig 017, chặn ở cả RPC nên không lách được), và mỗi quán một mini-app riêng.
-
-### 6.2 Đề xuất thêm: `require_open_table` (mặc định TẮT)
-
-Một công tắc nữa ở `/admin/settings`, chỉ hiện khi `order_flow='postpay'`:
-
-> **Xác nhận bàn có khách trước khi làm món đầu tiên**
-> Đơn ĐẦU TIÊN của mỗi bàn chờ nhân viên liếc qua bàn rồi bấm "Có khách". Các lượt gọi sau
-> trong cùng bữa vào bếp thẳng. Tốn 1 lần bấm mỗi bàn.
-
-Cụ thể: đơn mở phiên nằm ở cột mới **"Chờ xác nhận bàn"** trên màn bếp (và trên `/staff/orders`
-cho nhân viên chạy bàn); bấm "Có khách" → phiên mở, đơn vào bếp, in phiếu. Đơn cùng phiên
-sau đó bỏ qua bước này hoàn toàn.
-
-Tôi khuyên **để TẮT lúc khai trương** đúng như anh mô tả — chạy vài hôm, nếu không có đơn ma
-thì thôi, đỡ một thao tác cho nhân viên. Có đơn ma thì bật, không cần deploy lại.
+> **Đã cân nhắc và loại:** công tắc `require_open_table` (bắt nhân viên bấm "Có khách" trên app
+> trước khi đơn đầu tiên vào bếp) — thừa, vì việc xác nhận đã xảy ra ngoài đời với tờ phiếu
+> trong tay. Thêm nó chỉ là bắt nhân viên làm hai lần cùng một việc.
 
 ---
 
-## 7. Thanh toán cuối bữa tại quầy
+## 7. Thu tiền cuối bữa + báo cáo tách 2 loại
 
-### 7.1 Màn "Bàn đang mở"
+### 7.1 Thu tiền
 
-Thêm `/staff/tables` (nhân viên) + tab tương ứng trong `/admin` (chủ quán) — mobile-first,
-nhân viên cầm điện thoại:
+Từ khối "Bàn đang mở" trên màn quầy (và `/staff/tables` cho nhân viên cầm điện thoại):
 
 ```
-BÀN ĐANG MỞ (4)
-┌────────────────────────────────┐
-│ BÀN 5      3 lượt · 2h30       │
-│ 1.240.000đ                     │
-│ [Xem chi tiết] [In tạm tính]   │
-│ [ THU TIỀN ]                   │
-└────────────────────────────────┘
+BÀN 5 · 3 lượt · 2h30 · 1.240.000đ
+[Xem chi tiết]  [In tạm tính]  [ THU TIỀN ]
+        ↓
+   Thu 1.240.000đ bằng:
+   [ 💵 Tiền mặt ]   [ 🏦 Chuyển khoản ]
 ```
 
-"Thu tiền" → chọn **Tiền mặt** hoặc **Chuyển khoản**:
+- **Tiền mặt** → `instrument='cash'`
+- **Chuyển khoản** → khách quét **QR tĩnh quán đã dán sẵn ở quầy**, nhân viên liếc app ngân
+  hàng thấy tiền về rồi bấm xác nhận → `instrument='bank'`
 
-- **Tiền mặt** → xác nhận → đóng phiên, `payment_instrument='cash'`.
-- **Chuyển khoản** → hiện **QR VietQR động** đúng số tiền để khách quét tại quầy:
-  `https://img.vietqr.io/image/<BIN>-<STK>-compact2.png?amount=1240000&addInfo=BAN5%20S118`
-  — chỉ là URL ảnh, không cần API key, không cần tài khoản. Nhân viên nhìn app ngân hàng
-  thấy tiền về → bấm "Đã nhận" → đóng phiên, `payment_instrument='bank'`.
+**Không sinh QR động trong app** (quán đã có QR riêng) → bỏ hẳn ý VietQR ở bản v1 của spec,
+không cần lưu số tài khoản trong DB, bớt một khối cấu hình và một chỗ để lộ thông tin.
 
-Cần thêm vào `stores`: `bank_bin`, `bank_account_no`, `bank_account_name` (nhập ở
-`/admin/settings`). Thiếu thì nút "Chuyển khoản" ẩn, chỉ còn tiền mặt.
+**v1: một phiên = một hình thức.** Nhóm khách chia tiền thì thường một người trả hết rồi tự
+chia nhau — YAGNI. Nếu quán kêu thật thì mới thêm bảng `table_session_payments` cho phép chia
+nhiều dòng; lúc đó `close_table_session` nhận mảng thay vì một `instrument`.
 
-### 7.2 Đối soát tự động — để sau, đã có đường
+### 7.2 Báo cáo tách 2 loại
 
-`payment_received_via` đã dự trù sẵn giá trị `'sepay'` từ mig 030, và **PM-5** trong
-`docs/superpowers/plans/2026-07-21-multi-method-payment.md` đã lên kế hoạch webhook SePay.
-Khi bật, webhook khớp theo **nội dung chuyển khoản** (`BAN5 S118` → session id) và tự đóng
-phiên — nhân viên không phải nhìn app ngân hàng nữa.
+Đây là câu "tổng hợp 2 loại thanh toán" của anh Tú. Ở `/admin/dashboard`, quán `postpay` thấy:
 
-Khớp theo nội dung CK đơn giản hơn hẳn thuật toán "đuôi định danh `payment_amount`" của PM-2,
-vì ở quầy ta **chủ động sinh nội dung CK**, không phụ thuộc khách gõ. Đây là lý do phụ để
-làm phiên bàn: nó cho ta một mã ngắn, duy nhất, có thời hạn để khớp tiền.
+```
+DOANH THU HÔM NAY          12.450.000đ
+  💵 Tiền mặt               4.980.000đ   (12 bàn)
+  🏦 Chuyển khoản           7.470.000đ   (19 bàn)
+```
+
+Đọc từ `orders.payment_instrument` — **không** thêm cột nào, không thêm luật doanh thu nào:
+`hasRealMoney()` vẫn là nguồn sự thật duy nhất, chỉ nhóm kết quả theo instrument. Đây chính là
+lý do §2.2 không chịu tái dùng `cash`: có `counter` + `instrument` thì hai dòng này tự đúng.
 
 ### 7.3 Quyền: nhân viên có được thu tiền không?
 
@@ -387,7 +376,7 @@ nhân viên, không phải chủ.
 Đề xuất: RPC **riêng** `close_table_session(p_session_id, p_instrument)` cho phép cả
 `store_owner` lẫn `store_staff`, ghi `closed_by = auth.uid()`. Đây **không** phải nới lỏng
 mig 028 — 028 chặn staff **ghi thẳng vào `orders` qua REST**; RPC có kiểm quyền, có audit,
-có phạm vi hẹp là đúng cách mà spec 028 đã chừa. Không đụng vào `confirm_manual_payment`.
+có phạm vi hẹp là đúng cửa mà spec 028 đã chừa. Không đụng `confirm_manual_payment`.
 
 ---
 
@@ -397,33 +386,34 @@ có phạm vi hẹp là đúng cách mà spec 028 đã chừa. Không đụng v�
 
 | # | Nội dung |
 |---|---|
-| **039** | `stores.order_flow` + `require_open_table` + `kitchen_auto_print` + `print_copies` + `printer_paper_width` + `bank_bin/bank_account_no/bank_account_name`; nới CHECK `payment_methods` cho `'counter'` |
+| **039** | `stores.order_flow`, `printer_paper_width` (mặc định `'80'`); nới CHECK `payment_methods` + `orders.payment_method` cho `'counter'` |
 | **040** | `table_sessions` + unique index 1-phiên-mở + `orders.table_session_id` |
 | **041** | `orders.printed_at/print_count` + RPC `kitchen_claim_print` (grant role `kitchen`) |
-| **042** | `create_order` v10: nhận `counter`, tự mở/gắn phiên khi `postpay`, tôn trọng `require_open_table` |
-| **043** | RPC `close_table_session` / `void_table_session` / `open_table_session`; sweep phiên quá hạn |
+| **042** | `create_order` v10: nhận `counter`, tự mở/gắn phiên khi `postpay` |
+| **043** | RPC `close_table_session` / `void_table_session`; sweep phiên quá hạn |
 
 ### 8.2 Code — điểm phải rà, không được sót
 
 | File | Sửa gì | Sót thì sao |
 |---|---|---|
-| `admin-web/lib/kitchen-announce.ts` | `orderInKitchen`: thêm `payment_method === 'counter'` | Đơn Bảo Lương không bao giờ hiện ở bếp |
+| `admin-web/lib/kitchen-announce.ts` | `orderInKitchen`: thêm `payment_method === 'counter'` | Đơn Bảo Lương không bao giờ hiện ở màn quầy |
 | `admin-web/lib/revenue.ts` | `isAwaitingPayment`: thêm `counter` | Cột "chờ thanh toán" bỏ sót cả quán |
 | `admin-web/lib/actions/orders.ts` | `completeOrder`: `canConfirmManual` thêm `counter` | Chủ quán không đóng tay được đơn kẹt |
 | `supabase` `sweep_abandoned_orders` | loại trừ `counter` (như đang loại `cash`) | **Đơn khách đang ăn bị tự huỷ sau 30 phút** |
-| `mini-app/src/pages/checkout/index.tsx` | `postpay` → bỏ bước chọn PT, nút "Gửi đơn xuống bếp", bỏ nhánh Zalo Checkout | Khách bị đẩy vào màn thanh toán không tồn tại |
+| `mini-app/src/pages/checkout/index.tsx` | `postpay` → bỏ chọn PT, nút "Gửi đơn", bỏ nhánh Zalo Checkout | Khách bị đẩy vào màn thanh toán không tồn tại |
 | `mini-app/src/services/unpaid-order.ts` + `components/common/unpaid-order-prompt.tsx` | tắt hẳn ở `postpay` | Khách bị hỏi "còn đơn chưa thanh toán" **mỗi lần mở app** |
 | `mini-app/src/stores/cart.store.tsx` | không set `lockedByOrderId` ở `postpay` | **Khách không gọi thêm được món** — vỡ toàn bộ ý tưởng quán nhậu |
 | `mini-app/src/pages/session-orders/index.tsx` | hiện cả phiên bàn + tạm tính, không chỉ đơn của UID mình | Mỗi người trong bàn thấy một nửa hoá đơn |
-| `admin-web/app/kitchen/[storeSlug]/kitchen-display.tsx` | khối in ẩn + auto-print + nút "In lại" + badge "CHƯA IN" (+ cột "Chờ xác nhận bàn" nếu bật) | — |
-| `admin-web/app/admin/settings/settings-client.tsx` | khối chọn quy trình + cấu hình in + tài khoản NH | — |
-| `mini-app` spin (`spin-section`) | tắt ở `postpay` v1 | Vòng quay gắn với "đơn có tiền thật", ở postpay chỉ đúng lúc đóng phiên — v1 để yên |
+| `admin-web/app/kitchen/[storeSlug]/kitchen-display.tsx` | bố cục `postpay` 2 khối, khối in ẩn, auto-print, In lại, badge CHƯA IN, Huỷ đơn | — |
+| `admin-web/app/admin/settings/settings-client.tsx` | khối chọn quy trình + khổ giấy | — |
+| `admin-web/app/admin/dashboard/page.tsx` | tách doanh thu theo `payment_instrument` | Mất đúng con số anh Tú cần |
+| `mini-app` spin (`spin-section`) | tắt ở `postpay` v1 | Vòng quay gắn với "đơn có tiền thật"; ở postpay chỉ đúng lúc đóng phiên — v1 để yên |
 
 ### 8.3 Không đụng
 
 `checkout-create-mac`, `checkout-notify`, `payment.service.ts`, `checkout-result.ts`,
 `confirm_manual_payment`, `auto_complete_dine_in`, toàn bộ luồng takeaway/ship. Quán `prepay`
-đi đúng nhánh cũ, không có một dòng điều kiện nào chạy khác trước.
+đi đúng nhánh cũ, không một dòng điều kiện nào chạy khác trước.
 
 ---
 
@@ -431,13 +421,13 @@ có phạm vi hẹp là đúng cách mà spec 028 đã chừa. Không đụng v�
 
 | # | Rủi ro | Mức | Xử lý |
 |---|---|---|---|
-| 1 | **Máy in chết giữa ca, không ai biết** | Cao | Badge "CHƯA IN" quá 2' + nút In lại (§5.4). Bếp vẫn thấy đơn trên màn hình — in hỏng làm chậm chứ không mất đơn |
-| 2 | **Đơn ma tốn nguyên liệu 1-2 phút đầu** | Trung bình | `require_open_table` bật được bất cứ lúc nào (§6.2) |
-| 3 | **Nhân viên quên đóng phiên** → bàn treo, doanh thu ngày thiếu | Trung bình | Danh sách "Bàn đang mở" luôn hiện + cảnh báo bàn mở > 4h; sweep 8h đánh `auto_stale` **không** ghi tiền |
-| 4 | **Khách về không trả tiền** | Trung bình | Đây là rủi ro *vận hành*, không phải rủi ro phần mềm — quán nhậu truyền thống cũng chịu. Phiếu tại bàn + màn "Bàn đang mở" làm nó dễ phát hiện hơn sổ giấy |
-| 5 | Hai tab màn bếp in trùng | Đã xử lý | UPDATE nguyên tử (§5.4) |
-| 6 | Chuyển khoản chưa về mà nhân viên bấm "Đã nhận" | Trung bình | `closed_by` ghi lại ai bấm; SePay (§7.2) xoá hẳn rủi ro này khi bật |
-| 7 | Chủ quán đổi `order_flow` giữa lúc có bàn mở | Thấp | Chặn ở server (§2.1) |
+| 1 | **Máy in hết giấy / Chrome bị tắt** | Cao | Đơn **vẫn hiện trên màn quầy** — in hỏng làm chậm chứ không mất đơn. Badge "CHƯA IN" quá 2' + nút In lại (§5.4) |
+| 2 | **Nhân viên quên đóng phiên** → bàn treo, doanh thu ngày thiếu | Trung bình | "Bàn đang mở" luôn hiện trên màn quầy + cảnh báo bàn mở > 4h; sweep 8h đánh `auto_stale` **không** ghi tiền |
+| 3 | **Khách về không trả tiền** | Trung bình | Rủi ro *vận hành*, không phải phần mềm — quán nhậu sổ giấy cũng chịu. Màn "Bàn đang mở" làm nó dễ phát hiện hơn |
+| 4 | Chuyển khoản chưa về mà nhân viên bấm xác nhận | Trung bình | `closed_by` ghi lại ai bấm. Bật SePay (PM-5) sau này thì tự đối soát, xoá hẳn rủi ro |
+| 5 | Hai tab màn quầy in trùng | Đã xử lý | UPDATE nguyên tử (§5.4) |
+| 6 | Chủ quán đổi `order_flow` giữa lúc có bàn mở | Thấp | Chặn ở server (§2.1) |
+| 7 | Đơn ma tốn nguyên liệu | **Đã xoá** | Bếp chỉ làm sau khi phiếu được xác nhận tại bàn (§4) |
 
 ---
 
@@ -449,45 +439,40 @@ Theo **QUY TẮC BẮT BUỘC VỀ TEST** của CLAUDE.md: mỗi sprint xong th�
 | Sprint | Nội dung | Test gate |
 |---|---|---|
 | **BL-1** | Mig 039+040: `order_flow`, `table_sessions`, `counter`. UI chọn quy trình ở `/admin/settings`. **Chưa đụng mini-app.** | Phở Gà Pubu không đổi gì; bật postpay cho store test không vỡ |
-| **BL-2** | `create_order` v10 + mini-app postpay: nút "Gửi đơn xuống bếp", tắt unpaid-prompt, tắt khoá giỏ, session-orders gộp phiên | Gọi 3 lượt từ 2 Zalo khác nhau → cùng 1 phiên, bếp thấy cả 3 |
-| **BL-3** | In phiếu: mig 041, mẫu phiếu 2 liên, auto-print, In lại, badge CHƯA IN | In thật ra giấy; F5 màn bếp 5 lần không in trùng; tắt máy in → badge đỏ |
-| **BL-4** | Thu tiền: `/staff/tables`, `close_table_session`, QR VietQR động, cấu hình TK ngân hàng | Thu 1 bàn 3 lượt → đúng tổng, đúng doanh thu ngày, bàn rời danh sách |
-| **BL-5** | `require_open_table` + sweep phiên quá hạn + cảnh báo bàn treo | Bật/tắt công tắc, đơn đầu chờ xác nhận đúng như mô tả |
+| **BL-2** | `create_order` v10 + mini-app postpay: nút "Gửi đơn", tắt unpaid-prompt, tắt khoá giỏ, session-orders gộp phiên | Gọi 3 lượt từ 2 Zalo khác nhau → cùng 1 phiên |
+| **BL-3** | Màn quầy: bố cục postpay, mig 041, mẫu phiếu 2 liên, auto-print, In lại, badge CHƯA IN, Huỷ đơn | **In thật ra giấy**; F5 màn quầy 5 lần không in trùng; tắt máy in → badge đỏ |
+| **BL-4** | Thu tiền: `close_table_session`, khối "Bàn đang mở", báo cáo tách tiền mặt / chuyển khoản | Thu 1 bàn 3 lượt → đúng tổng, dashboard tách đúng 2 dòng, bàn rời danh sách |
 
-Sau BL-5: onboard Bảo Lương thật theo skill `replicate-mini-app`, chạy pilot 1 tuần rồi mới
-quyết P3 (agent in) có cần không.
+Bốn sprint (bản v1 có 5 — bỏ `require_open_table` nhờ quyết định xác nhận-trước-khi-làm).
+Sau BL-4: onboard Bảo Lương thật theo skill `replicate-mini-app`, chạy pilot 1 tuần.
 
 ---
 
-## 11. Phần cứng cần mua cho Bảo Lương
+## 11. Phần cứng cần chuẩn bị
 
 | Món | Gợi ý | Giá tham khảo |
 |---|---|---|
-| Máy in nhiệt 80mm USB | Xprinter XP-80 / Gprinter dòng phổ thông | 1.000.000 – 1.800.000đ |
-| Máy tính chạy màn bếp | mini-PC hoặc laptop cũ (Chrome `--kiosk-printing`) | dùng máy có sẵn, hoặc 2–4tr |
-| Màn hình bếp | màn cũ / TV có HDMI | có sẵn |
+| Máy in nhiệt **80mm USB** (loại thường, KHÔNG cần wifi/cloud) | Xprinter XP-80 / Gprinter dòng phổ thông | 1.000.000 – 1.800.000đ |
+| Máy tính quầy | **đã có** — chỉ cần cài Chrome + driver máy in | 0đ |
 | Giấy in nhiệt K80 | cuộn 80mm | 8.000 – 12.000đ/cuộn |
-| Bút bi | để gạch món | — |
+| Bút bi | gạch món trên phiếu | — |
 
-Không phát sinh phí phần mềm hàng tháng: in bằng trình duyệt, QR bằng ảnh VietQR miễn phí,
-loa đọc đơn bằng Web Speech (đã có).
-
----
-
-## 12. Cần anh Tú chốt trước khi lập plan
-
-1. **Bếp Bảo Lương có máy tính không**, hay chỉ có điện thoại/tablet Android? → quyết P1 hay P2.
-2. **58mm hay 80mm?** 80mm dễ đọc hơn cho phiếu nhiều món (quán nhậu hay gọi 8–10 món/lượt),
-   tôi khuyên 80mm.
-3. **Bật `require_open_table` ngay từ đầu, hay để tắt như anh mô tả?** Tôi khuyên tắt, bật sau
-   nếu gặp đơn ma.
-4. **Số tài khoản ngân hàng của quán** để sinh QR quầy (tên NH + STK + tên chủ TK).
-5. **Mỗi lượt gọi in một phiếu riêng** (như §4), hay in gộp cả bàn mỗi lần? Tôi khuyên in
-   theo lượt — bếp cần biết món nào mới, không cần đọc lại món đã làm.
-6. **Kênh `counter` hay dùng tạm `cash`?** (§2.2) — chỉ hỏi nếu Bảo Lương cần khai trương gấp.
+Không phát sinh phí phần mềm hàng tháng: in bằng trình duyệt, QR thanh toán dùng QR tĩnh quán
+đã có, loa đọc đơn bằng Web Speech (đã có sẵn trong Kitchen Display).
 
 ---
 
-> Khi anh chốt: thêm 1 dòng vào bảng **§10 Lịch sử quyết định** của `CLAUDE.md`, dựng
+## 12. Điểm còn để ngỏ (không chặn việc code)
+
+1. **Bếp có muốn xem màn hình không?** Hiện thiết kế cho bếp làm hoàn toàn theo giấy. Nếu sau
+   này bếp muốn một màn hình phụ thì mở lại 3 cột trạng thái — không đụng gì tới thiết kế này.
+2. **Chia hoá đơn nhiều hình thức** (nửa tiền mặt nửa CK) — hoãn tới khi quán kêu thật (§7.1).
+3. **SePay đối soát tự động** — PM-5 đã có kế hoạch sẵn, bật sau khi pilot ổn định (§9 rủi ro 4).
+4. **In tạm tính giữa bữa** — có nút trong thiết kế, nhưng chưa rõ quán dùng nhiều không; quan
+   sát trong tuần pilot.
+
+---
+
+> Khi bắt đầu code: thêm 1 dòng vào bảng **§10 Lịch sử quyết định** của `CLAUDE.md`, dựng
 > `docs/superpowers/plans/2026-08-26-postpay-table-session-print.md` và `TESTING-BL.md`,
-> rồi mới code BL-1. Spec này chưa được ghi vào CLAUDE.md vì chưa phải quyết định đã chốt.
+> rồi mới làm BL-1.
