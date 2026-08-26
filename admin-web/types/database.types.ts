@@ -1,6 +1,9 @@
 // Database types tương ứng với schema Supabase
 export type OrderStatus = 'pending' | 'confirmed' | 'cooking' | 'ready' | 'paid' | 'cancelled'
-export type PaymentMethod = 'zalo_checkout' | 'cash' | 'bank_transfer'
+// 'counter' = thu tại quầy cuối bữa (quán postpay, mig 039). Là KÊNH, không phải phương tiện —
+// khách trả bằng gì nằm ở orders.payment_instrument ('cash'|'bank') ghi lúc thu.
+export type PaymentMethod = 'zalo_checkout' | 'cash' | 'bank_transfer' | 'counter'
+export type OrderFlow = 'prepay' | 'postpay'
 export type OrderType = 'dine_in' | 'pickup' | 'delivery'
 
 // --- Row types ---
@@ -20,6 +23,11 @@ interface StoreRow {
   delivery_area_note: string | null
   terms_of_use: string | null
   spin_enabled: boolean
+  // Khối "Quy trình vận hành" (mig 039) — mặc định = hành vi hệ thống trước khi có khối này
+  order_flow: OrderFlow
+  staff_order_needs_payment: boolean
+  kitchen_auto_print: boolean
+  printer_paper_width: '58' | '80'
   is_active: boolean
   created_at: string
 }

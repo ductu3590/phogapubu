@@ -25,7 +25,14 @@ interface Props {
   servingHours: ServingShift[]
   deliveryAreaNote: string
   termsOfUse: string
+  orderFlow: OrderFlow
+  staffOrderNeedsPayment: boolean
+  kitchenAutoPrint: boolean
+  printerPaperWidth: PaperWidth
 }
+
+type OrderFlow = 'prepay' | 'postpay'
+type PaperWidth = '58' | '80'
 
 // Nén ảnh banner phía client: thu nhỏ về tối đa 1600px chiều rộng + JPEG q0.85.
 // Tránh vượt giới hạn body của Server Action và giữ ảnh nhẹ khi khách tải trên mini-app.
@@ -61,7 +68,7 @@ async function compressBanner(file: File): Promise<File> {
   }
 }
 
-export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword, isAcceptingOrders, servingHours, deliveryAreaNote, termsOfUse }: Props) {
+export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword, isAcceptingOrders, servingHours, deliveryAreaNote, termsOfUse, orderFlow, staffOrderNeedsPayment, kitchenAutoPrint, printerPaperWidth }: Props) {
   const router = useRouter()
   const [logo, setLogo] = useState<File | null>(null)
   const [banner, setBanner] = useState<File | null>(null)
@@ -71,6 +78,10 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
   const [methods, setMethods] = useState<Set<string>>(new Set(paymentMethods))
   const [accepting, setAccepting] = useState(isAcceptingOrders)
   const [shifts, setShifts] = useState<ServingShift[]>(servingHours ?? [])
+  const [flow, setFlow] = useState<OrderFlow>(orderFlow)
+  const [staffNeedsPay, setStaffNeedsPay] = useState(staffOrderNeedsPayment)
+  const [autoPrint, setAutoPrint] = useState(kitchenAutoPrint)
+  const [paperWidth, setPaperWidth] = useState<PaperWidth>(printerPaperWidth)
 
   const addShift = () => setShifts((prev) => [...prev, { open: '08:00', close: '22:00' }])
   const removeShift = (i: number) => setShifts((prev) => prev.filter((_, idx) => idx !== i))
@@ -82,6 +93,20 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
     const t = setTimeout(() => setSaved(false), 2500)
     return () => clearTimeout(t)
   }, [saved])
+
+  // Quán "Trả sau" có payment_methods = ['counter'] — không phải phương thức khách chọn trong
+  // app. Gạt về "Trả trước" mà không mồi lại thì hai ô ZaloPay/Tiền mặt trống trơn, bấm Lưu
+  // ăn lỗi "Phải chọn ít nhất 1 phương thức" mà không hiểu vì sao. Mồi ZaloPay cho đúng mặc
+  // định cashless-first (quyết định 2026-06-28). Làm trong handler chứ không trong effect —
+  // đây là hệ quả của một cú bấm, không phải trạng thái phải đồng bộ lại mỗi lần render.
+  const changeFlow = (next: OrderFlow) => {
+    setFlow(next)
+    if (next !== 'prepay') return
+    setMethods((prev) => {
+      const usable = [...prev].filter((m) => m === 'zalo_checkout' || m === 'cash')
+      return usable.length > 0 ? prev : new Set(['zalo_checkout'])
+    })
+  }
 
   const toggleMethod = (method: string) => {
     setMethods((prev) => {
@@ -105,6 +130,10 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
         if (removeBanner) fd.set('remove_banner', '1')
         methods.forEach((m) => fd.append('payment_methods', m))
         fd.set('is_accepting_orders', accepting ? '1' : '0')
+        fd.set('order_flow', flow)
+        fd.set('staff_order_needs_payment', staffNeedsPay ? '1' : '0')
+        fd.set('kitchen_auto_print', autoPrint ? '1' : '0')
+        fd.set('printer_paper_width', paperWidth)
         // Chỉ giữ ca có đủ open+close
         const validShifts = shifts.filter((s) => s.open && s.close)
         fd.set('serving_hours', JSON.stringify(validShifts))
@@ -368,35 +397,119 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
         </p>
       </div>
 
-      <div>
-        <label className="label">Phương thức thanh toán</label>
-        <p className="mb-2 text-xs text-gray-400">
-          Bật ít nhất 1 phương thức. Quán hướng tới ZaloPay để tránh gọi giả mạo.
+      <div className="rounded-xl border-2 border-gray-200 p-4">
+        <label className="label">Quy trình vận hành</label>
+        <p className="mb-3 text-xs text-gray-400">
+          Mỗi quán một kiểu. Đổi ở đây, không cần sửa gì trong mini-app.
         </p>
+
         <div className="flex flex-col gap-2">
-          <PaymentToggle
-            id="zalo_checkout"
-            label="ZaloPay"
-            description="Khách thanh toán trong Zalo trước khi bếp làm"
-            checked={methods.has('zalo_checkout')}
-            disabled={methods.size === 1 && methods.has('zalo_checkout')}
-            onChange={() => toggleMethod('zalo_checkout')}
+          <FlowCard
+            label="Trả trước"
+            description="Khách thanh toán trong app rồi bếp mới làm. Hợp quán ăn nhanh, khách vãng lai."
+            checked={flow === 'prepay'}
+            onChange={() => changeFlow('prepay')}
           />
-          <PaymentToggle
-            id="cash"
-            label="Tiền mặt"
-            description="Khách trả tiền mặt với nhân viên khi ra về"
-            checked={methods.has('cash')}
-            disabled={methods.size === 1 && methods.has('cash')}
-            onChange={() => toggleMethod('cash')}
+          <FlowCard
+            label="Trả sau"
+            description="Khách gọi món nhiều lượt, in phiếu xác nhận tại bàn, thanh toán một lần tại quầy. Hợp quán nhậu, quán ngồi lâu."
+            checked={flow === 'postpay'}
+            onChange={() => changeFlow('postpay')}
           />
         </div>
-        {methods.size === 1 && (
-          <p className="mt-1.5 text-xs text-orange-500">
-            Phải bật ít nhất 1 phương thức thanh toán.
+
+        {flow !== orderFlow && (
+          <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-700">
+            Đổi quy trình chỉ được khi không còn bàn nào chưa thanh toán. Nếu còn, hệ thống sẽ
+            báo lỗi khi bấm Lưu.
           </p>
         )}
+
+        {/* Chỉ có nghĩa ở prepay — postpay không đơn nào chờ tiền để vào bếp */}
+        {flow === 'prepay' && (
+          <div className="mt-3">
+            <PaymentToggle
+              id="staff_order_needs_payment"
+              label="Đơn nhân viên đặt hộ phải thu tiền trước"
+              description="Bật: nhân viên thu tiền xong bếp mới làm. Tắt: bếp làm ngay (nhân viên đứng cạnh khách là đủ)."
+              checked={staffNeedsPay}
+              disabled={false}
+              onChange={() => setStaffNeedsPay((v) => !v)}
+            />
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-col gap-2">
+          <PaymentToggle
+            id="kitchen_auto_print"
+            label="Tự in phiếu khi có đơn mới"
+            description="Máy in nhiệt nối với máy tính đang mở màn bếp/quầy."
+            checked={autoPrint}
+            disabled={false}
+            onChange={() => setAutoPrint((v) => !v)}
+          />
+          {autoPrint && (
+            <div className="flex items-center gap-3 pl-1">
+              <span className="text-sm text-gray-600">Khổ giấy</span>
+              {(['58', '80'] as PaperWidth[]).map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => setPaperWidth(w)}
+                  className={`rounded-lg border-2 px-3 py-1 text-sm font-semibold transition-colors ${
+                    paperWidth === w
+                      ? 'border-orange-400 bg-orange-50 text-orange-600'
+                      : 'border-gray-200 bg-white text-gray-600'
+                  }`}
+                >
+                  {w}mm
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {flow === 'prepay' ? (
+        <div>
+          <label className="label">Phương thức thanh toán</label>
+          <p className="mb-2 text-xs text-gray-400">
+            Bật ít nhất 1 phương thức. Quán hướng tới ZaloPay để tránh gọi giả mạo.
+          </p>
+          <div className="flex flex-col gap-2">
+            <PaymentToggle
+              id="zalo_checkout"
+              label="ZaloPay"
+              description="Khách thanh toán trong Zalo trước khi bếp làm"
+              checked={methods.has('zalo_checkout')}
+              disabled={methods.size === 1 && methods.has('zalo_checkout')}
+              onChange={() => toggleMethod('zalo_checkout')}
+            />
+            <PaymentToggle
+              id="cash"
+              label="Tiền mặt"
+              description="Khách trả tiền mặt với nhân viên khi ra về"
+              checked={methods.has('cash')}
+              disabled={methods.size === 1 && methods.has('cash')}
+              onChange={() => toggleMethod('cash')}
+            />
+          </div>
+          {methods.size === 1 && (
+            <p className="mt-1.5 text-xs text-orange-500">
+              Phải bật ít nhất 1 phương thức thanh toán.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div>
+          <label className="label">Phương thức thanh toán</label>
+          <p className="mt-1 rounded-lg bg-gray-50 p-3 text-xs text-gray-500">
+            Quán trả sau chỉ thu tiền một lần tại quầy cuối bữa, nên không cần chọn phương thức
+            trong app. Nhân viên chọn <b>Tiền mặt</b> hay <b>Chuyển khoản</b> lúc bấm thu tiền,
+            và báo cáo doanh thu tách riêng hai loại.
+          </p>
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -456,6 +569,47 @@ function PaymentToggle({
             checked ? 'translate-x-[22px]' : 'translate-x-0.5'
           }`}
         />
+      </div>
+    </label>
+  )
+}
+
+// Thẻ chọn quy trình — dạng radio chứ không phải toggle: đổi nhầm là đổi cả cách quán chạy,
+// nên phải thấy rõ hai lựa chọn cạnh nhau kèm giải thích, không phải một cái gạt mù mờ.
+function FlowCard({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string
+  description: string
+  checked: boolean
+  onChange: () => void
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3 transition-colors ${
+        checked ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white'
+      }`}
+    >
+      <input
+        type="radio"
+        name="order_flow_choice"
+        className="sr-only"
+        checked={checked}
+        onChange={onChange}
+      />
+      <div
+        className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 ${
+          checked ? 'border-orange-500' : 'border-gray-300'
+        }`}
+      >
+        {checked && <div className="h-2.5 w-2.5 rounded-full bg-orange-500" />}
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-gray-900">{label}</p>
+        <p className="text-xs text-gray-500">{description}</p>
       </div>
     </label>
   )

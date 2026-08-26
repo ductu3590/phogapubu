@@ -93,11 +93,53 @@ export async function updateStoreSettings(formData: FormData) {
   const deliveryNote = (formData.get('delivery_area_note') as string | null)?.trim()
   patch.delivery_area_note = deliveryNote || null
 
+  // ── Khối "Quy trình vận hành" (mig 039, spec §2.3) ────────────────────────
+  // order_flow quyết định cả payment_methods bên dưới nên phải đọc TRƯỚC.
+  const orderFlow = formData.get('order_flow') === 'postpay' ? 'postpay' : 'prepay'
+
+  // Đổi quy trình khi còn bàn chưa thanh toán = đơn nửa phiên treo giữa hai luật (§2.1).
+  // Chặn ở server, không chỉ ẩn nút ở client.
+  const { data: currentStore, error: readErr } = await admin
+    .from('stores')
+    .select('order_flow')
+    .eq('id', storeId)
+    .single()
+  if (readErr) throw new Error(`updateStoreSettings(read): ${readErr.message}`)
+
+  if (currentStore && currentStore.order_flow !== orderFlow) {
+    const { count, error: sessErr } = await admin
+      .from('table_sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('store_id', storeId)
+      .is('closed_at', null)
+    if (sessErr) throw new Error(`updateStoreSettings(sessions): ${sessErr.message}`)
+    if ((count ?? 0) > 0) {
+      throw new Error(
+        `Còn ${count} bàn chưa thanh toán. Thu tiền hoặc đóng hết các bàn đang mở rồi mới đổi quy trình được.`,
+      )
+    }
+  }
+
+  patch.order_flow = orderFlow
+  // Chỉ có nghĩa ở prepay; ở postpay không đơn nào chờ tiền để vào bếp nên luôn ép false
+  // (tránh để lại giá trị cũ gây hiểu nhầm khi quán đổi qua đổi lại).
+  patch.staff_order_needs_payment =
+    orderFlow === 'prepay' && formData.get('staff_order_needs_payment') === '1'
+  patch.kitchen_auto_print = formData.get('kitchen_auto_print') === '1'
+  patch.printer_paper_width = formData.get('printer_paper_width') === '58' ? '58' : '80'
+
   // payment_methods — ít nhất 1 phương thức (luôn validate, không bỏ qua khi rỗng)
-  const rawMethods = formData.getAll('payment_methods') as string[]
-  const valid = rawMethods.filter((m) => m === 'zalo_checkout' || m === 'cash')
-  if (valid.length === 0) throw new Error('Phải chọn ít nhất 1 phương thức thanh toán')
-  patch.payment_methods = valid
+  if (orderFlow === 'postpay') {
+    // Quán postpay chỉ có một kênh duy nhất: thu tại quầy cuối bữa. Phải set ở đây vì
+    // create_order (mig 037) chặn phương thức không nằm trong stores.payment_methods —
+    // quên là mọi đơn Bảo Lương bị từ chối ngay ở server.
+    patch.payment_methods = ['counter']
+  } else {
+    const rawMethods = formData.getAll('payment_methods') as string[]
+    const valid = rawMethods.filter((m) => m === 'zalo_checkout' || m === 'cash')
+    if (valid.length === 0) throw new Error('Phải chọn ít nhất 1 phương thức thanh toán')
+    patch.payment_methods = valid
+  }
 
   const { error } = await admin.from('stores').update(patch).eq('id', storeId)
   if (error) throw new Error(`updateStoreSettings: ${error.message}`)
