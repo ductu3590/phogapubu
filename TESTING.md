@@ -949,6 +949,118 @@ hay device id của chủ phiên.
 | Lớp **Mâm** (ghép bàn, gộp bill, in bill 80mm) | Sprint 2 |
 | Khách tự thanh toán cả phiên qua Zalo Checkout | Spec §11 — cố tình hoãn, không mở lại vùng MAC/notify |
 
+
+---
+
+## 2026-08-31 — Lớp Mâm cho khách đoàn (Sprint 2, mig 040)
+
+> Spec: `docs/superpowers/specs/2026-08-30-bao-luong-tray-group-design.md` §3–§4
+> **Mâm = một phiên chiếm N bàn = một bill con.** Bàn lẻ = phiên chiếm đúng 1 bàn (khoá chủ
+> phiên như Sprint 1). Một cơ chế, hai cách dùng.
+
+### Chuẩn bị
+
+**Quán Bia lẩu Bảo Lương đã được tạo sẵn trên prod** (2026-08-31): 20 bàn, `payment_timing =
+postpay`, `payment_methods = {cash}`, chưa có menu, chưa có Zalo App ID.
+
+Ba việc **chỉ anh Tú làm được** trước khi test:
+
+1. **Tạo tài khoản nhân viên/chủ quán cho Bảo Lương** — vào `/mevo/stores/<id>` → mục chủ quán →
+   nhập email → hệ thống tự sinh mật khẩu tạm. Không có tài khoản này thì **không vào được
+   `/staff`** (superadmin bị đẩy về `/mevo`, đó là thiết kế).
+2. **Nhập menu + giá** ở `/admin/menu` (đăng nhập bằng tài khoản vừa tạo). Chưa có món thì
+   không đặt thử được.
+3. **Đăng ký Zalo Mini App** để lấy App ID — nằm trên đường găng, lần trước Zalo duyệt khá lâu.
+   Chỉ cần cho phần khách quét QR; toàn bộ nhóm E/F dưới đây test được **không cần** App ID
+   (dùng màn `/staff` + `/kitchen` + gọi RPC).
+
+---
+
+### Nhóm E — Ghép mâm và gọi món trong mâm
+
+**E1.** `/staff` → tab **🪑 Bàn** → **＋ Ghép mâm** → chọn Bàn 5, 6, 7 → **Ghép 3 bàn thành mâm**
+→ danh sách hiện một dòng `🍲 Bàn 5, Bàn 6, Bàn 7` kèm nhãn *mâm 3 bàn*.
+
+**E2.** Bấm **＋ Ghép mâm** lần nữa → **Bàn 5, 6, 7 không còn trong danh sách bàn trống**.
+
+**E3.** ⭐ **Mâm không khoá ai.** Máy A quét QR **Bàn 5**, máy B quét QR **Bàn 7** → **cả hai đều
+gọi món được**, không máy nào thấy banner khoá. Kiểm hai đơn rơi vào **cùng một** `session_id`:
+```sql
+select session_id, count(*) from orders where session_id is not null group by 1;
+```
+
+**E4.** Cả hai máy vào tab **Đơn hàng** → **thấy đủ món của nhau** và tổng bằng nhau, thanh đầu
+trang menu hiện `🍲 Bàn 5, Bàn 6, Bàn 7`.
+
+**E5.** `⋯` → **Thêm bàn vào mâm** → chọn Bàn 8 → mâm thành 4 bàn; máy quét QR Bàn 8 gọi được ngay.
+
+**E6.** **Bàn lẻ vẫn khoá như cũ.** Máy A quét QR **Bàn 12** (không thuộc mâm nào) → gọi món →
+máy B quét QR Bàn 12 → **vẫn thấy banner khoá**. (Đây là bài chứng minh lớp Mâm không phá Sprint 1.)
+
+---
+
+### Nhóm F — Nhập mâm, gộp bill, in bill
+
+**F7.** ⭐ **Phiên lẻ lạc.** Khách quét QR **Bàn 9** trước khi nhân viên kịp ghép → gọi 1 món →
+màn Bàn hiện thêm dòng `🪑 Bàn 9` riêng. Bấm `⋯` trên Bàn 9 → **Nhập vào mâm khác** → chọn mâm
+Bàn 5-6-7 → Bàn 9 biến mất khỏi danh sách, **món và tiền của nó cộng vào mâm**.
+
+**F8.** Sau F7, khách ngồi Bàn 9 mở lại mini-app → **không bị khoá**, thấy bill của cả mâm.
+
+**F9.** **Gộp bill.** Ghép thêm một mâm thứ hai (Bàn 15, 16), gọi vài món → **tick cả hai mâm** →
+thanh dưới hiện *Gộp 2 mâm* + tổng → bấm **🖨️ In 1 hoá đơn** → mở tab in khổ 80mm, có **dòng
+cộng riêng từng mâm** rồi **TỔNG CỘNG** cuối.
+
+**F10.** Bấm **Thu tiền** → chọn *Chuyển khoản* → **cả hai mâm cùng đóng một lượt**. Kiểm:
+```sql
+select s.id, s.status, s.close_reason,
+       count(o.id) filter (where o.payment_received_at is not null) as don_da_thu
+  from table_sessions s left join orders o on o.session_id = s.id
+ group by 1,2,3 order by s.opened_at desc;
+```
+→ cả hai phiên `closed`/`paid`, mọi đơn đều có tiền, `payment_instrument = 'bank'`.
+
+**F11.** ⭐ **Gộp bill là ATOMIC.** Không được có cảnh thu xong mâm 1, mâm 2 vẫn nợ. Nếu bấm mà
+báo lỗi thì kiểm: **không mâm nào** được đánh dấu đã thu.
+
+**F12.** **Tách bill vẫn là mặc định.** Không tick gì, bấm **Thu tiền & đóng bàn** trên riêng một
+mâm → chỉ mâm đó đóng, mâm khác nguyên vẹn (mâm về sớm chốt riêng).
+
+**F13.** Sau khi đóng mâm → **các bàn của mâm được nhả ra**, hiện lại trong danh sách bàn trống
+khi bấm ＋ Ghép mâm. Kiểm:
+```sql
+select count(*) from session_tables where is_open;   -- không còn dòng của mâm vừa đóng
+```
+
+**F14.** **In bill một mâm** bằng nút 🖨️ trên thẻ → tờ bill chỉ có mâm đó, không có dòng "cộng
+từng mâm" (chỉ một mâm thì không cần).
+
+**F15.** Trang in: chọn đúng **máy in bill 80mm** trong hộp thoại, chữ không tràn lề, phần
+"In lại" **không bị in ra giấy**.
+
+---
+
+### Nhóm G — Không phá Sprint 1
+
+**G16.** Chạy lại **B5–B16b** của mục Sprint 1 trên Bảo Lương (bàn lẻ) → không đổi hành vi.
+
+**G17.** ⭐ **Race giữa hai bàn cùng mâm.** Hai máy ở hai bàn khác nhau trong cùng mâm bấm "Gọi
+món" **cùng lúc** → hai đơn, **một** phiên, không lỗi.
+
+**G18.** **Ghép mâm chồng bàn.** Hai nhân viên cùng ghép mâm có chung một bàn → một người thành
+công, người kia nhận lỗi *"Bàn X đang có khách…"*, **không** tạo hai phiên chiếm cùng một bàn.
+
+**G19.** Phiên mâm để quá 6 giờ không hoạt động → tự đóng, **tất cả** bàn của mâm nhả ra cùng lúc.
+
+---
+
+### Đã kiểm bằng smoke test trên prod (anh không phải làm lại, ghi để đối chiếu)
+
+Chạy trong DO block tự huỷ nên không để lại dữ liệu — 9 khẳng định đều đúng: ghép mâm 3 bàn ·
+ghép lại bàn đã có khách bị từ chối · hai máy khác nhau ở hai bàn trong cùng mâm đều gọi được ·
+nhập phiên lẻ vào mâm chuyển cả đơn lẫn bàn · khách lạ quét bàn thuộc mâm vẫn `owner` · bill in
+gộp đúng tổng · gộp bill đóng mâm settle đủ 3 đơn · đóng xong bàn tự nhả ra.
+
 ---
 
 ---
