@@ -62,18 +62,23 @@ function TableLockedBanner({ openedAt, onCallStaff, calling }: {
 }
 
 // Máy này đang giữ bàn — cho khách thấy cả bàn đang nợ bao nhiêu, khỏi bất ngờ lúc tính tiền.
-function SessionBar({ tableNumber, orderCount, total }: {
-  tableNumber: string;
+// Ở MÂM (nhiều bàn ghép, mig 040) thì hiện đủ tên các bàn để khách hiểu vì sao tổng lớn hơn
+// những gì mình gọi: đó là tiền của cả mâm.
+function SessionBar({ label, orderCount, total, isTray }: {
+  label: string;
   orderCount: number;
   total: number;
+  isTray: boolean;
 }) {
   if (orderCount === 0) return null;
   return (
     <div className="flex items-center justify-between border-b border-[#E6DCCF] bg-[#FBF6EF] px-4 py-2.5">
-      <p className="text-small text-[#6B5B45]">
-        🪑 {tableNumber || "Bàn của bạn"} · {orderCount} lần gọi
+      <p className="min-w-0 flex-1 truncate text-small text-[#6B5B45]">
+        {isTray ? "🍲" : "🪑"} {label || "Bàn của bạn"} · {orderCount} lần gọi
       </p>
-      <p className="text-small-m font-bold text-primary">{formatCurrency(total)}đ</p>
+      <p className="ml-2 flex-shrink-0 text-small-m font-bold text-primary">
+        {formatCurrency(total)}đ
+      </p>
     </div>
   );
 }
@@ -300,9 +305,10 @@ export default function MenuPage() {
       {/* Máy này đang giữ bàn — hiện tổng cả bàn đang nợ */}
       {sessionOwner && (
         <SessionBar
-          tableNumber={tableNumber}
+          label={sessionOwner.table_names || tableNumber}
           orderCount={sessionOwner.order_count}
           total={sessionOwner.total}
+          isTray={!!sessionOwner.is_open_ordering}
         />
       )}
 

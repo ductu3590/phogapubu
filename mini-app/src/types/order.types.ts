@@ -60,6 +60,9 @@ export type TableSessionState =
       opened_at: string;
       order_count: number;
       total: number;
+      // mig 040 — mâm đoàn: phiên chiếm nhiều bàn và KHÔNG khoá chủ phiên
+      is_open_ordering?: boolean;
+      table_names?: string;
     };
 
 export interface TableSessionBillItem {
