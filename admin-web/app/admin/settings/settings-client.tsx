@@ -14,6 +14,7 @@ interface Props {
   name: string
   logoUrl: string | null
   paymentMethods: string[]
+  paymentTiming: 'prepay' | 'postpay'
   zaloOaUrl: string
   address: string
   phone: string
@@ -61,7 +62,7 @@ async function compressBanner(file: File): Promise<File> {
   }
 }
 
-export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword, isAcceptingOrders, servingHours, deliveryAreaNote, termsOfUse }: Props) {
+export default function SettingsClient({ name, logoUrl, paymentMethods, paymentTiming, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword, isAcceptingOrders, servingHours, deliveryAreaNote, termsOfUse }: Props) {
   const router = useRouter()
   const [logo, setLogo] = useState<File | null>(null)
   const [banner, setBanner] = useState<File | null>(null)
@@ -69,6 +70,8 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [methods, setMethods] = useState<Set<string>>(new Set(paymentMethods))
+  const [timing, setTiming] = useState<'prepay' | 'postpay'>(paymentTiming)
+  const isPostpay = timing === 'postpay'
   const [accepting, setAccepting] = useState(isAcceptingOrders)
   const [shifts, setShifts] = useState<ServingShift[]>(servingHours ?? [])
 
@@ -103,6 +106,7 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
         if (logo) fd.set('logo', logo)
         if (banner) fd.set('banner', banner)
         if (removeBanner) fd.set('remove_banner', '1')
+        fd.set('payment_timing', timing)
         methods.forEach((m) => fd.append('payment_methods', m))
         fd.set('is_accepting_orders', accepting ? '1' : '0')
         // Chỉ giữ ca có đủ open+close
@@ -368,35 +372,87 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
         </p>
       </div>
 
-      <div>
-        <label className="label">Phương thức thanh toán</label>
-        <p className="mb-2 text-xs text-gray-400">
-          Bật ít nhất 1 phương thức. Quán hướng tới ZaloPay để tránh gọi giả mạo.
+      {/* Cách vận hành quán — đặt TRÊN "Phương thức thanh toán" vì nó quyết định mục kia
+          còn nghĩa gì. Đây là trục "KHI NÀO thu tiền", khác trục "thu BẰNG GÌ" bên dưới. */}
+      <div className="rounded-xl border-2 border-gray-200 p-4">
+        <label className="label">Cách vận hành quán</label>
+        <p className="mb-3 text-xs text-gray-400">
+          Quyết định đơn có được vào bếp khi khách chưa trả tiền hay không.
         </p>
+
         <div className="flex flex-col gap-2">
-          <PaymentToggle
-            id="zalo_checkout"
-            label="ZaloPay"
-            description="Khách thanh toán trong Zalo trước khi bếp làm"
-            checked={methods.has('zalo_checkout')}
-            disabled={methods.size === 1 && methods.has('zalo_checkout')}
-            onChange={() => toggleMethod('zalo_checkout')}
+          <TimingOption
+            value="prepay"
+            label="Trả trước — khách thanh toán rồi bếp mới làm"
+            description="An toàn nhất, không có đơn ma. Hợp quán bán mang về, quán đông, quán không đủ người trông bàn."
+            checked={!isPostpay}
+            onSelect={() => setTiming('prepay')}
           />
-          <PaymentToggle
-            id="cash"
-            label="Tiền mặt"
-            description="Khách trả tiền mặt với nhân viên khi ra về"
-            checked={methods.has('cash')}
-            disabled={methods.size === 1 && methods.has('cash')}
-            onChange={() => toggleMethod('cash')}
+          <TimingOption
+            value="postpay"
+            label="Trả sau — khách ăn xong mới thanh toán"
+            description="Giống quán truyền thống. Khách gọi thêm thoải mái, mỗi bàn là một bill, nhân viên chốt bill ở màn Bàn."
+            checked={isPostpay}
+            onSelect={() => setTiming('postpay')}
           />
         </div>
-        {methods.size === 1 && (
-          <p className="mt-1.5 text-xs text-orange-500">
-            Phải bật ít nhất 1 phương thức thanh toán.
-          </p>
+
+        {isPostpay && (
+          <div className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
+            <p className="font-semibold">⚠️ Đánh đổi của trả sau — cần biết trước khi bật</p>
+            <p className="mt-1">
+              Người lạ chụp ảnh QR trên bàn vẫn có thể ngồi nhà đặt đơn, làm bàn đó bị khoá và
+              bếp làm ra món không ai lấy. Không có cách nào chặn triệt để bằng phần mềm.
+            </p>
+            <p className="mt-1">
+              Giảm nhẹ: nhân viên bấm <b>&quot;Bỏ bàn&quot;</b> ở màn <b>🪑 Bàn</b> để mở khoá,
+              và phiên tự hết hạn sau 6 giờ không hoạt động.
+            </p>
+          </div>
         )}
       </div>
+
+      {isPostpay ? (
+        <div>
+          <label className="label">Phương thức thanh toán</label>
+          <p className="mt-1 rounded-lg bg-gray-50 p-3 text-xs text-gray-500">
+            Khách trả tiền lúc ra về — nhân viên chọn tiền mặt hay chuyển khoản khi chốt bill ở
+            màn <b>🪑 Bàn</b>. Không cần cấu hình gì thêm ở đây.
+          </p>
+        </div>
+      ) : (
+        <div>
+          <label className="label">Phương thức thanh toán</label>
+          <p className="mb-2 text-xs text-gray-400">
+            Bật ít nhất 1 phương thức. Quán hướng tới ZaloPay để tránh gọi giả mạo.
+          </p>
+          <div className="flex flex-col gap-2">
+            <PaymentToggle
+              id="zalo_checkout"
+              label="ZaloPay"
+              description="Khách thanh toán trong Zalo trước khi bếp làm"
+              checked={methods.has('zalo_checkout')}
+              disabled={methods.size === 1 && methods.has('zalo_checkout')}
+              onChange={() => toggleMethod('zalo_checkout')}
+            />
+            <PaymentToggle
+              id="cash"
+              label="Tiền mặt"
+              description="Chế độ trả trước: khách tự đặt qua QR chỉ thanh toán online. Tiền mặt vẫn dùng được khi nhân viên đặt hộ."
+              checked={methods.has('cash')}
+              // Không cho BẬT (ở trả trước nó không có tác dụng — create_order từ chối đơn QR
+              // tiền mặt), nhưng vẫn cho TẮT nếu quán lỡ bật từ trước.
+              disabled={!methods.has('cash') || methods.size === 1}
+              onChange={() => toggleMethod('cash')}
+            />
+          </div>
+          {methods.size === 1 && (
+            <p className="mt-1.5 text-xs text-orange-500">
+              Phải bật ít nhất 1 phương thức thanh toán.
+            </p>
+          )}
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -410,6 +466,41 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
         {saved && <span className="text-sm text-green-600">✓ Đã lưu</span>}
       </div>
     </form>
+  )
+}
+
+function TimingOption({
+  value,
+  label,
+  description,
+  checked,
+  onSelect,
+}: {
+  value: string
+  label: string
+  description: string
+  checked: boolean
+  onSelect: () => void
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-3 transition ${
+        checked ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+      }`}
+    >
+      <input
+        type="radio"
+        name="payment_timing_choice"
+        value={value}
+        checked={checked}
+        onChange={onSelect}
+        className="mt-0.5 h-4 w-4 flex-shrink-0 accent-orange-500"
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-gray-900">{label}</span>
+        <span className="mt-0.5 block text-xs text-gray-500">{description}</span>
+      </span>
+    </label>
   )
 }
 

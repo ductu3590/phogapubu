@@ -93,6 +93,15 @@ export async function updateStoreSettings(formData: FormData) {
   const deliveryNote = (formData.get('delivery_area_note') as string | null)?.trim()
   patch.delivery_area_note = deliveryNote || null
 
+  // payment_timing — trục "KHI NÀO thu tiền" (mig 039). Allowlist, không tin client.
+  const timing = formData.get('payment_timing') as string | null
+  if (timing !== null) {
+    if (timing !== 'prepay' && timing !== 'postpay') {
+      throw new Error('Cách vận hành quán không hợp lệ')
+    }
+    patch.payment_timing = timing
+  }
+
   // payment_methods — ít nhất 1 phương thức (luôn validate, không bỏ qua khi rỗng)
   const rawMethods = formData.getAll('payment_methods') as string[]
   const valid = rawMethods.filter((m) => m === 'zalo_checkout' || m === 'cash')
