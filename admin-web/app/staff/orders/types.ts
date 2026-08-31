@@ -10,12 +10,13 @@ export type StaffOrder = {
   totalAmount: number
   createdAt: string
   orderSource: string
+  sessionId: string | null
   items: { id: string; name: string; quantity: number }[]
 }
 
 // Cột cần select cho một đơn (dùng cả ở loader lẫn khi fetch lại 1 đơn trong client).
 export const STAFF_ORDER_SELECT =
-  'id, status, payment_method, payment_received_at, zalopay_trans_id, total_amount, created_at, order_source, tables(table_number), order_items(id, item_name, quantity)'
+  'id, status, payment_method, payment_received_at, zalopay_trans_id, total_amount, created_at, order_source, session_id, tables(table_number), order_items(id, item_name, quantity)'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapStaffOrderRow(row: any): StaffOrder {
@@ -29,6 +30,7 @@ export function mapStaffOrderRow(row: any): StaffOrder {
     totalAmount: row.total_amount,
     createdAt: row.created_at,
     orderSource: row.order_source ?? 'customer_zalo',
+    sessionId: row.session_id ?? null,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     items: (row.order_items ?? []).map((it: any) => ({ id: it.id, name: it.item_name, quantity: it.quantity })),
   }

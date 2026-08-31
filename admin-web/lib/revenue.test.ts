@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasRealMoney, isAwaitingPayment } from './revenue'
+import { hasRealMoney, isAwaitingPayment, type MoneyFields } from './revenue'
 
 describe('hasRealMoney', () => {
   it('ZaloPay đã callback (payment_received_at) → đã có tiền', () => {
@@ -76,5 +76,32 @@ describe('isAwaitingPayment (đơn chưa thu, xác nhận tay được)', () => 
   })
   it('đã có payment_received_at → false', () => {
     expect(isAwaitingPayment({ ...base, payment_method: 'cash', payment_received_at: '2026-07-22T00:00:00Z' })).toBe(false)
+  })
+})
+
+// mig 039 — đơn thuộc phiên bàn (quán trả sau)
+describe('isAwaitingPayment — đơn phiên bàn (mig 039)', () => {
+  const don = (p: Partial<MoneyFields> = {}): MoneyFields => ({
+    payment_method: 'cash',
+    status: 'confirmed',
+    zalopay_trans_id: null,
+    payment_received_at: null,
+    ...p,
+  })
+
+  it('đơn phiên chưa thu tiền → chờ thu', () => {
+    expect(isAwaitingPayment(don({ session_id: 'sess-1' }))).toBe(true)
+  })
+
+  it('đơn phiên đã chốt bill → hết chờ thu, và tính vào doanh thu', () => {
+    const o = don({ session_id: 'sess-1', payment_received_at: '2026-08-31T00:00:00Z' })
+    expect(isAwaitingPayment(o)).toBe(false)
+    expect(hasRealMoney(o)).toBe(true)
+  })
+
+  it('đơn phiên đã huỷ → không chờ thu, không tính tiền', () => {
+    const o = don({ session_id: 'sess-1', status: 'cancelled' })
+    expect(isAwaitingPayment(o)).toBe(false)
+    expect(hasRealMoney(o)).toBe(false)
   })
 })

@@ -44,16 +44,6 @@ export const orderService = {
     return mapOrder(data as Record<string, unknown>);
   },
 
-  abandonToCash: async (orderId: string, token: string): Promise<Order | null> => {
-    // capability_token bắt buộc — chỉ chủ đơn mới chuyển được sang tiền mặt
-    const { data, error } = await supabase.rpc("abandon_zalopay_to_cash", {
-      p_order_id: orderId,
-      p_token: token,
-    });
-    if (error) throw error;
-    return data ? mapOrder(data as Record<string, unknown>) : null;
-  },
-
   cancelOrder: async (orderId: string, token: string): Promise<CancelResult> => {
     // capability_token bắt buộc — chỉ chủ đơn mới huỷ được.
     // RPC trả {result, reason}; 'blocked' nghĩa là đơn CÒN NGUYÊN, caller không được coi là đã huỷ.
