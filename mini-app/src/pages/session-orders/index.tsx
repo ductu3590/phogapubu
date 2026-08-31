@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { useSnackbar } from "zmp-ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/stores/app.store";
-import { useSessionOrders, useTakeawayOrders } from "@/services/order/order.queries";
+import { useSessionOrders, useTableSessionBill, useTakeawayOrders } from "@/services/order/order.queries";
 import { useCallStaff, useConfirmReceived } from "@/services/order/order.mutations";
 import { orderService } from "@/services/order/order.api";
 import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/utils/format";
-import { GET_SESSION_ORDERS_KEY } from "@/constants/api";
+import { GET_SESSION_ORDERS_KEY, GET_TABLE_SESSION_BILL_KEY } from "@/constants/api";
 import type { SessionOrder, TakeawayOrder, OrderItem } from "@/types/order.types";
 
 const UNPAID_STATUSES = new Set(["pending", "confirmed", "cooking", "ready"]);
@@ -21,6 +21,18 @@ function getPaymentInfo(
     return { icon: "💳", label: "ZaloPay", paid: status !== "pending" };
   }
   return { icon: "💵", label: "Tiền mặt", paid: status === "paid" };
+}
+
+// Ở quán TRẢ SAU, suy "đã trả tiền" từ status là sai: đơn confirmed/cooking/ready đều chưa thu
+// tiền, tiền chỉ về khi nhân viên chốt bill. Nguồn sự thật là payment_received_at.
+function getPostpayPaymentInfo(paymentReceivedAt: string | null): {
+  icon: string;
+  label: string;
+  paid: boolean;
+} {
+  return paymentReceivedAt
+    ? { icon: "✓", label: "Đã thanh toán", paid: true }
+    : { icon: "🪑", label: "Trả sau", paid: false };
 }
 
 // Hook dùng chung: mở/đóng card + fetch món lần đầu
@@ -57,14 +69,45 @@ export default function SessionOrdersPage() {
 // Chế độ tại quán (giữ nguyên hành vi cũ — chỉ đổi tên tab "Đơn hàng")
 // ============================================================
 function DineInOrdersView() {
-  const { zaloUserId, tableId, tableNumber, storeId } = useAppStore();
+  const { zaloUserId, deviceId, tableId, tableNumber, storeId, paymentTiming } = useAppStore();
   const { openSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
   const [calledAt, setCalledAt] = useState<number | null>(null);
+  const isPostpay = paymentTiming === "postpay";
 
   const { expandedId, loadingItemsId, cachedItems, toggle } = useExpandableItems();
-  const { data: orders, isLoading } = useSessionOrders(zaloUserId, tableId);
+  // Trả trước: đơn của CHÍNH máy này (get_session_orders lọc theo zalo_user_id).
+  // Trả sau: bill CẢ PHIÊN — phải gồm cả đơn nhân viên đặt hộ, nếu không khách nhìn tab này
+  // trống trơn trong khi đang nợ cả mâm.
+  const { data: personalOrders, isLoading: loadingPersonal } = useSessionOrders(
+    zaloUserId,
+    tableId,
+    !isPostpay,
+  );
+  const { data: bill, isLoading: loadingBill } = useTableSessionBill(
+    tableId,
+    zaloUserId,
+    deviceId,
+    isPostpay,
+  );
   const { mutate: callStaff, isPending: isCalling } = useCallStaff();
+
+  const billOrders = bill && bill.found ? bill.orders : [];
+  const orders: SessionOrder[] = isPostpay
+    ? billOrders.map((o) => ({
+        id: o.id,
+        storeId,
+        tableId,
+        status: o.status,
+        totalAmount: o.total_amount,
+        paymentMethod: "cash" as const,
+        note: null,
+        createdAt: o.created_at,
+        updatedAt: o.created_at,
+      }))
+    : (personalOrders ?? []);
+  const isLoading = isPostpay ? loadingBill : loadingPersonal;
+  const paidAtById = new Map(billOrders.map((o) => [o.id, o.payment_received_at]));
 
   // Realtime: tự cập nhật khi admin web thay đổi trạng thái đơn
   useEffect(() => {
@@ -74,16 +117,27 @@ function DineInOrdersView() {
       .channel(`session-orders-${tableId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders", filter: `table_id=eq.${tableId}` },
-        () => { void queryClient.invalidateQueries({ queryKey: [GET_SESSION_ORDERS_KEY] }); },
+        // Nghe cả INSERT chứ không chỉ UPDATE: ở trả sau, đơn nhân viên đặt hộ là dòng MỚI —
+        // nghe thiếu thì khách không thấy món vừa được thêm vào bàn mình.
+        { event: "*", schema: "public", table: "orders", filter: `table_id=eq.${tableId}` },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: [GET_SESSION_ORDERS_KEY] });
+          void queryClient.invalidateQueries({ queryKey: [GET_TABLE_SESSION_BILL_KEY] });
+        },
       )
       .subscribe();
 
     return () => { void supabase.removeChannel(channel); };
   }, [tableId, queryClient]);
 
-  const grandTotal = (orders ?? []).reduce((sum, o) => sum + o.totalAmount, 0);
-  const hasUnpaid = (orders ?? []).some((o) => UNPAID_STATUSES.has(o.status));
+  // Trả sau: tổng lấy thẳng từ phiên (server tính) để không lệch với số nhân viên thu.
+  const grandTotal =
+    isPostpay && bill && bill.found
+      ? bill.total
+      : orders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const hasUnpaid = isPostpay
+    ? billOrders.some((o) => o.payment_received_at === null)
+    : orders.some((o) => UNPAID_STATUSES.has(o.status));
 
   // Gọi nhân viên thanh toán — throttle 60 giây
   const handleCallStaff = () => {
@@ -105,8 +159,9 @@ function DineInOrdersView() {
     );
   };
 
-  // Chưa quét QR
-  if (!zaloUserId || !tableId) {
+  // Chưa quét QR. Ở trả sau chỉ cần MỘT trong hai chân định danh (PB5): khách không lấy được
+  // Zalo UID vẫn phải xem được bill của bàn mình.
+  if (!tableId || (!zaloUserId && !(isPostpay && deviceId))) {
     return (
       <div className="flex h-full flex-col bg-[#F7F8FA]">
         <Header title="Đơn hàng" />
@@ -160,7 +215,11 @@ function DineInOrdersView() {
                   isExpanded={expandedId === order.id}
                   isLoadingItems={loadingItemsId === order.id}
                   items={cachedItems[order.id] ?? null}
-                  paymentInfo={getPaymentInfo(order.paymentMethod, order.status)}
+                  paymentInfo={
+                    isPostpay
+                      ? getPostpayPaymentInfo(paidAtById.get(order.id) ?? null)
+                      : getPaymentInfo(order.paymentMethod, order.status)
+                  }
                   onToggle={() => void toggle(order.id)}
                 />
               ))}
@@ -169,7 +228,7 @@ function DineInOrdersView() {
             <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-3">
               <div className="flex justify-between">
                 <p className="text-small text-text-secondary">
-                  Tổng cộng {orders.length} lần gọi
+                  {isPostpay ? "Cả bàn" : "Tổng cộng"} {orders.length} lần gọi
                 </p>
                 <p className="text-large-m font-bold text-primary">
                   {formatCurrency(grandTotal)}đ
@@ -177,7 +236,9 @@ function DineInOrdersView() {
               </div>
               {hasUnpaid && (
                 <p className="mt-1.5 text-xxsmall text-text-secondary">
-                  Nhấn "Gọi thanh toán" bên trên để nhân viên ra thanh toán cho bạn.
+                  {isPostpay
+                    ? 'Đây là tổng của cả bàn, gồm cả món nhân viên đặt hộ. Nhấn "Gọi thanh toán" để nhân viên ra tính tiền.'
+                    : 'Nhấn "Gọi thanh toán" bên trên để nhân viên ra thanh toán cho bạn.'}
                 </p>
               )}
             </div>

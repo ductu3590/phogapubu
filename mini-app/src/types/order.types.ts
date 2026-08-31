@@ -43,6 +43,53 @@ export interface Order {
   items?: OrderItem[];
 }
 
+// ─── Phiên bàn (quán trả sau, mig 039) ──────────────────────────────────────
+// Trạng thái phiên do RPC get_table_session_state trả về.
+//   free   — bàn trống, phiên sẽ mở khi đơn đầu tiên được tạo
+//   owner  — máy này là chủ phiên (hoặc phiên chưa có chủ) → gọi món bình thường
+//   locked — bàn đang có khách KHÁC gọi món → chặn đặt, mời gọi nhân viên
+// ⚠️ Chỉ là LỚP HIỂN THỊ. Chốt chặn thật nằm trong create_order (client luôn có thể là bản cũ).
+export type TableSessionState =
+  | { mode: "prepay" }
+  | { mode: "postpay"; state: "free" }
+  | { mode: "postpay"; state: "locked"; opened_at: string }
+  | {
+      mode: "postpay";
+      state: "owner";
+      session_id: string;
+      opened_at: string;
+      order_count: number;
+      total: number;
+    };
+
+export interface TableSessionBillItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  toppings: { id: string; name: string; price: number }[] | null;
+}
+
+export interface TableSessionBillOrder {
+  id: string;
+  status: OrderState;
+  created_at: string;
+  total_amount: number;
+  order_source: string;
+  payment_received_at: string | null;
+  items: TableSessionBillItem[];
+}
+
+export type TableSessionBill =
+  | { found: false }
+  | {
+      found: true;
+      session_id: string;
+      opened_at: string;
+      total: number;
+      orders: TableSessionBillOrder[];
+    };
+
 export interface CreateOrderRequest {
   storeId: string;
   tableId: string | null;
@@ -62,6 +109,8 @@ export interface CreateOrderRequest {
   customerPhone?: string;
   deliveryAddress?: string;
   voucherCode?: string;
+  // Chân định danh thứ hai cho phiên bàn trả sau (PB5) — xem services/device-id.ts
+  deviceId?: string;
 }
 
 export interface SessionOrder {
