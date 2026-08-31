@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 const tabs = [
   { href: '/staff/order', label: 'Đặt món', icon: '🧾' },
   { href: '/staff/orders', label: 'Đang xử lý', icon: '📋' },
+  { href: '/staff/tables', label: 'Bàn', icon: '🪑' },
 ]
 
 export default function StaffNav() {
@@ -13,7 +14,10 @@ export default function StaffNav() {
   return (
     <nav className="flex flex-shrink-0 border-b border-gray-200 bg-white">
       {tabs.map((t) => {
-        const active = path === t.href || (t.href === '/staff/order' && path === '/staff')
+        const active =
+          t.href === '/staff/order'
+            ? path === t.href || path === '/staff'
+            : path === t.href || path.startsWith(t.href + '/')
         return (
           <Link
             key={t.href}
