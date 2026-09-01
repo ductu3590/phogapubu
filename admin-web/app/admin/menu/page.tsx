@@ -10,10 +10,10 @@ export default async function MenuPage() {
 
   const supabase = await createClient()
 
-  // Lấy categories + items (mỗi món kèm danh sách topping_id đã gán)
+  // Lấy categories + items (mỗi món kèm topping_id đã gán + danh sách lựa chọn quyết định giá)
   const { data: categories } = await supabase
     .from('menu_categories')
-    .select('*, menu_items(*, menu_item_toppings(topping_id))')
+    .select('*, menu_items(*, menu_item_toppings(topping_id), menu_item_variants(id, name, price, is_available, sort_order))')
     .eq('store_id', storeId)
     .eq('is_active', true)
     .order('sort_order')

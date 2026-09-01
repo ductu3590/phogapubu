@@ -17,7 +17,13 @@ import {
   updatePoolTopping,
   deletePoolTopping,
   setMenuItemToppings,
+  addItemVariant,
+  updateItemVariant,
+  deleteItemVariant,
+  reorderItemVariants,
+  setVariantGroupName,
 } from '@/lib/actions/menu'
+import { parseVariantInput, displayPriceLabel } from '@/lib/menu/variant'
 import { formatVND } from '@/lib/utils'
 import SquareCropper from './square-cropper'
 
@@ -40,6 +46,10 @@ type MenuItem = {
   category_id: string
   // Danh sách link tới topping trong kho (chỉ chứa topping_id)
   menu_item_toppings?: { topping_id: string }[]
+  // Tên nhóm lựa chọn hiện trên mini-app (VD: "Chọn cỡ"); null = dùng nhãn mặc định
+  variant_group_name?: string | null
+  // Lựa chọn quyết định giá — giá TUYỆT ĐỐI, thay giá món (khác topping: cộng thêm)
+  menu_item_variants?: { id: string; name: string; price: number; is_available: boolean; sort_order: number }[]
 }
 type Category = { id: string; name: string; sort_order: number; menu_items: MenuItem[] }
 
@@ -101,6 +111,14 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
       }
     })
   }
+
+  // `editItem` chỉ là ẢNH CHỤP món lúc bấm ✎: router.refresh() làm mới `categories`
+  // chứ KHÔNG làm mới object này. Không tra lại theo id thì thêm/xoá lựa chọn xong
+  // danh sách trong modal vẫn y nguyên, và giá món (do trigger DB tính lại) cũng cũ —
+  // phải F5 mới thấy. Món vừa tạo chưa kịp vào `categories` thì rơi về ảnh chụp.
+  const liveEditItem = editItem
+    ? (categories.flatMap((c) => c.menu_items ?? []).find((i) => i.id === editItem.id) ?? editItem)
+    : null
 
   const selectedCat = categories.find((c) => c.id === selectedCatId)
   const selectedItems = selectedCat?.menu_items?.slice().sort((a, b) => a.sort_order - b.sort_order) ?? []
@@ -267,6 +285,11 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
                           {item.menu_item_toppings!.length} topping
                         </span>
                       )}
+                      {(item.menu_item_variants?.length ?? 0) > 0 && (
+                        <span className="mt-0.5 ml-1 inline-block rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-600">
+                          {item.menu_item_variants!.length} lựa chọn
+                        </span>
+                      )}
                     </div>
                     <p className="flex-shrink-0 font-semibold text-gray-700">{formatVND(item.price)}</p>
 
@@ -332,24 +355,25 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
       )}
 
       {/* Modal sửa món */}
-      {editItem && (
+      {liveEditItem && (
         <Modal title="Sửa món" onClose={() => setEditItem(null)}>
           <ItemForm
             categories={categories}
-            item={editItem}
-            defaultCategoryId={editItem.category_id}
+            item={liveEditItem}
+            defaultCategoryId={liveEditItem.category_id}
             onImage={setEditImage}
             submitLabel="Lưu"
             onSubmit={async (fd) => {
               if (editImage) fd.set('image', editImage)
-              await updateMenuItem(editItem.id, fd)
+              await updateMenuItem(liveEditItem.id, fd)
               setEditItem(null)
               setEditImage(null)
               router.refresh()
             }}
             onCancel={() => setEditItem(null)}
           />
-          <ItemToppingPicker item={editItem} toppings={toppings} router={router} />
+          <ItemToppingPicker item={liveEditItem} toppings={toppings} router={router} />
+          <ItemVariantEditor item={liveEditItem} router={router} />
         </Modal>
       )}
 
@@ -428,6 +452,7 @@ function ItemForm({
   onCancel: () => void
   submitLabel: string
 }) {
+  const hasVariants = (item?.menu_item_variants?.length ?? 0) > 0
   return (
     <form action={onSubmit} className="flex flex-col gap-3">
       <div>
@@ -448,7 +473,28 @@ function ItemForm({
       </div>
       <div>
         <label className="label">Giá (VNĐ) *</label>
-        <input name="price" type="number" required min="0" defaultValue={item?.price} placeholder="80000" className="input" />
+        {/* readOnly chứ KHÔNG disabled: updateMenuItem ghi lại `price` ở MỌI lần lưu (kể cả
+            chỉ đổi tên/ảnh). Ô readOnly vẫn submit giá hiện tại → ghi đè đúng số cũ, vô hại;
+            ô disabled không submit gì → parseInt(undefined) = NaN, mất sạch giá món.
+            key theo giá: trigger DB tính lại giá món mỗi lần sửa lựa chọn, đổi key ⇒ input
+            mount lại và nạp giá mới, không thì ô còn giữ số cũ rồi ghi đè lúc bấm Lưu. */}
+        <input
+          key={item?.price}
+          name="price"
+          type="number"
+          required
+          min="0"
+          defaultValue={item?.price}
+          placeholder="80000"
+          readOnly={hasVariants}
+          className={`input ${hasVariants ? 'bg-gray-50 text-gray-500' : ''}`}
+        />
+        {hasVariants && (
+          <p className="mt-1 text-xs text-orange-600">
+            {displayPriceLabel(item!.price, true)} — giá đang do tuỳ chọn quyết định.
+            Sửa giá ở danh sách lựa chọn bên dưới.
+          </p>
+        )}
       </div>
       <div>
         <label className="label">Ảnh món (1:1)</label>
@@ -580,6 +626,110 @@ function ItemToppingPicker({ item, toppings, router }: { item: MenuItem; topping
             <span className="text-gray-500">{formatVND(t.price)}</span>
           </label>
         ))}
+      </div>
+    </div>
+  )
+}
+// Khối nhập lựa chọn quyết định giá, hiện trong modal sửa món.
+// Giá TUYỆT ĐỐI — gõ thẳng theo tờ menu giấy, không phải tính chênh lệch.
+// (Khác topping: topping tick nhiều, tuỳ chọn, cộng thêm tiền.)
+function ItemVariantEditor({ item, router }: { item: MenuItem; router: ReturnType<typeof useRouter> }) {
+  const [isPending, startTransition] = useTransition()
+  const [name, setName] = useState('')
+  const [price, setPrice] = useState('')
+  const [groupName, setGroupName] = useState(item.variant_group_name ?? '')
+  const variants = (item.menu_item_variants ?? []).slice().sort((a, b) => a.sort_order - b.sort_order)
+
+  const add = () => {
+    const parsed = parseVariantInput(name, price)
+    if (!parsed.ok) { alert(parsed.error); return }
+    startTransition(async () => {
+      await addItemVariant(item.id, parsed.name, parsed.price)
+      setName(''); setPrice(''); router.refresh()
+    })
+  }
+  const toggle = (v: { id: string; is_available: boolean }) => startTransition(async () => {
+    await updateItemVariant(v.id, { is_available: !v.is_available }); router.refresh()
+  })
+  const del = (v: { id: string; name: string }) => {
+    const last = variants.length === 1
+    const msg = last
+      ? `Xoá lựa chọn cuối cùng "${v.name}"? Món sẽ quay về món thường, giá giữ ở mức hiện tại — nhớ kiểm tra lại giá món.`
+      : `Xoá lựa chọn "${v.name}"?`
+    if (!confirm(msg)) return
+    startTransition(async () => { await deleteItemVariant(v.id); router.refresh() })
+  }
+  // Chỉ ghi khi tên nhóm thật sự đổi — onBlur bắn mỗi lần rời ô, không lọc thì bấm
+  // qua lại trong modal là gửi hàng loạt lệnh ghi y hệt nhau.
+  const saveGroupName = () => {
+    if (groupName.trim() === (item.variant_group_name ?? '')) return
+    startTransition(async () => {
+      await setVariantGroupName(item.id, groupName); router.refresh()
+    })
+  }
+  // Đổi thứ tự bằng nút ▲▼ thay vì kéo thả: danh sách chỉ 2-4 dòng, nút mũi tên
+  // bấm chuẩn hơn trên điện thoại và không phải kéo theo thư viện drag nào.
+  const move = (idx: number, delta: number) => {
+    const next = variants.slice()
+    const target = idx + delta
+    if (target < 0 || target >= next.length) return
+    ;[next[idx], next[target]] = [next[target], next[idx]]
+    startTransition(async () => {
+      await reorderItemVariants(item.id, next.map((v) => v.id)); router.refresh()
+    })
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-gray-200 p-4">
+      <p className="font-semibold text-gray-700">📐 Tuỳ chọn quyết định giá</p>
+      <p className="mt-1 text-xs text-gray-500">
+        Khách phải chọn đúng một. Giá gõ ở đây là giá bán thật của món, không phải tiền cộng thêm.
+      </p>
+
+      <input
+        value={groupName}
+        onChange={(e) => setGroupName(e.target.value)}
+        onBlur={saveGroupName}
+        placeholder="Tên nhóm (VD: Chọn cỡ, Chọn hãng)"
+        className="input mt-3"
+      />
+
+      <div className="mt-3 space-y-2">
+        {variants.map((v, idx) => (
+          <div key={v.id} className="flex items-center gap-2 rounded-xl border border-gray-100 px-3 py-2">
+            <span className="flex flex-shrink-0 flex-col leading-none">
+              <button type="button" onClick={() => move(idx, -1)} disabled={isPending || idx === 0}
+                className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Lên">▲</button>
+              <button type="button" onClick={() => move(idx, 1)} disabled={isPending || idx === variants.length - 1}
+                className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Xuống">▼</button>
+            </span>
+            <span className={`min-w-0 flex-1 truncate text-sm ${v.is_available ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+              {v.name}
+            </span>
+            <span className="flex-shrink-0 text-sm font-semibold text-gray-700">{formatVND(v.price)}</span>
+            <button type="button" onClick={() => toggle(v)} disabled={isPending}
+              className="flex-shrink-0 text-xs text-gray-500 hover:text-orange-600 disabled:opacity-40">
+              {v.is_available ? 'Tắt bán' : 'Bật bán'}
+            </button>
+            <button type="button" onClick={() => del(v)} disabled={isPending}
+              className="flex-shrink-0 text-xs text-red-500 hover:text-red-700 disabled:opacity-40">Xoá</button>
+          </div>
+        ))}
+        {variants.length === 0 && (
+          <p className="px-1 py-3 text-center text-sm text-gray-400">
+            Chưa có lựa chọn nào — món đang bán theo giá món.
+          </p>
+        )}
+      </div>
+
+      <div className="mt-3 flex gap-2">
+        <input value={name} onChange={(e) => setName(e.target.value)}
+          placeholder="Tên lựa chọn (VD: Đĩa to)" className="input min-w-0 flex-1" />
+        {/* class riêng cho ô giá, KHÔNG dùng .input (width:100% sẽ bóp hỏng ô trong flex) */}
+        <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" placeholder="Giá"
+          className="w-24 flex-shrink-0 rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-orange-400" />
+        <button type="button" onClick={add} disabled={isPending}
+          className="flex-shrink-0 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">+ Thêm</button>
       </div>
     </div>
   )
