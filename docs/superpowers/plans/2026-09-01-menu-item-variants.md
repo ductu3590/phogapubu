@@ -16,7 +16,8 @@
 
 | File | Trách nhiệm |
 |---|---|
-| `supabase/migrations/042_menu_item_variants.sql` | Bảng, cột, trigger, RLS, hai RPC |
+| `supabase/migrations/042_menu_item_variants.sql` | Bảng, cột, trigger, RLS — **thuần DDL** |
+| `supabase/migrations/043_create_order_variants.sql` | Ảnh chụp nguyên văn hai RPC đã vá. **Tách riêng khỏi 042 có chủ ý:** file chứa `CREATE OR REPLACE` một RPC sống mà chạy lại được là cái bẫy — ngày có `044` sửa `create_order` rồi ai đó replay 042/043, hàm âm thầm lùi về bản cũ, không báo lỗi gì |
 | `admin-web/lib/menu/variant.ts` | Hàm thuần: validate input biến thể, tính giá hiển thị |
 | `admin-web/lib/menu/variant.test.ts` | Test cho trên |
 | `admin-web/lib/actions/menu.ts` | Thêm 5 server action CRUD biến thể |
@@ -357,11 +358,13 @@ returning id, name;
 
 | Ca | Gọi `create_order` với | Kỳ vọng |
 |---|---|---|
-| 1 | món có biến thể, **không** `variant_id` | lỗi `Món cần chọn loại: Nước ngọt` |
-| 2 | `variant_id` của món khác | lỗi `Lựa chọn không hợp lệ hoặc đã hết` |
-| 3 | `variant_id` của quán khác | lỗi `Lựa chọn không hợp lệ hoặc đã hết` |
-| 4 | `variant_id` đã `is_available=false` | lỗi `Lựa chọn không hợp lệ hoặc đã hết` |
-| 5 | món **thường** + có gửi `variant_id` | lỗi `Món không có tuỳ chọn` |
+| 1 | món có biến thể, **không** `variant_id` | lỗi `Món "Nước ngọt" cần chọn loại, mời bạn chọn lại` |
+| 2 | `variant_id` của món khác | lỗi `Lựa chọn cho món "…" không còn, mời bạn chọn lại` |
+| 3 | `variant_id` của quán khác | lỗi `Lựa chọn cho món "…" không còn, mời bạn chọn lại` |
+| 4 | `variant_id` đã `is_available=false` | lỗi `Lựa chọn cho món "…" không còn, mời bạn chọn lại` |
+| 5 | món **thường** + có gửi `variant_id` | lỗi `Món "…" vừa đổi tuỳ chọn, mời bạn chọn lại` |
+
+⚠️ Ba câu lỗi này khách **thật sự nhìn thấy** được: giỏ hàng lưu 6h, nên khách bỏ món vào giỏ rồi chủ quán đổi tuỳ chọn là chạm đúng nhánh này. Vì vậy chúng viết theo giọng nói-với-khách, không phải giọng lỗi kỹ thuật. Task 6 phải bắt lỗi này ở mini-app và chỉ làm mới đúng dòng giỏ đó, thay vì để chết cả đơn.
 | 6 | đúng, chọn 'Chai' | `item_price=20000`, `item_name='Nước ngọt (Chai)'`, `variant_name='Chai'`, `total_amount=20000×qty` |
 | 7 | đúng + kèm topping | tiền = `20000 + topping` |
 | 8 | tắt **hết** biến thể rồi đặt món đó | lỗi (KHÔNG được rơi về giá món cũ) |
@@ -397,11 +400,13 @@ delete from menu_item_variants where menu_item_id =
     and store_id='2139c162-9677-4cbd-87e3-d2e1ac22e6e8');
 ```
 
-- [ ] **Step 10: Sinh lại types**
+- [ ] **Step 10: Bổ sung types bằng TAY**
 
-```bash
-```
-Chạy Supabase MCP `generate_typescript_types` rồi ghi đè `admin-web/types/database.types.ts` và `mini-app/src/types/database.types.ts`.
+⚠️ **KHÔNG chạy `generate_typescript_types` rồi ghi đè.** Hai file `database.types.ts` là **viết tay**, không phải file sinh tự động — dù header file mini-app nói ngược lại (header đó đã cũ). `admin-web/types/database.types.ts` export `OrderStatus`, `PaymentMethod`, `OrderType`, `KitchenOrder`, `KitchenOrderItem`, `Store`; `admin-web/app/kitchen/[storeSlug]/kitchen-display.tsx` import 3 trong số đó. Bản sinh tự động **không có** chúng → ghi đè là gãy build admin-web ngay.
+
+Thêm bằng tay vào **cả hai** file, theo đúng lối viết sẵn có của từng file: bảng `menu_item_variants`, cột `menu_items.variant_group_name`, cột `order_items.variant_id` + `variant_name`. Trên `Insert`, ba cột `id`/`is_available`/`sort_order` phải là **optional** (DB có default) — coi chừng lối `Omit<Row,'id'|'created_at'>` của file mini-app biến chúng thành bắt buộc.
+
+Kiểm: `cd admin-web && npx tsc --noEmit` phải sạch; `cd mini-app && npx tsc --noEmit` phải giữ nguyên 4 lỗi có sẵn (zmp-ui, `app-config.json` cố ý vắng, một cast ở `category.api.ts`), không phát sinh lỗi mới.
 
 - [ ] **Step 11: Commit**
 
