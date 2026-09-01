@@ -64,6 +64,9 @@ export async function updateAppConfig(storeId: string, formData: FormData) {
   const admin = createAdminClient()
   const patch = {
     zalo_mini_app_name: (formData.get('zalo_mini_app_name') as string | null)?.trim() || null,
+    // Mini App ID ở ĐÂY, không phải ở mục Checkout: quán trả sau (thu tại quầy) không có
+    // merchant nên không nhập được secret Checkout, mà vẫn phải có App ID để in QR bàn.
+    zalo_mini_app_id: (formData.get('zalo_mini_app_id') as string | null)?.trim() || null,
     onboarding_status: formData.get('onboarding_status') as string,
     deployment_status: formData.get('deployment_status') as string,
     notes: (formData.get('notes') as string | null)?.trim() || null,
@@ -94,6 +97,13 @@ export async function updateCheckoutConfig(storeId: string, formData: FormData) 
 
   const { error } = await admin.from('store_checkout_configs').upsert(patch)
   if (error) throw new Error(`updateCheckoutConfig: ${error.message}`)
+
+  // Gương sang store_app_configs để hai chỗ không trôi khỏi nhau: cột kia là thứ QR bàn đọc.
+  const { error: mirrorErr } = await admin
+    .from('store_app_configs')
+    .upsert({ store_id: storeId, zalo_mini_app_id: zaloMiniAppId })
+  if (mirrorErr) throw new Error(`updateCheckoutConfig(mirror): ${mirrorErr.message}`)
+
   revalidatePath(`/mevo/stores/${storeId}`)
 }
 

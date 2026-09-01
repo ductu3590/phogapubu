@@ -13,16 +13,16 @@ export default async function TablesPage() {
   const { data: storeRow } = await supabase.from('stores').select('slug').eq('id', storeId).single()
   const storeSlug = storeRow?.slug ?? ''
 
-  // zalo_mini_app_id nằm trong store_checkout_configs (không phải stores) — RLS bảng đó
-  // không cho authenticated đọc (chỉ service role), nên phải dùng admin client. Chỉ chọn
-  // đúng cột này, KHÔNG bao giờ select zalo_checkout_secret_key ở đây.
+  // Mini App ID: đọc store_app_configs TRƯỚC (mig 041) — quán trả sau không có cấu hình
+  // Checkout nên không có dòng nào ở store_checkout_configs. Fallback về bảng checkout cho
+  // quán cũ chưa backfill. Dùng admin client vì RLS hai bảng này chỉ mở cho service role;
+  // chỉ select đúng cột ID, KHÔNG bao giờ select zalo_checkout_secret_key ở đây.
   const admin = createAdminClient()
-  const { data: checkoutConfig } = await admin
-    .from('store_checkout_configs')
-    .select('zalo_mini_app_id')
-    .eq('store_id', storeId)
-    .single()
-  const zaloAppId = checkoutConfig?.zalo_mini_app_id ?? ''
+  const [{ data: appConfig }, { data: checkoutConfig }] = await Promise.all([
+    admin.from('store_app_configs').select('zalo_mini_app_id').eq('store_id', storeId).maybeSingle(),
+    admin.from('store_checkout_configs').select('zalo_mini_app_id').eq('store_id', storeId).maybeSingle(),
+  ])
+  const zaloAppId = appConfig?.zalo_mini_app_id ?? checkoutConfig?.zalo_mini_app_id ?? ''
 
   const { data: tables } = await supabase
     .from('tables')

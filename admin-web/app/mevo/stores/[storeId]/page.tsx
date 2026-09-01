@@ -57,6 +57,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
       <Section title="Mini App / Onboarding checklist">
         <SaveForm action={updateApp}>
           <Field label="Tên Mini App (Zalo Dev)" name="zalo_mini_app_name" defaultValue={appConfig?.zalo_mini_app_name ?? ''} />
+          <Field label="Zalo Mini App ID (cần cho QR bàn)" name="zalo_mini_app_id" defaultValue={appConfig?.zalo_mini_app_id ?? ''} />
           <SelectField label="Trạng thái onboarding" name="onboarding_status" defaultValue={appConfig?.onboarding_status ?? 'draft'}
             options={['draft', 'in_progress', 'ready', 'live']} />
           <SelectField label="Trạng thái deploy" name="deployment_status" defaultValue={appConfig?.deployment_status ?? 'not_deployed'}
@@ -66,6 +67,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
       </Section>
 
       <Section title="ZaloPay Checkout">
+        <p className="mb-3 text-sm text-gray-500">
+          Chỉ dành cho quán <b>trả trước</b> (khách thanh toán trong app). Quán <b>trả sau</b> thu
+          tiền tại quầy nên bỏ trống cả mục này — App ID đã nhập ở mục Mini App phía trên.
+        </p>
         <p className="mb-3 text-sm text-gray-500">
           Trạng thái: <StatusText ok={!!checkoutConfig?.is_enabled} />
           {checkoutConfig?.updated_at && ` — cập nhật lúc ${new Date(checkoutConfig.updated_at).toLocaleString('vi-VN')}`}
