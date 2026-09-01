@@ -17,6 +17,16 @@ function mapVariants(rows: Record<string, unknown>[] | null | undefined): Varian
     .map((v) => ({ id: v.id as string, name: v.name as string, price: v.price as number }));
 }
 
+// Có HAI kiểu "tạm hết": (1) chủ quán tắt cả món (is_available = false);
+// (2) món có nhóm biến thể nhưng MỌI biến thể đều bị tắt — món vẫn is_available = true
+// nhưng khách không chọn được gì để mua (menu card đã hiện badge "Tạm hết").
+// Cả hai kiểu đều phải dồn xuống cuối danh mục, không để món không mua được nằm trên đầu.
+function isRowSoldOut(row: Record<string, unknown>): boolean {
+  if (row.is_available !== true) return true;
+  const variants = (row.menu_item_variants as Record<string, unknown>[] | undefined) ?? [];
+  return variants.length > 0 && !variants.some((v) => v.is_available === true);
+}
+
 function mapProduct(row: Record<string, unknown>): Product {
   return {
     id: row.id as string,
@@ -56,7 +66,7 @@ export const categoryService = {
         // Giữ cả món hết hàng để hiện mờ + badge "Tạm hết";
         // món còn hàng lên trước, hết hàng dồn xuống cuối, rồi theo sort_order
         .sort((a, b) => {
-          const availDiff = (a.is_available ? 0 : 1) - (b.is_available ? 0 : 1);
+          const availDiff = (isRowSoldOut(a) ? 1 : 0) - (isRowSoldOut(b) ? 1 : 0);
           if (availDiff !== 0) return availDiff;
           return (a.sort_order as number) - (b.sort_order as number);
         })

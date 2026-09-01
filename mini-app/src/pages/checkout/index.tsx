@@ -245,6 +245,7 @@ export default function CheckoutPage() {
           toppingIds: item.selectedVariants
             .filter((v) => v.groupId === "topping")
             .map((v) => v.optionId),
+          variantId: item.variant?.id,
         })),
         note: note.trim() || undefined,
         // Ở trả sau tại bàn, create_order tự ép 'cash'; gửi gì cũng bị ghi đè — gửi 'cash'
@@ -500,6 +501,11 @@ export default function CheckoutPage() {
                     <p className="text-small-m font-medium text-text-primary line-clamp-2">
                       {item.productName}
                     </p>
+                    {item.variant && (
+                      <p className="text-xxsmall text-text-secondary line-clamp-2">
+                        {item.variant.name}
+                      </p>
+                    )}
                     {item.selectedVariants.length > 0 && (
                       <p className="text-xxsmall text-text-secondary line-clamp-2">
                         {item.selectedVariants.map((v) => `+ ${v.optionName}`).join(", ")}

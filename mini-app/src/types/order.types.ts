@@ -103,6 +103,7 @@ export interface CreateOrderRequest {
     quantity: number;
     note?: string;
     toppingIds?: string[];
+    variantId?: string;
   }[];
   note?: string;
   paymentMethod: "zalo_checkout" | "cash";

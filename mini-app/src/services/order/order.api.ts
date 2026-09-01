@@ -28,6 +28,7 @@ export const orderService = {
         quantity: item.quantity,
         note: item.note ?? null,
         topping_ids: item.toppingIds ?? [],
+        variant_id: item.variantId ?? null,
       })),
       p_payment_method: req.paymentMethod,
       p_zalo_user_id: req.zaloUserId ?? null,
