@@ -53,6 +53,10 @@ export default async function StaffOrderPage() {
             .filter((v) => v.is_available)
             .sort((a, b) => a.sort_order - b.sort_order)
             .map((v) => ({ id: v.id, name: v.name, price: v.price })),
+          // Đếm mảng CHƯA lọc — khác hẳn `variants` ở trên. Đây là chỗ phân biệt "món thường"
+          // với "món có biến thể nhưng tắt hết". staff_create_order cũng đếm TỔNG (không lọc
+          // is_available) để quyết định bắt buộc chọn loại → client phải khớp với server.
+          hasVariantGroup: ((m.menu_item_variants ?? []) as unknown[]).length > 0,
           variantGroupName: (m.variant_group_name as string | null) ?? null,
         })),
     }))

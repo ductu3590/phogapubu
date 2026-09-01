@@ -5,7 +5,7 @@ import { createStaffOrder, type StaffOrderItem } from '@/lib/actions/staff-order
 
 type Topping = { id: string; name: string; price: number }
 type Variant = { id: string; name: string; price: number }
-type Item = { id: string; name: string; price: number; imageUrl: string | null; toppings: Topping[]; variants: Variant[]; variantGroupName: string | null }
+type Item = { id: string; name: string; price: number; imageUrl: string | null; toppings: Topping[]; variants: Variant[]; hasVariantGroup: boolean; variantGroupName: string | null }
 type Category = { id: string; name: string; items: Item[] }
 type Table = { id: string; tableNumber: string }
 
@@ -77,6 +77,8 @@ export default function StaffOrderClient({
   }
 
   function onTapItem(item: Item) {
+    // Món còn nhóm biến thể nhưng tắt hết lựa chọn: KHÔNG cho vào giỏ — server sẽ từ chối cả giỏ.
+    if (item.hasVariantGroup && item.variants.length === 0) return
     if (item.toppings.length > 0 || item.variants.length > 0) setSheetItem(item)
     else addSimple(item)
   }
@@ -227,17 +229,31 @@ export default function StaffOrderClient({
           <ul className="space-y-2">
             {visibleItems.map((item) => {
               const inCart = cart.filter((l) => l.menuItemId === item.id).reduce((s, l) => s + l.quantity, 0)
+              // Hai kiểu tạm hết: chủ quán tắt cả món (page.tsx đã lọc bỏ, không tới đây), hoặc món
+              // còn nhóm biến thể nhưng mọi lựa chọn đều tắt → bấm vào thì server từ chối CẢ giỏ.
+              const soldOutByVariants = item.hasVariantGroup && item.variants.length === 0
               return (
-                <li key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-3">
+                <li key={item.id} className={`flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-3 ${soldOutByVariants ? 'opacity-50' : ''}`}>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-gray-900">{item.name}</p>
-                    <p className="text-sm text-orange-600">{dong(item.price)}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-gray-900">{item.name}</p>
+                      {soldOutByVariants && (
+                        <span className="flex-shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">Tạm hết</span>
+                      )}
+                    </div>
+                    {/* Món có biến thể: menu_items.price là giá lựa chọn RẺ NHẤT còn bán (trigger mig 042),
+                        không phải giá bán thật → phải có tiền tố "Từ". Món tắt hết biến thể vẫn giữ giá
+                        lựa chọn cuối cùng nên số trơ trọi càng dễ hiểu nhầm. */}
+                    <p className="text-sm text-orange-600">
+                      {item.variants.length > 0 || soldOutByVariants ? 'Từ ' : ''}{dong(item.price)}
+                    </p>
                     {item.toppings.length > 0 && <p className="text-[11px] text-gray-400">Có topping</p>}
                   </div>
                   <button
                     onClick={() => onTapItem(item)}
-                    className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-orange-500 text-xl font-bold text-white active:bg-orange-600"
-                    aria-label={`Thêm ${item.name}`}
+                    disabled={soldOutByVariants}
+                    className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-orange-500 text-xl font-bold text-white active:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400"
+                    aria-label={soldOutByVariants ? `${item.name} tạm hết` : `Thêm ${item.name}`}
                   >
                     +
                     {inCart > 0 && (
