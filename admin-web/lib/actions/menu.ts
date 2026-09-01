@@ -61,6 +61,18 @@ async function assertToppingInStore(toppingId: string, storeId: string): Promise
   if (data.store_id !== storeId) throw new Error('Topping không thuộc quán của bạn')
 }
 
+// Ném lỗi nếu biến thể không thuộc store của user
+async function assertVariantInStore(variantId: string, storeId: string): Promise<void> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('menu_item_variants')
+    .select('id, store_id')
+    .eq('id', variantId)
+    .single()
+  if (error || !data) throw new Error('Không tìm thấy lựa chọn')
+  if (data.store_id !== storeId) throw new Error('Lựa chọn không thuộc quán của bạn')
+}
+
 // Thêm topping vào kho dùng chung của quán
 export async function addPoolTopping(name: string, price: number) {
   const storeId = await getStoreId()
@@ -298,5 +310,92 @@ export async function deleteCategory(categoryId: string) {
   }
   const { error } = await admin.from('menu_categories').delete().eq('id', categoryId)
   if (error) throw new Error(`deleteCategory: ${error.message}`)
+  revalidatePath('/admin/menu')
+}
+
+// Thêm biến thể (lựa chọn) cho món — giá TUYỆT ĐỐI, thay giá món
+export async function addItemVariant(menuItemId: string, name: string, price: number) {
+  const storeId = await getStoreId()
+  await assertMenuItemInStore(menuItemId, storeId)
+  const admin = createAdminClient()
+  const { data: maxRow } = await admin.from('menu_item_variants').select('sort_order')
+    .eq('menu_item_id', menuItemId).order('sort_order', { ascending: false }).limit(1).maybeSingle()
+  const nextSort = (maxRow?.sort_order ?? -1) + 1
+  const { error } = await admin.from('menu_item_variants').insert({
+    menu_item_id: menuItemId, store_id: storeId, name: name.trim(),
+    price: Math.max(0, Math.round(price)), is_available: true, sort_order: nextSort,
+  })
+  if (error) throw new Error(`addItemVariant: ${error.message}`)
+  revalidatePath('/admin/menu')
+}
+
+// Sửa biến thể (tên/giá/tạm hết)
+export async function updateItemVariant(variantId: string, patch: { name?: string; price?: number; is_available?: boolean }) {
+  const storeId = await getStoreId()
+  await assertVariantInStore(variantId, storeId)
+  const admin = createAdminClient()
+  const update: Record<string, unknown> = {}
+  if (patch.name !== undefined) update.name = patch.name.trim()
+  if (patch.price !== undefined) update.price = Math.max(0, Math.round(patch.price))
+  if (patch.is_available !== undefined) update.is_available = patch.is_available
+  const { error } = await admin.from('menu_item_variants').update(update).eq('id', variantId)
+  if (error) throw new Error(`updateItemVariant: ${error.message}`)
+  revalidatePath('/admin/menu')
+}
+
+// Xoá biến thể
+export async function deleteItemVariant(variantId: string) {
+  const storeId = await getStoreId()
+  await assertVariantInStore(variantId, storeId)
+  const admin = createAdminClient()
+  const { error } = await admin.from('menu_item_variants').delete().eq('id', variantId)
+  if (error) throw new Error(`deleteItemVariant: ${error.message}`)
+  revalidatePath('/admin/menu')
+}
+
+// Sắp xếp lại thứ tự biến thể trong 1 món
+export async function reorderItemVariants(menuItemId: string, variantIds: string[]) {
+  const storeId = await getStoreId()
+  await assertMenuItemInStore(menuItemId, storeId)
+  const updates = buildSortUpdates(variantIds)
+  if (updates.length === 0) return
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('menu_item_variants')
+    .select('id')
+    .eq('store_id', storeId)
+    .eq('menu_item_id', menuItemId)
+    .in('id', updates.map((update) => update.id))
+  if (error) throw new Error(`reorderItemVariants(select): ${error.message}`)
+  if ((data?.length ?? 0) !== updates.length) {
+    throw new Error('Danh sách lựa chọn không hợp lệ')
+  }
+
+  for (const update of updates) {
+    const { error: updateError } = await admin
+      .from('menu_item_variants')
+      .update({ sort_order: update.sort_order })
+      .eq('id', update.id)
+      .eq('store_id', storeId)
+      .eq('menu_item_id', menuItemId)
+    if (updateError) throw new Error(`reorderItemVariants(update): ${updateError.message}`)
+  }
+
+  revalidatePath('/admin/menu')
+}
+
+// Đổi tên nhóm biến thể hiển thị trên mini-app (rỗng → null = dùng nhãn mặc định)
+export async function setVariantGroupName(menuItemId: string, groupName: string) {
+  const storeId = await getStoreId()
+  await assertMenuItemInStore(menuItemId, storeId)
+  const admin = createAdminClient()
+  const trimmed = groupName.trim()
+  const { error } = await admin
+    .from('menu_items')
+    .update({ variant_group_name: trimmed === '' ? null : trimmed })
+    .eq('id', menuItemId)
+    .eq('store_id', storeId)
+  if (error) throw new Error(`setVariantGroupName: ${error.message}`)
   revalidatePath('/admin/menu')
 }
