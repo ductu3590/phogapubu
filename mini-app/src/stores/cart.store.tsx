@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { CartItem, SelectedVariant } from "@/types/cart.types";
+import { buildCartItemId } from "@/utils/cart-key";
 
 interface CartStore {
   items: CartItem[];
@@ -19,18 +20,6 @@ interface CartStore {
   openCheckoutSheet: () => void;
   closeCheckoutSheet: () => void;
 }
-
-// ID cart line = productId + tổ hợp topping (đã sort) → cùng món khác topping = 2 line,
-// cùng tổ hợp thì gộp số lượng.
-const generateCartItemId = (item: Omit<CartItem, "id">): string => {
-  const toppingIds = item.selectedVariants
-    .filter((v) => v.groupId === "topping")
-    .map((v) => v.optionId)
-    .sort();
-  return toppingIds.length > 0
-    ? `${item.productId}|${toppingIds.join(",")}`
-    : item.productId;
-};
 
 // Helper function to calculate totals
 const calculateTotals = (items: CartItem[]) => {
@@ -101,7 +90,7 @@ export const useCartStore = create<CartStore>()(
 
   addToCart: (newItem) => {
     if (get().lockedByOrderId) return;
-    const itemId = generateCartItemId(newItem);
+    const itemId = buildCartItemId(newItem);
 
     set((state) => {
       const existingItemIndex = state.items.findIndex((item) => item.id === itemId);
@@ -129,7 +118,7 @@ export const useCartStore = create<CartStore>()(
     set((state) => {
       // Remove the old item and add the updated one
       const newItems = state.items.filter((item) => item.id !== id);
-      const newItemId = generateCartItemId(updatedItem);
+      const newItemId = buildCartItemId(updatedItem);
 
       // Check if the updated item matches an existing item
       const existingItemIndex = newItems.findIndex((item) => item.id === newItemId);
