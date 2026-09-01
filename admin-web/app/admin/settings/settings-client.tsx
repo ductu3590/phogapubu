@@ -221,7 +221,9 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, zaloOaUr
 
       {/* Giờ phục vụ */}
       <div className="rounded-xl border-2 border-gray-200 p-3">
-        <label className="flex cursor-pointer items-center justify-between">
+        {/* relative: input .sr-only bên trong là position:absolute — không có ancestor định vị
+            thì nó neo vào <body>, thoát khỏi vùng cắt của khung cuộn và kéo dài cả trang. */}
+        <label className="relative flex cursor-pointer items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-gray-900">Đang nhận đơn</p>
             <p className="text-xs text-gray-500">
@@ -429,8 +431,10 @@ function PaymentToggle({
   onChange: () => void
 }) {
   return (
+    // relative: input .sr-only bên trong là position:absolute — thiếu ancestor định vị thì nó
+    // neo vào <body> và làm trang dài thêm (xem ghi chú ở toggle "Đang nhận đơn").
     <label
-      className={`flex cursor-pointer items-center justify-between rounded-xl border-2 p-3 transition-colors ${
+      className={`relative flex cursor-pointer items-center justify-between rounded-xl border-2 p-3 transition-colors ${
         checked ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white'
       } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
     >

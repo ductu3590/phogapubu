@@ -778,6 +778,18 @@ select status, payment_received_at, payment_method from orders where id = '<orde
 
 ---
 
+## 2026-09-01 — Fix bố cục "2 khung lồng nhau" ở `/admin/settings`
+
+17. Vào `/admin/settings` → **chỉ có MỘT thanh cuộn** (thanh của vùng nội dung bên phải).
+    Không có thanh cuộn thứ hai ở mép ngoài cùng cửa sổ.
+18. Cuộn chuột hết cỡ xuống dưới → sidebar bên trái **vẫn nguyên tại chỗ**, không trôi lên,
+    không lộ ra khoảng trắng phía dưới app.
+19. Thu nhỏ cửa sổ trình duyệt cho thấp lại (~400px chiều cao) → vẫn đúng như trên.
+20. Bấm được toggle **ZaloPay / Tiền mặt** và **"Đang nhận đơn"** — vì bản vá đụng đúng
+    mấy cái label này, phải chắc chúng còn bật/tắt bình thường và lưu được.
+
+---
+
 ---
 
 *File này là bộ nhớ test của dự án MEVO.*
