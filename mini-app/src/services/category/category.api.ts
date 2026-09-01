@@ -1,6 +1,6 @@
 import { supabase } from "../supabase";
 import { Category, CategoryWithProducts } from "@/types/category.types";
-import { Product, Topping } from "@/types/product.types";
+import { Product, Topping, Variant } from "@/types/product.types";
 
 function mapToppings(links: Record<string, unknown>[] | null | undefined): Topping[] {
   return (links ?? [])
@@ -8,6 +8,13 @@ function mapToppings(links: Record<string, unknown>[] | null | undefined): Toppi
     .filter((t): t is Record<string, unknown> => !!t && t.is_available === true)
     .sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
     .map((t) => ({ id: t.id as string, name: t.name as string, price: t.price as number }));
+}
+
+function mapVariants(rows: Record<string, unknown>[] | null | undefined): Variant[] {
+  return (rows ?? [])
+    .filter((v) => v.is_available === true)
+    .sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
+    .map((v) => ({ id: v.id as string, name: v.name as string, price: v.price as number }));
 }
 
 function mapProduct(row: Record<string, unknown>): Product {
@@ -21,6 +28,9 @@ function mapProduct(row: Record<string, unknown>): Product {
     categoryId: row.category_id as string,
     sortOrder: row.sort_order as number,
     toppings: mapToppings(row.menu_item_toppings as Record<string, unknown>[] | undefined),
+    variants: mapVariants(row.menu_item_variants as Record<string, unknown>[] | undefined),
+    hasVariantGroup: ((row.menu_item_variants as unknown[] | undefined) ?? []).length > 0,
+    variantGroupName: (row.variant_group_name as string | null) ?? null,
   };
 }
 
@@ -30,7 +40,7 @@ export const categoryService = {
     const { data, error } = await supabase
       .from("menu_categories")
       .select(
-        "*, menu_items(*, menu_item_toppings(toppings(id, name, price, is_available, sort_order)))",
+        "*, menu_items(*, menu_item_toppings(toppings(id, name, price, is_available, sort_order)), menu_item_variants(id, name, price, is_available, sort_order))",
       )
       .eq("store_id", storeId)
       .eq("is_active", true)
