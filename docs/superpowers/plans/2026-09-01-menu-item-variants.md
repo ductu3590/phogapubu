@@ -511,14 +511,50 @@ import { CartItem } from "@/types/cart.types";
 export const buildCartItemId = (
   item: Pick<CartItem, "productId" | "selectedVariants"> & Pick<Partial<CartItem>, "variant">,
 ): string => {
-  const toppingIds = item.selectedVariants
+  const toppings = item.selectedVariants
     .filter((v) => v.groupId === "topping")
     .map((v) => v.optionId)
-    .sort();
-  return [item.productId, item.variant?.id ?? "", toppingIds.join(",")]
-    .join("|")
-    .replace(/\|+$/, "");
+    .sort()
+    .join(",");
+
+  // Món không có biến thể: giữ Y HỆT khoá cũ để giỏ khách đã lưu trước khi
+  // cập nhật vẫn gộp đúng dòng, không đẻ dòng trùng.
+  if (!item.variant) return toppings ? `${item.productId}|${toppings}` : item.productId;
+
+  // Có biến thể: thêm đoạn "v:<id>" — tiền tố v: để không lẫn với đoạn topping.
+  return toppings
+    ? `${item.productId}|v:${item.variant.id}|${toppings}`
+    : `${item.productId}|v:${item.variant.id}`;
 };
+```
+
+⚠️ **Khoá của món KHÔNG có biến thể phải giống hệt bản cũ.** Giỏ lưu localStorage 6h; nếu đổi
+format thì khách bỏ "Phở gà + trứng" vào giỏ trước lúc deploy, mở lại sau deploy rồi thêm đúng món
+đó lần nữa sẽ ra **hai dòng trùng nhau** thay vì cộng số lượng. Bản đầu tiên viết
+`[productId, variant?.id ?? "", toppings].join("|")` đã dính đúng lỗi này (`pho-ga|t1,t2` thành
+`pho-ga||t1,t2`) — bị bắt ở vòng soát. Tiền tố `v:` thay cho việc dựa vào "id đều là uuid nên
+không va chạm": lập luận đó dựa trên giả định về dữ liệu, tiền tố thì không.
+
+Hai test bắt buộc có, ngoài 5 test ở Step 2:
+
+```ts
+  it('món có topping nhưng KHÔNG biến thể: giữ đúng khoá cũ để không phá giỏ đã lưu', () => {
+    const key = buildCartItemId(mon({
+      selectedVariants: [
+        { groupId: 'topping', groupTitle: 'Topping', optionId: 't2', optionName: 'B', extraPrice: 0 },
+        { groupId: 'topping', groupTitle: 'Topping', optionId: 't1', optionName: 'A', extraPrice: 0 },
+      ],
+    }))
+    expect(key).toBe('pho-ga|t1,t2')
+  })
+
+  it('đoạn biến thể không lẫn với đoạn topping', () => {
+    const theoBienThe = buildCartItemId(mon({ variant: { id: 'x', name: 'To', price: 1 } }))
+    const theoTopping = buildCartItemId(mon({
+      selectedVariants: [{ groupId: 'topping', groupTitle: 'Topping', optionId: 'x', optionName: 'X', extraPrice: 0 }],
+    }))
+    expect(theoBienThe).not.toBe(theoTopping)
+  })
 ```
 
 - [ ] **Step 5: Chạy test, xác nhận PASS**
