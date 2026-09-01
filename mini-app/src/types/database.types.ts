@@ -72,9 +72,28 @@ export interface Database {
           is_available: boolean
           sort_order: number
           created_at: string
+          // mig 042 — nhãn nhóm "chọn loại"; NULL thì mini-app hiện 'Chọn loại'
+          variant_group_name: string | null
         }
         Insert: Omit<Database['public']['Tables']['menu_items']['Row'], 'id' | 'created_at'>
         Update: Partial<Database['public']['Tables']['menu_items']['Insert']>
+        Relationships: []
+      }
+      // mig 042 — biến thể quyết định giá (chọn 1, bắt buộc). KHÁC topping: giá TUYỆT ĐỐI
+      // thay giá món, không cộng thêm.
+      menu_item_variants: {
+        Row: {
+          id: string
+          menu_item_id: string
+          store_id: string
+          name: string
+          price: number
+          is_available: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['menu_item_variants']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['menu_item_variants']['Insert']>
         Relationships: []
       }
       toppings: {
@@ -136,6 +155,10 @@ export interface Database {
           quantity: number
           note: string | null
           selected_toppings: { id: string; name: string; price: number }[]
+          // mig 042 — snapshot biến thể; đi thành cặp (CHECK order_items_variant_pair_check).
+          // item_name đã ghép sẵn "Món (Loại)", item_price đã là giá biến thể.
+          variant_id: string | null
+          variant_name: string | null
         }
         Insert: Omit<Database['public']['Tables']['order_items']['Row'], 'id'>
         Update: Partial<Database['public']['Tables']['order_items']['Insert']>

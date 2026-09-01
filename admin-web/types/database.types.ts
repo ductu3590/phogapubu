@@ -74,6 +74,21 @@ interface MenuItemRow {
   is_available: boolean
   sort_order: number
   created_at: string
+  // mig 042 — nhãn nhóm "chọn loại"; NULL thì mini-app hiện 'Chọn loại'
+  variant_group_name: string | null
+}
+
+// mig 042 — biến thể quyết định giá (chọn 1, bắt buộc). KHÁC topping: giá TUYỆT ĐỐI
+// thay giá món, không cộng thêm.
+interface MenuItemVariantRow {
+  id: string
+  menu_item_id: string
+  store_id: string
+  name: string
+  price: number
+  is_available: boolean
+  sort_order: number
+  created_at: string
 }
 
 interface OrderRow {
@@ -103,6 +118,10 @@ interface OrderItemRow {
   item_price: number
   quantity: number
   note: string | null
+  // mig 042 — snapshot biến thể; đi thành cặp (CHECK order_items_variant_pair_check).
+  // item_name đã ghép sẵn "Món (Loại)", item_price đã là giá biến thể.
+  variant_id: string | null
+  variant_name: string | null
 }
 
 // --- Database type cho Supabase client (phải có Relationships để match GenericTable) ---
@@ -131,6 +150,12 @@ export interface Database {
         Row: MenuItemRow
         Insert: { store_id: string; category_id: string; name: string; price: number; description?: string | null; image_url?: string | null; is_available?: boolean; sort_order?: number }
         Update: Partial<MenuItemRow>
+        Relationships: []
+      }
+      menu_item_variants: {
+        Row: MenuItemVariantRow
+        Insert: { menu_item_id: string; store_id: string; name: string; price: number; is_available?: boolean; sort_order?: number; id?: string }
+        Update: Partial<MenuItemVariantRow>
         Relationships: []
       }
       orders: {
