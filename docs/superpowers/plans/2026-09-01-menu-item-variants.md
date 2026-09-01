@@ -832,12 +832,12 @@ export default function OptionSheet({ product, visible, onClose, onConfirm }: Op
         <div className="border-t border-neutral100 p-4">
           <button onClick={handleConfirm} disabled={!canConfirm}
             className={cn(
-              "w-full rounded-xl py-3 text-normal-sb font-semibold text-white transition-opacity",
-              canConfirm ? "bg-primary" : "bg-neutral300",
+              "w-full rounded-xl px-4 py-3 text-normal-sb font-semibold transition-opacity active:opacity-80",
+              canConfirm ? "bg-primary text-white" : "bg-neutral100 text-text-primary",
             )}>
             {canConfirm
               ? `Thêm vào giỏ — ${formatCurrency(unitPrice)}đ`
-              : `Chọn ${(product.variantGroupName ?? "loại").toLowerCase()} để tiếp tục`}
+              : "Vui lòng chọn để tiếp tục"}
           </button>
         </div>
       </div>
@@ -932,9 +932,18 @@ bằng:
 
 ```tsx
           <span className="font-semibold text-primary">
-            {hasVariants ? "Từ " : ""}{formatCurrency(product.price)}đ
+            {(hasVariants || soldOutByVariants) ? "Từ " : ""}{formatCurrency(product.price)}đ
           </span>
 ```
+
+⚠️ Phải có cả `soldOutByVariants` trong điều kiện. Món tắt hết lựa chọn vẫn giữ giá của lựa chọn
+cuối cùng (trigger mig 042 cố ý không ghi đè) — Bia hơi chỉ còn Tháp 200k rồi tắt nốt sẽ hiện
+phẳng "200.000đ", đọc như thể món đó giá 200k. Giữ tiền tố "Từ" cho đỡ hiểu nhầm.
+
+⚠️ **KHÔNG ghép `variantGroupName` vào nhãn nút.** Đó là chữ chủ quán tự gõ, mà ô nhập lại gợi ý
+sẵn "Chọn cỡ / Chọn loại" → nút sẽ ra "Chọn chọn cỡ để tiếp tục". Bản plan đầu tiên viết
+`` `Chọn ${(variantGroupName ?? "loại").toLowerCase()} để tiếp tục` `` và dính đúng lỗi này, bị
+bắt ở vòng soát. Tên nhóm đã hiện nguyên văn ở tiêu đề mục ngay trên, nút không cần nhắc lại.
 
 - [ ] **Step 5: Type-check**
 
