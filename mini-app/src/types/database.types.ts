@@ -75,7 +75,8 @@ export interface Database {
           // mig 042 — nhãn nhóm "chọn loại"; NULL thì mini-app hiện 'Chọn loại'
           variant_group_name: string | null
         }
-        Insert: Omit<Database['public']['Tables']['menu_items']['Row'], 'id' | 'created_at'>
+        Insert: Omit<Database['public']['Tables']['menu_items']['Row'], 'id' | 'created_at' | 'variant_group_name'>
+          & { variant_group_name?: string | null }
         Update: Partial<Database['public']['Tables']['menu_items']['Insert']>
         Relationships: []
       }
@@ -92,8 +93,10 @@ export interface Database {
           sort_order: number
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['menu_item_variants']['Row'], 'id' | 'created_at'>
-        Update: Partial<Database['public']['Tables']['menu_item_variants']['Insert']>
+        // Insert viet TUONG MINH (khong dung Omit<Row>) de khop admin-web: id/is_available/
+        // sort_order deu co DEFAULT trong DB nen phai la optional.
+        Insert: { menu_item_id: string; store_id: string; name: string; price: number; is_available?: boolean; sort_order?: number; id?: string }
+        Update: Partial<Database['public']['Tables']['menu_item_variants']['Row']>
         Relationships: []
       }
       toppings: {
@@ -160,7 +163,8 @@ export interface Database {
           variant_id: string | null
           variant_name: string | null
         }
-        Insert: Omit<Database['public']['Tables']['order_items']['Row'], 'id'>
+        Insert: Omit<Database['public']['Tables']['order_items']['Row'], 'id' | 'variant_id' | 'variant_name'>
+          & { variant_id?: string | null; variant_name?: string | null }
         Update: Partial<Database['public']['Tables']['order_items']['Insert']>
         Relationships: [
           {
