@@ -4,8 +4,8 @@ import { useAppStore } from "@/stores/app.store";
 import { useStoreMenu } from "@/services/category/category.queries";
 import { useCallStaff } from "@/services/order/order.mutations";
 import { CategoryWithProducts } from "@/types/category.types";
-import { Product } from "@/types/product.types";
-import ToppingSheet from "@/components/menu/topping-sheet";
+import { Product, Variant } from "@/types/product.types";
+import OptionSheet from "@/components/menu/option-sheet";
 import UnpaidOrderPrompt from "@/components/common/unpaid-order-prompt";
 import { SelectedVariant } from "@/types/cart.types";
 import { formatCurrency } from "@/utils/format";
@@ -153,7 +153,7 @@ export default function MenuPage() {
     );
   };
   const [activeCategoryId, setActiveCategoryId] = useState<string>("");
-  const [toppingProduct, setToppingProduct] = useState<Product | null>(null);
+  const [optionProduct, setOptionProduct] = useState<Product | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -184,8 +184,8 @@ export default function MenuPage() {
       });
       return;
     }
-    if (product.toppings.length > 0) {
-      setToppingProduct(product);
+    if (product.variants.length > 0 || product.toppings.length > 0) {
+      setOptionProduct(product);
       return;
     }
     const existing = cartItems.find((i) => i.id === product.id);
@@ -203,17 +203,19 @@ export default function MenuPage() {
     }
   };
 
-  const handleConfirmToppings = (variants: SelectedVariant[]) => {
-    if (!toppingProduct) return;
+  const handleConfirmOptions = (variant: Variant | null, toppings: SelectedVariant[]) => {
+    if (!optionProduct) return;
     addToCart({
-      productId: toppingProduct.id,
-      productName: toppingProduct.name,
-      productImage: toppingProduct.image ?? "",
-      basePrice: toppingProduct.price,
-      selectedVariants: variants,
+      productId: optionProduct.id,
+      productName: optionProduct.name,
+      productImage: optionProduct.image ?? "",
+      // Có biến thể → giá dòng giỏ là giá biến thể
+      basePrice: variant ? variant.price : optionProduct.price,
+      variant: variant ? { id: variant.id, name: variant.name, price: variant.price } : undefined,
+      selectedVariants: toppings,
       quantity: 1,
     });
-    setToppingProduct(null);
+    setOptionProduct(null);
   };
 
   const handleDecrease = (product: Product) => {
@@ -368,11 +370,11 @@ export default function MenuPage() {
         <div className="h-4" />
       </div>
 
-      <ToppingSheet
-        product={toppingProduct}
-        visible={toppingProduct !== null}
-        onClose={() => setToppingProduct(null)}
-        onConfirm={handleConfirmToppings}
+      <OptionSheet
+        product={optionProduct}
+        visible={optionProduct !== null}
+        onClose={() => setOptionProduct(null)}
+        onConfirm={handleConfirmOptions}
       />
 
       {/* Nhắc đơn chưa thanh toán khi khách mở lại app — tự ẩn nếu không có đơn nào */}
@@ -435,12 +437,19 @@ function MenuItemRow({
   onAdd: () => void;
   onDecrease: () => void;
 }) {
-  const hasToppings = product.toppings.length > 0;
+  const hasVariants = product.variants.length > 0;
+  // Món có nhóm biến thể nhưng tắt bán hết mọi lựa chọn → coi như tạm hết.
+  // Dùng hasVariantGroup (đếm thô) chứ KHÔNG dùng variantGroupName: món có biến
+  // thể mà admin chưa đặt tên nhóm vẫn phải bị coi là món có biến thể.
+  const soldOutByVariants = product.hasVariantGroup && !hasVariants;
+  const available = product.isAvailable && !soldOutByVariants;
+  // Có tuỳ chọn → không cho bấm +/- ngay trên card, phải mở sheet
+  const hasOptions = hasVariants || product.toppings.length > 0;
   return (
     <div
       className={cn(
         "flex gap-3 px-4 py-3 transition-opacity",
-        !product.isAvailable && "opacity-50",
+        !available && "opacity-50",
       )}
     >
       {/* Ảnh */}
@@ -457,7 +466,7 @@ function MenuItemRow({
             🍽️
           </div>
         )}
-        {!product.isAvailable && (
+        {!available && (
           <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40">
             <span className="rounded-full bg-white/90 px-2 py-0.5 text-xxxsmall font-medium text-text-primary">
               Tạm hết
@@ -479,12 +488,12 @@ function MenuItemRow({
 
         <div className="flex items-center justify-between">
           <span className="font-semibold text-primary">
-            {formatCurrency(product.price)}đ
+            {hasVariants ? "Từ " : ""}{formatCurrency(product.price)}đ
           </span>
 
-          {product.isAvailable && canOrder && (
+          {available && canOrder && (
             <div className="flex items-center gap-2">
-              {!hasToppings && count > 0 && (
+              {!hasOptions && count > 0 && (
                 <>
                   <button
                     onClick={onDecrease}
@@ -498,7 +507,7 @@ function MenuItemRow({
                   </span>
                 </>
               )}
-              {hasToppings && count > 0 && (
+              {hasOptions && count > 0 && (
                 <span className="min-w-[20px] text-center text-small-m font-bold text-primary">
                   {count}
                 </span>
