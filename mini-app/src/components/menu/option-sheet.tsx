@@ -133,14 +133,17 @@ export default function OptionSheet({ product, visible, onClose, onConfirm }: Op
         </div>
 
         <div className="border-t border-neutral100 p-4">
+          {/* Nhãn lúc khoá KHÔNG ghép tên nhóm: tên nhóm là chữ chủ quán tự gõ
+              ("Chọn cỡ", "Size (bắt buộc)"...) nên ghép vào giữa câu là hỏng.
+              Tên nhóm đã hiện nguyên văn ở tiêu đề mục ngay phía trên. */}
           <button onClick={handleConfirm} disabled={!canConfirm}
             className={cn(
-              "w-full rounded-xl py-3 text-normal-sb font-semibold text-white transition-opacity",
-              canConfirm ? "bg-primary" : "bg-neutral300",
+              "w-full rounded-xl px-4 py-3 text-normal-sb font-semibold transition-opacity active:opacity-80",
+              canConfirm ? "bg-primary text-white" : "bg-neutral100 text-text-primary",
             )}>
             {canConfirm
               ? `Thêm vào giỏ — ${formatCurrency(unitPrice)}đ`
-              : `Chọn ${(product.variantGroupName ?? "loại").toLowerCase()} để tiếp tục`}
+              : "Vui lòng chọn để tiếp tục"}
           </button>
         </div>
       </div>

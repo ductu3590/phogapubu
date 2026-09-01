@@ -488,7 +488,9 @@ function MenuItemRow({
 
         <div className="flex items-center justify-between">
           <span className="font-semibold text-primary">
-            {hasVariants ? "Từ " : ""}{formatCurrency(product.price)}đ
+            {/* Tắt hết biến thể vẫn giữ "Từ ": trigger mig 042 để nguyên giá biến
+                thể cuối, hiện phẳng "200.000đ" sẽ bị đọc thành giá của cả món */}
+            {(hasVariants || soldOutByVariants) ? "Từ " : ""}{formatCurrency(product.price)}đ
           </span>
 
           {available && canOrder && (
