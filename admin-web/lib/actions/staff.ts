@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
+import { findAuthUserByEmail, listAllAuthUsers } from '@/lib/supabase/auth-users'
 import { revalidatePath } from 'next/cache'
 
 // Chủ quán tạo tài khoản nhân viên (role store_staff) cho ĐÚNG quán mình.
@@ -16,9 +17,7 @@ export async function createStoreStaff(formData: FormData): Promise<{ email: str
   const email = (formData.get('email') as string).trim().toLowerCase()
   if (!email) throw new Error('Thiếu email nhân viên')
 
-  const { data: existingList, error: listErr } = await admin.auth.admin.listUsers()
-  if (listErr) throw new Error(`createStoreStaff(list): ${listErr.message}`)
-  const existing = existingList.users.find((u) => u.email?.toLowerCase() === email)
+  const existing = await findAuthUserByEmail(admin, email)
 
   let userId: string
   let tempPassword: string | null = null
@@ -82,9 +81,8 @@ export async function listStoreStaff(): Promise<Array<{ userId: string; email: s
     .eq('role', 'store_staff')
   if (error) throw new Error(`listStoreStaff: ${error.message}`)
 
-  const { data: userList, error: listErr } = await admin.auth.admin.listUsers()
-  if (listErr) throw new Error(`listStoreStaff(users): ${listErr.message}`)
-  const emailById = new Map(userList.users.map((u) => [u.id, u.email ?? '(không rõ email)']))
+  const authUsers = await listAllAuthUsers(admin)
+  const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? '(không rõ email)']))
 
   return (ops ?? []).map((o) => ({
     userId: o.user_id as string,

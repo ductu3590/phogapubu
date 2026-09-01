@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
-  const requireOperator = vi.fn()
+  const requireSuperadmin = vi.fn()
   const revalidatePath = vi.fn()
   const updateArgs = { value: null as unknown }
   const eqCalls = { value: [] as Array<[string, unknown]> }
@@ -23,10 +23,10 @@ const mocks = vi.hoisted(() => {
     _updateArgs: updateArgs,
     _eqCalls: eqCalls,
   }
-  return { requireOperator, revalidatePath, admin }
+  return { requireSuperadmin, revalidatePath, admin }
 })
 
-vi.mock('@/lib/auth/operator', () => ({ requireOperator: mocks.requireOperator }))
+vi.mock('@/lib/auth/operator', () => ({ requireSuperadmin: mocks.requireSuperadmin }))
 vi.mock('@/lib/supabase/server', () => ({ createAdminClient: vi.fn(() => mocks.admin) }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
@@ -43,7 +43,7 @@ describe('updateStoreOaId', () => {
     vi.clearAllMocks()
     mocks.admin._updateArgs.value = null
     mocks.admin._eqCalls.value = []
-    mocks.requireOperator.mockResolvedValue({ userId: 'u1', role: 'mevo_superadmin', storeId: null })
+    mocks.requireSuperadmin.mockResolvedValue({ userId: 'u1', role: 'mevo_superadmin', storeId: null })
   })
 
   it('ghi zalo_oa_id đúng store', async () => {
@@ -60,7 +60,8 @@ describe('updateStoreOaId', () => {
   })
 
   it('chặn người không phải superadmin', async () => {
-    mocks.requireOperator.mockResolvedValue({ userId: 'u1', role: 'store_owner', storeId: 'store-1' })
+    // Guard nằm ở requireSuperadmin (lib/auth/operator) — nó throw thì action không được ghi gì.
+    mocks.requireSuperadmin.mockRejectedValue(new Error('Chỉ MEVO superadmin mới thao tác được ở đây'))
     await expect(updateStoreOaId('store-1', oaForm('123'))).rejects.toThrow('superadmin')
     expect(mocks.admin.from).not.toHaveBeenCalled()
   })

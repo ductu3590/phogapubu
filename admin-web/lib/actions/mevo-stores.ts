@@ -1,13 +1,9 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireOperator } from '@/lib/auth/operator'
+import { requireSuperadmin } from '@/lib/auth/operator'
+import { findAuthUserByEmail } from '@/lib/supabase/auth-users'
 import { revalidatePath } from 'next/cache'
-
-async function requireSuperadmin() {
-  const operator = await requireOperator()
-  if (operator.role !== 'mevo_superadmin') throw new Error('Chỉ MEVO superadmin mới thao tác được ở đây')
-}
 
 // Tạo quán mới: row `stores` + config rỗng `store_app_configs`.
 export async function createStore(formData: FormData) {
@@ -126,9 +122,7 @@ export async function assignStoreOwner(storeId: string, formData: FormData) {
   const email = (formData.get('email') as string).trim().toLowerCase()
   if (!email) throw new Error('Thiếu email')
 
-  const { data: existingList, error: listErr } = await admin.auth.admin.listUsers()
-  if (listErr) throw new Error(`assignStoreOwner(list): ${listErr.message}`)
-  const existing = existingList.users.find((u) => u.email?.toLowerCase() === email)
+  const existing = await findAuthUserByEmail(admin, email)
 
   let userId: string
   let tempPassword: string | null = null

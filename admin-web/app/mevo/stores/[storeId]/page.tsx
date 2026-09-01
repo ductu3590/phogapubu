@@ -1,5 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
+import { listAllAuthUsers } from '@/lib/supabase/auth-users'
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
 import {
   updateStoreBasicInfo, updateStoreColor, updateAppConfig, updateCheckoutConfig, updateZaloConfig,
 } from '@/lib/actions/mevo-stores'
@@ -16,7 +18,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
   const { data: appConfig } = await admin.from('store_app_configs').select('*').eq('store_id', storeId).maybeSingle()
   const { data: checkoutConfig } = await admin.from('store_checkout_configs').select('zalo_mini_app_id, is_enabled, updated_at').eq('store_id', storeId).maybeSingle()
   const { data: zaloConfig } = await admin.from('store_zalo_configs').select('is_enabled, updated_at').eq('store_id', storeId).maybeSingle()
-  const { data: operators } = await admin.from('mevo_operators').select('user_id').eq('store_id', storeId)
+  const { data: operators } = await admin.from('mevo_operators').select('user_id, role, is_active').eq('store_id', storeId)
+  // Ghép email để nhìn thấy AI đang giữ quyền quán này, thay vì chỉ đếm số dòng.
+  const authUsers = operators && operators.length > 0 ? await listAllAuthUsers(admin) : []
+  const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? '(không rõ email)']))
 
   const updateInfo = updateStoreBasicInfo.bind(null, storeId)
   const updateColor = updateStoreColor.bind(null, storeId)
@@ -83,8 +88,30 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
       </Section>
 
       <Section title="Tài khoản chủ quán">
+        {operators && operators.length > 0 ? (
+          <ul className="mb-3 space-y-1.5">
+            {operators.map((op) => (
+              <li key={op.user_id} className="flex flex-wrap items-center gap-2 text-sm">
+                <span className={op.is_active === false ? 'text-gray-400 line-through' : 'text-gray-800'}>
+                  {emailById.get(op.user_id) ?? '(không rõ email)'}
+                </span>
+                <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-600">
+                  {op.role === 'store_owner' ? 'Chủ quán' : op.role === 'store_staff' ? 'Nhân viên' : op.role}
+                </span>
+                {op.is_active === false && (
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">Đã khoá</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mb-3 text-sm text-gray-500">Chưa gán tài khoản nào</p>
+        )}
         <p className="mb-3 text-sm text-gray-500">
-          {operators && operators.length > 0 ? `${operators.length} tài khoản đã gán` : 'Chưa gán tài khoản nào'}
+          Quên mật khẩu?{' '}
+          <Link href="/mevo/accounts" className="text-orange-500 hover:underline">
+            Đặt lại ở trang Tài khoản →
+          </Link>
         </p>
         <AssignOwnerForm storeId={storeId} />
       </Section>

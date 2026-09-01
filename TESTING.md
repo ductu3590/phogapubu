@@ -740,6 +740,44 @@ select status, payment_received_at, payment_method from orders where id = '<orde
 
 ---
 
+## 2026-09-01 — Module quản lý tài khoản (`/mevo/accounts`)
+
+Đăng nhập bằng `admin@mevo.vn` (superadmin). Không có chức năng xoá tài khoản — đúng thiết kế.
+
+### Nhóm 1 — nhìn thấy đúng
+
+1. Vào `/mevo` → sidebar có mục **👤 Tài khoản** → bấm vào ra danh sách.
+2. Danh sách nhóm theo quán: mỗi quán một khối, trong khối là email + nhãn vai trò
+   (Chủ quán / Nhân viên), nhóm **MEVO (nội bộ)** nằm cuối cùng và có nhãn
+   *"tài khoản của anh"* ở dòng `admin@mevo.vn`.
+3. Quán chưa gán ai vẫn hiện khối, ghi "Chưa có tài khoản nào".
+4. Nhân viên đang bị tắt ở `/admin/staff` → hiện email gạch ngang + nhãn "Đã khoá".
+5. Vào `/mevo/stores/<quán>` → mục "Tài khoản chủ quán" hiện **email thật** (không còn
+   "2 tài khoản đã gán") và có link "Đặt lại ở trang Tài khoản →".
+
+### Nhóm 2 — đổi mật khẩu (việc chính)
+
+6. Bấm "Đổi mật khẩu" ở một chủ quán → bung form 2 ô ngay dòng đó.
+   Bấm "Đổi mật khẩu" ở dòng khác → form cũ đóng lại, chỉ 1 form mở tại một thời điểm.
+7. Gõ 2 ô **khác nhau** → báo "Hai ô mật khẩu không khớp nhau", **không** đổi gì.
+8. Gõ mật khẩu **7 ký tự** → báo "phải từ 8 ký tự trở lên".
+9. Gõ mật khẩu có **dấu cách ở cuối** (`matkhau123 `) → báo lỗi dấu cách.
+10. Gõ đúng 2 ô, ≥ 8 ký tự → hiện "Đã đổi mật khẩu cho `<email>`", form đóng lại.
+11. **Kiểm chứng thật:** mở cửa sổ ẩn danh → đăng nhập tài khoản chủ quán đó
+    → mật khẩu **mới** vào được, mật khẩu **cũ** báo sai.
+12. Đổi mật khẩu cho một **nhân viên** (role store_staff) → cũng vào được `/staff` bằng mật khẩu mới.
+
+### Nhóm 3 — không được hồi quy
+
+13. Đổi mật khẩu **chính `admin@mevo.vn`** → sau khi đổi, tab đang mở **vẫn dùng được**
+    (không bị đá ra `/login`); đăng nhập ở cửa sổ khác bằng mật khẩu mới cũng vào được.
+14. Đăng nhập bằng tài khoản **chủ quán** rồi gõ thẳng URL `/mevo/accounts`
+    → bị đá về `/admin`, KHÔNG thấy tài khoản quán khác.
+15. Gán chủ quán mới ở `/mevo/stores/<quán>` → vẫn tạo được tài khoản + hiện mật khẩu tạm 1 lần như cũ.
+16. Chủ quán vào `/admin/staff` → vẫn thêm/bật/tắt nhân viên bình thường, email hiện đúng.
+
+---
+
 ---
 
 *File này là bộ nhớ test của dự án MEVO.*

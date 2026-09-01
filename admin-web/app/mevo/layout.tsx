@@ -21,6 +21,9 @@ export default async function MevoLayout({ children }: { children: React.ReactNo
           <Link href="/mevo/stores" className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-600">
             🏪 Danh sách quán
           </Link>
+          <Link href="/mevo/accounts" className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-600">
+            👤 Tài khoản
+          </Link>
         </nav>
         <div className="border-t border-gray-100 px-3 py-4">
           <form action={signOut}>

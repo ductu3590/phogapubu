@@ -71,3 +71,10 @@ export async function requireStaffAreaOrRedirect(): Promise<
   if (operator.role === 'mevo_superadmin') redirect('/mevo')
   return operator
 }
+
+// Dùng trong action/page CHỈ dành cho /mevo — fail closed nếu không phải superadmin MEVO.
+export async function requireSuperadmin(): Promise<Extract<Operator, { role: 'mevo_superadmin' }>> {
+  const operator = await requireOperator()
+  if (operator.role !== 'mevo_superadmin') throw new Error('Chỉ MEVO superadmin mới thao tác được ở đây')
+  return operator
+}
