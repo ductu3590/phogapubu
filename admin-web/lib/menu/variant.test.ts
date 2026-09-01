@@ -13,7 +13,10 @@ describe('parseVariantInput', () => {
   })
 
   it('từ chối giá không phải số', () => {
-    expect(parseVariantInput('Đĩa to', 'tám mươi nghìn')).toEqual({ ok: false, error: 'Giá phải là số ≥ 0' })
+    expect(parseVariantInput('Đĩa to', 'tám mươi nghìn')).toEqual({
+      ok: false,
+      error: 'Giá chỉ gồm chữ số, ví dụ 80000 hoặc 80.000',
+    })
   })
 
   it('từ chối giá âm', () => {
@@ -27,35 +30,65 @@ describe('parseVariantInput', () => {
   // --- Các ca bổ sung: người thao tác gõ giá bằng ngón tay trên điện thoại ---
 
   it('từ chối giá rỗng — Number("") là 0, không được coi là hợp lệ', () => {
-    expect(parseVariantInput('Đĩa to', '')).toEqual({ ok: false, error: 'Giá phải là số ≥ 0' })
+    expect(parseVariantInput('Đĩa to', '')).toEqual({
+      ok: false,
+      error: 'Giá chỉ gồm chữ số, ví dụ 80000 hoặc 80.000',
+    })
   })
 
   it('từ chối giá chỉ có khoảng trắng', () => {
-    expect(parseVariantInput('Đĩa to', '   ')).toEqual({ ok: false, error: 'Giá phải là số ≥ 0' })
+    expect(parseVariantInput('Đĩa to', '   ')).toEqual({
+      ok: false,
+      error: 'Giá chỉ gồm chữ số, ví dụ 80000 hoặc 80.000',
+    })
   })
 
-  it('từ chối giá có dấu chấm phân cách nghìn kiểu VN ("80.000") — Number hiểu nhầm là số thập phân', () => {
-    expect(parseVariantInput('Đĩa to', '80.000')).toEqual({ ok: false, error: 'Giá phải là số ≥ 0' })
+  it('nhận giá gõ kiểu Việt Nam có dấu chấm ngăn nghìn', () => {
+    // Chủ quán chép từ tờ menu giấy in "80.000đ" — đây là cách gõ MẶC ĐỊNH,
+    // không phải ca hiếm. Number('80.000') ra 80, mất 1000 lần.
+    expect(parseVariantInput('Đĩa to', '80.000')).toEqual({ ok: true, name: 'Đĩa to', price: 80000 })
   })
 
-  it('từ chối giá có khoảng trắng ngăn cách ("80 000")', () => {
-    expect(parseVariantInput('Đĩa to', '80 000')).toEqual({ ok: false, error: 'Giá phải là số ≥ 0' })
+  it('nhận dấu phẩy và khoảng trắng làm dấu ngăn nghìn', () => {
+    expect(parseVariantInput('A', '80,000')).toEqual({ ok: true, name: 'A', price: 80000 })
+    expect(parseVariantInput('A', '80 000')).toEqual({ ok: true, name: 'A', price: 80000 })
   })
 
-  it('từ chối giá thập phân ("80000.5") — VNĐ không có phần lẻ, chỉ nhận số nguyên', () => {
-    expect(parseVariantInput('Đĩa to', '80000.5')).toEqual({ ok: false, error: 'Giá phải là số ≥ 0' })
+  it('nhận giá triệu có hai dấu ngăn nghìn', () => {
+    expect(parseVariantInput('A', '1.200.000')).toEqual({ ok: true, name: 'A', price: 1200000 })
+  })
+
+  it('vẫn từ chối chữ lẫn trong số', () => {
+    expect(parseVariantInput('A', '80k').ok).toBe(false)
+    expect(parseVariantInput('A', '8o.000').ok).toBe(false)
+  })
+
+  it('giá thập phân bị hiểu thành số nguyên sau khi bỏ dấu ngăn nghìn (đánh đổi có chủ đích)', () => {
+    // '80000.5' → dấu chấm bị coi là dấu ngăn nghìn nên ra 800005, không phải làm
+    // tròn 80000.5 → 80001. Chấp nhận được vì VNĐ không có phần lẻ, không ai gõ giá
+    // món ăn kiểu thập phân vào ô này.
+    expect(parseVariantInput('Đĩa to', '80000.5')).toEqual({ ok: true, name: 'Đĩa to', price: 800005 })
   })
 
   it('từ chối ký hiệu khoa học ("1e5") — không phải cách người dùng gõ giá tiền', () => {
-    expect(parseVariantInput('Đĩa to', '1e5')).toEqual({ ok: false, error: 'Giá phải là số ≥ 0' })
+    expect(parseVariantInput('Đĩa to', '1e5')).toEqual({
+      ok: false,
+      error: 'Giá chỉ gồm chữ số, ví dụ 80000 hoặc 80.000',
+    })
   })
 
   it('từ chối Infinity', () => {
-    expect(parseVariantInput('Đĩa to', 'Infinity')).toEqual({ ok: false, error: 'Giá phải là số ≥ 0' })
+    expect(parseVariantInput('Đĩa to', 'Infinity')).toEqual({
+      ok: false,
+      error: 'Giá chỉ gồm chữ số, ví dụ 80000 hoặc 80.000',
+    })
   })
 
   it('từ chối NaN', () => {
-    expect(parseVariantInput('Đĩa to', 'NaN')).toEqual({ ok: false, error: 'Giá phải là số ≥ 0' })
+    expect(parseVariantInput('Đĩa to', 'NaN')).toEqual({
+      ok: false,
+      error: 'Giá chỉ gồm chữ số, ví dụ 80000 hoặc 80.000',
+    })
   })
 
   it('từ chối số quá lớn — vượt ngưỡng hợp lý cho một món ăn', () => {

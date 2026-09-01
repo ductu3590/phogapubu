@@ -8,11 +8,8 @@ export type ParseResult =
 // Chặn số quá lớn để tránh gõ nhầm thừa số 0 hoặc input rác.
 const MAX_PRICE = 100_000_000
 
-// Chỉ nhận SỐ NGUYÊN (có thể có dấu trừ ở đầu để rơi vào nhánh "giá âm" báo lỗi
-// riêng thay vì gộp chung với "không phải số"). VNĐ không có phần lẻ nên không cần
-// nhận số thập phân — nhờ vậy tránh luôn được ca mơ hồ "80.000" (thập phân 80 hay
-// 80 nghìn theo cách viết phân cách nghìn kiểu VN?) và "80 000" (khoảng trắng phân cách).
-const NUMERIC_PATTERN = /^-?\d+$/
+// Sau khi bỏ dấu ngăn nghìn, phần còn lại phải là chuỗi số nguyên thuần tuý.
+const DIGITS_ONLY_PATTERN = /^\d+$/
 
 // Giá gõ tay từ tờ menu giấy → phải chặn cả chữ lẫn số âm.
 export function parseVariantInput(rawName: string, rawPrice: string): ParseResult {
@@ -20,16 +17,31 @@ export function parseVariantInput(rawName: string, rawPrice: string): ParseResul
   if (!name) return { ok: false, error: 'Nhập tên lựa chọn' }
 
   const trimmedPrice = rawPrice.trim()
-  // Number('') === 0 và Number('   ') === 0 → phải tự chặn trước, không thì giá rỗng
-  // âm thầm thành món miễn phí. Đồng thời chặn ký hiệu khoa học ("1e5"), dấu chấm/khoảng
-  // trắng phân cách nghìn kiểu VN ("80.000", "80 000") — Number() hiểu sai các chuỗi này.
-  if (!NUMERIC_PATTERN.test(trimmedPrice)) return { ok: false, error: 'Giá phải là số ≥ 0' }
+  // Bắt dấu trừ TRƯỚC khi bỏ dấu ngăn nghìn, để "-1" báo đúng lỗi "giá âm" thay vì
+  // lẫn vào nhánh "không phải số" ở dưới.
+  const isNegative = trimmedPrice.startsWith('-')
+  const body = isNegative ? trimmedPrice.slice(1) : trimmedPrice
 
-  const price = Number(trimmedPrice)
-  if (!Number.isFinite(price) || price < 0 || price > MAX_PRICE) {
+  // Người Việt chép giá từ tờ menu giấy in "80.000đ" luôn gõ kèm dấu ngăn nghìn —
+  // đây là cách gõ MẶC ĐỊNH, không phải ca hiếm. Dấu chấm, dấu phẩy, khoảng trắng
+  // bên trong chuỗi số ở Việt Nam chỉ có một nghĩa: ngăn nghìn. Bỏ hết trước khi
+  // validate, không thì Number('80.000') hiểu nhầm thành số thập phân 80, mất 1000
+  // lần mỗi lần gõ.
+  // Đánh đổi có chủ đích: "80000.5" cũng bị hiểu thành 800005 chứ không phải làm
+  // tròn 80000.5 → 80001. Chấp nhận được vì VNĐ không có phần lẻ, không ai gõ giá
+  // món ăn kiểu thập phân vào ô này — đừng tưởng đây là lỗi.
+  const digitsOnly = body.replace(/[.,\s]/g, '')
+
+  if (!DIGITS_ONLY_PATTERN.test(digitsOnly)) {
+    return { ok: false, error: 'Giá chỉ gồm chữ số, ví dụ 80000 hoặc 80.000' }
+  }
+  if (isNegative) return { ok: false, error: 'Giá phải là số ≥ 0' }
+
+  const price = Number(digitsOnly)
+  if (!Number.isFinite(price) || price > MAX_PRICE) {
     return { ok: false, error: 'Giá phải là số ≥ 0' }
   }
-  return { ok: true, name, price: Math.round(price) }
+  return { ok: true, name, price }
 }
 
 export function displayPriceLabel(price: number, hasVariants: boolean): string {
