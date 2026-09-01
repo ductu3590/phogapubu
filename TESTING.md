@@ -1113,6 +1113,76 @@ gộp đúng tổng · gộp bill đóng mâm settle đủ 3 đơn · đóng xon
 
 ---
 
+## 2026-09-01 — Tuỳ chọn quyết định giá cho món (mig 042 + 043)
+
+**Là gì:** một món có N lựa chọn loại trừ nhau, khách phải chọn đúng một, và **giá lựa chọn THAY
+giá món** (Bia hơi: Tháp 200k / Ca 40k / Cốc 15k · Đĩa to 80k / Đĩa nhỏ 50k). Khác topping —
+topping tích nhiều, tuỳ ý, CỘNG thêm tiền. Một món có thể có cả hai.
+
+⚠️ **Thứ tự bắt buộc:** server đã chặn rồi. Món nào có tuỳ chọn mà khách không chọn thì đơn bị từ
+chối. Nên **đừng thêm tuỳ chọn cho món của quán nào trước khi mini-app quán đó đã `zmp deploy`
+bản mới**. Nhớ merge `origin/main` vào worktree quán TRƯỚC rồi mới deploy.
+
+### Nhóm A — tầng CSDL (Claude chạy bằng SQL, anh Tú không phải làm)
+
+1. Món có tuỳ chọn + không gửi lựa chọn → đơn bị từ chối `Món "X" cần chọn loại, mời bạn chọn lại`
+2. Gửi lựa chọn của **món khác** → từ chối
+3. Gửi lựa chọn của **quán khác** → từ chối
+4. Gửi lựa chọn **đã tắt bán** → từ chối `Lựa chọn cho món "X" không còn, mời bạn chọn lại`
+5. Món **thường** mà lại gửi lựa chọn → từ chối `Món "X" vừa đổi tuỳ chọn, mời bạn chọn lại`
+6. Đặt đúng → giá dòng = giá lựa chọn, tên dòng = `Món (Lựa chọn)`, tổng tiền khớp
+7. Đặt kèm topping → tiền = giá lựa chọn + topping
+8. Ca 1–7 lặp lại qua đường **đặt hộ** (`staff_create_order`)
+9. Thêm/sửa/xoá/tắt lựa chọn → giá món tự về mức **rẻ nhất còn bán**
+10. **Tắt hết** lựa chọn → giá món giữ nguyên **và** đơn đặt món đó vẫn bị từ chối
+    (không được rơi về giá cũ mà bán)
+
+### Nhóm B — mini-app (anh Tú test, SAU khi `zmp deploy`)
+
+11. Món có tuỳ chọn hiện **"Từ …đ"**; bấm `+` **mở bảng chọn** chứ không thêm thẳng vào giỏ
+12. **Chưa chọn** → nút dưới cùng bị khoá, hiện "Vui lòng chọn để tiếp tục"
+13. Bảng chọn **không tự chọn sẵn** lựa chọn đầu tiên (cố ý — để khách nhìn giá rồi mới bấm,
+    tránh vô ý đặt tháp bia 200k)
+14. Món **tắt hết** lựa chọn → hiện "Tạm hết", không bấm được, và **tụt xuống cuối danh mục**
+15. Cùng món **hai cỡ khác nhau** → **hai dòng giỏ riêng**; cùng cỡ cùng topping → cộng dồn số lượng
+16. Thoát app, mở lại trong 6 tiếng → giỏ còn đúng lựa chọn đã chọn
+17. Trang thanh toán: dòng giỏ hiện tên lựa chọn dưới tên món
+18. Đặt đơn thật → **màn bếp, bill in, loa đọc đơn** đều ra `Bia hơi (Tháp)`
+19. Món vừa có tuỳ chọn vừa có topping → bảng chọn hiện **cả hai trong một bảng**, không bắt bấm hai lần
+
+### Nhóm C — admin (`/admin/menu`)
+
+20. Thêm / sửa / **tắt bán** / xoá lựa chọn; đổi thứ tự bằng nút ▲▼
+21. **Gõ giá kiểu Việt Nam:** nhập `80.000` → phải ra **80.000đ**, KHÔNG phải 80đ.
+    Thử cả `80 000`, `1.200.000`. Gõ `80k` hoặc bỏ trống → phải báo lỗi rõ ràng
+22. Món đã có lựa chọn → ô "Giá" của món chuyển **chỉ đọc**, kèm dòng giải thích "Từ …đ"
+23. **Quan trọng:** mở món giá 99.000 → thêm 3 lựa chọn 200k/40k/15k → **không đóng khung**,
+    nhìn ô Giá: phải tự đổi thành 15.000 (không được còn 99.000). Rồi bấm **Lưu** →
+    mở lại xem giá vẫn là 15.000, KHÔNG bị ghi đè ngược về 99.000
+24. Xoá lựa chọn **cuối cùng** → hiện cảnh báo giá món giữ ở mức hiện tại, phải kiểm tra lại
+25. Danh sách món hiện nhãn **"N lựa chọn"** bên cạnh nhãn topping
+
+### Nhóm D — đặt hộ (`/staff/order`)
+
+26. Nhân viên bấm món có tuỳ chọn → **bắt chọn** mới thêm được vào giỏ
+27. Món tắt hết lựa chọn → hiện **"Tạm hết"**, nút `+` không bấm được
+    (nếu bấm được là đơn sẽ chết cả giỏ)
+28. Dòng giỏ hiện `Bia hơi (Ca)` và đúng giá của cỡ đó
+
+### Nhóm E — KHÔNG ĐƯỢC HỒI QUY (test ở Phở Gà Pubu)
+
+29. Đặt một đơn món **thường có topping** → mọi thứ y như trước
+30. Ô tick topping giờ **có viền xám nhìn thấy được** (trước đây viền màu `#F7F7F8` trên nền
+    trắng nên coi như vô hình — đây là vá lỗi, không phải đổi thẩm mỹ). Anh không thích thì nói.
+31. Giỏ hàng cũ lưu trước khi cập nhật: bỏ "Phở gà + trứng" vào giỏ **trước** khi deploy, deploy
+    xong mở lại trong 6h rồi thêm đúng món đó lần nữa → phải **cộng dồn số lượng**,
+    KHÔNG được đẻ ra hai dòng trùng nhau
+32. Chủ quán A đăng nhập rồi thử gọi thẳng Supabase đọc `menu_item_variants` → **chỉ thấy quán
+    mình**, không thấy quán B
+
+
+---
+
 ---
 
 *File này là bộ nhớ test của dự án MEVO.*
