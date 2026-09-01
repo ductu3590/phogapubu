@@ -9,8 +9,9 @@
 // zalopay_trans_id GIỮ trong type (đối soát ví) nhưng KHÔNG còn là căn cứ tính tiền —
 // notify BANK không phải bằng chứng trả tiền (§1.1).
 //
-// PHẢI khớp với luật SQL trong supabase/migrations/030_multi_method_payment.sql mục 7
+// PHẢI khớp với luật SQL trong supabase/migrations/039_prepay_postpay_table_session.sql mục 9
 // (hàm get_daily_revenue) — lệch nhau là dashboard và trang Đơn hàng báo hai số khác nhau.
+// Luật cho_thu bên SQL đọc là: chưa thu + chưa chết + (có session_id HOẶC instrument <> wallet).
 
 export type MoneyFields = {
   payment_method: string
@@ -19,6 +20,7 @@ export type MoneyFields = {
   payment_received_at: string | null
   bank_handoff_at?: string | null
   payment_instrument?: string | null
+  session_id?: string | null
 }
 
 export function hasRealMoney(o: MoneyFields): boolean {
@@ -39,6 +41,10 @@ export function hasRealMoney(o: MoneyFields): boolean {
 export function isAwaitingPayment(o: MoneyFields): boolean {
   if (o.status === 'cancelled' || o.status === 'paid') return false
   if (o.payment_received_at !== null) return false
+  // Đơn thuộc PHIÊN BÀN (quán trả sau, mig 039): tiền thu tại quán khi khách ra về, bất kể
+  // create_order đã ghi payment_method là gì. Đặt trước để luật không phụ thuộc danh sách
+  // phương thức cứng — đó là chỗ luật cũ sẽ bỏ sót khi có thêm phương thức trả sau.
+  if (o.session_id) return true
   if (o.payment_method === 'cash' || o.payment_method === 'bank_transfer') return true
   if (o.payment_method === 'zalo_checkout' && o.payment_instrument !== 'wallet') return true
   return false

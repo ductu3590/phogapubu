@@ -3,14 +3,27 @@ import router from "./router";
 import { ReactQueryProvider } from "./lib/react-query-provider";
 import React, { useEffect } from "react";
 import { SnackbarProvider } from "zmp-ui";
-import { useAppStore, parseQRParams, PaymentMethod } from "./stores/app.store";
+import { useAppStore, parseQRParams, PaymentMethod, PaymentTiming } from "./stores/app.store";
 import { supabase } from "./services/supabase";
+import { sessionOrderService } from "./services/order/order.api";
+import { getOrCreateDeviceId } from "./services/device-id";
 import { getUserID } from "zmp-sdk";
 
 function AppInit() {
   const {
-    setStoreInfo, setTableInfo, setZaloUserId, setOrderMode,
+    setStoreInfo, setTableInfo, setZaloUserId, setOrderMode, setDeviceId, setSessionState,
   } = useAppStore();
+  const storeId = useAppStore((s) => s.storeId);
+  const tableId = useAppStore((s) => s.tableId);
+  const zaloUserId = useAppStore((s) => s.zaloUserId);
+  const deviceId = useAppStore((s) => s.deviceId);
+  const paymentTiming = useAppStore((s) => s.paymentTiming);
+
+  // Device id đọc ĐỒNG BỘ từ localStorage, không chờ mạng: nó là chân định danh dự phòng khi
+  // getUserID() fail (PB5). Hàm tự idempotent nên StrictMode chạy 2 lần không sinh 2 id.
+  useEffect(() => {
+    setDeviceId(getOrCreateDeviceId());
+  }, [setDeviceId]);
 
   useEffect(() => {
     getUserID()
@@ -26,7 +39,7 @@ function AppInit() {
 
     const storeQuery = supabase
       .from("stores")
-      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods, takeaway_banner_url, about_text, wifi_name, wifi_password, primary_color, is_accepting_orders, serving_hours, delivery_area_note, terms_of_use")
+      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods, payment_timing, takeaway_banner_url, about_text, wifi_name, wifi_password, primary_color, is_accepting_orders, serving_hours, delivery_area_note, terms_of_use")
       .eq("slug", storeSlug)
       .eq("is_active", true)
       .single();
@@ -68,6 +81,9 @@ function AppInit() {
             );
             return valid.length > 0 ? valid : ["zalo_checkout", "cash"];
           })(),
+          paymentTiming: (storeRes.data.payment_timing === "postpay"
+            ? "postpay"
+            : "prepay") as PaymentTiming,
           takeawayBannerUrl: storeRes.data.takeaway_banner_url ?? "",
           aboutText: storeRes.data.about_text ?? "",
           wifiName: storeRes.data.wifi_name ?? "",
@@ -88,6 +104,27 @@ function AppInit() {
       }
     });
   }, [setStoreInfo, setTableInfo, setOrderMode]);
+
+  // Trạng thái phiên bàn — effect RIÊNG, chạy sau khi store + bàn + hai chân định danh đã sẵn
+  // sàng. KHÔNG gộp vào effect load store phía trên: lúc đó zaloUserId thường còn rỗng
+  // (getUserID chạy song song, không ai chờ ai) nên sẽ hỏi phiên bằng danh tính thiếu.
+  useEffect(() => {
+    if (!storeId || !tableId) return;
+    if (paymentTiming !== "postpay") {
+      setSessionState({ mode: "prepay" });
+      return;
+    }
+    let aborted = false;
+    sessionOrderService
+      .getTableSessionState(tableId, zaloUserId || null, deviceId || null)
+      .then((st) => { if (!aborted) setSessionState(st); })
+      .catch(() => {
+        // Không hỏi được trạng thái (mạng lỗi) thì KHÔNG khoá bàn oan — cứ cho gọi món,
+        // create_order vẫn là chốt chặn thật và sẽ từ chối nếu đúng là máy khác.
+        if (!aborted) setSessionState(null);
+      });
+    return () => { aborted = true; };
+  }, [storeId, tableId, zaloUserId, deviceId, paymentTiming, setSessionState]);
 
   return null;
 }

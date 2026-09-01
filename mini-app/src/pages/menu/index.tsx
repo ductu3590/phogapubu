@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore } from "@/stores/app.store";
 import { useStoreMenu } from "@/services/category/category.queries";
+import { useCallStaff } from "@/services/order/order.mutations";
 import { CategoryWithProducts } from "@/types/category.types";
 import { Product } from "@/types/product.types";
 import ToppingSheet from "@/components/menu/topping-sheet";
@@ -22,6 +23,62 @@ function TakeawayBanner({ storeName }: { storeName: string }) {
       <span className="text-xs font-medium text-primary">
         Mang về / Ship · {storeName}
       </span>
+    </div>
+  );
+}
+
+// Bàn đang có khách KHÁC gọi món (quán trả sau). Vẫn cho xem menu, chỉ chặn thêm món.
+function TableLockedBanner({ openedAt, onCallStaff, calling }: {
+  openedAt: string;
+  onCallStaff: () => void;
+  calling: boolean;
+}) {
+  const gio = new Date(openedAt).toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return (
+    <div className="border-b border-[#F0C9C0] bg-[#FDEDE9] px-4 py-2.5">
+      <div className="flex items-start gap-2">
+        <span className="text-base leading-tight">🔒</span>
+        <div className="min-w-0">
+          <p className="text-small-m font-semibold text-[#C0341A]">
+            Bàn này đang có khách gọi món (từ {gio})
+          </p>
+          <p className="text-xxsmall text-[#9A4634]">
+            Nếu bạn vừa ngồi vào, nhờ nhân viên mở bàn giúp. Bạn vẫn xem được menu.
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={onCallStaff}
+        disabled={calling}
+        className="mt-2 w-full rounded-lg bg-white py-2 text-small-m font-semibold text-[#C0341A] active:opacity-70 disabled:opacity-50"
+      >
+        🔔 Gọi nhân viên
+      </button>
+    </div>
+  );
+}
+
+// Máy này đang giữ bàn — cho khách thấy cả bàn đang nợ bao nhiêu, khỏi bất ngờ lúc tính tiền.
+// Ở MÂM (nhiều bàn ghép, mig 040) thì hiện đủ tên các bàn để khách hiểu vì sao tổng lớn hơn
+// những gì mình gọi: đó là tiền của cả mâm.
+function SessionBar({ label, orderCount, total, isTray }: {
+  label: string;
+  orderCount: number;
+  total: number;
+  isTray: boolean;
+}) {
+  if (orderCount === 0) return null;
+  return (
+    <div className="flex items-center justify-between border-b border-[#E6DCCF] bg-[#FBF6EF] px-4 py-2.5">
+      <p className="min-w-0 flex-1 truncate text-small text-[#6B5B45]">
+        {isTray ? "🍲" : "🪑"} {label || "Bàn của bạn"} · {orderCount} lần gọi
+      </p>
+      <p className="ml-2 flex-shrink-0 text-small-m font-bold text-primary">
+        {formatCurrency(total)}đ
+      </p>
     </div>
   );
 }
@@ -67,11 +124,34 @@ function TakeawayBannerCard({ url }: { url: string }) {
 }
 
 export default function MenuPage() {
-  const { storeId, storeName, storeLogoUrl, tableNumber, orderMode, takeawayBannerUrl, isAcceptingOrders, servingHours } = useAppStore();
+  const { storeId, storeName, storeLogoUrl, tableId, tableNumber, orderMode, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState } = useAppStore();
   const { data: menu, isLoading, error } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
   const { openSnackbar } = useSnackbar();
   const storeOpen = isStoreOpen({ isAcceptingOrders, servingHours });
+  const { mutate: callStaff, isPending: isCallingStaff } = useCallStaff();
+
+  // Bàn đang bị khách khác giữ (quán trả sau). Không hỏi được trạng thái (sessionState null)
+  // thì KHÔNG khoá oan — create_order vẫn là chốt chặn thật.
+  const tableLocked =
+    sessionState?.mode === "postpay" && sessionState.state === "locked";
+  const sessionOwner =
+    sessionState?.mode === "postpay" && sessionState.state === "owner"
+      ? sessionState
+      : null;
+  const canOrder = storeOpen && !tableLocked;
+
+  const handleCallStaff = () => {
+    if (!storeId || !tableId) return;
+    callStaff(
+      { storeId, tableId, tableNumber, type: "help" },
+      {
+        onSuccess: () =>
+          openSnackbar({ text: "Đã gọi nhân viên! Vui lòng chờ.", type: "success" }),
+        onError: () => openSnackbar({ text: "Gọi thất bại, thử lại sau.", type: "error" }),
+      },
+    );
+  };
   const [activeCategoryId, setActiveCategoryId] = useState<string>("");
   const [toppingProduct, setToppingProduct] = useState<Product | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -88,6 +168,13 @@ export default function MenuPage() {
       .reduce((s, i) => s + i.quantity, 0);
 
   const handleAdd = (product: Product) => {
+    if (tableLocked) {
+      openSnackbar({
+        text: "Bàn này đang có khách khác gọi món. Nhờ nhân viên mở bàn giúp bạn.",
+        type: "warning",
+      });
+      return;
+    }
     if (!storeOpen) {
       openSnackbar({
         text: isAcceptingOrders
@@ -206,6 +293,25 @@ export default function MenuPage() {
         />
       )}
 
+      {/* Bàn đang có khách khác gọi món (quán trả sau) — chặn thêm món, vẫn xem được menu */}
+      {tableLocked && (
+        <TableLockedBanner
+          openedAt={sessionState.opened_at}
+          onCallStaff={handleCallStaff}
+          calling={isCallingStaff}
+        />
+      )}
+
+      {/* Máy này đang giữ bàn — hiện tổng cả bàn đang nợ */}
+      {sessionOwner && (
+        <SessionBar
+          label={sessionOwner.table_names || tableNumber}
+          orderCount={sessionOwner.order_count}
+          total={sessionOwner.total}
+          isTray={!!sessionOwner.is_open_ordering}
+        />
+      )}
+
       {/* Banner 4:1 trong takeaway mode */}
       {orderMode === "takeaway" && takeawayBannerUrl && (
         <TakeawayBannerCard url={takeawayBannerUrl} />
@@ -253,7 +359,7 @@ export default function MenuPage() {
           <CategorySection
             key={cat.id}
             category={cat}
-            canOrder={storeOpen}
+            canOrder={canOrder}
             getCount={getItemCount}
             onAdd={handleAdd}
             onDecrease={handleDecrease}

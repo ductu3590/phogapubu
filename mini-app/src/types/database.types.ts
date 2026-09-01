@@ -17,6 +17,10 @@ export interface Database {
           zalo_oa_id: string | null
           zalo_oa_url: string | null
           payment_methods: string[] | null
+          payment_timing: 'prepay' | 'postpay'
+          bank_bin: string | null
+          bank_account_number: string | null
+          bank_account_name: string | null
           takeaway_banner_url: string | null
           about_text: string | null
           wifi_name: string | null
@@ -101,11 +105,25 @@ export interface Database {
           capability_token: string | null
           bank_handoff_at: string | null
           payment_received_at: string | null
+          session_id: string | null
           created_at: string
           updated_at: string
         }
         Insert: Omit<Database['public']['Tables']['orders']['Row'], 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Database['public']['Tables']['orders']['Insert']>
+        Relationships: []
+      }
+      service_requests: {
+        Row: {
+          id: string
+          store_id: string
+          table_id: string
+          table_number: string
+          type: 'payment' | 'help'
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['service_requests']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['service_requests']['Insert']>
         Relationships: []
       }
       order_items: {
@@ -147,7 +165,7 @@ export interface Database {
       create_order: {
         Args: {
           p_store_id: string
-          p_table_id: string
+          p_table_id: string | null
           p_items: Json
           p_payment_method: string
           p_zalo_user_id?: string | null
@@ -157,6 +175,7 @@ export interface Database {
           p_customer_phone?: string | null
           p_delivery_address?: string | null
           p_voucher_code?: string | null
+          p_device_id?: string | null
         }
         Returns: Json
       }
@@ -189,6 +208,28 @@ export interface Database {
           created_at: string
           updated_at: string
         }[]
+      }
+      get_session_orders: {
+        Args: { p_zalo_user_id: string; p_table_id: string }
+        Returns: {
+          id: string
+          store_id: string
+          table_id: string
+          status: string
+          total_amount: number
+          payment_method: string
+          note: string | null
+          created_at: string
+          updated_at: string
+        }[]
+      }
+      get_table_session_state: {
+        Args: { p_table_id: string; p_zalo_user_id?: string | null; p_device_id?: string | null }
+        Returns: Json
+      }
+      get_table_session_bill: {
+        Args: { p_table_id: string; p_zalo_user_id?: string | null; p_device_id?: string | null }
+        Returns: Json
       }
       get_spin_state: {
         Args: { p_order_id: string }

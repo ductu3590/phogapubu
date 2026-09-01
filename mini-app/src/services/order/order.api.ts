@@ -1,5 +1,5 @@
 import { supabase } from "../supabase";
-import { CreateOrderRequest, Order, OrderState, OrderType, SessionOrder, TakeawayOrder, ServiceRequest } from "@/types/order.types";
+import { CreateOrderRequest, Order, OrderState, OrderType, SessionOrder, TakeawayOrder, ServiceRequest, TableSessionState, TableSessionBill } from "@/types/order.types";
 
 // Kết quả huỷ đơn từ RPC cancel_order (mig 038). 'blocked' = đơn CÒN NGUYÊN.
 export type CancelResult =
@@ -37,21 +37,14 @@ export const orderService = {
       p_customer_phone: req.customerPhone ?? null,
       p_delivery_address: req.deliveryAddress ?? null,
       p_voucher_code: req.voucherCode ?? null,
+      // Luôn thêm tham số mới ở CUỐI và để DEFAULT NULL phía SQL: Zalo cache bản publish cũ
+      // là chuyện đã xảy ra (mig 037), bản cũ không gửi tham số này vẫn phải chạy.
+      p_device_id: req.deviceId ?? null,
     });
 
     if (error || !data) throw error ?? new Error("Tạo đơn thất bại");
 
     return mapOrder(data as Record<string, unknown>);
-  },
-
-  abandonToCash: async (orderId: string, token: string): Promise<Order | null> => {
-    // capability_token bắt buộc — chỉ chủ đơn mới chuyển được sang tiền mặt
-    const { data, error } = await supabase.rpc("abandon_zalopay_to_cash", {
-      p_order_id: orderId,
-      p_token: token,
-    });
-    if (error) throw error;
-    return data ? mapOrder(data as Record<string, unknown>) : null;
   },
 
   cancelOrder: async (orderId: string, token: string): Promise<CancelResult> => {
@@ -184,6 +177,38 @@ function mapOrder(row: Record<string, unknown>): Order {
 }
 
 export const sessionOrderService = {
+  // Trạng thái phiên bàn (quán trả sau). Chỉ là LỚP HIỂN THỊ — chốt chặn thật ở create_order.
+  getTableSessionState: async (
+    tableId: string,
+    zaloUserId: string | null,
+    deviceId: string | null,
+  ): Promise<TableSessionState> => {
+    const { data, error } = await supabase.rpc("get_table_session_state", {
+      p_table_id: tableId,
+      p_zalo_user_id: zaloUserId,
+      p_device_id: deviceId,
+    });
+    if (error) throw error;
+    return data as unknown as TableSessionState;
+  },
+
+  // Bill của CẢ PHIÊN (mọi đơn cùng bàn trong phiên, gồm cả đơn nhân viên đặt hộ).
+  // Khác get_session_orders — hàm cũ chỉ lọc theo zalo_user_id nên khách chỉ có device id,
+  // hoặc khách vừa được chuyển quyền, sẽ thấy bill thiếu món.
+  getTableSessionBill: async (
+    tableId: string,
+    zaloUserId: string | null,
+    deviceId: string | null,
+  ): Promise<TableSessionBill> => {
+    const { data, error } = await supabase.rpc("get_table_session_bill", {
+      p_table_id: tableId,
+      p_zalo_user_id: zaloUserId,
+      p_device_id: deviceId,
+    });
+    if (error) throw error;
+    return data as unknown as TableSessionBill;
+  },
+
   getSessionOrders: async (
     zaloUserId: string,
     tableId: string,

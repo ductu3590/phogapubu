@@ -9,7 +9,8 @@ export default async function StaffOrderPage() {
   const storeId = operator.storeId
   const supabase = await createClient()
 
-  const [tablesRes, categoriesRes, toppingsRes] = await Promise.all([
+  const [storeRes, tablesRes, categoriesRes, toppingsRes] = await Promise.all([
+    supabase.from('stores').select('payment_timing').eq('id', storeId).single(),
     supabase.from('tables').select('id, table_number').eq('store_id', storeId).eq('is_active', true),
     supabase
       .from('menu_categories')
@@ -51,5 +52,7 @@ export default async function StaffOrderPage() {
     }))
     .filter((c) => c.items.length > 0)
 
-  return <StaffOrderClient tables={tables} categories={categories} />
+  const paymentTiming = (storeRes.data?.payment_timing as 'prepay' | 'postpay' | null) ?? 'prepay'
+
+  return <StaffOrderClient tables={tables} categories={categories} paymentTiming={paymentTiming} />
 }

@@ -22,7 +22,15 @@ const dong = (n: number) => `${n.toLocaleString('vi-VN')}đ`
 const lineUnit = (l: CartLine) => l.basePrice + l.toppings.reduce((s, t) => s + t.price, 0)
 const lineTotal = (l: CartLine) => lineUnit(l) * l.quantity
 
-export default function StaffOrderClient({ tables, categories }: { tables: Table[]; categories: Category[] }) {
+export default function StaffOrderClient({
+  tables,
+  categories,
+  paymentTiming,
+}: {
+  tables: Table[]
+  categories: Category[]
+  paymentTiming: 'prepay' | 'postpay'
+}) {
   const [tableId, setTableId] = useState<string | null>(tables.length === 1 ? tables[0].id : null)
   const [cart, setCart] = useState<CartLine[]>([])
   const [activeCat, setActiveCat] = useState<string>(categories[0]?.id ?? '')
@@ -130,7 +138,11 @@ export default function StaffOrderClient({ tables, categories }: { tables: Table
           <p className="flex justify-between"><span className="text-gray-500">Mã đơn</span><span className="font-mono text-gray-900">#{success.orderId.slice(0, 8)}</span></p>
           <p className="flex justify-between border-t border-gray-100 pt-2"><span className="text-gray-500">Tổng</span><span className="text-lg font-bold text-orange-600">{dong(success.total)}</span></p>
         </div>
-        <p className="mt-4 text-sm text-gray-500">💵 Khách thanh toán tại quầy sau khi ăn.</p>
+        <p className="mt-4 text-sm text-gray-500">
+        {paymentTiming === 'postpay'
+          ? `Đã thêm vào ${success.tableNumber} — thu tiền khi khách ra về.`
+          : '💵 Khách thanh toán tại quầy sau khi ăn.'}
+      </p>
         <button onClick={newOrder} className="mt-6 w-full max-w-xs rounded-xl bg-orange-500 py-3.5 text-base font-semibold text-white hover:bg-orange-600">
           Đơn mới
         </button>

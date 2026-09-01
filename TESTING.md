@@ -738,6 +738,329 @@ select status, payment_received_at, payment_method from orders where id = '<orde
     không banner, không khoá giỏ.
 16. Quán tạm nghỉ / ngoài giờ → vẫn chặn đặt đơn như cũ.
 
+
+---
+
+## 2026-08-31 — Trả trước / Trả sau + Phiên bàn (Sprint 1, mig 039)
+
+> Spec: `docs/superpowers/specs/2026-08-20-prepay-postpay-table-session-design.md`
+> Review đã xử lý: `docs/superpowers/reviews/2026-08-26-postpay-table-session-print-design-review.md`
+
+### Chuẩn bị trước khi test
+
+1. **Migration 039 đã áp lên prod rồi** (2026-08-31) — không cần chạy gì thêm.
+2. **Mini-app phải deploy lại** thì nhóm B mới test được:
+   ```bash
+   cd mini-app-instances/pho-ga-pubu && git fetch origin && git merge origin/main
+   ```
+   **Merge TRƯỚC rồi mới `zmp deploy`** — quên bước merge là deploy ra bản code cũ, mất một
+   vòng test. Sau khi merge: `cd mini-app && zmp deploy` (chọn **Development** để tự test,
+   **Testing** khi muốn phát hành — Zalo giới hạn số lần deploy/tháng).
+3. **Chưa có quán trả sau thật** (Bảo Lương onboard ở Sprint 3). Để test nhóm B: vào
+   `/admin/settings` → **Cách vận hành quán** → chọn **Trả sau** → Lưu. Test xong nhớ
+   **đổi lại Trả trước**.
+
+---
+
+### Nhóm A — Quán TRẢ TRƯỚC (hành vi Pubu, không được đổi)
+
+**A1.** Quán prepay, khách quét QR chọn ZaloPay, trả xong → đơn vào bếp (cột "Chờ xử lý"),
+loa đọc đơn. ✅ *phải giống hệt hôm nay*
+
+**A2.** Quán prepay, khách quét QR, tạo đơn rồi **không** trả tiền → đơn **không** vào bếp;
+mở `/admin/orders` (lazy sweep) sau 30' → đơn thành `cancelled`.
+
+**A3.** ⭐ **Bài đóng lỗ hổng PB3.** Giả lập mini-app bản cũ gọi thẳng RPC với tiền mặt:
+```sql
+select create_order(
+  (select id from stores where slug='pho-ga-pubu'),
+  (select id from tables where store_id=(select id from stores where slug='pho-ga-pubu') limit 1),
+  jsonb_build_array(jsonb_build_object('menu_item_id',
+    (select id from menu_items where store_id=(select id from stores where slug='pho-ga-pubu') and is_available limit 1),
+    'quantity', 1)),
+  'cash', 'TEST_UID');
+```
+→ phải báo lỗi **"Quán yêu cầu thanh toán trước khi bếp làm."**
+
+**A3b.** ⭐ **Cửa hậu `abandon_zalopay_to_cash`** (rủi ro #9). Tạo đơn ZaloPay thật ở quán
+prepay, lấy `capability_token`, rồi:
+```sql
+select abandon_zalopay_to_cash('<order_id>', '<capability_token>');
+```
+→ phải báo lỗi **"Quán yêu cầu thanh toán trước khi bếp làm."** Và kể cả nếu lọt thì đơn `cash`
+ở quán prepay vẫn **không** vào bếp.
+
+**A4.** Nhân viên `/staff/order` đặt hộ ở quán prepay → đơn vào bếp **ngay** (không đổi so với
+hôm nay). Màn thành công vẫn hiện *"💵 Khách thanh toán tại quầy sau khi ăn."*
+*(Phần VietQR + nút "Đã nhận tiền" của spec §6.3 đã HOÃN sang sprint thanh toán riêng — quyết
+định của anh Tú 2026-08-31.)*
+
+---
+
+### Nhóm B — Quán TRẢ SAU, phiên bàn
+
+*(nhớ bật "Trả sau" ở `/admin/settings` trước)*
+
+**B5.** Máy A quét QR bàn 1 → gọi món → **đơn vào bếp NGAY dù chưa trả tiền**. Nút bấm ở giỏ
+hàng ghi **"Gọi món"** (không phải "Đặt món & Thanh toán"), **không** mở màn thanh toán Zalo,
+đặt xong nhảy thẳng sang trang trạng thái đơn.
+
+**B6.** Máy A gọi thêm lần 2 → vào **cùng phiên**, không bị chặn. Đầu trang menu hiện thanh
+`🪑 Bàn 1 · N lần gọi · <tổng>đ`.
+
+**B7.** Máy B (điện thoại khác) quét QR **cùng bàn 1** → thấy banner đỏ *"Bàn này đang có khách
+gọi món (từ HH:mm)"*, **không thấy nút +** ở món nào, có nút **🔔 Gọi nhân viên**.
+
+**B8.** ⭐ **Chốt chặn server.** Máy B gọi thẳng RPC bỏ qua UI:
+```sql
+select create_order('<store_id>','<table_id>', '<items>'::jsonb, 'cash', 'UID_KHAC',
+                    null,'dine_in',null,null,null,null,'DEVICE_KHAC');
+```
+→ **"Bàn này đang có khách khác gọi món. Nhờ nhân viên mở bàn giúp bạn."**
+
+**B9.** Nhân viên vào `/staff` → tab **🪑 Bàn** → thấy bàn 1 với đủ danh sách đơn → bấm
+**"Thu tiền & đóng bàn"** → chọn **Tiền mặt** → bàn biến mất khỏi danh sách. Kiểm DB:
+```sql
+select payment_received_at is not null, payment_received_via, payment_received_by, payment_instrument
+from orders where session_id = '<session_id>';
+-- via phải là 'staff', by phải là user id của NHÂN VIÊN vừa bấm
+select status, close_reason from table_sessions where id = '<session_id>';  -- closed / paid
+```
+
+**B10.** Máy B quét lại bàn 1 → giờ đặt được (phiên mới mở).
+
+**B11.** ⭐ **Hai chân định danh (PB5).** Máy A **xoá app** (mất `mevo_device_id`) rồi mở lại
+bằng **cùng tài khoản Zalo** → vẫn là chủ phiên, gọi thêm được.
+*(Test nhanh: xoá key `mevo_device_id` trong localStorage.)*
+
+**B12.** ⭐ **Race.** Hai máy bấm "Gọi món" **cùng lúc** trên bàn đang trống → đúng **một** phiên
+ra đời, máy kia bị chặn. Kiểm:
+```sql
+select count(*) from table_sessions where table_id='<table_id>' and status='open';  -- = 1
+```
+
+**B13.** Nhân viên `/staff/tables` → `⋯` → **"Chuyển quyền gọi món"** → máy B quét QR → thành chủ
+phiên, gọi thêm được, và **thấy đủ bill cũ của máy A** ở tab Đơn hàng.
+
+**B14.** Nhân viên → `⋯` → **"Bỏ bàn (không thu tiền)"** → xác nhận → đơn chưa nấu bị huỷ; nếu
+còn đơn đang `cooking`/`ready` thì hiện dòng *"Còn N món đã vào bếp — vẫn nằm ở màn bếp, xử lý
+tay"* và những đơn đó **giữ nguyên** ở màn bếp.
+
+**B15.** ⭐ **Ân hạn giờ phục vụ (PB6).** Đặt giờ phục vụ kết thúc cách đây vài phút
+(`/admin/settings`), phiên đã mở trước đó < 2 giờ → khách **vẫn gọi thêm được**. Sửa
+`opened_at` lùi hơn 2 giờ → bị chặn *"Quán đang tạm nghỉ hoặc ngoài giờ phục vụ"*.
+```sql
+update table_sessions set opened_at = now() - interval '3 hours' where id='<session_id>';
+```
+
+**B16.** **Hết hạn 6h.** Lùi `last_activity_at`:
+```sql
+update table_sessions set last_activity_at = now() - interval '7 hours' where id='<session_id>';
+```
+→ lần đọc kế tiếp (mở mini-app hoặc mở `/staff/tables`) phiên **tự đóng**, bàn mở khoá.
+
+**B16b.** ⭐ **Phiên hết hạn còn nợ** (review P2-1). Làm như B16 nhưng phiên **còn đơn chưa thu
+tiền** → `/staff/tables` vẫn hiện bàn đó, **viền cam**, kèm dòng *"Phiên đã quá 6 giờ… vẫn còn
+X đ chưa thu"*, và **vẫn bấm "Thu tiền & đóng bàn" được**.
+
+---
+
+### Nhóm C — Không được phá cái đang chạy
+
+**C17.** ⭐ *(viết lại so với spec — xem bên dưới)* Sau migrate, kiểm:
+```sql
+select slug, payment_timing, payment_methods from stores;
+```
+→ Pubu = **`prepay`** (KHÔNG phải `postpay` như spec §5.1 dự đoán: câu backfill chỉ đổi quán
+đang bật `cash`, mà hôm nay **không quán nào bật cash** — cả hai quán đều `{zalo_checkout}`).
+Đây là kết quả **đúng**: đơn Pubu là `zalo_checkout` và đã có `payment_received_at` do callback
+ví ghi, nên vẫn vào bếp như cũ.
+→ Mở màn bếp: đơn ZaloPay đã trả tiền **vẫn ở cột "Chờ xử lý"**, loa vẫn đọc.
+→ **Lưu ý:** 3 đơn `cash` + `pending` cũ từ tháng 6–7 sẽ **rơi khỏi màn bếp**. Đó là rác test,
+rơi ra là đúng ý đồ, không phải lỗi.
+
+**C18.** Đơn mang về / ship: không đổi gì ở **cả hai** chế độ — vẫn buộc trả trước qua Zalo
+Checkout (kể cả khi quán bật trả sau).
+
+**C19.** Luồng "Thanh toán lại khi thoát màn chọn phương thức" (2026-08-06) ở quán prepay:
+chạy lại toàn bộ nhóm 1–3 của mục 2026-08-06 → không đổi.
+
+**C20.** Vòng quay may mắn: chỉ đơn có `payment_received_at` mới quay được → đơn trả sau quay
+được **sau khi** nhân viên chốt bill.
+
+**C21.** Doanh thu: `/admin/dashboard` và `/admin/orders` báo **cùng một số**. Đơn trả sau chưa
+thu nằm ở "chờ thu"; chốt bill xong nhảy sang doanh thu.
+
+---
+
+### Nhóm D — Bổ sung theo review 2026-08-26
+
+**D22.** ⭐ **Nút chuông thật sự kêu.** Mở màn bếp `/kitchen/<slug>` ở một máy, mini-app ở máy
+khác → bấm **"Gọi thanh toán"** (tab Đơn hàng) → màn bếp **phải kêu chuông + hiện thẻ gọi**.
+*(Trước mig 039 bảng `service_requests` không nằm trong publication realtime nên nút này chưa
+bao giờ tới được màn bếp — đây là bài test vá bug đó.)*
+
+**D23.** **Bill theo phiên, không theo Zalo UID** (P1-1). Nhân viên đặt hộ 1 đơn cho bàn 1 →
+khách quét QR bàn 1 → tab **Đơn hàng** của khách **phải thấy đơn nhân viên vừa đặt** và tổng
+tiền khớp với số ở màn `/staff/tables`.
+
+**D24.** **Khách không có Zalo UID.** Mở mini-app ngoài Zalo (trình duyệt thường, `getUserID`
+fail) → vẫn gọi món được, vẫn xem được tab Đơn hàng bằng device id.
+
+**D25.** **Client cũ không gửi `p_device_id`** (P1-2). Gọi RPC thiếu tham số cuối:
+```sql
+select create_order('<store_id>','<table_id>','<items>'::jsonb,'cash','UID_CU');
+```
+→ chạy bình thường, **không** lỗi *"could not choose the best candidate function"*.
+
+**D26.** **Đơn đã huỷ không bị tính tiền** (P1-4). Phiên có 2 đơn, huỷ 1 → chốt bill → đơn đã
+huỷ **vẫn** `cancelled`, `payment_received_at` vẫn NULL, tổng thu chỉ tính đơn còn lại.
+
+**D27.** **Đóng bill đúng lúc khách gọi thêm** (P0-3). Mở 2 cửa sổ: một bên bấm "Thu tiền &
+đóng bàn", một bên khách bấm "Gọi món" gần như cùng lúc → **không** được có đơn nào lọt vào
+phiên đã đóng mà chưa thu tiền. Kiểm:
+```sql
+select count(*) from orders o join table_sessions s on s.id=o.session_id
+ where s.close_reason='paid' and o.payment_received_at is null and o.status<>'cancelled';
+-- phải = 0
+```
+
+**D28.** **Nhân viên quán khác không đóng được bill.** Đăng nhập tài khoản quán B, gọi
+`close_table_session` với `session_id` của quán A → **"Không có quyền"**.
+
+**D29.** **Khách bị khoá không đọc được thông tin phiên.** Máy B (đang bị khoá) gọi:
+```sql
+select get_table_session_state('<table_id>','UID_B','DEV_B');
+```
+→ chỉ trả `{mode, state:'locked', opened_at}` — **không** có `session_id`, **không** có Zalo UID
+hay device id của chủ phiên.
+
+**D30.** **Realtime nối lại.** Ở `/staff/tables`, tắt wifi vài giây rồi bật lại → chấm xanh
+"Đang cập nhật trực tiếp" quay lại, danh sách **tự tải lại đúng**, không nhân đôi bàn/đơn.
+
+---
+
+### Đã HOÃN, không test ở Sprint 1
+
+| Thứ | Vì sao |
+|---|---|
+| VietQR + "Khách chuyển khoản" ở `/staff/order` | Anh Tú quyết 2026-08-31: build phần thanh toán **riêng cho từng quán** ở sprint sau |
+| RPC `staff_confirm_payment` | Chỉ phục vụ luồng thanh toán quán prepay ở trên; postpay settle qua `close_table_session` |
+| Lớp **Mâm** (ghép bàn, gộp bill, in bill 80mm) | Sprint 2 |
+| Khách tự thanh toán cả phiên qua Zalo Checkout | Spec §11 — cố tình hoãn, không mở lại vùng MAC/notify |
+
+
+---
+
+## 2026-08-31 — Lớp Mâm cho khách đoàn (Sprint 2, mig 040)
+
+> Spec: `docs/superpowers/specs/2026-08-30-bao-luong-tray-group-design.md` §3–§4
+> **Mâm = một phiên chiếm N bàn = một bill con.** Bàn lẻ = phiên chiếm đúng 1 bàn (khoá chủ
+> phiên như Sprint 1). Một cơ chế, hai cách dùng.
+
+### Chuẩn bị
+
+**Quán Bia lẩu Bảo Lương đã được tạo sẵn trên prod** (2026-08-31): 20 bàn, `payment_timing =
+postpay`, `payment_methods = {cash}`, chưa có menu, chưa có Zalo App ID.
+
+Ba việc **chỉ anh Tú làm được** trước khi test:
+
+1. **Tạo tài khoản nhân viên/chủ quán cho Bảo Lương** — vào `/mevo/stores/<id>` → mục chủ quán →
+   nhập email → hệ thống tự sinh mật khẩu tạm. Không có tài khoản này thì **không vào được
+   `/staff`** (superadmin bị đẩy về `/mevo`, đó là thiết kế).
+2. **Nhập menu + giá** ở `/admin/menu` (đăng nhập bằng tài khoản vừa tạo). Chưa có món thì
+   không đặt thử được.
+3. **Đăng ký Zalo Mini App** để lấy App ID — nằm trên đường găng, lần trước Zalo duyệt khá lâu.
+   Chỉ cần cho phần khách quét QR; toàn bộ nhóm E/F dưới đây test được **không cần** App ID
+   (dùng màn `/staff` + `/kitchen` + gọi RPC).
+
+---
+
+### Nhóm E — Ghép mâm và gọi món trong mâm
+
+**E1.** `/staff` → tab **🪑 Bàn** → **＋ Ghép mâm** → chọn Bàn 5, 6, 7 → **Ghép 3 bàn thành mâm**
+→ danh sách hiện một dòng `🍲 Bàn 5, Bàn 6, Bàn 7` kèm nhãn *mâm 3 bàn*.
+
+**E2.** Bấm **＋ Ghép mâm** lần nữa → **Bàn 5, 6, 7 không còn trong danh sách bàn trống**.
+
+**E3.** ⭐ **Mâm không khoá ai.** Máy A quét QR **Bàn 5**, máy B quét QR **Bàn 7** → **cả hai đều
+gọi món được**, không máy nào thấy banner khoá. Kiểm hai đơn rơi vào **cùng một** `session_id`:
+```sql
+select session_id, count(*) from orders where session_id is not null group by 1;
+```
+
+**E4.** Cả hai máy vào tab **Đơn hàng** → **thấy đủ món của nhau** và tổng bằng nhau, thanh đầu
+trang menu hiện `🍲 Bàn 5, Bàn 6, Bàn 7`.
+
+**E5.** `⋯` → **Thêm bàn vào mâm** → chọn Bàn 8 → mâm thành 4 bàn; máy quét QR Bàn 8 gọi được ngay.
+
+**E6.** **Bàn lẻ vẫn khoá như cũ.** Máy A quét QR **Bàn 12** (không thuộc mâm nào) → gọi món →
+máy B quét QR Bàn 12 → **vẫn thấy banner khoá**. (Đây là bài chứng minh lớp Mâm không phá Sprint 1.)
+
+---
+
+### Nhóm F — Nhập mâm, gộp bill, in bill
+
+**F7.** ⭐ **Phiên lẻ lạc.** Khách quét QR **Bàn 9** trước khi nhân viên kịp ghép → gọi 1 món →
+màn Bàn hiện thêm dòng `🪑 Bàn 9` riêng. Bấm `⋯` trên Bàn 9 → **Nhập vào mâm khác** → chọn mâm
+Bàn 5-6-7 → Bàn 9 biến mất khỏi danh sách, **món và tiền của nó cộng vào mâm**.
+
+**F8.** Sau F7, khách ngồi Bàn 9 mở lại mini-app → **không bị khoá**, thấy bill của cả mâm.
+
+**F9.** **Gộp bill.** Ghép thêm một mâm thứ hai (Bàn 15, 16), gọi vài món → **tick cả hai mâm** →
+thanh dưới hiện *Gộp 2 mâm* + tổng → bấm **🖨️ In 1 hoá đơn** → mở tab in khổ 80mm, có **dòng
+cộng riêng từng mâm** rồi **TỔNG CỘNG** cuối.
+
+**F10.** Bấm **Thu tiền** → chọn *Chuyển khoản* → **cả hai mâm cùng đóng một lượt**. Kiểm:
+```sql
+select s.id, s.status, s.close_reason,
+       count(o.id) filter (where o.payment_received_at is not null) as don_da_thu
+  from table_sessions s left join orders o on o.session_id = s.id
+ group by 1,2,3 order by s.opened_at desc;
+```
+→ cả hai phiên `closed`/`paid`, mọi đơn đều có tiền, `payment_instrument = 'bank'`.
+
+**F11.** ⭐ **Gộp bill là ATOMIC.** Không được có cảnh thu xong mâm 1, mâm 2 vẫn nợ. Nếu bấm mà
+báo lỗi thì kiểm: **không mâm nào** được đánh dấu đã thu.
+
+**F12.** **Tách bill vẫn là mặc định.** Không tick gì, bấm **Thu tiền & đóng bàn** trên riêng một
+mâm → chỉ mâm đó đóng, mâm khác nguyên vẹn (mâm về sớm chốt riêng).
+
+**F13.** Sau khi đóng mâm → **các bàn của mâm được nhả ra**, hiện lại trong danh sách bàn trống
+khi bấm ＋ Ghép mâm. Kiểm:
+```sql
+select count(*) from session_tables where is_open;   -- không còn dòng của mâm vừa đóng
+```
+
+**F14.** **In bill một mâm** bằng nút 🖨️ trên thẻ → tờ bill chỉ có mâm đó, không có dòng "cộng
+từng mâm" (chỉ một mâm thì không cần).
+
+**F15.** Trang in: chọn đúng **máy in bill 80mm** trong hộp thoại, chữ không tràn lề, phần
+"In lại" **không bị in ra giấy**.
+
+---
+
+### Nhóm G — Không phá Sprint 1
+
+**G16.** Chạy lại **B5–B16b** của mục Sprint 1 trên Bảo Lương (bàn lẻ) → không đổi hành vi.
+
+**G17.** ⭐ **Race giữa hai bàn cùng mâm.** Hai máy ở hai bàn khác nhau trong cùng mâm bấm "Gọi
+món" **cùng lúc** → hai đơn, **một** phiên, không lỗi.
+
+**G18.** **Ghép mâm chồng bàn.** Hai nhân viên cùng ghép mâm có chung một bàn → một người thành
+công, người kia nhận lỗi *"Bàn X đang có khách…"*, **không** tạo hai phiên chiếm cùng một bàn.
+
+**G19.** Phiên mâm để quá 6 giờ không hoạt động → tự đóng, **tất cả** bàn của mâm nhả ra cùng lúc.
+
+---
+
+### Đã kiểm bằng smoke test trên prod (anh không phải làm lại, ghi để đối chiếu)
+
+Chạy trong DO block tự huỷ nên không để lại dữ liệu — 9 khẳng định đều đúng: ghép mâm 3 bàn ·
+ghép lại bàn đã có khách bị từ chối · hai máy khác nhau ở hai bàn trong cùng mâm đều gọi được ·
+nhập phiên lẻ vào mâm chuyển cả đơn lẫn bàn · khách lạ quét bàn thuộc mâm vẫn `owner` · bill in
+gộp đúng tổng · gộp bill đóng mâm settle đủ 3 đơn · đóng xong bàn tự nhả ra.
+
 ---
 
 ## 2026-09-01 — Module quản lý tài khoản (`/mevo/accounts`)

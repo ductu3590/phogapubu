@@ -85,8 +85,11 @@ export default function CheckoutPage() {
   const [addressError, setAddressError] = useState("");
 
   const { items: cartItems, updateQuantity, clearCart, setCartLock } = useCartStore();
-  const { storeId, tableId, tableNumber, zaloUserId, paymentMethods, orderMode, isAcceptingOrders, servingHours } = useAppStore();
+  const { storeId, tableId, tableNumber, zaloUserId, deviceId, paymentMethods, paymentTiming, orderMode, isAcceptingOrders, servingHours } = useAppStore();
   const isTakeaway = orderMode === "takeaway";
+  // Trả sau TẠI BÀN: khách không chọn phương thức, không mở SDK thanh toán — gọi món xong là
+  // vào bếp luôn, tiền thu khi ra về. Đơn mang về/ship VẪN trả trước (spec §3, chưa có COD).
+  const isPostpayDineIn = paymentTiming === "postpay" && !isTakeaway;
   const storeOpen = isStoreOpen({ isAcceptingOrders, servingHours });
   const singleMethod = paymentMethods.length === 1;
 
@@ -95,11 +98,13 @@ export default function CheckoutPage() {
   const warmedRef = useRef(false);
   useEffect(() => {
     if (warmedRef.current) return;
-    const willUseOnlinePay = isTakeaway || paymentMethods.includes("zalo_checkout");
+    // Trả sau tại bàn không bao giờ mở SDK -> đừng làm nóng edge function ký MAC cho phí.
+    const willUseOnlinePay =
+      isTakeaway || (!isPostpayDineIn && paymentMethods.includes("zalo_checkout"));
     if (!willUseOnlinePay) return;
     warmedRef.current = true;
     void paymentService.warmupCheckout();
-  }, [isTakeaway, paymentMethods]);
+  }, [isTakeaway, paymentMethods, isPostpayDineIn]);
 
   // Đối chiếu đơn cũ với DB khi vào trang. Banner ĐÃ hiện sẵn từ useState khởi tạo đồng bộ;
   // effect này chỉ có quyền gỡ nó xuống. Lỗi mạng thì không gỡ gì cả.
@@ -242,8 +247,11 @@ export default function CheckoutPage() {
             .map((v) => v.optionId),
         })),
         note: note.trim() || undefined,
-        paymentMethod: isTakeaway ? "zalo_checkout" : paymentMethod,
+        // Ở trả sau tại bàn, create_order tự ép 'cash'; gửi gì cũng bị ghi đè — gửi 'cash'
+        // cho khớp ý định, khỏi ai đọc code tưởng khách chọn ZaloPay.
+        paymentMethod: isTakeaway ? "zalo_checkout" : isPostpayDineIn ? "cash" : paymentMethod,
         zaloUserId: zaloUserId || undefined,
+        deviceId: deviceId || undefined,
         voucherCode: voucher?.code,
         ...(isTakeaway && {
           orderType: takeawayType,
@@ -260,7 +268,7 @@ export default function CheckoutPage() {
           applyUnpaidOrder(null);
           // Invalidate tab "Đã gọi" để hiện đơn mới ngay lập tức
           void queryClient.invalidateQueries({ queryKey: [GET_SESSION_ORDERS_KEY] });
-          if (isTakeaway || paymentMethod === "zalo_checkout") {
+          if (!isPostpayDineIn && (isTakeaway || paymentMethod === "zalo_checkout")) {
             if (isTakeaway) {
               localStorage.setItem("mevo_last_takeaway_order", order.id);
             }
@@ -528,7 +536,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* Hình thức thanh toán — ẩn khi chỉ có 1 phương thức hoặc đang mang về */}
-        {!singleMethod && !isTakeaway && (
+        {!singleMethod && !isTakeaway && !isPostpayDineIn && (
           <div className={`mx-3.5 mt-3 rounded-xl bg-white px-4 py-4 ${lockedClass}`}>
             <p className="mb-3 text-large-m font-semibold">Thanh toán</p>
             <div className="flex flex-col gap-2">
@@ -644,9 +652,11 @@ export default function CheckoutPage() {
                   : "Đang mở thanh toán..."
                 : isTakeaway
                   ? "Đặt mang về & Thanh toán"
-                  : paymentMethod === "zalo_checkout"
-                    ? "Đặt món & Thanh toán"
-                    : "Đặt món (Trả tiền mặt)"}
+                  : isPostpayDineIn
+                    ? "Gọi món"
+                    : paymentMethod === "zalo_checkout"
+                      ? "Đặt món & Thanh toán"
+                      : "Đặt món (Trả tiền mặt)"}
             </Button>
           </>
         )}

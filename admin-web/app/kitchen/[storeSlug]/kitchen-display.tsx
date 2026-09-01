@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { createKitchenClient } from '@/lib/supabase/kitchen-client'
 import { cn, formatVND, timeAgo } from '@/lib/utils'
 import { speak, initTts, isTtsSupported, unlockTts } from '@/lib/tts'
-import { orderInKitchen, shouldAnnounceOrder } from '@/lib/kitchen-announce'
+import { orderInKitchen, shouldAnnounceOrder, type StorePaymentTiming } from '@/lib/kitchen-announce'
 import type { KitchenOrder, OrderStatus, Store } from '@/types/database.types'
 
 // ─── Âm thanh thông báo đơn mới (Web Audio API, không cần file ngoài) ───────
@@ -289,7 +289,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
       // 1. Lấy store theo slug
       const { data: storeData, error: storeErr } = await supabase!
         .from('stores')
-        .select('id, name, slug')
+        .select('id, name, slug, payment_timing')
         .eq('slug', storeSlug)
         .eq('is_active', true)
         .single()
@@ -300,6 +300,10 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         return
       }
       setStore(storeData as Store)
+      // Trục "khi nào thu tiền" của quán — predicate vào bếp cần nó (mig 039).
+      // Đọc từ storeData chứ không từ state `store`: state chưa kịp set trong lượt này.
+      const timing: StorePaymentTiming =
+        (storeData as { payment_timing?: StorePaymentTiming }).payment_timing ?? 'prepay'
 
       // 2. Lấy đơn hôm nay (active: chưa trả tiền, chưa huỷ)
       const todayStart = new Date()
@@ -330,7 +334,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         knownOrderIds.current.add(o.id)
         // Đơn đã ở trong bếp lúc tải trang → coi như đã báo, reload không kêu lại.
         // ZaloPay còn pending (chưa trả) KHÔNG đánh dấu → lúc confirmed sẽ báo.
-        if (orderInKitchen(o)) announcedOrderIds.current.add(o.id)
+        if (orderInKitchen({ ...o, storePaymentTiming: timing })) announcedOrderIds.current.add(o.id)
       })
       setOrders(mapped)
       setLoading(false)
@@ -359,7 +363,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
       // Báo bếp: chuông + (nếu bật) đọc đơn. Chỉ báo LẦN ĐẦU đơn vào bếp.
       const announce = (order: KitchenOrder) => {
-        if (!shouldAnnounceOrder(order, announcedOrderIds.current.has(order.id))) return
+        if (!shouldAnnounceOrder({ ...order, storePaymentTiming: timing }, announcedOrderIds.current.has(order.id))) return
         announcedOrderIds.current.add(order.id)
         playBell()
         // Chuông kêu trước, đọc sau ~300ms cho khỏi đè tiếng
@@ -436,6 +440,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
                   orderSource: updated.order_source ?? 'customer_zalo',
                   paymentReceivedAt: updated.payment_received_at ?? null,
                   paymentMethod: updated.payment_method,
+                  storePaymentTiming: timing,
                 },
                 announcedOrderIds.current.has(updated.id),
               )
@@ -583,7 +588,9 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
   // ── Chia đơn theo cột ─────────────────────────────────────────────────────
   // Dùng chung predicate §7 với logic "báo bếp" (lib/kitchen-announce) cho khỏi lệch.
-  const waitingOrders = orders.filter((o) => orderInKitchen(o))
+  const waitingOrders = orders.filter((o) =>
+    orderInKitchen({ ...o, storePaymentTiming: store?.payment_timing ?? 'prepay' }),
+  )
   const cookingOrders = orders.filter((o) => o.status === 'cooking')
   const readyOrders = orders.filter((o) => o.status === 'ready')
   // Cột "Chờ thanh toán" (PM-3): đơn KHÁCH online chưa thu tiền → bếp bấm "Đã nhận tiền" khi

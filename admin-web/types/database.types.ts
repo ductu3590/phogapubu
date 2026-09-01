@@ -203,4 +203,6 @@ export interface Store {
   id: string
   name: string
   slug: string
+  // mig 039 — quyết định đơn có được vào bếp khi chưa có tiền (xem lib/kitchen-announce.ts)
+  payment_timing: 'prepay' | 'postpay'
 }

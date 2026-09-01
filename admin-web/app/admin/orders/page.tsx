@@ -136,7 +136,7 @@ export default async function OrdersPage({
                       {STATUS_LABEL[order.status] ?? order.status}
                     </span>
                     {(() => {
-                      const pay = paymentBadge(order.payment_method, hasRealMoney(order))
+                      const pay = paymentBadge(order.payment_method, hasRealMoney(order), !!order.session_id)
                       return (
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${pay.tone === 'received' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-700'}`}>
                           {pay.label}
