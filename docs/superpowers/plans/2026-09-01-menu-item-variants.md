@@ -177,14 +177,17 @@ CREATE TRIGGER trg_sync_menu_item_price
 AFTER INSERT OR UPDATE OR DELETE ON menu_item_variants
 FOR EACH ROW EXECUTE FUNCTION sync_menu_item_price_from_variants();
 
--- ─── 5. RLS — sao đúng khuôn toppings ở mig 016 ─────────────────────────────
+-- ─── 5. RLS — khuôn toppings BẢN ĐÃ ĐƯỢC MIG 019 VIẾT LẠI ───────────────────
+-- KHÔNG dùng is_operator(): hàm đó chỉ hỏi "có phải người vận hành nào đó không",
+-- không hỏi "của quán nào" → chủ quán A đọc được menu quán B. Mig 019 sinh ra để
+-- vá đúng lớp lỗi này và đã đổi policy toppings sang is_store_scoped_operator.
 ALTER TABLE menu_item_variants ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_read_variants" ON menu_item_variants;
 CREATE POLICY "anon_read_variants" ON menu_item_variants
   FOR SELECT TO anon USING (true);
 DROP POLICY IF EXISTS "auth_read_variants" ON menu_item_variants;
 CREATE POLICY "auth_read_variants" ON menu_item_variants
-  FOR SELECT TO authenticated USING (is_operator());
+  FOR SELECT TO authenticated USING (is_store_scoped_operator(store_id));
 -- Ghi: chỉ service-role (bypass RLS). Không policy cho role kitchen —
 -- bếp chỉ đọc snapshot order_items.item_name / variant_name.
 ```
@@ -1329,6 +1332,8 @@ cd admin-web && grep -n "name=\"price\"" app/admin/menu/menu-client.tsx
 ```
 
 Thêm `readOnly={(editItem.menu_item_variants?.length ?? 0) > 0}` vào ô đó, và chèn ngay dưới nó:
+
+⚠️ Phải là `readOnly`, **KHÔNG được dùng `disabled`**. `updateMenuItem` ghi thẳng `price` từ form lên DB mỗi lần lưu (kể cả khi chỉ đổi tên món). Ô `readOnly` vẫn gửi giá trị hiện tại nên ghi đè lại chính nó, vô hại; ô `disabled` **không gửi gì**, `parseInt(undefined)` ra `NaN` và giá món hỏng.
 
 ```tsx
           {(editItem.menu_item_variants?.length ?? 0) > 0 && (

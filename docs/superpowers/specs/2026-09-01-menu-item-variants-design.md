@@ -109,14 +109,30 @@ Mục đích: mọi câu truy vấn đang đọc `menu_items.price` (card menu, 
 Khi món có biến thể, `menu_items.price` chỉ còn là **số để hiển thị**; giá thật khi tính tiền luôn
 lấy từ biến thể khách chọn (§6).
 
+⚠️ **Giá gốc của món mất vĩnh viễn từ lúc thêm biến thể đầu tiên.** Ví dụ: Bia 50k → thêm Cốc 20k
+và Tháp 200k → `price` thành 20k → xoá Cốc → thành 200k → xoá Tháp → **kẹt ở 200.000đ** cho món
+đáng lẽ 50k. Không có chỗ nào lưu 50k để khôi phục. Hai lớp chắn: admin cảnh báo khi xoá biến thể
+cuối cùng (§8.2), và `create_order` từ chối đơn của món có biến thể mà không chọn (§6) nên không
+ai bị tính nhầm 200k khi nhóm biến thể vẫn còn. Nhưng sau khi xoá sạch biến thể thì món trở lại
+món thường với giá sai — **chủ quán phải tự đặt lại giá**. Nếu về sau thấy đây là lỗi hay gặp thì
+thêm cột `menu_items.base_price` (chụp lại lúc thêm biến thể đầu tiên, trả về lúc xoá cái cuối);
+chưa làm ở v1 vì xoá sạch biến thể là thao tác hiếm.
+
 ### 4.4 RLS
 
-Sao đúng khuôn `toppings` ở mig 016:
+Sao khuôn `toppings` **bản đã được mig 019 viết lại**, KHÔNG phải bản gốc ở mig 016:
 
 - `anon` → `SELECT` mở (mini-app đọc menu công khai)
-- `authenticated` → `SELECT` khi `is_operator()`
+- `authenticated` → `SELECT` khi **`is_store_scoped_operator(store_id)`**
 - **Không** tạo policy INSERT/UPDATE/DELETE — admin ghi qua service-role (bypass RLS)
 - **Không** tạo policy cho role `kitchen` — bếp chỉ đọc snapshot trong `order_items`
+
+⚠️ **Không được dùng `is_operator()`.** Hàm đó (mig 006) chỉ hỏi "có phải người vận hành nào đó
+không", không hỏi "của quán nào" — chủ quán A cầm JWT gọi thẳng Supabase sẽ đọc được menu và giá
+của quán B. Mig 019 sinh ra chính để vá lớp lỗi này và đã đổi policy `toppings` +
+`menu_item_toppings` sang `is_store_scoped_operator(store_id)` (019 dòng 73–78). Bản spec đầu
+tiên của tài liệu này chép nhầm khuôn mig 016 đã bị thay thế — lỗi bị bắt ở vòng soát chất lượng
+Task 1, ghi lại đây để bảng nào chép từ tài liệu này về sau không dính lại.
 
 ---
 
@@ -125,7 +141,11 @@ Sao đúng khuôn `toppings` ở mig 016:
 ```sql
 ALTER TABLE order_items
   ADD COLUMN variant_id   uuid,   -- không FK: snapshot phải sống sót khi biến thể bị xoá
-  ADD COLUMN variant_name text;
+  ADD COLUMN variant_name text,
+  -- Hai cột phải cùng NULL hoặc cùng có giá trị. Snapshot nửa vời (có id, thiếu tên)
+  -- in ra phiếu bếp thành dòng trống → nấu sai món, và không dựng lại được vì không có FK.
+  ADD CONSTRAINT order_items_variant_pair_check
+    CHECK ((variant_id IS NULL) = (variant_name IS NULL));
 ```
 
 Và khi tạo đơn:
@@ -276,6 +296,11 @@ Server actions mới trong [admin-web/lib/actions/menu.ts](../../../admin-web/li
 
 Chuyển sang **chỉ đọc**, hiện `Từ 15.000đ` kèm câu giải thích: *"Giá đang do tuỳ chọn quyết định.
 Sửa giá ở danh sách lựa chọn bên dưới."* Tránh cảnh anh sửa giá món rồi tưởng đã đổi giá bán.
+
+⚠️ Phải là `readOnly`, **không phải `disabled`**. `updateMenuItem` ghi thẳng `price` từ form lên
+DB mỗi lần lưu món (kể cả khi chỉ đổi tên hay ảnh). Ô `readOnly` vẫn gửi giá trị hiện tại — tức
+giá đã đồng bộ, ghi đè lại chính nó, vô hại. Ô `disabled` **không gửi gì**, `parseInt(undefined)`
+ra `NaN` và giá món hỏng. Trigger chỉ chạy khi bảng biến thể đổi nên sẽ không sửa lại giúp.
 
 ⚠️ Xoá hết biến thể của một món → món quay về món thường, giá giữ ở mức biến thể rẻ nhất cuối
 cùng (do trigger không ghi đè khi rỗng). Admin phải hiện cảnh báo lúc xoá cái cuối cùng.
