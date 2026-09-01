@@ -1089,13 +1089,11 @@ export type ParseResult =
   | { ok: true; name: string; price: number }
   | { ok: false; error: string }
 
-// Giá gõ tay từ tờ menu giấy → phải chặn cả chữ lẫn số âm.
+// Giá gõ tay từ tờ menu giấy → phải chặn chữ và số âm, NHƯNG phải nhận
+// dấu ngăn nghìn kiểu Việt Nam. Bốn bước: cắt khoảng trắng → chặn dấu âm →
+// bỏ '.' ',' và khoảng trắng bên trong → phải còn lại toàn chữ số.
 export function parseVariantInput(rawName: string, rawPrice: string): ParseResult {
-  const name = rawName.trim()
-  if (!name) return { ok: false, error: 'Nhập tên lựa chọn' }
-  const price = Number(rawPrice)
-  if (!Number.isFinite(price) || price < 0) return { ok: false, error: 'Giá phải là số ≥ 0' }
-  return { ok: true, name, price: Math.round(price) }
+  // ... xem ⚠️ bên dưới; KHÔNG dùng Number(rawPrice) trần
 }
 
 export function displayPriceLabel(price: number, hasVariants: boolean): string {
@@ -1105,6 +1103,21 @@ export function displayPriceLabel(price: number, hasVariants: boolean): string {
 ```
 
 `displayPriceLabel` được dùng ở Task 8 Step 5 (chú thích dưới ô giá chỉ đọc). Nếu cuối Task 8 nó vẫn không có chỗ gọi nào thì **xoá cả hàm lẫn test của nó** — không để hàm chết trong repo.
+
+⚠️ **`Number('80.000')` trả về `80`, không phải `80000`.** Người nhập giá chép từ tờ menu giấy in
+"80.000đ", mà ở Việt Nam dấu chấm LÀ dấu ngăn nghìn — họ sẽ gõ như vậy gần như mọi lần. Dùng
+`Number()` trần là **mất 1000 lần giá món** một cách âm thầm. Cũng đừng từ chối luôn: bắt gõ lại
+mỗi món là ma sát vô nghĩa, và câu "Giá phải là số ≥ 0" khiến người ta nghĩ *"nó là số mà?"*.
+
+Cách đúng: bỏ `.` `,` và khoảng trắng bên trong (cả ba đều là dấu ngăn nghìn trong thực tế), rồi
+bắt buộc phần còn lại khớp `^\d+$`. Kiểm dấu `-` TRƯỚC bước bỏ dấu để câu báo lỗi "giá âm" vẫn
+đúng. Câu báo lỗi cho chuỗi hỏng phải nói rõ phải làm gì: `'Giá chỉ gồm chữ số, ví dụ 80000 hoặc
+80.000'`. Đánh đổi chấp nhận: `'80.5'` thành `805` — tiền Việt không có phần lẻ nên không ai gõ
+vậy trong ô giá món. Thêm trần giá (100 triệu) để chặn gõ thừa số 0.
+
+Ca test bắt buộc: `'80.000'` → 80000 · `'80,000'` → 80000 · `'80 000'` → 80000 · `'1.200.000'` →
+1200000 · `'80k'` và `'8o.000'` bị từ chối · chuỗi rỗng bị từ chối (`Number('')` là `0`, tức món
+thành miễn phí) · `'1e5'`, `'NaN'`, `'Infinity'` bị từ chối.
 
 - [ ] **Step 4: Chạy test, xác nhận PASS**
 
