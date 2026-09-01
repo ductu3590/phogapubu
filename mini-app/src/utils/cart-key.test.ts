@@ -44,4 +44,24 @@ describe('buildCartItemId', () => {
     }))
     expect(a).not.toBe(b)
   })
+
+  it('món có topping nhưng KHÔNG biến thể: giữ đúng khoá cũ để không phá giỏ đã lưu', () => {
+    // Khoá cũ (trước khi có biến thể) là `${productId}|${toppingIds}`.
+    // Đổi format = giỏ khách đang lưu trong 6h sẽ đẻ dòng trùng khi thêm lại cùng món.
+    const key = buildCartItemId(mon({
+      selectedVariants: [
+        { groupId: 'topping', groupTitle: 'Topping', optionId: 't2', optionName: 'B', extraPrice: 0 },
+        { groupId: 'topping', groupTitle: 'Topping', optionId: 't1', optionName: 'A', extraPrice: 0 },
+      ],
+    }))
+    expect(key).toBe('pho-ga|t1,t2')
+  })
+
+  it('đoạn biến thể không lẫn với đoạn topping', () => {
+    const theoBienThe = buildCartItemId(mon({ variant: { id: 'x', name: 'To', price: 1 } }))
+    const theoTopping = buildCartItemId(mon({
+      selectedVariants: [{ groupId: 'topping', groupTitle: 'Topping', optionId: 'x', optionName: 'X', extraPrice: 0 }],
+    }))
+    expect(theoBienThe).not.toBe(theoTopping)
+  })
 })
