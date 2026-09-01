@@ -14,7 +14,7 @@ export default async function StaffOrderPage() {
     supabase.from('tables').select('id, table_number').eq('store_id', storeId).eq('is_active', true),
     supabase
       .from('menu_categories')
-      .select('id, name, sort_order, menu_items(id, name, price, image_url, is_available, sort_order, menu_item_toppings(topping_id))')
+      .select('id, name, sort_order, menu_items(id, name, price, image_url, is_available, sort_order, variant_group_name, menu_item_toppings(topping_id), menu_item_variants(id, name, price, is_available, sort_order))')
       .eq('store_id', storeId)
       .eq('is_active', true)
       .order('sort_order'),
@@ -32,7 +32,7 @@ export default async function StaffOrderPage() {
     .map((t) => ({ id: t.id as string, name: t.name as string, price: t.price as number }))
   const toppingById = new Map(toppings.map((t) => [t.id, t]))
 
-  // Categories → chỉ món đang bán; mỗi món kèm danh sách topping khả dụng (đã gán + đang bán)
+  // Categories → chỉ món đang bán; mỗi món kèm topping khả dụng (đã gán + đang bán) và biến thể còn bán
   const categories = (categoriesRes.data ?? [])
     .map((c) => ({
       id: c.id as string,
@@ -48,6 +48,12 @@ export default async function StaffOrderPage() {
           toppings: ((m.menu_item_toppings ?? []) as Array<{ topping_id: string }>)
             .map((mt) => toppingById.get(mt.topping_id))
             .filter((t): t is { id: string; name: string; price: number } => !!t),
+          // Lọc biến thể còn bán + sắp thứ tự NGAY Ở ĐÂY → client không phải biết tới is_available
+          variants: ((m.menu_item_variants ?? []) as Array<{ id: string; name: string; price: number; is_available: boolean; sort_order: number }>)
+            .filter((v) => v.is_available)
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map((v) => ({ id: v.id, name: v.name, price: v.price })),
+          variantGroupName: (m.variant_group_name as string | null) ?? null,
         })),
     }))
     .filter((c) => c.items.length > 0)

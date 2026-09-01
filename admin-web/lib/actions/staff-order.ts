@@ -7,6 +7,9 @@ export type StaffOrderItem = {
   menu_item_id: string
   quantity: number
   topping_ids: string[]
+  // null = món không có nhóm biến thể. staff_create_order từ chối đơn thiếu variant_id
+  // cho món CÓ biến thể, nên trường này bắt buộc phải gửi đúng.
+  variant_id?: string | null
   note: string | null
 }
 

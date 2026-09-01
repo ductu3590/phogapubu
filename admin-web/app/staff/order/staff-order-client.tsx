@@ -4,7 +4,8 @@ import { useMemo, useRef, useState } from 'react'
 import { createStaffOrder, type StaffOrderItem } from '@/lib/actions/staff-order'
 
 type Topping = { id: string; name: string; price: number }
-type Item = { id: string; name: string; price: number; imageUrl: string | null; toppings: Topping[] }
+type Variant = { id: string; name: string; price: number }
+type Item = { id: string; name: string; price: number; imageUrl: string | null; toppings: Topping[]; variants: Variant[]; variantGroupName: string | null }
 type Category = { id: string; name: string; items: Item[] }
 type Table = { id: string; tableNumber: string }
 
@@ -14,6 +15,8 @@ type CartLine = {
   name: string
   basePrice: number
   toppings: Topping[]
+  // Biến thể đã chọn (null = món không có nhóm biến thể). basePrice ĐÃ là giá biến thể.
+  variant: Variant | null
   quantity: number
   note: string
 }
@@ -63,18 +66,18 @@ export default function StaffOrderClient({
 
   function addSimple(item: Item) {
     mutateCart((prev) => {
-      const idx = prev.findIndex((l) => l.menuItemId === item.id && l.toppings.length === 0 && l.note === '')
+      const idx = prev.findIndex((l) => l.menuItemId === item.id && l.variant === null && l.toppings.length === 0 && l.note === '')
       if (idx >= 0) {
         const next = [...prev]
         next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 }
         return next
       }
-      return [...prev, { lineId: crypto.randomUUID(), menuItemId: item.id, name: item.name, basePrice: item.price, toppings: [], quantity: 1, note: '' }]
+      return [...prev, { lineId: crypto.randomUUID(), menuItemId: item.id, name: item.name, basePrice: item.price, toppings: [], variant: null, quantity: 1, note: '' }]
     })
   }
 
   function onTapItem(item: Item) {
-    if (item.toppings.length > 0) setSheetItem(item)
+    if (item.toppings.length > 0 || item.variants.length > 0) setSheetItem(item)
     else addSimple(item)
   }
 
@@ -99,6 +102,7 @@ export default function StaffOrderClient({
       menu_item_id: l.menuItemId,
       quantity: l.quantity,
       topping_ids: l.toppings.map((t) => t.id),
+      variant_id: l.variant?.id ?? null,
       note: l.note.trim() || null,
     }))
     try {
@@ -260,13 +264,21 @@ export default function StaffOrderClient({
         </div>
       )}
 
-      {/* Bottom sheet: topping + số lượng + ghi chú khi thêm món */}
+      {/* Bottom sheet: chọn loại (bắt buộc nếu có) + topping + số lượng + ghi chú khi thêm món */}
       {sheetItem && (
-        <ToppingSheet
+        <OptionSheet
+          key={sheetItem.id}
           item={sheetItem}
           onClose={() => setSheetItem(null)}
-          onAdd={(toppings, qty, note) => {
-            mutateCart((prev) => [...prev, { lineId: crypto.randomUUID(), menuItemId: sheetItem.id, name: sheetItem.name, basePrice: sheetItem.price, toppings, quantity: qty, note }])
+          onAdd={(variant, toppings, qty, note) => {
+            mutateCart((prev) => [...prev, {
+              lineId: crypto.randomUUID(),
+              menuItemId: sheetItem.id,
+              // Tên ghép sẵn 'Bia hơi (Cốc)' cho giống chuỗi staff_create_order sinh ra ở order_items.item_name
+              name: variant ? `${sheetItem.name} (${variant.name})` : sheetItem.name,
+              basePrice: variant ? variant.price : sheetItem.price,
+              toppings, variant, quantity: qty, note,
+            }])
             setSheetItem(null)
           }}
         />
@@ -352,16 +364,48 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
-function ToppingSheet({ item, onClose, onAdd }: { item: Item; onClose: () => void; onAdd: (toppings: Topping[], qty: number, note: string) => void }) {
+function OptionSheet({ item, onClose, onAdd }: {
+  item: Item
+  onClose: () => void
+  onAdd: (variant: Variant | null, toppings: Topping[], qty: number, note: string) => void
+}) {
   const [selected, setSelected] = useState<Record<string, boolean>>({})
+  // KHÔNG chọn sẵn ô nào: nhân viên phải đọc giá rồi mới bấm, tránh bấm quen tay ra Tháp 200k.
+  const [variantId, setVariantId] = useState<string | null>(null)
   const [qty, setQty] = useState(1)
   const [note, setNote] = useState('')
+  // item.variants đã lọc còn-bán và sắp thứ tự ở page.tsx → ở đây không lọc lại
+  const available = item.variants
+  const variant = available.find((v) => v.id === variantId) ?? null
+  const canAdd = available.length === 0 || variant !== null
   const chosen = item.toppings.filter((t) => selected[t.id])
-  const unit = item.price + chosen.reduce((s, t) => s + t.price, 0)
+  const unit = (variant ? variant.price : item.price) + chosen.reduce((s, t) => s + t.price, 0)
 
   return (
     <Sheet title={item.name} onClose={onClose}>
-      <p className="mb-3 text-sm text-gray-500">Chọn topping (nếu có):</p>
+      {available.length > 0 && (
+        <>
+          <p className="mb-3 text-sm text-gray-500">
+            {item.variantGroupName ?? 'Chọn loại'} <span className="text-orange-600">(bắt buộc)</span>
+          </p>
+          <div className="space-y-1">
+            {available.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => setVariantId(v.id)}
+                className={`flex w-full items-center justify-between rounded border px-3 py-2 text-left text-sm ${variantId === v.id ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}
+              >
+                <span>{v.name}</span>
+                <span className="font-medium">{v.price.toLocaleString('vi-VN')}đ</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {item.toppings.length > 0 && (
+        <p className={`mb-3 text-sm text-gray-500${available.length > 0 ? ' mt-4' : ''}`}>Chọn topping (nếu có):</p>
+      )}
       <ul className="space-y-2">
         {item.toppings.map((t) => (
           <li key={t.id}>
@@ -390,10 +434,11 @@ function ToppingSheet({ item, onClose, onAdd }: { item: Item; onClose: () => voi
           <button onClick={() => setQty((q) => q + 1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 text-lg">+</button>
         </div>
         <button
-          onClick={() => onAdd(chosen, qty, note.trim())}
-          className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white active:bg-orange-600"
+          onClick={() => onAdd(variant, chosen, qty, note.trim())}
+          disabled={!canAdd}
+          className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white active:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400"
         >
-          Thêm · {dong(unit * qty)}
+          {canAdd ? `Thêm · ${dong(unit * qty)}` : 'Chọn loại trước'}
         </button>
       </div>
     </Sheet>
