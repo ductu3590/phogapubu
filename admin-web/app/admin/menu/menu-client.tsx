@@ -663,6 +663,9 @@ function ItemVariantEditor({ item, router }: { item: MenuItem; router: ReturnTyp
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
   const [groupName, setGroupName] = useState(item.variant_group_name ?? '')
+  // State sửa inline 1 lựa chọn (tên + giá) — mirror ToppingPool.editId/editName/editPrice
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editName, setEditName] = useState(''); const [editPrice, setEditPrice] = useState('')
   const variants = (item.menu_item_variants ?? []).slice().sort((a, b) => a.sort_order - b.sort_order)
 
   const add = () => {
@@ -683,6 +686,20 @@ function ItemVariantEditor({ item, router }: { item: MenuItem; router: ReturnTyp
       : `Xoá lựa chọn "${v.name}"?`
     if (!confirm(msg)) return
     startTransition(async () => { await deleteItemVariant(v.id); router.refresh() })
+  }
+  // Bấm "Sửa" ở dòng khác trong lúc đang sửa dở → chuyển thẳng sang dòng mới, mất
+  // nội dung đang gõ dở (giống ToppingPool: không có cảnh báo "chưa lưu", vì chỉ
+  // là sửa tên/giá — Huỷ hay bấm dòng khác cũng không mất dữ liệu đã lưu trong DB).
+  const startEdit = (v: { id: string; name: string; price: number }) => {
+    setEditId(v.id); setEditName(v.name); setEditPrice(formatVndTyping(String(v.price)))
+  }
+  const saveEdit = (v: { id: string }) => {
+    const parsed = parseVariantInput(editName, editPrice)
+    if (!parsed.ok) { alert(parsed.error); return }
+    startTransition(async () => {
+      await updateItemVariant(v.id, { name: parsed.name, price: parsed.price })
+      setEditId(null); router.refresh()
+    })
   }
   // Chỉ ghi khi tên nhóm thật sự đổi — onBlur bắn mỗi lần rời ô, không lọc thì bấm
   // qua lại trong modal là gửi hàng loạt lệnh ghi y hệt nhau.
@@ -721,23 +738,47 @@ function ItemVariantEditor({ item, router }: { item: MenuItem; router: ReturnTyp
 
       <div className="mt-3 space-y-2">
         {variants.map((v, idx) => (
-          <div key={v.id} className="flex items-center gap-2 rounded-xl border border-gray-100 px-3 py-2">
-            <span className="flex flex-shrink-0 flex-col leading-none">
-              <button type="button" onClick={() => move(idx, -1)} disabled={isPending || idx === 0}
-                className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Lên">▲</button>
-              <button type="button" onClick={() => move(idx, 1)} disabled={isPending || idx === variants.length - 1}
-                className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Xuống">▼</button>
-            </span>
-            <span className={`min-w-0 flex-1 truncate text-sm ${v.is_available ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
-              {v.name}
-            </span>
-            <span className="flex-shrink-0 text-sm font-semibold text-gray-700">{formatVND(v.price)}</span>
-            <button type="button" onClick={() => toggle(v)} disabled={isPending}
-              className="flex-shrink-0 text-xs text-gray-500 hover:text-orange-600 disabled:opacity-40">
-              {v.is_available ? 'Tắt bán' : 'Bật bán'}
-            </button>
-            <button type="button" onClick={() => del(v)} disabled={isPending}
-              className="flex-shrink-0 text-xs text-red-500 hover:text-red-700 disabled:opacity-40">Xoá</button>
+          <div key={v.id} className="rounded-xl border border-gray-100 px-3 py-2">
+            {editId === v.id ? (
+              // Chế độ sửa: xuống hàng riêng (tên + giá rồi Lưu/Huỷ) thay vì nhét chung
+              // hàng với ▲▼ — hàng hiển thị vốn đã đủ 5 phần tử, thêm 2 ô nhập nữa vào
+              // cùng 1 hàng flex sẽ vỡ trên màn hẹp.
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Tên"
+                    className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-900" />
+                  <input value={editPrice} onChange={(e) => setEditPrice(formatVndTyping(e.target.value))} inputMode="numeric" placeholder="Giá"
+                    className="w-24 flex-shrink-0 rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-900" />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setEditId(null)} disabled={isPending}
+                    className="flex-shrink-0 rounded-lg border px-3 py-1.5 text-sm text-gray-600">Huỷ</button>
+                  <button type="button" onClick={() => saveEdit(v)} disabled={isPending}
+                    className="flex-shrink-0 rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">Lưu</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="flex flex-shrink-0 flex-col leading-none">
+                  <button type="button" onClick={() => move(idx, -1)} disabled={isPending || idx === 0}
+                    className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Lên">▲</button>
+                  <button type="button" onClick={() => move(idx, 1)} disabled={isPending || idx === variants.length - 1}
+                    className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Xuống">▼</button>
+                </span>
+                <span className={`min-w-0 flex-1 truncate text-sm ${v.is_available ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                  {v.name}
+                </span>
+                <span className="flex-shrink-0 text-sm font-semibold text-gray-700">{formatVND(v.price)}</span>
+                <button type="button" onClick={() => startEdit(v)} disabled={isPending}
+                  className="flex-shrink-0 text-xs text-gray-500 hover:text-orange-600 disabled:opacity-40">Sửa</button>
+                <button type="button" onClick={() => toggle(v)} disabled={isPending}
+                  className="flex-shrink-0 text-xs text-gray-500 hover:text-orange-600 disabled:opacity-40">
+                  {v.is_available ? 'Tắt bán' : 'Bật bán'}
+                </button>
+                <button type="button" onClick={() => del(v)} disabled={isPending}
+                  className="flex-shrink-0 text-xs text-red-500 hover:text-red-700 disabled:opacity-40">Xoá</button>
+              </div>
+            )}
           </div>
         ))}
         {variants.length === 0 && (
