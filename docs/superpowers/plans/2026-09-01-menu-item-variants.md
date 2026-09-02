@@ -1447,6 +1447,8 @@ Bỏ qua task này thì nhân viên gọi hộ sẽ tạo đơn bị `staff_crea
 - Modify: `admin-web/app/staff/order/staff-order-client.tsx`
 - Modify: `admin-web/lib/actions/staff-order.ts:6-16, 88-95`
 
+⚠️ **Màn này phải có `hasVariantGroup` y như mini-app.** Món tắt hết lựa chọn có `variants: []` nên trông hệt món thường; nhân viên bấm vào là `staff_create_order` từ chối **cả giỏ**, và không có cách nào làm cho đúng. Giữa giờ cao điểm đó là sự cố thật. Đếm mảng **thô** (`(row.menu_item_variants ?? []).length > 0`) để khớp với cách server đếm (TỔNG, không lọc `is_available`), rồi hiện "Tạm hết" + khoá bấm. Giá trong danh sách cũng phải có tiền tố "Từ " như mini-app.
+
 - [ ] **Step 1: Query kèm biến thể, lọc còn-bán ngay ở server**
 
 Trong `admin-web/app/staff/order/page.tsx`, thêm `menu_item_variants(id, name, price, is_available, sort_order)` vào câu select `menu_items`. Ở chỗ map sang kiểu `Item`, **lọc sẵn biến thể còn bán và sắp thứ tự tại đây** để client không phải biết tới `is_available`:

@@ -1169,6 +1169,24 @@ bản mới**. Nhớ merge `origin/main` vào worktree quán TRƯỚC rồi mớ
     (nếu bấm được là đơn sẽ chết cả giỏ)
 28. Dòng giỏ hiện `Bia hơi (Ca)` và đúng giá của cỡ đó
 
+### Nhóm C2 — bổ sung 2026-09-01 (nút Sửa + dấu chấm ngăn nghìn)
+
+33. Ở mỗi lựa chọn có nút **"Sửa"** → bấm vào, dòng đó thành 2 ô nhập (tên, giá) + Lưu/Huỷ.
+    Sửa tên rồi Lưu → tên đổi ngay, **không mất vị trí** trong danh sách
+34. Sửa **giá** một lựa chọn → giá món tự tính lại theo lựa chọn rẻ nhất, và ô Giá của món
+    (đang chỉ đọc) hiện đúng số mới, KHÔNG còn số cũ
+35. Bấm Sửa dòng A, gõ dở, rồi bấm Sửa dòng B → bản nháp dòng A bị bỏ (cố ý, giống khu Topping)
+36. Sửa rồi bấm **Huỷ** → không có gì đổi
+37. **Mọi ô nhập tiền đều hiện dấu chấm ngăn nghìn khi gõ:** ô Giá món, ô giá lựa chọn (cả lúc
+    thêm lẫn lúc sửa), ô giá topping (cả thêm lẫn sửa) → gõ `80000` phải thành `80.000` ngay
+38. Ô tiền ở **vòng quay** (`/admin/spin`: "Giảm (đ)", "Giảm tối đa (đ)") và **mã giảm giá**
+    (`/admin/vouchers`: "Giảm (đ)/đơn", "Giảm tối đa (đ)") cũng có dấu chấm
+39. **KHÔNG được thêm dấu chấm** cho mấy ô KHÔNG phải tiền: "HSD … ngày", "Tỉ lệ" (vòng quay),
+    "Tối đa đơn/ngày" (mã giảm giá), và ô "Giảm (%)" khi chọn kiểu phần trăm
+40. **Bẫy nguy hiểm nhất của phần này:** mở một món, sửa gì đó (VD đổi tên), bấm **Lưu** →
+    mở lại xem **giá món KHÔNG bị đổi**. (Ô giá giờ chứa `80.000` có dấu chấm; nếu server đọc
+    nhầm thì giá món thành **80đ**.) Thử với cả món thường lẫn món có lựa chọn
+
 ### Nhóm E — KHÔNG ĐƯỢC HỒI QUY (test ở Phở Gà Pubu)
 
 29. Đặt một đơn món **thường có topping** → mọi thứ y như trước
