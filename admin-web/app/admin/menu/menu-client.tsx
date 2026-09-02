@@ -25,6 +25,7 @@ import {
 } from '@/lib/actions/menu'
 import { parseVariantInput, displayPriceLabel } from '@/lib/menu/variant'
 import { formatVND } from '@/lib/utils'
+import { formatVndTyping, parseVnd } from '@/lib/money'
 import SquareCropper from './square-cropper'
 
 // Topping trong kho dùng chung của quán
@@ -341,7 +342,9 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
                 id: newId,
                 name: fd.get('name') as string,
                 description: (fd.get('description') as string) || null,
-                price: parseInt(fd.get('price') as string, 10),
+                // Ô giá hiện số kiểu Việt Nam nên FormData mang chuỗi có dấu chấm —
+                // parseInt('15.000', 10) ra 15. Server vừa nhận đơn này nên chắc chắn parse được.
+                price: parseVnd(String(fd.get('price') ?? '')) ?? 0,
                 is_available: true,
                 image_url: null,
                 sort_order: 0,
@@ -434,6 +437,30 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
   )
 }
 
+// Ô nhập tiền dùng cho form gửi bằng FormData: tự quản lý chuỗi hiển thị, gõ tới đâu
+// chèn dấu chấm ngăn nghìn tới đó ("80000" → "80.000").
+// type="text" chứ KHÔNG phải "number": input number từ chối hiển thị chuỗi có dấu chấm.
+// Mất luôn validate min="0" của trình duyệt, đổi lại server đọc bằng parseVnd — chuỗi
+// rỗng hay có chữ đều bị chặn ở đó, không lọt NaN xuống DB.
+function MoneyInput({
+  initial,
+  ...rest
+}: { initial?: number | null } & Omit<
+  React.ComponentProps<'input'>,
+  'value' | 'onChange' | 'type' | 'inputMode' | 'defaultValue'
+>) {
+  const [value, setValue] = useState(initial == null ? '' : formatVndTyping(String(initial)))
+  return (
+    <input
+      {...rest}
+      type="text"
+      inputMode="numeric"
+      value={value}
+      onChange={(e) => setValue(formatVndTyping(e.target.value))}
+    />
+  )
+}
+
 // Form thêm/sửa món dùng chung (có cropper ảnh 1:1)
 function ItemForm({
   categories,
@@ -475,17 +502,15 @@ function ItemForm({
         <label className="label">Giá (VNĐ) *</label>
         {/* readOnly chứ KHÔNG disabled: updateMenuItem ghi lại `price` ở MỌI lần lưu (kể cả
             chỉ đổi tên/ảnh). Ô readOnly vẫn submit giá hiện tại → ghi đè đúng số cũ, vô hại;
-            ô disabled không submit gì → parseInt(undefined) = NaN, mất sạch giá món.
+            ô disabled không submit gì → giá món về rỗng, server từ chối lưu.
             key theo giá: trigger DB tính lại giá món mỗi lần sửa lựa chọn, đổi key ⇒ input
             mount lại và nạp giá mới, không thì ô còn giữ số cũ rồi ghi đè lúc bấm Lưu. */}
-        <input
+        <MoneyInput
           key={item?.price}
           name="price"
-          type="number"
           required
-          min="0"
-          defaultValue={item?.price}
-          placeholder="80000"
+          initial={item?.price}
+          placeholder="80.000"
           readOnly={hasVariants}
           className={`input ${hasVariants ? 'bg-gray-50 text-gray-500' : ''}`}
         />
@@ -531,17 +556,17 @@ function ToppingPool({ toppings, router }: { toppings: Topping[]; router: Return
   const [editId, setEditId] = useState<string | null>(null)
   const [editName, setEditName] = useState(''); const [editPrice, setEditPrice] = useState('')
   const add = () => {
-    const n = name.trim(); const p = parseInt(price, 10)
-    if (!n || Number.isNaN(p) || p < 0) { alert('Nhập tên và giá topping hợp lệ'); return }
+    const n = name.trim(); const p = parseVnd(price)
+    if (!n || p === null) { alert('Nhập tên và giá topping hợp lệ, ví dụ 10000 hoặc 10.000'); return }
     startTransition(async () => { await addPoolTopping(n, p); setName(''); setPrice(''); router.refresh() })
   }
   const toggle = (t: Topping) => startTransition(async () => { await updatePoolTopping(t.id, { is_available: !t.is_available }); router.refresh() })
   const del = (t: Topping) => { if (!confirm(`Xoá topping "${t.name}"? Sẽ gỡ khỏi mọi món.`)) return
     startTransition(async () => { await deletePoolTopping(t.id); router.refresh() }) }
-  const startEdit = (t: Topping) => { setEditId(t.id); setEditName(t.name); setEditPrice(String(t.price)) }
+  const startEdit = (t: Topping) => { setEditId(t.id); setEditName(t.name); setEditPrice(formatVndTyping(String(t.price))) }
   const saveEdit = (t: Topping) => {
-    const n = editName.trim(); const p = parseInt(editPrice, 10)
-    if (!n || Number.isNaN(p) || p < 0) { alert('Nhập tên và giá hợp lệ'); return }
+    const n = editName.trim(); const p = parseVnd(editPrice)
+    if (!n || p === null) { alert('Nhập tên và giá hợp lệ, ví dụ 10000 hoặc 10.000'); return }
     startTransition(async () => { await updatePoolTopping(t.id, { name: n, price: p }); setEditId(null); router.refresh() })
   }
   return (
@@ -556,7 +581,7 @@ function ToppingPool({ toppings, router }: { toppings: Topping[]; router: Return
                   {/* class riêng, KHÔNG dùng .input (tránh width:100% bóp ô trong flex) */}
                   <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Tên"
                     className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-900" />
-                  <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} type="number" min="0" placeholder="Giá"
+                  <input value={editPrice} onChange={(e) => setEditPrice(formatVndTyping(e.target.value))} inputMode="numeric" placeholder="Giá"
                     className="w-24 flex-shrink-0 rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-900" />
                   <button onClick={() => saveEdit(t)} disabled={isPending}
                     className="flex-shrink-0 rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">Lưu</button>
@@ -587,7 +612,7 @@ function ToppingPool({ toppings, router }: { toppings: Topping[]; router: Return
         <div className="flex flex-col gap-2">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên topping (VD: Thêm trứng)" className="input" />
           <div className="flex gap-2">
-            <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" min="0" placeholder="Giá (VNĐ)" className="input min-w-0 flex-1" />
+            <input value={price} onChange={(e) => setPrice(formatVndTyping(e.target.value))} inputMode="numeric" placeholder="Giá (VNĐ)" className="input min-w-0 flex-1" />
             <button onClick={add} disabled={isPending} className="flex-shrink-0 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">+ Thêm</button>
           </div>
         </div>
@@ -726,7 +751,7 @@ function ItemVariantEditor({ item, router }: { item: MenuItem; router: ReturnTyp
         <input value={name} onChange={(e) => setName(e.target.value)}
           placeholder="Tên lựa chọn (VD: Đĩa to)" className="input min-w-0 flex-1" />
         {/* class riêng cho ô giá, KHÔNG dùng .input (width:100% sẽ bóp hỏng ô trong flex) */}
-        <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" placeholder="Giá"
+        <input value={price} onChange={(e) => setPrice(formatVndTyping(e.target.value))} inputMode="numeric" placeholder="Giá"
           className="w-24 flex-shrink-0 rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-orange-400" />
         <button type="button" onClick={add} disabled={isPending}
           className="flex-shrink-0 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">+ Thêm</button>

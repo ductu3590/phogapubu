@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { setSpinEnabled, saveRewards, type RewardInput } from '@/lib/actions/spin'
+import { formatVndTyping, parseVnd } from '@/lib/money'
 
 type Row = RewardInput & { key: string }
 
@@ -161,21 +162,39 @@ export default function SpinClient({
                     <option value="fixed">đ</option>
                     <option value="percent">%</option>
                   </select>
-                  <input
-                    type="number"
-                    min={1}
-                    value={r.discount_value ?? ''}
-                    onChange={(e) => update(r.key, { discount_value: Number(e.target.value) })}
-                    placeholder={r.discount_type === 'percent' ? 'VD 10' : 'VD 10000'}
-                    className="input w-24"
-                    title="Mức giảm"
-                  />
-                  {r.discount_type === 'percent' && (
+                  {/* Ô này là TIỀN khi kiểu giảm là "đ", là PHẦN TRĂM khi là "%".
+                      Chỉ chèn dấu ngăn nghìn ở chế độ tiền — "10%" mà hiện "10.000" là sai. */}
+                  {r.discount_type === 'percent' ? (
                     <input
                       type="number"
                       min={1}
-                      value={r.max_discount ?? ''}
-                      onChange={(e) => update(r.key, { max_discount: Number(e.target.value) })}
+                      value={r.discount_value ?? ''}
+                      onChange={(e) => update(r.key, { discount_value: Number(e.target.value) })}
+                      placeholder="VD 10"
+                      className="input w-24"
+                      title="Mức giảm (%)"
+                    />
+                  ) : (
+                    <input
+                      inputMode="numeric"
+                      value={r.discount_value == null ? '' : formatVndTyping(String(r.discount_value))}
+                      onChange={(e) => {
+                        const text = formatVndTyping(e.target.value)
+                        update(r.key, { discount_value: text === '' ? null : parseVnd(text) })
+                      }}
+                      placeholder="VD 10.000"
+                      className="input w-24"
+                      title="Mức giảm (đ)"
+                    />
+                  )}
+                  {r.discount_type === 'percent' && (
+                    <input
+                      inputMode="numeric"
+                      value={r.max_discount == null ? '' : formatVndTyping(String(r.max_discount))}
+                      onChange={(e) => {
+                        const text = formatVndTyping(e.target.value)
+                        update(r.key, { max_discount: text === '' ? null : parseVnd(text) })
+                      }}
                       placeholder="Tối đa đ"
                       className="input w-24"
                       title="Giảm tối đa (đ)"

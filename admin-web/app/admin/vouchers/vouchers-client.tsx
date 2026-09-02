@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatVND } from '@/lib/utils'
+import { formatVndTyping, parseVnd } from '@/lib/money'
 import {
   createShipperVoucher,
   setVoucherActive,
@@ -53,7 +54,7 @@ export default function VouchersClient({
   // Form tạo mã shipper
   const [label, setLabel] = useState('')
   const [dType, setDType] = useState<'fixed' | 'percent'>('fixed')
-  const [dValue, setDValue] = useState(5000)
+  const [dValue, setDValue] = useState<number | ''>(5000)
   const [dMax, setDMax] = useState<number | ''>('')
   const [dLimit, setDLimit] = useState<number | ''>(10)
   // Mã đang mở lịch sử dùng
@@ -220,14 +221,31 @@ export default function VouchersClient({
               </label>
               <label className="flex flex-col text-xs text-gray-500">
                 {dType === 'fixed' ? 'Giảm (đ)/đơn' : 'Giảm (%)'}
-                <input type="number" min={1} value={dValue}
-                  onChange={(e) => setDValue(Number(e.target.value))} className="input mt-1 w-24" />
+                {/* Ô này là TIỀN khi loại giảm là "đ", là PHẦN TRĂM khi là "%".
+                    Chỉ chèn dấu ngăn nghìn ở chế độ tiền. */}
+                {dType === 'percent' ? (
+                  <input type="number" min={1} value={dValue}
+                    onChange={(e) => setDValue(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="input mt-1 w-24" />
+                ) : (
+                  <input inputMode="numeric" placeholder="VD 5.000"
+                    value={dValue === '' ? '' : formatVndTyping(String(dValue))}
+                    onChange={(e) => {
+                      const text = formatVndTyping(e.target.value)
+                      setDValue(text === '' ? '' : (parseVnd(text) ?? ''))
+                    }}
+                    className="input mt-1 w-24" />
+                )}
               </label>
               {dType === 'percent' && (
                 <label className="flex flex-col text-xs text-gray-500">
                   Giảm tối đa (đ)
-                  <input type="number" min={1} value={dMax}
-                    onChange={(e) => setDMax(e.target.value === '' ? '' : Number(e.target.value))}
+                  <input inputMode="numeric" placeholder="VD 20.000"
+                    value={dMax === '' ? '' : formatVndTyping(String(dMax))}
+                    onChange={(e) => {
+                      const text = formatVndTyping(e.target.value)
+                      setDMax(text === '' ? '' : (parseVnd(text) ?? ''))
+                    }}
                     className="input mt-1 w-28" />
                 </label>
               )}

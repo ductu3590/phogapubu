@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { buildSortUpdates } from '@/lib/menu/reorder'
+import { parseVnd } from '@/lib/money'
 import { revalidatePath } from 'next/cache'
 import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 
@@ -205,6 +206,20 @@ export async function reorderMenuItems(categoryId: string, itemIds: string[]) {
   revalidatePath('/admin/menu')
 }
 
+// Ngưỡng an toàn cho giá món — khớp MAX_PRICE của biến thể (lib/menu/variant.ts).
+const MAX_ITEM_PRICE = 100_000_000
+
+// Ô giá ở admin hiện số kiểu Việt Nam ("15.000") nên FormData gửi lên kèm dấu chấm.
+// parseInt('15.000', 10) trả về 15 — giá món âm thầm còn 15 đồng. Bắt buộc đi qua
+// parseVnd và ném lỗi rõ ràng thay vì để NaN/số sai chạm tới DB.
+function readPrice(formData: FormData): number {
+  const price = parseVnd(String(formData.get('price') ?? ''))
+  if (price === null || price > MAX_ITEM_PRICE) {
+    throw new Error('Giá món không hợp lệ — chỉ gồm chữ số, ví dụ 80000 hoặc 80.000')
+  }
+  return price
+}
+
 // Thêm món mới
 export async function addMenuItem(formData: FormData) {
   const storeId = await getStoreId()
@@ -226,7 +241,7 @@ export async function addMenuItem(formData: FormData) {
     category_id: categoryId,
     name: formData.get('name') as string,
     description: (formData.get('description') as string) || null,
-    price: parseInt(formData.get('price') as string, 10),
+    price: readPrice(formData),
     image_url: imageUrl,
     is_available: true,
     sort_order: nextSort,
@@ -244,7 +259,7 @@ export async function updateMenuItem(itemId: string, formData: FormData) {
   const patch: Record<string, unknown> = {
     name: formData.get('name') as string,
     description: (formData.get('description') as string) || null,
-    price: parseInt(formData.get('price') as string, 10),
+    price: readPrice(formData),
     category_id: formData.get('category_id') as string,
   }
   if (imageUrl) patch.image_url = imageUrl // không gửi ảnh mới thì giữ ảnh cũ
