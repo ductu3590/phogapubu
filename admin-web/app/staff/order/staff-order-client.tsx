@@ -1,7 +1,11 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createStaffOrder, type StaffOrderItem } from '@/lib/actions/staff-order'
+import { listOpenTableSessions, type OpenTableSession } from '@/lib/actions/table-session'
+import { createClient } from '@/lib/supabase/client'
+import { assignTrayColors } from '@/lib/tray-colors'
+import { tableDot } from '@/lib/table-status'
 
 type Topping = { id: string; name: string; price: number }
 type Variant = { id: string; name: string; price: number }
@@ -26,14 +30,19 @@ const lineUnit = (l: CartLine) => l.basePrice + l.toppings.reduce((s, t) => s + 
 const lineTotal = (l: CartLine) => lineUnit(l) * l.quantity
 
 export default function StaffOrderClient({
+  storeId,
   tables,
   categories,
   paymentTiming,
+  initialSessions,
 }: {
+  storeId: string
   tables: Table[]
   categories: Category[]
   paymentTiming: 'prepay' | 'postpay'
+  initialSessions: OpenTableSession[]
 }) {
+  const [sessions, setSessions] = useState(initialSessions)
   const [tableId, setTableId] = useState<string | null>(tables.length === 1 ? tables[0].id : null)
   const [cart, setCart] = useState<CartLine[]>([])
   const [activeCat, setActiveCat] = useState<string>(categories[0]?.id ?? '')
@@ -58,6 +67,97 @@ export default function StaffOrderClient({
     if (q) return categories.flatMap((c) => c.items).filter((i) => i.name.toLowerCase().includes(q))
     return categories.find((c) => c.id === activeCat)?.items ?? []
   }, [search, activeCat, categories])
+
+  // Tải lại danh sách phiên. Không cộng dồn tại chỗ — nhân viên khác ghép/đóng mâm ở máy
+  // khác, chỉ server mới biết bàn nào đang thuộc mâm nào.
+  const reloadingRef = useRef(false)
+  const reloadSessions = useCallback(async () => {
+    if (reloadingRef.current) return
+    reloadingRef.current = true
+    try {
+      const res = await listOpenTableSessions()
+      // Lỗi thì GIỮ nguyên danh sách cũ: mất màu còn đỡ hơn nhảy hết bàn về lưới "Bàn khác"
+      // trong khi mâm vẫn đang mở.
+      if (res.ok) setSessions(res.sessions)
+    } finally {
+      reloadingRef.current = false
+    }
+  }, [])
+
+  // Nhân viên A ghép mâm ở máy khác trong lúc nhân viên B đứng ở màn này — không nghe sự
+  // kiện thì B thấy màu cũ và bấm nhầm bàn.
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`staff-order-tables-${storeId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'table_sessions', filter: `store_id=eq.${storeId}` },
+        () => void reloadSessions(),
+      )
+      // session_tables không có cột store_id nên không lọc được — đành nghe hết rồi tải lại.
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'session_tables' },
+        () => void reloadSessions(),
+      )
+      .subscribe((status) => {
+        // Nối lại sau khi rớt mạng có thể đã lỡ sự kiện → tải lại cho chắc.
+        if (status === 'SUBSCRIBED') void reloadSessions()
+      })
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [storeId, reloadSessions])
+
+  // Nhóm bàn theo mâm cho màn chọn bàn: mỗi mâm một khối, bàn còn lại rơi xuống "Bàn khác".
+  const { trayGroups, looseTables } = useMemo(() => {
+    const colors = assignTrayColors(sessions)
+    const tableById = new Map(tables.map((t) => [t.id, t]))
+    const grouped = new Set<string>()
+
+    const groups = sessions
+      .filter((s) => colors.has(s.session_id))
+      .map((s) => {
+        const assigned = colors.get(s.session_id)!
+        // Bàn của phiên có thể đã bị tắt (is_active=false) sau khi mâm mở → không có trong
+        // `tables`. Bỏ qua, đừng dựng nút trỏ vào bàn không còn tồn tại.
+        const groupTables = s.tables
+          .map((t) => tableById.get(t.id))
+          .filter((t): t is Table => !!t)
+        for (const t of groupTables) grouped.add(t.id)
+        return { sessionId: s.session_id, ...assigned, tables: groupTables }
+      })
+      .filter((g) => g.tables.length > 0)
+      .sort((a, b) => a.index - b.index)
+
+    return { trayGroups: groups, looseTables: tables.filter((t) => !grouped.has(t.id)) }
+  }, [sessions, tables])
+
+  // Bàn nào đang thuộc phiên nào — để chấm đỏ/xanh và để liệt kê món khách đã gọi.
+  // Cùng nguồn dữ liệu và cùng hàm tableDot() với màn POS, nếu không hai bên báo hai màu.
+  const sessionByTable = useMemo(() => {
+    const m = new Map<string, OpenTableSession>()
+    for (const s of sessions) {
+      if (s.status !== 'open') continue
+      for (const t of s.tables) m.set(t.id, s)
+    }
+    return m
+  }, [sessions])
+
+  const phienBanNay = tableId ? sessionByTable.get(tableId) : undefined
+
+  // Món khách đã gọi ở bàn này từ đầu bữa, gộp theo tên. Nhân viên cần con số này để trả lời
+  // "tôi gọi mấy món rồi" và để khỏi bấm trùng món khách đã gọi qua mini-app.
+  const daGoi = useMemo(() => {
+    if (!phienBanNay) return { lines: [] as { name: string; quantity: number }[], count: 0 }
+    const m = new Map<string, number>()
+    for (const o of phienBanNay.orders) {
+      for (const it of o.items) m.set(it.name, (m.get(it.name) ?? 0) + it.quantity)
+    }
+    const lines = [...m.entries()].map(([name, quantity]) => ({ name, quantity }))
+    return { lines, count: lines.reduce((n, l) => n + l.quantity, 0) }
+  }, [phienBanNay])
 
   function mutateCart(fn: (prev: CartLine[]) => CartLine[]) {
     resetReqId()
@@ -161,20 +261,59 @@ export default function StaffOrderClient({
     return (
       <div className="mx-auto h-full max-w-md overflow-y-auto px-4 py-6">
         <h1 className="mb-4 text-lg font-bold text-gray-900">Chọn bàn</h1>
+        <p className="mb-3 flex items-center gap-3 text-[11px] text-gray-400">
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" /> trống
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" /> đang có khách
+          </span>
+        </p>
         {tables.length === 0 ? (
           <p className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-400">Quán chưa có bàn nào đang bật.</p>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
-            {tables.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTableId(t.id)}
-                className="flex min-h-[64px] items-center justify-center rounded-2xl border border-gray-200 bg-white px-2 py-3 text-center text-sm font-semibold text-gray-800 active:bg-orange-50"
-              >
-                {t.tableNumber}
-              </button>
+          <>
+            {/* Mâm lên trên, theo thứ tự mở. Bấm bàn nào trong mâm cũng vào chung một bill —
+                server tự nối qua open_session_id_for_table, ở đây chỉ là chuyện nhìn cho rõ. */}
+            {trayGroups.map((g) => (
+              <div key={g.sessionId} className={`mb-3 rounded-2xl border p-3 ${g.color.box}`}>
+                <p className={`mb-2 text-xs font-bold ${g.color.label}`}>
+                  🍲 Mâm {g.index} · {g.tables.length} bàn
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {g.tables.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTableId(t.id)}
+                      className={`relative flex min-h-[64px] items-center justify-center rounded-2xl border px-2 py-3 text-center text-sm font-semibold ${g.color.chip}`}
+                    >
+                      <ChamTrangThai session={sessionByTable.get(t.id)} />
+                      {t.tableNumber}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
-          </div>
+
+            {/* Không có mâm nào thì màn hình y hệt trước đây — không thừa chữ "Bàn khác". */}
+            {trayGroups.length > 0 && looseTables.length > 0 && (
+              <p className="mb-2 mt-4 text-xs font-semibold text-gray-400">Bàn khác</p>
+            )}
+            {looseTables.length > 0 && (
+              <div className="grid grid-cols-3 gap-3">
+                {looseTables.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setTableId(t.id)}
+                    className="relative flex min-h-[64px] items-center justify-center rounded-2xl border border-gray-200 bg-white px-2 py-3 text-center text-sm font-semibold text-gray-800 active:bg-orange-50"
+                  >
+                    <ChamTrangThai session={sessionByTable.get(t.id)} />
+                    {t.tableNumber}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     )
@@ -200,6 +339,28 @@ export default function StaffOrderClient({
             Đổi bàn
           </button>
         </div>
+
+        {/* Món khách đã gọi từ đầu bữa — nhân viên phải biết để kiểm soát và trả lời khách.
+            Gấp lại mặc định cho khỏi chiếm chỗ ô tìm món. */}
+        {daGoi.count > 0 && (
+          <details className="mb-2 rounded-lg border border-orange-100 bg-orange-50 px-2.5 py-2">
+            <summary className="cursor-pointer text-xs font-semibold text-orange-800">
+              Khách đã gọi {daGoi.count} món · {phienBanNay?.total.toLocaleString('vi-VN')}đ
+            </summary>
+            <ul className="mt-1.5 space-y-0.5">
+              {daGoi.lines.map((l) => (
+                <li key={l.name} className="flex justify-between text-xs text-gray-700">
+                  <span className="min-w-0 truncate">{l.name}</span>
+                  <span className="flex-shrink-0 font-semibold">×{l.quantity}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1.5 text-[11px] text-orange-700">
+              Gồm cả món khách tự gọi trên điện thoại.
+            </p>
+          </details>
+        )}
+
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -458,5 +619,18 @@ function OptionSheet({ item, onClose, onAdd }: {
         </button>
       </div>
     </Sheet>
+  )
+}
+
+// Chấm trạng thái bàn — CÙNG quy ước với sơ đồ POS (/admin/cashier):
+// đỏ = đang có khách ngồi ăn chưa thu tiền, xanh = trống (kể cả mâm vừa ghép chưa gọi món).
+function ChamTrangThai({ session }: { session: OpenTableSession | undefined }) {
+  const dot = tableDot(session)
+  return (
+    <span
+      className={`absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full ${
+        dot === 'busy' ? 'bg-red-500' : 'bg-green-500'
+      }`}
+    />
   )
 }

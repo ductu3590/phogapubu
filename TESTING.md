@@ -1201,6 +1201,61 @@ bản mới**. Nhớ merge `origin/main` vào worktree quán TRƯỚC rồi mớ
 
 ---
 
+## 2026-09-02 — Màu nhận diện mâm ở màn nhân viên (Bảo Lương)
+
+**Không có migration.** Chỉ đọc thêm `list_open_table_sessions` ở `/staff/order` rồi tô màu.
+Quán trả trước (Pubu) không có phiên bàn nên màn Chọn bàn phải y hệt trước đây.
+
+Chuẩn bị: đăng nhập nhân viên Bảo Lương, mở SONG SONG 2 tab `/staff/order` và `/staff/tables`.
+
+### Nhóm A — Nhóm và tô màu
+
+1. Chưa ghép mâm nào → màn **Chọn bàn** giống hệt bản cũ: lưới 3 cột, bàn trắng,
+   **không có** dòng chữ "Bàn khác"
+2. Ở `/staff/tables` bấm **＋ Ghép mâm**, chọn Bàn 5 + 6 + 7 → quay lại màn Chọn bàn:
+   3 bàn đó nằm chung **một khối có viền màu**, tiêu đề `🍲 Mâm 1 · 3 bàn`, cả 3 nút
+   **cùng một màu**. Các bàn còn lại xuống dưới mục **"Bàn khác"**, vẫn trắng
+3. Ghép tiếp mâm thứ hai (Bàn 12 + 13) → mâm 2 có **màu KHÁC** mâm 1
+4. Ghép tới mâm thứ 7 → không màn nào vỡ; lúc này màu bắt đầu dùng lại (chỉ có 6 màu) —
+   chấp nhận được, nhưng báo lại nếu thấy khó nhìn
+5. Màu **KHÔNG được là cam hay vàng hổ phách** (trùng nút hành động và cảnh báo)
+
+### Nhóm B — Hai màn cùng một hệ màu
+
+6. Mâm 1 ở màn Chọn bàn màu gì thì thẻ phiên đó ở `/staff/tables` có **dải màu bên trái
+   ĐÚNG màu ấy** + nhãn `Mâm 1` cùng màu
+7. Số hiệu khớp nhau: mâm mở trước là Mâm 1, mở sau là Mâm 2 — ở **cả hai** màn
+8. Tick chọn thẻ đó để gộp bill → viền cam vẫn hiện bình thường, **dải màu trái không mất**
+9. Thẻ đang cảnh báo `⏰ quá 6 giờ` (viền hổ phách) mà cũng là mâm → vẫn thấy được cả hai
+
+### Nhóm C — Realtime (bẫy chính)
+
+10. **Để nguyên** tab `/staff/order` ở màn Chọn bàn, sang tab kia bấm **Thêm bàn vào mâm** →
+    tab Chọn bàn **tự cập nhật** (bàn mới nhảy vào khối mâm), KHÔNG cần bấm F5
+11. Máy khác ghép mâm → máy này cũng tự đổi theo
+12. Rút mạng vài giây rồi cắm lại → danh sách mâm vẫn đúng (nối lại là tự tải lại)
+
+### Nhóm D — Gỡ mâm về bình thường
+
+13. **Thu tiền & đóng bàn** một mâm → mấy bàn đó rơi xuống **"Bàn khác"**, trắng như cũ,
+    ở cả hai màn
+14. Bỏ bàn (`staff_reset`) cũng vậy
+15. Đóng **Mâm 1** → các mâm còn lại **giữ nguyên màu** của chúng
+    (được phép đổi màu trong ca hiếm khi mâm đó từng bị đẩy khỏi màu gốc — nếu thấy đổi
+    liên tục thì báo lại)
+16. Mâm cuối cùng đóng → màn Chọn bàn trở lại đúng bản gốc, mất luôn chữ "Bàn khác"
+
+### Nhóm E — KHÔNG ĐƯỢC HỒI QUY
+
+17. Bấm một bàn **trong mâm** → đặt món bình thường, đơn vào **đúng bill của mâm**
+    (kiểm ở `/staff/tables`, không được đẻ ra phiên mới)
+18. Bấm một bàn **ngoài mâm** → y như trước
+19. Quán chỉ có **1 bàn** → vẫn tự nhảy thẳng vào menu, không phải chọn bàn
+20. Vào `/staff/order` ở **Phở Gà Pubu** (trả trước, không có phiên bàn) → màn Chọn bàn
+    không đổi một li nào
+
+---
+
 ## 2026-09-03 — Sprint 1: Màn POS thu ngân `/admin/cashier`
 
 Nhánh `feat/pos-cashier` · mig 044 đã áp prod · spec

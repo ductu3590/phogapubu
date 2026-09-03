@@ -13,6 +13,7 @@ import {
   type OpenTableSession,
   type SessionTable,
 } from '@/lib/actions/table-session'
+import { assignTrayColors } from '@/lib/tray-colors'
 
 const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 
@@ -122,6 +123,9 @@ export default function TablesClient({
     }
     return allTables.filter((t) => !busyIds.has(t.id))
   }, [sessions, allTables])
+
+  // Cùng hàm với màn Chọn bàn (/staff/order) → một mâm chỉ có đúng một màu trên cả hai màn.
+  const trayColors = useMemo(() => assignTrayColors(sessions), [sessions])
 
   const openSessions = sessions.filter((s) => s.status === 'open')
   const pickedSessions = sessions.filter((s) => picked.has(s.session_id))
@@ -241,7 +245,7 @@ export default function TablesClient({
                     : s.needs_review
                       ? 'border-amber-300'
                       : 'border-gray-100'
-                }`}
+                } ${trayColors.get(s.session_id)?.color.bar ?? ''}`}
               >
                 {s.needs_review && (
                   <p className="mb-2 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
@@ -261,6 +265,13 @@ export default function TablesClient({
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-gray-900">
                       {s.is_open_ordering ? '🍲' : '🪑'} {s.table_number}
+                      {trayColors.has(s.session_id) && (
+                        <span
+                          className={`ml-1.5 text-[11px] font-bold ${trayColors.get(s.session_id)!.color.label}`}
+                        >
+                          Mâm {trayColors.get(s.session_id)!.index}
+                        </span>
+                      )}
                       {s.is_open_ordering && s.tables.length > 1 && (
                         <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
                           mâm {s.tables.length} bàn
