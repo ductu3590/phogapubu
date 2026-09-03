@@ -1201,6 +1201,53 @@ bản mới**. Nhớ merge `origin/main` vào worktree quán TRƯỚC rồi mớ
 
 ---
 
+## 2026-09-03 — Sprint 1: Màn POS thu ngân `/admin/cashier`
+
+Nhánh `feat/pos-cashier` · mig 044 đã áp prod · spec
+`docs/superpowers/specs/2026-09-03-pos-cashier-bill-edit-design.md`
+
+Test bằng tài khoản **chủ quán Bia lẩu Bảo Lương** (postpay). Menu > Vận hành > **Thu ngân (POS)**.
+
+### Nhóm A — Sơ đồ bàn
+
+1. Vào `/admin/cashier` → thấy sơ đồ đủ số bàn của quán, bàn trống viền xám
+2. Bấm **⇄ Sắp xếp bàn** → kéo Bàn 5 sang ô trống → F5 → bàn **vẫn ở chỗ mới**
+3. Ở chế độ Sắp xếp, kéo Bàn 1 thả **đúng lên** Bàn 2 → hai bàn **đổi chỗ**, không chồng nhau
+4. Bấm **✓ Xong sắp xếp** → bấm vào ô bàn → **không kéo được nữa**, panel bill mở ra
+5. Mở POS ở máy/tab thứ hai → thấy đúng vị trí bàn vừa sắp (vị trí lưu ở server, không phải máy)
+
+### Nhóm B — Đơn mới + trạng thái bàn
+
+6. Khách quét QR đặt món ở Bàn 3 → trong ~3 giây ô Bàn 3 **đổi màu cam + hiện tiền**, và
+   dòng đơn hiện ở dải **Đơn mới** phía dưới
+7. Bấm dòng trong Đơn mới → panel bên phải nhảy đúng sang bàn của đơn đó
+8. Bàn có món đang nấu → ô bàn có **chấm đỏ**; bấm thu tiền → hiện cảnh báo "còn N món chưa xong"
+
+### Nhóm C — Mâm
+
+9. Bấm 3 ô bàn **TRỐNG** → panel hiện "Ghép thành một mâm" → bấm → 3 bàn **cùng một màu mâm**
+   (đúng màu đang hiện ở `/staff/tables` trên điện thoại)
+10. Mở một bàn có khách → **Thao tác khác** → thêm một bàn trống vào mâm → hai ô cùng màu mâm
+11. Bàn lẻ khác → **Nhập vào mâm** → chọn mâm ở bài 10 → bàn lẻ biến mất, đơn của nó dồn vào
+    mâm, tổng tiền mâm tăng đúng
+12. **Ctrl+click** 2 mâm khác nhau → panel hiện "Gộp bill 2 mâm", tổng cộng đúng
+13. Bấm **🖨️ In bill** khi đang gộp → mở tab in, đủ món của **cả** các mâm đã chọn
+
+### Nhóm D — Tiền
+
+14. Bấm **💵 Tiền mặt** → bàn về trống; `/admin/dashboard` doanh thu tăng đúng số vừa thu
+15. Mở 2 tab cùng bấm thu tiền một bàn → tab sau hiện *"Bàn này vừa được máy khác chốt xong"*,
+    **không** hiện lỗi đỏ, tiền **không** cộng hai lần
+16. **Bỏ bàn** một bàn có đơn chưa nấu → đơn bị huỷ, bàn về trống; nếu còn món đã vào bếp thì
+    hiện dòng nhắc "còn N món đã vào bếp"
+
+### Nhóm E — Quyền + không hồi quy
+
+17. Đăng nhập bằng tài khoản **nhân viên** (store_staff) rồi vào `/admin/cashier` → **bị đá ra**
+18. `/staff/tables` trên điện thoại **không đổi một li nào**, vẫn thu tiền/ghép mâm được như cũ
+19. Vào POS ở **Phở Gà Pubu** (trả trước) → hiện dòng "Quán đang chạy trả trước…", vẫn sắp xếp
+    được vị trí bàn, không vỡ màn
+
 ---
 
 *File này là bộ nhớ test của dự án MEVO.*
