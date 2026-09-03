@@ -27,10 +27,14 @@ const CUA_SO_PHUT = 15
 
 export default function NewOrdersFeed({
   sessions,
+  busy,
   onSelectSession,
+  onConfirmOrder,
 }: {
   sessions: OpenTableSession[]
+  busy: boolean
   onSelectSession: (sessionId: string) => void
+  onConfirmOrder: (orderId: string) => void
 }) {
   // Đồng hồ riêng, nhích 30 giây một lần: vừa tránh gọi Date.now() giữa lúc render (hàm không
   // thuần), vừa để "3' trước" tự già đi mà không cần đơn mới về.
@@ -61,10 +65,10 @@ export default function NewOrdersFeed({
         ) : (
           <ul className="space-y-1">
             {rows.map(({ o, s }) => (
-              <li key={o.id}>
+              <li key={o.id} className="flex items-center gap-2">
                 <button
                   onClick={() => onSelectSession(s.session_id)}
-                  className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-gray-50"
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-gray-50"
                 >
                   <span className="w-32 flex-shrink-0 truncate font-semibold text-gray-800">
                     {s.table_number}
@@ -85,6 +89,17 @@ export default function NewOrdersFeed({
                     {dong(o.total_amount)}
                   </span>
                 </button>
+                {/* Xác nhận thẳng từ đây: giờ đông khách, bắt thu ngân bấm bàn rồi mới xác nhận
+                    là thêm một nhịp thừa. Vẫn in đúng 2 liên như bấm trong panel. */}
+                {o.status === 'pending' && (
+                  <button
+                    onClick={() => onConfirmOrder(o.id)}
+                    disabled={busy}
+                    className="flex-shrink-0 rounded-lg bg-green-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-green-700 disabled:opacity-50"
+                  >
+                    ✅ Xác nhận &amp; in
+                  </button>
+                )}
               </li>
             ))}
           </ul>

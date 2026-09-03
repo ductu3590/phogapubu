@@ -1,6 +1,7 @@
 'use client'
 
 import { LAYOUT_COLS, type PlacedTable } from '@/lib/table-layout'
+import { pendingCount, tableDot } from '@/lib/table-status'
 import type { OpenTableSession } from '@/lib/actions/table-session'
 import type { TrayAssignment } from '@/lib/tray-colors'
 
@@ -112,6 +113,8 @@ function Tile({
 }) {
   const s = state?.session
   const tray = state?.tray
+  const dot = tableDot(s)
+  const cho = pendingCount(s)
 
   // Màu nền: mâm dùng bảng màu chung với màn nhân viên; bàn lẻ có khách = cam; trống = xám.
   const base = !s
@@ -120,13 +123,16 @@ function Tile({
       ? `${tray.color.box} text-gray-800`
       : 'border-orange-200 bg-orange-50 text-gray-800'
 
-  const vien = selected
-    ? 'ring-2 ring-gray-900'
-    : picked
-      ? 'ring-2 ring-orange-400'
-      : s?.needs_review
-        ? 'ring-2 ring-amber-400'
-        : ''
+  // Đơn chưa xác nhận thắng mọi viền khác: đó là việc thu ngân phải làm NGAY.
+  const vien = cho > 0
+    ? 'ring-4 ring-amber-500 animate-pulse'
+    : selected
+      ? 'ring-2 ring-gray-900'
+      : picked
+        ? 'ring-2 ring-orange-400'
+        : s?.needs_review
+          ? 'ring-2 ring-amber-400'
+          : ''
 
   return (
     <button
@@ -138,9 +144,13 @@ function Tile({
         arrange ? 'cursor-move' : 'cursor-pointer hover:brightness-95'
       }`}
     >
-      {s && s.cooking_count > 0 && (
-        <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500" />
-      )}
+      {/* Chấm trạng thái: đỏ = đang có khách ngồi ăn, xanh = trống (kể cả mâm chưa gọi món) */}
+      <span
+        className={`absolute right-1.5 top-1.5 h-3 w-3 rounded-full ${
+          dot === 'busy' ? 'bg-red-500' : 'bg-green-500'
+        }`}
+        title={dot === 'busy' ? 'Đang có khách, chưa thu tiền' : 'Bàn trống'}
+      />
       {s?.needs_review && <span className="absolute left-1.5 top-1.5 text-xs">⏰</span>}
       <span className="w-full truncate text-sm font-bold">{table.table_number}</span>
       {s ? (
@@ -152,6 +162,11 @@ function Tile({
         </>
       ) : (
         <span className="text-[10px]">trống</span>
+      )}
+      {cho > 0 && (
+        <span className="absolute inset-x-1 bottom-1 rounded bg-amber-500 px-1 py-0.5 text-[10px] font-bold text-white">
+          {cho} đơn chờ xác nhận
+        </span>
       )}
     </button>
   )

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { OpenTableSession } from '@/lib/actions/table-session'
 
 const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
@@ -20,6 +21,8 @@ export default function BillPanel({
   onAddTable,
   onMergeInto,
   onReleaseHost,
+  onConfirmOrder,
+  onPrintOrder,
   onClearPick,
 }: {
   /** Phiên đang mở bill (bấm 1 bàn có khách) */
@@ -40,11 +43,17 @@ export default function BillPanel({
   onAddTable: (sessionId: string, tableId: string) => void
   onMergeInto: (sessionId: string, targetSessionId: string) => void
   onReleaseHost: (sessionId: string) => void
+  onConfirmOrder: (orderId: string) => void
+  onPrintOrder: (orderId: string) => void
   onClearPick: () => void
 }) {
+  // Đơn đang mở bảng món để soát trước khi xác nhận. null = chưa mở đơn nào.
+  const [xemDon, setXemDon] = useState<string | null>(null)
+
   const list = picked.length > 0 ? picked : selected ? [selected] : []
   const tong = list.reduce((n, s) => n + s.total, 0)
   const chuaXong = list.reduce((n, s) => n + s.cooking_count, 0)
+  const donCho = list.flatMap((s) => s.orders.filter((o) => o.status === 'pending'))
 
   if (pickedFreeTables >= 2) {
     return (
@@ -102,6 +111,55 @@ export default function BillPanel({
         </p>
       )}
 
+      {donCho.length > 0 && (
+        <div className="mt-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-2">
+          <p className="text-xs font-bold text-amber-900">
+            🔔 {donCho.length} đơn chờ xác nhận
+          </p>
+          <ul className="mt-1.5 space-y-1.5">
+            {donCho.map((o) => (
+              <li key={o.id} className="rounded-lg bg-white p-2">
+                <button
+                  onClick={() => setXemDon(xemDon === o.id ? null : o.id)}
+                  className="flex w-full items-center justify-between gap-2 text-left text-xs"
+                >
+                  <span className="font-semibold text-gray-800">
+                    {gio(o.created_at)} · {o.items.length} món ·{' '}
+                    {o.order_source === 'staff' ? 'nhân viên' : 'khách'}
+                  </span>
+                  <span className="flex-shrink-0 text-gray-500">
+                    {dong(o.total_amount)} {xemDon === o.id ? '▲' : '▼'}
+                  </span>
+                </button>
+
+                {xemDon === o.id && (
+                  <>
+                    <ul className="mt-2 space-y-0.5 border-t border-gray-100 pt-2">
+                      {o.items.map((it, i) => (
+                        <li key={i} className="flex justify-between text-xs text-gray-700">
+                          <span>{it.name}</span>
+                          <span className="font-semibold">×{it.quantity}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      onClick={() => onConfirmOrder(o.id)}
+                      disabled={busy}
+                      className="mt-2 w-full rounded-lg bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
+                    >
+                      ✅ Xác nhận &amp; in 2 liên
+                    </button>
+                    <p className="mt-1 text-[11px] text-gray-400">
+                      In ra: 1 phiếu cho bếp, 1 phiếu đặt ở bàn khách.
+                    </p>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <ul className="mt-3 max-h-[45vh] space-y-2 overflow-y-auto border-y border-gray-100 py-3">
         {list.flatMap((s) =>
           s.orders.map((o) => (
@@ -109,10 +167,20 @@ export default function BillPanel({
               <div className="flex justify-between text-gray-400">
                 <span>
                   {gio(o.created_at)} · {o.order_source === 'staff' ? 'nhân viên' : 'khách'}
+                  {o.status === 'pending' && (
+                    <span className="ml-1 font-semibold text-amber-600">chờ xác nhận</span>
+                  )}
                 </span>
-                <span>
+                <span className="flex items-center gap-1.5">
                   {dong(o.total_amount)}
                   {o.payment_received_at && ' ✓'}
+                  <button
+                    onClick={() => onPrintOrder(o.id)}
+                    title="In lại 2 liên của đơn này"
+                    className="rounded px-1 hover:bg-gray-100"
+                  >
+                    🖨️
+                  </button>
                 </span>
               </div>
               <p className="text-gray-700">

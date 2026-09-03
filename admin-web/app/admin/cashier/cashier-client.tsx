@@ -13,6 +13,9 @@ import {
   type OpenTableSession,
 } from '@/lib/actions/table-session'
 import { saveTableLayout } from '@/lib/actions/table-layout'
+import { confirmOrder } from '@/lib/actions/pos-order'
+import { playBell, unlockBell } from '@/lib/bell'
+import { pendingCount } from '@/lib/table-status'
 import {
   changedPositions,
   layoutTables,
@@ -101,6 +104,28 @@ export default function CashierClient({
     }
   }, [storeId, reload])
 
+  // ─── Chuông đơn mới ───────────────────────────────────────────────────────
+  // Kêu đúng MỘT lần cho mỗi đơn chưa xác nhận. Ảnh chụp đầu tiên chỉ ghi nhận, không kêu:
+  // mở/F5 lại màn hình giữa ca mà rú lên một tràng cho đám đơn cũ là phản tác dụng.
+  const daKeu = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    const dangCho = new Set<string>()
+    for (const s of sessions) {
+      if (s.status !== 'open') continue
+      for (const o of s.orders) if (o.status === 'pending') dangCho.add(o.id)
+    }
+    if (daKeu.current === null) {
+      daKeu.current = dangCho
+      return
+    }
+    let coMoi = false
+    for (const id of dangCho) {
+      if (!daKeu.current.has(id)) coMoi = true
+    }
+    daKeu.current = dangCho
+    if (coMoi) playBell()
+  }, [sessions])
+
   const trayColors = useMemo(() => assignTrayColors(sessions), [sessions])
 
   // Bàn nào đang thuộc phiên nào — nguồn cho màu ô và cho việc bấm ô ra bill.
@@ -185,6 +210,26 @@ export default function CashierClient({
     )
   }
 
+  // Xác nhận đơn rồi in ngay 2 liên. KHÔNG gọi sauKhiXong: giữ nguyên bàn đang chọn để thu ngân
+  // bấm tiếp đơn thứ hai của cùng bàn, khỏi phải tìm lại trên sơ đồ.
+  const onConfirmOrder = async (orderId: string) => {
+    setBusy(true)
+    const res = await confirmOrder(orderId)
+    if (!res.ok) {
+      setBusy(false)
+      setError(res.error)
+      return
+    }
+    onPrintOrder(orderId)
+    setBusy(false)
+    if (res.already) setError('Đơn này đã được xác nhận trước đó — chỉ in lại phiếu.')
+    await reload()
+  }
+
+  const onPrintOrder = (orderId: string) => {
+    window.open(`/admin/cashier/print-order?id=${orderId}`, '_blank')
+  }
+
   const onPrint = (list: OpenTableSession[]) => {
     window.open(`/staff/tables/print?ids=${list.map((s) => s.session_id).join(',')}`, '_blank')
   }
@@ -213,8 +258,12 @@ export default function CashierClient({
     setPickedTableIds(new Set())
   }
 
+  const tongDonCho = sessions.reduce((n, s) => n + pendingCount(s), 0)
+
   return (
-    <div className="flex h-full min-h-0 flex-1">
+    // Trình duyệt chặn phát tiếng cho tới khi người dùng chạm vào trang — mượn cú bấm đầu tiên
+    // (bất kỳ chỗ nào) để mở khoá chuông, khỏi bắt thu ngân bấm một nút "bật tiếng" riêng.
+    <div className="flex h-full min-h-0 flex-1" onClickCapture={() => unlockBell()}>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-5 py-3">
           <div className="flex items-center gap-2">
@@ -227,6 +276,11 @@ export default function CashierClient({
             <span className="ml-3 text-xs text-gray-400">
               {placed.length} bàn · {freeTables.length} trống
             </span>
+            {tongDonCho > 0 && (
+              <span className="ml-1 rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-white">
+                🔔 {tongDonCho} đơn chờ xác nhận
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {openSessions.length > 1 && !arrange && (
@@ -293,7 +347,12 @@ export default function CashierClient({
           />
         </div>
 
-        <NewOrdersFeed sessions={sessions} onSelectSession={(id) => selectSession(id, false)} />
+        <NewOrdersFeed
+          sessions={sessions}
+          busy={busy}
+          onSelectSession={(id) => selectSession(id, false)}
+          onConfirmOrder={(id) => void onConfirmOrder(id)}
+        />
       </div>
 
       <BillPanel
@@ -305,6 +364,8 @@ export default function CashierClient({
         busy={busy}
         onPay={(list, ins) => void onPay(list, ins)}
         onPrint={onPrint}
+        onConfirmOrder={(id) => void onConfirmOrder(id)}
+        onPrintOrder={onPrintOrder}
         onReset={(s) => void onReset(s)}
         onCreateTray={() => void chay(() => createTraySession([...pickedTableIds]))}
         onAddTable={(sid, tid) => void chay(() => addTableToSession(sid, tid))}
