@@ -1296,10 +1296,39 @@ Test bằng tài khoản **chủ quán Bia lẩu Bảo Lương** (postpay). Menu
 16. **Bỏ bàn** một bàn có đơn chưa nấu → đơn bị huỷ, bàn về trống; nếu còn món đã vào bếp thì
     hiện dòng nhắc "còn N món đã vào bếp"
 
+### Nhóm F — Xác nhận đơn + in 2 liên (bổ sung 2026-09-04, mig 045)
+
+20. Khách gọi món từ mini-app (hoặc nhân viên đặt hộ) → ô bàn trên POS **nhấp nháy viền vàng**
+    + badge "1 đơn chờ xác nhận", thanh trên hiện "🔔 1 đơn chờ xác nhận", và **kêu chuông**
+    (lần đầu vào màn phải bấm chuột một cái bất kỳ thì trình duyệt mới cho phát tiếng)
+21. Bấm vào ô bàn → panel bên phải có khối vàng "🔔 1 đơn chờ xác nhận" → bấm dòng đơn →
+    xổ ra **bảng món** (tên + số lượng)
+22. Bấm **✅ Xác nhận & in 2 liên** → máy in ra **2 tờ**:
+    - Tờ 1 **PHIẾU BẾP**: tên bàn chữ to, món + số lượng + ghi chú, **không có giá**
+    - Tờ 2 **PHIẾU BÀN**: có ô ☐ trước mỗi món, có giá, có "Tạm tính cả bàn"
+23. Sau khi xác nhận: ô bàn **hết nhấp nháy**, badge biến mất, chuông không kêu lại
+24. Bấm nút **✅ Xác nhận & in** thẳng trên dải "Đơn mới" → cũng ra đúng 2 liên như bài 22
+25. Bấm 🖨️ ở dòng đơn trong panel bill → **in lại** 2 liên của đơn đó, không đổi trạng thái
+26. Xác nhận lại một đơn đã xác nhận (2 tab cùng bấm) → hiện "Đơn này đã được xác nhận trước
+    đó — chỉ in lại phiếu", **không** báo lỗi đỏ
+27. Bàn trống có **chấm xanh**; bàn đang có khách có **chấm đỏ**; mâm vừa ghép mà chưa ai gọi
+    món → vẫn **chấm xanh**; gọi một món vào mâm → chuyển **đỏ**
+28. Thu tiền xong đóng bàn → bàn về **chấm xanh**
+
+### Nhóm G — Màn nhân viên `/staff/order` (bổ sung 2026-09-04)
+
+29. Màn chọn bàn: mỗi bàn có chấm đỏ/xanh **giống hệt** POS, kèm chú thích màu ở đầu trang
+30. Chọn một bàn khách đã gọi 5 món → hiện khối **"Khách đã gọi 5 món · <tiền>"**, mở ra thấy
+    đủ 5 món gộp theo tên (gồm cả món khách tự gọi qua mini-app)
+31. Nhân viên đặt thêm 1 món ở bàn đó → khối "Khách đã gọi" tăng lên đúng số
+32. Màn nhân viên **KHÔNG có** nút Xác nhận (chỉ thu ngân được xác nhận)
+
 ### Nhóm E — Quyền + không hồi quy
 
 17. Đăng nhập bằng tài khoản **nhân viên** (store_staff) rồi vào `/admin/cashier` → **bị đá ra**
 18. `/staff/tables` trên điện thoại **không đổi một li nào**, vẫn thu tiền/ghép mâm được như cũ
+33. Nhân viên (store_staff) gọi thẳng RPC `pos_confirm_order` → **bị từ chối** ("Chỉ chủ quán
+    mới xác nhận đơn")
 19. Vào POS ở **Phở Gà Pubu** (trả trước) → hiện dòng "Quán đang chạy trả trước…", vẫn sắp xếp
     được vị trí bàn, không vỡ màn
 
