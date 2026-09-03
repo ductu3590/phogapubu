@@ -53,6 +53,9 @@ interface TableRow {
   store_id: string
   table_number: string
   is_active: boolean
+  // Toạ độ ô lưới trên sơ đồ bàn ở /admin/cashier (mig 044). NULL = chưa sắp.
+  pos_x: number | null
+  pos_y: number | null
 }
 
 interface MenuCategoryRow {
