@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
+  Calculator,
   ClipboardList,
   ChefHat,
   UtensilsCrossed,
@@ -27,6 +28,7 @@ const SECTIONS: Section[] = [
   {
     label: 'Vận hành',
     children: [
+      { href: '/admin/cashier', icon: Calculator, label: 'Thu ngân (POS)' },
       { href: '/admin/orders', icon: ClipboardList, label: 'Đơn hàng' },
       { href: '/admin/kitchen', icon: ChefHat, label: 'Màn hình bếp' },
     ],
