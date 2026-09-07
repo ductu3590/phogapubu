@@ -48,7 +48,9 @@ export default function NewOrdersFeed({
     const moc = now - CUA_SO_PHUT * 60_000
     return sessions
       .flatMap((s) =>
-        s.orders.filter((o) => new Date(o.created_at).getTime() >= moc).map((o) => ({ o, s })),
+        s.orders
+          .filter((o) => o.order_source !== 'pos' && new Date(o.created_at).getTime() >= moc)
+          .map((o) => ({ o, s })),
       )
       .sort((a, b) => b.o.created_at.localeCompare(a.o.created_at))
   }, [sessions, now])
@@ -91,7 +93,7 @@ export default function NewOrdersFeed({
                 </button>
                 {/* Xác nhận thẳng từ đây: giờ đông khách, bắt thu ngân bấm bàn rồi mới xác nhận
                     là thêm một nhịp thừa. Vẫn in đúng 2 liên như bấm trong panel. */}
-                {o.status === 'pending' && (
+                {o.status === 'pending' && o.order_source !== 'pos' && (
                   <button
                     onClick={() => onConfirmOrder(o.id)}
                     disabled={busy}

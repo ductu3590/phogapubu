@@ -8,7 +8,17 @@ import { requireOperator } from '@/lib/auth/operator'
 // duy nhất trả lời được "ai chốt bill này". Dùng service role là mất sạch audit.
 // Trả { ok } thay vì throw để UI xử lý mượt (theo nếp lib/actions/staff-order.ts).
 
-export type SessionOrderItem = { name: string; quantity: number }
+export type SessionOrderItem = {
+  id: string
+  name: string
+  quantity: number
+  price: number
+  toppings: { id: string; name: string; price: number }[]
+  void_type: 'cancelled' | 'gift' | null
+  void_reason: string | null
+  voided_at: string | null
+  is_gift: boolean
+}
 
 export type SessionOrderRow = {
   id: string
@@ -213,7 +223,13 @@ export async function closeTableSessionsBulk(
 }
 
 // ─── Dữ liệu in hoá đơn 80mm ────────────────────────────────────────────────
-export type BillLine = { name: string; quantity: number; price: number; line_total: number }
+export type BillLine = {
+  name: string
+  quantity: number
+  price: number
+  line_total: number
+  is_gift?: boolean
+}
 export type BillSession = {
   session_id: string
   opened_at: string

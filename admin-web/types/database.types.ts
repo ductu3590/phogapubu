@@ -201,6 +201,9 @@ export interface KitchenOrderItem {
   price: number
   note: string | null
   selectedToppings: { id: string; name: string; price: number }[]
+  // Sprint 2: giữ món trong bếp để biết món nào khách vừa bỏ, không xoá audit.
+  voidType: 'cancelled' | 'gift' | null
+  voidReason: string | null
 }
 
 export interface KitchenOrder {

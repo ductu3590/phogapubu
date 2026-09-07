@@ -99,6 +99,8 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenOrder {
       price: item.item_price,
       note: item.note ?? null,
       selectedToppings: (item.selected_toppings ?? []) as { id: string; name: string; price: number }[],
+      voidType: item.void_type === 'cancelled' || item.void_type === 'gift' ? item.void_type : null,
+      voidReason: item.void_reason ?? null,
     })),
   }
 }
@@ -336,7 +338,8 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         // ZaloPay còn pending (chưa trả) KHÔNG đánh dấu → lúc confirmed sẽ báo.
         if (orderInKitchen({ ...o, storePaymentTiming: timing })) announcedOrderIds.current.add(o.id)
       })
-      setOrders(mapped)
+      // Đơn POS ghi tay là món đã phục vụ rồi, chỉ bổ sung vào bill nên không bao giờ hiện bếp.
+      setOrders(mapped.filter((order) => order.orderSource !== 'pos'))
       setLoading(false)
 
       // Giải hiện vật 6h gần nhất chưa đưa (phòng bếp F5 mất card)
@@ -393,6 +396,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
             if (!order) return
 
             knownOrderIds.current.add(order.id)
+            if (order.orderSource === 'pos') return
             setOrders((prev) => [order, ...prev])
             // Chỉ báo khi đơn thực sự vào bếp: tiền mặt vào ngay; ZaloPay phải
             // chờ thanh toán xong (sẽ báo ở event UPDATE → confirmed bên dưới).
@@ -413,24 +417,20 @@ export default function KitchenDisplay({ storeSlug }: Props) {
               order_source?: string; payment_received_at?: string | null
               bank_handoff_at?: string | null; payment_instrument?: string | null
             }
-            setOrders((prev) =>
-              prev
-                .map((o) =>
-                  o.id === updated.id
-                    ? {
-                        ...o,
-                        status: updated.status as OrderStatus,
-                        updatedAt: updated.updated_at,
-                        paymentMethod: updated.payment_method as KitchenOrder['paymentMethod'],
-                        paymentReceivedAt: updated.payment_received_at ?? o.paymentReceivedAt,
-                        bankHandoffAt: updated.bank_handoff_at ?? o.bankHandoffAt,
-                        paymentInstrument: updated.payment_instrument ?? o.paymentInstrument,
-                      }
-                    : o,
-                )
-                // Xoá khỏi màn hình khi đã thanh toán hoặc huỷ
-                .filter((o) => !['paid', 'cancelled'].includes(o.status)),
-            )
+            // Sửa bill cập nhật `orders.updated_at`, còn line nằm ở `order_items`. Phải refetch
+            // cả order để bếp thấy ngay món "Khách bỏ"/khôi phục; không được đoán từ payload.
+            const refreshed = await fetchOrder(updated.id)
+            if (refreshed) {
+              setOrders((prev) => {
+                if (refreshed.orderSource === 'pos' || ['paid', 'cancelled'].includes(refreshed.status)) {
+                  return prev.filter((order) => order.id !== refreshed.id)
+                }
+                const exists = prev.some((order) => order.id === refreshed.id)
+                return exists
+                  ? prev.map((order) => (order.id === refreshed.id ? refreshed : order))
+                  : [refreshed, ...prev]
+              })
+            }
             // Báo khi đơn VỪA vào bếp — ví pending→confirmed, HOẶC khách chuyển khoản vừa được
             // xác nhận (payment_received_at set, status vẫn pending). Đã báo rồi → bỏ qua.
             if (
@@ -445,8 +445,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
                 announcedOrderIds.current.has(updated.id),
               )
             ) {
-              const order = await fetchOrder(updated.id)
-              if (order) announce(order)
+              if (refreshed) announce(refreshed)
             }
           },
         )
@@ -905,10 +904,12 @@ function OrderCard({
       {/* Danh sách món */}
       <ul className="mb-2 space-y-1">
         {order.items.map((item) => (
-          <li key={item.id} className="text-sm">
+          <li key={item.id} className={cn('text-sm', item.voidType === 'cancelled' && 'text-red-400 line-through')}>
             <div className="flex justify-between">
-              <span className="text-gray-200">
-                <strong className="text-white">×{item.quantity}</strong> {item.name}
+              <span className={item.voidType === 'cancelled' ? 'text-red-400' : 'text-gray-200'}>
+                <strong className={item.voidType === 'cancelled' ? 'text-red-300' : 'text-white'}>×{item.quantity}</strong> {item.name}
+                {item.voidType === 'cancelled' && <span className="ml-2 text-[10px] font-bold no-underline">KHÁCH BỎ</span>}
+                {item.voidType === 'gift' && <span className="ml-2 text-[10px] font-bold text-violet-300">TẶNG</span>}
               </span>
               {item.note && (
                 <span className="ml-2 text-xs italic text-yellow-400">{item.note}</span>

@@ -1334,5 +1334,47 @@ Test bằng tài khoản **chủ quán Bia lẩu Bảo Lương** (postpay). Menu
 
 ---
 
+## 2026-09-07 — Sprint 2: Sửa bill POS
+
+> Nhánh `feat/pos-cashier` · migrations `046_pos_bill_edit.sql`, `047_bill_read_voids.sql`.
+
+### Chuẩn bị bắt buộc
+
+1. Trong Supabase SQL Editor, chạy lần lượt `supabase/migrations/046_pos_bill_edit.sql`, rồi
+   `supabase/migrations/047_bill_read_voids.sql`.
+2. Đăng nhập bằng **chủ quán Bia lẩu Bảo Lương**; mở POS và Kitchen Display ở hai tab.
+3. Dùng một bàn đang mở có một đơn chưa thu tiền. Nếu cần, tạo đơn thử rồi Xác nhận & in.
+
+### Nhóm H — Sửa món trong bill
+
+34. Mở bill một bàn: mỗi dòng có nút **Bỏ** và **Tặng**, tổng ban đầu đúng.
+35. Bấm **Bỏ**, nhập lý do: dòng gạch đỏ **Khách bỏ**, tổng giảm đúng cả topping; F5 POS vẫn giữ.
+36. **Khôi phục**: tổng trở về như cũ. **Tặng** món khác: dòng hiện **Tặng · 0đ**, tổng giảm đúng.
+37. Kitchen Display cập nhật món vừa bỏ thành đỏ gạch **KHÁCH BỎ**, không chuông/card mới; khôi phục
+    cập nhật lại không cần F5.
+38. In bill và in lại 2 liên: món Khách bỏ không in; món Tặng vẫn in, giá 0 và có nhãn Tặng.
+
+### Nhóm I — Thêm món tay
+
+39. Bấm **＋ Thêm món tay · không báo bếp**, chọn món thường, món có biến thể và topping; tạm tính
+    đúng, thêm vào bill làm tổng tăng đúng.
+40. Đơn mới ghi **ghi tay** trong bill nhưng không có ở “Đơn mới”, không badge/chuông chờ xác nhận,
+    không in phiếu bếp và không xuất hiện Kitchen Display.
+41. Tắt món/toàn bộ biến thể ở Admin: sheet không cho chọn; RPC cũng từ chối request lách UI, không
+    sinh item mới.
+42. Ngắt mạng ngay sau khi thêm, bật lại và bấm lại: chỉ một `order_source = 'pos'` được tạo, tổng đúng.
+
+### Nhóm J — Quyền và bill đã chốt
+
+43. `store_staff` hoặc chủ quán khác gọi `pos_void_order_item`, `pos_restore_order_item`,
+    `pos_add_manual_items` đều bị từ chối.
+44. Chốt bill xong, mọi Bỏ/Tặng/Khôi phục/Thêm món đều bị từ chối, tổng và audit không đổi.
+45. Bill có voucher không sửa được. Gọi Bỏ cùng loại hai lần không đổi audit lần đầu; phải Khôi phục
+    trước khi chuyển từ Bỏ sang Tặng.
+
+**→ Báo Codex:** `Sprint 2 PASS` hoặc số bài FAIL kèm lỗi. Không chuyển sprint khi chưa PASS.
+
+---
+
 *File này là bộ nhớ test của dự án MEVO.*
 *Claude Code PHẢI đọc file này trước khi báo bất kỳ Sprint nào là "done".*

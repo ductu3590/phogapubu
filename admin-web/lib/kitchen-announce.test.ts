@@ -13,6 +13,10 @@ const o = (p: Partial<KitchenPredicateFields> = {}): KitchenPredicateFields => (
 })
 
 describe('orderInKitchen (§7 — vào bếp theo order_source)', () => {
+  it('đơn thu ngân thêm tay dù ghi cash vẫn KHÔNG vào bếp', () => {
+    expect(orderInKitchen(o({ orderSource: 'pos', paymentMethod: 'cash' }))).toBe(false)
+  })
+
   it('đơn staff pending → vào bếp ngay (chưa cần tiền)', () => {
     expect(orderInKitchen(o({ orderSource: 'staff' }))).toBe(true)
   })

@@ -93,6 +93,7 @@ export default function PrintBill({ bill }: { bill: SessionsBill }) {
                   </div>
                   <div style={{ fontSize: 11, paddingLeft: 8 }}>
                     {it.quantity} × {dong(it.price)}
+                    {it.is_gift && ' · Tặng'}
                   </div>
                 </div>
               ))}

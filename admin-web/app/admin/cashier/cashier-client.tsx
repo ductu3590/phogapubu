@@ -13,7 +13,13 @@ import {
   type OpenTableSession,
 } from '@/lib/actions/table-session'
 import { saveTableLayout } from '@/lib/actions/table-layout'
-import { confirmOrder } from '@/lib/actions/pos-order'
+import {
+  addManualItems,
+  confirmOrder,
+  restoreOrderItem,
+  type PosManualItem,
+  voidOrderItem,
+} from '@/lib/actions/pos-order'
 import { playBell, unlockBell } from '@/lib/bell'
 import { pendingCount } from '@/lib/table-status'
 import {
@@ -27,17 +33,20 @@ import { assignTrayColors } from '@/lib/tray-colors'
 import FloorMap, { type TableState } from './floor-map'
 import BillPanel from './bill-panel'
 import NewOrdersFeed from './new-orders-feed'
+import ManualOrderSheet, { type PosMenuCategory } from './manual-order-sheet'
 
 export default function CashierClient({
   storeId,
   paymentTiming,
   initialTables,
+  categories,
   initialSessions,
   initialError,
 }: {
   storeId: string
   paymentTiming: 'prepay' | 'postpay'
   initialTables: LayoutTable[]
+  categories: PosMenuCategory[]
   initialSessions: OpenTableSession[]
   initialError: string | null
 }) {
@@ -50,23 +59,17 @@ export default function CashierClient({
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [pickedSessionIds, setPickedSessionIds] = useState<Set<string>>(new Set())
   const [pickedTableIds, setPickedTableIds] = useState<Set<string>>(new Set())
-  const reloading = useRef(false)
+  const [manualSessionId, setManualSessionId] = useState<string | null>(null)
 
   // Tải lại CẢ danh sách thay vì cộng dồn tại chỗ: tổng tiền phải do server tính, nhiều nguồn
   // cùng đổi một phiên (khách gọi thêm, bếp đổi trạng thái, nhân viên chốt bill ở máy khác).
   const reload = useCallback(async () => {
-    if (reloading.current) return
-    reloading.current = true
-    try {
-      const res = await listOpenTableSessions()
-      if (res.ok) {
-        setSessions(res.sessions)
-        setError(null)
-      } else {
-        setError(res.error)
-      }
-    } finally {
-      reloading.current = false
+    const res = await listOpenTableSessions()
+    if (res.ok) {
+      setSessions(res.sessions)
+      setError(null)
+    } else {
+      setError(res.error)
     }
   }, [])
 
@@ -234,6 +237,60 @@ export default function CashierClient({
     window.open(`/staff/tables/print?ids=${list.map((s) => s.session_id).join(',')}`, '_blank')
   }
 
+  // Một lần bấm/ retry giữ nguyên UUID do sheet sở hữu. RPC dùng UUID đó để không tạo hai
+  // đơn POS nếu mạng rớt ngay sau khi Supabase đã commit.
+  const onAddManualItems = async (
+    sessionId: string,
+    items: PosManualItem[],
+    clientRequestId: string,
+  ) => {
+    setBusy(true)
+    try {
+      const res = await addManualItems(sessionId, items, clientRequestId)
+      if (!res.ok) {
+        setError(res.error)
+        return false
+      }
+      await reload()
+      return true
+    } catch {
+      setError('Lỗi kết nối. Kiểm tra mạng rồi thử lại — bấm lại không tạo món trùng.')
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onVoidOrderItem = async (
+    orderItemId: string,
+    voidType: 'cancelled' | 'gift',
+    reason?: string,
+  ) => {
+    setBusy(true)
+    try {
+      const res = await voidOrderItem(orderItemId, voidType, reason)
+      if (!res.ok) setError(res.error)
+      else await reload()
+    } catch {
+      setError('Lỗi kết nối. Kiểm tra lại bill trước khi thao tác tiếp.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onRestoreOrderItem = async (orderItemId: string) => {
+    setBusy(true)
+    try {
+      const res = await restoreOrderItem(orderItemId)
+      if (!res.ok) setError(res.error)
+      else await reload()
+    } catch {
+      setError('Lỗi kết nối. Kiểm tra lại bill trước khi thao tác tiếp.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const togglePickTable = (id: string) =>
     setPickedTableIds((prev) => {
       const next = new Set(prev)
@@ -366,6 +423,9 @@ export default function CashierClient({
         onPrint={onPrint}
         onConfirmOrder={(id) => void onConfirmOrder(id)}
         onPrintOrder={onPrintOrder}
+        onOpenManualOrder={(sessionId) => setManualSessionId(sessionId)}
+        onVoidOrderItem={(itemId, type, reason) => void onVoidOrderItem(itemId, type, reason)}
+        onRestoreOrderItem={(itemId) => void onRestoreOrderItem(itemId)}
         onReset={(s) => void onReset(s)}
         onCreateTray={() => void chay(() => createTraySession([...pickedTableIds]))}
         onAddTable={(sid, tid) => void chay(() => addTableToSession(sid, tid))}
@@ -376,6 +436,19 @@ export default function CashierClient({
           setPickedTableIds(new Set())
         }}
       />
+      {manualSessionId && (() => {
+        const session = sessions.find((item) => item.session_id === manualSessionId)
+        if (!session) return null
+        return (
+          <ManualOrderSheet
+            tableNumber={session.table_number}
+            categories={categories}
+            busy={busy}
+            onClose={() => setManualSessionId(null)}
+            onSubmit={(items, requestId) => onAddManualItems(session.session_id, items, requestId)}
+          />
+        )
+      })()}
     </div>
   )
 }

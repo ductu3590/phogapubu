@@ -23,6 +23,9 @@ export default function BillPanel({
   onReleaseHost,
   onConfirmOrder,
   onPrintOrder,
+  onOpenManualOrder,
+  onVoidOrderItem,
+  onRestoreOrderItem,
   onClearPick,
 }: {
   /** Phiên đang mở bill (bấm 1 bàn có khách) */
@@ -45,6 +48,9 @@ export default function BillPanel({
   onReleaseHost: (sessionId: string) => void
   onConfirmOrder: (orderId: string) => void
   onPrintOrder: (orderId: string) => void
+  onOpenManualOrder: (sessionId: string) => void
+  onVoidOrderItem: (orderItemId: string, type: 'cancelled' | 'gift', reason?: string) => void
+  onRestoreOrderItem: (orderItemId: string) => void
   onClearPick: () => void
 }) {
   // Đơn đang mở bảng món để soát trước khi xác nhận. null = chưa mở đơn nào.
@@ -53,7 +59,15 @@ export default function BillPanel({
   const list = picked.length > 0 ? picked : selected ? [selected] : []
   const tong = list.reduce((n, s) => n + s.total, 0)
   const chuaXong = list.reduce((n, s) => n + s.cooking_count, 0)
-  const donCho = list.flatMap((s) => s.orders.filter((o) => o.status === 'pending'))
+  // Đơn `pos` chỉ là ghi bổ sung đã phục vụ: không qua xác nhận, không in phiếu bếp.
+  const donCho = list.flatMap((s) => s.orders.filter((o) => o.status === 'pending' && o.order_source !== 'pos'))
+
+  const dieuChinh = (itemId: string, type: 'cancelled' | 'gift') => {
+    const label = type === 'cancelled' ? 'bỏ món này' : 'tặng món này'
+    if (!confirm(`Xác nhận ${label}? Tổng bill sẽ được tính lại.`)) return
+    const reason = prompt(`Lý do ${label} (có thể để trống):`) ?? undefined
+    onVoidOrderItem(itemId, type, reason)
+  }
 
   if (pickedFreeTables >= 2) {
     return (
@@ -160,13 +174,23 @@ export default function BillPanel({
         </div>
       )}
 
+      {list.length === 1 && (
+        <button
+          onClick={() => onOpenManualOrder(list[0].session_id)}
+          disabled={busy}
+          className="mt-3 w-full rounded-xl border border-dashed border-gray-400 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          ＋ Thêm món tay <span className="font-normal text-gray-400">· không báo bếp</span>
+        </button>
+      )}
+
       <ul className="mt-3 max-h-[45vh] space-y-2 overflow-y-auto border-y border-gray-100 py-3">
         {list.flatMap((s) =>
           s.orders.map((o) => (
             <li key={o.id} className="text-xs">
               <div className="flex justify-between text-gray-400">
                 <span>
-                  {gio(o.created_at)} · {o.order_source === 'staff' ? 'nhân viên' : 'khách'}
+                  {gio(o.created_at)} · {o.order_source === 'staff' ? 'nhân viên' : o.order_source === 'pos' ? 'ghi tay' : 'khách'}
                   {o.status === 'pending' && (
                     <span className="ml-1 font-semibold text-amber-600">chờ xác nhận</span>
                   )}
@@ -183,9 +207,34 @@ export default function BillPanel({
                   </button>
                 </span>
               </div>
-              <p className="text-gray-700">
-                {o.items.map((it) => `${it.name} ×${it.quantity}`).join(', ') || 'Không có món'}
-              </p>
+              <ul className="mt-1 space-y-1 text-gray-700">
+                {o.items.map((it) => {
+                  const cancelled = it.void_type === 'cancelled'
+                  const gift = it.void_type === 'gift'
+                  const toppingText = it.toppings?.map((topping) => topping.name).join(', ')
+                  return (
+                    <li key={it.id} className={`flex items-start justify-between gap-2 ${cancelled ? 'text-red-500 line-through' : ''}`}>
+                      <span className="min-w-0">
+                        {it.name} ×{it.quantity}
+                        {toppingText && <span className="text-[11px] text-gray-400"> + {toppingText}</span>}
+                        {cancelled && <span className="ml-1 no-underline text-[10px] font-semibold text-red-500">Khách bỏ</span>}
+                        {gift && <span className="ml-1 text-[10px] font-semibold text-violet-600">Tặng · 0đ</span>}
+                      </span>
+                      <span className="flex flex-shrink-0 items-center gap-1 no-underline">
+                        {it.void_type ? (
+                          <button onClick={() => onRestoreOrderItem(it.id)} disabled={busy} className="rounded border border-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600 disabled:opacity-50">Khôi phục</button>
+                        ) : (
+                          <>
+                            <button onClick={() => dieuChinh(it.id, 'cancelled')} disabled={busy} className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-600 disabled:opacity-50">Bỏ</button>
+                            <button onClick={() => dieuChinh(it.id, 'gift')} disabled={busy} className="rounded border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700 disabled:opacity-50">Tặng</button>
+                          </>
+                        )}
+                      </span>
+                    </li>
+                  )
+                })}
+                {o.items.length === 0 && <li>Không có món</li>}
+              </ul>
             </li>
           )),
         )}

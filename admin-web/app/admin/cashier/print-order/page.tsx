@@ -30,7 +30,7 @@ export default async function PrintOrderPage({
 
   const { data: items } = await supabase
     .from('order_items')
-    .select('id, item_name, quantity, item_price, note, selected_toppings')
+    .select('id, item_name, quantity, item_price, note, selected_toppings, void_type')
     .eq('order_id', order.id)
 
   const { data: store } = await supabase
@@ -83,11 +83,13 @@ export default async function PrintOrderPage({
     orderTotal: order.total_amount as number,
     sessionTotal,
     orderSource: (order.order_source as string) ?? 'customer_zalo',
-    items: (items ?? []).map((it) => ({
+    // Món "Khách bỏ" không được in lại; món tặng vẫn hiện để đối chiếu nhưng giá bằng 0đ.
+    items: (items ?? []).filter((it) => it.void_type !== 'cancelled').map((it) => ({
       name: it.item_name as string,
       quantity: it.quantity as number,
       price: it.item_price as number,
       note: (it.note as string | null) ?? null,
+      isGift: it.void_type === 'gift',
       toppings: Array.isArray(it.selected_toppings)
         ? (it.selected_toppings as { name: string; price: number }[])
         : [],

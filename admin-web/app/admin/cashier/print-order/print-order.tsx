@@ -8,6 +8,7 @@ export type SlipItem = {
   price: number
   note: string | null
   toppings: { name: string; price: number }[]
+  isGift: boolean
 }
 
 export type OrderSlip = {
@@ -32,7 +33,7 @@ const gio = (iso: string) =>
     minute: '2-digit',
   })
 
-const donGia = (it: SlipItem) => it.price + it.toppings.reduce((s, t) => s + t.price, 0)
+const donGia = (it: SlipItem) => it.isGift ? 0 : it.price + it.toppings.reduce((s, t) => s + t.price, 0)
 
 export default function PrintOrder({ slip }: { slip: OrderSlip }) {
   // Mở tab là in luôn, y như trang bill (staff/tables/print). Chờ một nhịp cho font/layout ổn
@@ -127,6 +128,7 @@ export default function PrintOrder({ slip }: { slip: OrderSlip }) {
             <div className="row">
               <span className="name">
                 ☐ {it.name} x{it.quantity}
+                {it.isGift && ' (Tặng)'}
               </span>
               <span className="num">{dong(donGia(it) * it.quantity)}</span>
             </div>

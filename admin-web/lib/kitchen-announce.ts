@@ -25,6 +25,8 @@ export type KitchenPredicateFields = {
 }
 
 export function orderInKitchen(o: KitchenPredicateFields): boolean {
+  // Món thu ngân ghi bổ sung là món đã phục vụ, tuyệt đối không tạo phiếu/loa bếp.
+  if (o.orderSource === 'pos') return false
   if (o.status !== 'pending' && o.status !== 'confirmed') return false
   if (o.orderSource === 'staff') return true
   if (o.paymentReceivedAt !== null) return true
