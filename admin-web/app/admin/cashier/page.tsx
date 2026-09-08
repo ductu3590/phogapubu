@@ -2,7 +2,7 @@ import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { listOpenTableSessions } from '@/lib/actions/table-session'
-import type { LayoutTable } from '@/lib/table-layout'
+import { loadFloorLayout } from '@/lib/actions/floor-layout'
 import type { PosMenuCategory } from './manual-order-sheet'
 import CashierClient from './cashier-client'
 
@@ -20,11 +20,7 @@ export default async function CashierPage() {
     .eq('id', operator.storeId)
     .single()
 
-  const { data: tableRows } = await supabase
-    .from('tables')
-    .select('id, table_number, pos_x, pos_y')
-    .eq('store_id', operator.storeId)
-    .eq('is_active', true)
+  const floor = await loadFloorLayout()
 
   const { data: categoryRows } = await supabase
     .from('menu_categories')
@@ -67,20 +63,14 @@ export default async function CashierPage() {
       })),
   }))
 
-  const tables: LayoutTable[] = (tableRows ?? []).map((t) => ({
-    id: t.id as string,
-    table_number: t.table_number as string,
-    pos_x: (t.pos_x as number | null) ?? null,
-    pos_y: (t.pos_y as number | null) ?? null,
-  }))
-
   const res = await listOpenTableSessions()
 
   return (
     <CashierClient
       storeId={operator.storeId}
       paymentTiming={(store?.payment_timing as 'prepay' | 'postpay' | null) ?? 'prepay'}
-      initialTables={tables}
+      initialFloor={floor.ok ? floor.snapshot : null}
+      initialFloorError={floor.ok ? null : floor.error}
       categories={categories}
       initialSessions={res.ok ? res.sessions : []}
       initialError={res.ok ? null : res.error}

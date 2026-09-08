@@ -1332,6 +1332,32 @@ Test bằng tài khoản **chủ quán Bia lẩu Bảo Lương** (postpay). Menu
 19. Vào POS ở **Phở Gà Pubu** (trả trước) → hiện dòng "Quán đang chạy trả trước…", vẫn sắp xếp
     được vị trí bàn, không vỡ màn
 
+## 2026-09-08 — Sprint 3: Khu vực và sơ đồ bàn POS
+
+Test bằng tài khoản **chủ quán Bia lẩu Bảo Lương** tại `/admin/cashier`.
+
+### Nhóm A — Khu vực
+
+1. Bấm **⇄ Sắp xếp bàn** → tạo khu “Tầng 1”, đổi tên thành “Tầng trệt”; tên khu và số bàn hiển thị đúng.
+2. Mở **Phân bàn vào khu vực** → đưa Bàn 1, Bàn 2 vào “Tầng trệt”; tab khu vực cập nhật đúng số bàn.
+3. Bấm tab “Tầng trệt” → chỉ thấy Bàn 1, Bàn 2; tab “Chưa phân khu” chỉ còn các bàn chưa gán.
+4. Bàn ở hai khu khác nhau được đặt cùng cột/hàng hợp lệ, không bị đẩy hoặc chồng lên nhau.
+5. Đổi tên khu trùng tên khu khác hoặc để trống → bị từ chối, không mất bản nháp.
+
+### Nhóm B — Kéo thả và lưu
+
+6. Ở chế độ sắp xếp, kéo bàn sang ô trống → vị trí đổi; thả lên bàn khác → hai bàn đổi chỗ.
+7. Trên tablet, chạm giữ rồi kéo bàn → kết quả giống chuột; dùng phím mũi tên khi bàn được focus → bàn di chuyển từng ô.
+8. Bấm **Hủy chỉnh sửa** → mọi vị trí, khu vực và tên khu trở về trước khi chỉnh.
+9. Bấm **Lưu sơ đồ**, F5 và mở POS ở tab/máy thứ hai → khu vực, phân bàn và vị trí vẫn đúng.
+10. Hai tab cùng sửa: tab lưu sau nhận thông báo sơ đồ đã bị máy khác thay đổi; không được ghi đè thay đổi tab trước.
+
+### Nhóm C — Quyền và không hồi quy
+
+11. Đăng nhập tài khoản `store_staff` vào `/admin/cashier` → bị chặn như trước.
+12. `/staff/tables`, QR, phiên bàn, bill và trạng thái đơn không thay đổi.
+13. Gọi RPC lưu sơ đồ bằng nhân viên hoặc user không có operator → bị từ chối; không ghi được bảng `table_areas` trực tiếp.
+
 ---
 
 ## 2026-09-07 — Sprint 2: Sửa bill POS

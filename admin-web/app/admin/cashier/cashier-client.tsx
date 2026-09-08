@@ -12,7 +12,6 @@ import {
   releaseTableSessionHost,
   type OpenTableSession,
 } from '@/lib/actions/table-session'
-import { saveTableLayout } from '@/lib/actions/table-layout'
 import {
   addManualItems,
   confirmOrder,
@@ -22,13 +21,9 @@ import {
 } from '@/lib/actions/pos-order'
 import { playBell, unlockBell } from '@/lib/bell'
 import { pendingCount } from '@/lib/table-status'
-import {
-  changedPositions,
-  layoutTables,
-  moveTable,
-  type LayoutTable,
-  type PlacedTable,
-} from '@/lib/table-layout'
+import type { FloorSnapshot } from '@/lib/area-layout'
+import { useFloorLayout } from './use-floor-layout'
+import AreaControls from './area-controls'
 import { assignTrayColors } from '@/lib/tray-colors'
 import FloorMap, { type TableState } from './floor-map'
 import BillPanel from './bill-panel'
@@ -38,22 +33,25 @@ import ManualOrderSheet, { type PosMenuCategory } from './manual-order-sheet'
 export default function CashierClient({
   storeId,
   paymentTiming,
-  initialTables,
+  initialFloor,
+  initialFloorError,
   categories,
   initialSessions,
   initialError,
 }: {
   storeId: string
   paymentTiming: 'prepay' | 'postpay'
-  initialTables: LayoutTable[]
+  initialFloor: FloorSnapshot | null
+  initialFloorError: string | null
   categories: PosMenuCategory[]
   initialSessions: OpenTableSession[]
   initialError: string | null
 }) {
-  const [placed, setPlaced] = useState<PlacedTable[]>(() => layoutTables(initialTables))
+  const floor = useFloorLayout(storeId, initialFloor, initialFloorError)
+  const placed = floor.draft.tables
+  const arrange = floor.arrange
   const [sessions, setSessions] = useState(initialSessions)
   const [error, setError] = useState(initialError)
-  const [arrange, setArrange] = useState(false)
   const [busy, setBusy] = useState(false)
   const [connected, setConnected] = useState(false)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
@@ -145,19 +143,6 @@ export default function CashierClient({
   const selected = sessions.find((s) => s.session_id === selectedSessionId) ?? null
   const pickedSessions = sessions.filter((s) => pickedSessionIds.has(s.session_id))
   const freeTables = placed.filter((t) => !stateByTable.has(t.id))
-
-  const onMove = async (tableId: string, x: number, y: number) => {
-    const truoc = placed
-    const sau = moveTable(truoc, tableId, x, y)
-    if (sau === truoc) return
-    setPlaced(sau)
-    const res = await saveTableLayout(changedPositions(truoc, sau))
-    // Lỗi mạng: trả vị trí về đúng như DB, không để sơ đồ máy này khác máy khác.
-    if (!res.ok) {
-      setPlaced(truoc)
-      setError(res.error)
-    }
-  }
 
   const sauKhiXong = async (msg?: string) => {
     setBusy(false)
@@ -301,6 +286,7 @@ export default function CashierClient({
 
   // additive (ctrl/cmd+click) = tick thêm mâm để gộp bill; click thường = mở bill một mâm.
   const selectSession = (id: string, additive: boolean) => {
+    if (arrange) return
     if (additive) {
       setPickedSessionIds((prev) => {
         const next = new Set(prev)
@@ -322,7 +308,7 @@ export default function CashierClient({
     // (bất kỳ chỗ nào) để mở khoá chuông, khỏi bắt thu ngân bấm một nút "bật tiếng" riêng.
     <div className="flex h-full min-h-0 flex-1" onClickCapture={() => unlockBell()}>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-5 py-3">
           <div className="flex items-center gap-2">
             <span
               className={`inline-block h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-300'}`}
@@ -352,17 +338,21 @@ export default function CashierClient({
                 {pickedSessionIds.size > 0 ? 'Bỏ chọn tất cả' : 'Chọn tất cả để gộp bill'}
               </button>
             )}
+            {arrange && <button disabled={floor.saving} onClick={floor.cancel} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold disabled:opacity-50">Hủy chỉnh sửa</button>}
             <button
+              disabled={floor.saving || !floor.ready}
               onClick={() => {
-                setArrange((v) => !v)
+                if (arrange) { void floor.save(); return }
+                void floor.begin()
                 setSelectedSessionId(null)
                 setPickedTableIds(new Set())
+                setPickedSessionIds(new Set())
               }}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                 arrange ? 'bg-gray-900 text-white' : 'border border-gray-200 text-gray-600'
               }`}
             >
-              {arrange ? '✓ Xong sắp xếp' : '⇄ Sắp xếp bàn'}
+              {floor.saving ? 'Đang xử lý…' : arrange ? 'Lưu sơ đồ' : '⇄ Sắp xếp bàn'}
             </button>
           </div>
         </div>
@@ -383,31 +373,35 @@ export default function CashierClient({
           </p>
         )}
 
-        {arrange && (
-          <p className="mx-5 mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
-            Kéo bàn sang ô trống để sắp lại. Thả lên bàn khác thì hai bàn đổi chỗ. Xong nhớ bấm
-            <b> Xong sắp xếp</b> để quay về chế độ thu tiền.
-          </p>
-        )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+        <div className="min-h-0 flex-1 overflow-auto">
+          <AreaControls floor={floor} />
+          <div className="overflow-auto p-5">
+          {floor.ready && !placed.some(t => t.area_id === floor.areaId) && <p className="mb-3 text-sm text-gray-500">Khu vực này chưa có bàn. Vào Sắp xếp bàn để phân bàn vào khu vực.</p>}
           <FloorMap
-            placed={placed}
+            placed={placed.filter(t => t.area_id === floor.areaId)}
             stateByTable={stateByTable}
             arrange={arrange}
+            locked={floor.saving}
             selectedSessionId={selectedSessionId}
             pickedSessionIds={pickedSessionIds}
             pickedTableIds={pickedTableIds}
             onPickTable={togglePickTable}
             onSelectSession={selectSession}
-            onMove={(id, x, y) => void onMove(id, x, y)}
+            onMove={floor.move}
           />
+          </div>
         </div>
 
         <NewOrdersFeed
           sessions={sessions}
           busy={busy}
-          onSelectSession={(id) => selectSession(id, false)}
+          onSelectSession={(id) => {
+            if (arrange) return
+            const table = placed.find(t => t.area_id === floor.areaId && stateByTable.get(t.id)?.session.session_id === id)
+              ?? placed.find(t => stateByTable.get(t.id)?.session.session_id === id)
+            if (table) floor.setAreaId(table.area_id)
+            selectSession(id, false)
+          }}
           onConfirmOrder={(id) => void onConfirmOrder(id)}
         />
       </div>

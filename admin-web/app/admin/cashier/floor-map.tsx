@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef, useState } from 'react'
 import { LAYOUT_COLS, type PlacedTable } from '@/lib/table-layout'
 import { pendingCount, tableDot } from '@/lib/table-status'
 import type { OpenTableSession } from '@/lib/actions/table-session'
@@ -16,6 +17,7 @@ export default function FloorMap({
   placed,
   stateByTable,
   arrange,
+  locked = false,
   selectedSessionId,
   pickedSessionIds,
   pickedTableIds,
@@ -26,6 +28,7 @@ export default function FloorMap({
   placed: PlacedTable[]
   stateByTable: Map<string, TableState>
   arrange: boolean
+  locked?: boolean
   selectedSessionId: string | null
   pickedSessionIds: Set<string>
   pickedTableIds: Set<string>
@@ -34,7 +37,9 @@ export default function FloorMap({
   onSelectSession: (sessionId: string, additive: boolean) => void
   onMove: (tableId: string, x: number, y: number) => void
 }) {
-  const rows = Math.max(1, ...placed.map((t) => t.y + 1)) + (arrange ? 1 : 0)
+  const drag = useRef<{ id: string; pointerId: number; x: number; y: number } | null>(null)
+  const [hoverCell, setHoverCell] = useState<string | null>(null)
+  const rows = Math.min(200, Math.max(1, ...placed.map((t) => t.y + 1)) + (arrange ? 1 : 0))
   const byCell = new Map(placed.map((t) => [`${t.x},${t.y}`, t]))
 
   const cells: { x: number; y: number; table: PlacedTable | undefined }[] = []
@@ -46,22 +51,54 @@ export default function FloorMap({
 
   return (
     <div
-      className="grid gap-3"
+      className="grid min-w-[960px] gap-3"
       style={{ gridTemplateColumns: `repeat(${LAYOUT_COLS}, minmax(0, 1fr))` }}
+      onPointerDown={e => {
+        if (!arrange || locked || !e.isPrimary || e.button !== 0) return
+        const tile = (e.target as HTMLElement).closest<HTMLElement>('[data-table-id]')
+        if (!tile) return
+        drag.current = { id: tile.dataset.tableId!, pointerId: e.pointerId, x: e.clientX, y: e.clientY }
+        e.currentTarget.setPointerCapture(e.pointerId)
+        tile.focus()
+        e.preventDefault()
+      }}
+      onPointerMove={e => {
+        if (!drag.current || drag.current.pointerId !== e.pointerId) return
+        const cell = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-floor-cell]')
+        setHoverCell(cell && e.currentTarget.contains(cell) ? cell.dataset.floorCell! : null)
+      }}
+      onPointerUp={e => {
+        const source = drag.current
+        if (!source || source.pointerId !== e.pointerId) return
+        drag.current = null
+        setHoverCell(null)
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
+        if (!arrange || locked || Math.hypot(e.clientX - source.x, e.clientY - source.y) < 5) return
+        const cell = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-floor-cell]')
+        if (!cell || !e.currentTarget.contains(cell)) return
+        const [x, y] = cell.dataset.floorCell!.split(',').map(Number)
+        onMove(source.id, x, y)
+      }}
+      onPointerCancel={() => { drag.current = null; setHoverCell(null) }}
+      onLostPointerCapture={() => { drag.current = null; setHoverCell(null) }}
+      onKeyDown={e => {
+        if (!arrange || locked) return
+        const delta = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, number[]>)[e.key]
+        const tile = (e.target as HTMLElement).closest<HTMLElement>('[data-table-id]')
+        const table = placed.find(t => t.id === tile?.dataset.tableId)
+        if (!delta || !table) return
+        e.preventDefault()
+        onMove(table.id, table.x + delta[0], table.y + delta[1])
+        // Bàn đổi ô khiến React tạo lại nút; khôi phục focus để bấm mũi tên liên tiếp.
+        const grid = e.currentTarget
+        requestAnimationFrame(() => grid.querySelector<HTMLElement>(`[data-table-id="${table.id}"]`)?.focus())
+      }}
     >
       {cells.map(({ x, y, table }) => (
         <div
           key={`${x}-${y}`}
-          onDragOver={arrange ? (e) => e.preventDefault() : undefined}
-          onDrop={
-            arrange
-              ? (e) => {
-                  e.preventDefault()
-                  const id = e.dataTransfer.getData('text/plain')
-                  if (id) onMove(id, x, y)
-                }
-              : undefined
-          }
+          data-floor-cell={`${x},${y}`}
+          style={hoverCell === `${x},${y}` ? { outline: '2px solid #f97316', borderRadius: 12 } : undefined}
           className={
             arrange && !table
               ? 'min-h-24 rounded-xl border border-dashed border-gray-200'
@@ -83,7 +120,7 @@ export default function FloorMap({
                   pickedSessionIds.has(stateByTable.get(table.id)!.session.session_id))
               }
               onClick={(e) => {
-                if (arrange) return
+                if (arrange || locked) return
                 const st = stateByTable.get(table.id)
                 if (st) onSelectSession(st.session.session_id, e.ctrlKey || e.metaKey)
                 else onPickTable(table.id)
@@ -137,8 +174,9 @@ function Tile({
   return (
     <button
       type="button"
-      draggable={arrange}
-      onDragStart={(e) => e.dataTransfer.setData('text/plain', table.id)}
+      data-table-id={table.id}
+      style={arrange ? { touchAction: 'none', userSelect: 'none' } : undefined}
+      aria-label={arrange ? `${table.table_number}, cột ${table.x + 1}, hàng ${table.y + 1}. Dùng phím mũi tên để di chuyển.` : table.table_number}
       onClick={onClick}
       className={`relative flex h-24 w-full flex-col items-center justify-center rounded-xl border p-1 text-center transition-colors ${base} ${vien} ${
         arrange ? 'cursor-move' : 'cursor-pointer hover:brightness-95'

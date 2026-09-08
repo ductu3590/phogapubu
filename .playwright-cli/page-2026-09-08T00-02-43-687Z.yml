@@ -1,0 +1,15 @@
+- generic [ref=f2e2]:
+  - heading "Sơ đồ bàn POS" [level=1] [ref=f2e3]
+  - button "Sắp xếp bàn" [ref=f2e4] [cursor=pointer]
+  - generic "Khu vực" [ref=f2e6]:
+    - button "Chưa phân khu · 3" [pressed] [ref=f2e7] [cursor=pointer]
+  - generic [ref=f2e9]:
+    - button "Bàn 1" [ref=f2e11] [cursor=pointer]:
+      - generic "Bàn trống"
+      - generic [ref=f2e13]: trống
+    - button "Bàn 2" [ref=f2e15] [cursor=pointer]:
+      - generic "Bàn trống"
+      - generic [ref=f2e17]: trống
+    - button "Bàn 3" [ref=f2e19] [cursor=pointer]:
+      - generic "Bàn trống"
+      - generic [ref=f2e21]: trống

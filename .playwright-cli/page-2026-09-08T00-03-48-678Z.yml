@@ -1,0 +1,26 @@
+- generic [ref=f2e2]:
+  - heading "Sơ đồ bàn POS" [level=1] [ref=f2e3]
+  - button "Hủy chỉnh sửa" [ref=f2e31] [cursor=pointer]
+  - button "Lưu sơ đồ" [ref=f2e32] [cursor=pointer]
+  - generic [ref=f2e5]:
+    - generic "Khu vực" [ref=f2e6]:
+      - button "Chưa phân khu · 3" [ref=f2e7] [cursor=pointer]
+      - button "Tầng 1 · 0" [pressed] [ref=f2e58] [cursor=pointer]
+    - group [ref=f2e33]:
+      - paragraph [ref=f2e34]: Kéo bàn bằng chuột hoặc chạm giữ rồi kéo. Thả lên bàn khác để đổi chỗ. Có thể chọn bàn bằng phím Tab và dùng phím mũi tên để di chuyển. Bấm Lưu sơ đồ để lưu tất cả khu vực.
+      - generic [ref=f2e35]:
+        - generic [ref=f2e36]:
+          - textbox "Tên khu vực mới" [ref=f2e37]:
+            - /placeholder: "Ví dụ: Tầng 1"
+          - button "+ Tạo khu vực" [active] [ref=f2e38] [cursor=pointer]
+        - generic [ref=f2e59]:
+          - textbox "Đổi tên khu vực đang chọn" [ref=f2e60]: Tầng 1
+          - button "Đổi tên" [ref=f2e61] [cursor=pointer]
+      - group [ref=f2e39]:
+        - generic "Phân bàn vào khu vực" [ref=f2e40]
+        - option "Chưa phân khu" [selected]
+        - option "Tầng 1"
+        - option "Chưa phân khu" [selected]
+        - option "Tầng 1"
+        - option "Chưa phân khu" [selected]
+        - option "Tầng 1"

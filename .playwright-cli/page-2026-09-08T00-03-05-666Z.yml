@@ -1,0 +1,31 @@
+- generic [ref=f2e2]:
+  - heading "Sơ đồ bàn POS" [level=1] [ref=f2e3]
+  - button "Hủy chỉnh sửa" [ref=f2e31] [cursor=pointer]
+  - button "Lưu sơ đồ" [ref=f2e32] [cursor=pointer]
+  - generic [ref=f2e5]:
+    - generic "Khu vực" [ref=f2e6]:
+      - button "Chưa phân khu · 3" [pressed] [ref=f2e7] [cursor=pointer]
+    - group [ref=f2e33]:
+      - paragraph [ref=f2e34]: Kéo bàn bằng chuột hoặc chạm giữ rồi kéo. Thả lên bàn khác để đổi chỗ. Có thể chọn bàn bằng phím Tab và dùng phím mũi tên để di chuyển. Bấm Lưu sơ đồ để lưu tất cả khu vực.
+      - generic [ref=f2e36]:
+        - textbox "Tên khu vực mới" [ref=f2e37]:
+          - /placeholder: "Ví dụ: Tầng 1"
+        - button "+ Tạo khu vực" [ref=f2e38] [cursor=pointer]
+      - group [ref=f2e39]:
+        - generic "Phân bàn vào khu vực" [ref=f2e40]
+        - option "Chưa phân khu" [selected]
+        - option "Chưa phân khu" [selected]
+        - option "Chưa phân khu" [selected]
+  - generic [ref=f2e9]:
+    - button "Bàn 1, cột 1, hàng 1. Dùng phím mũi tên để di chuyển." [ref=f2e41] [cursor=pointer]:
+      - generic "Bàn trống"
+      - generic [ref=f2e12]: Bàn 1
+      - generic [ref=f2e13]: trống
+    - button "Bàn 2, cột 2, hàng 1. Dùng phím mũi tên để di chuyển." [ref=f2e42] [cursor=pointer]:
+      - generic "Bàn trống"
+      - generic [ref=f2e16]: Bàn 2
+      - generic [ref=f2e17]: trống
+    - button "Bàn 3, cột 3, hàng 1. Dùng phím mũi tên để di chuyển." [ref=f2e43] [cursor=pointer]:
+      - generic "Bàn trống"
+      - generic [ref=f2e20]: Bàn 3
+      - generic [ref=f2e21]: trống
