@@ -9,8 +9,10 @@
 
 Sau khi hoàn thành BẤT KỲ Sprint hoặc task nào, Codex PHẢI:
 1. Dừng lại — KHÔNG tự động chuyển sang task tiếp theo
-2. Đọc `TESTING.md` — lấy đúng checklist test của Sprint vừa xong
-3. Nói với anh Tú: *"Xong rồi anh, test theo TESTING.md — Sprint X, Test Y nhé"*
+2. Tạo/cập nhật và đọc file test riêng của Sprint trong `docs/testing/`; chỉ thêm link + trạng thái
+   vào `TESTING.md`, không nối checklist mới vào file tổng
+3. Nói với anh Tú chính xác file và nhóm test cần chạy: *"Xong rồi anh, test theo
+   `docs/testing/.../SPRINT-X.md` — Test Y nhé"*
 4. Chờ anh Tú xác nhận "PASS" trước khi tiếp tục
 
 Vi phạm quy tắc này = build trên nền không ổn định = mất gấp đôi thời gian fix sau.
@@ -352,3 +354,5 @@ Anh cần hoàn thành các bước này để có credentials:
 | 2026-08-31 | **Hoãn mảng thanh toán của quán TRẢ TRƯỚC sang sprint riêng** (VietQR, `staff_confirm_payment`) | Với từng quán build riêng phần thanh toán dễ hơn gộp hết vào một hệ thống; Bảo Lương thanh toán tại quầy bằng QR loa sẵn có |
 | 2026-08-31 | **Vá bug `service_requests` chưa nằm trong publication `supabase_realtime`** | Nút chuông gọi nhân viên chưa bao giờ tới được màn bếp kể từ 2026-06-26 |
 | 2026-09-07 | **Sprint 2 POS — sửa bill chỉ qua RPC audit**: món có `void_type` (`cancelled`/`gift`), giữ audit thay vì xoá; owner có thể bỏ/tặng/khôi phục hoặc thêm món tay `order_source='pos'` vào phiên đang mở. `recompute_order_total` là nguồn duy nhất tính tổng; món POS không bao giờ vào bếp/chuông/phiếu bếp. | Tránh sửa giá ở UI, giữ vết lý do/người sửa và không để món đã phục vụ bị làm lại. |
+| 2026-09-10 | **Bảo Lương dùng POS kiểm soát đơn + đặt bàn trước**: Mini App không mã bàn cho đặt trước; xác nhận bắt buộc chọn bàn; nhiều bàn thành một mâm khi khách đến; mọi khách tại bàn được gọi thêm nhưng đơn chỉ xuống bếp sau khi POS xác nhận. Bảo Lương tắt Mang về/Ship. | Phù hợp vận hành quán, đủ chức năng độc lập để xét duyệt Mini App và tránh đơn/in bếp bị trùng. Thiết kế: [docs/superpowers/specs/2026-09-10-bao-luong-reservation-pos-workflow-design.md](docs/superpowers/specs/2026-09-10-bao-luong-reservation-pos-workflow-design.md) |
+| 2026-09-10 | Mỗi Sprint mới có **file test riêng trong `docs/testing/`**; `TESTING.md` chỉ giữ link và trạng thái, không nhận checklist dài mới. | Checklist ngắn, dễ tìm và buộc nghiệm thu đúng Sprint trước khi tiếp tục. |

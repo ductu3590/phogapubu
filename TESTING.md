@@ -1,5 +1,9 @@
 # MEVO — Testing Guide
 
+> **Quy ước từ 2026-09-10:** không thêm checklist Sprint mới trực tiếp vào file này. Mỗi Sprint
+> tạo một file riêng trong `docs/testing/`; tại đây chỉ thêm liên kết và trạng thái PASS/FAIL.
+> Nội dung cũ được giữ làm lịch sử và sẽ không tiếp tục phình thêm.
+
 > **Quy tắc bắt buộc cho Claude Code:**
 > Sau khi hoàn thành BẤT KỲ Sprint hoặc task nào, PHẢI dừng lại,
 > đưa ra checklist test tương ứng bên dưới và chờ anh Tú xác nhận
