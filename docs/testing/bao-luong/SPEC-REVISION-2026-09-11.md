@@ -28,7 +28,7 @@ Spec: `docs/superpowers/specs/2026-09-10-bao-luong-reservation-pos-workflow-desi
 
 - Quy trình được điều khiển bằng policy/capability theo quán, không hardcode slug.
 - Pubu tiếp tục prepay, Mang về và không bị buộc chờ POS nếu không bật policy.
-- Sau này Admin Web có thể mở giao diện cấu hình cho chủ quán mà không đổi mô hình dữ liệu.
+- Admin Web có giao diện cấu hình cho chủ quán ngay trong phạm vi BL-0.
 
 ## Test 3 — Các blocker kỹ thuật
 
@@ -38,5 +38,16 @@ Spec: `docs/superpowers/specs/2026-09-10-bao-luong-reservation-pos-workflow-desi
 - Kiểm tra giờ đến thay vì giờ khách đang chọn món.
 - Service request có vòng đời đóng, scope theo phiên/mâm và chống spam.
 - Có idempotency, timezone thống nhất, trạng thái kết thúc no-show/hủy và audit lệnh in.
+
+## Test 4 — Cấu hình quy trình trong Admin Web
+
+Đọc mục 3.3, 5.1, 10 và Sprint BL-0, xác nhận:
+
+- `/admin/settings` có khu **Quy trình vận hành** tách khỏi form thông tin quán.
+- Có ba lựa chọn điền nhanh Pubu, Bảo Lương và Tùy chỉnh; preset không phải nguồn sự thật riêng.
+- `store_owner` sửa quán mình, `mevo_superadmin` sửa quán được chọn, nhân viên không được sửa.
+- Lưu qua RPC nguyên tử vào cấu hình có kiểu dữ liệu rõ ràng và ghi audit cũ/mới.
+- Thay đổi nguy hiểm giữa ca bị chặn; tắt Đặt bàn không hủy booking cũ.
+- Mini App/POS đọc cùng một cấu hình public-safe và Pubu/Bảo Lương có test ma trận hồi quy.
 
 Kết quả cần phản hồi: `SPEC REVISION PASS` hoặc ghi rõ mục/test cần sửa.

@@ -55,7 +55,9 @@ phiếu bếp.
 
 Mỗi quán có cấu hình độc lập:
 
+- `table_ordering_enabled`
 - `reservations_enabled`
+- `reservation_preorder_enabled`
 - `takeaway_enabled`
 - `shipping_enabled`
 - `minimum_advance_minutes`
@@ -73,7 +75,9 @@ Giá trị cho Bảo Lương:
 
 | Cấu hình | Giá trị |
 |---|---:|
+| Gọi món tại bàn | Bật |
 | Đặt bàn | Bật |
+| Đặt món trước theo booking | Bật |
 | Mang về | Tắt hoàn toàn |
 | Ship | Tắt hoàn toàn |
 | Đặt trước tối thiểu | 30 phút |
@@ -88,9 +92,8 @@ Giá trị cho Bảo Lương:
 | Khóa khách sửa/hủy món đặt trước | Trước giờ đến 30 phút |
 
 Các cấu hình này thuộc store/capability, có default giữ nguyên hành vi hiện tại của Pubu. Kiểm tra
-quyền và quy trình phải nằm trong DB/RPC; giao diện chỉ phản ánh kết quả. Pilot chưa cần mở toàn bộ
-cấu hình cho chủ quán, nhưng cấu trúc phải cho phép bổ sung màn **Cấu hình quy trình** trong Admin
-Web mà không đổi mô hình dữ liệu.
+quyền và quy trình phải nằm trong DB/RPC; giao diện chỉ phản ánh kết quả. Admin Web phải cho chủ
+quán cấu hình trực tiếp ngay trong phạm vi thiết kế này, không hoãn sang phase sau.
 
 Giờ phục vụ là danh sách ca phẳng áp dụng giống nhau cho mọi ngày. Giờ khách chọn phải nằm trong
 giờ phục vụ đã cấu hình. Không có override theo thứ/ngày nghỉ. Chủ quán vẫn được tạo đặt bàn thủ
@@ -101,6 +104,49 @@ việc nhận đặt bàn dùng `reservations_enabled` riêng.
 Số bàn đề xuất là `ceil(số khách / 6)`. Hệ thống chỉ đề xuất số lượng; chủ quán chọn bàn thật
 trên sơ đồ POS để bảo đảm các bàn phù hợp và nằm gần nhau. Pilot không thêm sức chứa riêng cho
 từng bàn; con số 6 chỉ là gợi ý vận hành và không được dùng để tự động phân bàn.
+
+### 3.3 Admin Web — Cấu hình quy trình vận hành
+
+Trang `/admin/settings` được tổ chức thành hai khu rõ ràng: **Thông tin quán** giữ form hiện có và
+**Quy trình vận hành** chứa cấu hình nghiệp vụ. Không nhồi toàn bộ vào một form lưu chung; mỗi khu
+có trạng thái lưu/lỗi riêng để lỗi ảnh hoặc thông tin quán không làm mất thay đổi quy trình.
+
+Khu **Quy trình vận hành** chia thành các nhóm tiếng Việt:
+
+1. **Kênh nhận đơn**: Tại bàn, Mang về, Ship, Đặt bàn trước và Đặt món trước theo booking.
+2. **Duyệt đơn và bếp**: đơn QR, đơn nhân viên và món đặt trước tự xuống bếp hay chờ POS xác nhận.
+3. **Đặt bàn**: số phút đặt trước tối thiểu, số ngày được chọn, bước giờ, sức chứa gợi ý và khoảng
+   giữ bàn để kiểm tra trùng.
+4. **Phiên bàn/mâm**: cho mọi khách gọi thêm và số giờ không hoạt động trước khi hết hạn an toàn.
+5. **Món đặt trước**: số phút trước giờ đến bắt đầu khóa khách sửa/hủy.
+
+Giao diện không hiển thị tên cột/policy kỹ thuật. Các trường phụ thuộc được ẩn hoặc khóa kèm giải
+thích; ví dụ tắt Đặt bàn thì nhóm giới hạn đặt bàn không cho sửa, nhưng giá trị cũ vẫn được giữ để
+khi bật lại không phải nhập lại. Đặt món trước chỉ bật được khi Đặt bàn đang bật. Các số phải có
+giới hạn hợp lệ do server kiểm tra; UI không cho nhập số âm, horizon bằng 0, sức chứa bằng 0 hoặc
+timeout phiên ngắn hơn 60 phút.
+
+Có ba lựa chọn điền nhanh:
+
+- **Trả trước như Pubu**: bật Tại bàn/Mang về/Ship, tắt Đặt bàn, trả trước và đơn hợp lệ tự vào
+  bếp, không bắt buộc POS xác nhận.
+- **POS kiểm soát như Bảo Lương**: trả sau, tắt Mang về/Ship, bật Đặt bàn, mọi nguồn đơn chờ POS,
+  mở gọi chung khi nhận khách và phiên hết hạn sau 6 giờ không hoạt động.
+- **Tùy chỉnh**: chỉnh từng mục.
+
+Preset chỉ điền một bộ giá trị vào form và cho chủ quán xem lại trước khi lưu; hệ thống không lưu
+`preset` như một mode riêng để tránh cấu hình thực tế lệch nhãn. Nếu toàn bộ giá trị trùng một
+preset, UI có thể hiển thị nhãn nhận biết; chỉ các trường cụ thể mới là nguồn sự thật.
+
+`store_owner` chỉ đọc/sửa quán mình. `mevo_superadmin` có thể mở cùng bộ cấu hình cho quán được
+chọn từ cockpit MEVO. Nhân viên không được xem các bí mật hoặc sửa quy trình. Mọi lần lưu ghi audit
+gồm snapshot cũ/mới, người sửa, thời gian và nguồn `owner`/`mevo`; không cho client ghi thẳng bảng.
+
+Các thay đổi an toàn áp dụng cho yêu cầu mới ngay sau khi lưu. Tắt Đặt bàn chỉ ngăn booking mới,
+không hủy booking đã tồn tại. Thay đổi có thể làm đổi xử lý giữa ca — trả trước/trả sau, chính sách
+xuống bếp, quyền gọi chung hoặc timeout phiên — bị RPC từ chối khi còn phiên hoạt động hay đơn chờ
+xử lý, kèm thông báo cụ thể cần đóng/xử lý gì. Giới hạn đặt bàn được snapshot vào booking lúc tạo để
+đổi cấu hình sau này không thay lời hứa đã cấp cho khách.
 
 ## 4. Kiến trúc được chọn
 
@@ -130,7 +176,26 @@ giới hạn thời gian ăn và không được dùng để giục khách.
 Tên bảng/cột cuối cùng được đối chiếu với schema thật khi lập kế hoạch, nhưng phải giữ các ranh
 giới sau.
 
-### 5.1 Đặt bàn
+### 5.1 Cấu hình quy trình
+
+Tạo `store_workflow_settings` quan hệ 1–1 với `stores`, dùng các cột có kiểu dữ liệu và CHECK rõ
+ràng cho capability/policy mới ở mục 3.2. Không dùng một JSONB tự do vì DB/RPC phải kiểm tra được
+tổ hợp hợp lệ. Các trường hiện đã là nguồn sự thật trên `stores` như `payment_timing`,
+`payment_methods`, `is_accepting_orders` và `serving_hours` chưa nhân đôi sang bảng mới.
+
+Một RPC `update_store_workflow_settings` nhận toàn bộ snapshot form, khóa row, kiểm tra quyền,
+kiểm tra tổ hợp phụ thuộc và dữ liệu đang hoạt động, rồi cập nhật `stores` và
+`store_workflow_settings` trong cùng transaction. RPC đồng thời thêm một dòng append-only vào
+`store_workflow_setting_events` với `before`, `after`, người sửa và nguồn thao tác. Không có trạng
+thái lưu dở một nửa giữa hai bảng.
+
+Mini App/POS đọc một public-safe view hoặc RPC trả cấu hình hợp nhất; không được tự ghép default ở
+nhiều client. Kết quả không chứa audit, thông tin operator hoặc bí mật merchant. Migration backfill
+Pubu và Bảo Lương bằng giá trị đã chốt trước khi chuyển client sang nguồn mới, sau đó test ma trận
+hai quán để tránh hồi quy. Vì chưa có quán pilot đang vận hành thực tế, rollout chuyển thẳng sang
+nguồn mới trong BL-0 và không duy trì dual-write/compatibility layer kéo dài.
+
+### 5.2 Đặt bàn
 
 `reservations` lưu:
 
@@ -141,6 +206,7 @@ giới sau.
 - phiên hoặc mâm được tạo khi khách đến;
 - người thực hiện mỗi quyết định của quán;
 - `client_request_id` để chống tạo lặp;
+- snapshot các giới hạn/cutoff có ảnh hưởng tới quyền đã cấp cho khách;
 - các trường `requested_arrival_at`, `requested_party_size`, `change_note` cho tối đa một yêu cầu
   đổi đang chờ, thay cho một bảng change-request riêng trong pilot.
 
@@ -164,7 +230,7 @@ Booking `arrived` chuyển `completed` khi phiên/mâm liên kết được thu 
 được tự suy ra là hoàn tất đặt bàn. Booking quá giờ vẫn `pending` cho tới khi chủ quán đóng tay;
 hệ thống không tự hủy hoặc tự no-show.
 
-### 5.2 Đơn món
+### 5.3 Đơn món
 
 Đơn đặt trước được tạo qua RPC riêng, không ép đi qua `create_order` hiện tại:
 
@@ -193,7 +259,7 @@ Khi booking bị hủy/no-show, các đơn chưa in chuyển trạng thái kết
 Đơn đã in được giữ để đối soát hao hụt, không đưa vào bill của khách khác và không tự hoàn tác việc
 bếp đã làm.
 
-### 5.3 Gọi nhân viên
+### 5.4 Gọi nhân viên
 
 `service_requests` là hàng đợi bền vững trên POS, có `resolved_at`, `resolved_by`, `last_ping_at`
 và scope. Sau khi nhận khách, một mâm/phiên chỉ có một yêu cầu đang mở dù gồm nhiều bàn; trước khi
@@ -388,7 +454,11 @@ không làm quán kia đổi theo.
 - Chặn đóng bill khi còn đơn chưa xử lý.
 - Siết quyền chủ quán/thu ngân so với nhân viên.
 - Sửa nhãn bàn của phiên quá hạn còn nợ.
-- Thêm policy/capability theo quán với default giữ Pubu; tắt Mang về/Ship cho Bảo Lương.
+- Tạo `store_workflow_settings`, RPC lưu nguyên tử, audit và public-safe config reader.
+- Thêm khu **Quy trình vận hành** cùng ba lựa chọn điền nhanh vào `/admin/settings`; mở cùng cấu
+  hình theo store từ cockpit MEVO.
+- Backfill policy/capability với default giữ Pubu; áp preset Bảo Lương để tắt Mang về/Ship và bật
+  cổng POS.
 - Sửa core parse entry `root`/`table`, không suy diễn root thành takeaway.
 - Khởi động xác minh/xét duyệt Mini App và đăng ký OA Bảo Lương song song.
 - Làm sạch trạng thái deploy Mini App Bảo Lương và đồng bộ tài liệu liên quan.
@@ -460,3 +530,7 @@ chỉ thêm một dòng liên kết và trạng thái PASS/FAIL để làm mục
 11. Booking quá giờ không tự hủy; POS nhắc gộp có Snooze và khách được nhắc trước 60 phút.
 12. Phiên Bảo Lương kết thúc khi đóng bill hoặc tự hết hạn sau 6 giờ không hoạt động, không dùng
     timeout để giới hạn thời gian ăn.
+13. Chủ quán cấu hình được quy trình tại `/admin/settings`, MEVO cấu hình được theo store; mọi lần
+    lưu qua RPC có audit, validation phụ thuộc và không tạo trạng thái nửa cũ/nửa mới.
+14. Preset Pubu/Bảo Lương chỉ điền giá trị xem trước; các cột policy cụ thể là nguồn sự thật và
+    thay đổi nguy hiểm giữa ca bị chặn khi còn phiên/đơn đang hoạt động.
