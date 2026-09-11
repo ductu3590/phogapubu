@@ -1,5 +1,7 @@
 # Kiểm thử bản sửa spec quy trình Bảo Lương — 2026-09-11
 
+Trạng thái: **PASS — anh Tú chốt spec ngày 2026-09-11.**
+
 Phạm vi: chỉ kiểm tra tài liệu thiết kế, không có migration hoặc code cần chạy.
 
 Spec: `docs/superpowers/specs/2026-09-10-bao-luong-reservation-pos-workflow-design.md`
