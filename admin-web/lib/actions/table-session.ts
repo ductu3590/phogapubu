@@ -26,6 +26,7 @@ export type SessionOrderRow = {
   created_at: string
   total_amount: number
   order_source: string
+  confirmed_at: string | null
   payment_received_at: string | null
   items: SessionOrderItem[]
 }

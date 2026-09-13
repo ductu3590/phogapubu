@@ -14,11 +14,9 @@ export default async function CashierPage() {
 
   const supabase = await createClient()
 
-  const { data: store } = await supabase
-    .from('stores')
-    .select('payment_timing')
-    .eq('id', operator.storeId)
-    .single()
+  const { data: workflow } = await supabase.rpc('get_public_store_workflow', {
+    p_store_id: operator.storeId,
+  })
 
   const floor = await loadFloorLayout()
 
@@ -68,7 +66,10 @@ export default async function CashierPage() {
   return (
     <CashierClient
       storeId={operator.storeId}
-      paymentTiming={(store?.payment_timing as 'prepay' | 'postpay' | null) ?? 'prepay'}
+      paymentTiming={
+        ((workflow as { payment_timing?: 'prepay' | 'postpay' } | null)?.payment_timing) ??
+        'prepay'
+      }
       initialFloor={floor.ok ? floor.snapshot : null}
       initialFloorError={floor.ok ? null : floor.error}
       categories={categories}

@@ -9,6 +9,9 @@ const o = (p: Partial<KitchenPredicateFields> = {}): KitchenPredicateFields => (
   paymentReceivedAt: null,
   paymentMethod: 'zalo_checkout',
   storePaymentTiming: 'postpay',
+  confirmedAt: null,
+  kitchenReleasePolicy: 'automatic',
+  staffOrderReleasePolicy: 'automatic',
   ...p,
 })
 
@@ -69,6 +72,60 @@ describe('orderInKitchen — trục payment_timing (mig 039, vá PB3)', () => {
 
   it('quán TRẢ SAU: đơn zalo_checkout chưa trả (mang về) → vẫn KHÔNG vào bếp', () => {
     expect(orderInKitchen(o({ storePaymentTiming: 'postpay', paymentMethod: 'zalo_checkout' }))).toBe(false)
+  })
+})
+
+describe('orderInKitchen — policy xuống bếp theo quán (BL-0)', () => {
+  it('Pubu: đơn staff với policy automatic vào bếp ngay', () => {
+    expect(
+      orderInKitchen(o({ orderSource: 'staff', staffOrderReleasePolicy: 'automatic' })),
+    ).toBe(true)
+  })
+
+  it('Bảo Lương: đơn staff chưa được POS xác nhận không vào bếp', () => {
+    expect(
+      orderInKitchen(
+        o({
+          orderSource: 'staff',
+          staffOrderReleasePolicy: 'pos_confirmation',
+          confirmedAt: null,
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it('Bảo Lương: đơn customer có confirmed_at mới vào bếp', () => {
+    expect(
+      orderInKitchen(
+        o({
+          kitchenReleasePolicy: 'pos_confirmation',
+          confirmedAt: '2026-09-11T12:00:00Z',
+        }),
+      ),
+    ).toBe(true)
+  })
+
+  it('status confirmed nhưng confirmed_at null vẫn bị giữ ngoài bếp', () => {
+    expect(
+      orderInKitchen(
+        o({
+          status: 'confirmed',
+          kitchenReleasePolicy: 'pos_confirmation',
+          confirmedAt: null,
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it('order_source pos không bao giờ vào bếp dù đã có confirmed_at', () => {
+    expect(
+      orderInKitchen(
+        o({
+          orderSource: 'pos',
+          confirmedAt: '2026-09-11T12:00:00Z',
+        }),
+      ),
+    ).toBe(false)
   })
 })
 

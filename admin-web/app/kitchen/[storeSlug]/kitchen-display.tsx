@@ -1,11 +1,24 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { createClient as createPublicClient } from '@/lib/supabase/client'
 import { createKitchenClient } from '@/lib/supabase/kitchen-client'
 import { cn, formatVND, timeAgo } from '@/lib/utils'
 import { speak, initTts, isTtsSupported, unlockTts } from '@/lib/tts'
-import { orderInKitchen, shouldAnnounceOrder, type StorePaymentTiming } from '@/lib/kitchen-announce'
+import {
+  orderInKitchen,
+  shouldAnnounceOrder,
+  type KitchenReleasePolicy,
+  type StorePaymentTiming,
+} from '@/lib/kitchen-announce'
 import type { KitchenOrder, OrderStatus, Store } from '@/types/database.types'
+
+type KitchenDisplayOrder = KitchenOrder & { confirmedAt: string | null }
+type KitchenWorkflow = {
+  paymentTiming: StorePaymentTiming
+  kitchenReleasePolicy: KitchenReleasePolicy
+  staffOrderReleasePolicy: KitchenReleasePolicy
+}
 
 // ─── Âm thanh thông báo đơn mới (Web Audio API, không cần file ngoài) ───────
 // Dùng CHUNG 1 AudioContext (thay vì tạo mới mỗi lần) để có thể resume() sau
@@ -69,7 +82,7 @@ async function callZnsNotify(orderId: string) {
 
 // ─── Map raw Supabase row → KitchenOrder ────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapOrder(row: any, tableNumber: string, items: any[]): KitchenOrder {
+function mapOrder(row: any, tableNumber: string, items: any[]): KitchenDisplayOrder {
   return {
     id: row.id,
     storeId: row.store_id,
@@ -84,6 +97,7 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenOrder {
     updatedAt: row.updated_at,
     orderType: (row.order_type ?? 'dine_in') as KitchenOrder['orderType'],
     orderSource: row.order_source ?? 'customer_zalo',
+    confirmedAt: row.confirmed_at ?? null,
     paymentReceivedAt: row.payment_received_at ?? null,
     bankHandoffAt: row.bank_handoff_at ?? null,
     paymentInstrument: row.payment_instrument ?? null,
@@ -188,7 +202,8 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   const supabase = useMemo(() => (token ? createKitchenClient(token) : null), [token])
 
   const [store, setStore] = useState<Store | null>(null)
-  const [orders, setOrders] = useState<KitchenOrder[]>([])
+  const [workflow, setWorkflow] = useState<KitchenWorkflow | null>(null)
+  const [orders, setOrders] = useState<KitchenDisplayOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
@@ -258,7 +273,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
   // ── Fetch đơn đầy đủ kèm items + table ──────────────────────────────────
   const fetchOrder = useCallback(
-    async (orderId: string): Promise<KitchenOrder | null> => {
+    async (orderId: string): Promise<KitchenDisplayOrder | null> => {
       if (!supabase) return null
       const { data, error } = await supabase
         .from('orders')
@@ -291,7 +306,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
       // 1. Lấy store theo slug
       const { data: storeData, error: storeErr } = await supabase!
         .from('stores')
-        .select('id, name, slug, payment_timing')
+        .select('id, name, slug')
         .eq('slug', storeSlug)
         .eq('is_active', true)
         .single()
@@ -301,11 +316,36 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         setLoading(false)
         return
       }
-      setStore(storeData as Store)
-      // Trục "khi nào thu tiền" của quán — predicate vào bếp cần nó (mig 039).
-      // Đọc từ storeData chứ không từ state `store`: state chưa kịp set trong lượt này.
-      const timing: StorePaymentTiming =
-        (storeData as { payment_timing?: StorePaymentTiming }).payment_timing ?? 'prepay'
+
+      // RPC public-safe là nguồn hợp nhất cho thời điểm thanh toán và policy xuống bếp.
+      // Dùng client anon/authenticated riêng vì token bếp chạy Postgres role `kitchen`.
+      const { data: workflowData, error: workflowErr } = await createPublicClient().rpc(
+        'get_public_store_workflow',
+        { p_store_id: storeData.id },
+      )
+      const rawWorkflow = workflowData as {
+        payment_timing?: string
+        kitchen_release_policy?: string
+        staff_order_release_policy?: string
+      } | null
+      if (
+        workflowErr ||
+        !rawWorkflow ||
+        !['prepay', 'postpay'].includes(rawWorkflow.payment_timing ?? '') ||
+        !['automatic', 'pos_confirmation'].includes(rawWorkflow.kitchen_release_policy ?? '') ||
+        !['automatic', 'pos_confirmation'].includes(rawWorkflow.staff_order_release_policy ?? '')
+      ) {
+        setError('Lỗi tải cấu hình quy trình của quán')
+        setLoading(false)
+        return
+      }
+      const currentWorkflow: KitchenWorkflow = {
+        paymentTiming: rawWorkflow.payment_timing as StorePaymentTiming,
+        kitchenReleasePolicy: rawWorkflow.kitchen_release_policy as KitchenReleasePolicy,
+        staffOrderReleasePolicy: rawWorkflow.staff_order_release_policy as KitchenReleasePolicy,
+      }
+      setWorkflow(currentWorkflow)
+      setStore({ ...storeData, payment_timing: currentWorkflow.paymentTiming } as Store)
 
       // 2. Lấy đơn hôm nay (active: chưa trả tiền, chưa huỷ)
       const todayStart = new Date()
@@ -336,7 +376,16 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         knownOrderIds.current.add(o.id)
         // Đơn đã ở trong bếp lúc tải trang → coi như đã báo, reload không kêu lại.
         // ZaloPay còn pending (chưa trả) KHÔNG đánh dấu → lúc confirmed sẽ báo.
-        if (orderInKitchen({ ...o, storePaymentTiming: timing })) announcedOrderIds.current.add(o.id)
+        if (
+          orderInKitchen({
+            ...o,
+            storePaymentTiming: currentWorkflow.paymentTiming,
+            kitchenReleasePolicy: currentWorkflow.kitchenReleasePolicy,
+            staffOrderReleasePolicy: currentWorkflow.staffOrderReleasePolicy,
+          })
+        ) {
+          announcedOrderIds.current.add(o.id)
+        }
       })
       // Đơn POS ghi tay là món đã phục vụ rồi, chỉ bổ sung vào bill nên không bao giờ hiện bếp.
       setOrders(mapped.filter((order) => order.orderSource !== 'pos'))
@@ -365,8 +414,18 @@ export default function KitchenDisplay({ storeSlug }: Props) {
       )
 
       // Báo bếp: chuông + (nếu bật) đọc đơn. Chỉ báo LẦN ĐẦU đơn vào bếp.
-      const announce = (order: KitchenOrder) => {
-        if (!shouldAnnounceOrder({ ...order, storePaymentTiming: timing }, announcedOrderIds.current.has(order.id))) return
+      const announce = (order: KitchenDisplayOrder) => {
+        if (
+          !shouldAnnounceOrder(
+            {
+              ...order,
+              storePaymentTiming: currentWorkflow.paymentTiming,
+              kitchenReleasePolicy: currentWorkflow.kitchenReleasePolicy,
+              staffOrderReleasePolicy: currentWorkflow.staffOrderReleasePolicy,
+            },
+            announcedOrderIds.current.has(order.id),
+          )
+        ) return
         announcedOrderIds.current.add(order.id)
         playBell()
         // Chuông kêu trước, đọc sau ~300ms cho khỏi đè tiếng
@@ -415,6 +474,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
             const updated = payload.new as {
               id: string; status: string; updated_at: string; payment_method: string
               order_source?: string; payment_received_at?: string | null
+              confirmed_at?: string | null
               bank_handoff_at?: string | null; payment_instrument?: string | null
             }
             // Sửa bill cập nhật `orders.updated_at`, còn line nằm ở `order_items`. Phải refetch
@@ -438,9 +498,12 @@ export default function KitchenDisplay({ storeSlug }: Props) {
                 {
                   status: updated.status,
                   orderSource: updated.order_source ?? 'customer_zalo',
+                  confirmedAt: updated.confirmed_at ?? null,
                   paymentReceivedAt: updated.payment_received_at ?? null,
                   paymentMethod: updated.payment_method,
-                  storePaymentTiming: timing,
+                  storePaymentTiming: currentWorkflow.paymentTiming,
+                  kitchenReleasePolicy: currentWorkflow.kitchenReleasePolicy,
+                  staffOrderReleasePolicy: currentWorkflow.staffOrderReleasePolicy,
                 },
                 announcedOrderIds.current.has(updated.id),
               )
@@ -587,9 +650,16 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
   // ── Chia đơn theo cột ─────────────────────────────────────────────────────
   // Dùng chung predicate §7 với logic "báo bếp" (lib/kitchen-announce) cho khỏi lệch.
-  const waitingOrders = orders.filter((o) =>
-    orderInKitchen({ ...o, storePaymentTiming: store?.payment_timing ?? 'prepay' }),
-  )
+  const waitingOrders = workflow
+    ? orders.filter((o) =>
+        orderInKitchen({
+          ...o,
+          storePaymentTiming: workflow.paymentTiming,
+          kitchenReleasePolicy: workflow.kitchenReleasePolicy,
+          staffOrderReleasePolicy: workflow.staffOrderReleasePolicy,
+        }),
+      )
+    : []
   const cookingOrders = orders.filter((o) => o.status === 'cooking')
   const readyOrders = orders.filter((o) => o.status === 'ready')
   // Cột "Chờ thanh toán" (PM-3): đơn KHÁCH online chưa thu tiền → bếp bấm "Đã nhận tiền" khi

@@ -7,7 +7,8 @@
 // cho nhân viên thì đơn QR tiền mặt của khách vẫn lọt vào bếp không cần tiền (PB3 của spec
 // 2026-08-20) — đúng con lỗ hổng mig 037 mới vá được một nửa.
 //
-//  • staff (nhân viên đứng cạnh khách = bằng chứng khách có mặt) → vào bếp NGAY.
+//  • Nếu quán bật cổng POS, `confirmed_at` là bằng chứng duy nhất đơn đã được duyệt.
+//  • staff ở quán dùng policy automatic (nhân viên đứng cạnh khách) → vào bếp NGAY.
 //  • khách tự đặt qua QR (customer_zalo) → vào bếp khi ĐÃ có tiền thật
 //    (payment_received_at: ví callback / bếp / owner / nhân viên chốt bill),
 //    HOẶC quán chạy trả sau (đơn phiên bàn, payment_method bị create_order ép về 'cash').
@@ -15,10 +16,14 @@
 // Chỉ tính trạng thái "chờ làm" (pending/confirmed); cooking/ready đã ở cột riêng.
 
 export type StorePaymentTiming = 'prepay' | 'postpay'
+export type KitchenReleasePolicy = 'automatic' | 'pos_confirmation'
 
 export type KitchenPredicateFields = {
   status: string
   orderSource: string
+  confirmedAt: string | null
+  kitchenReleasePolicy: KitchenReleasePolicy
+  staffOrderReleasePolicy: KitchenReleasePolicy
   paymentReceivedAt: string | null
   paymentMethod: string
   storePaymentTiming: StorePaymentTiming
@@ -28,6 +33,11 @@ export function orderInKitchen(o: KitchenPredicateFields): boolean {
   // Món thu ngân ghi bổ sung là món đã phục vụ, tuyệt đối không tạo phiếu/loa bếp.
   if (o.orderSource === 'pos') return false
   if (o.status !== 'pending' && o.status !== 'confirmed') return false
+  const requiresPosConfirmation =
+    o.orderSource === 'staff'
+      ? o.staffOrderReleasePolicy === 'pos_confirmation'
+      : o.kitchenReleasePolicy === 'pos_confirmation'
+  if (requiresPosConfirmation) return o.confirmedAt !== null
   if (o.orderSource === 'staff') return true
   if (o.paymentReceivedAt !== null) return true
   return o.storePaymentTiming === 'postpay' && o.paymentMethod === 'cash'
