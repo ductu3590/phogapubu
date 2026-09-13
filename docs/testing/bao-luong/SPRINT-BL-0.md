@@ -98,3 +98,42 @@ Kết quả tại thời điểm bàn giao: 21/21 test mục tiêu, 226/226 test
 ### Mẫu báo lỗi
 
 Gửi URL đang test, preset đã chọn, thao tác, ảnh hoặc toàn bộ lỗi, và commit đang test (`git rev-parse --short HEAD`).
+
+## Task 5 — Cổng POS xuống bếp theo policy
+
+### Điều kiện chuẩn bị
+
+- Checkout branch `feat/pos-cashier` tại hoặc sau commit `ba5b8ee`.
+- Migration 049 đã áp trên Supabase.
+- Có một quán Bảo Lương (policy **Cần POS xác nhận**) và Pubu (policy **Tự động**), cùng màn POS + Kitchen Display.
+
+### Test tự động Codex đã chạy
+
+Từ thư mục `admin-web`:
+
+```powershell
+npm test -- --run lib/kitchen-announce.test.ts
+npm test
+npx tsc --noEmit
+```
+
+Kết quả: ma trận Kitchen 20/20 PASS; toàn bộ Admin Web 231/231 PASS; TypeScript PASS.
+
+### Test 5A — Bảo Lương chỉ xuống bếp sau POS xác nhận
+
+1. Tại Bảo Lương, để Kitchen Display mở và tạo đơn khách hoặc nhân viên từ một bàn đang mở.
+2. Xác nhận đơn vẫn hiện ở POS là **chờ xác nhận**, nhưng không xuất hiện/không chuông ở Kitchen Display.
+3. Trên POS, bấm **Xác nhận & in** cho đơn đó.
+4. Xác nhận đơn xuất hiện tại Kitchen Display đúng một lần và bắt đầu theo dõi trạng thái bình thường.
+5. Nếu thao tác hai tab cùng xác nhận, chỉ được có một release/phiếu bếp; tab còn lại phải báo đơn đã được xác nhận.
+
+### Test 5B — Không hồi quy Pubu và món POS
+
+1. Tại Pubu, nhân viên tạo đơn; xác nhận đơn vẫn vào Kitchen Display ngay theo flow trả trước/tự động cũ.
+2. Tại Bảo Lương, thêm **món ghi tay POS** vào bill.
+3. Xác nhận món ghi tay không tạo thẻ, âm thanh hay đơn mới ở Kitchen Display.
+4. Đặt tình huống có `status=confirmed` nhưng không có `confirmed_at` (nếu test DB): Kitchen Display vẫn không được thấy đơn Bảo Lương.
+
+### Mẫu báo lỗi
+
+Gửi tên quán, nguồn đơn (khách/nhân viên/POS), trạng thái + `confirmed_at` nếu thấy trong DB, thao tác đã bấm, và ảnh/video lỗi.
