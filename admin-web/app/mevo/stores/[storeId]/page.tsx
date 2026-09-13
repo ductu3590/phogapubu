@@ -7,6 +7,11 @@ import {
 } from '@/lib/actions/mevo-stores'
 import AssignOwnerForm from './assign-owner-form'
 import SaveForm from './save-form'
+import WorkflowSettingsForm from '@/app/admin/settings/workflow-settings-form'
+import {
+  loadMevoWorkflowSettings,
+  saveMevoWorkflowSettings,
+} from '@/lib/actions/workflow-settings'
 
 export default async function StoreDetailPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params
@@ -14,6 +19,8 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
 
   const { data: store } = await admin.from('stores').select('*').eq('id', storeId).single()
   if (!store) notFound()
+
+  const workflowSettings = await loadMevoWorkflowSettings(storeId)
 
   const { data: appConfig } = await admin.from('store_app_configs').select('*').eq('store_id', storeId).maybeSingle()
   const { data: checkoutConfig } = await admin.from('store_checkout_configs').select('zalo_mini_app_id, is_enabled, updated_at').eq('store_id', storeId).maybeSingle()
@@ -28,6 +35,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
   const updateApp = updateAppConfig.bind(null, storeId)
   const updateCheckout = updateCheckoutConfig.bind(null, storeId)
   const updateZalo = updateZaloConfig.bind(null, storeId)
+  const saveWorkflow = saveMevoWorkflowSettings.bind(null, storeId)
 
   return (
     <div className="flex-1 space-y-6 overflow-y-auto p-6">
@@ -52,6 +60,15 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
         <SaveForm action={updateColor}>
           <ColorField label="Màu chủ đạo" name="primary_color" defaultValue={store.primary_color ?? '#A0673D'} />
         </SaveForm>
+      </Section>
+
+      <Section title="Quy trình vận hành">
+        <WorkflowSettingsForm
+          key={storeId}
+          initial={workflowSettings}
+          context="mevo"
+          onSave={saveWorkflow}
+        />
       </Section>
 
       <Section title="Mini App / Onboarding checklist">

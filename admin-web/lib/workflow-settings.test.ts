@@ -3,7 +3,10 @@ import {
   BAO_LUONG_PRESET,
   PUBU_PRESET,
   applyWorkflowPreset,
+  getWorkflowPresetKey,
+  getWorkflowSettingsChanges,
   normalizeWorkflowSettings,
+  workflowSettingsEqual,
   type StoreWorkflowSettings,
 } from './workflow-settings'
 
@@ -116,5 +119,68 @@ describe('normalizeWorkflowSettings', () => {
 
     expect(draft.paymentMethods).toEqual(['cash'])
     expect(draft.servingHours).toEqual([{ open: '10:00', close: '22:00' }])
+  })
+})
+
+describe('workflow form state', () => {
+  it('nhận diện preset theo toàn bộ snapshot, kể cả mảng lồng', () => {
+    expect(getWorkflowPresetKey(PUBU_EXPECTED)).toBe('pubu')
+    expect(getWorkflowPresetKey(BAO_LUONG_EXPECTED)).toBe('bao_luong')
+    expect(
+      getWorkflowPresetKey({
+        ...PUBU_EXPECTED,
+        servingHours: [{ open: '08:00', close: '22:00' }],
+      }),
+    ).toBe('custom')
+  })
+
+  it('liệt kê đúng thay đổi để preview và phát hiện draft chưa lưu', () => {
+    const draft: StoreWorkflowSettings = {
+      ...PUBU_EXPECTED,
+      takeawayEnabled: false,
+      bookingHorizonDays: 14,
+    }
+
+    expect(getWorkflowSettingsChanges(PUBU_EXPECTED, draft)).toEqual([
+      {
+        key: 'takeawayEnabled',
+        label: 'Mang về',
+        before: true,
+        after: false,
+      },
+      {
+        key: 'bookingHorizonDays',
+        label: 'Khoảng ngày được đặt bàn',
+        before: 7,
+        after: 14,
+      },
+    ])
+    expect(workflowSettingsEqual(PUBU_EXPECTED, draft)).toBe(false)
+    expect(workflowSettingsEqual(PUBU_EXPECTED, { ...PUBU_EXPECTED })).toBe(true)
+  })
+
+  it('coi thứ tự phương thức và giờ phục vụ là một phần của snapshot', () => {
+    const baseline: StoreWorkflowSettings = {
+      ...PUBU_EXPECTED,
+      paymentMethods: ['zalo_checkout', 'cash'],
+      servingHours: [
+        { open: '08:00', close: '11:00' },
+        { open: '17:00', close: '22:00' },
+      ],
+    }
+    const reordered: StoreWorkflowSettings = {
+      ...baseline,
+      paymentMethods: ['cash', 'zalo_checkout'],
+    }
+
+    expect(workflowSettingsEqual(baseline, reordered)).toBe(false)
+    expect(getWorkflowSettingsChanges(baseline, reordered)).toEqual([
+      {
+        key: 'paymentMethods',
+        label: 'Phương thức thanh toán',
+        before: ['zalo_checkout', 'cash'],
+        after: ['cash', 'zalo_checkout'],
+      },
+    ])
   })
 })

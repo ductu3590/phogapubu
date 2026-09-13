@@ -27,6 +27,35 @@ export type EffectiveWorkflowSettings = StoreWorkflowSettings & {
   effectiveReservationPreorderEnabled: boolean
 }
 
+export type WorkflowSettingChange = {
+  key: keyof StoreWorkflowSettings
+  label: string
+  before: StoreWorkflowSettings[keyof StoreWorkflowSettings]
+  after: StoreWorkflowSettings[keyof StoreWorkflowSettings]
+}
+
+const WORKFLOW_FIELD_LABELS = [
+  ['paymentTiming', 'Thời điểm thanh toán'],
+  ['paymentMethods', 'Phương thức thanh toán'],
+  ['isAcceptingOrders', 'Đang nhận đơn'],
+  ['servingHours', 'Giờ phục vụ'],
+  ['tableOrderingEnabled', 'Gọi món tại bàn'],
+  ['takeawayEnabled', 'Mang về'],
+  ['shippingEnabled', 'Ship'],
+  ['reservationsEnabled', 'Đặt bàn trước'],
+  ['reservationPreorderEnabled', 'Đặt món trước theo booking'],
+  ['minimumAdvanceMinutes', 'Thời gian đặt trước tối thiểu'],
+  ['bookingHorizonDays', 'Khoảng ngày được đặt bàn'],
+  ['slotIntervalMinutes', 'Bước chọn giờ'],
+  ['defaultTableCapacity', 'Sức chứa gợi ý'],
+  ['planningHoldMinutes', 'Khoảng giữ bàn kiểm tra trùng'],
+  ['kitchenReleasePolicy', 'Đơn khách xuống bếp'],
+  ['staffOrderReleasePolicy', 'Đơn nhân viên xuống bếp'],
+  ['openOrderingOnArrival', 'Cho mọi khách trong phiên gọi thêm'],
+  ['tableSessionIdleTimeoutMinutes', 'Thời gian hết hạn phiên'],
+  ['reservationPreorderEditCutoffMinutes', 'Mốc khóa sửa món đặt trước'],
+] as const satisfies ReadonlyArray<readonly [keyof StoreWorkflowSettings, string]>
+
 export const PUBU_PRESET = {
   paymentTiming: 'prepay',
   paymentMethods: ['zalo_checkout'],
@@ -90,4 +119,35 @@ export function normalizeWorkflowSettings(
     reservationPreorderEnabled: effectiveReservationPreorderEnabled,
     effectiveReservationPreorderEnabled,
   }
+}
+
+function workflowValueEqual(
+  left: StoreWorkflowSettings[keyof StoreWorkflowSettings],
+  right: StoreWorkflowSettings[keyof StoreWorkflowSettings],
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+export function getWorkflowSettingsChanges(
+  baseline: StoreWorkflowSettings,
+  current: StoreWorkflowSettings,
+): WorkflowSettingChange[] {
+  return WORKFLOW_FIELD_LABELS.flatMap(([key, label]) => {
+    const before = baseline[key]
+    const after = current[key]
+    return workflowValueEqual(before, after) ? [] : [{ key, label, before, after }]
+  })
+}
+
+export function workflowSettingsEqual(
+  left: StoreWorkflowSettings,
+  right: StoreWorkflowSettings,
+): boolean {
+  return getWorkflowSettingsChanges(left, right).length === 0
+}
+
+export function getWorkflowPresetKey(settings: StoreWorkflowSettings): WorkflowPresetKey {
+  if (workflowSettingsEqual(settings, PUBU_PRESET)) return 'pubu'
+  if (workflowSettingsEqual(settings, BAO_LUONG_PRESET)) return 'bao_luong'
+  return 'custom'
 }

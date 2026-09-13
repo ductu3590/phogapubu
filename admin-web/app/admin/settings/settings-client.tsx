@@ -5,16 +5,9 @@ import { useRouter } from 'next/navigation'
 import { updateStoreSettings } from '@/lib/actions/store'
 import SquareCropper from '../menu/square-cropper'
 
-interface ServingShift {
-  open: string
-  close: string
-}
-
 interface Props {
   name: string
   logoUrl: string | null
-  paymentMethods: string[]
-  paymentTiming: 'prepay' | 'postpay'
   zaloOaUrl: string
   address: string
   phone: string
@@ -22,8 +15,6 @@ interface Props {
   takeawayBannerUrl: string | null
   wifiName: string
   wifiPassword: string
-  isAcceptingOrders: boolean
-  servingHours: ServingShift[]
   deliveryAreaNote: string
   termsOfUse: string
 }
@@ -62,42 +53,18 @@ async function compressBanner(file: File): Promise<File> {
   }
 }
 
-export default function SettingsClient({ name, logoUrl, paymentMethods, paymentTiming, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword, isAcceptingOrders, servingHours, deliveryAreaNote, termsOfUse }: Props) {
+export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword, deliveryAreaNote, termsOfUse }: Props) {
   const router = useRouter()
   const [logo, setLogo] = useState<File | null>(null)
   const [banner, setBanner] = useState<File | null>(null)
   const [removeBanner, setRemoveBanner] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
-  const [methods, setMethods] = useState<Set<string>>(new Set(paymentMethods))
-  const [timing, setTiming] = useState<'prepay' | 'postpay'>(paymentTiming)
-  const isPostpay = timing === 'postpay'
-  const [accepting, setAccepting] = useState(isAcceptingOrders)
-  const [shifts, setShifts] = useState<ServingShift[]>(servingHours ?? [])
-
-  const addShift = () => setShifts((prev) => [...prev, { open: '08:00', close: '22:00' }])
-  const removeShift = (i: number) => setShifts((prev) => prev.filter((_, idx) => idx !== i))
-  const updateShift = (i: number, key: keyof ServingShift, val: string) =>
-    setShifts((prev) => prev.map((s, idx) => (idx === i ? { ...s, [key]: val } : s)))
-
   useEffect(() => {
     if (!saved) return
     const t = setTimeout(() => setSaved(false), 2500)
     return () => clearTimeout(t)
   }, [saved])
-
-  const toggleMethod = (method: string) => {
-    setMethods((prev) => {
-      const next = new Set(prev)
-      if (next.has(method)) {
-        if (next.size <= 1) return prev
-        next.delete(method)
-      } else {
-        next.add(method)
-      }
-      return next
-    })
-  }
 
   return (
     <form
@@ -106,12 +73,6 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, paymentT
         if (logo) fd.set('logo', logo)
         if (banner) fd.set('banner', banner)
         if (removeBanner) fd.set('remove_banner', '1')
-        fd.set('payment_timing', timing)
-        methods.forEach((m) => fd.append('payment_methods', m))
-        fd.set('is_accepting_orders', accepting ? '1' : '0')
-        // Chỉ giữ ca có đủ open+close
-        const validShifts = shifts.filter((s) => s.open && s.close)
-        fd.set('serving_hours', JSON.stringify(validShifts))
         try {
           await updateStoreSettings(fd)
           setLogo(null)
@@ -223,73 +184,6 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, paymentT
         </p>
       </div>
 
-      {/* Giờ phục vụ */}
-      <div className="rounded-xl border-2 border-gray-200 p-3">
-        {/* relative: input .sr-only bên trong là position:absolute — không có ancestor định vị
-            thì nó neo vào <body>, thoát khỏi vùng cắt của khung cuộn và kéo dài cả trang. */}
-        <label className="relative flex cursor-pointer items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Đang nhận đơn</p>
-            <p className="text-xs text-gray-500">
-              Tắt = tạm nghỉ, chặn mọi đơn (cả QR bàn lẫn mang về)
-            </p>
-          </div>
-          <input
-            type="checkbox"
-            className="sr-only"
-            checked={accepting}
-            onChange={() => setAccepting((v) => !v)}
-          />
-          <div className={`h-6 w-11 rounded-full transition-colors ${accepting ? 'bg-green-500' : 'bg-gray-300'}`}>
-            <div className={`h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${accepting ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-          </div>
-        </label>
-
-        <div className="mt-3 border-t border-gray-100 pt-3">
-          <p className="text-sm font-semibold text-gray-900">Giờ phục vụ</p>
-          <p className="mb-2 text-xs text-gray-500">
-            Ngoài giờ sẽ chặn đặt món. Không thêm ca nào = mở cả ngày. Thêm nhiều ca cho quán nghỉ trưa.
-          </p>
-          <div className="flex flex-col gap-2">
-            {shifts.length === 0 && (
-              <p className="text-xs text-gray-400">Chưa có ca — quán mở cả ngày.</p>
-            )}
-            {shifts.map((s, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  type="time"
-                  value={s.open}
-                  onChange={(e) => updateShift(i, 'open', e.target.value)}
-                  className="input flex-1"
-                />
-                <span className="text-gray-400">–</span>
-                <input
-                  type="time"
-                  value={s.close}
-                  onChange={(e) => updateShift(i, 'close', e.target.value)}
-                  className="input flex-1"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeShift(i)}
-                  className="rounded-lg px-2 py-1 text-sm text-red-500 hover:bg-red-50"
-                  aria-label="Xoá ca"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={addShift}
-            className="mt-2 rounded-lg border border-orange-300 px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50"
-          >
-            + Thêm ca phục vụ
-          </button>
-        </div>
-      </div>
-
       {/* Phạm vi ship (chỉ hiển thị cho khách) */}
       <div>
         <label className="label">Phạm vi ship (hiển thị cho khách)</label>
@@ -369,92 +263,10 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, paymentT
           className="input"
         />
         <p className="mt-1 text-xs text-gray-400">
-          Link trang Zalo OA của quán. Khách bấm vào tab "Nhà hàng" sẽ thấy nút mở trang này.
+          Link trang Zalo OA của quán. Khách bấm vào tab &quot;Nhà hàng&quot; sẽ thấy nút mở trang này.
           Lấy tại Zalo OA Manager → Thông tin cơ bản → Link chia sẻ.
         </p>
       </div>
-
-      {/* Cách vận hành quán — đặt TRÊN "Phương thức thanh toán" vì nó quyết định mục kia
-          còn nghĩa gì. Đây là trục "KHI NÀO thu tiền", khác trục "thu BẰNG GÌ" bên dưới. */}
-      <div className="rounded-xl border-2 border-gray-200 p-4">
-        <label className="label">Cách vận hành quán</label>
-        <p className="mb-3 text-xs text-gray-400">
-          Quyết định đơn có được vào bếp khi khách chưa trả tiền hay không.
-        </p>
-
-        <div className="flex flex-col gap-2">
-          <TimingOption
-            value="prepay"
-            label="Trả trước — khách thanh toán rồi bếp mới làm"
-            description="An toàn nhất, không có đơn ma. Hợp quán bán mang về, quán đông, quán không đủ người trông bàn."
-            checked={!isPostpay}
-            onSelect={() => setTiming('prepay')}
-          />
-          <TimingOption
-            value="postpay"
-            label="Trả sau — khách ăn xong mới thanh toán"
-            description="Giống quán truyền thống. Khách gọi thêm thoải mái, mỗi bàn là một bill, nhân viên chốt bill ở màn Bàn."
-            checked={isPostpay}
-            onSelect={() => setTiming('postpay')}
-          />
-        </div>
-
-        {isPostpay && (
-          <div className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
-            <p className="font-semibold">⚠️ Đánh đổi của trả sau — cần biết trước khi bật</p>
-            <p className="mt-1">
-              Người lạ chụp ảnh QR trên bàn vẫn có thể ngồi nhà đặt đơn, làm bàn đó bị khoá và
-              bếp làm ra món không ai lấy. Không có cách nào chặn triệt để bằng phần mềm.
-            </p>
-            <p className="mt-1">
-              Giảm nhẹ: nhân viên bấm <b>&quot;Bỏ bàn&quot;</b> ở màn <b>🪑 Bàn</b> để mở khoá,
-              và phiên tự hết hạn sau 6 giờ không hoạt động.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {isPostpay ? (
-        <div>
-          <label className="label">Phương thức thanh toán</label>
-          <p className="mt-1 rounded-lg bg-gray-50 p-3 text-xs text-gray-500">
-            Khách trả tiền lúc ra về — nhân viên chọn tiền mặt hay chuyển khoản khi chốt bill ở
-            màn <b>🪑 Bàn</b>. Không cần cấu hình gì thêm ở đây.
-          </p>
-        </div>
-      ) : (
-        <div>
-          <label className="label">Phương thức thanh toán</label>
-          <p className="mb-2 text-xs text-gray-400">
-            Bật ít nhất 1 phương thức. Quán hướng tới ZaloPay để tránh gọi giả mạo.
-          </p>
-          <div className="flex flex-col gap-2">
-            <PaymentToggle
-              id="zalo_checkout"
-              label="ZaloPay"
-              description="Khách thanh toán trong Zalo trước khi bếp làm"
-              checked={methods.has('zalo_checkout')}
-              disabled={methods.size === 1 && methods.has('zalo_checkout')}
-              onChange={() => toggleMethod('zalo_checkout')}
-            />
-            <PaymentToggle
-              id="cash"
-              label="Tiền mặt"
-              description="Chế độ trả trước: khách tự đặt qua QR chỉ thanh toán online. Tiền mặt vẫn dùng được khi nhân viên đặt hộ."
-              checked={methods.has('cash')}
-              // Không cho BẬT (ở trả trước nó không có tác dụng — create_order từ chối đơn QR
-              // tiền mặt), nhưng vẫn cho TẮT nếu quán lỡ bật từ trước.
-              disabled={!methods.has('cash') || methods.size === 1}
-              onChange={() => toggleMethod('cash')}
-            />
-          </div>
-          {methods.size === 1 && (
-            <p className="mt-1.5 text-xs text-orange-500">
-              Phải bật ít nhất 1 phương thức thanh toán.
-            </p>
-          )}
-        </div>
-      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -468,90 +280,5 @@ export default function SettingsClient({ name, logoUrl, paymentMethods, paymentT
         {saved && <span className="text-sm text-green-600">✓ Đã lưu</span>}
       </div>
     </form>
-  )
-}
-
-function TimingOption({
-  value,
-  label,
-  description,
-  checked,
-  onSelect,
-}: {
-  value: string
-  label: string
-  description: string
-  checked: boolean
-  onSelect: () => void
-}) {
-  return (
-    <label
-      className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-3 transition ${
-        checked ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
-      }`}
-    >
-      <input
-        type="radio"
-        name="payment_timing_choice"
-        value={value}
-        checked={checked}
-        onChange={onSelect}
-        className="mt-0.5 h-4 w-4 flex-shrink-0 accent-orange-500"
-      />
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-gray-900">{label}</span>
-        <span className="mt-0.5 block text-xs text-gray-500">{description}</span>
-      </span>
-    </label>
-  )
-}
-
-function PaymentToggle({
-  id,
-  label,
-  description,
-  checked,
-  disabled,
-  onChange,
-}: {
-  id: string
-  label: string
-  description: string
-  checked: boolean
-  disabled: boolean
-  onChange: () => void
-}) {
-  return (
-    // relative: input .sr-only bên trong là position:absolute — thiếu ancestor định vị thì nó
-    // neo vào <body> và làm trang dài thêm (xem ghi chú ở toggle "Đang nhận đơn").
-    <label
-      className={`relative flex cursor-pointer items-center justify-between rounded-xl border-2 p-3 transition-colors ${
-        checked ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white'
-      } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
-    >
-      <div>
-        <p className="text-sm font-semibold text-gray-900">{label}</p>
-        <p className="text-xs text-gray-500">{description}</p>
-      </div>
-      <input
-        type="checkbox"
-        className="sr-only"
-        id={id}
-        checked={checked}
-        disabled={disabled}
-        onChange={onChange}
-      />
-      <div
-        className={`h-6 w-11 rounded-full transition-colors ${
-          checked ? 'bg-orange-500' : 'bg-gray-200'
-        }`}
-      >
-        <div
-          className={`h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${
-            checked ? 'translate-x-[22px]' : 'translate-x-0.5'
-          }`}
-        />
-      </div>
-    </label>
   )
 }
