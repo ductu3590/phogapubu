@@ -172,3 +172,52 @@ Kết quả: 050 focused 10/10 PASS; regression 048/049/050 là 31/31 PASS.
 ### Mẫu báo lỗi
 
 Gửi toàn bộ output lệnh PGlite, tên test fail và commit đang test (`git rev-parse --short HEAD`).
+
+## Task 7 — Queue Gọi nhân viên trên POS/Kitchen và quyền staff
+
+### Phạm vi kiểm thử
+
+- Commit: `249e585`.
+- Migration 050 và 050a chỉ áp sau Task 8, khi Mini App đã dùng RPC `ping_service_request`.
+
+### Test tự động Codex đã chạy
+
+Từ `admin-web`:
+
+```powershell
+npm test -- --run lib/actions/service-requests.test.ts lib/service-request-queue.test.ts lib/session-timeout.test.ts app/staff/tables/tables-client.test.ts
+npm test
+npx tsc --noEmit
+```
+
+Từ thư mục gốc:
+
+```powershell
+$modulePath=(Resolve-Path 'admin-web/node_modules/@electric-sql/pglite/dist/index.js').Path
+$env:PGLITE_MODULE=([System.Uri]::new($modulePath)).AbsoluteUri
+node --test supabase/tests/050_pos_gate_service_requests.test.mjs supabase/tests/050a_kitchen_service_request_queue.test.mjs
+```
+
+Kết quả: 27/27 test tập trung, 258/258 test Admin Web, 11/11 test SQL, TypeScript và lint các file đổi đều PASS.
+
+### Test 7A — Queue và xử lý request
+
+Sau khi áp 050 + 050a cùng Task 8:
+
+1. Mở POS `/admin/cashier`, Kitchen Display và `/staff/tables` cùng một quán.
+2. Từ QR bàn, bấm **Gọi nhân viên**; xác nhận một card hiện ở POS và `/staff/tables`, Kitchen chỉ đọc/hiển thị cảnh báo.
+3. Nếu hai bàn cùng một mâm gọi, chỉ có một card; số lần gọi tăng và thời gian lần cuối được cập nhật.
+4. Bấm card ở POS: mở đúng bàn/mâm. Bấm **Đã xử lý**: card chỉ biến mất sau khi server trả thành công, và biến mất ở các màn còn lại.
+5. Tắt/bật mạng hoặc đổi tab rồi quay lại: queue tải lại đầy đủ, không mất request đang mở và không phát chuông lặp cho snapshot cũ.
+
+### Test 7B — Quyền staff và timeout
+
+1. Đăng nhập `store_staff` vào `/staff/tables`: vẫn xem bill, ghép mâm/thêm bàn và xử lý Gọi nhân viên.
+2. Xác nhận không có nút **Thu tiền & đóng bàn**, **Bỏ bàn**, checkbox gộp/thu nhiều mâm hoặc sheet thanh toán.
+3. Gọi RPC close bằng staff: server từ chối `Chỉ chủ quán được thu tiền hoặc bỏ bàn`.
+4. Owner vẫn thấy và dùng đủ thao tác thu tiền/bỏ bàn.
+5. Phiên timeout của Bảo Lương hiển thị 6 giờ; quán có timeout khác hiển thị số từ server, không hardcode 6 giờ.
+
+### Mẫu báo lỗi
+
+Gửi role đăng nhập, URL/màn hình, bàn hoặc mâm, request id nếu có, thao tác, và ảnh/video hoặc output lỗi.
