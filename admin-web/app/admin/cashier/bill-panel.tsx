@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { OpenTableSession } from '@/lib/actions/table-session'
+import { sessionTimeoutMessage } from '@/lib/session-timeout'
 
 const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 const gio = (iso: string) =>
@@ -120,7 +121,7 @@ export default function BillPanel({
 
       {list.length === 1 && list[0].needs_review && (
         <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
-          ⏰ Phiên quá 6 giờ không hoạt động nên bàn đã mở khoá, nhưng còn
+          ⏰ {sessionTimeoutMessage(list[0].idle_timeout_minutes)} nên bàn đã mở khoá, nhưng còn
           <b> {dong(list[0].unpaid_total)} chưa thu</b>.
         </p>
       )}

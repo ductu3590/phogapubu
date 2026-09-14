@@ -29,6 +29,9 @@ import FloorMap, { type TableState } from './floor-map'
 import BillPanel from './bill-panel'
 import NewOrdersFeed from './new-orders-feed'
 import ManualOrderSheet, { type PosMenuCategory } from './manual-order-sheet'
+import ServiceRequestQueue from './service-request-queue'
+import type { ServiceRequestRow } from '@/lib/actions/service-requests'
+import { serviceRequestSession } from '@/lib/service-request-queue'
 
 export default function CashierClient({
   storeId,
@@ -38,6 +41,8 @@ export default function CashierClient({
   categories,
   initialSessions,
   initialError,
+  initialRequests,
+  initialRequestError,
 }: {
   storeId: string
   paymentTiming: 'prepay' | 'postpay'
@@ -46,6 +51,8 @@ export default function CashierClient({
   categories: PosMenuCategory[]
   initialSessions: OpenTableSession[]
   initialError: string | null
+  initialRequests: ServiceRequestRow[]
+  initialRequestError: string | null
 }) {
   const floor = useFloorLayout(storeId, initialFloor, initialFloorError)
   const placed = floor.draft.tables
@@ -374,6 +381,22 @@ export default function CashierClient({
         )}
 
         <div className="min-h-0 flex-1 overflow-auto">
+          <ServiceRequestQueue
+            storeId={storeId}
+            initialRequests={initialRequests}
+            initialError={initialRequestError}
+            sessions={sessions}
+            onSelect={(request) => {
+              if (arrange) { setError('Lưu hoặc hủy sắp xếp bàn trước khi mở yêu cầu.'); return }
+              const session = serviceRequestSession(request, sessions)
+              const table = placed.find(t => session ? session.tables.some(st => st.id === t.id) : t.id === request.table_id)
+              if (table) floor.setAreaId(table.area_id)
+              setSelectedSessionId(session?.session_id ?? null)
+              setPickedSessionIds(new Set())
+              setPickedTableIds(new Set(session ? [] : [request.table_id]))
+              if (!session) setError(`${request.table_number}: không còn phiên tương ứng để mở bill. Yêu cầu vẫn chờ xử lý.`)
+            }}
+          />
           <AreaControls floor={floor} />
           <div className="overflow-auto p-5">
           {floor.ready && !placed.some(t => t.area_id === floor.areaId) && <p className="mb-3 text-sm text-gray-500">Khu vực này chưa có bàn. Vào Sắp xếp bàn để phân bàn vào khu vực.</p>}

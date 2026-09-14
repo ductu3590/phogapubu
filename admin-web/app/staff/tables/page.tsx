@@ -2,6 +2,7 @@ import { requireStaffAreaOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { listOpenTableSessions } from '@/lib/actions/table-session'
 import TablesClient from './tables-client'
+import { listOpenServiceRequests } from '@/lib/actions/service-requests'
 
 export default async function StaffTablesPage() {
   const operator = await requireStaffAreaOrRedirect()
@@ -28,10 +29,14 @@ export default async function StaffTablesPage() {
     )
 
   const res = await listOpenTableSessions()
+  const requests = await listOpenServiceRequests()
 
   return (
     <TablesClient
       storeId={operator.storeId}
+      canClose={operator.role === 'store_owner'}
+      initialRequests={requests.ok ? requests.requests : []}
+      initialRequestError={requests.ok ? null : requests.error}
       paymentTiming={(store?.payment_timing as 'prepay' | 'postpay' | null) ?? 'prepay'}
       allTables={allTables}
       initialSessions={res.ok ? res.sessions : []}

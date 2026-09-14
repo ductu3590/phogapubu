@@ -47,13 +47,15 @@ export type OpenTableSession = {
   opened_by: 'customer' | 'staff'
   last_activity_at: string
   has_host: boolean
-  // true = phiên đã tự hết hạn (6h không hoạt động) nhưng CÒN đơn chưa thu tiền.
+  // true = phiên đã tự hết hạn theo cấu hình nhưng CÒN đơn chưa thu tiền.
   // Vẫn phải hiện ở màn Bàn, nếu không bill quá hạn biến mất và thành công nợ rời rạc.
   needs_review: boolean
   order_count: number
   total: number
   unpaid_total: number
   cooking_count: number
+  // Nguồn từ store_workflow_settings; null chỉ khi server cũ chưa trả cấu hình hợp lệ.
+  idle_timeout_minutes: number | null
   orders: SessionOrderRow[]
 }
 
@@ -88,7 +90,18 @@ export async function listOpenTableSessions(): Promise<ListSessionsResult> {
     p_store_id: operator.storeId,
   })
   if (rpcErr) return { ok: false, error: rpcErr.message }
-  return { ok: true, sessions: (data ?? []) as unknown as OpenTableSession[] }
+
+  const { data: workflow, error: workflowErr } = await supabase.rpc('get_public_store_workflow', {
+    p_store_id: operator.storeId,
+  })
+  const rawTimeout = (workflowErr ? null : workflow as { table_session_idle_timeout_minutes?: unknown } | null)
+    ?.table_session_idle_timeout_minutes
+  const idleTimeoutMinutes =
+    typeof rawTimeout === 'number' && Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : null
+  const sessions = ((data ?? []) as unknown as Omit<OpenTableSession, 'idle_timeout_minutes'>[])
+    .map((session) => ({ ...session, idle_timeout_minutes: idleTimeoutMinutes }))
+
+  return { ok: true, sessions }
 }
 
 // reason='paid'        → ghi tiền cho MỌI đơn chưa thu của phiên (trừ đơn đã huỷ) rồi đóng bàn.
@@ -100,6 +113,9 @@ export async function closeTableSession(
 ): Promise<CloseSessionResult> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (operator.role !== 'store_owner') {
+    return { ok: false, error: 'Chỉ chủ quán được thu tiền hoặc bỏ bàn' }
+  }
 
   const { data, error: rpcErr } = await supabase.rpc('close_table_session', {
     p_session_id: sessionId,
@@ -198,6 +214,9 @@ export async function closeTableSessionsBulk(
 ): Promise<CloseSessionResult> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (operator.role !== 'store_owner') {
+    return { ok: false, error: 'Chỉ chủ quán được thu tiền hoặc bỏ bàn' }
+  }
   if (sessionIds.length === 0) return { ok: false, error: 'Chưa chọn mâm nào' }
 
   const { data, error: rpcErr } = await supabase.rpc('close_table_sessions_bulk', {

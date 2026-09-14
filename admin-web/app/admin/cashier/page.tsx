@@ -5,6 +5,7 @@ import { listOpenTableSessions } from '@/lib/actions/table-session'
 import { loadFloorLayout } from '@/lib/actions/floor-layout'
 import type { PosMenuCategory } from './manual-order-sheet'
 import CashierClient from './cashier-client'
+import { listOpenServiceRequests } from '@/lib/actions/service-requests'
 
 // Màn POS thu ngân — chỉ chủ quán. AdminLayout đã chặn, kiểm lại ở đây cho fail-closed
 // theo tầng (page có thể bị render ngoài layout khi Next đổi cách nhóm route).
@@ -62,10 +63,13 @@ export default async function CashierPage() {
   }))
 
   const res = await listOpenTableSessions()
+  const requests = await listOpenServiceRequests()
 
   return (
     <CashierClient
       storeId={operator.storeId}
+      initialRequests={requests.ok ? requests.requests : []}
+      initialRequestError={requests.ok ? null : requests.error}
       paymentTiming={
         ((workflow as { payment_timing?: 'prepay' | 'postpay' } | null)?.payment_timing) ??
         'prepay'

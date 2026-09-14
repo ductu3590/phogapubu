@@ -14,6 +14,10 @@ import {
   type SessionTable,
 } from '@/lib/actions/table-session'
 import { assignTrayColors } from '@/lib/tray-colors'
+import { sessionTimeoutMessage } from '@/lib/session-timeout'
+import ServiceRequestQueue from '@/app/admin/cashier/service-request-queue'
+import type { ServiceRequestRow } from '@/lib/actions/service-requests'
+import { serviceRequestSession } from '@/lib/service-request-queue'
 
 const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 
@@ -43,12 +47,18 @@ export default function TablesClient({
   allTables,
   initialSessions,
   initialError,
+  canClose,
+  initialRequests,
+  initialRequestError,
 }: {
   storeId: string
   paymentTiming: 'prepay' | 'postpay'
   allTables: SessionTable[]
   initialSessions: OpenTableSession[]
   initialError: string | null
+  canClose: boolean
+  initialRequests: ServiceRequestRow[]
+  initialRequestError: string | null
 }) {
   const [sessions, setSessions] = useState(initialSessions)
   const [error, setError] = useState(initialError)
@@ -145,6 +155,7 @@ export default function TablesClient({
     reason: 'paid' | 'staff_reset',
     instrument: 'cash' | 'bank' | null,
   ) => {
+    if (!canClose) return
     setBusy(true)
     const ids = list.map((s) => s.session_id)
     const res =
@@ -225,6 +236,17 @@ export default function TablesClient({
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 pb-24">
+        <ServiceRequestQueue
+          storeId={storeId}
+          initialRequests={initialRequests}
+          initialError={initialRequestError}
+          sessions={sessions}
+          onSelect={(request) => {
+            const session = serviceRequestSession(request, sessions)
+            if (session) document.getElementById(`session-${session.session_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            else setError(`${request.table_number}: không còn phiên tương ứng. Yêu cầu vẫn chờ xử lý.`)
+          }}
+        />
         {sessions.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-sm text-gray-400">Chưa có bàn nào đang mở.</p>
@@ -239,6 +261,7 @@ export default function TablesClient({
             {sessions.map((s) => (
               <li
                 key={s.session_id}
+                id={`session-${s.session_id}`}
                 className={`rounded-xl border bg-white p-3 ${
                   picked.has(s.session_id)
                     ? 'border-orange-400 ring-1 ring-orange-200'
@@ -249,19 +272,19 @@ export default function TablesClient({
               >
                 {s.needs_review && (
                   <p className="mb-2 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
-                    ⏰ Phiên đã quá 6 giờ không hoạt động nên bàn được mở khoá, nhưng
-                    <b> vẫn còn {dong(s.unpaid_total)} chưa thu</b>. Xử lý nốt rồi đóng.
+                    ⏰ {sessionTimeoutMessage(s.idle_timeout_minutes)} nên bàn được mở khoá, nhưng
+                    <b> vẫn còn {dong(s.unpaid_total)} chưa thu</b>. {canClose ? 'Xử lý nốt rồi đóng.' : 'Báo chủ quán xử lý bill.'}
                   </p>
                 )}
 
                 <div className="mb-2 flex items-start gap-2">
-                  <input
+                  {canClose && <input
                     type="checkbox"
                     checked={picked.has(s.session_id)}
                     onChange={() => togglePick(s.session_id)}
                     className="mt-1 h-4 w-4 flex-shrink-0 accent-orange-500"
                     aria-label={`Chọn ${s.table_number} để gộp bill`}
-                  />
+                  />}
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-gray-900">
                       {s.is_open_ordering ? '🍲' : '🪑'} {s.table_number}
@@ -304,13 +327,13 @@ export default function TablesClient({
                 </ul>
 
                 <div className="flex gap-2">
-                  <button
+                  {canClose && <button
                     onClick={() => setSheet({ kind: 'pay', sessions: [s] })}
                     disabled={busy}
                     className="flex-1 rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white active:bg-orange-600 disabled:opacity-50"
                   >
                     Thu tiền &amp; đóng bàn
-                  </button>
+                  </button>}
                   <button
                     onClick={() => printBill([s])}
                     disabled={busy}
@@ -334,7 +357,7 @@ export default function TablesClient({
       </div>
 
       {/* Thanh gộp bill — chỉ hiện khi đã tick từ 2 mâm trở lên */}
-      {picked.size > 1 && (
+      {canClose && picked.size > 1 && (
         <div className="absolute inset-x-0 bottom-0 mx-auto max-w-md border-t border-gray-200 bg-white p-3 shadow-lg">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-gray-500">Gộp {picked.size} mâm</span>
@@ -373,7 +396,7 @@ export default function TablesClient({
             className="mx-auto max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-4 pb-6"
             onClick={(e) => e.stopPropagation()}
           >
-            {sheet.kind === 'pay' && (
+            {canClose && sheet.kind === 'pay' && (
               <>
                 <p className="text-base font-bold text-gray-900">
                   Thu {dong(sheet.sessions.reduce((n, s) => n + s.total, 0))}
@@ -450,7 +473,7 @@ export default function TablesClient({
                   </button>
                 )}
 
-                <button
+                {canClose && <button
                   onClick={() => setSheet({ kind: 'reset', session: sheet.session })}
                   disabled={busy}
                   className="mt-2 w-full rounded-xl border border-red-200 py-3 text-left text-sm font-semibold text-red-600 active:bg-red-50 disabled:opacity-50"
@@ -459,11 +482,11 @@ export default function TablesClient({
                   <span className="mt-0.5 block px-3 text-xs font-normal text-red-400">
                     Dùng cho đơn ma. Huỷ món chưa nấu, giữ nguyên món đã vào bếp.
                   </span>
-                </button>
+                </button>}
               </>
             )}
 
-            {sheet.kind === 'reset' && (
+            {canClose && sheet.kind === 'reset' && (
               <>
                 <p className="text-base font-bold text-gray-900">
                   Bỏ {sheet.session.table_number} mà KHÔNG thu tiền?

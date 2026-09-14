@@ -12,6 +12,8 @@ import {
   type StorePaymentTiming,
 } from '@/lib/kitchen-announce'
 import type { KitchenOrder, OrderStatus, Store } from '@/types/database.types'
+import type { ServiceRequestRow } from '@/lib/actions/service-requests'
+import { watchServiceRequests } from '@/lib/service-request-queue'
 
 type KitchenDisplayOrder = KitchenOrder & { confirmedAt: string | null }
 type KitchenWorkflow = {
@@ -207,7 +209,9 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
-  const [callAlerts, setCallAlerts] = useState<Array<{ id: number; tableNumber: string; type: string }>>([])
+  const [callAlerts, setCallAlerts] = useState<ServiceRequestRow[]>([])
+  const [callError, setCallError] = useState<string | null>(null)
+  const [callsConnected, setCallsConnected] = useState(false)
   // Giải hiện vật vòng quay chưa đưa cho khách (card + loa TTS)
   const [giftAlerts, setGiftAlerts] = useState<Array<{
     id: string; label: string; where: string; createdAt: string
@@ -222,6 +226,30 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   const [ttsEnabled, setTtsEnabled] = useState(false)
   // Ref để realtime callback (closure cũ) đọc được trạng thái mới nhất
   const ttsEnabledRef = useRef(false)
+
+  useEffect(() => {
+    if (!supabase || !store?.id) return
+    const storeId = store.id
+    const watcher = watchServiceRequests({
+      client: supabase, storeId, initial: null,
+      load: async () => {
+        const { data, error } = await supabase.from('service_requests')
+          .select('id, store_id, table_id, table_number, type, session_id, created_at, last_ping_at, ping_count, resolved_at, resolved_by')
+          .eq('store_id', storeId).is('resolved_at', null).order('created_at')
+        return error ? { ok: false, error: error.message } : { ok: true, requests: (data ?? []) as ServiceRequestRow[] }
+      },
+      onRows: setCallAlerts, onError: setCallError, onConnected: setCallsConnected,
+      onNew: rows => {
+        playBell()
+        if (ttsEnabledRef.current) speak(`${rows.map(r => r.table_number).join(', ')} gọi nhân viên`)
+      },
+    })
+    window.addEventListener('focus', watcher.refresh)
+    return () => {
+      watcher.dispose()
+      window.removeEventListener('focus', watcher.refresh)
+    }
+  }, [supabase, store?.id])
 
   useEffect(() => {
     if (isTtsSupported()) initTts()
@@ -296,7 +324,6 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
     // Hoist channel vars ra ngoài init() để cleanup đồng bộ có thể tham chiếu
     let ordersChannel: ReturnType<typeof supabase.channel> | null = null
-    let srChannel: ReturnType<typeof supabase.channel> | null = null
     let giftChannel: ReturnType<typeof supabase.channel> | null = null
 
     async function init() {
@@ -514,34 +541,6 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         )
         .subscribe()
 
-      // Subscribe service_requests — nút chuông gọi nhân viên
-      srChannel = supabase!
-        .channel(`service-requests-${storeData.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'service_requests',
-            filter: `store_id=eq.${storeData.id}`,
-          },
-          (payload) => {
-            const req = payload.new as { table_number: string; type: string }
-            const alertId = Date.now()
-            setCallAlerts((prev) => [
-              ...prev,
-              { id: alertId, tableNumber: req.table_number, type: req.type },
-            ])
-            playBell()
-            // Loa đọc yêu cầu gọi nhân viên
-            if (ttsEnabledRef.current) {
-              const what = req.type === 'help' ? 'cần hỗ trợ' : 'gọi thanh toán'
-              setTimeout(() => speak(`${req.table_number} ${what}`), 300)
-            }
-          },
-        )
-        .subscribe()
-
       // Subscribe spin_results — giải hiện vật vòng quay → báo mang ra luôn
       giftChannel = supabase!
         .channel(`spin-gifts-${storeData.id}`)
@@ -589,7 +588,6 @@ export default function KitchenDisplay({ storeSlug }: Props) {
     // Cleanup đồng bộ — React thấy return value này, channels được unsubscribe đúng khi unmount
     return () => {
       if (ordersChannel) supabase.removeChannel(ordersChannel)
-      if (srChannel) supabase.removeChannel(srChannel)
       if (giftChannel) supabase.removeChannel(giftChannel)
     }
   }, [storeSlug, supabase, fetchOrder])
@@ -712,28 +710,20 @@ export default function KitchenDisplay({ storeSlug }: Props) {
 
   return (
     <div className="flex h-screen flex-col bg-gray-950 text-white">
-      {/* Chuông gọi nhân viên — dismissable banners, xếp dọc không chồng nhau */}
-      {callAlerts.length > 0 && (
-        <div className="fixed right-4 top-4 z-50 flex flex-col gap-2">
-          {callAlerts.map((alert) => (
-            <div
-              key={alert.id}
-              className="flex items-center gap-3 rounded-xl bg-orange-500 px-4 py-3 text-white shadow-lg"
-            >
-              <span className="text-2xl">🔔</span>
-              <div>
-                <p className="font-bold">{alert.tableNumber} gọi thanh toán</p>
-                <p className="text-sm opacity-80">Ra bàn thanh toán cho khách</p>
-              </div>
-              <button
-                onClick={() => setCallAlerts((prev) => prev.filter((a) => a.id !== alert.id))}
-                className="ml-2 opacity-70 hover:opacity-100"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Token bếp chỉ đọc; nhân viên xử lý bằng tài khoản để giữ người thực hiện trong audit. */}
+      {(callAlerts.length > 0 || callError || !callsConnected) && (
+        <section aria-label="Gọi nhân viên" className="max-h-48 shrink-0 overflow-y-auto border-b border-orange-700 bg-orange-950 px-4 py-2">
+          <p className="text-sm font-bold">🔔 Gọi nhân viên ({callAlerts.length})</p>
+          {!callsConnected && <p className="text-xs text-orange-200">Yêu cầu gọi nhân viên đang kết nối lại…</p>}
+          {callError && <p role="alert" className="text-xs text-orange-200">Không tải được yêu cầu gọi nhân viên: {callError}</p>}
+          {callAlerts.map(request => (
+            <p key={request.id} className="mt-1 text-sm">
+              <strong>{request.table_number}</strong> gọi nhân viên · {request.ping_count} lần · lần cuối{' '}
+              <time dateTime={request.last_ping_at}>{new Date(request.last_ping_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</time>
+            </p>
           ))}
-        </div>
+          {callAlerts.length > 0 && <a href="/staff/tables" target="_blank" rel="noreferrer" className="text-xs text-orange-200 underline">Mở màn nhân viên để đánh dấu Đã xử lý</a>}
+        </section>
       )}
 
       {/* Giải hiện vật vòng quay — mang ra cho khách */}
