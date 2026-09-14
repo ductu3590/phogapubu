@@ -137,3 +137,38 @@ Kết quả: ma trận Kitchen 20/20 PASS; toàn bộ Admin Web 231/231 PASS; Ty
 ### Mẫu báo lỗi
 
 Gửi tên quán, nguồn đơn (khách/nhân viên/POS), trạng thái + `confirmed_at` nếu thấy trong DB, thao tác đã bấm, và ảnh/video lỗi.
+
+## Task 6 — Hàng đợi gọi nhân viên, timeout và quyền đóng bill
+
+### Phạm vi kiểm thử
+
+- Commit: `e1b2f9e`.
+- Migration 050 **chưa áp Supabase remote**; chỉ áp cùng Task 7 vì migration sẽ thay đường ghi trực tiếp `service_requests` bằng RPC `ping_service_request`.
+
+### Test tự động Codex đã chạy
+
+Từ thư mục gốc repository:
+
+```powershell
+$modulePath=(Resolve-Path 'admin-web/node_modules/@electric-sql/pglite/dist/index.js').Path
+$env:PGLITE_MODULE=([System.Uri]::new($modulePath)).AbsoluteUri
+node --test supabase/tests/048_pos_table_areas.test.mjs supabase/tests/049_store_workflow_settings.test.mjs supabase/tests/050_pos_gate_service_requests.test.mjs
+```
+
+Kết quả: 050 focused 10/10 PASS; regression 048/049/050 là 31/31 PASS.
+
+### Test 6A — Contract DB qua PGlite
+
+1. Chạy lệnh trên tại checkout chứa commit `e1b2f9e` hoặc mới hơn.
+2. Xác nhận 31 test PASS, không có fail hoặc skipped.
+3. Chú ý các case phải PASS: hai bàn trong cùng mâm tạo đúng một request `call_staff` mở; ping dưới 10 giây bị chặn; resolve rồi ping tạo lượt mới; staff không thể đóng bill; bill còn đơn pending chưa POS xác nhận bị chặn; timeout 360 phút tạo cờ cần review.
+
+### Test 6B — Điều kiện phát hành
+
+1. Không áp riêng migration 050 vào môi trường Mini App đang dùng đường insert cũ `service_requests`.
+2. Chỉ áp migration sau khi Task 7 chuyển Mini App sang `ping_service_request` và cập nhật Kitchen/POS đọc/resolve hàng đợi mới.
+3. Các request lịch sử loại `payment`/`help` phải được giữ lịch sử nhưng đánh dấu đã xử lý sau migration.
+
+### Mẫu báo lỗi
+
+Gửi toàn bộ output lệnh PGlite, tên test fail và commit đang test (`git rev-parse --short HEAD`).
