@@ -258,6 +258,10 @@ export interface Database {
         Args: { p_table_id: string; p_zalo_user_id?: string | null; p_device_id?: string | null }
         Returns: Json
       }
+      ping_service_request: {
+        Args: { p_table_id: string; p_type: string; p_device_id: string }
+        Returns: Json
+      }
       get_spin_state: {
         Args: { p_order_id: string }
         Returns: Json

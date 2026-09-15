@@ -177,8 +177,9 @@ Gửi toàn bộ output lệnh PGlite, tên test fail và commit đang test (`gi
 
 ### Phạm vi kiểm thử
 
-- Commit: `249e585`.
-- Migration 050 và 050a chỉ áp sau Task 8, khi Mini App đã dùng RPC `ping_service_request`.
+- Commit gốc: `249e585`; bản vá hồi quy chờ nghiệm thu sau đó.
+- Migration 050 và 050a **đã áp trên Supabase remote**. Mini App phải dùng RPC
+  `ping_service_request`, không được ghi trực tiếp `service_requests`.
 
 ### Test tự động Codex đã chạy
 
@@ -198,17 +199,31 @@ $env:PGLITE_MODULE=([System.Uri]::new($modulePath)).AbsoluteUri
 node --test supabase/tests/050_pos_gate_service_requests.test.mjs supabase/tests/050a_kitchen_service_request_queue.test.mjs
 ```
 
-Kết quả: 27/27 test tập trung, 258/258 test Admin Web, 11/11 test SQL, TypeScript và lint các file đổi đều PASS.
+Kết quả bản gốc: 27/27 test tập trung, 258/258 test Admin Web, 11/11 test SQL,
+TypeScript và lint các file đổi đều PASS.
 
-### Test 7A — Queue và xử lý request
+Kết quả bản vá hồi quy: Mini App 36/36 test PASS; Admin Web 260/260 test PASS,
+TypeScript và ESLint Admin Web PASS. Typecheck toàn Mini App vẫn có 3 lỗi nền ngoài phạm vi
+(kiểu `SnackbarProvider`, import `app-config.json`, và relation ở `category.api.ts`); RPC mới
+đã có khai báo type và không tạo lỗi typecheck mới.
 
-Sau khi áp 050 + 050a cùng Task 8:
+### Test 7A — Hồi quy Mini App, queue và xử lý request
 
-1. Mở POS `/admin/cashier`, Kitchen Display và `/staff/tables` cùng một quán.
-2. Từ QR bàn, bấm **Gọi nhân viên**; xác nhận một card hiện ở POS và `/staff/tables`, Kitchen chỉ đọc/hiển thị cảnh báo.
-3. Nếu hai bàn cùng một mâm gọi, chỉ có một card; số lần gọi tăng và thời gian lần cuối được cập nhật.
-4. Bấm card ở POS: mở đúng bàn/mâm. Bấm **Đã xử lý**: card chỉ biến mất sau khi server trả thành công, và biến mất ở các màn còn lại.
-5. Tắt/bật mạng hoặc đổi tab rồi quay lại: queue tải lại đầy đủ, không mất request đang mở và không phát chuông lặp cho snapshot cũ.
+1. Deploy lại Mini App chứa bản vá hồi quy (version mới hơn v3), dùng Zalo đóng hẳn Mini App
+   rồi mở lại bằng QR bàn. Trong tab **Đơn hàng**, nút phải là **Gọi nhân viên**, không còn
+   chữ “Gọi thanh toán”.
+2. Bấm nút: hiện thông báo thành công; POS `/admin/cashier` xuất hiện một card **Gọi nhân viên**.
+   Bấm lại trong 60 giây: Mini App báo đã gọi, không tạo card thứ hai. Nếu hai bàn cùng mâm gọi,
+   POS vẫn chỉ một card và cập nhật số lần/lần gọi gần nhất.
+3. Mở POS bằng build mới, để màn hình đứng yên. Từ QR một bàn thuộc mâm, gửi một đơn khách;
+   đơn phải xuất hiện trong POS tối đa 5 giây mà không bấm F5. Lặp lại khi vừa chuyển tab POS
+   sang tab khác rồi quay lại để xác nhận cơ chế snapshot dự phòng bắt kịp event đã lỡ.
+
+4. Mở Kitchen Display và `/staff/tables` cùng quán: card cũng hiện ở hai màn; Kitchen chỉ
+   đọc/hiển thị cảnh báo. Bấm card ở POS: mở đúng bàn/mâm. Bấm **Đã xử lý**: card chỉ biến mất
+   sau khi server trả thành công, và biến mất ở các màn còn lại.
+5. Tắt/bật mạng hoặc đổi tab rồi quay lại: queue tải lại đầy đủ, không mất request đang mở và
+   không phát chuông lặp cho snapshot cũ.
 
 ### Test 7B — Quyền staff và timeout
 

@@ -147,8 +147,5 @@ export interface TakeawayOrder {
 }
 
 export interface ServiceRequest {
-  storeId: string;
   tableId: string;
-  tableNumber: string;
-  type: "payment" | "help";
 }

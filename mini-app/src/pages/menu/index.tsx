@@ -144,7 +144,7 @@ export default function MenuPage() {
   const handleCallStaff = () => {
     if (!storeId || !tableId) return;
     callStaff(
-      { storeId, tableId, tableNumber, type: "help" },
+      { tableId },
       {
         onSuccess: () =>
           openSnackbar({ text: "Đã gọi nhân viên! Vui lòng chờ.", type: "success" }),

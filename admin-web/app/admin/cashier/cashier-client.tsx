@@ -32,6 +32,7 @@ import ManualOrderSheet, { type PosMenuCategory } from './manual-order-sheet'
 import ServiceRequestQueue from './service-request-queue'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { serviceRequestSession } from '@/lib/service-request-queue'
+import { watchCashierSessions } from '@/lib/cashier-session-watcher'
 
 export default function CashierClient({
   storeId,
@@ -79,36 +80,14 @@ export default function CashierClient({
   }, [])
 
   useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`cashier-${storeId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'table_sessions', filter: `store_id=eq.${storeId}` },
-        () => void reload(),
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders', filter: `store_id=eq.${storeId}` },
-        () => void reload(),
-      )
-      // session_tables không có cột store_id nên không lọc được — nghe hết rồi tải lại.
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'session_tables' },
-        () => void reload(),
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setConnected(true)
-          // Nối lại sau khi rớt mạng có thể đã lỡ sự kiện → tải lại cho chắc.
-          void reload()
-        } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
-          setConnected(false)
-        }
-      })
+    const watcher = watchCashierSessions({
+      client: createClient(),
+      storeId,
+      reload,
+      onConnected: setConnected,
+    })
     return () => {
-      void supabase.removeChannel(channel)
+      watcher.dispose()
     }
   }, [storeId, reload])
 

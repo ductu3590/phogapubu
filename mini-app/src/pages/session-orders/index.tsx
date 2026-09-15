@@ -139,14 +139,14 @@ function DineInOrdersView() {
     ? billOrders.some((o) => o.payment_received_at === null)
     : orders.some((o) => UNPAID_STATUSES.has(o.status));
 
-  // Gọi nhân viên thanh toán — throttle 60 giây
+  // Gọi nhân viên — throttle ở máy khách, server còn chống spam theo bàn/mâm.
   const handleCallStaff = () => {
     if (calledAt && Date.now() - calledAt < 60_000) {
       openSnackbar({ text: "Đã gọi rồi, nhân viên đang đến!", type: "warning" });
       return;
     }
     callStaff(
-      { storeId, tableId, tableNumber, type: "payment" },
+      { tableId },
       {
         onSuccess: () => {
           setCalledAt(Date.now());
@@ -181,7 +181,7 @@ function DineInOrdersView() {
       <Header title="Đơn hàng" subtitle={tableNumber || undefined} />
 
       <div className="no-scrollbar flex-1 overflow-y-auto pb-6">
-        {/* Nút "Gọi thanh toán" — trong content, tránh đè Zalo overlay */}
+        {/* Nút "Gọi nhân viên" — trong content, tránh đè Zalo overlay */}
         {hasUnpaid && (
           <div className="mx-3.5 mt-3">
             <button
@@ -192,7 +192,7 @@ function DineInOrdersView() {
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
-              <span className="text-small-m font-semibold">Gọi thanh toán</span>
+              <span className="text-small-m font-semibold">Gọi nhân viên</span>
             </button>
           </div>
         )}
@@ -237,8 +237,8 @@ function DineInOrdersView() {
               {hasUnpaid && (
                 <p className="mt-1.5 text-xxsmall text-text-secondary">
                   {isPostpay
-                    ? 'Đây là tổng của cả bàn, gồm cả món nhân viên đặt hộ. Nhấn "Gọi thanh toán" để nhân viên ra tính tiền.'
-                    : 'Nhấn "Gọi thanh toán" bên trên để nhân viên ra thanh toán cho bạn.'}
+                    ? 'Đây là tổng của cả bàn, gồm cả món nhân viên đặt hộ. Nhấn "Gọi nhân viên" khi cần hỗ trợ hoặc thanh toán.'
+                    : 'Nhấn "Gọi nhân viên" bên trên khi cần hỗ trợ hoặc thanh toán.'}
                 </p>
               )}
             </div>

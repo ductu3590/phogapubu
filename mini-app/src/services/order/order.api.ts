@@ -1,5 +1,6 @@
 import { supabase } from "../supabase";
 import { CreateOrderRequest, Order, OrderState, OrderType, SessionOrder, TakeawayOrder, ServiceRequest, TableSessionState, TableSessionBill } from "@/types/order.types";
+import { getOrCreateDeviceId } from "../device-id";
 
 // Kết quả huỷ đơn từ RPC cancel_order (mig 038). 'blocked' = đơn CÒN NGUYÊN.
 export type CancelResult =
@@ -259,11 +260,11 @@ export const sessionOrderService = {
   },
 
   callStaff: async (req: ServiceRequest): Promise<void> => {
-    const { error } = await supabase.from("service_requests").insert({
-      store_id: req.storeId,
-      table_id: req.tableId,
-      table_number: req.tableNumber,
-      type: req.type,
+    // Khách chỉ được ping qua RPC: server tự suy quán/mâm và chống spam theo phiên/bàn.
+    const { error } = await supabase.rpc("ping_service_request", {
+      p_table_id: req.tableId,
+      p_type: "call_staff",
+      p_device_id: getOrCreateDeviceId(),
     });
     if (error) throw error;
   },
