@@ -7,11 +7,13 @@ import { useAppStore, parseQRParams, PaymentMethod, PaymentTiming } from "./stor
 import { supabase } from "./services/supabase";
 import { sessionOrderService } from "./services/order/order.api";
 import { getOrCreateDeviceId } from "./services/device-id";
+import { getPublicWorkflow } from "./services/workflow/workflow.api";
 import { getUserID } from "zmp-sdk";
 
 function AppInit() {
   const {
     setStoreInfo, setTableInfo, setZaloUserId, setOrderMode, setDeviceId, setSessionState,
+    setEntryContext, setWorkflow, setWorkflowError,
   } = useAppStore();
   const storeId = useAppStore((s) => s.storeId);
   const tableId = useAppStore((s) => s.tableId);
@@ -32,10 +34,10 @@ function AppInit() {
   }, [setZaloUserId]);
 
   useEffect(() => {
-    const { storeSlug, tableId, orderMode } = parseQRParams();
+    const { storeSlug, entryContext } = parseQRParams();
     if (!storeSlug) return;
 
-    setOrderMode(orderMode);
+    setEntryContext(entryContext);
 
     const storeQuery = supabase
       .from("stores")
@@ -45,16 +47,18 @@ function AppInit() {
       .single();
 
     const tableQuery =
-      orderMode === "dine_in" && tableId
+      entryContext.kind === "table"
         ? supabase
             .from("tables")
             .select("id, table_number")
-            .eq("id", tableId)
+            .eq("id", entryContext.tableId)
             .eq("is_active", true)
             .single()
         : Promise.resolve({ data: null, error: null });
 
-    Promise.all([storeQuery, tableQuery]).then(([storeRes, tableRes]) => {
+    let cancelled = false;
+    void Promise.all([storeQuery, tableQuery]).then(async ([storeRes, tableRes]) => {
+      if (cancelled) return;
       if (storeRes.data) {
         // Màu chủ đạo theo quán (theme runtime) — set CSS var để mọi class Tailwind
         // dùng theme("colors.primary") (đã trỏ sang var(--color-primary) trong tokens.js)
@@ -95,6 +99,21 @@ function AppInit() {
           deliveryAreaNote: storeRes.data.delivery_area_note ?? "",
           termsOfUse: storeRes.data.terms_of_use ?? "",
         });
+
+        try {
+          const workflow = await getPublicWorkflow(storeRes.data.id);
+          if (cancelled) return;
+          setWorkflow(workflow);
+          setOrderMode(
+            entryContext.kind === "table"
+              ? "dine_in"
+              : workflow.takeawayEnabled || workflow.shippingEnabled
+                ? "takeaway"
+                : "dine_in",
+          );
+        } catch {
+          if (!cancelled) setWorkflowError("Không tải được cấu hình đặt món của quán.");
+        }
       }
       if (tableRes.data) {
         setTableInfo({
@@ -103,7 +122,8 @@ function AppInit() {
         });
       }
     });
-  }, [setStoreInfo, setTableInfo, setOrderMode]);
+    return () => { cancelled = true; };
+  }, [setStoreInfo, setTableInfo, setOrderMode, setEntryContext, setWorkflow, setWorkflowError]);
 
   // Trạng thái phiên bàn — effect RIÊNG, chạy sau khi store + bàn + hai chân định danh đã sẵn
   // sàng. KHÔNG gộp vào effect load store phía trên: lúc đó zaloUserId thường còn rỗng

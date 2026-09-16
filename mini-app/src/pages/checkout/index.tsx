@@ -15,6 +15,7 @@ import QuantityStepper from "@/components/common/quantity-stepper";
 import NoteInput from "@/components/common/note-input";
 import { GET_SESSION_ORDERS_KEY } from "@/constants/api";
 import { isStoreOpen } from "@/utils/store-hours";
+import { canOrderInEntry } from "@/utils/entry-context";
 import VoucherSection from "@/components/checkout/voucher-section";
 import { estimateDiscount, MyVoucher } from "@/services/voucher/voucher.api";
 
@@ -85,8 +86,14 @@ export default function CheckoutPage() {
   const [addressError, setAddressError] = useState("");
 
   const { items: cartItems, updateQuantity, clearCart, setCartLock } = useCartStore();
-  const { storeId, tableId, tableNumber, zaloUserId, deviceId, paymentMethods, paymentTiming, orderMode, isAcceptingOrders, servingHours } = useAppStore();
+  const { storeId, tableId, tableNumber, zaloUserId, deviceId, paymentMethods, paymentTiming, orderMode, isAcceptingOrders, servingHours, entryContext, workflow, workflowError } = useAppStore();
   const isTakeaway = orderMode === "takeaway";
+  const hasVerifiedTable = entryContext.kind === "root" || tableId === entryContext.tableId;
+  const orderingAllowed = workflow
+    ? canOrderInEntry(workflow, entryContext) && hasVerifiedTable
+    : false;
+  const pickupEnabled = workflow?.takeawayEnabled ?? false;
+  const deliveryEnabled = workflow?.shippingEnabled ?? false;
   // Trả sau TẠI BÀN: khách không chọn phương thức, không mở SDK thanh toán — gọi món xong là
   // vào bếp luôn, tiền thu khi ra về. Đơn mang về/ship VẪN trả trước (spec §3, chưa có COD).
   const isPostpayDineIn = paymentTiming === "postpay" && !isTakeaway;
@@ -153,6 +160,18 @@ export default function CheckoutPage() {
         isPhoneValid(customerPhone) &&
         deliveryAddress.trim() !== "");
 
+  // Một số quán chỉ bật Ship hoặc chỉ bật Tự lấy. Không giữ lựa chọn cũ đã bị tắt
+  // rồi khiến form hiện sai và chỉ báo lỗi lúc bấm đặt món.
+  useEffect(() => {
+    if (!isTakeaway) return;
+    if (takeawayType === "pickup" && !pickupEnabled && deliveryEnabled) {
+      setTakeawayType("delivery");
+    }
+    if (takeawayType === "delivery" && !deliveryEnabled && pickupEnabled) {
+      setTakeawayType("pickup");
+    }
+  }, [isTakeaway, takeawayType, pickupEnabled, deliveryEnabled]);
+
   const { mutate: createOrder, isPending } = useCreateOrder();
 
   const totalAmount = calculateCartTotal(cartItems);
@@ -200,6 +219,13 @@ export default function CheckoutPage() {
   };
 
   const handleOrder = () => {
+    if (!orderingAllowed) {
+      openSnackbar({
+        text: workflowError ?? "Quán chưa nhận đặt món từ lối vào này.",
+        type: "warning",
+      });
+      return;
+    }
     if (cartItems.length === 0) {
       openSnackbar({ text: "Giỏ hàng trống", type: "warning" });
       return;
@@ -223,6 +249,10 @@ export default function CheckoutPage() {
         if (!isPhoneValid(customerPhone)) setPhoneError("Số điện thoại không hợp lệ (10 số, bắt đầu 0)");
         if (!deliveryAddress.trim()) setAddressError("Vui lòng nhập địa chỉ");
       }
+      return;
+    }
+    if (isTakeaway && ((takeawayType === "pickup" && !pickupEnabled) || (takeawayType === "delivery" && !deliveryEnabled))) {
+      openSnackbar({ text: "Hình thức nhận món này hiện chưa được quán hỗ trợ.", type: "warning" });
       return;
     }
     if (!isTakeaway && !tableId) {
@@ -399,7 +429,8 @@ export default function CheckoutPage() {
           <div className={`mx-3.5 mt-4 rounded-xl bg-white p-4 ${lockedClass}`}>
             {/* Toggle */}
             <div className="mb-4 flex gap-1 rounded-xl bg-neutral100 p-1">
-              <button
+              {pickupEnabled && (
+                <button
                 onClick={() => setTakeawayType("pickup")}
                 className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
                   takeawayType === "pickup"
@@ -408,8 +439,10 @@ export default function CheckoutPage() {
                 }`}
               >
                 🚶 Tự qua lấy
-              </button>
-              <button
+                </button>
+              )}
+              {deliveryEnabled && (
+                <button
                 onClick={() => setTakeawayType("delivery")}
                 className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
                   takeawayType === "delivery"
@@ -418,7 +451,8 @@ export default function CheckoutPage() {
                 }`}
               >
                 🛵 Ship tận nhà
-              </button>
+                </button>
+              )}
             </div>
 
             {/* Tên */}

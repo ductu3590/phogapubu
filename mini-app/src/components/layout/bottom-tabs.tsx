@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore } from "@/stores/app.store";
 import { cn } from "@/utils/cn";
+import { rootCapabilities } from "@/utils/entry-context";
 
 const ALL_TABS = [
   {
@@ -44,9 +45,13 @@ export default function BottomTabs() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { totalItems } = useCartStore();
-  const { orderMode } = useAppStore();
+  const { orderMode, entryContext, workflow } = useAppStore();
 
-  const TABS = ALL_TABS.filter(tab => orderMode === "dine_in" || tab.takeawayVisible);
+  const rootReadOnly = entryContext.kind === "root" && (!workflow || rootCapabilities(workflow).readOnlyMenu);
+  const TABS = ALL_TABS.filter((tab) =>
+    (orderMode === "dine_in" || tab.takeawayVisible) &&
+    !(rootReadOnly && tab.path === "/session-orders"),
+  );
 
   return (
     <div

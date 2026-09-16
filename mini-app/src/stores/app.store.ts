@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { ServingShift } from "@/utils/store-hours";
 import type { TableSessionState } from "@/types/order.types";
+import type { EntryContext, PublicWorkflow } from "@/types/workflow.types";
+import { parseEntryContext } from "@/utils/entry-context";
 
 export type { TableSessionState };
 
@@ -35,6 +37,9 @@ interface AppStore {
   zaloUserId: string;
   deviceId: string;
   orderMode: OrderMode;
+  entryContext: EntryContext;
+  workflow: PublicWorkflow | null;
+  workflowError: string | null;
   sessionState: TableSessionState | null;
 
   setStoreInfo: (info: {
@@ -62,6 +67,9 @@ interface AppStore {
   setDeviceId: (deviceId: string) => void;
   setSessionState: (sessionState: TableSessionState | null) => void;
   setOrderMode: (mode: OrderMode) => void;
+  setEntryContext: (entryContext: EntryContext) => void;
+  setWorkflow: (workflow: PublicWorkflow) => void;
+  setWorkflowError: (message: string) => void;
 }
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -88,6 +96,9 @@ export const useAppStore = create<AppStore>((set) => ({
   zaloUserId: "",
   deviceId: "",
   orderMode: "dine_in",
+  entryContext: { kind: "root" },
+  workflow: null,
+  workflowError: null,
   sessionState: null,
 
   setStoreInfo: (info) => set(info),
@@ -96,20 +107,19 @@ export const useAppStore = create<AppStore>((set) => ({
   setDeviceId: (deviceId) => set({ deviceId }),
   setSessionState: (sessionState) => set({ sessionState }),
   setOrderMode: (orderMode) => set({ orderMode }),
+  setEntryContext: (entryContext) => set({ entryContext }),
+  setWorkflow: (workflow) => set({ workflow, workflowError: null }),
+  setWorkflowError: (workflowError) => set({ workflow: null, workflowError }),
 }));
 
 export function parseQRParams(): {
   storeSlug: string;
-  tableId: string;
-  orderMode: OrderMode;
+  entryContext: EntryContext;
 } {
   const params = new URLSearchParams(window.location.search);
   const storeSlug =
     params.get("store") ||
     (import.meta.env.VITE_DEFAULT_STORE_SLUG as string) ||
     "";
-  const tableId = params.get("table") || "";
-  const orderMode: OrderMode =
-    storeSlug && !tableId ? "takeaway" : "dine_in";
-  return { storeSlug, tableId, orderMode };
+  return { storeSlug, entryContext: parseEntryContext(params) };
 }

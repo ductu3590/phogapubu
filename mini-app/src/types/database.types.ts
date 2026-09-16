@@ -262,6 +262,10 @@ export interface Database {
         Args: { p_table_id: string; p_type: string; p_device_id: string }
         Returns: Json
       }
+      get_public_store_workflow: {
+        Args: { p_store_id: string }
+        Returns: Json
+      }
       get_spin_state: {
         Args: { p_order_id: string }
         Returns: Json

@@ -14,6 +14,7 @@ import { scrollToId } from "@/utils/scroll-to";
 import { cn } from "@/utils/cn";
 import { useSnackbar } from "zmp-ui";
 import { isStoreOpen, formatServingHours } from "@/utils/store-hours";
+import { canOrderInEntry } from "@/utils/entry-context";
 import mevoLogo from "@/static/mevo-logo.png";
 
 function TakeawayBanner({ storeName }: { storeName: string }) {
@@ -123,8 +124,43 @@ function TakeawayBannerCard({ url }: { url: string }) {
   );
 }
 
+function OrderingUnavailableBanner({
+  entryKind,
+  loading,
+  error,
+}: {
+  entryKind: "root" | "table";
+  loading: boolean;
+  error: string | null;
+}) {
+  const root = entryKind === "root";
+  return (
+    <div className="border-b border-[#F0C9C0] bg-[#FDEDE9] px-4 py-2.5">
+      <p className="text-small-m font-semibold text-[#C0341A]">
+        {loading ? "Đang tải cấu hình quán" : root ? "Xem menu của quán" : "Quán chưa nhận gọi món qua QR"}
+      </p>
+      <p className="mt-0.5 text-xxsmall text-[#9A4634]">
+        {loading || error
+          ? error ?? "Bạn vẫn có thể xem menu trong lúc hệ thống kiểm tra cấu hình."
+          : root
+            ? "Quét QR tại bàn để gọi món."
+            : "Bạn vẫn có thể xem menu. Vui lòng hỏi chủ quán hoặc nhân viên để được hỗ trợ."}
+      </p>
+      {root && !loading && !error && import.meta.env.DEV && (
+        <button
+          type="button"
+          disabled
+          className="mt-2 rounded-lg bg-white px-3 py-2 text-small-m font-semibold text-[#C0341A] disabled:opacity-70"
+        >
+          Đặt bàn trước — sẽ mở ở BL-3
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function MenuPage() {
-  const { storeId, storeName, storeLogoUrl, tableId, tableNumber, orderMode, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState } = useAppStore();
+  const { storeId, storeName, storeLogoUrl, tableId, tableNumber, orderMode, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState, entryContext, workflow, workflowError } = useAppStore();
   const { data: menu, isLoading, error } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
   const { openSnackbar } = useSnackbar();
@@ -139,7 +175,11 @@ export default function MenuPage() {
     sessionState?.mode === "postpay" && sessionState.state === "owner"
       ? sessionState
       : null;
-  const canOrder = storeOpen && !tableLocked;
+  const hasVerifiedTable = entryContext.kind === "root" || tableId === entryContext.tableId;
+  const workflowAllowsOrdering = workflow
+    ? canOrderInEntry(workflow, entryContext) && hasVerifiedTable
+    : false;
+  const canOrder = storeOpen && !tableLocked && workflowAllowsOrdering;
 
   const handleCallStaff = () => {
     if (!storeId || !tableId) return;
@@ -168,6 +208,13 @@ export default function MenuPage() {
       .reduce((s, i) => s + i.quantity, 0);
 
   const handleAdd = (product: Product) => {
+    if (!workflowAllowsOrdering) {
+      openSnackbar({
+        text: workflowError ?? "Quán chưa nhận gọi món từ lối vào này.",
+        type: "warning",
+      });
+      return;
+    }
     if (tableLocked) {
       openSnackbar({
         text: "Bàn này đang có khách khác gọi món. Nhờ nhân viên mở bàn giúp bạn.",
@@ -292,6 +339,14 @@ export default function MenuPage() {
         <ClosedBanner
           isAcceptingOrders={isAcceptingOrders}
           servingHours={formatServingHours(servingHours)}
+        />
+      )}
+
+      {!workflowAllowsOrdering && (
+        <OrderingUnavailableBanner
+          entryKind={entryContext.kind}
+          loading={(!workflow || !hasVerifiedTable) && !workflowError}
+          error={workflowError}
         />
       )}
 
