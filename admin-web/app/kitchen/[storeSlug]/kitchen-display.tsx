@@ -14,6 +14,7 @@ import {
 import type { KitchenOrder, OrderStatus, Store } from '@/types/database.types'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { watchServiceRequests } from '@/lib/service-request-queue'
+import { sessionTableLabel } from '@/lib/session-table-label'
 
 type KitchenDisplayOrder = KitchenOrder & { confirmedAt: string | null }
 type KitchenWorkflow = {
@@ -119,6 +120,30 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenDisplayOr
       voidReason: item.void_reason ?? null,
     })),
   }
+}
+
+type KitchenSessionTable = { table_number: string }
+
+// Kitchen có token role `kitchen`, không có session owner/staff. Policy 051 chỉ cho token đó đọc
+// session_tables của chính quán để thẻ bếp nói đúng cả mâm, thay vì chỉ QR đã gửi đơn cuối cùng.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadKitchenSessionTables(supabase: any, sessionIds: Array<string | null | undefined>) {
+  const ids = [...new Set(sessionIds.filter((id): id is string => Boolean(id)))]
+  const result = new Map<string, KitchenSessionTable[]>()
+  if (!ids.length) return result
+
+  const { data, error } = await supabase
+    .from('session_tables')
+    .select('session_id, tables(table_number)')
+    .in('session_id', ids)
+  if (error) return result
+
+  for (const row of (data ?? []) as Array<{ session_id: string; tables: KitchenSessionTable | KitchenSessionTable[] | null }>) {
+    const table = Array.isArray(row.tables) ? row.tables[0] : row.tables
+    if (!table?.table_number) continue
+    result.set(row.session_id, [...(result.get(row.session_id) ?? []), table])
+  }
+  return result
 }
 
 // ─── Câu đọc TTS cho đơn mới (loa đọc đơn) ──────────────────────────────────
@@ -309,9 +334,11 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         .eq('id', orderId)
         .single()
       if (error || !data) return null
+      const fallback = (data.tables as { table_number: string } | null)?.table_number ?? 'Bàn ?'
+      const tables = await loadKitchenSessionTables(supabase, [data.session_id])
       return mapOrder(
         data,
-        (data.tables as { table_number: string } | null)?.table_number ?? 'Bàn ?',
+        sessionTableLabel(tables.get(data.session_id as string) ?? [], fallback),
         data.order_items ?? [],
       )
     },
@@ -392,10 +419,17 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         return
       }
 
+      const sessionTables = await loadKitchenSessionTables(
+        supabase,
+        (ordersData ?? []).map((row) => row.session_id as string | null),
+      )
       const mapped = (ordersData ?? []).map((row) =>
         mapOrder(
           row,
-          (row.tables as { table_number: string } | null)?.table_number ?? 'Bàn ?',
+          sessionTableLabel(
+            sessionTables.get(row.session_id as string) ?? [],
+            (row.tables as { table_number: string } | null)?.table_number ?? 'Bàn ?',
+          ),
           row.order_items ?? [],
         ),
       )

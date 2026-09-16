@@ -33,6 +33,7 @@ import ServiceRequestQueue from './service-request-queue'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { serviceRequestSession } from '@/lib/service-request-queue'
 import { watchCashierSessions } from '@/lib/cashier-session-watcher'
+import { actionError, applyReloadError, type CashierError } from '@/lib/cashier-error-state'
 
 export default function CashierClient({
   storeId,
@@ -59,13 +60,18 @@ export default function CashierClient({
   const placed = floor.draft.tables
   const arrange = floor.arrange
   const [sessions, setSessions] = useState(initialSessions)
-  const [error, setError] = useState(initialError)
+  const [error, setError] = useState<CashierError | null>(
+    initialError ? { source: 'reload', message: initialError } : null,
+  )
   const [busy, setBusy] = useState(false)
   const [connected, setConnected] = useState(false)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [pickedSessionIds, setPickedSessionIds] = useState<Set<string>>(new Set())
   const [pickedTableIds, setPickedTableIds] = useState<Set<string>>(new Set())
   const [manualSessionId, setManualSessionId] = useState<string | null>(null)
+  const reportActionError = useCallback((message: string | null) => {
+    setError(message ? actionError(message) : null)
+  }, [])
 
   // Tải lại CẢ danh sách thay vì cộng dồn tại chỗ: tổng tiền phải do server tính, nhiều nguồn
   // cùng đổi một phiên (khách gọi thêm, bếp đổi trạng thái, nhân viên chốt bill ở máy khác).
@@ -73,9 +79,9 @@ export default function CashierClient({
     const res = await listOpenTableSessions()
     if (res.ok) {
       setSessions(res.sessions)
-      setError(null)
+      setError((current) => applyReloadError(current, null))
     } else {
-      setError(res.error)
+      setError((current) => applyReloadError(current, res.error))
     }
   }, [])
 
@@ -135,7 +141,8 @@ export default function CashierClient({
     setSelectedSessionId(null)
     setPickedSessionIds(new Set())
     setPickedTableIds(new Set())
-    if (msg) setError(msg)
+    if (msg) reportActionError(msg)
+    else setError(null)
     await reload()
   }
 
@@ -144,7 +151,7 @@ export default function CashierClient({
     const res = await fn()
     if (!res.ok) {
       setBusy(false)
-      setError(res.error ?? 'Lỗi')
+      reportActionError(res.error ?? 'Lỗi')
       return
     }
     await sauKhiXong()
@@ -159,7 +166,7 @@ export default function CashierClient({
         : await closeTableSessionsBulk(ids, 'paid', instrument)
     if (!res.ok) {
       setBusy(false)
-      setError(res.error)
+      reportActionError(res.error)
       return
     }
     // close_table_session idempotent: máy khác vừa chốt thì báo cho biết, KHÔNG hiện lỗi đỏ.
@@ -174,7 +181,7 @@ export default function CashierClient({
     const res = await closeTableSession(s.session_id, 'staff_reset', null)
     if (!res.ok) {
       setBusy(false)
-      setError(res.error)
+      reportActionError(res.error)
       return
     }
     await sauKhiXong(
@@ -191,12 +198,12 @@ export default function CashierClient({
     const res = await confirmOrder(orderId)
     if (!res.ok) {
       setBusy(false)
-      setError(res.error)
+      reportActionError(res.error)
       return
     }
     onPrintOrder(orderId)
     setBusy(false)
-    if (res.already) setError('Đơn này đã được xác nhận trước đó — chỉ in lại phiếu.')
+    if (res.already) reportActionError('Đơn này đã được xác nhận trước đó — chỉ in lại phiếu.')
     await reload()
   }
 
@@ -219,13 +226,13 @@ export default function CashierClient({
     try {
       const res = await addManualItems(sessionId, items, clientRequestId)
       if (!res.ok) {
-        setError(res.error)
+        reportActionError(res.error)
         return false
       }
       await reload()
       return true
     } catch {
-      setError('Lỗi kết nối. Kiểm tra mạng rồi thử lại — bấm lại không tạo món trùng.')
+      reportActionError('Lỗi kết nối. Kiểm tra mạng rồi thử lại — bấm lại không tạo món trùng.')
       return false
     } finally {
       setBusy(false)
@@ -240,10 +247,10 @@ export default function CashierClient({
     setBusy(true)
     try {
       const res = await voidOrderItem(orderItemId, voidType, reason)
-      if (!res.ok) setError(res.error)
+      if (!res.ok) reportActionError(res.error)
       else await reload()
     } catch {
-      setError('Lỗi kết nối. Kiểm tra lại bill trước khi thao tác tiếp.')
+      reportActionError('Lỗi kết nối. Kiểm tra lại bill trước khi thao tác tiếp.')
     } finally {
       setBusy(false)
     }
@@ -253,10 +260,10 @@ export default function CashierClient({
     setBusy(true)
     try {
       const res = await restoreOrderItem(orderItemId)
-      if (!res.ok) setError(res.error)
+      if (!res.ok) reportActionError(res.error)
       else await reload()
     } catch {
-      setError('Lỗi kết nối. Kiểm tra lại bill trước khi thao tác tiếp.')
+      reportActionError('Lỗi kết nối. Kiểm tra lại bill trước khi thao tác tiếp.')
     } finally {
       setBusy(false)
     }
@@ -345,7 +352,7 @@ export default function CashierClient({
 
         {error && (
           <div className="mx-5 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            {error}
+            {error.message}
             <button onClick={() => setError(null)} className="ml-2 font-semibold underline">
               Đóng
             </button>
@@ -366,14 +373,14 @@ export default function CashierClient({
             initialError={initialRequestError}
             sessions={sessions}
             onSelect={(request) => {
-              if (arrange) { setError('Lưu hoặc hủy sắp xếp bàn trước khi mở yêu cầu.'); return }
+              if (arrange) { reportActionError('Lưu hoặc hủy sắp xếp bàn trước khi mở yêu cầu.'); return }
               const session = serviceRequestSession(request, sessions)
               const table = placed.find(t => session ? session.tables.some(st => st.id === t.id) : t.id === request.table_id)
               if (table) floor.setAreaId(table.area_id)
               setSelectedSessionId(session?.session_id ?? null)
               setPickedSessionIds(new Set())
               setPickedTableIds(new Set(session ? [] : [request.table_id]))
-              if (!session) setError(`${request.table_number}: không còn phiên tương ứng để mở bill. Yêu cầu vẫn chờ xử lý.`)
+              if (!session) reportActionError(`${request.table_number}: không còn phiên tương ứng để mở bill. Yêu cầu vẫn chờ xử lý.`)
             }}
           />
           <AreaControls floor={floor} />

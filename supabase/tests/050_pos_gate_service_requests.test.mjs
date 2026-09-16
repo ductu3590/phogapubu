@@ -95,10 +95,13 @@ before(async () => {
   await db.exec(`
     CREATE ROLE anon;
     CREATE ROLE authenticated;
+    CREATE ROLE kitchen;
     CREATE SCHEMA auth;
     CREATE TABLE auth.users(id uuid PRIMARY KEY);
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
       $$ SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+    CREATE FUNCTION kitchen_store_id() RETURNS uuid LANGUAGE sql STABLE AS
+      $$ SELECT NULLIF(current_setting('test.kitchen_store_id', true), '')::uuid $$;
 
     CREATE TABLE stores (
       id uuid PRIMARY KEY,
@@ -180,6 +183,11 @@ before(async () => {
     );
 
     ALTER TABLE service_requests ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE table_sessions ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE session_tables ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE tables ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY kitchen_read_tables ON tables FOR SELECT TO kitchen
+      USING (store_id = kitchen_store_id());
     CREATE POLICY anon_insert_service_requests ON service_requests
       FOR INSERT TO anon WITH CHECK (true);
 
@@ -239,8 +247,9 @@ before(async () => {
       WHEN (OLD.status IS DISTINCT FROM NEW.status)
       EXECUTE FUNCTION sync_session_tables_open();
 
-    GRANT USAGE ON SCHEMA public, auth TO anon, authenticated;
+    GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, kitchen;
     GRANT SELECT ON mevo_operators TO authenticated;
+    GRANT SELECT ON tables TO kitchen;
     GRANT INSERT, SELECT, UPDATE ON service_requests TO anon;
     GRANT SELECT ON service_requests TO authenticated;
     GRANT EXECUTE ON FUNCTION open_session_id_for_table(uuid) TO anon, authenticated;
@@ -259,6 +268,13 @@ before(async () => {
   )
   await db.exec(migration)
   await db.exec(migration) // Chạy lại phải an toàn.
+
+  const sessionLabels = await readFile(
+    new URL('../migrations/051_session_labels_and_kitchen_tray_read.sql', import.meta.url),
+    'utf8',
+  )
+  await db.exec(sessionLabels)
+  await db.exec(sessionLabels) // Chạy lại phải an toàn.
 })
 
 beforeEach(async () => {
@@ -558,4 +574,22 @@ test('timeout đọc theo từng quán và phiên hết hạn còn nợ vẫn đ
   assert.equal(expired.status, 'closed')
   assert.equal(expired.needs_review, true)
   assert.equal(expired.unpaid_total, 90000)
+  assert.equal(expired.table_number, 'Bàn 1, Bàn 2')
+})
+
+test('kitchen chỉ đọc nhãn mâm của đúng quán', async () => {
+  await db.query("SELECT set_config('test.kitchen_store_id', $1, false)", [store])
+  await db.exec('SET ROLE kitchen')
+  const rows = (await db.query(`
+    SELECT st.session_id, t.table_number
+    FROM session_tables st
+    JOIN tables t ON t.id = st.table_id
+    ORDER BY t.table_number
+  `)).rows
+  assert.deepEqual(rows, [
+    { session_id: traySession, table_number: 'Bàn 1' },
+    { session_id: traySession, table_number: 'Bàn 2' },
+    { session_id: tableSession, table_number: 'Bàn 3' },
+  ])
+  await db.exec('RESET ROLE')
 })

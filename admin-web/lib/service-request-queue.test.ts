@@ -98,6 +98,19 @@ describe('service request snapshots', () => {
     s.watcher.dispose()
   })
 
+  it('tải lại mỗi 2 giây khi browser không nhận event realtime', async () => {
+    const s = setup()
+    await vi.advanceTimersByTimeAsync(150)
+    expect(s.load).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1_999)
+    expect(s.load).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(s.load).toHaveBeenCalledTimes(2)
+    s.watcher.dispose()
+    await vi.advanceTimersByTimeAsync(4_000)
+    expect(s.load).toHaveBeenCalledTimes(2)
+  })
+
   it('bỏ row đã resolve hoặc khác quán', async () => {
     const s = setup()
     s.load.mockResolvedValue({ ok: true, requests: [row(), row('closed', { resolved_at: 'now' }), row('other', { store_id: 's2' })] })

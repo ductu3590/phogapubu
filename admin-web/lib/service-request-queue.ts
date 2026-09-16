@@ -12,7 +12,7 @@ export function serviceRequestSession(request: ServiceRequestRow, sessions: Open
   return sessions.find(s => s.status === 'open' && s.tables.some(t => t.id === request.table_id)) ?? null
 }
 
-export function watchServiceRequests({ client, storeId, load, initial, onRows, onError, onNew, onConnected }: {
+export function watchServiceRequests({ client, storeId, load, initial, onRows, onError, onNew, onConnected, fallbackIntervalMs = 2_000 }: {
   client: ReturnType<typeof createClient>
   storeId: string
   load: () => Promise<ServiceRequestResult>
@@ -21,6 +21,7 @@ export function watchServiceRequests({ client, storeId, load, initial, onRows, o
   onError: (error: string | null) => void
   onNew: (rows: ServiceRequestRow[]) => void
   onConnected: (connected: boolean) => void
+  fallbackIntervalMs?: number
 }) {
   let stopped = false
   let running = false
@@ -70,11 +71,16 @@ export function watchServiceRequests({ client, storeId, load, initial, onRows, o
       if (status === 'SUBSCRIBED') refresh()
     })
   refresh()
+  // Browser POS/staff dùng session SSR; WebSocket có thể chỉ mang anon key nên event bị RLS
+  // chặn dù trạng thái channel vẫn là SUBSCRIBED. Poll Server Action đã xác thực là đường đảm
+  // bảo cho chuông gọi nhân viên, còn realtime vẫn giúp card lên ngay khi token có mặt.
+  const fallback = setInterval(refresh, fallbackIntervalMs)
   return {
     refresh,
     dispose() {
       stopped = true
       clearTimeout(timer)
+      clearInterval(fallback)
       void client.removeChannel(channel)
     },
   }

@@ -178,7 +178,7 @@ Gửi toàn bộ output lệnh PGlite, tên test fail và commit đang test (`gi
 ### Phạm vi kiểm thử
 
 - Commit gốc: `249e585`; bản vá hồi quy chờ nghiệm thu sau đó.
-- Migration 050 và 050a **đã áp trên Supabase remote**. Mini App phải dùng RPC
+- Migration 050, 050a và 051 **đã áp trên Supabase remote**. Mini App phải dùng RPC
   `ping_service_request`, không được ghi trực tiếp `service_requests`.
 
 ### Test tự động Codex đã chạy
@@ -202,17 +202,21 @@ node --test supabase/tests/050_pos_gate_service_requests.test.mjs supabase/tests
 Kết quả bản gốc: 27/27 test tập trung, 258/258 test Admin Web, 11/11 test SQL,
 TypeScript và lint các file đổi đều PASS.
 
-Kết quả bản vá hồi quy: Mini App 36/36 test PASS; Admin Web 260/260 test PASS,
+Kết quả bản vá hồi quy đầu: Mini App 36/36 test PASS; Admin Web 260/260 test PASS,
 TypeScript và ESLint Admin Web PASS. Typecheck toàn Mini App vẫn có 3 lỗi nền ngoài phạm vi
 (kiểu `SnackbarProvider`, import `app-config.json`, và relation ở `category.api.ts`); RPC mới
 đã có khai báo type và không tạo lỗi typecheck mới.
+
+Kết quả bản vá vòng 2: Admin Web 265/265 test PASS; SQL PGlite 12/12 PASS; TypeScript và
+ESLint Admin Web PASS. Migration 051 đã áp remote.
 
 ### Test 7A — Hồi quy Mini App, queue và xử lý request
 
 1. Deploy lại Mini App chứa bản vá hồi quy (version mới hơn v3), dùng Zalo đóng hẳn Mini App
    rồi mở lại bằng QR bàn. Trong tab **Đơn hàng**, nút phải là **Gọi nhân viên**, không còn
    chữ “Gọi thanh toán”.
-2. Bấm nút: hiện thông báo thành công; POS `/admin/cashier` xuất hiện một card **Gọi nhân viên**.
+2. Bấm nút: hiện thông báo thành công; POS `/admin/cashier` **và** `/staff/tables` xuất hiện một
+   card **Gọi nhân viên** trong tối đa 3 giây, không F5/click/focus lại cửa sổ.
    Bấm lại trong 60 giây: Mini App báo đã gọi, không tạo card thứ hai. Nếu hai bàn cùng mâm gọi,
    POS vẫn chỉ một card và cập nhật số lần/lần gọi gần nhất.
 3. Mở POS bằng build mới, để màn hình đứng yên. Từ QR một bàn thuộc mâm, gửi một đơn khách;
@@ -224,6 +228,16 @@ TypeScript và ESLint Admin Web PASS. Typecheck toàn Mini App vẫn có 3 lỗi
    sau khi server trả thành công, và biến mất ở các màn còn lại.
 5. Tắt/bật mạng hoặc đổi tab rồi quay lại: queue tải lại đầy đủ, không mất request đang mở và
    không phát chuông lặp cho snapshot cũ.
+
+### Test 7C — Hồi quy vòng 2: phản hồi thao tác và nhãn mâm
+
+1. Trên POS, tạo một bill có đơn khách đang **chờ xác nhận**, bấm **Bỏ bàn** và xác nhận hộp
+   thoại. Câu `Còn N đơn chưa được chủ quán xác nhận` phải giữ trên màn hình cho tới khi bấm
+   **Đóng**, kể cả sau tối thiểu 10 giây polling nền.
+2. Để một phiên hết hạn còn nợ: thẻ review phải ghi đúng tên bàn/mâm, ví dụ `Bàn 2, Bàn 3`,
+   không được là `?`.
+3. Với mâm Bàn 2 + Bàn 3, gửi đơn từ QR Bàn 3. POS và Kitchen Display đều phải hiện cùng nhãn
+   `Bàn 2, Bàn 3` cho đơn đó.
 
 ### Test 7B — Quyền staff và timeout
 
