@@ -1,6 +1,6 @@
 # Sprint BL-0 — Kiểm thử theo task
 
-Trạng thái Sprint: đang triển khai; Task 7 PASS, chờ Task 8.
+Trạng thái Sprint: đang triển khai; Task 7 PASS, Task 8 chờ PASS.
 
 ## Task 3 — Server action cấu hình quy trình
 
@@ -256,3 +256,38 @@ không có warning. Migration 051 đã áp remote.
 ### Mẫu báo lỗi
 
 Gửi role đăng nhập, URL/màn hình, bàn hoặc mâm, request id nếu có, thao tác, và ảnh/video hoặc output lỗi.
+
+## Task 8 — Context vào Mini App, capability theo quán và Gọi nhân viên RPC
+
+**Trạng thái: chờ PASS.** Commit: `1f298a6`.
+
+### Kết quả tự động
+
+- Mini App: 47/47 test PASS.
+- `git diff --check`: PASS.
+- Typecheck toàn Mini App vẫn dừng tại 3 lỗi nền có trước Task 8: `SnackbarProvider`, import
+  `app-config.json` và relation ở `category.api.ts`. Không có lỗi mới từ các file Task 8.
+
+### Test 8A — Root/table và capability theo cấu hình quán
+
+1. **Pubu, root:** mở Mini App Pubu không quét QR bàn. Menu vẫn thêm món được; giỏ nổi và
+   checkout xuất hiện; checkout có cả **Tự qua lấy** và **Ship tận nhà**.
+2. **Bảo Lương, root:** mở Mini App Bảo Lương không quét QR bàn. Vẫn xem menu nhưng không có
+   nút `+`/`-`, không có giỏ nổi, không có tab **Đơn hàng** và không thể tạo đơn bằng deep-link
+   `/checkout`. Ở môi trường dev chỉ hiện nút vô hiệu hoá **Đặt bàn trước — sẽ mở ở BL-3**;
+   không gửi request tạo đặt bàn.
+3. **QR cũ vẫn chạy:** quét một QR bàn đã in từ trước BL-0 (URL chỉ có `table=<id>`, không có
+   `tableNumber`). Sau khi tải xong phải hiện đúng tên bàn từ DB và cho gọi món như trước nếu
+   `table_ordering_enabled=true`.
+4. **Tắt table ordering:** owner vào `/admin/settings`, tắt **Nhận gọi món QR tại bàn** cho
+   Bảo Lương, lưu, đóng hẳn rồi mở lại Mini App từ QR bàn. Menu chỉ đọc, không có nút thêm/giỏ;
+   deep-link checkout không tạo được đơn. Bật lại cấu hình sau khi test và mở lại Mini App: gọi
+   món từ QR hoạt động lại.
+5. Với một quán chỉ bật một hình thức root (nếu có dữ liệu test), checkout chỉ hiện hình thức đó
+   và không chấp nhận hình thức đã tắt.
+
+### Test 8B — Hồi quy Gọi nhân viên
+
+Từ một QR bàn đang có bill chưa thanh toán, bấm **Gọi nhân viên** một lần. Mini App báo thành
+công và card chỉ xuất hiện một lần trên POS; thử lại trong 60 giây vẫn bị throttle. Đây là cùng
+contract RPC `ping_service_request` đã nghiệm thu ở Task 7, nay được dùng qua service chung.
