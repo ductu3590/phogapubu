@@ -1,6 +1,6 @@
 # Sprint BL-0 — Kiểm thử theo task
 
-Trạng thái Sprint: đang triển khai, chờ PASS từng task.
+Trạng thái Sprint: đang triển khai; Task 7 PASS, chờ Task 8.
 
 ## Task 3 — Server action cấu hình quy trình
 
@@ -175,6 +175,11 @@ Gửi toàn bộ output lệnh PGlite, tên test fail và commit đang test (`gi
 
 ## Task 7 — Queue Gọi nhân viên trên POS/Kitchen và quyền staff
 
+**Trạng thái: PASS — 2026-09-16.**
+
+Nghiệm thu thực tế: card gọi nhân viên lên POS 0,28 giây và màn nhân viên 1,42 giây ngay cả ở
+tab nền; resolve đồng bộ đủ ba màn; lỗi Bỏ bàn được giữ; nhãn bàn/mâm khớp POS và Kitchen.
+
 ### Phạm vi kiểm thử
 
 - Commit gốc: `249e585`; bản vá hồi quy chờ nghiệm thu sau đó.
@@ -203,12 +208,13 @@ Kết quả bản gốc: 27/27 test tập trung, 258/258 test Admin Web, 11/11 t
 TypeScript và lint các file đổi đều PASS.
 
 Kết quả bản vá hồi quy đầu: Mini App 36/36 test PASS; Admin Web 260/260 test PASS,
-TypeScript và ESLint Admin Web PASS. Typecheck toàn Mini App vẫn có 3 lỗi nền ngoài phạm vi
+TypeScript PASS. ESLint toàn Admin Web hiện còn các lỗi nền ngoài phạm vi Task 7, được theo dõi riêng. Typecheck toàn Mini App vẫn có 3 lỗi nền ngoài phạm vi
 (kiểu `SnackbarProvider`, import `app-config.json`, và relation ở `category.api.ts`); RPC mới
 đã có khai báo type và không tạo lỗi typecheck mới.
 
-Kết quả bản vá vòng 2: Admin Web 265/265 test PASS; SQL PGlite 12/12 PASS; TypeScript và
-ESLint Admin Web PASS. Migration 051 đã áp remote.
+Kết quả bản vá vòng 2: Admin Web 265/265 test PASS; SQL PGlite 12/12 PASS; TypeScript PASS.
+ESLint toàn Admin Web còn 13 lỗi nền ngoài phạm vi Task 7 (menu, Kitchen cũ, Privacy và Terms);
+không có warning. Migration 051 đã áp remote.
 
 ### Test 7A — Hồi quy Mini App, queue và xử lý request
 
