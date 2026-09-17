@@ -1,6 +1,6 @@
 # Sprint BL-0 — Kiểm thử theo task
 
-Trạng thái Sprint: đang triển khai; Task 7 PASS, Task 8 chờ PASS.
+Trạng thái Sprint: đang triển khai; Task 7–8 PASS, chờ Task 9.
 
 ## Task 3 — Server action cấu hình quy trình
 
@@ -259,7 +259,10 @@ Gửi role đăng nhập, URL/màn hình, bàn hoặc mâm, request id nếu có
 
 ## Task 8 — Context vào Mini App, capability theo quán và Gọi nhân viên RPC
 
-**Trạng thái: chờ PASS.** Commit: `1f298a6`.
+**Trạng thái: PASS — 2026-09-17.** Commit: `1f298a6`.
+
+Nghiệm thu thực tế: Test 8A PASS 5/5 và Test 8B PASS. Khi test ngoài giờ, `serving_hours`
+đã được tạm xoá để tách capability khỏi chốt giờ phục vụ, rồi trả lại đúng 11:00–22:00.
 
 ### Kết quả tự động
 
@@ -291,3 +294,17 @@ Gửi role đăng nhập, URL/màn hình, bàn hoặc mâm, request id nếu có
 Từ một QR bàn đang có bill chưa thanh toán, bấm **Gọi nhân viên** một lần. Mini App báo thành
 công và card chỉ xuất hiện một lần trên POS; thử lại trong 60 giây vẫn bị throttle. Đây là cùng
 contract RPC `ping_service_request` đã nghiệm thu ở Task 7, nay được dùng qua service chung.
+
+### Kiểm chứng server-side capability sau nghiệm thu
+
+Ba cờ workflow không chỉ được chặn ở Mini App. Migration 049 tạo trigger
+`trg_orders_enforce_workflow` **BEFORE INSERT** trên `public.orders`; remote ngày 2026-09-17
+xác nhận trigger đang enabled (`tgenabled = O`) và gọi `enforce_order_workflow()`, từ đó gọi
+`assert_order_channel_enabled(store_id, order_type)`. Vì `create_order` phải INSERT vào
+`orders`, gọi RPC trực tiếp cũng bị chặn theo các cờ `table_ordering_enabled`,
+`takeaway_enabled` và `shipping_enabled`.
+
+Lần gọi thử `delivery` bằng `cash` nhận lỗi “Đơn mang về chỉ chấp nhận thanh toán online” ở
+check đầu của `create_order`, trước khi có INSERT nên chưa chạm trigger; đó không phải bằng
+chứng bypass workflow. Test SQL `049_store_workflow_settings.test.mjs` cũng kiểm tra trigger
+chặn đường ghi trực tiếp với kênh đã tắt.
