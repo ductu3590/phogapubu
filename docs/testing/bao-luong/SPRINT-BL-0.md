@@ -1,6 +1,6 @@
 # Sprint BL-0 — Kiểm thử theo task
 
-Trạng thái Sprint: đang triển khai; Task 7–8 PASS, chờ Task 9.
+Trạng thái Sprint: chờ nghiệm thu BL-0; Task 7–8 PASS, Task 9 đã hoàn tất kiểm chứng tự động.
 
 ## Task 3 — Server action cấu hình quy trình
 
@@ -308,3 +308,95 @@ Lần gọi thử `delivery` bằng `cash` nhận lỗi “Đơn mang về chỉ
 check đầu của `create_order`, trước khi có INSERT nên chưa chạm trigger; đó không phải bằng
 chứng bypass workflow. Test SQL `049_store_workflow_settings.test.mjs` cũng kiểm tra trigger
 chặn đường ghi trực tiếp với kênh đã tắt.
+
+## Task 9 — Kiểm chứng tích hợp, hai instance và bàn giao BL-0
+
+**Trạng thái: chờ nghiệm thu BL-0.** Không có thay đổi source ở Task 9.
+
+### Kết quả kiểm chứng tự động
+
+- SQL PGlite, migrations 048–050a: **32/32 PASS**.
+- Admin Web: **265/265 test PASS**, TypeScript PASS, production build PASS (29 routes).
+- Mini App core: **47/47 test PASS**.
+- Cả hai instance `pho-ga-pubu` và `bia-lau-bao-luong`: **47/47 test PASS**. Instance Pubu
+  thiếu `node_modules` ban đầu; cài dependency cục bộ để chạy test rồi hoàn nguyên
+  `package-lock.json`, không có thay đổi source hay lockfile cần commit.
+- Typecheck Mini App còn lỗi nền đã biết: `SnackbarProvider` và relation
+  `category.api.ts` ở cả hai instance; checkout core có thêm import `app-config.json` do file
+  cấu hình chỉ có trong instance. Không có lỗi BL-0 mới.
+- Full ESLint Admin Web vẫn báo **13 lỗi / 4 warning nền** ở menu, Kitchen cũ, Privacy/Terms,
+  settings/spin/TTS; không phải file BL-0. Đây không phải điều kiện PASS ngầm.
+
+### Triển khai database và phương án khôi phục
+
+Môi trường remote đang test đã có migrations `049`, `050`, `050a`, `051`. Với môi trường mới,
+chỉ triển khai theo thứ tự tăng dần và sau khi Mini App đã có RPC `ping_service_request`:
+
+```powershell
+supabase db push --project-ref dlkgdpexjtyynbotkwka
+```
+
+Nếu chạy bằng SQL Editor, chạy nguyên từng file theo đúng thứ tự:
+
+1. `supabase/migrations/049_store_workflow_settings.sql`
+2. `supabase/migrations/050_pos_gate_service_requests.sql`
+3. `supabase/migrations/050a_kitchen_service_request_queue.sql`
+4. `supabase/migrations/051_session_labels_and_kitchen_tray_read.sql`
+
+Trước khi chạy, tạo database backup/snapshot; tối thiểu xuất các bảng
+`store_workflow_settings`, `store_workflow_setting_events`, `service_requests`,
+`table_sessions` và `session_tables`. Đây là migration **forward-only**: không chạy lại app cũ
+ghi trực tiếp `service_requests`, và không xóa thủ công 049–051 để “rollback”. Nếu phải quay
+lại, dừng deploy, khôi phục database từ snapshot trước migration và đồng thời quay code về mốc
+tương thích; nếu không có backup thì làm migration tiến sửa lỗi mới. Sau apply, dùng Test 2–3
+bên dưới để xác nhận capability server-side, queue và quyền.
+
+### Test BL-0 1 — Cấu hình workflow, preset và audit
+
+1. Owner Bảo Lương mở `/admin/settings`, lưu preset **Bảo Lương**, refresh và kiểm tra: trả sau,
+   tiền mặt, tắt Mang về/Ship, POS xác nhận đơn khách lẫn nhân viên, timeout 6 giờ.
+2. Owner đổi riêng Thông tin hiển thị rồi lưu; cấu hình workflow không thay đổi.
+3. MEVO superadmin vào `/mevo/stores/<storeId>`, lưu preset Pubu rồi trở lại Bảo Lương và lưu
+   lại preset Bảo Lương. Mỗi lần phải reload đúng dữ liệu và tạo event audit đúng nguồn
+   `mevo`/`owner`.
+4. Staff và owner của quán khác không xem/lưu được cấu hình Bảo Lương. Khi còn phiên/đơn mở,
+   đổi policy nhạy cảm phải bị chặn nguyên tử.
+
+### Test BL-0 2 — Ma trận quán/kênh/POS
+
+1. **Pubu root:** khách có thể chọn Mang về và Ship, checkout trả trước; đơn QR và đơn staff
+   theo policy tự động vẫn tới Kitchen như trước.
+2. **Bảo Lương root:** chỉ đọc menu, không tạo đơn qua root/deep-link checkout; Mang về và Ship
+   bị tắt. QR bàn vẫn gọi món khi `table_ordering_enabled=true`.
+3. Tại Bảo Lương, tạo đơn khách rồi đơn staff từ bàn/mâm mở: cả hai chờ POS, Kitchen không nhận
+   trước. Owner bấm **Xác nhận & in**: mỗi đơn xuống Kitchen đúng một lần.
+4. Tắt rồi bật `table_ordering_enabled`; QR cũ chỉ có `table=<id>` phải lấy đúng tên bàn từ DB
+   và bị/được chặn tương ứng. Từ một client anon, thử gọi kênh đã tắt: trigger phải từ chối.
+
+### Test BL-0 3 — Queue, bill và quyền vận hành
+
+1. Từ QR bàn/mâm đang mở, bấm **Gọi nhân viên**. POS, `/staff/tables` và Kitchen có cùng một
+   card trong 3 giây; bấm lại trong 60 giây không tạo card mới. Hai bàn cùng mâm vẫn là một card.
+2. Owner bấm **Đã xử lý**: card biến mất ở cả ba màn sau khi server trả thành công. Tắt/bật mạng
+   hoặc chuyển tab không làm mất queue hay phát chuông lặp.
+3. Staff xem bill, ghép mâm và xử lý queue nhưng không có/không gọi được Thu tiền, Đóng bàn hay
+   Bỏ bàn. Owner vẫn làm được; bill còn đơn pending bị chặn với lỗi giữ trên màn hình.
+4. Một phiên timeout phải hiện đúng nhãn bàn/mâm và thời lượng cấu hình từ server, không hardcode.
+
+### Test BL-0 4 — Hai Mini App và ranh giới deploy
+
+1. Hai working tree deploy đều ở commit chứa Task 8/9, sạch trước deploy. Chạy `npm test` tại
+   `mini-app-instances/pho-ga-pubu/mini-app` và
+   `mini-app-instances/bia-lau-bao-luong/mini-app`: mỗi nơi 47/47 PASS.
+2. Deploy đúng instance Bảo Lương, đóng hẳn rồi mở lại Mini App từ root và từ QR; thực hiện mục
+   2–3 bằng build đã deploy, không dùng tab/cache cũ.
+3. Deploy đúng instance Pubu và chạy lại mục Pubu ở Test 2 để xác nhận Bảo Lương không làm hồi
+   quy thanh toán/kênh của Pubu.
+4. Ghi riêng kết quả Zalo: App ID Bảo Lương `671794256689452743` **đã tồn tại**, nhưng trạng thái
+   xác minh/phê duyệt chưa được xác nhận; Zalo OA Bảo Lương **chưa đăng ký**. Không đánh dấu hai
+   hạng mục này là hoàn thành trong nghiệm thu code.
+
+### Mẫu báo lỗi BL-0
+
+Gửi số Test/mục, quán + instance, role, URL hoặc QR, thao tác, thời điểm, ảnh/video và output
+console/RPC nếu có. Với lỗi capability, gửi cả `order_type` và trạng thái các cờ workflow.

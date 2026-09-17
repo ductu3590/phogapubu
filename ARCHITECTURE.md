@@ -6,6 +6,24 @@
 
 ## 1. Thứ tự build (Sprint-by-Sprint)
 
+### Cấu hình quy trình vận hành theo quán (BL-0)
+
+`stores` giữ dữ liệu nhận diện và các giá trị vận hành nền; migration 049 bổ sung
+`store_workflow_settings` một-hàng-một-quán làm nguồn cấu hình workflow. Owner chỉ sửa quán của
+mình tại `/admin/settings`; `mevo_superadmin` dùng cùng form ở `/mevo/stores/<storeId>`. Mọi lần
+ghi đi qua `update_store_workflow_settings`, kiểm role/store đích, khóa giao dịch khi thay đổi
+nguy hiểm và ghi `store_workflow_setting_events` để audit.
+
+Mini App không đọc bảng cấu hình trực tiếp. Nó dùng `get_public_store_workflow(store_id)`, trả
+snapshot public theo ID quán, không cần slug hay thông tin operator. Client dùng snapshot để
+hiển thị đúng kênh; DB trigger `trg_orders_enforce_workflow` vẫn kiểm tra lại khi INSERT order.
+Vì vậy UI bị giả mạo hoặc RPC gọi trực tiếp cũng không mở được QR/Mang về/Ship nếu quán đã tắt.
+
+Hai profile chuẩn hiện có là Pubu (prepay, kênh tự động) và Bảo Lương (postpay, POS release).
+Các cờ reservation/preorder là chuẩn bị BL-3, chưa phải một booking runtime. Service request dùng
+RPC anon `ping_service_request`; POS/staff/Kitchen đọc queue có scope theo role và chỉ operator
+được resolve. Migration 050 trở đi không tương thích client cũ ghi trực tiếp bảng này.
+
 ```
 Sprint 0 — Setup (1 ngày)
   □ Tạo monorepo mevo/ với 3 thư mục
