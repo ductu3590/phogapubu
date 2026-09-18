@@ -9,6 +9,7 @@
 - ✅ [Bảo Lương — sửa spec quy trình 2026-09-11](docs/testing/bao-luong/SPEC-REVISION-2026-09-11.md) — PASS 2026-09-11
 - ⏳ [Bảo Lương — duyệt implementation plan BL-0](docs/testing/bao-luong/PLAN-BL-0-2026-09-11.md) — chờ PASS
 - ✅ [Bảo Lương — Sprint BL-0](docs/testing/bao-luong/SPRINT-BL-0.md) — PASS 2026-09-18
+- ⏳ [Bảo Lương — duyệt implementation plan BL-1](docs/testing/bao-luong/PLAN-BL-1-2026-09-18.md) — chờ PASS
 
 > **Quy tắc bắt buộc cho Claude Code:**
 > Sau khi hoàn thành BẤT KỲ Sprint hoặc task nào, PHẢI dừng lại,
