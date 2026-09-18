@@ -1,6 +1,6 @@
 # Sprint BL-0 — Kiểm thử theo task
 
-Trạng thái Sprint: chờ nghiệm thu BL-0; Task 7–8 PASS, Task 9 đã hoàn tất kiểm chứng tự động.
+Trạng thái Sprint: **PASS — 2026-09-18.**
 
 ## Task 3 — Server action cấu hình quy trình
 
@@ -400,3 +400,10 @@ bên dưới để xác nhận capability server-side, queue và quyền.
 
 Gửi số Test/mục, quán + instance, role, URL hoặc QR, thao tác, thời điểm, ảnh/video và output
 console/RPC nếu có. Với lỗi capability, gửi cả `order_type` và trạng thái các cờ workflow.
+
+### Biên bản nghiệm thu cuối — 2026-09-18
+
+**BL-0 PASS.** Test 1–3 PASS đầy đủ; Test 4 xác nhận hai instance sạch và mỗi instance 47/47
+test PASS. Bản Testing từng hiển thị "Gọi thanh toán" được truy ra là bundle cũ trước `f3f86ce`,
+không phải hồi quy source hiện tại; nghiệm thu hoàn tất sau khi dùng đúng Testing version chứa
+`Gọi nhân viên` và RPC `ping_service_request`.
