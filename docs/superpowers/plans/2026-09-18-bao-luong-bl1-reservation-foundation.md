@@ -172,7 +172,7 @@ Expected: all pass; Pubu workflow không thay đổi.
 
 **Produces:** Six owner/MEVO RPC trong interface map, gồm `create_manual_reservation`.
 
-- [ ] **Step 1: Viết test đỏ role/conflict/change**
+- [x] **Step 1: Viết test đỏ role/conflict/change**
 
 ```js
 test('staff và owner quán khác không xác nhận/no-show được', async () => {
@@ -191,7 +191,7 @@ test('confirm chặn overlap booking và phiên đang mở', async () => {
 })
 ```
 
-- [ ] **Step 2: Chạy đỏ**
+- [x] **Step 2: Chạy đỏ**
 
 ```powershell
 node --test supabase/tests/054_reservation_operator_flow.test.mjs
@@ -199,13 +199,13 @@ node --test supabase/tests/054_reservation_operator_flow.test.mjs
 
 Expected: FAIL vì migration 054 chưa tồn tại.
 
-- [ ] **Step 3: Implement transactional allocation**
+- [x] **Step 3: Implement transactional allocation**
 
-Owner RPC lock reservation, kiểm `is_store_owner_of`; staff bị từ chối. MEVO explicit store/actor event. `confirm_reservation` bắt ít nhất một bàn active/cùng store, sort + advisory-lock IDs, tính hold end snapshot `planning_hold_minutes`, chặn overlap allocation `confirmed`/`arrived` và `open_session_id_for_table`. Sau toàn bộ checks mới replace allocation cũ, update status/timestamps và append event.
+Owner RPC lock reservation, kiểm role owner/MEVO; staff bị từ chối. MEVO explicit store/actor event. `confirm_reservation` bắt ít nhất một bàn active/cùng store, khoá row bàn theo thứ tự ID, tính hold end snapshot `planning_hold_minutes`, chặn overlap allocation `confirmed` và `open_session_id_for_table`. Sau toàn bộ checks mới replace allocation cũ, update status/timestamps và append event.
 
 Trả gợi ý `ceil(party_size/default_table_capacity)`, nhưng không tự chọn bàn. Manual create chỉ owner/MEVO, cho phép vượt min/horizon/slot/giờ phục vụ, vẫn audit lý do. Reject, store cancel, no-show và resolve change giữ lịch sử; no-show/cancel giải phóng qua status chứ không DELETE allocation/event.
 
-- [ ] **Step 4: Chạy xanh và commit**
+- [x] **Step 4: Chạy xanh và commit**
 
 ```powershell
 node --test supabase/tests/052_reservation_foundation.test.mjs supabase/tests/054_reservation_operator_flow.test.mjs

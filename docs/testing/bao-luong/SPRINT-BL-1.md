@@ -1,6 +1,6 @@
 # Bảo Lương — Sprint BL-1: Nền tảng đặt bàn
 
-**Trạng thái:** ✅ Task 1 PASS · ⏳ Task 2 chờ nghiệm thu
+**Trạng thái:** ✅ Task 1–2 PASS · ⏳ Task 3 chờ nghiệm thu
 
 Sprint này chỉ xây nền DB/RPC cho đặt bàn. Chưa có form Mini App hoặc màn POS mới ở Task 1.
 
@@ -66,3 +66,33 @@ SELECT get_reservation_slots(
 ✅ PASS khi slot đầu là `11:00`, slot cuối là `21:45`, mỗi slot cách 15 phút. Không tạo booking thử trực tiếp trên production ở Task 2 vì chưa có form khách để quản lý token.
 
 → Báo Codex: `Task 2 PASS` hoặc gửi nguyên lỗi. Sau PASS mới làm Task 3 (chủ quán phân bổ/xác nhận bàn).
+
+## Task 3 — Chủ quán phân bổ và xử lý đặt bàn
+
+Đã áp migrations `054_reservation_operator_rpcs` và `054a_reservation_operator_grants` lên Supabase. `054a` siết quyền EXECUTE riêng cho Supabase: anon không gọi được bất kỳ RPC owner hoặc helper nội bộ nào.
+
+### Test 3A — Contract tự động
+
+Tại thư mục gốc repo, chạy:
+
+```powershell
+$modulePath=(Resolve-Path 'admin-web/node_modules/@electric-sql/pglite/dist/index.js').Path
+$env:PGLITE_MODULE=([System.Uri]::new($modulePath)).AbsoluteUri
+node --test supabase/tests/054_reservation_operator_flow.test.mjs
+```
+
+✅ PASS khi đủ **5/5**:
+
+1. Staff và owner quán khác không xác nhận/no-show được.
+2. Xác nhận phân bổ nhiều bàn, chặn trùng booking và bàn đang có khách.
+3. Đặt tay ngoài giới hạn, duyệt yêu cầu đổi, no-show đều có audit.
+4. MEVO chỉ xem theo quán đang chọn; owner không đọc quán khác.
+5. `anon` không gọi được RPC owner hay helper `SECURITY DEFINER`.
+
+### Test 3B — Supabase thật
+
+Đã đối chiếu sau deploy: ba cột giữ lịch sử phân bổ (`released_at`, `released_by`, `release_reason`) tồn tại; các RPC owner có `anon_execute = false`, còn `authenticated_execute = true` trước khi kiểm role chủ quán bên trong RPC.
+
+**Chưa có màn duyệt đặt bàn ở POS/admin trong Task 3; UI thuộc BL-2.**
+
+→ Báo Codex: `Task 3 PASS` hoặc gửi nguyên lỗi. Sau PASS mới làm Task 4 (nhận khách, tạo mâm/session và hoàn tất bill).
