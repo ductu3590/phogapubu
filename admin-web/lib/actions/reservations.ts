@@ -33,11 +33,28 @@ export type ReservationRow = {
   suggestedTableCount: number
   sessionId: string | null
   already: boolean
+  reminderSnoozedUntil: string | null
+  reminderSnoozedBy: string | null
 }
 
 export type ReservationRange = {
   startsAt: string
   endsAt: string
+}
+
+export type ReservationQueueRange = {
+  recentSince: string
+  futureUntil: string
+}
+
+export type ManualReservationInput = {
+  customerName: string
+  customerPhone: string
+  partySize: number
+  arrivalAt: string
+  note: string | null
+  reason: string
+  zaloUserId: string | null
 }
 
 export type ReservationResult =
@@ -46,6 +63,10 @@ export type ReservationResult =
 
 export type ListReservationsResult =
   | { ok: true; reservations: ReservationRow[] }
+  | { ok: false; error: string }
+
+export type SnoozeReservationResult =
+  | { ok: true; updatedCount: number; reminderSnoozedUntil: string }
   | { ok: false; error: string }
 
 type ReservationRpcRow = {
@@ -67,6 +88,8 @@ type ReservationRpcRow = {
   suggested_table_count?: number
   session_id?: string | null
   already?: boolean
+  reminder_snoozed_until?: string | null
+  reminder_snoozed_by?: string | null
 }
 
 function toReservationRow(row: ReservationRpcRow): ReservationRow {
@@ -89,6 +112,8 @@ function toReservationRow(row: ReservationRpcRow): ReservationRow {
     suggestedTableCount: row.suggested_table_count ?? 0,
     sessionId: row.session_id ?? null,
     already: row.already ?? false,
+    reminderSnoozedUntil: row.reminder_snoozed_until ?? null,
+    reminderSnoozedBy: row.reminder_snoozed_by ?? null,
   }
 }
 
@@ -128,6 +153,44 @@ export async function listReservations(range: ReservationRange): Promise<ListRes
 
   if (!Array.isArray(data)) return { ok: false, error: 'Dữ liệu phản hồi đặt bàn không hợp lệ' }
   return { ok: true, reservations: data.map((row) => toReservationRow(row as ReservationRpcRow)) }
+}
+
+export async function listReservationQueue(
+  range: ReservationQueueRange,
+): Promise<ListReservationsResult> {
+  const { supabase, storeId, error } = await ownerClient()
+  if (!supabase || !storeId) return { ok: false, error: error ?? 'Không có quyền xử lý đặt bàn' }
+
+  const { data, error: rpcError } = await supabase.rpc('list_reservation_queue', {
+    p_store_id: storeId,
+    p_recent_since: range.recentSince,
+    p_future_until: range.futureUntil,
+  })
+  if (rpcError) return { ok: false, error: rpcError.message }
+  if (!Array.isArray(data)) return { ok: false, error: 'Dữ liệu phản hồi đặt bàn không hợp lệ' }
+  return { ok: true, reservations: data.map((row) => toReservationRow(row as ReservationRpcRow)) }
+}
+
+export async function createManualReservation(
+  input: ManualReservationInput,
+): Promise<ReservationResult> {
+  const { supabase, storeId, error } = await ownerClient()
+  if (!supabase || !storeId) return { ok: false, error: error ?? 'Không có quyền xử lý đặt bàn' }
+
+  const { data, error: rpcError } = await supabase.rpc('create_manual_reservation', {
+    p_store_id: storeId,
+    p_payload: {
+      customer_name: input.customerName,
+      customer_phone: input.customerPhone,
+      party_size: input.partySize,
+      arrival_at: input.arrivalAt,
+      note: input.note,
+      reason: input.reason,
+      zalo_user_id: input.zaloUserId,
+    },
+  })
+  if (rpcError) return { ok: false, error: rpcError.message }
+  return rpcResult(data)
 }
 
 export async function confirmReservation(
@@ -186,4 +249,71 @@ export async function markReservationNoShow(
   })
   if (rpcError) return { ok: false, error: rpcError.message }
   return rpcResult(data)
+}
+
+export async function resolveReservationChange(
+  reservationId: string,
+  accept: boolean,
+  tableIds: string[] | null = null,
+  note: string | null = null,
+): Promise<ReservationResult> {
+  const { supabase, error } = await ownerClient()
+  if (!supabase) return { ok: false, error: error ?? 'Không có quyền xử lý đặt bàn' }
+
+  const { data, error: rpcError } = await supabase.rpc('resolve_reservation_change', {
+    p_reservation_id: reservationId,
+    p_accept: accept,
+    p_table_ids: tableIds,
+    p_note: note,
+  })
+  if (rpcError) return { ok: false, error: rpcError.message }
+  return rpcResult(data)
+}
+
+export async function rescheduleReservation(
+  reservationId: string,
+  arrivalAt: string,
+  partySize: number,
+  tableIds: string[] | null,
+  note: string,
+): Promise<ReservationResult> {
+  const { supabase, error } = await ownerClient()
+  if (!supabase) return { ok: false, error: error ?? 'Không có quyền xử lý đặt bàn' }
+
+  const { data, error: rpcError } = await supabase.rpc('reschedule_reservation', {
+    p_reservation_id: reservationId,
+    p_arrival_at: arrivalAt,
+    p_party_size: partySize,
+    p_table_ids: tableIds,
+    p_note: note,
+  })
+  if (rpcError) return { ok: false, error: rpcError.message }
+  return rpcResult(data)
+}
+
+export async function snoozeReservationReminders(
+  reservationIds: string[],
+  minutes: number,
+): Promise<SnoozeReservationResult> {
+  const { supabase, error } = await ownerClient()
+  if (!supabase) return { ok: false, error: error ?? 'Không có quyền xử lý đặt bàn' }
+
+  const { data, error: rpcError } = await supabase.rpc('snooze_reservation_reminders', {
+    p_reservation_ids: reservationIds,
+    p_minutes: minutes,
+  })
+  if (rpcError) return { ok: false, error: rpcError.message }
+  if (!data || typeof data !== 'object') {
+    return { ok: false, error: 'Dữ liệu phản hồi Snooze không hợp lệ' }
+  }
+
+  const row = data as { updated_count?: unknown; reminder_snoozed_until?: unknown }
+  if (typeof row.updated_count !== 'number' || typeof row.reminder_snoozed_until !== 'string') {
+    return { ok: false, error: 'Dữ liệu phản hồi Snooze không hợp lệ' }
+  }
+  return {
+    ok: true,
+    updatedCount: row.updated_count,
+    reminderSnoozedUntil: row.reminder_snoozed_until,
+  }
 }

@@ -1,6 +1,6 @@
 # Bảo Lương — Sprint BL-2A: POS và Admin Mobile đặt bàn
 
-**Trạng thái:** ⏳ Task 1 hoàn tất code, chờ anh Tú nghiệm thu.
+**Trạng thái:** ✅ Task 1 PASS · ⏳ Task 2 hoàn tất code, chờ anh Tú nghiệm thu.
 
 BL-2A chỉ làm vận hành đặt bàn trên POS/Admin Mobile. Không có Zalo OA, ZNS, Mini App hoặc món
 đặt trước trong Sprint này.
@@ -80,3 +80,37 @@ test rơi vào queue của quán.
 
 → Báo Codex: `Task 1 PASS` hoặc gửi nguyên log lỗi. Sau PASS mới làm Task 2 (typed actions,
 queue classifier và watcher realtime + polling).
+
+## Task 2 — Typed actions, phân loại queue và watcher chống mất sự kiện
+
+Task này chưa dựng màn hình. Nó tạo một contract dùng chung cho Admin Mobile/POS ở các task sau:
+
+- action owner-only cho queue, tạo tay, xử lý yêu cầu đổi, đổi lịch/bàn và Snooze;
+- `ReservationRow` map thêm hai trường Snooze từ RPC;
+- một classifier thuần TypeScript cho pending/sắp đến/quá giờ/đã đến/kết thúc;
+- watcher `reservations` có realtime, polling 2 giây, refresh khi focus/online/reconnect và revision
+  guard chống snapshot cũ ghi đè event mới.
+
+### Test 2A — Action và queue logic tự động
+
+Tại `admin-web`, chạy:
+
+```powershell
+npm test -- --run lib/actions/reservations.test.ts lib/reservation-queue.test.ts lib/reservation-queue-watcher.test.ts
+npm run lint -- lib/actions/reservations.ts lib/reservation-queue.ts lib/reservation-queue-watcher.ts
+npx tsc --noEmit
+```
+
+✅ PASS khi đủ **18/18**, lint không có lỗi và TypeScript không in lỗi. Nhóm test chứng minh:
+
+1. Action chỉ lấy `storeId` từ operator; staff bị chặn trước RPC; payload tạo tay/list có scope
+   đúng, còn thao tác theo reservation không nhận store từ browser.
+2. Quá giờ từ 30 phút là cảnh báo đỏ; Snooze/pending/arrived/terminal không sinh nhắc; sort không
+   mutate snapshot gốc.
+3. Polling vẫn tải queue mỗi 2 giây khi socket im lặng; reconnect/focus tải lại; event chen vào
+   request làm snapshot cũ bị bỏ; dispose dừng timer/listener/channel.
+
+**Không cần deploy hoặc mở UI ở Task 2.** Đây là lớp contract nội bộ được Task 3 sử dụng.
+
+→ Báo Codex: `Task 2 PASS` hoặc gửi nguyên log lỗi. Sau PASS mới làm Task 3 (màn Admin Mobile
+chỉ đọc có đồng bộ realtime).

@@ -205,7 +205,7 @@ git commit -m "feat: reservation operations queue va snooze"
 
 **Produces:** Một API TypeScript dùng chung cho mobile/POS, không nhân đôi logic status/time.
 
-- [ ] **Step 1: Viết test đỏ actions**
+- [x] **Step 1: Viết test đỏ actions**
 
 Test `listReservationQueue`, `createManualReservation`, `resolveReservationChange`,
 `rescheduleReservation`, `snoozeReservationReminders`. Chứng minh:
@@ -216,7 +216,7 @@ Test `listReservationQueue`, `createManualReservation`, `resolveReservationChang
 - snake_case map đủ Snooze/session/table fields;
 - DB error trả nguyên văn và không bị background reload xóa.
 
-- [ ] **Step 2: Viết test đỏ classifier**
+- [x] **Step 2: Viết test đỏ classifier**
 
 Inject `now` thay vì gọi `Date.now()` bên trong test:
 
@@ -230,7 +230,7 @@ expect(groupDueReminders([a, b], now)).toMatchObject({ count: 2 })
 Cover pending quá giờ vẫn `pending`, arrived không nhắc, Snooze tương lai không nhắc, đúng boundary
 0/5/30 phút và sort theo arrival/created.
 
-- [ ] **Step 3: Viết test đỏ watcher bằng fake timers**
+- [x] **Step 3: Viết test đỏ watcher bằng fake timers**
 
 Fake Supabase channel và action loader. Verify:
 
@@ -240,14 +240,14 @@ Fake Supabase channel và action loader. Verify:
 - event đến giữa request tăng revision, snapshot cũ không ghi đè;
 - `dispose` dọn interval/listener/channel.
 
-- [ ] **Step 4: Implement tối thiểu**
+- [x] **Step 4: Implement tối thiểu**
 
 Action owner guard tái sử dụng `ownerClient`. `watchReservationQueue` theo pattern
 `watchServiceRequests`, nhưng thêm `window.focus`/`online` listener qua dependency injectable để
 unit test không cần browser thật. Initial snapshot không phát callback “new”; reminder logic để
 classifier/client quyết định.
 
-- [ ] **Step 5: Chạy tests/lint và commit**
+- [x] **Step 5: Chạy tests/lint và commit**
 
 ```powershell
 cd admin-web
