@@ -91,7 +91,7 @@ luôn trả mọi trạng thái unresolved (`pending`, `change_requested`, `conf
 
 **Produces:** Ba RPC mới, hai cột Snooze và hai event audit; không đổi RPC customer.
 
-- [ ] **Step 1: Viết test đỏ PGlite**
+- [x] **Step 1: Viết test đỏ PGlite**
 
 Reuse fixture/loader của test 054. Test tối thiểu:
 
@@ -122,7 +122,7 @@ test('snooze chỉ nhận 10 15 30, cùng store, confirmed và có audit', async
 Thêm test staff/owner quán khác không gọi được cả ba RPC và anon/authenticated direct table update
 vẫn bị RLS chặn.
 
-- [ ] **Step 2: Chạy đỏ**
+- [x] **Step 2: Chạy đỏ**
 
 ```powershell
 $modulePath=(Resolve-Path 'admin-web/node_modules/@electric-sql/pglite/dist/index.js').Path
@@ -132,7 +132,7 @@ node --test supabase/tests/057_reservation_operations_queue.test.mjs
 
 Expected: FAIL vì migration/RPC 057 chưa tồn tại.
 
-- [ ] **Step 3: Implement migration**
+- [x] **Step 3: Implement migration**
 
 Thêm cột nullable, index queue phù hợp `(store_id, status, arrival_at)` và thay event CHECK bằng
 danh sách cũ cộng `reminder_snoozed`, `rescheduled_by_store`.
@@ -169,7 +169,7 @@ GRANT EXECUTE ON FUNCTION ... TO authenticated;
 
 Cuối migration `NOTIFY pgrst, 'reload schema';`.
 
-- [ ] **Step 4: Chạy xanh và regression DB**
+- [x] **Step 4: Chạy xanh và regression DB**
 
 ```powershell
 node --test supabase/tests/057_reservation_operations_queue.test.mjs supabase/tests/054_reservation_operator_flow.test.mjs supabase/tests/052_reservation_foundation.test.mjs supabase/tests/050_pos_gate_service_requests.test.mjs
@@ -177,7 +177,7 @@ node --test supabase/tests/057_reservation_operations_queue.test.mjs supabase/te
 
 Expected: all pass; event/state guards BL-1 và POS gate BL-0 không hồi quy.
 
-- [ ] **Step 5: Tạo test checkpoint và commit**
+- [x] **Step 5: Tạo test checkpoint và commit**
 
 `SPRINT-BL-2A.md` có Test 1 (migration/RPC) với lệnh apply 057 và SQL smoke tests. `TESTING.md`
 chỉ thêm/cập nhật một link `⏳ Bảo Lương — Sprint BL-2A`.
