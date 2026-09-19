@@ -124,7 +124,7 @@ Expected: 0 fail; RLS, FK và state guard được chứng minh.
 
 **Produces:** Five customer RPC ở interface map; dùng `customer_token_hash` SHA-256, không dùng Zalo UID để authorize.
 
-- [ ] **Step 1: Viết test đỏ**
+- [x] **Step 1: Viết test đỏ**
 
 Fixture serving-hours `11:00–22:00`, min 30, horizon 7, interval 15. Test slot được sinh từ server, không chấp nhận 10:07, ngày thứ 8 hay arrival dưới 30 phút:
 
@@ -144,17 +144,17 @@ test('create idempotent, bỏ qua is_accepting_orders và không lộ hash', asy
 })
 ```
 
-- [ ] **Step 2: Chạy đỏ**
+- [x] **Step 2: Chạy đỏ**
 
 Run Task 1 command sau khi loader thêm migration 053. Expected: FAIL vì RPC chưa tồn tại.
 
-- [ ] **Step 3: Implement một nguồn validation**
+- [x] **Step 3: Implement một nguồn validation**
 
 `get_reservation_slots` nhận store/date local, convert timezone server-side và sinh slot theo `serving_hours`. `create_reservation` lock workflow, yêu cầu `reservations_enabled`, validate name/phone/pax/client request/slot/minimum/horizon; không gọi `store_accepting_now`. Sinh token random, chỉ lưu hash, snapshot workflow, event `created`; unique `(store_id, client_request_id)` trả booking cũ khi retry mà không thêm event.
 
 Read/change/cancel customer so hash token; change chỉ lưu `requested_arrival_at`, `requested_party_size`, `change_note` và giữ allocation cũ. Customer chỉ cancel pending/confirmed trước arrival; booking quá giờ pending không tự hủy.
 
-- [ ] **Step 4: Chạy xanh và regression**
+- [x] **Step 4: Chạy xanh và regression**
 
 ```powershell
 node --test supabase/tests/052_reservation_foundation.test.mjs supabase/tests/049_store_workflow_settings.test.mjs supabase/tests/050_pos_gate_service_requests.test.mjs
