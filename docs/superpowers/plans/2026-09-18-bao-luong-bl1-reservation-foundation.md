@@ -36,7 +36,7 @@
 | `admin-web/lib/actions/reservations.ts` | Typed owner-only wrapper chuẩn bị BL-2, không render UI. |
 | `docs/testing/bao-luong/SPRINT-BL-1.md` | File test riêng, tạo từ Task 1 và cập nhật sau từng task. |
 
-`reservations` có `store_id`, status (`pending`, `confirmed`, `arrived`, `completed`, `rejected`, `cancelled_by_customer`, `cancelled_by_store`, `no_show`), customer name/phone, `zalo_user_id` tham chiếu, pax, arrival, note, `client_request_id`, hash token, snapshot năm giới hạn booking, request change và `session_id` nullable. `reservation_tables` giữ hold half-open `[arrival_at, arrival_at + planning_hold_minutes)`; `reservation_events` append-only với actor/event/before/after/note.
+`reservations` có `store_id`, status (`pending`, `confirmed`, `arrived`, `completed`, `rejected`, `cancelled_by_customer`, `cancelled_by_store`, `no_show`), customer name/phone, `zalo_user_id` tham chiếu, pax, arrival, note, `client_request_id`, hash token, snapshot năm giới hạn booking, request change và `session_id` nullable. `reservation_tables` giữ cả `store_id` để hai composite FK ép reservation và table cùng quán, cùng hold half-open `[arrival_at, arrival_at + planning_hold_minutes)`; `reservation_events` append-only với actor/event/before/after/note.
 
 RPC tạo bởi plan:
 
@@ -65,7 +65,7 @@ list_store_reservations(uuid, timestamptz, timestamptz) returns jsonb
 
 **Produces:** Tables `reservations`, `reservation_tables`, `reservation_events`; `reservation_status_guard`; helper event internal.
 
-- [ ] **Step 1: Viết test đỏ PGlite**
+- [x] **Step 1: Viết test đỏ PGlite**
 
 Fixture theo `050_pos_gate_service_requests.test.mjs` có `stores`, `tables`, `table_sessions`, `session_tables`, workflow và operator. Thêm test:
 
@@ -82,7 +82,7 @@ test('status và table allocation sai quán bị chặn', async () => {
 })
 ```
 
-- [ ] **Step 2: Chạy đỏ**
+- [x] **Step 2: Chạy đỏ**
 
 ```powershell
 $modulePath=(Resolve-Path 'admin-web/node_modules/@electric-sql/pglite/dist/index.js').Path
@@ -92,9 +92,9 @@ node --test supabase/tests/052_reservation_foundation.test.mjs
 
 Expected: FAIL vì migration 052 chưa tồn tại.
 
-- [ ] **Step 3: Implement migration 052**
+- [x] **Step 3: Implement migration 052**
 
-Tạo constraints pax/hold/actor và transition chỉ cho phép:
+Tạo constraints pax/hold/actor; trigger insert chỉ chấp nhận booking mới có `status='pending'`; trigger update chỉ cho phép transition:
 
 ```text
 pending → confirmed | rejected | cancelled_by_customer | cancelled_by_store
@@ -102,9 +102,9 @@ confirmed → arrived | cancelled_by_customer | cancelled_by_store | no_show
 arrived → completed | cancelled_by_store
 ```
 
-Index `(store_id, arrival_at)` và `(table_id, hold_starts_at, hold_ends_at)`. Allocation/history không bị xóa; conflict về sau chỉ xét status `confirmed`. Bật RLS/revoke mọi ghi `anon`/`authenticated`; chỉ operator đúng store đọc event. Add tables vào publication. Raw customer token không lưu vào event/log.
+Index `(store_id, arrival_at)` và `(table_id, hold_starts_at, hold_ends_at)`. Allocation/history không bị xóa; conflict về sau chỉ xét status `confirmed`. Bật RLS/revoke mọi ghi `anon`/`authenticated`; chỉ operator đúng store đọc event. Add tables vào publication. Raw customer token không lưu vào event/log. Vì trigger insert chặn mọi trạng thái khác `pending`, test trạng thái `completed` ở Step 1 phải fail cả khi chạy với DB owner trong PGlite, không chỉ nhờ RLS.
 
-- [ ] **Step 4: Chạy xanh, tạo Test 1 và commit**
+- [x] **Step 4: Chạy xanh, tạo Test 1 và commit**
 
 ```powershell
 node --test supabase/tests/052_reservation_foundation.test.mjs
