@@ -1,6 +1,6 @@
 # Bảo Lương — Sprint BL-1: Nền tảng đặt bàn
 
-**Trạng thái:** ✅ Task 1–3 PASS · ⏳ Task 4 chờ nghiệm thu
+**Trạng thái:** ✅ Task 1–4 PASS · ⏳ Task 5 / cổng nghiệm thu BL-1 chờ chạy
 
 Sprint này chỉ xây nền DB/RPC cho đặt bàn. Chưa có form Mini App hoặc màn POS mới ở Task 1.
 
@@ -136,3 +136,77 @@ ORDER BY p.proname, args;
 ✅ PASS khi cả ba hàm đều có `anon_execute = false`, `authenticated_execute = true`. Quyền owner vẫn được kiểm trong thân RPC; không tạo booking thử trực tiếp trên production vì BL-2 chưa có UI vận hành để dọn dữ liệu test.
 
 → Báo Codex: `Task 4 PASS` hoặc gửi nguyên lỗi. Sau PASS mới làm Task 5 (typed Admin contract và cổng nghiệm thu BL-1).
+
+## Task 5 — Typed Admin contract và cổng nghiệm thu BL-1
+
+Không có migration hay UI mới. [reservations.ts](../../../admin-web/lib/actions/reservations.ts) là lớp action chỉ dành cho `store_owner`: lấy quán từ phiên đăng nhập, gọi RPC bằng client theo session, và trả lỗi nghiệp vụ cho UI. Staff bị chặn trước khi RPC chạy.
+
+### Test 5A — Contract action Admin
+
+Tại `admin-web`, chạy:
+
+```powershell
+npm test -- --run lib/actions/reservations.test.ts
+```
+
+✅ PASS khi đủ **7/7**: list luôn dùng `storeId` từ operator; mapping JSON snake_case sang `ReservationRow` camelCase; staff bị chặn xác nhận/từ chối/nhận khách/no-show; năm RPC owner có payload đúng; lỗi RPC còn nguyên văn.
+
+### Test 5B — Regression Admin và TypeScript
+
+```powershell
+npm test
+npx tsc --noEmit
+```
+
+✅ PASS khi Vitest không fail và TypeScript không in lỗi.
+
+## Cổng nghiệm thu BL-1 — Test 1–6
+
+Chạy tại gốc repo, trừ Test 6 có thêm hai lệnh trong `admin-web`.
+
+### Test 1 — Schema, RLS và audit
+
+```powershell
+$modulePath=(Resolve-Path 'admin-web/node_modules/@electric-sql/pglite/dist/index.js').Path
+$env:PGLITE_MODULE=([System.Uri]::new($modulePath)).AbsoluteUri
+node --test supabase/tests/052_reservation_foundation.test.mjs
+```
+
+PASS khi toàn bộ test chạy xanh: khách không ghi trực tiếp, booking khởi đầu `pending`, và allocation chặn sai quán.
+
+### Test 2 — Slot và timezone
+
+Dùng lại lệnh Test 1. PASS khi các case slot đầu/cuối ca, bước 15 phút, tối thiểu 30 phút và horizon 7 ngày đều xanh.
+
+### Test 3 — Token, idempotency, đổi và hủy
+
+Dùng lại lệnh Test 1. PASS khi opaque token không lộ hash, retry không tạo booking/event thứ hai, và customer chỉ đổi/hủy được booking có token của mình.
+
+### Test 4 — Quyền owner, conflict và ngoại lệ tay
+
+```powershell
+node --test supabase/tests/054_reservation_operator_flow.test.mjs
+```
+
+PASS khi staff/owner quán khác bị chặn; phân bổ nhiều bàn chặn conflict/phiên đang mở; manual/change/no-show được audit.
+
+### Test 5 — Nhận khách, mâm và hoàn tất bill
+
+Dùng lại lệnh Test 4. PASS khi hai bàn thành đúng một mâm `is_open_ordering`, retry không sinh phiên; `staff_reset` giữ `arrived`; chỉ `paid` chuyển `completed` một lần.
+
+### Test 6 — Không hồi quy Pubu/BL-0 và lớp Admin
+
+Tại gốc repo:
+
+```powershell
+node --test supabase/tests/049_store_workflow_settings.test.mjs supabase/tests/050_pos_gate_service_requests.test.mjs supabase/tests/050a_kitchen_service_request_queue.test.mjs supabase/tests/052_reservation_foundation.test.mjs supabase/tests/054_reservation_operator_flow.test.mjs
+```
+
+Sau đó tại `admin-web`:
+
+```powershell
+npm test
+npx tsc --noEmit
+```
+
+PASS khi toàn bộ test xanh, không có TypeScript error. Báo `BL-1 PASS` nếu cả Test 1–6 đạt; nếu chưa, gửi số Test và log lỗi nguyên văn.

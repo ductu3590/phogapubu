@@ -280,13 +280,13 @@ Expected: 0 fail, không hồi quy Pubu/BL-0.
 
 **Produces:** `listReservations`, `confirmReservation`, `rejectReservation`, `arriveReservation`, `markReservationNoShow`; không render page/queue.
 
-- [ ] **Step 1: Viết test action đỏ**
+- [x] **Step 1: Viết test action đỏ**
 
 ```ts
 it('owner dùng store operator, không tin store client truyền', async () => {
   mocks.operator.value = { role: 'store_owner', storeId: 'store-1' }
   await listReservations(range)
-  expect(mocks.rpc).toHaveBeenCalledWith('list_store_reservations', { p_store_id: 'store-1', p_from: range.from, p_to: range.to })
+  expect(mocks.rpc).toHaveBeenCalledWith('list_store_reservations', { p_store_id: 'store-1', p_starts_at: range.startsAt, p_ends_at: range.endsAt })
 })
 
 it('staff không gọi RPC quyết định booking', async () => {
@@ -296,7 +296,7 @@ it('staff không gọi RPC quyết định booking', async () => {
 })
 ```
 
-- [ ] **Step 2: Chạy đỏ, implement, chạy gates**
+- [x] **Step 2: Chạy đỏ, implement, chạy gates**
 
 Action dùng `requireOperator()` + session-bound `createClient()`, fail closed với staff, map RPC snake_case sang `ReservationRow`; không `createAdminClient`, không UI.
 
@@ -309,7 +309,7 @@ npx tsc --noEmit
 
 Expected: targeted test đỏ trước implementation; sau implementation toàn bộ Admin/typecheck PASS.
 
-- [ ] **Step 3: Viết file test riêng, commit và dừng**
+- [x] **Step 3: Viết file test riêng, commit và dừng**
 
 `SPRINT-BL-1.md`: migrations 052–056, PGlite command, Test 1 schema/RLS, Test 2 slot/timezone, Test 3 token/idempotency/change-cancel, Test 4 owner conflict/manual exception, Test 5 arrival/multi-table/completion, Test 6 Pubu regression. `TESTING.md` chỉ thêm `⏳` link.
 
