@@ -471,12 +471,21 @@ không làm quán kia đổi theo.
 - Kiểm tra timezone, trùng lịch ba giờ, phiên đang mở và ngoại lệ tạo tay trên POS.
 - Nhận khách tạo một phiên/mâm mở gọi chung đúng một lần; hết hạn sau 6 giờ không hoạt động.
 
-### Sprint BL-2 — POS đặt bàn và thông báo chủ quán
+### Sprint BL-2 — tách theo phụ thuộc triển khai
 
-- Hàng đợi đặt bàn, gợi ý số bàn và chọn bàn trên POS hiện có.
-- Nhắc gộp mỗi 5 phút, Snooze 10/15/30, cảnh báo trễ 30 phút và đóng/no-show thủ công.
-- Giao diện admin mobile duyệt đặt bàn; nút gọi điện và onboarding người nhận OA theo store.
-- Hàng đợi món đặt trước; duyệt/in món chỉ ở POS gắn máy in, có audit in/in lại.
+BL-2 được tách thành ba nhánh đã duyệt ngày 2026-09-19 để POS đặt bàn không phải chờ OA hoặc
+luồng món đặt trước chưa tồn tại:
+
+- **BL-2A — POS/Admin Mobile đặt bàn:** hàng đợi đặt bàn, gợi ý số bàn, chọn bàn trên sơ đồ hiện
+  có, tạo/đổi đặt bàn thủ công, nhận khách/no-show, gọi điện, nhắc gộp mỗi 5 phút, Snooze
+  10/15/30 và cảnh báo trễ 30 phút. Đây là phần triển khai ngay sau BL-1.
+- **BL-2B — Zalo OA chủ quán:** lấy đúng Zalo user ID của người nhận theo OA của quán, onboarding
+  người nhận và gửi thông báo đặt bàn. Chỉ triển khai khi OA/credential Bảo Lương sẵn sàng.
+- **BL-2C — hàng đợi món đặt trước:** duyệt/in món chỉ ở POS gắn máy in, có audit in/in lại.
+  Triển khai cùng hoặc ngay sau BL-3 vì BL-3 mới tạo được preorder từ khách.
+
+Thiết kế chi tiết BL-2A:
+`docs/superpowers/specs/2026-09-19-bao-luong-bl2a-pos-reservations-design.md`.
 
 ### Sprint BL-3 — Mini App đặt bàn và gọi món liên tục
 
@@ -503,7 +512,9 @@ Không nối thêm checklist dài vào `TESTING.md`. Mỗi Sprint Bảo Lương 
 
 - `docs/testing/bao-luong/SPRINT-BL-0.md`
 - `docs/testing/bao-luong/SPRINT-BL-1.md`
-- `docs/testing/bao-luong/SPRINT-BL-2.md`
+- `docs/testing/bao-luong/SPRINT-BL-2A.md`
+- `docs/testing/bao-luong/SPRINT-BL-2B.md`
+- `docs/testing/bao-luong/SPRINT-BL-2C.md`
 - `docs/testing/bao-luong/SPRINT-BL-3.md`
 - `docs/testing/bao-luong/SPRINT-BL-4.md`
 
