@@ -130,13 +130,30 @@ MVP hoàn thành khi:
 - [ ] Chủ quán thêm/sửa món, tạo bàn, tải QR được
 - [ ] Test thực tế tại Phở Gà Pubu ít nhất 1 ngày liên tục
 
+### Hồ sơ quy trình theo quán (nền tảng BL-0)
+
+Mỗi quán có một cấu hình workflow độc lập, do owner hoặc MEVO quản lý trong Admin Web; presets
+chỉ là điểm bắt đầu, không thay thế quyền kiểm tra phía server. Cấu hình gồm thời điểm/phương
+thức thanh toán, các kênh gọi món (QR tại bàn, mang về, ship), policy xuống bếp, timeout phiên
+và các tham số đặt bàn. Mini App chỉ nhận snapshot public tối thiểu theo `store_id`; Admin Web
+đọc/ghi qua RPC có kiểm role và audit. DB trigger chặn `orders` đi qua kênh đã tắt, nên không
+được tin riêng UI client.
+
+Hai preset hiện hành:
+
+- **Phở Gà Pubu:** trả trước, Zalo Checkout, bật QR/Mang về/Ship, xuống bếp tự động.
+- **Bảo Lương:** trả sau, tiền mặt, tắt Mang về/Ship, QR tại bàn và đơn staff chờ POS xác nhận.
+
+BL-0 chỉ dựng nền tảng cấu hình và ranh giới Mini App; form đặt bàn và đặt món trước thực tế là
+phạm vi BL-3, không được coi là đã phát hành chỉ vì cờ cấu hình đã có.
+
 ---
 
 ## 5. Out of Scope — Không làm trong MVP
 
 - ❌ Loyalty / tích điểm / voucher
-- ❌ Takeaway / pre-order online
-- ❌ Đặt bàn trước
+- ❌ Đặt món trước theo đặt bàn (BL-3; BL-0 chỉ có cờ cấu hình)
+- ❌ Đặt bàn trước thực tế (BL-3; BL-0 chỉ có cờ cấu hình)
 - ❌ In bill qua máy in nhiệt
 - ❌ Quản lý nhân viên / ca làm
 - ❌ Multi-branch (nhiều chi nhánh)
