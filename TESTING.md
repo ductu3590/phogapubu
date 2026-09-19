@@ -10,7 +10,7 @@
 - ⏳ [Bảo Lương — duyệt implementation plan BL-0](docs/testing/bao-luong/PLAN-BL-0-2026-09-11.md) — chờ PASS
 - ✅ [Bảo Lương — Sprint BL-0](docs/testing/bao-luong/SPRINT-BL-0.md) — PASS 2026-09-18
 - ✅ [Bảo Lương — duyệt implementation plan BL-1](docs/testing/bao-luong/PLAN-BL-1-2026-09-18.md) — PASS 2026-09-19
-- ⏳ [Bảo Lương — Sprint BL-1](docs/testing/bao-luong/SPRINT-BL-1.md) — Task 1–4 PASS, Task 5 / cổng BL-1 chờ nghiệm thu
+- ✅ [Bảo Lương — Sprint BL-1](docs/testing/bao-luong/SPRINT-BL-1.md) — PASS 2026-09-19
 
 > **Quy tắc bắt buộc cho Claude Code:**
 > Sau khi hoàn thành BẤT KỲ Sprint hoặc task nào, PHẢI dừng lại,

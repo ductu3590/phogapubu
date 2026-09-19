@@ -1,6 +1,6 @@
 # Bảo Lương — Sprint BL-1: Nền tảng đặt bàn
 
-**Trạng thái:** ✅ Task 1–4 PASS · ⏳ Task 5 / cổng nghiệm thu BL-1 chờ chạy
+**Trạng thái:** ✅ BL-1 PASS · 2026-09-19
 
 Sprint này chỉ xây nền DB/RPC cho đặt bàn. Chưa có form Mini App hoặc màn POS mới ở Task 1.
 
