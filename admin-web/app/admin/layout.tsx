@@ -14,9 +14,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  let storeName = 'Quán của tôi'
-  const { data } = await supabase.from('stores').select('name').eq('id', operator.storeId).single()
-  if (data) storeName = data.name
+  const [storeResult, workflowResult] = await Promise.all([
+    supabase.from('stores').select('name').eq('id', operator.storeId).single(),
+    supabase.rpc('get_public_store_workflow', { p_store_id: operator.storeId }),
+  ])
+  const storeName = storeResult.data?.name ?? 'Quán của tôi'
+  const reservationsEnabled = (workflowResult.data as { reservations_enabled?: unknown } | null)
+    ?.reservations_enabled === true
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -34,7 +38,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
 
         {/* Nav links (accordion — xem admin-nav.tsx) */}
-        <AdminNav />
+        <AdminNav reservationsEnabled={reservationsEnabled} />
 
         {/* Bottom: đăng xuất */}
         <div className="border-t border-gray-100 px-3 py-4">

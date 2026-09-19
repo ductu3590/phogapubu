@@ -279,7 +279,7 @@ git commit -m "feat: reservation queue actions va watcher"
 **Produces:** Owner xem queue trên điện thoại, gọi khách, thấy trạng thái/realtime; chưa bật mutation
 phân bàn ở task này.
 
-- [ ] **Step 1: Đọc Next docs và viết test đỏ view model/nav**
+- [x] **Step 1: Đọc Next docs và viết test đỏ view model/nav**
 
 Đọc tối thiểu docs local về Server/Client Components, data fetching và layouts. Test pure
 `reservation-ui.ts`:
@@ -291,7 +291,7 @@ phân bàn ở task này.
 
 Test nav render có `Đặt bàn` khi `reservationsEnabled=true`, không có khi false.
 
-- [ ] **Step 2: Implement page shell fail-closed**
+- [x] **Step 2: Implement page shell fail-closed**
 
 Server page owner-only, load song song workflow + initial queue. Nếu capability tắt thì redirect về
 dashboard hoặc render thông báo khóa; không render dữ liệu. Layout load public workflow và truyền
@@ -313,7 +313,7 @@ cd ..
 Manual Test 3 trong file Sprint: viewport 390px, desktop, background tab, tắt/bật capability và
 điện thoại `tel:`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add admin-web/app/admin/reservations admin-web/app/admin/layout.tsx admin-web/app/admin/admin-nav.tsx admin-web/app/admin/admin-nav.test.tsx docs/testing/bao-luong/SPRINT-BL-2A.md

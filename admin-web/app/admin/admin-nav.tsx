@@ -10,6 +10,7 @@ import {
   UtensilsCrossed,
   Ticket,
   Gift,
+  CalendarDays,
   Settings,
   QrCode,
   Users,
@@ -53,15 +54,21 @@ const SECTIONS: Section[] = [
 
 // Mục lẻ cuối danh sách
 const ACCOUNT: Leaf = { href: '/admin/account', icon: User, label: 'Tài khoản' }
+const RESERVATIONS: Leaf = { href: '/admin/reservations', icon: CalendarDays, label: 'Đặt bàn' }
 
-export default function AdminNav() {
+export default function AdminNav({ reservationsEnabled = false }: { reservationsEnabled?: boolean }) {
   const path = usePathname()
+  const sections = SECTIONS.map((section) =>
+    section.label === 'Vận hành' && reservationsEnabled
+      ? { ...section, children: [...section.children, RESERVATIONS] }
+      : section,
+  )
 
   return (
     <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
       <NavLink leaf={DASHBOARD} active={path.startsWith(DASHBOARD.href)} />
 
-      {SECTIONS.map((sec) => (
+      {sections.map((sec) => (
         <div key={sec.label} className="pt-3">
           <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
             {sec.label}

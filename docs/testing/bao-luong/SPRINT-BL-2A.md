@@ -1,6 +1,6 @@
 # Bảo Lương — Sprint BL-2A: POS và Admin Mobile đặt bàn
 
-**Trạng thái:** ✅ Task 1 PASS · ⏳ Task 2 hoàn tất code, chờ anh Tú nghiệm thu.
+**Trạng thái:** ✅ Task 1 PASS · ✅ Task 2 PASS · ⏳ Task 3 hoàn tất code, chờ anh Tú nghiệm thu.
 
 BL-2A chỉ làm vận hành đặt bàn trên POS/Admin Mobile. Không có Zalo OA, ZNS, Mini App hoặc món
 đặt trước trong Sprint này.
@@ -112,5 +112,54 @@ npx tsc --noEmit
 
 **Không cần deploy hoặc mở UI ở Task 2.** Đây là lớp contract nội bộ được Task 3 sử dụng.
 
-→ Báo Codex: `Task 2 PASS` hoặc gửi nguyên log lỗi. Sau PASS mới làm Task 3 (màn Admin Mobile
-chỉ đọc có đồng bộ realtime).
+✅ **Task 2 PASS** — đã nghiệm thu.
+
+→ Sau PASS làm Task 3 (màn Admin Mobile chỉ đọc có đồng bộ realtime).
+
+## Task 3 — Admin Mobile: hàng đợi đặt bàn chỉ đọc
+
+Task này thêm mục **Đặt bàn** vào Admin chỉ khi quán bật `reservations_enabled`; route cũng kiểm
+lại capability và quyền owner để URL trực tiếp không lộ dữ liệu quán chưa dùng mô hình này.
+
+Trang `/admin/reservations` có:
+
+- đồng bộ realtime, polling 2 giây, và tự tải lại khi quay lại tab/online;
+- nhóm Chờ duyệt, Khách yêu cầu đổi, Quá giờ chưa đến, Sắp đến, Đã đến và Lịch sử gần đây;
+- lọc ngày chỉ áp dụng lịch sắp tới/lịch sử — việc chưa xử lý luôn hiện;
+- số liệu nhanh, badge cảnh báo và link `tel:` **Gọi khách** an toàn;
+- trạng thái rỗng/lỗi rõ ràng.
+
+Đây vẫn là màn **chỉ đọc**: chưa có Xác nhận, chọn bàn, Khách đã đến hay tạo đặt bàn tay. Những
+thao tác đó thuộc Task 4.
+
+### Test 3A — Tự động
+
+Tại `admin-web`, chạy:
+
+```powershell
+npm test -- --run app/admin/admin-nav.test.tsx app/admin/reservations/reservation-ui.test.ts app/admin/reservations/reservation-card.test.tsx lib/reservation-queue.test.ts lib/reservation-queue-watcher.test.ts
+npx tsc --noEmit
+npm run build
+```
+
+✅ PASS khi đủ **16/16**, TypeScript không lỗi và build có route `ƒ /admin/reservations`.
+
+### Test 3B — Owner, capability và responsive
+
+**Điều kiện:** migration `057_reservation_operations_queue.sql` đã được apply trước khi mở route;
+nếu Test 1B chưa chạy, thực hiện Test 1B trước. Chạy Admin Web rồi đăng nhập owner Bảo Lương.
+
+1. Tại `/admin/dashboard`, sidebar có đúng mục **Đặt bàn** trong nhóm Vận hành. Mở
+   `/admin/reservations`; xem cả viewport 390px và desktop: header, bộ lọc ngày, trạng thái kết
+   nối và empty state không tràn ngang.
+2. Mở cùng URL bằng owner Pubu: sidebar không có **Đặt bàn** và route tự về dashboard Pubu.
+3. Tắt `reservations_enabled` của Bảo Lương tại Settings, refresh trang: mục nav biến mất và URL
+   `/admin/reservations` về dashboard; bật lại thì mục quay lại.
+4. Khi queue có booking (dữ liệu BL-1 hoặc dữ liệu test), card phải hiện tên, giờ Việt Nam, số
+   khách/gợi ý số bàn/bàn đang giữ, badge và nút **Gọi khách**. Kiểm link nút bắt đầu bằng
+   `tel:`; Task 3 chưa hiện nút xác nhận hay chọn bàn.
+5. Với tab `/admin/reservations` để nền, tạo/cập nhật một booking từ một tab/hệ thống test khác:
+   queue tự cập nhật không F5. Nếu socket bị chậm, polling tối đa khoảng 2 giây vẫn phải tải lại.
+   Đổi bộ lọc sang ngày khác: booking pending, yêu cầu đổi, quá giờ và đã đến không được biến mất.
+
+→ Báo Codex: `Task 3 PASS` hoặc gửi bước FAIL kèm ảnh/log. Sau PASS mới làm Task 4.
