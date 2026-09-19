@@ -224,7 +224,7 @@ Expected: role, conflict và allocation atomic PASS.
 
 **Produces:** `arrive_reservation`; close bill paid cập nhật reservation completed.
 
-- [ ] **Step 1: Viết test đỏ arrival/lifecycle**
+- [x] **Step 1: Viết test đỏ arrival/lifecycle**
 
 ```js
 test('arrival tạo đúng một mâm mở gọi chung và idempotent', async () => {
@@ -236,30 +236,31 @@ test('arrival tạo đúng một mâm mở gọi chung và idempotent', async ()
   assert.equal((await session(first.session_id)).is_open_ordering, true)
 })
 
-test('arrival không đè phiên cũ; chỉ paid complete booking', async () => {
+test('arrival không đè phiên cũ; staff reset giữ arrived còn paid complete booking', async () => {
   await openSessionFor(table1)
   await rejected(() => arrive(reservationOnTable1), /đang có khách/)
-  const { session_id } = await arrive(reservationOnTable2)
-  await close(session_id, 'staff_reset')
+  const reset = await arrive(reservationOnTable2)
+  await close(reset.session_id, 'staff_reset')
   assert.equal(await reservationStatus(reservationOnTable2), 'arrived')
-  await close(session_id, 'paid')
-  assert.equal(await reservationStatus(reservationOnTable2), 'completed')
+  const paid = await arrive(reservationOnAnotherTable)
+  await close(paid.session_id, 'paid')
+  assert.equal(await reservationStatus(reservationOnAnotherTable), 'completed')
 })
 ```
 
-- [ ] **Step 2: Chạy đỏ**
+- [x] **Step 2: Chạy đỏ**
 
 Run Task 3 command. Expected: FAIL vì arrival/completion chưa có.
 
-- [ ] **Step 3: Implement migration 055**
+- [x] **Step 3: Implement migration 055**
 
 `arrive_reservation` chỉ owner. Lock booking và trả `session_id` cũ nếu already arrived/completed. Với confirmed booking, sort/lock allocation, check `open_session_id_for_table` lần cuối, tạo một `table_sessions` (bàn đầu là base, `opened_by='staff'`, `is_open_ordering=true`) và toàn bộ `session_tables`, rồi update reservation arrived/session/event trong một transaction. Không tạo order/in phiếu. Conflict rollback toàn bộ.
 
-- [ ] **Step 4: Implement migration 056**
+- [x] **Step 4: Implement migration 056**
 
 Recreate `close_table_session`/bulk từ migration 050 nguyên vẹn, thêm sau close `paid`: reservation `arrived` cùng `session_id` thành `completed` với event/timestamp/actor. `staff_reset`, `expired`, `merged` không complete booking; giữ owner-only và pending-order gate BL-0.
 
-- [ ] **Step 5: Chạy regression, commit**
+- [x] **Step 5: Chạy regression, commit**
 
 ```powershell
 node --test supabase/tests/052_reservation_foundation.test.mjs supabase/tests/054_reservation_operator_flow.test.mjs supabase/tests/049_store_workflow_settings.test.mjs supabase/tests/050_pos_gate_service_requests.test.mjs supabase/tests/050a_kitchen_service_request_queue.test.mjs

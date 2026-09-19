@@ -64,6 +64,26 @@ async function reservationStatus(reservationId) {
   return (await db.query('SELECT status FROM reservations WHERE id = $1', [reservationId])).rows[0].status
 }
 
+async function arrive(reservationId) {
+  return (await db.query('SELECT arrive_reservation($1) AS value', [reservationId])).rows[0].value
+}
+
+async function close(sessionId, reason) {
+  return (await db.query(
+    'SELECT close_table_session($1, $2, $3) AS value',
+    [sessionId, reason, reason === 'paid' ? 'cash' : null],
+  )).rows[0].value
+}
+
+async function openSessionFor(tableId, sessionId = id(80)) {
+  await db.query(
+    'INSERT INTO table_sessions(id, store_id, table_id, opened_by) VALUES($1, $2, $3, $4)',
+    [sessionId, store, tableId, 'staff'],
+  )
+  await db.query('INSERT INTO session_tables(session_id, table_id) VALUES($1, $2)', [sessionId, tableId])
+  return sessionId
+}
+
 before(async () => {
   await db.exec(`
     CREATE ROLE anon;
@@ -90,13 +110,33 @@ before(async () => {
       UNIQUE(id, store_id)
     );
     CREATE TABLE table_sessions (
-      id uuid PRIMARY KEY, store_id uuid NOT NULL REFERENCES stores(id),
-      table_id uuid NOT NULL REFERENCES tables(id), status text NOT NULL DEFAULT 'open'
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), store_id uuid NOT NULL REFERENCES stores(id),
+      table_id uuid NOT NULL REFERENCES tables(id),
+      status text NOT NULL DEFAULT 'open',
+      opened_by text NOT NULL DEFAULT 'customer',
+      opened_at timestamptz NOT NULL DEFAULT now(),
+      last_activity_at timestamptz NOT NULL DEFAULT now(),
+      closed_at timestamptz,
+      closed_by uuid,
+      close_reason text,
+      is_open_ordering boolean NOT NULL DEFAULT false
     );
     CREATE TABLE session_tables (
       session_id uuid NOT NULL REFERENCES table_sessions(id),
       table_id uuid NOT NULL REFERENCES tables(id), is_open boolean NOT NULL DEFAULT true,
       PRIMARY KEY(session_id, table_id)
+    );
+    CREATE TABLE orders (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      store_id uuid NOT NULL REFERENCES stores(id),
+      session_id uuid REFERENCES table_sessions(id),
+      status text NOT NULL DEFAULT 'pending',
+      total_amount integer NOT NULL DEFAULT 0,
+      order_source text NOT NULL DEFAULT 'customer',
+      payment_received_at timestamptz,
+      payment_received_via text,
+      payment_received_by uuid,
+      payment_instrument text
     );
     CREATE TABLE store_workflow_settings (
       store_id uuid PRIMARY KEY REFERENCES stores(id),
@@ -129,9 +169,14 @@ before(async () => {
         SELECT st.session_id FROM session_tables st JOIN table_sessions s ON s.id = st.session_id
         WHERE st.table_id = p_table_id AND st.is_open AND s.status = 'open' LIMIT 1
       $$;
+    CREATE FUNCTION lock_table_for_session(p_table_id uuid) RETURNS void
+      LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+        BEGIN RETURN; END
+      $$;
     CREATE PUBLICATION supabase_realtime;
 
     GRANT USAGE ON SCHEMA public, auth TO anon, authenticated;
+    GRANT SELECT ON table_sessions, session_tables, orders TO authenticated;
     INSERT INTO auth.users(id) VALUES ('${owner}'), ('${staff}'), ('${otherOwner}'), ('${superadmin}');
     INSERT INTO stores(id, name, serving_hours) VALUES
       ('${store}', 'Bảo Lương', '[{"open":"11:00","close":"22:00"}]'),
@@ -146,8 +191,12 @@ before(async () => {
       ('${otherOwner}', '${otherStore}', 'store_owner'), ('${superadmin}', NULL, 'mevo_superadmin');
   `)
 
-  for (const migration of ['052_reservation_schema.sql', '053_reservation_customer_rpcs.sql', '054_reservation_operator_rpcs.sql', '054a_reservation_operator_grants.sql']) {
-    await db.exec(await readFile(new URL(`../migrations/${migration}`, import.meta.url), 'utf8'))
+  for (const migration of ['052_reservation_schema.sql', '053_reservation_customer_rpcs.sql', '054_reservation_operator_rpcs.sql', '054a_reservation_operator_grants.sql', '055_reservation_arrival.sql', '056_reservation_session_completion.sql']) {
+    try {
+      await db.exec(await readFile(new URL(`../migrations/${migration}`, import.meta.url), 'utf8'))
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error
+    }
   }
 })
 
@@ -247,4 +296,68 @@ test('anon không gọi được RPC owner hoặc helper SECURITY DEFINER', asyn
   assert.equal(result.owner_rpc, false)
   assert.equal(result.helper_rpc, false)
   assert.equal(result.authenticated_rpc, true)
+})
+
+test('arrival tạo đúng một mâm mở gọi chung và idempotent', async () => {
+  const reservation = await createBooking(id(35), 10)
+  await login(owner)
+  await confirm(reservation.reservation_id, [table1, table2])
+
+  const first = await arrive(reservation.reservation_id)
+  const retry = await arrive(reservation.reservation_id)
+  assert.equal(first.session_id, retry.session_id)
+  assert.equal((await db.query(
+    "SELECT count(*)::integer AS n FROM table_sessions WHERE store_id = $1 AND status = 'open'",
+    [store],
+  )).rows[0].n, 1)
+  assert.deepEqual((await db.query(
+    'SELECT table_id FROM session_tables WHERE session_id = $1 ORDER BY table_id',
+    [first.session_id],
+  )).rows.map((row) => row.table_id), [table1, table2])
+  assert.equal((await db.query(
+    'SELECT is_open_ordering FROM table_sessions WHERE id = $1', [first.session_id],
+  )).rows[0].is_open_ordering, true)
+  assert.equal(await reservationStatus(reservation.reservation_id), 'arrived')
+  assert.equal((await db.query(
+    "SELECT count(*)::integer AS n FROM reservation_events WHERE reservation_id = $1 AND event_type = 'arrived'",
+    [reservation.reservation_id],
+  )).rows[0].n, 1)
+  assert.equal((await db.query('SELECT count(*)::integer AS n FROM orders WHERE session_id = $1', [first.session_id])).rows[0].n, 0)
+})
+
+test('arrival không đè phiên cũ; staff reset giữ arrived còn paid complete booking', async () => {
+  const blocked = await createBooking(id(36))
+  await login(owner)
+  await confirm(blocked.reservation_id, [table3])
+  await db.exec('RESET ROLE')
+  await openSessionFor(table3)
+  await login(owner)
+  await rejected(() => arrive(blocked.reservation_id), /đang có khách/)
+  assert.equal(await reservationStatus(blocked.reservation_id), 'confirmed')
+
+  await db.exec('RESET ROLE')
+  const reset = await createBooking(id(37))
+  await login(owner)
+  await confirm(reset.reservation_id, [table4])
+  const resetArrival = await arrive(reset.reservation_id)
+  await close(resetArrival.session_id, 'staff_reset')
+  assert.equal(await reservationStatus(reset.reservation_id), 'arrived')
+  assert.equal((await db.query(
+    "SELECT count(*)::integer AS n FROM reservation_events WHERE reservation_id = $1 AND event_type = 'completed'",
+    [reset.reservation_id],
+  )).rows[0].n, 0)
+
+  await db.exec('RESET ROLE')
+  const paid = await createBooking(id(38))
+  await login(owner)
+  await confirm(paid.reservation_id, [table1])
+  const paidArrival = await arrive(paid.reservation_id)
+  await close(paidArrival.session_id, 'paid')
+  const paidRetry = await close(paidArrival.session_id, 'paid')
+  assert.equal(paidRetry.already, true)
+  assert.equal(await reservationStatus(paid.reservation_id), 'completed')
+  assert.equal((await db.query(
+    "SELECT count(*)::integer AS n FROM reservation_events WHERE reservation_id = $1 AND event_type = 'completed'",
+    [paid.reservation_id],
+  )).rows[0].n, 1)
 })

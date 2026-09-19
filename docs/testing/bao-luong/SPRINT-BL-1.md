@@ -1,6 +1,6 @@
 # Bảo Lương — Sprint BL-1: Nền tảng đặt bàn
 
-**Trạng thái:** ✅ Task 1–2 PASS · ⏳ Task 3 chờ nghiệm thu
+**Trạng thái:** ✅ Task 1–3 PASS · ⏳ Task 4 chờ nghiệm thu
 
 Sprint này chỉ xây nền DB/RPC cho đặt bàn. Chưa có form Mini App hoặc màn POS mới ở Task 1.
 
@@ -96,3 +96,43 @@ node --test supabase/tests/054_reservation_operator_flow.test.mjs
 **Chưa có màn duyệt đặt bàn ở POS/admin trong Task 3; UI thuộc BL-2.**
 
 → Báo Codex: `Task 3 PASS` hoặc gửi nguyên lỗi. Sau PASS mới làm Task 4 (nhận khách, tạo mâm/session và hoàn tất bill).
+
+## Task 4 — Nhận khách, mâm mở gọi chung và hoàn tất bill
+
+Đã áp migrations `055_reservation_arrival` và `056_reservation_session_completion` lên Supabase. Task này chưa thêm màn hình POS: nó chỉ cung cấp hai RPC/contract để BL-2 gọi sau này.
+
+### Test 4A — Contract tự động
+
+Tại thư mục gốc repo, chạy:
+
+```powershell
+$modulePath=(Resolve-Path 'admin-web/node_modules/@electric-sql/pglite/dist/index.js').Path
+$env:PGLITE_MODULE=([System.Uri]::new($modulePath)).AbsoluteUri
+node --test supabase/tests/054_reservation_operator_flow.test.mjs
+```
+
+✅ PASS khi đủ **7/7**. Hai bài cuối phải cùng xác minh:
+
+1. Chủ quán nhận booking 2 bàn tạo đúng **một** `table_session`/mâm, hai bàn cùng thuộc mâm, `is_open_ordering = true`; retry không mở thêm session/event/order.
+2. Không thể nhận khách đè lên phiên đang mở. `staff_reset` giữ booking ở `arrived`; một booking khác chỉ thành `completed` sau `paid`, và retry chốt tiền không nhân đôi event.
+
+### Test 4B — Kiểm tra Supabase thật
+
+Trong Supabase SQL Editor, chạy:
+
+```sql
+SELECT
+  p.proname,
+  pg_get_function_identity_arguments(p.oid) AS args,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_execute,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_execute
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname IN ('arrive_reservation', 'close_table_session', 'close_table_sessions_bulk')
+ORDER BY p.proname, args;
+```
+
+✅ PASS khi cả ba hàm đều có `anon_execute = false`, `authenticated_execute = true`. Quyền owner vẫn được kiểm trong thân RPC; không tạo booking thử trực tiếp trên production vì BL-2 chưa có UI vận hành để dọn dữ liệu test.
+
+→ Báo Codex: `Task 4 PASS` hoặc gửi nguyên lỗi. Sau PASS mới làm Task 5 (typed Admin contract và cổng nghiệm thu BL-1).
