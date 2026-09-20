@@ -1,6 +1,6 @@
 # Bảo Lương — Sprint BL-2A: POS và Admin Mobile đặt bàn
 
-**Trạng thái:** ✅ Task 1 PASS · ✅ Task 2 PASS · ⏳ Task 3 hoàn tất code, chờ anh Tú nghiệm thu.
+**Trạng thái:** ✅ Task 1 PASS · ✅ Task 2 PASS · ✅ Test 3C PASS · ⏳ Test 3D chờ nghiệm thu.
 
 BL-2A chỉ làm vận hành đặt bàn trên POS/Admin Mobile. Không có Zalo OA, ZNS, Mini App hoặc món
 đặt trước trong Sprint này.
@@ -181,3 +181,16 @@ Task 3, không mở thêm mutation đặt bàn.
 3. Mở lại viewport desktop (`≥768px`): sidebar cũ vẫn hiện, không xuất hiện thanh Menu mobile.
 
 → Báo Codex: `Task 3C PASS` hoặc gửi ảnh bước FAIL. Chỉ sau PASS mới chuyển Task 4.
+
+### Test 3D — Thu gọn sidebar desktop (bổ sung 2026-09-20)
+
+Tại viewport desktop (`≥768px`), mở `/admin/cashier` hoặc `/admin/reservations`:
+
+1. Sidebar đang mở có icon ở góc trên phải. Bấm icon: sidebar biến mất hoàn toàn và vùng POS/nội
+   dung giãn thêm khoảng 240px; icon mở sidebar vẫn thấy ở mép trái.
+2. Bấm icon ở mép trái: sidebar và toàn bộ navigation trở lại đúng như trước.
+3. F5: sidebar mặc định mở lại. Đây là chủ ý — trạng thái chỉ thuộc tab hiện tại, không ghi DB hay
+   tạo cấu hình riêng cho quán.
+4. Ở viewport 390px: không thấy icon desktop; header + drawer Menu của Test 3C vẫn hoạt động.
+
+→ Báo Codex: `Task 3D PASS` hoặc gửi ảnh bước FAIL. Chỉ sau PASS mới chuyển Task 4.

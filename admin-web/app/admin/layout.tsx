@@ -4,8 +4,8 @@ import { redirect } from 'next/navigation'
 import { signOut } from '@/app/(auth)/login/actions'
 import AdminNav from './admin-nav'
 import AdminMobileNav from './admin-mobile-nav'
+import AdminDesktopSidebar from './admin-desktop-sidebar'
 import {
-  adminDesktopSidebarClass,
   adminMainClass,
   adminShellClass,
 } from './admin-responsive-layout'
@@ -31,7 +31,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className={adminShellClass}>
       {/* Sidebar chỉ dành cho desktop; điện thoại dùng drawer để không ép nội dung còn 150px. */}
-      <aside className={adminDesktopSidebarClass}>
+      <AdminDesktopSidebar>
         {/* Brand */}
         <div className="border-b border-gray-100 px-6 py-5">
           <div className="flex items-center gap-2">
@@ -58,7 +58,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </button>
           </form>
         </div>
-      </aside>
+      </AdminDesktopSidebar>
 
       {/* Main content */}
       <main className={adminMainClass}>
