@@ -301,7 +301,7 @@ Client giữ `rows`, `connected`, `reloadError`; watcher thay toàn snapshot. Ch
 classifier, có skeleton/empty/error rõ. Card có link `Gọi khách` (`tel:`), giờ, pax, suggested/held
 tables và badges `Chờ duyệt`, `Sắp đến`, `Quá giờ`, `Đã đến`, `Đã xử lý`.
 
-- [ ] **Step 3: Chạy tests/build và manual responsive check**
+- [x] **Step 3: Chạy tests/build và manual responsive check**
 
 ```powershell
 cd admin-web
