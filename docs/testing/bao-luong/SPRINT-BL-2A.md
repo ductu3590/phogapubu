@@ -163,3 +163,21 @@ nếu Test 1B chưa chạy, thực hiện Test 1B trước. Chạy Admin Web r�
    Đổi bộ lọc sang ngày khác: booking pending, yêu cầu đổi, quá giờ và đã đến không được biến mất.
 
 → Báo Codex: `Task 3 PASS` hoặc gửi bước FAIL kèm ảnh/log. Sau PASS mới làm Task 4.
+
+### Test 3C — Regression mobile shell (bổ sung 2026-09-20)
+
+**Kết quả cũ:** Test 3A PASS. Test 3B mục 1 FAIL: sidebar desktop rộng 240px vẫn hiện ở
+viewport 390px, làm nội dung đặt bàn chỉ còn khoảng 150px. Mục 2/3 PASS hoặc được bỏ qua theo
+ghi nhận; mục 4/5 chưa có booking Mini App để tạo dữ liệu thật.
+
+Đã sửa layout dùng chung `/admin`: sidebar desktop chỉ hiện từ `md`; điện thoại có thanh đầu trang
+và drawer **Menu**, vì vậy mọi route Admin nhận đủ chiều rộng màn hình. Đây là regression fix của
+Task 3, không mở thêm mutation đặt bàn.
+
+1. Mở `/admin/reservations` ở viewport **390px**: không còn sidebar desktop bên trái; nội dung
+   chiếm toàn bộ chiều rộng, card/bộ lọc không bị cắt hay tràn ngang.
+2. Bấm biểu tượng Menu góc phải: drawer mở, có các link Admin và **Đặt bàn**; bấm một link hoặc
+   nút X/lớp nền thì drawer đóng. Nút đăng xuất vẫn có trong drawer.
+3. Mở lại viewport desktop (`≥768px`): sidebar cũ vẫn hiện, không xuất hiện thanh Menu mobile.
+
+→ Báo Codex: `Task 3C PASS` hoặc gửi ảnh bước FAIL. Chỉ sau PASS mới chuyển Task 4.

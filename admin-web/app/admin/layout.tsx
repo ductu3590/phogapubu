@@ -3,6 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { signOut } from '@/app/(auth)/login/actions'
 import AdminNav from './admin-nav'
+import AdminMobileNav from './admin-mobile-nav'
+import {
+  adminDesktopSidebarClass,
+  adminMainClass,
+  adminShellClass,
+} from './admin-responsive-layout'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const operator = await requireOperatorOrRedirect()
@@ -23,9 +29,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     ?.reservations_enabled === true
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* Sidebar */}
-      <aside className="flex w-60 flex-shrink-0 flex-col border-r border-gray-200 bg-white">
+    <div className={adminShellClass}>
+      {/* Sidebar chỉ dành cho desktop; điện thoại dùng drawer để không ép nội dung còn 150px. */}
+      <aside className={adminDesktopSidebarClass}>
         {/* Brand */}
         <div className="border-b border-gray-100 px-6 py-5">
           <div className="flex items-center gap-2">
@@ -55,7 +61,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </aside>
 
       {/* Main content */}
-      <main className="flex flex-1 flex-col overflow-hidden">
+      <main className={adminMainClass}>
+        <AdminMobileNav
+          storeName={storeName}
+          reservationsEnabled={reservationsEnabled}
+          userEmail={user?.email ?? null}
+        />
         {children}
       </main>
     </div>
