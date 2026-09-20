@@ -1,6 +1,6 @@
 # Bảo Lương — Sprint BL-2A: POS và Admin Mobile đặt bàn
 
-**Trạng thái:** ✅ Task 1 PASS · ✅ Task 2 PASS · ✅ Task 3 PASS.
+**Trạng thái:** ✅ Task 1 PASS · ✅ Task 2 PASS · ✅ Task 3 PASS · ⏳ Task 4 hoàn tất code, chờ anh Tú nghiệm thu.
 
 BL-2A chỉ làm vận hành đặt bàn trên POS/Admin Mobile. Không có Zalo OA, ZNS, Mini App hoặc món
 đặt trước trong Sprint này.
@@ -197,3 +197,50 @@ Tại viewport desktop (`≥768px`), mở `/admin/cashier` hoặc `/admin/reserv
 
 ✅ **Task 3 PASS** — Test 3A, 3C và 3D đã nghiệm thu. Hai kiểm tra Test 3B mục 4–5 cần dữ liệu
 booking thật sẽ được lặp lại trong lifecycle Task 4, khi màn tạo/xác nhận đặt bàn đã có.
+
+## Task 4 — Thao tác owner trên Admin Mobile
+
+Owner Bảo Lương nay có thể tạo đặt bàn tay, chọn bàn theo khu vực, xác nhận/từ chối, xử lý yêu cầu
+đổi, đổi lịch/bàn, nhận khách và đánh dấu no-show ngay tại `/admin/reservations`. Bộ chọn bàn tải
+lại sơ đồ + phiên đang mở trước khi mở sheet; DB vẫn là lớp cuối chống race.
+
+### Test 4A — Tự động
+
+Tại `admin-web`, chạy:
+
+```powershell
+npm test -- --run app/admin/reservations/reservation-table-picker.test.ts app/admin/reservations/reservation-form.test.ts app/admin/reservations/reservation-card.test.tsx app/admin/reservations/reservation-ui.test.ts lib/actions/reservations.test.ts lib/reservation-queue.test.ts lib/reservation-queue-watcher.test.ts
+npx tsc --noEmit
+npm run build
+```
+
+✅ PASS khi đủ **34/34**, TypeScript không lỗi và build có `ƒ /admin/reservations`.
+
+### Test 4B — Lifecycle trên Admin Mobile/POS
+
+Đăng nhập owner Bảo Lương, mở `/admin/reservations` tại viewport 390px. Giữ thêm một tab owner
+thứ hai để thử race. Các tạo đặt bàn tay dưới đây được phép ngoài giờ/ngoài slot theo đúng policy.
+
+1. **Tạo tay:** bấm `+ Tạo đặt bàn`, nhập tên, điện thoại, số khách, giờ đến, lý do và lưu. Card
+   xuất hiện `Chờ duyệt` không cần F5. Bỏ trống từng field bắt buộc phải báo lỗi tiếng Việt.
+2. **Xác nhận + chọn bàn:** mở card pending → `Xác nhận & chọn bàn`. Bàn đang có phiên báo `Đang
+   có khách`, bàn đã giữ cho booking khác báo đúng lý do; số bàn gợi ý chỉ là hint. Chọn 1+ bàn,
+   xác nhận: card thành `Đã xác nhận`, ghi đúng tên bàn. Từ chối một card pending khác: sang
+   lịch sử gần đây.
+3. **Race/giữ bàn:** tạo hai booking khác nhau, ở hai tab cùng chọn một bàn rồi lưu. Chỉ một tab
+   thành công; tab còn lại giữ sheet và hiển thị lỗi conflict. Chờ ít nhất 10 giây/polling: lỗi
+   action vẫn còn cho tới khi bấm Đóng hoặc thao tác khác.
+4. **Đổi lịch/bàn:** booking đã xác nhận → `Đổi lịch/bàn`, đổi giờ/số khách/bàn và bắt buộc điền
+   lý do. Thử đổi sang bàn đang có khách/đang giữ: server từ chối và booking vẫn giữ bàn cũ. Đổi
+   hợp lệ: giờ, số khách, bàn mới cập nhật ở cả hai tab không F5.
+5. **Yêu cầu đổi:** với booking `change_requested` từ fixture BL-1, sheet có cả `Chấp nhận thay
+   đổi` và `Từ chối thay đổi`; kiểm chọn bàn rồi chấp nhận, hoặc từ chối kèm ghi chú. Cả hai cập
+   nhật queue không F5.
+6. **Nhận khách/no-show:** card confirmed → `Khách đã đến`; bấm cùng lúc ở hai tab thì chỉ một
+   `table_session`/mâm được tạo. Card thành `Khách đã đến`, có `Mở bill trên POS`. Với booking
+   confirmed khác, `Không đến` chuyển card sang lịch sử; không làm thay đổi booking khác.
+7. **Regression Task 3B:** card có tên, giờ Việt Nam, số khách, bàn, badge, `tel:` Gọi khách;
+   tạo/cập nhật từ tab kia hiện trong tối đa khoảng 2 giây khi tab này ở nền. Pubu vẫn không thấy
+   mục/route Đặt bàn.
+
+→ Báo Codex: `Task 4 PASS` hoặc gửi bước FAIL kèm ảnh/log. Sau PASS mới làm Task 5.

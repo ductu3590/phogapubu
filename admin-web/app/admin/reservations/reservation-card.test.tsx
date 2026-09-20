@@ -39,4 +39,18 @@ describe('ReservationCard', () => {
     expect(html).toContain('Ít cay')
     expect(html).not.toContain('Xác nhận')
   })
+
+  it('hiện đúng action owner theo lifecycle khi Task 4 bật thao tác', () => {
+    const html = renderToStaticMarkup(
+      <ReservationCard
+        reservation={{ ...overdueReservation, status: 'pending' }}
+        now={new Date('2026-09-20T12:00:00.000Z')}
+        onAction={() => undefined}
+      />,
+    )
+
+    expect(html).toContain('Xác nhận &amp; chọn bàn')
+    expect(html).toContain('Từ chối')
+    expect(html).not.toContain('Khách đã đến')
+  })
 })

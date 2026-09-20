@@ -5,6 +5,7 @@ import {
   formatReservationArrival,
   groupReservationsForDisplay,
   phoneHref,
+  reservationChangeDecisionActions,
   reservationCardView,
   reservationUiActions,
 } from './reservation-ui'
@@ -101,5 +102,9 @@ describe('reservation mobile view model', () => {
       ['Đã đến', ['arrived']],
       ['Lịch sử gần đây', ['terminal']],
     ])
+  })
+
+  it('yêu cầu đổi luôn cho chủ quán cả hai lựa chọn chấp nhận và từ chối', () => {
+    expect(reservationChangeDecisionActions()).toEqual(['accept', 'reject'])
   })
 })

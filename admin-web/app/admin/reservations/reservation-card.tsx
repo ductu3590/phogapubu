@@ -1,5 +1,5 @@
 import type { ReservationRow } from '@/lib/actions/reservations'
-import { reservationCardView } from './reservation-ui'
+import { reservationCardView, reservationUiActions, type ReservationUiAction } from './reservation-ui'
 
 const toneClasses = {
   normal: 'border-gray-200 bg-white',
@@ -16,11 +16,14 @@ const badgeClasses = {
 export default function ReservationCard({
   reservation,
   now,
+  onAction,
 }: {
   reservation: ReservationRow
   now: Date
+  onAction?: (action: ReservationUiAction, reservation: ReservationRow) => void
 }) {
   const view = reservationCardView(reservation, now)
+  const actions = onAction ? reservationUiActions(reservation).filter((action) => action !== 'call') : []
 
   return (
     <article className={`rounded-xl border p-4 shadow-sm ${toneClasses[view.tone]}`}>
@@ -52,6 +55,30 @@ export default function ReservationCard({
           📞 Gọi khách · {reservation.customerPhone}
         </a>
       )}
+      {actions.length > 0 && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {actions.map((action) => (
+            <button
+              key={action}
+              type="button"
+              onClick={() => onAction?.(action, reservation)}
+              className="min-h-11 rounded-lg bg-gray-900 px-3 text-sm font-bold text-white hover:bg-gray-800"
+            >
+              {actionLabel[action]}
+            </button>
+          ))}
+        </div>
+      )}
     </article>
   )
+}
+
+const actionLabel: Record<Exclude<ReservationUiAction, 'call'>, string> = {
+  confirm: 'Xác nhận & chọn bàn',
+  reject: 'Từ chối',
+  resolve_change: 'Xử lý yêu cầu đổi',
+  arrive: 'Khách đã đến',
+  reschedule: 'Đổi lịch/bàn',
+  no_show: 'Không đến',
+  open_session: 'Mở bill trên POS',
 }

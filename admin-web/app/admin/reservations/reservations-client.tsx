@@ -1,7 +1,20 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { listReservationQueue, type ReservationRow } from '@/lib/actions/reservations'
+import {
+  arriveReservation,
+  confirmReservation,
+  createManualReservation,
+  listReservationQueue,
+  markReservationNoShow,
+  rejectReservation,
+  rescheduleReservation,
+  resolveReservationChange,
+  type ReservationRow,
+} from '@/lib/actions/reservations'
+import { loadFloorLayout } from '@/lib/actions/floor-layout'
+import { listOpenTableSessions, type OpenTableSession } from '@/lib/actions/table-session'
+import type { FloorSnapshot } from '@/lib/area-layout'
 import { reservationQueueState, sortReservationQueue } from '@/lib/reservation-queue'
 import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
 import { createClient } from '@/lib/supabase/client'
@@ -10,7 +23,22 @@ import {
   filterReservationsForDate,
   groupReservationsForDisplay,
   reservationLocalDate,
+  reservationChangeDecisionActions,
+  type ReservationUiAction,
 } from './reservation-ui'
+import ReservationTablePicker from './reservation-table-picker'
+import { ReservationForm, type ReservationFormSubmit } from './reservation-form'
+
+type TableOperation = {
+  kind: 'confirm' | 'resolve_change' | 'reschedule'
+  reservation: ReservationRow
+  selectedTableIds: Set<string>
+}
+
+type ActiveOperation =
+  | { kind: 'manual' }
+  | TableOperation
+  | { kind: 'reject' | 'arrive' | 'no_show'; reservation: ReservationRow }
 
 function queueRange() {
   const now = Date.now()
@@ -24,15 +52,30 @@ export default function ReservationsClient({
   storeId,
   initialReservations,
   initialError,
+  initialFloor,
+  initialFloorError,
+  initialSessions,
+  initialSessionsError,
 }: {
   storeId: string
   initialReservations: ReservationRow[]
   initialError: string | null
+  initialFloor: FloorSnapshot | null
+  initialFloorError: string | null
+  initialSessions: OpenTableSession[]
+  initialSessionsError: string | null
 }) {
   const [reservations, setReservations] = useState(initialReservations)
-  const [error, setError] = useState(initialError)
+  const [reloadError, setReloadError] = useState(initialError)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const [selectedDate, setSelectedDate] = useState(() => reservationLocalDate(new Date().toISOString()) ?? '')
+  const [floor, setFloor] = useState(initialFloor)
+  const [floorError, setFloorError] = useState(initialFloorError)
+  const [sessions, setSessions] = useState(initialSessions)
+  const [sessionsError, setSessionsError] = useState(initialSessionsError)
+  const [operation, setOperation] = useState<ActiveOperation | null>(null)
+  const [busy, setBusy] = useState(false)
 
   const load = useCallback(
     () => listReservationQueue(queueRange()),
@@ -45,7 +88,7 @@ export default function ReservationsClient({
       storeId,
       load,
       onRows: setReservations,
-      onError: setError,
+      onError: setReloadError,
       onConnected: setConnected,
     })
     return () => watcher.dispose()
@@ -66,11 +109,89 @@ export default function ReservationsClient({
     const result = await load()
     if (result.ok) {
       setReservations(result.reservations)
-      setError(null)
+      setReloadError(null)
     } else {
-      setError(result.error)
+      setReloadError(result.error)
     }
   }
+
+  const refreshTableContext = async (): Promise<boolean> => {
+    const [nextFloor, nextSessions] = await Promise.all([loadFloorLayout(), listOpenTableSessions()])
+    if (!nextFloor.ok) {
+      setFloorError(nextFloor.error)
+      setActionError(nextFloor.error)
+      return false
+    }
+    if (!nextSessions.ok) {
+      setSessionsError(nextSessions.error)
+      setActionError(nextSessions.error)
+      return false
+    }
+    setFloor(nextFloor.snapshot)
+    setFloorError(null)
+    setSessions(nextSessions.sessions)
+    setSessionsError(null)
+    return true
+  }
+
+  const toggleTable = (tableId: string) => {
+    setOperation((current) => {
+      if (!current || !('selectedTableIds' in current)) return current
+      const next = new Set(current.selectedTableIds)
+      if (next.has(tableId)) next.delete(tableId)
+      else next.add(tableId)
+      return { ...current, selectedTableIds: next }
+    })
+  }
+
+  const runAction = async (action: () => Promise<{ ok: boolean; error?: string }>) => {
+    setBusy(true)
+    setActionError(null)
+    try {
+      const result = await action()
+      if (!result.ok) {
+        setActionError(result.error ?? 'Không thể lưu thay đổi')
+        return
+      }
+      setOperation(null)
+      await reloadNow()
+    } catch {
+      setActionError('Lỗi kết nối. Kiểm tra mạng rồi thử lại.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const openTableOperation = async (
+    kind: 'confirm' | 'resolve_change' | 'reschedule',
+    reservation: ReservationRow,
+  ) => {
+    setActionError(null)
+    if (!await refreshTableContext()) return
+    setOperation({ kind, reservation, selectedTableIds: new Set(reservation.tableIds) })
+  }
+
+  const beginAction = (action: ReservationUiAction, reservation: ReservationRow) => {
+    if (action === 'confirm' || action === 'resolve_change' || action === 'reschedule') {
+      void openTableOperation(action, reservation)
+      return
+    }
+    if (action === 'open_session') {
+      window.location.href = '/admin/cashier'
+      return
+    }
+    if (action === 'call') return
+    setActionError(null)
+    setOperation({ kind: action, reservation })
+  }
+
+  const otherReservationTableIds = (reservation: ReservationRow): Set<string> => new Set(
+    reservations
+      .filter((item) => item.reservationId !== reservation.reservationId && (
+        item.status === 'confirmed' || item.status === 'change_requested'
+      ))
+      .flatMap((item) => item.tableIds),
+  )
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6">
@@ -85,13 +206,22 @@ export default function ReservationsClient({
               {connected ? 'Đang cập nhật trực tiếp' : 'Đang kết nối — vẫn tự tải lại mỗi vài giây'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void reloadNow()}
-            className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-          >
-            ↻ Tải lại
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setActionError(null); setOperation({ kind: 'manual' }) }}
+              className="min-h-11 rounded-lg bg-orange-500 px-4 text-sm font-bold text-white hover:bg-orange-600"
+            >
+              + Tạo đặt bàn
+            </button>
+            <button
+              type="button"
+              onClick={() => void reloadNow()}
+              className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              ↻ Tải lại
+            </button>
+          </div>
         </header>
 
         <div className="mb-4 grid grid-cols-2 gap-3">
@@ -116,9 +246,15 @@ export default function ReservationsClient({
           <span className="mt-1 block text-xs text-gray-500">Việc chờ duyệt, khách yêu cầu đổi, quá giờ và đã đến luôn được giữ lại.</span>
         </label>
 
-        {error && (
+        {reloadError && (
           <div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
-            {error}
+            {reloadError}
+          </div>
+        )}
+        {actionError && (
+          <div className="mb-4 flex items-start justify-between gap-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900 ring-1 ring-red-200">
+            <span>{actionError}</span>
+            <button type="button" onClick={() => setActionError(null)} className="font-bold underline">Đóng</button>
           </div>
         )}
 
@@ -135,7 +271,7 @@ export default function ReservationsClient({
                 </h2>
                 <div className="space-y-3">
                   {group.reservations.map((reservation) => (
-                    <ReservationCard key={reservation.reservationId} reservation={reservation} now={now} />
+                    <ReservationCard key={reservation.reservationId} reservation={reservation} now={now} onAction={beginAction} />
                   ))}
                 </div>
               </section>
@@ -143,6 +279,137 @@ export default function ReservationsClient({
           </div>
         )}
       </div>
+      {operation && (
+        <ReservationOperationSheet title={operationTitle(operation)} onClose={() => { if (!busy) setOperation(null) }}>
+          {operation.kind === 'manual' && (
+            <ReservationForm
+              mode="manual"
+              busy={busy}
+              actionError={actionError}
+              onCancel={() => setOperation(null)}
+              onSubmit={(values) => void runAction(() => createManualReservation({ ...values, zaloUserId: null }))}
+            />
+          )}
+          {operation.kind === 'reschedule' && floor && (
+            <ReservationForm
+              key={operation.reservation.reservationId}
+              mode="reschedule"
+              initial={operation.reservation}
+              selectedTableIds={operation.selectedTableIds}
+              requiresTable={operation.reservation.tableIds.length > 0}
+              busy={busy}
+              actionError={actionError}
+              onCancel={() => setOperation(null)}
+              onSubmit={(values: ReservationFormSubmit) => void runAction(() => rescheduleReservation(
+                operation.reservation.reservationId, values.arrivalAt, values.partySize,
+                [...operation.selectedTableIds], values.reason,
+              ))}
+            >
+              <ReservationTablePicker
+                floor={floor} sessions={sessions} selectedTableIds={operation.selectedTableIds}
+                currentReservationTableIds={new Set(operation.reservation.tableIds)}
+                otherReservationTableIds={otherReservationTableIds(operation.reservation)}
+                suggestedTableCount={operation.reservation.suggestedTableCount} onToggle={toggleTable}
+              />
+            </ReservationForm>
+          )}
+          {(operation.kind === 'confirm' || operation.kind === 'resolve_change') && floor && (
+            <TableDecision
+              operation={operation} floor={floor} sessions={sessions} busy={busy} actionError={actionError}
+              otherReservationTableIds={otherReservationTableIds(operation.reservation)} onToggle={toggleTable}
+              onCancel={() => setOperation(null)}
+              onSubmit={() => {
+                if (operation.selectedTableIds.size === 0) { setActionError('Chọn ít nhất một bàn'); return }
+                if (operation.kind === 'confirm') {
+                  void runAction(() => confirmReservation(operation.reservation.reservationId, [...operation.selectedTableIds]))
+                } else {
+                  void runAction(() => resolveReservationChange(operation.reservation.reservationId, true, [...operation.selectedTableIds]))
+                }
+              }}
+              onReject={(note) => void runAction(() => resolveReservationChange(
+                operation.reservation.reservationId, false, null, note,
+              ))}
+            />
+          )}
+          {(operation.kind === 'reject' || operation.kind === 'arrive' || operation.kind === 'no_show') && (
+            <SimpleDecision
+              kind={operation.kind} reservation={operation.reservation} busy={busy} actionError={actionError}
+              onCancel={() => setOperation(null)}
+              onSubmit={(note) => {
+                if (operation.kind === 'reject') void runAction(() => rejectReservation(operation.reservation.reservationId, note))
+                if (operation.kind === 'arrive') void runAction(() => arriveReservation(operation.reservation.reservationId))
+                if (operation.kind === 'no_show') void runAction(() => markReservationNoShow(operation.reservation.reservationId, note))
+              }}
+            />
+          )}
+          {(operation.kind === 'confirm' || operation.kind === 'resolve_change' || operation.kind === 'reschedule') && !floor && (
+            <p className="text-sm text-red-800">{floorError ?? sessionsError ?? 'Không tải được sơ đồ bàn'}</p>
+          )}
+        </ReservationOperationSheet>
+      )}
     </div>
   )
+}
+
+function operationTitle(operation: ActiveOperation): string {
+  if (operation.kind === 'manual') return 'Tạo đặt bàn thủ công'
+  if (operation.kind === 'confirm') return 'Xác nhận & chọn bàn'
+  if (operation.kind === 'resolve_change') return 'Xử lý yêu cầu đổi'
+  if (operation.kind === 'reschedule') return 'Đổi lịch hoặc bàn'
+  if (operation.kind === 'reject') return 'Từ chối đặt bàn'
+  if (operation.kind === 'arrive') return 'Xác nhận khách đã đến'
+  return 'Đánh dấu khách không đến'
+}
+
+function ReservationOperationSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-end bg-black/35 p-0 sm:items-center sm:justify-center sm:p-6">
+      <section className="max-h-[90dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-xl sm:rounded-2xl" role="dialog" aria-modal="true" aria-label={title}>
+        <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-lg font-bold text-gray-900">{title}</h2><button type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-lg text-xl text-gray-600">×</button></div>
+        {children}
+      </section>
+    </div>
+  )
+}
+
+function TableDecision({ operation, floor, sessions, busy, actionError, otherReservationTableIds, onToggle, onCancel, onSubmit, onReject }: {
+  operation: TableOperation
+  floor: FloorSnapshot
+  sessions: OpenTableSession[]
+  busy: boolean
+  actionError: string | null
+  otherReservationTableIds: Set<string>
+  onToggle: (tableId: string) => void
+  onCancel: () => void
+  onSubmit: () => void
+  onReject: (note: string | null) => void
+}) {
+  const [rejectNote, setRejectNote] = useState('')
+  const canRejectChange = operation.kind === 'resolve_change' && reservationChangeDecisionActions().includes('reject')
+  return <div className="space-y-4">
+    {operation.kind === 'resolve_change' && <p className="text-sm text-amber-800">Khách yêu cầu: {operation.reservation.changeNote ?? 'đổi thông tin đặt bàn'}</p>}
+    <ReservationTablePicker floor={floor} sessions={sessions} selectedTableIds={operation.selectedTableIds}
+      currentReservationTableIds={new Set(operation.reservation.tableIds)} otherReservationTableIds={otherReservationTableIds}
+      suggestedTableCount={operation.reservation.suggestedTableCount} onToggle={onToggle} />
+    {actionError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{actionError}</p>}
+    {canRejectChange && <label className="block text-sm font-semibold text-gray-700">Ghi chú từ chối (không bắt buộc)<textarea value={rejectNote} onChange={(event) => setRejectNote(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-normal" /></label>}
+    <div className="flex gap-2"><button type="button" disabled={busy} onClick={onCancel} className="min-h-11 flex-1 rounded-lg border border-gray-300 font-bold">Hủy</button>{canRejectChange && <button type="button" disabled={busy} onClick={() => onReject(rejectNote.trim() || null)} className="min-h-11 flex-1 rounded-lg border border-red-300 bg-white font-bold text-red-700">Từ chối thay đổi</button>}<button type="button" disabled={busy} onClick={onSubmit} className="min-h-11 flex-1 rounded-lg bg-orange-500 font-bold text-white disabled:opacity-50">{busy ? 'Đang lưu…' : operation.kind === 'confirm' ? 'Xác nhận' : 'Chấp nhận thay đổi'}</button></div>
+  </div>
+}
+
+function SimpleDecision({ kind, reservation, busy, actionError, onCancel, onSubmit }: {
+  kind: 'reject' | 'arrive' | 'no_show'
+  reservation: ReservationRow
+  busy: boolean
+  actionError: string | null
+  onCancel: () => void
+  onSubmit: (note: string | null) => void
+}) {
+  const [note, setNote] = useState('')
+  const label = kind === 'arrive' ? 'Khách đã đến' : kind === 'no_show' ? 'Không đến' : 'Từ chối đặt bàn'
+  return <div className="space-y-4"><p className="text-sm text-gray-700">{reservation.customerName} · {reservation.partySize} khách</p>
+    {kind !== 'arrive' && <label className="block text-sm font-semibold text-gray-700">Ghi chú (không bắt buộc)<textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-normal" /></label>}
+    {actionError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{actionError}</p>}
+    <div className="flex gap-2"><button type="button" disabled={busy} onClick={onCancel} className="min-h-11 flex-1 rounded-lg border border-gray-300 font-bold">Hủy</button><button type="button" disabled={busy} onClick={() => onSubmit(note.trim() || null)} className="min-h-11 flex-1 rounded-lg bg-gray-900 font-bold text-white disabled:opacity-50">{busy ? 'Đang lưu…' : label}</button></div>
+  </div>
 }

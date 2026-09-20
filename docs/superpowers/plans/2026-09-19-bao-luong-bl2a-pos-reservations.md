@@ -339,7 +339,7 @@ git commit -m "feat: admin mobile reservation queue"
 
 **Produces:** Mobile xử lý đầy đủ pending/change/confirmed/arrived bằng các RPC đã test.
 
-- [ ] **Step 1: Viết test đỏ pure selection/form validation**
+- [x] **Step 1: Viết test đỏ pure selection/form validation**
 
 Tách helper khỏi React để test:
 
@@ -350,7 +350,7 @@ Tách helper khỏi React để test:
 - manual create bắt name/phone/pax/time/reason; reschedule bắt reason và ít nhất một bàn nếu booking
   đã confirmed.
 
-- [ ] **Step 2: Implement table picker và forms**
+- [x] **Step 2: Implement table picker và forms**
 
 Page server truyền `FloorSnapshot` và initial open sessions; client watcher session hoặc reload floor
 trước khi mở picker để đánh dấu bàn đang có khách. Picker mobile nhóm theo area, nút tối thiểu 44px,
@@ -370,7 +370,7 @@ Action matrix:
 thường. Không ghép hai thao tác client thành một ảo tưởng atomic; card pending xuất hiện ngay nếu
 bước chọn bàn bị bỏ dở.
 
-- [ ] **Step 3: Giữ lỗi action qua polling**
+- [x] **Step 3: Giữ lỗi action qua polling**
 
 Dùng error state phân biệt `action`/`reload` như POS. Background refresh chỉ xóa lỗi reload, không
 xóa lỗi conflict/permission. Disable submit khi request đang chạy; mutation thành công reload queue.
@@ -387,7 +387,7 @@ cd ..
 Manual Test 4: hai owner tab tranh cùng bàn; create tay ngoài giờ; customer change accept/reject;
 reschedule conflict giữ bàn cũ; arrival bấm hai lần chỉ một session; no-show thủ công.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add admin-web/app/admin/reservations admin-web/lib/actions/reservations.ts admin-web/lib/actions/reservations.test.ts docs/testing/bao-luong/SPRINT-BL-2A.md

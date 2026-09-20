@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { listReservationQueue } from '@/lib/actions/reservations'
+import { loadFloorLayout } from '@/lib/actions/floor-layout'
+import { listOpenTableSessions } from '@/lib/actions/table-session'
 import { createClient } from '@/lib/supabase/server'
 import ReservationsClient from './reservations-client'
 
@@ -19,9 +21,11 @@ export default async function ReservationsPage() {
   if (operator.role !== 'store_owner') redirect('/mevo')
 
   const supabase = await createClient()
-  const [workflowResult, queueResult] = await Promise.all([
+  const [workflowResult, queueResult, floorResult, sessionsResult] = await Promise.all([
     supabase.rpc('get_public_store_workflow', { p_store_id: operator.storeId }),
     listReservationQueue(queueRange()),
+    loadFloorLayout(),
+    listOpenTableSessions(),
   ])
   const reservationsEnabled = (workflowResult.data as { reservations_enabled?: unknown } | null)
     ?.reservations_enabled === true
@@ -32,6 +36,10 @@ export default async function ReservationsPage() {
       storeId={operator.storeId}
       initialReservations={queueResult.ok ? queueResult.reservations : []}
       initialError={queueResult.ok ? null : queueResult.error}
+      initialFloor={floorResult.ok ? floorResult.snapshot : null}
+      initialFloorError={floorResult.ok ? null : floorResult.error}
+      initialSessions={sessionsResult.ok ? sessionsResult.sessions : []}
+      initialSessionsError={sessionsResult.ok ? null : sessionsResult.error}
     />
   )
 }

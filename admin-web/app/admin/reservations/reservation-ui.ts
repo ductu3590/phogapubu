@@ -76,6 +76,10 @@ export function reservationUiActions(reservation: ReservationRow): ReservationUi
   }
 }
 
+export function reservationChangeDecisionActions(): Array<'accept' | 'reject'> {
+  return ['accept', 'reject']
+}
+
 function statusLabel(reservation: ReservationRow, state: ReservationQueueState): string {
   switch (state.kind) {
     case 'pending': return 'Chờ duyệt'
