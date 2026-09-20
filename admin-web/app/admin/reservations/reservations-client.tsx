@@ -26,7 +26,7 @@ import {
   reservationChangeDecisionActions,
   type ReservationUiAction,
 } from './reservation-ui'
-import ReservationTablePicker from './reservation-table-picker'
+import ReservationTablePicker, { heldTableIdsForReservationWindow } from './reservation-table-picker'
 import { ReservationForm, type ReservationFormSubmit } from './reservation-form'
 
 type TableOperation = {
@@ -185,13 +185,13 @@ export default function ReservationsClient({
     setOperation({ kind: action, reservation })
   }
 
-  const otherReservationTableIds = (reservation: ReservationRow): Set<string> => new Set(
-    reservations
-      .filter((item) => item.reservationId !== reservation.reservationId && (
-        item.status === 'confirmed' || item.status === 'change_requested'
-      ))
-      .flatMap((item) => item.tableIds),
-  )
+  const otherReservationTableIds = (reservation: ReservationRow, arrivalAt = reservation.arrivalAt): Set<string> =>
+    heldTableIdsForReservationWindow(
+      reservations,
+      reservation.reservationId,
+      arrivalAt,
+      reservation.planningHoldMinutes,
+    )
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6">
@@ -316,7 +316,12 @@ export default function ReservationsClient({
           {(operation.kind === 'confirm' || operation.kind === 'resolve_change') && floor && (
             <TableDecision
               operation={operation} floor={floor} sessions={sessions} busy={busy} actionError={actionError}
-              otherReservationTableIds={otherReservationTableIds(operation.reservation)} onToggle={toggleTable}
+              otherReservationTableIds={otherReservationTableIds(
+                operation.reservation,
+                operation.kind === 'resolve_change'
+                  ? operation.reservation.requestedArrivalAt ?? operation.reservation.arrivalAt
+                  : operation.reservation.arrivalAt,
+              )} onToggle={toggleTable}
               onCancel={() => setOperation(null)}
               onSubmit={() => {
                 if (operation.selectedTableIds.size === 0) { setActionError('Chọn ít nhất một bàn'); return }

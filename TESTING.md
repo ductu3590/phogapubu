@@ -12,7 +12,7 @@
 - ✅ [Bảo Lương — duyệt implementation plan BL-1](docs/testing/bao-luong/PLAN-BL-1-2026-09-18.md) — PASS 2026-09-19
 - ✅ [Bảo Lương — Sprint BL-1](docs/testing/bao-luong/SPRINT-BL-1.md) — PASS 2026-09-19
 - ✅ [Bảo Lương — duyệt implementation plan BL-2A](docs/testing/bao-luong/PLAN-BL-2A-2026-09-19.md) — PASS 2026-09-19
-- ⏳ [Bảo Lương — Sprint BL-2A](docs/testing/bao-luong/SPRINT-BL-2A.md) — Task 4 PASS; Task 5 chưa bắt đầu
+- ⏳ [Bảo Lương — Sprint BL-2A](docs/testing/bao-luong/SPRINT-BL-2A.md) — Task 4 regression 4C chờ PASS; Task 5 chưa bắt đầu
 
 > **Quy tắc bắt buộc cho Claude Code:**
 > Sau khi hoàn thành BẤT KỲ Sprint hoặc task nào, PHẢI dừng lại,

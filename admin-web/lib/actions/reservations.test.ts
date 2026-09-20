@@ -59,6 +59,7 @@ const RPC_RESERVATION = {
   table_ids: ['table-1', 'table-2'],
   table_numbers: ['Bàn 1', 'Bàn 2'],
   suggested_table_count: 2,
+  planning_hold_minutes: 180,
   reminder_snoozed_until: '2026-09-20T12:15:00.000Z',
   reminder_snoozed_by: 'owner-1',
 }
@@ -93,6 +94,7 @@ describe('reservation actions', () => {
         tableIds: ['table-1', 'table-2'],
         tableNumbers: ['Bàn 1', 'Bàn 2'],
         suggestedTableCount: 2,
+        planningHoldMinutes: 180,
         sessionId: null,
         already: false,
         reminderSnoozedUntil: '2026-09-20T12:15:00.000Z',
@@ -173,6 +175,7 @@ describe('reservation actions', () => {
       ok: true,
       reservations: [{
         reservationId: 'reservation-1',
+        planningHoldMinutes: 180,
         reminderSnoozedUntil: '2026-09-20T12:15:00.000Z',
         reminderSnoozedBy: 'owner-1',
       }],

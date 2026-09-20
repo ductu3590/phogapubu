@@ -15,6 +15,39 @@ export type ReservationTableGroup = {
   tables: ReservationTableChoice[]
 }
 
+export type ReservationTableHoldCandidate = {
+  reservationId: string
+  status: string
+  arrivalAt: string
+  planningHoldMinutes: number
+  tableIds: string[]
+}
+
+/** Chỉ khóa bàn khi khoảng giữ theo snapshot của hai booking thực sự chồng nhau. */
+export function heldTableIdsForReservationWindow(
+  reservations: ReservationTableHoldCandidate[],
+  reservationId: string,
+  arrivalAt: string,
+  planningHoldMinutes: number,
+): Set<string> {
+  const targetStartsAt = new Date(arrivalAt).getTime()
+  const targetEndsAt = targetStartsAt + planningHoldMinutes * 60_000
+  if (!Number.isFinite(targetStartsAt) || !Number.isFinite(targetEndsAt) || planningHoldMinutes <= 0) return new Set()
+
+  return new Set(reservations
+    .filter((reservation) => {
+      if (reservation.reservationId === reservationId || reservation.status !== 'confirmed') return false
+      const startsAt = new Date(reservation.arrivalAt).getTime()
+      const endsAt = startsAt + reservation.planningHoldMinutes * 60_000
+      return Number.isFinite(startsAt)
+        && Number.isFinite(endsAt)
+        && reservation.planningHoldMinutes > 0
+        && startsAt < targetEndsAt
+        && endsAt > targetStartsAt
+    })
+    .flatMap((reservation) => reservation.tableIds))
+}
+
 export function buildReservationTableGroups({
   floor,
   sessions,

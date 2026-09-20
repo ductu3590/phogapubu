@@ -26,6 +26,7 @@ function reservation(overrides: Partial<ReservationRow> = {}): ReservationRow {
     tableIds: [],
     tableNumbers: [],
     suggestedTableCount: 1,
+    planningHoldMinutes: 180,
     sessionId: null,
     already: false,
     reminderSnoozedUntil: null,

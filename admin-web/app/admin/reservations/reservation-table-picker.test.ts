@@ -3,6 +3,7 @@ import type { FloorSnapshot } from '@/lib/area-layout'
 import type { OpenTableSession } from '@/lib/actions/table-session'
 import {
   buildReservationTableGroups,
+  heldTableIdsForReservationWindow,
   reservationSelectionHint,
 } from './reservation-table-picker'
 
@@ -63,5 +64,28 @@ describe('reservation table picker model', () => {
   it('chỉ coi số bàn gợi ý là nhắc việc, không biến nó thành điều kiện submit', () => {
     expect(reservationSelectionHint(new Set(['t1']), 2)).toBe('Đã chọn 1 bàn · gợi ý 2 bàn')
     expect(reservationSelectionHint(new Set(['t1', 't2', 't3']), 2)).toBe('Đã chọn 3 bàn · gợi ý 2 bàn')
+  })
+
+  it('không khóa bàn của booking ngày khác khi hai khoảng giữ không chồng nhau', () => {
+    const confirmed = [{
+      reservationId: 'booking-20-09',
+      status: 'confirmed' as const,
+      arrivalAt: '2026-09-20T11:00:00.000Z',
+      planningHoldMinutes: 180,
+      tableIds: ['t1'],
+    }]
+
+    expect(heldTableIdsForReservationWindow(
+      confirmed,
+      'booking-21-09',
+      '2026-09-21T11:00:00.000Z',
+      180,
+    )).toEqual(new Set())
+    expect(heldTableIdsForReservationWindow(
+      confirmed,
+      'booking-cung-khung-gio',
+      '2026-09-20T12:30:00.000Z',
+      180,
+    )).toEqual(new Set(['t1']))
   })
 })

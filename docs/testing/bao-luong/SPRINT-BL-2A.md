@@ -1,6 +1,6 @@
 # Bảo Lương — Sprint BL-2A: POS và Admin Mobile đặt bàn
 
-**Trạng thái:** ✅ Task 1 PASS · ✅ Task 2 PASS · ✅ Task 3 PASS · ✅ Task 4 PASS.
+**Trạng thái:** ✅ Task 1 PASS · ✅ Task 2 PASS · ✅ Task 3 PASS · ⏳ Task 4 regression 4C chờ nghiệm thu.
 
 BL-2A chỉ làm vận hành đặt bàn trên POS/Admin Mobile. Không có Zalo OA, ZNS, Mini App hoặc món
 đặt trước trong Sprint này.
@@ -246,3 +246,20 @@ thứ hai để thử race. Các tạo đặt bàn tay dưới đây được ph
 → Báo Codex: `Task 4 PASS` hoặc gửi bước FAIL kèm ảnh/log. Sau PASS mới làm Task 5.
 
 ✅ **Task 4 PASS** — đã nghiệm thu lifecycle owner trên Admin Mobile/POS.
+
+### Test 4C — Regression khóa bàn đúng khung giờ (bổ sung 2026-09-20)
+
+**Nguyên nhân đã sửa:** UI trước đây khóa mọi bàn của booking `confirmed` trong toàn bộ queue 7 ngày,
+trong khi DB chỉ chặn hai khoảng giữ thực sự chồng nhau. Migration
+[`058_reservation_queue_hold_window.sql`](../../../supabase/migrations/058_reservation_queue_hold_window.sql)
+đã được áp lên Supabase; queue nay trả `planning_hold_minutes` snapshot để UI dùng cùng luật 3 giờ
+(hoặc cấu hình snapshot của booking) với server.
+
+1. Tạo/xác nhận booking A vào **20/09 lúc 11:00**, giữ Bàn 1. Mở tạo/xác nhận booking B vào
+   **21/09 lúc 11:00**: Bàn 1 phải chọn được; không hiện `Đã giữ cho booking khác`.
+2. Tạo/xác nhận booking C vào **20/09 lúc 12:30**: Bàn 1 phải bị khóa với nhãn
+   `Đã giữ cho booking khác`, vì đang chồng khoảng giữ 11:00–14:00 của booking A.
+3. Lưu booking B. Nếu có race do tab/máy khác giữ cùng thời điểm, server vẫn là lớp quyết định cuối
+   và báo lỗi conflict; không được xuất hiện lỗi giả giữa hai ngày không chồng nhau.
+
+→ Báo Codex: `Task 4C PASS` hoặc gửi ảnh/log bước FAIL. Sau PASS mới làm Task 5.

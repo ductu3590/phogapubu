@@ -203,6 +203,7 @@ before(async () => {
     '055_reservation_arrival.sql',
     '056_reservation_session_completion.sql',
     '057_reservation_operations_queue.sql',
+    '058_reservation_queue_hold_window.sql',
   ]) {
     try {
       await db.exec(await readFile(new URL(`../migrations/${migration}`, import.meta.url), 'utf8'))
@@ -241,6 +242,16 @@ test('queue giữ booking unresolved cũ, nhưng bỏ terminal ngoài cửa sổ
   assert.ok(queue.some((row) => row.reservation_id === oldPending.reservation_id))
   assert.ok(queue.some((row) => row.reservation_id === oldConfirmed.reservation_id))
   assert.ok(!queue.some((row) => row.reservation_id === terminal.reservation_id))
+})
+
+test('queue trả snapshot thời lượng giữ bàn để client chỉ khóa đúng khung giờ chồng nhau', async () => {
+  const booking = await createBooking(id(38), { arrivalAt: await localArrival(1, '11:00') })
+  await login(owner)
+  await confirm(booking.reservation_id, [table1])
+
+  const queue = await listQueue(store, new Date(Date.now() - 86_400_000).toISOString(), new Date(Date.now() + 7 * 86_400_000).toISOString())
+  const item = queue.find((row) => row.reservation_id === booking.reservation_id)
+  assert.equal(item.planning_hold_minutes, 180)
 })
 
 test('reschedule conflict không làm mất allocation cũ, thành công thì thay allocation nguyên tử', async () => {

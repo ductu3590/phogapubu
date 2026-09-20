@@ -31,6 +31,7 @@ export type ReservationRow = {
   tableIds: string[]
   tableNumbers: string[]
   suggestedTableCount: number
+  planningHoldMinutes: number
   sessionId: string | null
   already: boolean
   reminderSnoozedUntil: string | null
@@ -86,6 +87,7 @@ type ReservationRpcRow = {
   table_ids?: string[]
   table_numbers?: string[]
   suggested_table_count?: number
+  planning_hold_minutes?: number
   session_id?: string | null
   already?: boolean
   reminder_snoozed_until?: string | null
@@ -110,6 +112,7 @@ function toReservationRow(row: ReservationRpcRow): ReservationRow {
     tableIds: row.table_ids ?? [],
     tableNumbers: row.table_numbers ?? [],
     suggestedTableCount: row.suggested_table_count ?? 0,
+    planningHoldMinutes: row.planning_hold_minutes ?? 0,
     sessionId: row.session_id ?? null,
     already: row.already ?? false,
     reminderSnoozedUntil: row.reminder_snoozed_until ?? null,
