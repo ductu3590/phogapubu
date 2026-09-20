@@ -375,7 +375,7 @@ bước chọn bàn bị bỏ dở.
 Dùng error state phân biệt `action`/`reload` như POS. Background refresh chỉ xóa lỗi reload, không
 xóa lỗi conflict/permission. Disable submit khi request đang chạy; mutation thành công reload queue.
 
-- [ ] **Step 4: Chạy test/build và manual lifecycle**
+- [x] **Step 4: Chạy test/build và manual lifecycle**
 
 ```powershell
 cd admin-web

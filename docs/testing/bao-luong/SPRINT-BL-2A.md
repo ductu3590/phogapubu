@@ -1,6 +1,6 @@
 # Bảo Lương — Sprint BL-2A: POS và Admin Mobile đặt bàn
 
-**Trạng thái:** ✅ Task 1 PASS · ✅ Task 2 PASS · ✅ Task 3 PASS · ⏳ Task 4 hoàn tất code, chờ anh Tú nghiệm thu.
+**Trạng thái:** ✅ Task 1 PASS · ✅ Task 2 PASS · ✅ Task 3 PASS · ✅ Task 4 PASS.
 
 BL-2A chỉ làm vận hành đặt bàn trên POS/Admin Mobile. Không có Zalo OA, ZNS, Mini App hoặc món
 đặt trước trong Sprint này.
@@ -244,3 +244,5 @@ thứ hai để thử race. Các tạo đặt bàn tay dưới đây được ph
    mục/route Đặt bàn.
 
 → Báo Codex: `Task 4 PASS` hoặc gửi bước FAIL kèm ảnh/log. Sau PASS mới làm Task 5.
+
+✅ **Task 4 PASS** — đã nghiệm thu lifecycle owner trên Admin Mobile/POS.
