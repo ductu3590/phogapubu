@@ -6,6 +6,15 @@ import { loadFloorLayout } from '@/lib/actions/floor-layout'
 import type { PosMenuCategory } from './manual-order-sheet'
 import CashierClient from './cashier-client'
 import { listOpenServiceRequests } from '@/lib/actions/service-requests'
+import { listReservationQueue } from '@/lib/actions/reservations'
+
+function queueRange() {
+  const now = Date.now()
+  return {
+    recentSince: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+    futureUntil: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  }
+}
 
 // Màn POS thu ngân — chỉ chủ quán. AdminLayout đã chặn, kiểm lại ở đây cho fail-closed
 // theo tầng (page có thể bị render ngoài layout khi Next đổi cách nhóm route).
@@ -19,7 +28,17 @@ export default async function CashierPage() {
     p_store_id: operator.storeId,
   })
 
-  const floor = await loadFloorLayout()
+  const workflowSettings = workflow as {
+    payment_timing?: 'prepay' | 'postpay'
+    reservations_enabled?: boolean
+  } | null
+  const reservationsEnabled = workflowSettings?.reservations_enabled === true
+  const floorPromise = loadFloorLayout()
+  const sessionsPromise = listOpenTableSessions()
+  const requestsPromise = listOpenServiceRequests()
+  const reservationsPromise = reservationsEnabled
+    ? listReservationQueue(queueRange())
+    : Promise.resolve(null)
 
   const { data: categoryRows } = await supabase
     .from('menu_categories')
@@ -62,16 +81,20 @@ export default async function CashierPage() {
       })),
   }))
 
-  const res = await listOpenTableSessions()
-  const requests = await listOpenServiceRequests()
+  const [floor, res, requests, reservationQueue] = await Promise.all([
+    floorPromise, sessionsPromise, requestsPromise, reservationsPromise,
+  ])
 
   return (
     <CashierClient
       storeId={operator.storeId}
       initialRequests={requests.ok ? requests.requests : []}
       initialRequestError={requests.ok ? null : requests.error}
+      reservationsEnabled={reservationsEnabled}
+      initialReservations={reservationQueue?.ok ? reservationQueue.reservations : []}
+      initialReservationError={reservationQueue && !reservationQueue.ok ? reservationQueue.error : null}
       paymentTiming={
-        ((workflow as { payment_timing?: 'prepay' | 'postpay' } | null)?.payment_timing) ??
+        workflowSettings?.payment_timing ??
         'prepay'
       }
       initialFloor={floor.ok ? floor.snapshot : null}

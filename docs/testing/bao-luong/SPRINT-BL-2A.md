@@ -265,3 +265,52 @@ trong khi DB chỉ chặn hai khoảng giữ thực sự chồng nhau. Migration
 → Báo Codex: `Task 4C PASS` hoặc gửi ảnh/log bước FAIL. Sau PASS mới làm Task 5.
 
 ✅ **Task 4C PASS** — đã nghiệm thu regression khóa bàn đúng khung giờ.
+
+---
+
+## Task 5 — Queue đặt bàn trên POS
+
+POS chỉ hiện queue này khi quán bật capability `reservations_enabled`. Luồng chọn bàn cho booking
+được tách khỏi chọn/gộp bill: bill đang mở được giữ nguyên trong nền, nhưng không thể thao tác cho
+đến khi xác nhận hoặc hủy chọn bàn.
+
+### Test 5A — Tự động
+
+Tại `admin-web`, chạy:
+
+```powershell
+npm test -- --run app/admin/cashier/reservation-pos-state.test.ts app/admin/cashier/reservation-queue-panel.test.tsx lib/table-layout.test.ts lib/table-status.test.ts lib/cashier-error-state.test.ts lib/actions/reservations.test.ts
+npm test
+npx tsc --noEmit
+npm run build
+```
+
+✅ PASS khi tất cả test xanh, TypeScript không lỗi và build có route `ƒ /admin/cashier`.
+
+### Test 5B — Queue và chọn bàn trên POS
+
+Đăng nhập **owner Bảo Lương** trên desktop, mở `/admin/cashier`. Mở thêm một tab owner thứ hai để
+thử race. Chuẩn bị ít nhất một bill/mâm đang mở và hai booking `pending` ở các giờ còn hợp lệ.
+
+1. **Capability:** tại Bảo Lương, trên đầu POS có dải `📅 Đặt bàn cần xử lý`; chỉ có pending,
+   booking confirmed sắp đến trong 3 giờ và booking quá giờ. Bấm `Mở mọi đặt bàn` đi tới
+   `/admin/reservations`. Tại Pubu (tắt capability), cả dải và dữ liệu booking không xuất hiện.
+2. **Không mất bill:** mở một bill/mâm, tick thêm một bàn trống để chuẩn bị ghép mâm. Bấm
+   `Xác nhận & chọn bàn` cho booking pending: panel bill đổi sang panel xanh `Xác nhận đặt bàn`,
+   sơ đồ có thể chọn bàn nhưng không kéo bàn, không chọn/gộp bill và không mở `Đơn mới`/`Gọi nhân
+   viên`. Bấm `Hủy`: bill/mâm và các lựa chọn ghép mâm cũ trở lại nguyên trạng.
+3. **Chọn bàn đúng luật:** trong panel xanh, bàn đang có phiên mờ đi, hover thấy `Bàn đang có khách`;
+   bàn được booking khác giữ trong khoảng thời gian chồng nhau mờ đi, hover thấy `Đã giữ cho booking
+   khác`. Bàn đã chọn của booking có viền xanh. Đổi tab khu vực nếu cần rồi chọn 1 hoặc nhiều bàn;
+   nút `Xác nhận bàn` chỉ bật sau khi có ít nhất một bàn.
+4. **Xác nhận/race:** xác nhận booking → card biến thành `Đã xác nhận`, hiện đúng các bàn; POS trở
+   về bill ban đầu. Ở tab owner thứ hai thử xác nhận booking khác cùng bàn: chỉ một lần thành công;
+   lần còn lại giữ panel xanh và hiện lỗi server, không làm mất trạng thái bill cũ.
+5. **Khách đến:** booking confirmed bấm `Khách đã đến` → POS tải lại phiên bàn rồi mở đúng bill/mâm
+   mới tạo. Bấm đồng thời ở hai tab: chỉ một phiên/mâm được tạo, cả hai tab sau đồng bộ đều mở đúng
+   bill đó. Với booking nhiều bàn, tên bill/mâm phải chứa đủ các bàn đã phân.
+6. **Hồi quy POS:** sau khi hủy panel hoặc nhận khách, thực hiện lại các thao tác cũ: khách QR đặt
+   món → POS thấy đơn chờ/xác nhận & in; `Gọi nhân viên` hiện/xử lý queue; tạo mâm, thêm bàn, gộp
+   bill, thu tiền và bỏ bàn. Không thao tác nào được phép bị kẹt sau khi rời chế độ booking.
+
+→ Báo Codex: `Task 5 PASS` hoặc gửi bước FAIL kèm ảnh/log. Sau PASS mới làm Task 6.

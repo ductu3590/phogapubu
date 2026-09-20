@@ -18,10 +18,14 @@ export default function FloorMap({
   stateByTable,
   arrange,
   locked = false,
+  mode = 'normal',
+  reservationTableIds = new Set<string>(),
+  reservationBlockedTableIds = new Set<string>(),
   selectedSessionId,
   pickedSessionIds,
   pickedTableIds,
   onPickTable,
+  onReservationPick,
   onSelectSession,
   onMove,
 }: {
@@ -29,10 +33,15 @@ export default function FloorMap({
   stateByTable: Map<string, TableState>
   arrange: boolean
   locked?: boolean
+  /** Chế độ chọn bàn cho booking: tách hẳn khỏi chọn/gộp bill đang mở. */
+  mode?: 'normal' | 'reservation'
+  reservationTableIds?: Set<string>
+  reservationBlockedTableIds?: Set<string>
   selectedSessionId: string | null
   pickedSessionIds: Set<string>
   pickedTableIds: Set<string>
   onPickTable: (tableId: string) => void
+  onReservationPick?: (tableId: string) => void
   /** additive = ctrl/cmd+click: tick thêm mâm để gộp bill thay vì mở bill một mâm */
   onSelectSession: (sessionId: string, additive: boolean) => void
   onMove: (tableId: string, x: number, y: number) => void
@@ -54,7 +63,7 @@ export default function FloorMap({
       className="grid min-w-[960px] gap-3"
       style={{ gridTemplateColumns: `repeat(${LAYOUT_COLS}, minmax(0, 1fr))` }}
       onPointerDown={e => {
-        if (!arrange || locked || !e.isPrimary || e.button !== 0) return
+        if (!arrange || mode === 'reservation' || locked || !e.isPrimary || e.button !== 0) return
         const tile = (e.target as HTMLElement).closest<HTMLElement>('[data-table-id]')
         if (!tile) return
         drag.current = { id: tile.dataset.tableId!, pointerId: e.pointerId, x: e.clientX, y: e.clientY }
@@ -73,7 +82,7 @@ export default function FloorMap({
         drag.current = null
         setHoverCell(null)
         if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
-        if (!arrange || locked || Math.hypot(e.clientX - source.x, e.clientY - source.y) < 5) return
+        if (!arrange || mode === 'reservation' || locked || Math.hypot(e.clientX - source.x, e.clientY - source.y) < 5) return
         const cell = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-floor-cell]')
         if (!cell || !e.currentTarget.contains(cell)) return
         const [x, y] = cell.dataset.floorCell!.split(',').map(Number)
@@ -82,7 +91,7 @@ export default function FloorMap({
       onPointerCancel={() => { drag.current = null; setHoverCell(null) }}
       onLostPointerCapture={() => { drag.current = null; setHoverCell(null) }}
       onKeyDown={e => {
-        if (!arrange || locked) return
+        if (!arrange || mode === 'reservation' || locked) return
         const delta = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, number[]>)[e.key]
         const tile = (e.target as HTMLElement).closest<HTMLElement>('[data-table-id]')
         const table = placed.find(t => t.id === tile?.dataset.tableId)
@@ -110,6 +119,17 @@ export default function FloorMap({
               table={table}
               state={stateByTable.get(table.id)}
               arrange={arrange}
+              reservationMode={mode === 'reservation'}
+              reservationSelected={reservationTableIds.has(table.id)}
+              disabledReason={
+                mode === 'reservation'
+                  ? stateByTable.has(table.id)
+                    ? 'Bàn đang có khách'
+                    : reservationBlockedTableIds.has(table.id)
+                      ? 'Đã giữ cho booking khác'
+                      : null
+                  : null
+              }
               selected={
                 selectedSessionId !== null &&
                 stateByTable.get(table.id)?.session.session_id === selectedSessionId
@@ -120,6 +140,11 @@ export default function FloorMap({
                   pickedSessionIds.has(stateByTable.get(table.id)!.session.session_id))
               }
               onClick={(e) => {
+                if (mode === 'reservation') {
+                  if (stateByTable.has(table.id) || reservationBlockedTableIds.has(table.id)) return
+                  onReservationPick?.(table.id)
+                  return
+                }
                 if (arrange || locked) return
                 const st = stateByTable.get(table.id)
                 if (st) onSelectSession(st.session.session_id, e.ctrlKey || e.metaKey)
@@ -137,6 +162,9 @@ function Tile({
   table,
   state,
   arrange,
+  reservationMode,
+  reservationSelected,
+  disabledReason,
   selected,
   picked,
   onClick,
@@ -144,6 +172,9 @@ function Tile({
   table: PlacedTable
   state: TableState | undefined
   arrange: boolean
+  reservationMode: boolean
+  reservationSelected: boolean
+  disabledReason: string | null
   selected: boolean
   picked: boolean
   onClick: (e: React.MouseEvent) => void
@@ -161,7 +192,9 @@ function Tile({
       : 'border-orange-200 bg-orange-50 text-gray-800'
 
   // Đơn chưa xác nhận thắng mọi viền khác: đó là việc thu ngân phải làm NGAY.
-  const vien = cho > 0
+  const vien = reservationMode && reservationSelected
+    ? 'ring-2 ring-sky-600'
+    : cho > 0
     ? 'ring-4 ring-amber-500 animate-pulse'
     : selected
       ? 'ring-2 ring-gray-900'
@@ -175,11 +208,23 @@ function Tile({
     <button
       type="button"
       data-table-id={table.id}
+      disabled={disabledReason !== null}
       style={arrange ? { touchAction: 'none', userSelect: 'none' } : undefined}
-      aria-label={arrange ? `${table.table_number}, cột ${table.x + 1}, hàng ${table.y + 1}. Dùng phím mũi tên để di chuyển.` : table.table_number}
+      aria-label={
+        disabledReason
+          ? `${table.table_number}: ${disabledReason}`
+          : arrange
+            ? `${table.table_number}, cột ${table.x + 1}, hàng ${table.y + 1}. Dùng phím mũi tên để di chuyển.`
+            : table.table_number
+      }
+      title={disabledReason ?? undefined}
       onClick={onClick}
       className={`relative flex h-24 w-full flex-col items-center justify-center rounded-xl border p-1 text-center transition-colors ${base} ${vien} ${
-        arrange ? 'cursor-move' : 'cursor-pointer hover:brightness-95'
+        disabledReason
+          ? 'cursor-not-allowed opacity-50'
+          : arrange
+            ? 'cursor-move'
+            : 'cursor-pointer hover:brightness-95'
       }`}
     >
       {/* Chấm trạng thái: đỏ = đang có khách ngồi ăn, xanh = trống (kể cả mâm chưa gọi món) */}

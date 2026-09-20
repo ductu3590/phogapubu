@@ -34,6 +34,22 @@ import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { serviceRequestSession } from '@/lib/service-request-queue'
 import { watchCashierSessions } from '@/lib/cashier-session-watcher'
 import { actionError, applyReloadError, type CashierError } from '@/lib/cashier-error-state'
+import {
+  arriveReservation,
+  confirmReservation,
+  listReservationQueue,
+  type ReservationRow,
+} from '@/lib/actions/reservations'
+import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
+import { heldTableIdsForReservationWindow } from '../reservations/reservation-table-picker'
+import ReservationQueuePanel from './reservation-queue-panel'
+import {
+  beginReservationTablePick,
+  cancelReservationTablePick,
+  selectArrivedReservationSession,
+  toggleReservationTable,
+  type ReservationTablePick,
+} from './reservation-pos-state'
 
 export default function CashierClient({
   storeId,
@@ -45,6 +61,9 @@ export default function CashierClient({
   initialError,
   initialRequests,
   initialRequestError,
+  reservationsEnabled,
+  initialReservations,
+  initialReservationError,
 }: {
   storeId: string
   paymentTiming: 'prepay' | 'postpay'
@@ -55,13 +74,18 @@ export default function CashierClient({
   initialError: string | null
   initialRequests: ServiceRequestRow[]
   initialRequestError: string | null
+  reservationsEnabled: boolean
+  initialReservations: ReservationRow[]
+  initialReservationError: string | null
 }) {
   const floor = useFloorLayout(storeId, initialFloor, initialFloorError)
   const placed = floor.draft.tables
   const arrange = floor.arrange
   const [sessions, setSessions] = useState(initialSessions)
   const [error, setError] = useState<CashierError | null>(
-    initialError ? { source: 'reload', message: initialError } : null,
+    initialError || initialReservationError
+      ? { source: 'reload', message: initialError ?? initialReservationError ?? 'Không tải được POS' }
+      : null,
   )
   const [busy, setBusy] = useState(false)
   const [connected, setConnected] = useState(false)
@@ -69,6 +93,8 @@ export default function CashierClient({
   const [pickedSessionIds, setPickedSessionIds] = useState<Set<string>>(new Set())
   const [pickedTableIds, setPickedTableIds] = useState<Set<string>>(new Set())
   const [manualSessionId, setManualSessionId] = useState<string | null>(null)
+  const [reservations, setReservations] = useState(initialReservations)
+  const [reservationPick, setReservationPick] = useState<ReservationTablePick | null>(null)
   const reportActionError = useCallback((message: string | null) => {
     setError(message ? actionError(message) : null)
   }, [])
@@ -85,6 +111,21 @@ export default function CashierClient({
     }
   }, [])
 
+  const reloadReservations = useCallback(async () => {
+    if (!reservationsEnabled) return
+    const now = Date.now()
+    const result = await listReservationQueue({
+      recentSince: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+      futureUntil: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    })
+    if (result.ok) {
+      setReservations(result.reservations)
+      setError((current) => applyReloadError(current, null))
+    } else {
+      setError((current) => applyReloadError(current, result.error))
+    }
+  }, [reservationsEnabled])
+
   useEffect(() => {
     const watcher = watchCashierSessions({
       client: createClient(),
@@ -96,6 +137,25 @@ export default function CashierClient({
       watcher.dispose()
     }
   }, [storeId, reload])
+
+  useEffect(() => {
+    if (!reservationsEnabled) return
+    const watcher = watchReservationQueue({
+      client: createClient(),
+      storeId,
+      load: async () => {
+        const now = Date.now()
+        return listReservationQueue({
+          recentSince: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+          futureUntil: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+      },
+      onRows: setReservations,
+      onError: (message) => setError((current) => applyReloadError(current, message)),
+      onConnected: () => undefined,
+    })
+    return () => watcher.dispose()
+  }, [reservationsEnabled, storeId])
 
   // ─── Chuông đơn mới ───────────────────────────────────────────────────────
   // Kêu đúng MỘT lần cho mỗi đơn chưa xác nhận. Ảnh chụp đầu tiên chỉ ghi nhận, không kêu:
@@ -135,6 +195,17 @@ export default function CashierClient({
   const selected = sessions.find((s) => s.session_id === selectedSessionId) ?? null
   const pickedSessions = sessions.filter((s) => pickedSessionIds.has(s.session_id))
   const freeTables = placed.filter((t) => !stateByTable.has(t.id))
+  const selectedReservation = reservationPick
+    ? reservations.find((reservation) => reservation.reservationId === reservationPick.reservationId) ?? null
+    : null
+  const reservationBlockedTableIds = useMemo(() => selectedReservation
+    ? heldTableIdsForReservationWindow(
+      reservations,
+      selectedReservation.reservationId,
+      selectedReservation.arrivalAt,
+      selectedReservation.planningHoldMinutes,
+    )
+    : new Set<string>(), [reservations, selectedReservation])
 
   const sauKhiXong = async (msg?: string) => {
     setBusy(false)
@@ -277,9 +348,68 @@ export default function CashierClient({
       return next
     })
 
+  const beginReservationConfirm = (reservation: ReservationRow) => {
+    if (arrange) { reportActionError('Lưu hoặc hủy sắp xếp bàn trước khi xử lý đặt bàn.'); return }
+    const next = beginReservationTablePick({ selectedSessionId, pickedSessionIds, pickedTableIds, reservationPick }, reservation)
+    setReservationPick(next.reservationPick)
+  }
+
+  const toggleReservationPickTable = (tableId: string) => {
+    const next = toggleReservationTable({ selectedSessionId, pickedSessionIds, pickedTableIds, reservationPick }, tableId)
+    setReservationPick(next.reservationPick)
+  }
+
+  const cancelReservationPick = () => {
+    const next = cancelReservationTablePick({ selectedSessionId, pickedSessionIds, pickedTableIds, reservationPick })
+    setReservationPick(next.reservationPick)
+  }
+
+  const confirmReservationFromPos = async () => {
+    if (!selectedReservation || !reservationPick || reservationPick.tableIds.size === 0) {
+      reportActionError('Chọn ít nhất một bàn cho khách.')
+      return
+    }
+    setBusy(true)
+    const result = await confirmReservation(selectedReservation.reservationId, [...reservationPick.tableIds])
+    if (!result.ok) {
+      setBusy(false)
+      reportActionError(result.error)
+      return
+    }
+    setReservationPick(null)
+    await Promise.all([reload(), reloadReservations()])
+    setBusy(false)
+  }
+
+  const arriveReservationFromPos = async (reservation: ReservationRow) => {
+    if (arrange) { reportActionError('Lưu hoặc hủy sắp xếp bàn trước khi nhận khách.'); return }
+    setBusy(true)
+    const result = await arriveReservation(reservation.reservationId)
+    if (!result.ok) {
+      setBusy(false)
+      reportActionError(result.error)
+      return
+    }
+    await Promise.all([reload(), reloadReservations()])
+    if (!result.reservation.sessionId) {
+      setBusy(false)
+      reportActionError('Đã nhận khách nhưng chưa tìm thấy phiên bàn. Tải lại POS rồi thử mở bill.')
+      return
+    }
+    const next = selectArrivedReservationSession(
+      { selectedSessionId, pickedSessionIds, pickedTableIds, reservationPick },
+      result.reservation.sessionId,
+    )
+    setSelectedSessionId(next.selectedSessionId)
+    setPickedSessionIds(next.pickedSessionIds)
+    setPickedTableIds(next.pickedTableIds)
+    setReservationPick(next.reservationPick)
+    setBusy(false)
+  }
+
   // additive (ctrl/cmd+click) = tick thêm mâm để gộp bill; click thường = mở bill một mâm.
   const selectSession = (id: string, additive: boolean) => {
-    if (arrange) return
+    if (arrange || reservationPick) return
     if (additive) {
       setPickedSessionIds((prev) => {
         const next = new Set(prev)
@@ -319,7 +449,7 @@ export default function CashierClient({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {openSessions.length > 1 && !arrange && (
+            {openSessions.length > 1 && !arrange && !reservationPick && (
               <button
                 onClick={() =>
                   setPickedSessionIds((prev) =>
@@ -333,7 +463,7 @@ export default function CashierClient({
             )}
             {arrange && <button disabled={floor.saving} onClick={floor.cancel} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold disabled:opacity-50">Hủy chỉnh sửa</button>}
             <button
-              disabled={floor.saving || !floor.ready}
+              disabled={floor.saving || !floor.ready || reservationPick !== null}
               onClick={() => {
                 if (arrange) { void floor.save(); return }
                 void floor.begin()
@@ -345,7 +475,7 @@ export default function CashierClient({
                 arrange ? 'bg-gray-900 text-white' : 'border border-gray-200 text-gray-600'
               }`}
             >
-              {floor.saving ? 'Đang xử lý…' : arrange ? 'Lưu sơ đồ' : '⇄ Sắp xếp bàn'}
+              {reservationPick ? 'Đang chọn bàn đặt trước' : floor.saving ? 'Đang xử lý…' : arrange ? 'Lưu sơ đồ' : '⇄ Sắp xếp bàn'}
             </button>
           </div>
         </div>
@@ -367,13 +497,21 @@ export default function CashierClient({
         )}
 
         <div className="min-h-0 flex-1 overflow-auto">
+          {reservationsEnabled && (
+            <ReservationQueuePanel
+              reservations={reservations}
+              now={new Date()}
+              onConfirm={beginReservationConfirm}
+              onArrive={(reservation) => void arriveReservationFromPos(reservation)}
+            />
+          )}
           <ServiceRequestQueue
             storeId={storeId}
             initialRequests={initialRequests}
             initialError={initialRequestError}
             sessions={sessions}
             onSelect={(request) => {
-              if (arrange) { reportActionError('Lưu hoặc hủy sắp xếp bàn trước khi mở yêu cầu.'); return }
+              if (arrange || reservationPick) { reportActionError('Hoàn tất chọn bàn đặt trước hoặc sắp xếp bàn trước khi mở yêu cầu.'); return }
               const session = serviceRequestSession(request, sessions)
               const table = placed.find(t => session ? session.tables.some(st => st.id === t.id) : t.id === request.table_id)
               if (table) floor.setAreaId(table.area_id)
@@ -397,6 +535,10 @@ export default function CashierClient({
             onPickTable={togglePickTable}
             onSelectSession={selectSession}
             onMove={floor.move}
+            mode={reservationPick ? 'reservation' : 'normal'}
+            reservationTableIds={reservationPick?.tableIds ?? new Set()}
+            reservationBlockedTableIds={reservationBlockedTableIds}
+            onReservationPick={toggleReservationPickTable}
           />
           </div>
         </div>
@@ -405,7 +547,7 @@ export default function CashierClient({
           sessions={sessions}
           busy={busy}
           onSelectSession={(id) => {
-            if (arrange) return
+            if (arrange || reservationPick) return
             const table = placed.find(t => t.area_id === floor.areaId && stateByTable.get(t.id)?.session.session_id === id)
               ?? placed.find(t => stateByTable.get(t.id)?.session.session_id === id)
             if (table) floor.setAreaId(table.area_id)
@@ -415,6 +557,15 @@ export default function CashierClient({
         />
       </div>
 
+      {reservationPick && selectedReservation ? (
+        <ReservationPickPanel
+          reservation={selectedReservation}
+          tableCount={reservationPick.tableIds.size}
+          busy={busy}
+          onCancel={cancelReservationPick}
+          onConfirm={() => void confirmReservationFromPos()}
+        />
+      ) : (
       <BillPanel
         selected={selected}
         picked={pickedSessions}
@@ -439,6 +590,7 @@ export default function CashierClient({
           setPickedTableIds(new Set())
         }}
       />
+      )}
       {manualSessionId && (() => {
         const session = sessions.find((item) => item.session_id === manualSessionId)
         if (!session) return null
@@ -453,5 +605,32 @@ export default function CashierClient({
         )
       })()}
     </div>
+  )
+}
+
+function ReservationPickPanel({
+  reservation,
+  tableCount,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  reservation: ReservationRow
+  tableCount: number
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <aside className="flex w-[400px] flex-shrink-0 flex-col overflow-y-auto border-l border-sky-200 bg-sky-50 p-4">
+      <h2 className="text-base font-bold text-sky-950">📅 Xác nhận đặt bàn</h2>
+      <p className="mt-1 text-sm font-semibold text-gray-900">{reservation.customerName} · {reservation.partySize} khách</p>
+      <p className="mt-1 text-xs text-gray-600">Chọn bàn trực tiếp trên sơ đồ. Bill đang mở được giữ nguyên và không thể thao tác trong lúc này.</p>
+      <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-sky-900">Đã chọn {tableCount} bàn</p>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button type="button" disabled={busy} onClick={onCancel} className="min-h-11 rounded-lg border border-sky-200 bg-white text-sm font-bold text-sky-900 disabled:opacity-50">Hủy</button>
+        <button type="button" disabled={busy || tableCount === 0} onClick={onConfirm} className="min-h-11 rounded-lg bg-sky-700 text-sm font-bold text-white disabled:opacity-50">Xác nhận bàn</button>
+      </div>
+    </aside>
   )
 }
