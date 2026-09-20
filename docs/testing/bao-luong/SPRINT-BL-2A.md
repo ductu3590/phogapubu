@@ -316,3 +316,83 @@ thử race. Chuẩn bị ít nhất một bill/mâm đang mở và hai booking `
 → Báo Codex: `Task 5 PASS` hoặc gửi bước FAIL kèm ảnh/log. Sau PASS mới làm Task 6.
 
 ✅ **Task 5 PASS** — đã nghiệm thu queue và chọn bàn trên POS.
+
+---
+
+## Task 6 — Nhắc đặt bàn 5 phút và Snooze
+
+POS và Admin Mobile cùng dùng một coordinator theo `store_id` + bucket 5 phút. Booking đến giờ
+được gộp một banner; chuông chỉ chạy sau tương tác đầu tiên mở được audio. Booking `arrived`,
+`no_show`, bị hủy hoặc đang Snooze không còn nằm trong banner; quá 30 phút vẫn đỏ nhưng hệ thống
+không tự đổi trạng thái.
+
+### Remote migration/RPC đã kiểm
+
+Kiểm trên Supabase ngày 20/09: cột `reservations.reminder_snoozed_until` và RPC
+`snooze_reservation_reminders(uuid[], integer)` **đang tồn tại**; `anon` không có EXECUTE,
+`authenticated` có EXECUTE để RPC tự kiểm owner. Tuy nhiên bảng migration không có dòng tên
+`057_reservation_operations_queue`, dù chức năng của migration này đã có trên schema. **Không áp
+lại 057 tự động**; cần đối chiếu/ghi nhận lịch sử migration riêng trước migration DB tiếp theo.
+
+### Test 6A — Tự động
+
+Tại thư mục gốc repo, chạy:
+
+```powershell
+$modulePath=(Resolve-Path 'admin-web/node_modules/@electric-sql/pglite/dist/index.js').Path
+$env:PGLITE_MODULE=([System.Uri]::new($modulePath)).AbsoluteUri
+node --test supabase/tests/057_reservation_operations_queue.test.mjs supabase/tests/054_reservation_operator_flow.test.mjs supabase/tests/052_reservation_foundation.test.mjs supabase/tests/049_store_workflow_settings.test.mjs supabase/tests/050_pos_gate_service_requests.test.mjs
+
+cd admin-web
+npm test
+npx tsc --noEmit
+npm run build
+npx eslint lib/reservation-reminders.ts lib/reservation-reminders.test.ts lib/bell.ts app/admin/reservations/reservation-reminder-banner.tsx app/admin/reservations/reservation-reminder-banner.test.tsx app/admin/reservations/reservation-card.tsx app/admin/reservations/reservation-card.test.tsx app/admin/reservations/reservations-client.tsx app/admin/cashier/reservation-queue-panel.tsx app/admin/cashier/cashier-client.tsx
+```
+
+✅ PASS khi DB **45/45**, Admin Web **319/319**, TypeScript/build và lint các file Task 6 đều xanh.
+
+> `npm run lint` toàn repo hiện vẫn fail do 13 lỗi cũ ngoài Task 6 ở `menu-client`, Kitchen,
+> Privacy và Terms; không có lỗi lint trong file Task 6. Không gộp các lỗi cũ này vào task hiện tại.
+
+### Test 6B — Nhắc gộp, Snooze và đồng bộ
+
+Đăng nhập owner Bảo Lương. Mở đồng thời `/admin/reservations` (có thể viewport 390px) và
+`/admin/cashier`; để thêm một tab thứ hai hoặc một máy khác ở nền.
+
+1. Tạo/xác nhận **hai booking đã quá giờ**. Cả Admin Mobile lẫn POS hiện **một** banner
+   `⏰ 2 đặt bàn đã tới giờ`; không có hai chuông/card nhắc riêng lẻ. Click/chạm một lần bất kỳ để
+   cho phép âm thanh: trong cùng 5 phút chỉ nghe tối đa một chuông trên mỗi tab.
+2. Giữ hai tab mở, để watcher polling/realtime chạy trong ít nhất 10 giây: banner không tự biến
+   mất và không kêu lặp trong bucket 5 phút đó. Qua bucket 5 phút kế tiếp, vẫn chưa xử lý → nhắc
+   lại đúng một lần; không có ý nghĩa giục khách ăn nhanh.
+3. Tại POS bấm `Nhắc lại sau 10 phút`; banner biến mất ở POS và Admin Mobile không cần F5 (tối đa
+   khoảng 2 giây). Kiểm từng booking có `reminder_snoozed_until` mới và event `reminder_snoozed`.
+   Lặp với 15 và 30 phút. Hết Snooze, banner xuất hiện/được phép nhắc lại.
+4. Trên card quá giờ của Admin Mobile có `Nhắc lại 10 phút`; bấm nút này chỉ Snooze booking đó.
+   Trong lúc RPC chạy, nút bị khóa; booking Snooze không còn banner/card Snooze cho đến khi hết hạn.
+5. Bấm `Khách đã đến`, `Không đến` hoặc hủy booking quá giờ từ tab khác: banner biến mất ở mọi
+   tab; hệ thống không tự no-show/hủy bất kỳ booking nào. Booking quá 30 phút chuyển cảnh báo đỏ
+   nhưng vẫn chờ chủ quán quyết định.
+
+### Test 6C — Reconnect, quyền và cross-store
+
+1. Để Admin Mobile/POS ở tab nền, tắt mạng vài giây rồi bật lại; queue/banner phải tải lại khi
+   online/focus, không mất booking đã quá giờ hoặc trạng thái Snooze.
+2. Mở owner Pubu: không có reservation queue/banner và không phát chuông đặt bàn. Mở bằng
+   `store_staff`, owner quán khác hoặc anon gọi thẳng `snooze_reservation_reminders`: bị từ chối;
+   không cập nhật `reminder_snoozed_until`, không sinh event. Owner Bảo Lương vẫn Snooze được.
+3. Nếu mở Bảo Lương và quán khác trên cùng trình duyệt, mỗi quán dùng khóa chuông riêng — một quán
+   đã nhắc không được làm quán còn lại mất nhắc. Storage bị chặn/private mode không làm màn trắng;
+   banner vẫn hiển thị.
+
+### Test 6D — Hồi quy vận hành cuối BL-2A
+
+1. Bảo Lương: tạo tay, xác nhận/chọn bàn, race giữ bàn, đổi lịch, nhận khách/no-show và mở bill
+   từ Task 4–5 vẫn chạy. QR gọi món, POS xác nhận/in, `Gọi nhân viên`, mâm, ghép bill, thu tiền và
+   bỏ bàn không bị kẹt sau Snooze/banner.
+2. Pubu: root Mini App, QR, Mang về/Ship, đơn trả trước và Kitchen giữ nguyên; không thấy đặt bàn
+   hay banner reservation.
+3. Chỉ sau khi 6A–6D đều PASS mới báo **`BL-2A PASS`**. Không chuyển BL-2B hoặc BL-3 trước đó.
+
+→ Báo Codex: `BL-2A PASS` hoặc gửi bước FAIL kèm ảnh/log.

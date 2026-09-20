@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   arriveReservation,
   confirmReservation,
@@ -10,6 +10,7 @@ import {
   rejectReservation,
   rescheduleReservation,
   resolveReservationChange,
+  snoozeReservationReminders,
   type ReservationRow,
 } from '@/lib/actions/reservations'
 import { loadFloorLayout } from '@/lib/actions/floor-layout'
@@ -18,7 +19,10 @@ import type { FloorSnapshot } from '@/lib/area-layout'
 import { reservationQueueState, sortReservationQueue } from '@/lib/reservation-queue'
 import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
 import { createClient } from '@/lib/supabase/client'
+import { playBell, unlockBell } from '@/lib/bell'
+import { createReservationReminderCoordinator, type ReminderStorage } from '@/lib/reservation-reminders'
 import ReservationCard from './reservation-card'
+import ReservationReminderBanner from './reservation-reminder-banner'
 import {
   filterReservationsForDate,
   groupReservationsForDisplay,
@@ -45,6 +49,14 @@ function queueRange() {
   return {
     recentSince: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
     futureUntil: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  }
+}
+
+function browserStorage(): ReminderStorage | undefined {
+  try {
+    return window.localStorage
+  } catch {
+    return undefined
   }
 }
 
@@ -76,6 +88,11 @@ export default function ReservationsClient({
   const [sessionsError, setSessionsError] = useState(initialSessionsError)
   const [operation, setOperation] = useState<ActiveOperation | null>(null)
   const [busy, setBusy] = useState(false)
+  const [reminderBusy, setReminderBusy] = useState(false)
+  const [reminderAudioUnlocked, setReminderAudioUnlocked] = useState(false)
+  const reminders = useMemo(() => createReservationReminderCoordinator({
+    storeId, storage: browserStorage(), now: Date.now, playBell,
+  }), [storeId])
 
   const load = useCallback(
     () => listReservationQueue(queueRange()),
@@ -93,6 +110,10 @@ export default function ReservationsClient({
     })
     return () => watcher.dispose()
   }, [load, storeId])
+
+  useEffect(() => {
+    reminders.sync(reservations, reminderAudioUnlocked)
+  }, [reminders, reservations, reminderAudioUnlocked])
 
   const now = new Date()
   const filtered = filterReservationsForDate(reservations, selectedDate, now)
@@ -193,8 +214,32 @@ export default function ReservationsClient({
       reservation.planningHoldMinutes,
     )
 
+  const dueReminders = reminders.due(reservations)
+
+  const snoozeReminders = async (reservationIds: string[], minutes: 10 | 15 | 30) => {
+    if (reservationIds.length === 0) return
+    setReminderBusy(true)
+    setActionError(null)
+    try {
+      const result = await snoozeReservationReminders(reservationIds, minutes)
+      if (!result.ok) {
+        setActionError(result.error)
+        return
+      }
+      await reloadNow()
+    } catch {
+      setActionError('Lỗi kết nối. Kiểm tra mạng rồi thử lại.')
+    } finally {
+      setReminderBusy(false)
+    }
+  }
+
+  const unlockReminderBell = () => {
+    void unlockBell().then((unlocked) => { if (unlocked) setReminderAudioUnlocked(true) })
+  }
+
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6" onClickCapture={unlockReminderBell}>
       <div className="mx-auto max-w-3xl">
         <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -223,6 +268,12 @@ export default function ReservationsClient({
             </button>
           </div>
         </header>
+
+        <ReservationReminderBanner
+          reservationIds={dueReminders.reservationIds}
+          busy={reminderBusy}
+          onSnooze={(minutes) => void snoozeReminders(dueReminders.reservationIds, minutes)}
+        />
 
         <div className="mb-4 grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-200">
@@ -271,7 +322,14 @@ export default function ReservationsClient({
                 </h2>
                 <div className="space-y-3">
                   {group.reservations.map((reservation) => (
-                    <ReservationCard key={reservation.reservationId} reservation={reservation} now={now} onAction={beginAction} />
+                    <ReservationCard
+                      key={reservation.reservationId}
+                      reservation={reservation}
+                      now={now}
+                      onAction={beginAction}
+                      snoozeBusy={reminderBusy}
+                      onSnooze={(row) => void snoozeReminders([row.reservationId], 10)}
+                    />
                   ))}
                 </div>
               </section>

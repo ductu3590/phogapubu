@@ -1,4 +1,5 @@
 import type { ReservationRow } from '@/lib/actions/reservations'
+import { reservationQueueState } from '@/lib/reservation-queue'
 import { reservationCardView, reservationUiActions, type ReservationUiAction } from './reservation-ui'
 
 const toneClasses = {
@@ -17,13 +18,18 @@ export default function ReservationCard({
   reservation,
   now,
   onAction,
+  onSnooze,
+  snoozeBusy = false,
 }: {
   reservation: ReservationRow
   now: Date
   onAction?: (action: ReservationUiAction, reservation: ReservationRow) => void
+  onSnooze?: (reservation: ReservationRow) => void
+  snoozeBusy?: boolean
 }) {
   const view = reservationCardView(reservation, now)
   const actions = onAction ? reservationUiActions(reservation).filter((action) => action !== 'call') : []
+  const reminderDue = reservationQueueState(reservation, now).reminderDue
 
   return (
     <article className={`rounded-xl border p-4 shadow-sm ${toneClasses[view.tone]}`}>
@@ -68,6 +74,16 @@ export default function ReservationCard({
             </button>
           ))}
         </div>
+      )}
+      {onSnooze && reminderDue && (
+        <button
+          type="button"
+          disabled={snoozeBusy}
+          onClick={() => onSnooze(reservation)}
+          className="mt-2 min-h-11 w-full rounded-lg border border-amber-300 bg-white px-3 text-sm font-bold text-amber-900 hover:bg-amber-50 disabled:opacity-50"
+        >
+          Nhắc lại 10 phút
+        </button>
       )}
     </article>
   )

@@ -3,6 +3,7 @@
 import type { ReservationRow } from '@/lib/actions/reservations'
 import { reservationQueueState, sortReservationQueue } from '@/lib/reservation-queue'
 import { formatReservationArrival } from '@/app/admin/reservations/reservation-ui'
+import ReservationReminderBanner from '../reservations/reservation-reminder-banner'
 
 const ATTENTION_WINDOW_MS = 3 * 60 * 60 * 1000
 
@@ -21,17 +22,29 @@ export default function ReservationQueuePanel({
   now,
   onConfirm,
   onArrive,
+  reminderIds = [],
+  reminderBusy = false,
+  onSnooze,
 }: {
   reservations: ReservationRow[]
   now: Date
   onConfirm: (reservation: ReservationRow) => void
   onArrive: (reservation: ReservationRow) => void
+  reminderIds?: string[]
+  reminderBusy?: boolean
+  onSnooze?: (minutes: 10 | 15 | 30) => void
 }) {
   const attention = posReservationAttention(reservations, now)
-  if (attention.length === 0) return null
+  if (attention.length === 0 && reminderIds.length === 0) return null
 
   return (
     <section className="border-b border-sky-200 bg-sky-50 px-5 py-3" aria-label="Đặt bàn cần xử lý">
+      <ReservationReminderBanner
+        reservationIds={reminderIds}
+        busy={reminderBusy}
+        onSnooze={(minutes) => onSnooze?.(minutes)}
+      />
+      {attention.length > 0 && <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-bold text-sky-950">📅 Đặt bàn cần xử lý ({attention.length})</h2>
         <a href="/admin/reservations" className="text-xs font-semibold text-sky-800 underline">Mở mọi đặt bàn</a>
@@ -63,6 +76,7 @@ export default function ReservationQueuePanel({
           )
         })}
       </div>
+      </>}
     </section>
   )
 }

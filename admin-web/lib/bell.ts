@@ -7,6 +7,10 @@
 
 let ctx: AudioContext | null = null
 
+function isRunning(context: AudioContext): boolean {
+  return context.state === 'running'
+}
+
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null
   const AC =
@@ -18,9 +22,18 @@ function getCtx(): AudioContext | null {
 }
 
 /** Gọi trong một sự kiện bấm/chạm để mở khoá tiếng. Gọi nhiều lần vô hại. */
-export function unlockBell(): void {
+export async function unlockBell(): Promise<boolean> {
   const c = getCtx()
-  if (c && c.state === 'suspended') void c.resume()
+  if (!c) return false
+  if (isRunning(c)) return true
+  if (c && c.state === 'suspended') {
+    try {
+      await c.resume()
+    } catch {
+      // Banner vẫn hiện nếu trình duyệt từ chối audio; lần tương tác sau sẽ thử lại.
+    }
+  }
+  return isRunning(c)
 }
 
 /** Hai tiếng "ting" ngắn — đủ nghe giữa quán ồn, không chói như còi báo động. */

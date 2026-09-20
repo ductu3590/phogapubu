@@ -54,4 +54,26 @@ describe('ReservationCard', () => {
     expect(html).toContain('Từ chối')
     expect(html).not.toContain('Khách đã đến')
   })
+
+  it('cho Snooze riêng booking quá giờ, nhưng ẩn nút khi Snooze còn hiệu lực', () => {
+    const now = new Date('2026-09-20T12:00:00.000Z')
+    const actionable = renderToStaticMarkup(
+      <ReservationCard reservation={overdueReservation} now={now} onSnooze={() => undefined} />,
+    )
+    const snoozed = renderToStaticMarkup(
+      <ReservationCard
+        reservation={{ ...overdueReservation, reminderSnoozedUntil: '2026-09-20T12:15:00.000Z' }}
+        now={now}
+        onSnooze={() => undefined}
+      />,
+    )
+
+    expect(actionable).toContain('Nhắc lại 10 phút')
+    expect(snoozed).not.toContain('Nhắc lại 10 phút')
+
+    const busy = renderToStaticMarkup(
+      <ReservationCard reservation={overdueReservation} now={now} snoozeBusy onSnooze={() => undefined} />,
+    )
+    expect(busy).toContain('disabled=""')
+  })
 })

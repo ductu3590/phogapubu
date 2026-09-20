@@ -38,9 +38,11 @@ import {
   arriveReservation,
   confirmReservation,
   listReservationQueue,
+  snoozeReservationReminders,
   type ReservationRow,
 } from '@/lib/actions/reservations'
 import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
+import { createReservationReminderCoordinator, type ReminderStorage } from '@/lib/reservation-reminders'
 import { heldTableIdsForReservationWindow } from '../reservations/reservation-table-picker'
 import ReservationQueuePanel from './reservation-queue-panel'
 import {
@@ -50,6 +52,14 @@ import {
   toggleReservationTable,
   type ReservationTablePick,
 } from './reservation-pos-state'
+
+function browserStorage(): ReminderStorage | undefined {
+  try {
+    return window.localStorage
+  } catch {
+    return undefined
+  }
+}
 
 export default function CashierClient({
   storeId,
@@ -95,6 +105,11 @@ export default function CashierClient({
   const [manualSessionId, setManualSessionId] = useState<string | null>(null)
   const [reservations, setReservations] = useState(initialReservations)
   const [reservationPick, setReservationPick] = useState<ReservationTablePick | null>(null)
+  const [reminderBusy, setReminderBusy] = useState(false)
+  const [reminderAudioUnlocked, setReminderAudioUnlocked] = useState(false)
+  const reminders = useMemo(() => createReservationReminderCoordinator({
+    storeId, storage: browserStorage(), now: Date.now, playBell,
+  }), [storeId])
   const reportActionError = useCallback((message: string | null) => {
     setError(message ? actionError(message) : null)
   }, [])
@@ -156,6 +171,10 @@ export default function CashierClient({
     })
     return () => watcher.dispose()
   }, [reservationsEnabled, storeId])
+
+  useEffect(() => {
+    if (reservationsEnabled) reminders.sync(reservations, reminderAudioUnlocked)
+  }, [reminders, reservations, reminderAudioUnlocked, reservationsEnabled])
 
   // ─── Chuông đơn mới ───────────────────────────────────────────────────────
   // Kêu đúng MỘT lần cho mỗi đơn chưa xác nhận. Ảnh chụp đầu tiên chỉ ghi nhận, không kêu:
@@ -407,6 +426,30 @@ export default function CashierClient({
     setBusy(false)
   }
 
+  const dueReminders = reminders.due(reservations)
+
+  const snoozeReminders = async (minutes: 10 | 15 | 30) => {
+    if (dueReminders.reservationIds.length === 0) return
+    setReminderBusy(true)
+    reportActionError(null)
+    try {
+      const result = await snoozeReservationReminders(dueReminders.reservationIds, minutes)
+      if (!result.ok) {
+        reportActionError(result.error)
+        return
+      }
+      await reloadReservations()
+    } catch {
+      reportActionError('Lỗi kết nối. Kiểm tra mạng rồi thử lại.')
+    } finally {
+      setReminderBusy(false)
+    }
+  }
+
+  const unlockAllBells = () => {
+    void unlockBell().then((unlocked) => { if (unlocked) setReminderAudioUnlocked(true) })
+  }
+
   // additive (ctrl/cmd+click) = tick thêm mâm để gộp bill; click thường = mở bill một mâm.
   const selectSession = (id: string, additive: boolean) => {
     if (arrange || reservationPick) return
@@ -429,7 +472,7 @@ export default function CashierClient({
   return (
     // Trình duyệt chặn phát tiếng cho tới khi người dùng chạm vào trang — mượn cú bấm đầu tiên
     // (bất kỳ chỗ nào) để mở khoá chuông, khỏi bắt thu ngân bấm một nút "bật tiếng" riêng.
-    <div className="flex h-full min-h-0 flex-1" onClickCapture={() => unlockBell()}>
+    <div className="flex h-full min-h-0 flex-1" onClickCapture={unlockAllBells}>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-5 py-3">
           <div className="flex items-center gap-2">
@@ -503,6 +546,9 @@ export default function CashierClient({
               now={new Date()}
               onConfirm={beginReservationConfirm}
               onArrive={(reservation) => void arriveReservationFromPos(reservation)}
+              reminderIds={dueReminders.reservationIds}
+              reminderBusy={reminderBusy}
+              onSnooze={(minutes) => void snoozeReminders(minutes)}
             />
           )}
           <ServiceRequestQueue
