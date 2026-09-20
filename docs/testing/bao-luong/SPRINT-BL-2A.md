@@ -1,6 +1,6 @@
 # Bảo Lương — Sprint BL-2A: POS và Admin Mobile đặt bàn
 
-**Trạng thái:** ✅ Task 1 PASS · ✅ Task 2 PASS · ✅ Task 3 PASS · ⏳ Task 4 regression 4C chờ nghiệm thu.
+**Trạng thái:** ✅ Task 1 PASS · ✅ Task 2 PASS · ✅ Task 3 PASS · ✅ Task 4 PASS.
 
 BL-2A chỉ làm vận hành đặt bàn trên POS/Admin Mobile. Không có Zalo OA, ZNS, Mini App hoặc món
 đặt trước trong Sprint này.
@@ -263,3 +263,5 @@ trong khi DB chỉ chặn hai khoảng giữ thực sự chồng nhau. Migration
    và báo lỗi conflict; không được xuất hiện lỗi giả giữa hai ngày không chồng nhau.
 
 → Báo Codex: `Task 4C PASS` hoặc gửi ảnh/log bước FAIL. Sau PASS mới làm Task 5.
+
+✅ **Task 4C PASS** — đã nghiệm thu regression khóa bàn đúng khung giờ.
