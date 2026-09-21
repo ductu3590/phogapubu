@@ -64,6 +64,9 @@ export async function POST(
       receivedAppId: message.appId,
       receivedOaId: message.oaId,
     })
+    // Console gửi payload mẫu có OA giả; app cha cũng có thể nhận event của OA khác.
+    // ACK sự kiện đã xác thực nhưng ngoài phạm vi, tuyệt đối không claim vào quán này.
+    if (appIdMatches) return Response.json({ ok: true })
     return Response.json({ ok: false }, { status: 403 })
   }
 

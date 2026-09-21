@@ -81,13 +81,32 @@ describe('Zalo OA owner onboarding webhook', () => {
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ['store_zalo_configs', { zalo_oa_app_id: 'oa-other-app', zalo_app_secret_key: 'oa-secret-test', is_enabled: true }],
-    ['stores', { zalo_oa_id: 'oa-other' }],
-  ])('từ chối app/OA không thuộc store trong URL', async (table, row) => {
-    mocks.rows[table] = row
+  it('từ chối app không thuộc store trong URL', async () => {
+    mocks.rows.store_zalo_configs = { zalo_oa_app_id: 'oa-other-app', zalo_app_secret_key: 'oa-secret-test', is_enabled: true }
     const response = await post(signedRequest())
     expect(response.status).toBe(403)
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('ACK OA khác cùng app nhưng không claim kể cả có mã MEVO hợp lệ', async () => {
+    const response = await post(signedRequest(payload({ recipient: { id: 'another-oa' } })))
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true })
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('ACK payload mẫu Console có chữ ký hợp lệ mà không ghi dữ liệu', async () => {
+    const response = await post(signedRequest(payload({
+      recipient: { id: 'console-example-oa' },
+      message: { msg_id: 'This is message id', text: 'This is testing message' },
+    })))
+    expect(response.status).toBe(200)
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('OA khác có chữ ký sai vẫn bị từ chối', async () => {
+    const response = await post(signedRequest(payload({ recipient: { id: 'another-oa' } }), 'wrong-secret'))
+    expect(response.status).toBe(401)
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
