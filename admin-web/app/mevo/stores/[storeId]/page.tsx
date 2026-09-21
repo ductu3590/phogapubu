@@ -14,6 +14,7 @@ import {
 } from '@/lib/actions/workflow-settings'
 import { getOwnerOaNotificationState } from '@/lib/actions/zalo-owner-notifications'
 import ZaloOwnerNotifications from './zalo-owner-notifications'
+import SecretField from './secret-field'
 
 export default async function StoreDetailPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params
@@ -26,8 +27,8 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
   const ownerOaState = await getOwnerOaNotificationState(storeId)
 
   const { data: appConfig } = await admin.from('store_app_configs').select('*').eq('store_id', storeId).maybeSingle()
-  const { data: checkoutConfig } = await admin.from('store_checkout_configs').select('zalo_mini_app_id, is_enabled, updated_at').eq('store_id', storeId).maybeSingle()
-  const { data: zaloConfig } = await admin.from('store_zalo_configs').select('is_enabled, updated_at, zalo_oa_app_id').eq('store_id', storeId).maybeSingle()
+  const { data: checkoutConfig } = await admin.from('store_checkout_configs').select('zalo_mini_app_id, zalo_checkout_secret_key, is_enabled, updated_at').eq('store_id', storeId).maybeSingle()
+  const { data: zaloConfig } = await admin.from('store_zalo_configs').select('is_enabled, updated_at, zalo_oa_app_id, zalo_oa_access_token, zalo_app_secret_key').eq('store_id', storeId).maybeSingle()
   const { data: operators } = await admin.from('mevo_operators').select('user_id, role, is_active').eq('store_id', storeId)
   // Ghép email để nhìn thấy AI đang giữ quyền quán này, thay vì chỉ đếm số dòng.
   const authUsers = operators && operators.length > 0 ? await listAllAuthUsers(admin) : []
@@ -74,6 +75,9 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
         />
       </Section>
 
+      <div className="rounded-xl border border-blue-200 bg-blue-50/30 p-4">
+      <h2 className="mb-4 text-lg font-semibold text-gray-800">Zalo — cấu hình tích hợp</h2>
+      <div className="space-y-4">
       <Section title="Mini App / Onboarding checklist">
         <SaveForm action={updateApp}>
           <Field label="Tên Mini App (Zalo Dev)" name="zalo_mini_app_name" defaultValue={appConfig?.zalo_mini_app_name ?? ''} />
@@ -97,22 +101,24 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
         </p>
         <SaveForm action={updateCheckout}>
           <Field label="Zalo Mini App ID" name="zalo_mini_app_id" defaultValue={checkoutConfig?.zalo_mini_app_id ?? ''} required />
-          <Field label="Checkout Secret Key (bỏ trống nếu không đổi)" name="zalo_checkout_secret_key" type="password" />
+          <SecretField label="Checkout Secret Key (bỏ trống nếu không đổi)" name="zalo_checkout_secret_key" value={checkoutConfig?.zalo_checkout_secret_key ?? ''} />
         </SaveForm>
       </Section>
 
-      <Section title="Zalo OA / Webhook">
+      <Section title="Official Account / Webhook">
         <p className="mb-3 text-sm text-gray-500">
           OA ID hiện tại: {store.zalo_oa_id ?? '—'} (sửa ở mục &quot;Thông tin quán&quot; phía trên — không phải secret)
         </p>
         <p className="mb-3 text-sm text-gray-500">Trạng thái secret: <StatusText ok={!!zaloConfig?.is_enabled} /></p>
         <SaveForm action={updateZalo}>
           <Field label="OA API App ID — app cha nhận webhook (không phải Mini App ID)" name="zalo_oa_app_id" defaultValue={zaloConfig?.zalo_oa_app_id ?? ''} />
-          <Field label="OA Access Token (bỏ trống nếu không đổi)" name="zalo_oa_access_token" type="password" />
-          <Field label="OA API App Secret Key — webhook (bỏ trống nếu không đổi)" name="zalo_app_secret_key" type="password" />
+          <SecretField label="OA Access Token (bỏ trống nếu không đổi)" name="zalo_oa_access_token" value={zaloConfig?.zalo_oa_access_token ?? ''} />
+          <SecretField label="OA API App Secret Key — webhook (bỏ trống nếu không đổi)" name="zalo_app_secret_key" value={zaloConfig?.zalo_app_secret_key ?? ''} />
         </SaveForm>
         <ZaloOwnerNotifications storeId={storeId} initialState={ownerOaState} />
       </Section>
+      </div>
+      </div>
 
       <Section title="Tài khoản chủ quán">
         {operators && operators.length > 0 ? (

@@ -54,10 +54,16 @@ export async function POST(
     return Response.json({ ok: false }, { status: 401 })
   }
 
-  if (
-    message.appId !== config.zalo_oa_app_id?.trim()
-    || message.oaId !== store?.zalo_oa_id?.trim()
-  ) {
+  const appIdMatches = message.appId === config.zalo_oa_app_id?.trim()
+  const oaIdMatches = message.oaId === store?.zalo_oa_id?.trim()
+  if (!appIdMatches || !oaIdMatches) {
+    console.warn('[zalo-oa-webhook] tenant mismatch', {
+      storeId,
+      appIdMatches,
+      oaIdMatches,
+      receivedAppId: message.appId,
+      receivedOaId: message.oaId,
+    })
     return Response.json({ ok: false }, { status: 403 })
   }
 
