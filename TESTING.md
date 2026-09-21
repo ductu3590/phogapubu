@@ -14,7 +14,7 @@
 - ✅ [Bảo Lương — duyệt implementation plan BL-2A](docs/testing/bao-luong/PLAN-BL-2A-2026-09-19.md) — PASS 2026-09-19
 - ✅ [Bảo Lương — Sprint BL-2A](docs/testing/bao-luong/SPRINT-BL-2A.md) — PASS 2026-09-21
 - ✅ [Bảo Lương — duyệt implementation plan BL-2B](docs/testing/bao-luong/PLAN-BL-2B-2026-09-21.md) — PASS 2026-09-21
-- ⏳ [Bảo Lương — Sprint BL-2B](docs/testing/bao-luong/SPRINT-BL-2B.md) — Task 1 PASS; đang làm Task 2
+- ⏳ [Bảo Lương — Sprint BL-2B](docs/testing/bao-luong/SPRINT-BL-2B.md) — Task 1 PASS; Task 2 code xong, chờ credential/live OA
 
 > **Quy tắc bắt buộc cho Claude Code:**
 > Sau khi hoàn thành BẤT KỲ Sprint hoặc task nào, PHẢI dừng lại,

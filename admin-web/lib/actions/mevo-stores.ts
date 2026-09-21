@@ -114,6 +114,20 @@ export async function updateZaloConfig(storeId: string, formData: FormData) {
   const oaAccessToken = (formData.get('zalo_oa_access_token') as string | null)?.trim()
   const appSecretKey = (formData.get('zalo_app_secret_key') as string | null)?.trim()
 
+  const { data: existing, error: readError } = await admin
+    .from('store_zalo_configs')
+    .select('zalo_oa_access_token, zalo_app_secret_key')
+    .eq('store_id', storeId)
+    .maybeSingle()
+  if (readError) throw new Error(`updateZaloConfig(read): ${readError.message}`)
+
+  if (!(oaAccessToken || existing?.zalo_oa_access_token)) {
+    throw new Error('Thiếu OA Access Token cho cấu hình Zalo OA')
+  }
+  if (!(appSecretKey || existing?.zalo_app_secret_key)) {
+    throw new Error('Thiếu App Secret Key cho cấu hình Zalo OA')
+  }
+
   const patch: Record<string, unknown> = { store_id: storeId, is_enabled: true }
   if (oaAccessToken) patch.zalo_oa_access_token = oaAccessToken
   if (appSecretKey) patch.zalo_app_secret_key = appSecretKey

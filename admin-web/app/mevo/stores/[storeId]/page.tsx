@@ -12,6 +12,8 @@ import {
   loadMevoWorkflowSettings,
   saveMevoWorkflowSettings,
 } from '@/lib/actions/workflow-settings'
+import { getOwnerOaNotificationState } from '@/lib/actions/zalo-owner-notifications'
+import ZaloOwnerNotifications from './zalo-owner-notifications'
 
 export default async function StoreDetailPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params
@@ -21,6 +23,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
   if (!store) notFound()
 
   const workflowSettings = await loadMevoWorkflowSettings(storeId)
+  const ownerOaState = await getOwnerOaNotificationState(storeId)
 
   const { data: appConfig } = await admin.from('store_app_configs').select('*').eq('store_id', storeId).maybeSingle()
   const { data: checkoutConfig } = await admin.from('store_checkout_configs').select('zalo_mini_app_id, is_enabled, updated_at').eq('store_id', storeId).maybeSingle()
@@ -107,6 +110,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
           <Field label="OA Access Token (bỏ trống nếu không đổi)" name="zalo_oa_access_token" type="password" />
           <Field label="App Secret Key — webhook (bỏ trống nếu không đổi)" name="zalo_app_secret_key" type="password" />
         </SaveForm>
+        <ZaloOwnerNotifications storeId={storeId} initialState={ownerOaState} />
       </Section>
 
       <Section title="Tài khoản chủ quán">

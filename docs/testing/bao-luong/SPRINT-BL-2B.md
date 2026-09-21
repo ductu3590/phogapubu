@@ -1,7 +1,7 @@
 # Bảo Lương — Sprint BL-2B: thông báo Zalo OA cho chủ quán
 
 Ngày cập nhật: 2026-09-21
-Trạng thái: **Task 1 PASS — Task 2 đang thực hiện**
+Trạng thái: **Task 1 PASS — Task 2 code hoàn tất, chờ credential/live OA**
 
 ## Phạm vi Task 1
 
@@ -112,3 +112,74 @@ Kỳ vọng tại checkpoint Task 1 hiện tại: cả ba bằng `0`. Không có
 
 Xác nhận: **Task 1 PASS ngày 2026-09-21** — chuyển Task 2 theo chỉ đạo trực tiếp của anh Tú;
 không yêu cầu chạy lại các test tự động Codex đã ghi kết quả ở trên.
+
+## Task 2 — Onboarding đúng OA-scoped owner UID
+
+Đã triển khai:
+
+- Webhook riêng `/api/zalo-oa-webhook/<storeId>` xác minh chữ ký trên raw body theo công thức Zalo OA.
+- Kiểm tra đồng thời `storeId`, Mini App ID và OA ID trước khi claim.
+- Mã kết nối 96-bit, chỉ lưu SHA-256, hết hạn 15 phút và dùng một lần.
+- Claim/replay chạy nguyên tử trong PostgreSQL; app/OA/store/code sai không tạo recipient.
+- Cockpit MEVO chỉ hiện trạng thái credential, không trả Access Token, App Secret hay OA UID xuống client.
+- Cấu hình OA lần đầu bắt buộc đủ Access Token + App Secret; để trống khi cập nhật không xóa secret cũ.
+
+### Kết quả tự động do Codex đã chạy — không cần chạy lại
+
+- Admin Web: **344/344 PASS**.
+- SQL BL-1/BL-2A/BL-2B: **34/34 PASS**.
+- TypeScript: `npx tsc --noEmit` — exit `0`.
+- ESLint phạm vi Task 2 — exit `0`.
+- Production build: `npm run build` — exit `0`, route webhook mới xuất hiện trong manifest.
+- Migration `060_reservation_owner_oa_onboarding.sql` đã chạy trên Supabase production.
+- Production hiện có `recipient_count = 0`, `challenge_count = 0`; chưa gửi hay lưu UID thử.
+
+### Test 2A — cockpit sau khi deploy Admin Web
+
+1. Đăng nhập MEVO superadmin, mở trang chi tiết **Bia lẩu Bảo Lương**.
+2. Trong **Zalo OA / Webhook**, kiểm tra panel **Người nhận thông báo đặt bàn**.
+3. Kỳ vọng hiện tại:
+   - OA ID: `Đã có`.
+   - Mini App ID: `Đã có`.
+   - Access Token: `Còn thiếu`.
+   - App Secret: `Còn thiếu`.
+   - Trạng thái: `Chưa kết nối`.
+   - Nút **Tạo mã kết nối** bị khóa.
+4. Không được nhìn thấy giá trị token, secret hoặc OA UID ở trang.
+
+### Test 2B — nhập credential và cấu hình webhook thật
+
+Chỉ chạy khi Zalo đã cấp **OA Access Token** và **App Secret Key** cho Bảo Lương:
+
+1. Nhập đủ hai credential trong form Zalo OA và lưu.
+2. Refresh: cả Access Token và App Secret phải thành `Đã có`; giá trị thật không được hiện lại.
+3. Bấm **Sao chép URL đầy đủ**, đăng ký URL đó trong Zalo Developer Console và bật event
+   `user_send_text`.
+4. Bấm **Tạo mã kết nối**: xuất hiện đúng một câu `MEVO <24 ký tự hex>` và giờ hết hạn sau
+   khoảng 15 phút.
+
+### Test 2C — claim bằng Zalo thật
+
+1. Tài khoản Zalo của chủ quán quan tâm đúng OA Bảo Lương.
+2. Gửi một mã sai: refresh cockpit vẫn chưa được `Đã xác minh`.
+3. Gửi nguyên văn mã còn hạn từ Test 2B vào OA.
+4. Refresh cockpit: trạng thái thành `Đã xác minh`; không hiện OA UID.
+5. Gửi lại cùng tin nhắn hoặc cùng mã lần hai: không tạo recipient thứ hai và trạng thái không đổi.
+
+### Test 2D — tắt và kết nối lại
+
+1. Bấm **Tắt người nhận**: trạng thái thành `Đã tắt`.
+2. Tạo mã mới, gửi từ đúng OA/app Bảo Lương: trạng thái trở lại `Đã xác minh`.
+
+Tenant safety với app/OA/store khác đã được Codex kiểm tra tự động trong SQL và route tests; không
+yêu cầu anh phải có thêm một OA thật chỉ để chạy lại trường hợp này.
+
+### Điều kiện còn thiếu để test live
+
+Kiểm tra production ngày 2026-09-21 cho thấy Bảo Lương đã có OA ID và Mini App ID, nhưng:
+
+- `has_access_token = false`
+- `has_app_secret = false`
+- `oa_config_enabled = false`
+
+Vì vậy Test 2B–2D phải chờ hai credential thật; đây là phụ thuộc Zalo, không phải lỗi code.
