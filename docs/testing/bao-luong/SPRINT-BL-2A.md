@@ -396,3 +396,6 @@ npx eslint lib/reservation-reminders.ts lib/reservation-reminders.test.ts lib/be
 3. Chỉ sau khi 6A–6D đều PASS mới báo **`BL-2A PASS`**. Không chuyển BL-2B hoặc BL-3 trước đó.
 
 → Báo Codex: `BL-2A PASS` hoặc gửi bước FAIL kèm ảnh/log.
+
+✅ **BL-2A PASS** — anh Tú đã nghiệm thu ngày 21/09/2026. Giờ phục vụ đang tạm cấu hình
+24/24 để thuận tiện tạo dữ liệu test; đây là cấu hình môi trường, không thay đổi quy trình vận hành.
