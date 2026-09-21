@@ -219,3 +219,22 @@ dùng để xác minh OA webhook.
 - Migration `062_reservation_oa_app_identity` đã chạy production.
 - Bảo Lương hiện có `zalo_oa_app_id = NULL`; chưa ghi đè secret hoặc Mini App ID. Cần nhập App ID
   `4311670425529575295` trong cockpit trước khi test live.
+
+## Bản vá giao diện và chẩn đoán 403 — checkpoint
+
+- Khung **Zalo — cấu hình tích hợp** gom Mini App/onboarding, ZaloPay Checkout và Official
+  Account/Webhook trên cùng một vùng.
+- Checkout Secret, OA Access Token và OA API App Secret có nút mắt để superadmin chủ động xem/ẩn
+  giá trị; trạng thái public và onboarding không trả các secret này.
+- Khi webhook trả 403, log production chỉ ghi `appIdMatches`, `oaIdMatches`, App ID nhận được và
+  OA ID nhận được; không ghi token, secret hoặc chữ ký.
+- Commit deploy: `bea6211`; production deployment đã Ready.
+
+### Test giao diện/live cần chạy
+
+1. Mở trang chi tiết Bảo Lương, xác nhận ba định danh hiển thị riêng: OA ID, Mini App ID và OA API
+   App ID.
+2. Bấm mắt từng key để xem/ẩn, refresh trang và xác nhận giá trị vẫn giữ nguyên.
+3. Trong Zalo Developer Console của **MEVO SOLUTION**, bấm **Kiểm tra** webhook.
+4. Nếu còn 403, báo lại thời điểm bấm; Codex sẽ đọc hai cờ `appIdMatches`/`oaIdMatches` trong log để
+   sửa đúng nguyên nhân, không cần gửi secret.
