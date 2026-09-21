@@ -155,6 +155,8 @@ Chỉ chạy khi Zalo đã cấp **OA Access Token** và **App Secret Key** cho 
 2. Refresh: cả Access Token và App Secret phải thành `Đã có`; giá trị thật không được hiện lại.
 3. Bấm **Sao chép URL đầy đủ**, đăng ký URL đó trong Zalo Developer Console và bật event
    `user_send_text`.
+   - Khi Developer Console gửi POST **Kiểm tra URL** không có chữ ký, webhook phải trả HTTP `200`
+     trong dưới 1 giây. Request này chỉ xác nhận đường dẫn, không thể claim mã hay tạo recipient.
 4. Bấm **Tạo mã kết nối**: xuất hiện đúng một câu `MEVO <24 ký tự hex>` và giờ hết hạn sau
    khoảng 15 phút.
 

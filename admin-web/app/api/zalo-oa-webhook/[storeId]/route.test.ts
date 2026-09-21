@@ -69,6 +69,18 @@ describe('Zalo OA owner onboarding webhook', () => {
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
+  it('xác nhận POST kiểm tra URL không có chữ ký từ Zalo mà không xử lý dữ liệu', async () => {
+    const response = await post(new Request('https://mevo.test/api/zalo-oa-webhook/store-1', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    }))
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true })
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['store_app_configs', { zalo_mini_app_id: 'app-other' }],
     ['stores', { zalo_oa_id: 'oa-other' }],

@@ -14,6 +14,10 @@ export async function POST(
   { params }: { params: Promise<{ storeId: string }> },
 ) {
   const { storeId } = await params
+  // Zalo gửi POST kiểm tra URL trước khi phát event có chữ ký. Không xử lý body này.
+  if (!request.headers.get('x-zevent-signature')?.trim()) {
+    return Response.json({ ok: true })
+  }
   const admin = createAdminClient()
 
   const [storeResult, appResult, configResult] = await Promise.all([
