@@ -49,3 +49,7 @@ mini-app/app-config.json
 # Worktree lâu dài cho từng quán (mini-app-instances/<slug>/) — không phải worktree tạm của
 # agent, nhưng cũng không nên commit nội dung checkout vào chính repo.
 mini-app-instances/
+
+# Sổ bàn giao của dây chuyền 4 agent (/ship) — ghi chú làm việc tạm, không commit.
+# Xem .claude/agents/ và .claude/commands/ship.md.
+.bangiao/
