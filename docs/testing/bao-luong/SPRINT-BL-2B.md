@@ -1,7 +1,7 @@
 # Bảo Lương — Sprint BL-2B: thông báo Zalo OA cho chủ quán
 
 Ngày cập nhật: 2026-09-21
-Trạng thái: **Task 1 chờ PASS**
+Trạng thái: **Task 1 PASS — Task 2 đang thực hiện**
 
 ## Phạm vi Task 1
 
@@ -109,3 +109,6 @@ Kỳ vọng tại checkpoint Task 1 hiện tại: cả ba bằng `0`. Không có
 - Hồi quy reservation: **29/29 PASS**.
 - Production: RLS/quyền đúng; sáu index tồn tại; ba bảng đều chưa có dữ liệu.
 - Supabase advisor: không còn cảnh báo khóa ngoại thiếu index do Task 1 tạo. Cảnh báo `RLS enabled no policy` cho ba bảng là chủ đích vì chỉ service role được truy cập.
+
+Xác nhận: **Task 1 PASS ngày 2026-09-21** — chuyển Task 2 theo chỉ đạo trực tiếp của anh Tú;
+không yêu cầu chạy lại các test tự động Codex đã ghi kết quả ở trên.
