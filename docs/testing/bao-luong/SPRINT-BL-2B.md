@@ -238,3 +238,21 @@ dùng để xác minh OA webhook.
 3. Trong Zalo Developer Console của **MEVO SOLUTION**, bấm **Kiểm tra** webhook.
 4. Nếu còn 403, báo lại thời điểm bấm; Codex sẽ đọc hai cờ `appIdMatches`/`oaIdMatches` trong log để
    sửa đúng nguyên nhân, không cần gửi secret.
+
+## Test 2E — sửa 403 khi Console gửi OA mẫu (2026-09-21)
+
+Đã mở trực tiếp nút Test của `user_send_text` trên Zalo Developer Console: payload mẫu
+có recipient `579745863508352884`, msg_id `This is message id`, text `This is testing message`.
+Đây là dữ liệu mẫu của Console, không phải OA ID người dùng nhập sai.
+
+- Commit `2809caf`: sự kiện ký hợp lệ, đúng app nhưng khác OA được ACK 200 và bỏ qua trước RPC.
+- Sai chữ ký vẫn 401; sai app vẫn 403; đúng OA mới có thể claim mã MEVO.
+- Route và chữ ký: **17/17 PASS**; TypeScript: **PASS**.
+- URL OA hiện tại chỉ xử lý Bảo Lương. App cha dùng chung nhiều OA sẽ cần route phân phối theo OA
+  trước khi triển khai onboarding OA Pubu; không coi ACK 200 là đã xử lý tin nhắn của mọi OA.
+
+### Kiểm tra live
+
+1. **PASS do Codex chạy trên Chrome**: Console kiểm tra URL OA Bảo Lương không còn 403 và cho lưu.
+2. **PASS**: đã lưu, Console hiển thị URL `/api/zalo-oa-webhook/<store Bảo Lương>`.
+3. Test 2B–2D bằng tin nhắn thật vẫn là nghiệm thu onboarding; nút Kiểm tra chỉ xác minh kết nối.
