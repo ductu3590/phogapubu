@@ -185,3 +185,21 @@ Kiểm tra production ngày 2026-09-21 cho thấy Bảo Lương đã có OA ID v
 - `oa_config_enabled = false`
 
 Vì vậy Test 2B–2D phải chờ hai credential thật; đây là phụ thuộc Zalo, không phải lỗi code.
+
+## Bản vá OA API app cha — Task 1
+
+Đã tách `OA API App ID` khỏi `Zalo Mini App ID`. Trường này nhận App ID của ứng dụng cha tích hợp
+Zalo OA, có thể dùng chung giữa nhiều OA quán; Mini App ID vẫn chỉ dành cho QR/deploy.
+
+### Kết quả tự động do Codex đã chạy — không cần chạy lại
+
+- `admin-web/lib/actions/mevo-stores.test.ts`: **6/6 PASS**.
+- `npx tsc --noEmit`: exit `0`.
+- ESLint các action/form OA: exit `0`.
+- `git diff --check`: sạch.
+
+### Test OA-parent Task 1 — checkpoint kỹ thuật
+
+Không có thao tác live ở checkpoint này vì migration `061` chưa áp production và route vẫn đang dùng
+logic cũ cho tới Task 2. Nghiệm thu checkpoint bằng kết quả tự động phía trên; không nhập lại
+credential hoặc sửa webhook Mini App trong giai đoạn này.

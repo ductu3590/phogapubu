@@ -113,10 +113,11 @@ export async function updateZaloConfig(storeId: string, formData: FormData) {
   const admin = createAdminClient()
   const oaAccessToken = (formData.get('zalo_oa_access_token') as string | null)?.trim()
   const appSecretKey = (formData.get('zalo_app_secret_key') as string | null)?.trim()
+  const oaAppId = (formData.get('zalo_oa_app_id') as string | null)?.trim()
 
   const { data: existing, error: readError } = await admin
     .from('store_zalo_configs')
-    .select('zalo_oa_access_token, zalo_app_secret_key')
+    .select('zalo_oa_access_token, zalo_app_secret_key, zalo_oa_app_id')
     .eq('store_id', storeId)
     .maybeSingle()
   if (readError) throw new Error(`updateZaloConfig(read): ${readError.message}`)
@@ -127,10 +128,14 @@ export async function updateZaloConfig(storeId: string, formData: FormData) {
   if (!(appSecretKey || existing?.zalo_app_secret_key)) {
     throw new Error('Thiếu App Secret Key cho cấu hình Zalo OA')
   }
+  if (!(oaAppId || existing?.zalo_oa_app_id)) {
+    throw new Error('Thiếu OA API App ID cho cấu hình Zalo OA')
+  }
 
   const patch: Record<string, unknown> = { store_id: storeId, is_enabled: true }
   if (oaAccessToken) patch.zalo_oa_access_token = oaAccessToken
   if (appSecretKey) patch.zalo_app_secret_key = appSecretKey
+  if (oaAppId) patch.zalo_oa_app_id = oaAppId
 
   const { error } = await admin.from('store_zalo_configs').upsert(patch)
   if (error) throw new Error(`updateZaloConfig: ${error.message}`)

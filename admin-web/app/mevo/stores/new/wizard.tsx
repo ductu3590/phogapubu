@@ -83,9 +83,10 @@ export default function StoreWizard() {
           const oaId = (fd.get('zalo_oa_id') as string).trim()
           const token = (fd.get('zalo_oa_access_token') as string).trim()
           const secret = (fd.get('zalo_app_secret_key') as string).trim()
+          const oaAppId = (fd.get('zalo_oa_app_id') as string).trim()
           if (oaId) await updateStoreOaId(storeId, fd)
-          if (token || secret) await updateZaloConfig(storeId, fd)
-          setDone((d) => ({ ...d, oa: !!(oaId || token || secret) }))
+          if (token || secret || oaAppId) await updateZaloConfig(storeId, fd)
+          setDone((d) => ({ ...d, oa: !!(oaId || token || secret || oaAppId) }))
           goTo(5)
         })} />}
         {step === 5 && <Step5 pending={pending} storeId={storeId} onSkip={() => goTo(6)}
@@ -195,14 +196,15 @@ function Step3({ pending, onSubmit, onSkip }: { pending: boolean; onSubmit: (fd:
 function Step4({ pending, storeId, onSubmit, onSkip }: {
   pending: boolean; storeId: string; onSubmit: (fd: FormData) => void; onSkip: () => void
 }) {
-  const webhookUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/api/zalo-webhook/${storeId}`
+  const webhookUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/api/zalo-oa-webhook/${storeId}`
   return (
     <form action={onSubmit} className="space-y-4">
       <Field label="Zalo OA ID (không phải secret)" name="zalo_oa_id" />
+      <Field label="OA API App ID — app cha nhận webhook (không phải Mini App ID)" name="zalo_oa_app_id" />
       <Field label="OA Access Token" name="zalo_oa_access_token" type="password" />
-      <Field label="App Secret Key — webhook" name="zalo_app_secret_key" type="password" />
+      <Field label="OA API App Secret Key — webhook" name="zalo_app_secret_key" type="password" />
       <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
-        <p className="mb-1 font-medium text-gray-700">Đăng ký trên Zalo Developer Console của quán:</p>
+        <p className="mb-1 font-medium text-gray-700">Cấu hình ở Zalo OA API app cha, không phải Open APIs của Mini App:</p>
         <p className="mb-2">Webhook URL: <CopyInline text={webhookUrl} /></p>
         <p>Nhớ set cả <strong>Notify Url</strong> của phương thức Chuyển khoản ngân hàng (Checkout SDK) — bỏ trống là đơn kẹt pending.</p>
       </div>
