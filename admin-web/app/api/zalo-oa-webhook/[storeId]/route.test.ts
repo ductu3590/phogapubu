@@ -24,7 +24,7 @@ const { POST } = await import('./route')
 
 function payload(overrides: Record<string, unknown> = {}) {
   return {
-    app_id: 'app-123',
+    app_id: 'oa-parent-app-1',
     sender: { id: 'owner-uid-456' },
     recipient: { id: 'oa-789' },
     event_name: 'user_send_text',
@@ -55,8 +55,8 @@ describe('Zalo OA owner onboarding webhook', () => {
     vi.clearAllMocks()
     Object.assign(mocks.rows, {
       stores: { zalo_oa_id: 'oa-789' },
-      store_app_configs: { zalo_mini_app_id: 'app-123' },
-      store_zalo_configs: { zalo_app_secret_key: 'oa-secret-test', is_enabled: true },
+      store_app_configs: { zalo_mini_app_id: 'restaurant-mini-app-1' },
+      store_zalo_configs: { zalo_oa_app_id: 'oa-parent-app-1', zalo_app_secret_key: 'oa-secret-test', is_enabled: true },
     })
     mocks.rpc.mockResolvedValue({ data: { status: 'claimed' }, error: null })
   })
@@ -82,7 +82,7 @@ describe('Zalo OA owner onboarding webhook', () => {
   })
 
   it.each([
-    ['store_app_configs', { zalo_mini_app_id: 'app-other' }],
+    ['store_zalo_configs', { zalo_oa_app_id: 'oa-other-app', zalo_app_secret_key: 'oa-secret-test', is_enabled: true }],
     ['stores', { zalo_oa_id: 'oa-other' }],
   ])('từ chối app/OA không thuộc store trong URL', async (table, row) => {
     mocks.rows[table] = row
@@ -104,7 +104,7 @@ describe('Zalo OA owner onboarding webhook', () => {
     expect(body).toEqual({ ok: true })
     expect(mocks.rpc).toHaveBeenCalledWith('claim_zalo_oa_onboarding_challenge', {
       p_store_id: 'store-1',
-      p_app_id: 'app-123',
+      p_app_id: 'oa-parent-app-1',
       p_oa_id: 'oa-789',
       p_oa_user_id: 'owner-uid-456',
       p_message_id: 'msg-001',

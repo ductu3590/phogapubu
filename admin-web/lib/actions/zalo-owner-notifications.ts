@@ -10,6 +10,7 @@ type AdminClient = ReturnType<typeof createAdminClient>
 type OwnerOaSetup = {
   oaId: string | null
   miniAppId: string | null
+  oaAppId: string | null
   hasAccessToken: boolean
   hasAppSecret: boolean
   configEnabled: boolean
@@ -25,7 +26,7 @@ async function loadOwnerOaSetup(admin: AdminClient, storeId: string): Promise<Ow
     admin.from('store_app_configs').select('zalo_mini_app_id').eq('store_id', storeId).maybeSingle(),
     admin
       .from('store_zalo_configs')
-      .select('zalo_oa_access_token, zalo_app_secret_key, is_enabled')
+      .select('zalo_oa_app_id, zalo_oa_access_token, zalo_app_secret_key, is_enabled')
       .eq('store_id', storeId)
       .maybeSingle(),
     admin
@@ -48,6 +49,7 @@ async function loadOwnerOaSetup(admin: AdminClient, storeId: string): Promise<Ow
   return {
     oaId: store?.zalo_oa_id?.trim() || null,
     miniAppId: app?.zalo_mini_app_id?.trim() || null,
+    oaAppId: config?.zalo_oa_app_id?.trim() || null,
     hasAccessToken: Boolean(config?.zalo_oa_access_token?.trim()),
     hasAppSecret: Boolean(config?.zalo_app_secret_key?.trim()),
     configEnabled: config?.is_enabled === true,
@@ -65,6 +67,7 @@ export async function getOwnerOaNotificationState(storeId: string) {
   return {
     hasOaId: Boolean(setup.oaId),
     hasMiniAppId: Boolean(setup.miniAppId),
+    hasOaAppId: Boolean(setup.oaAppId),
     hasAccessToken: setup.hasAccessToken,
     hasAppSecret: setup.hasAppSecret,
     configEnabled: setup.configEnabled,
@@ -82,7 +85,7 @@ export async function createOwnerOaChallenge(storeId: string) {
   const setup = await loadOwnerOaSetup(admin, storeId)
 
   if (!setup.oaId) throw new Error('Thiếu Zalo OA ID của quán')
-  if (!setup.miniAppId) throw new Error('Thiếu Zalo Mini App ID của quán')
+  if (!setup.oaAppId) throw new Error('Thiếu OA API App ID của app cha')
   if (!setup.configEnabled || !setup.hasAppSecret) {
     throw new Error('Thiếu App Secret hoặc cấu hình Zalo OA chưa được bật')
   }

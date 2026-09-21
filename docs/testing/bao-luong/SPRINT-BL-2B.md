@@ -203,3 +203,19 @@ Zalo OA, có thể dùng chung giữa nhiều OA quán; Mini App ID vẫn chỉ 
 Không có thao tác live ở checkpoint này vì migration `061` chưa áp production và route vẫn đang dùng
 logic cũ cho tới Task 2. Nghiệm thu checkpoint bằng kết quả tự động phía trên; không nhập lại
 credential hoặc sửa webhook Mini App trong giai đoạn này.
+
+## Bản vá OA API app cha — Task 2
+
+Route webhook và RPC claim nay đối chiếu `store_zalo_configs.zalo_oa_app_id`, tức App ID của app
+cha tích hợp OA. `store_app_configs.zalo_mini_app_id` chỉ còn dùng cho Mini App/QR và không được
+dùng để xác minh OA webhook.
+
+### Kết quả tự động và production migration
+
+- Route + action + cấu hình: **20/20 PASS**.
+- SQL onboarding với Mini App ID và OA API App ID khác nhau: **5/5 PASS**.
+- TypeScript, ESLint phạm vi thay đổi và production build: **PASS**.
+- Migration `061_store_zalo_oa_app_identity` đã chạy production.
+- Migration `062_reservation_oa_app_identity` đã chạy production.
+- Bảo Lương hiện có `zalo_oa_app_id = NULL`; chưa ghi đè secret hoặc Mini App ID. Cần nhập App ID
+  `4311670425529575295` trong cockpit trước khi test live.

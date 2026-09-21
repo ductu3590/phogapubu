@@ -20,22 +20,20 @@ export async function POST(
   }
   const admin = createAdminClient()
 
-  const [storeResult, appResult, configResult] = await Promise.all([
+  const [storeResult, configResult] = await Promise.all([
     admin.from('stores').select('zalo_oa_id').eq('id', storeId).maybeSingle(),
-    admin.from('store_app_configs').select('zalo_mini_app_id').eq('store_id', storeId).maybeSingle(),
     admin
       .from('store_zalo_configs')
-      .select('zalo_app_secret_key, is_enabled')
+      .select('zalo_oa_app_id, zalo_app_secret_key, is_enabled')
       .eq('store_id', storeId)
       .maybeSingle(),
   ])
 
-  if (storeResult.error || appResult.error || configResult.error) {
+  if (storeResult.error || configResult.error) {
     return Response.json({ ok: false }, { status: 503 })
   }
 
   const store = storeResult.data
-  const app = appResult.data
   const config = configResult.data
   if (!config?.is_enabled || !config.zalo_app_secret_key) {
     return Response.json({ ok: false }, { status: 503 })
@@ -57,7 +55,7 @@ export async function POST(
   }
 
   if (
-    message.appId !== app?.zalo_mini_app_id?.trim()
+    message.appId !== config.zalo_oa_app_id?.trim()
     || message.oaId !== store?.zalo_oa_id?.trim()
   ) {
     return Response.json({ ok: false }, { status: 403 })

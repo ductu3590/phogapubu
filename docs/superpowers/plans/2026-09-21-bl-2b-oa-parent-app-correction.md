@@ -59,10 +59,10 @@
 
 **Produces:** `claim_zalo_oa_onboarding_challenge` compares `p_app_id` with `store_zalo_configs.zalo_oa_app_id`, never with `store_app_configs.zalo_mini_app_id`.
 
-- [ ] Write tests where a valid OA event uses `oa-parent-app-1` while the restaurant Mini App is `restaurant-mini-app-1`; expect HTTP 200 and one claim. Add mismatch case expecting 403.
-- [ ] Run focused route/action/SQL tests; new valid case must fail.
-- [ ] Update the route, OA state loader, and RPC definition to use OA API App ID. Preserve OA ID validation, signature verification, atomic claim, replay key, and generic response for invalid codes.
-- [ ] Rerun the focused tests and commit:
+- [x] Write tests where a valid OA event uses `oa-parent-app-1` while the restaurant Mini App is `restaurant-mini-app-1`; expect HTTP 200 and one claim. Add mismatch case expecting 403.
+- [x] Run focused route/action/SQL tests; new valid case must fail.
+- [x] Update the route, OA state loader, and RPC definition to use OA API App ID. Preserve OA ID validation, signature verification, atomic claim, replay key, and generic response for invalid codes.
+- [x] Rerun the focused tests and commit:
   ```powershell
   git add -- supabase/migrations/062_reservation_oa_app_identity.sql supabase/tests/060_reservation_owner_oa_onboarding.test.mjs admin-web/app/api/zalo-oa-webhook/[storeId]/route.ts admin-web/app/api/zalo-oa-webhook/[storeId]/route.test.ts admin-web/lib/actions/zalo-owner-notifications.ts admin-web/lib/actions/zalo-owner-notifications.test.ts
   git commit -m "fix: xac minh webhook theo OA API app"

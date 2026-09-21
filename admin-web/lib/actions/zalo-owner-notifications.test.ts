@@ -48,6 +48,7 @@ describe('owner OA onboarding actions', () => {
       stores: { zalo_oa_id: 'oa-789' },
       store_app_configs: { zalo_mini_app_id: 'app-123' },
       store_zalo_configs: {
+        zalo_oa_app_id: 'oa-parent-app-1',
         zalo_oa_access_token: 'access-token-secret',
         zalo_app_secret_key: 'app-secret-secret',
         is_enabled: true,
@@ -84,8 +85,8 @@ describe('owner OA onboarding actions', () => {
 
   it.each([
     ['stores', { zalo_oa_id: null }, 'OA ID'],
-    ['store_app_configs', { zalo_mini_app_id: null }, 'Mini App ID'],
-    ['store_zalo_configs', { zalo_app_secret_key: null, is_enabled: true }, 'App Secret'],
+    ['store_zalo_configs', { zalo_oa_app_id: null, zalo_app_secret_key: 'app-secret-secret', is_enabled: true }, 'OA API App ID'],
+    ['store_zalo_configs', { zalo_oa_app_id: 'oa-parent-app-1', zalo_app_secret_key: null, is_enabled: true }, 'App Secret'],
   ])('không tạo challenge khi thiếu cấu hình bắt buộc', async (table, row, error) => {
     mocks.rows[table] = row
     await expect(createOwnerOaChallenge('store-1')).rejects.toThrow(error)
@@ -97,6 +98,7 @@ describe('owner OA onboarding actions', () => {
     expect(state).toMatchObject({
       hasOaId: true,
       hasMiniAppId: true,
+      hasOaAppId: true,
       hasAccessToken: true,
       hasAppSecret: true,
       recipientStatus: 'verified',

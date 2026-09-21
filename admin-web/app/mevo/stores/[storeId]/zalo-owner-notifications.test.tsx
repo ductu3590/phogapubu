@@ -17,6 +17,7 @@ describe('ZaloOwnerNotifications', () => {
         initialState={{
           hasOaId: true,
           hasMiniAppId: true,
+          hasOaAppId: true,
           hasAccessToken: true,
           hasAppSecret: false,
           configEnabled: true,

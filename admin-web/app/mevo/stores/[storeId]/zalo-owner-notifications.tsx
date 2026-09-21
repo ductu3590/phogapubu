@@ -57,7 +57,7 @@ export default function ZaloOwnerNotifications({
     setCopied(true)
   }
 
-  const canCreate = state.hasOaId && state.hasMiniAppId && state.hasAppSecret && state.configEnabled
+  const canCreate = state.hasOaId && state.hasOaAppId && state.hasAppSecret && state.configEnabled
 
   return (
     <div className="mt-5 space-y-4 border-t border-gray-100 pt-5">
@@ -72,6 +72,7 @@ export default function ZaloOwnerNotifications({
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <Credential label="OA ID" ready={state.hasOaId} />
         <Credential label="Mini App ID" ready={state.hasMiniAppId} />
+        <Credential label="OA API App ID" ready={state.hasOaAppId} />
         <Credential label="Access Token" ready={state.hasAccessToken} />
         <Credential label="App Secret" ready={state.hasAppSecret} />
       </div>
@@ -130,7 +131,7 @@ export default function ZaloOwnerNotifications({
 
       {!canCreate && (
         <p className="text-sm text-amber-700">
-          Cần đủ OA ID, Mini App ID và App Secret đang bật trước khi tạo mã.
+          Cần đủ OA ID, OA API App ID và App Secret đang bật trước khi tạo mã.
         </p>
       )}
 

@@ -38,7 +38,7 @@ async function createChallenge(targetStore = store, hash = codeHash) {
 async function claim(overrides = {}) {
   const input = {
     storeId: store,
-    appId: 'app-a',
+    appId: 'oa-parent-a',
     oaId: 'oa-a',
     oaUserId: 'owner-uid-a',
     messageId: 'message-a',
@@ -94,7 +94,7 @@ before(async () => {
     );
     CREATE TABLE store_zalo_configs (
       store_id uuid PRIMARY KEY REFERENCES stores(id), zalo_oa_access_token text,
-      zalo_app_secret_key text, is_enabled boolean NOT NULL DEFAULT true
+      zalo_app_secret_key text, zalo_oa_app_id text, is_enabled boolean NOT NULL DEFAULT true
     );
     CREATE FUNCTION is_store_scoped_operator(p_store_id uuid) RETURNS boolean
       LANGUAGE sql STABLE AS $$ SELECT false $$;
@@ -108,9 +108,9 @@ before(async () => {
     INSERT INTO store_app_configs(store_id, zalo_mini_app_id) VALUES
       ('${store}', 'app-a'), ('${otherStore}', 'app-b');
     INSERT INTO store_workflow_settings(store_id) VALUES ('${store}'), ('${otherStore}');
-    INSERT INTO store_zalo_configs(store_id, zalo_oa_access_token, zalo_app_secret_key, is_enabled) VALUES
-      ('${store}', 'token-a', 'secret-a', true),
-      ('${otherStore}', 'token-b', 'secret-b', true);
+    INSERT INTO store_zalo_configs(store_id, zalo_oa_access_token, zalo_app_secret_key, zalo_oa_app_id, is_enabled) VALUES
+      ('${store}', 'token-a', 'secret-a', 'oa-parent-a', true),
+      ('${otherStore}', 'token-b', 'secret-b', 'oa-parent-b', true);
   `)
 
   for (const migration of [
@@ -118,7 +118,9 @@ before(async () => {
     '053_reservation_customer_rpcs.sql',
     '059_reservation_owner_oa_notifications.sql',
     '059a_reservation_owner_oa_notification_indexes.sql',
+    '061_store_zalo_oa_app_identity.sql',
     '060_reservation_owner_oa_onboarding.sql',
+    '062_reservation_oa_app_identity.sql',
   ]) {
     try {
       await db.exec(await readFile(new URL(`../migrations/${migration}`, import.meta.url), 'utf8'))
@@ -178,7 +180,7 @@ test('claim hợp lệ xác minh đúng một recipient thuộc app/OA/store', a
 test('app/OA/store/code sai hoặc challenge hết hạn không thể claim', async () => {
   await createChallenge()
   for (const overrides of [
-    { appId: 'app-other' },
+    { appId: 'oa-parent-other' },
     { oaId: 'oa-other' },
     { storeId: otherStore },
     { hash: 'f'.repeat(64) },
