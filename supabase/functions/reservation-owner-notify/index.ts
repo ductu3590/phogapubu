@@ -6,10 +6,12 @@ serve(async (req) => {
   try {
     const body = await req.json()
     if (!body?.delivery_id || !body?.dispatch_token) return Response.json({ ok: false, error: 'Thiếu delivery_id hoặc dispatch_token' }, { status: 400 })
+    const adminOrigin = Deno.env.get('ADMIN_PUBLIC_ORIGIN')?.trim()
+    if (!adminOrigin) return Response.json({ ok: false, error: 'Thiếu cấu hình ADMIN_PUBLIC_ORIGIN' }, { status: 503 })
     const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const result = await handleReservationOwnerNotify(body, {
       db,
-      adminOrigin: Deno.env.get('ADMIN_PUBLIC_ORIGIN') || 'https://pubu.soccernow.net',
+      adminOrigin,
     })
     return Response.json(result)
   } catch (error) {
@@ -17,4 +19,3 @@ serve(async (req) => {
     return Response.json({ ok: false, error: 'Không xử lý được thông báo' }, { status: 500 })
   }
 })
-
