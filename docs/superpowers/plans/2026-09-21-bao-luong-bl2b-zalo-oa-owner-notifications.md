@@ -1,5 +1,10 @@
 # Bảo Lương BL-2B — Zalo OA Owner Notifications Implementation Plan
 
+> **Đã thay thế ngày 2026-09-22. Không triển khai tiếp Task 3–4 của plan này cho Bảo Lương.**
+> OA Open API không phù hợp chi phí pilot. Thiết kế thay thế dùng relay `zca-js` tới nhóm Zalo
+> vận hành nằm tại `docs/superpowers/specs/2026-09-22-bao-luong-bl2b-zca-relay-design.md`.
+> Các migration/task 1–2 đã có vẫn giữ làm lịch sử/audit, nhưng không còn là điều kiện gửi cảnh báo.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.

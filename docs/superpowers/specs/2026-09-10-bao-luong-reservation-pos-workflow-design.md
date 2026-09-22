@@ -382,25 +382,26 @@ chủ quán xử lý. Món tay `order_source = 'pos'` đã chủ quán chủ đ�
 Nhân viên không có quyền xác nhận/in/thu tiền/đóng bàn hoặc `staff_reset`; kiểm tra role phải nằm
 ở RPC/server, không chỉ ẩn nút UI.
 
-## 8. Thông báo Zalo
+## 8. Thông báo vận hành và Zalo
 
-Khi có đặt bàn mới, chủ quán nhận thông báo qua Zalo OA với CTA mở trang quản trị mobile đã đăng
-nhập. Xác nhận/từ chối diễn ra trên admin web để giữ audit, không xử lý bằng OA postback. Muốn OA
-nhắn đúng chủ quán, onboarding phải lưu người nhận thông báo theo store/OA: chủ quán follow OA,
-gửi tin mở hội thoại, hệ thống lấy đúng OA-scoped user ID và gửi tin thử thành công.
+**Pilot Bảo Lương không phụ thuộc Zalo OA Open API.** Khi có đặt bàn mới, hệ thống gửi cảnh báo
+best-effort qua tài khoản Zalo bot riêng vào nhóm vận hành riêng của Bảo Lương. Nhóm gồm chủ quán,
+Zalo bot và tài khoản thu ngân; không dùng tài khoản cá nhân chính của chủ quán làm bot. Tin chỉ có
+tên khách, số khách, giờ đến và CTA mở `/admin/reservations` mobile đã đăng nhập. Số điện thoại,
+ghi chú tự do và dữ liệu chi tiết chỉ xem trong admin web.
 
-Sau khi chủ quán xác nhận, hệ thống ưu tiên tin tư vấn OA miễn phí khi khách đủ điều kiện tương
-tác. ZNS chỉ được dùng khi Bảo Lương đã nâng gói/có mẫu được duyệt và API thật trả thành công;
-không tuyên bố tự động fallback nếu chưa có tích hợp đó. Tin có giờ đến, số khách và CTA chọn món
-trước. Kết quả API Zalo phải được kiểm tra; Edge Function không được trả thành công giả khi Zalo
-từ chối.
+Relay gửi nhóm dùng `zca-js` tự quản lý là kênh không chính thức và có nguy cơ bot bị mất phiên
+hoặc bị Zalo vô hiệu hóa. Vì vậy Supabase vẫn là nguồn sự thật: delivery chỉ được ghi `sent` khi
+relay xác nhận Zalo client đã nhận lệnh gửi; thất bại không rollback hoặc đổi trạng thái reservation;
+POS/Admin Mobile vẫn hiển thị hàng đợi, có âm báo và nút `tel:` để gọi quán. Cockpit phải hiển thị
+sức khỏe relay và delivery lỗi để MEVO/chủ quán xử lý. Không coi tin nhóm là bằng chứng khách/chủ
+quán đã đọc.
 
-Việc khách gửi yêu cầu đặt bàn tự nó không được coi là một lượt tương tác OA. Chỉ khi khách chủ
-động gửi tin, theo dõi OA hoặc thực hiện tương tác được Zalo công nhận mới làm mới cửa sổ tương
-tác. Lỗi gửi tin không được rollback hoặc thay đổi trạng thái đặt bàn. Số điện thoại là kênh vận
-hành chính trong pilot: mọi booking card trên POS có nút `tel:` và khách luôn thấy nút gọi quán
-khi cần. Với booking đã xác nhận, hệ thống tạo nhắc khách trước giờ đến **60 phút**; nếu OA/ZNS
-không đủ điều kiện, POS tạo tác vụ gọi điện thay vì coi là đã gửi.
+Khách không nhận tin tự động trong pilot chỉ vì đã tạo booking hoặc Quan tâm OA. Trang **Đặt bàn
+của tôi** là kênh trạng thái chính. Với booking đã xác nhận, hệ thống tạo nhắc khách trước giờ đến
+**60 phút**; pilot tạo tác vụ gọi điện cho quán thay vì tuyên bố đã gửi OA/ZNS. OA tin tư vấn và
+ZNS vẫn là capability tùy chọn theo quán, chỉ được bật khi entitlement/gói, mẫu duyệt và API thật
+đã được kiểm thử thành công; chúng không được là fallback tự động mặc định.
 
 Zalo App ID Bảo Lương đã tồn tại nhưng app chưa hoàn tất xác minh/xét duyệt/phát hành; OA và các
 template/mẫu tin chưa sẵn sàng. Các thủ tục này phải khởi động song song từ BL-0 vì có thời gian
@@ -479,8 +480,9 @@ luồng món đặt trước chưa tồn tại:
 - **BL-2A — POS/Admin Mobile đặt bàn:** hàng đợi đặt bàn, gợi ý số bàn, chọn bàn trên sơ đồ hiện
   có, tạo/đổi đặt bàn thủ công, nhận khách/no-show, gọi điện, nhắc gộp mỗi 5 phút, Snooze
   10/15/30 và cảnh báo trễ 30 phút. Đây là phần triển khai ngay sau BL-1.
-- **BL-2B — Zalo OA chủ quán:** lấy đúng Zalo user ID của người nhận theo OA của quán, onboarding
-  người nhận và gửi thông báo đặt bàn. Chỉ triển khai khi OA/credential Bảo Lương sẵn sàng.
+- **BL-2B — cảnh báo nhóm Zalo nội bộ:** outbox đặt bàn gửi best-effort qua relay `zca-js` đến
+  nhóm vận hành riêng của quán, có audit/idempotency/health và fallback POS + gọi điện. Không chờ
+  OA/credential; OA/ZNS là integration tùy chọn sau pilot.
 - **BL-2C — hàng đợi món đặt trước:** duyệt/in món chỉ ở POS gắn máy in, có audit in/in lại.
   Triển khai cùng hoặc ngay sau BL-3 vì BL-3 mới tạo được preorder từ khách.
 
@@ -501,7 +503,8 @@ Thiết kế chi tiết BL-2A:
 - Kiểm thử đa thiết bị, capability token, reconnect, gửi lặp và race condition.
 - Kiểm thử đặt trước đã in/chưa in, nhiều bàn, đổi/hủy/no-show và khách ở quá ba giờ.
 - Kiểm thử Pubu/Bảo Lương theo ma trận policy; xác nhận không hồi quy prepay/takeaway.
-- Kiểm thử OA miễn phí/ZNS khi thực sự khả dụng và tình huống gửi thất bại.
+- Kiểm thử relay nhóm Zalo, mất phiên bot, gửi lặp và delivery lỗi; xác nhận POS/Admin Mobile và
+  gọi điện vẫn vận hành khi relay/OA/ZNS không khả dụng.
 - Cập nhật AGENTS, PRD, ARCHITECTURE, tiến trình và hướng dẫn vận hành/deploy Bảo Lương.
 
 Không tự chuyển Sprint. Sau mỗi Sprint phải dừng và chờ anh Tú xác nhận PASS.
