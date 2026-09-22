@@ -157,10 +157,18 @@ export async function sendOwnerOaTest(storeId: string) {
     headers: { apikey: serviceRole, Authorization: `Bearer ${serviceRole}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ delivery_id: delivery.id, dispatch_token: delivery.dispatch_token }),
   })
-  const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; status?: string; providerCode?: string } | null
-  if (!response.ok || !result?.ok) throw new Error(result?.error || `Gửi thử thất bại (${response.status})`)
+  const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; status?: string; providerCode?: string; message?: string | null } | null
+  if (!response.ok || !result) throw new Error(result?.error || `Gửi thử thất bại (${response.status})`)
 
-  await admin.from('store_zalo_notification_recipients').update({ last_tested_at: new Date().toISOString(), last_test_status: 'sent', updated_at: new Date().toISOString() }).eq('id', recipient.id).eq('store_id', storeId)
+  const testedAt = new Date().toISOString()
+  const testSucceeded = result.ok === true && result.status === 'sent'
+  await admin.from('store_zalo_notification_recipients').update({ last_tested_at: testedAt, last_test_status: testSucceeded ? 'sent' : 'failed', updated_at: testedAt }).eq('id', recipient.id).eq('store_id', storeId)
   revalidatePath(`/mevo/stores/${storeId}`)
-  return { status: result.status ?? 'sent', providerCode: result.providerCode ?? '0' }
+  if (!testSucceeded) {
+    const message = result.providerCode === '-224'
+      ? 'OA chưa nâng cấp gói Zalo OA để gửi loại tin này. Vui lòng nâng cấp gói OA rồi thử lại.'
+      : result.message || `Zalo từ chối gửi tin (mã ${result.providerCode ?? 'không rõ'})`
+    return { ok: false, status: result.status ?? 'action_required', providerCode: result.providerCode ?? 'unknown', message }
+  }
+  return { ok: true, status: result.status, providerCode: result.providerCode ?? '0', message: null }
 }

@@ -53,6 +53,5 @@ export async function handleReservationOwnerNotify(input: { delivery_id: string;
     p_status: finish.status, p_provider_code: finish.code, p_provider_detail: finish.detail,
   })
   if (saved.error) throw new Error(saved.error.message)
-  return { ok: result.ok, status: finish.status, providerCode: result.ok ? '0' : result.providerCode }
+  return { ok: result.ok, status: finish.status, providerCode: result.ok ? '0' : result.providerCode, message: result.ok ? null : result.message }
 }
-

@@ -25,7 +25,6 @@ describe('reservation owner notify handler', () => {
     const database = db(delivery)
     const send = vi.fn(async () => ({ ok: false as const, providerCode: '429', message: 'rate', retryable: true }))
     const result = await handleReservationOwnerNotify({ delivery_id: 'd1', dispatch_token: 't1' }, { db: database, send, adminOrigin: 'https://admin.test' })
-    expect(result).toMatchObject({ ok: false, status: 'failed' })
+    expect(result).toMatchObject({ ok: false, status: 'failed', message: 'rate' })
   })
 })
-

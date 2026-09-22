@@ -57,7 +57,8 @@ export default function ZaloOwnerNotifications({
     startTransition(async () => {
       try {
         const result = await sendOwnerOaTest(storeId)
-        setState((current) => ({ ...current, lastTestedAt: new Date().toISOString(), lastTestStatus: result.status === 'sent' ? 'sent' : 'failed' }))
+        setState((current) => ({ ...current, lastTestedAt: new Date().toISOString(), lastTestStatus: result.ok ? 'sent' : 'failed' }))
+        if (!result.ok) setError(result.message)
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Không gửi được tin thử')
       }
