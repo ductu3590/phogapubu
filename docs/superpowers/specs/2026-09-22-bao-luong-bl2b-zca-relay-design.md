@@ -67,8 +67,10 @@ reservation_events.created
   -> Zalo bot phụ -> nhóm Zalo vận hành
 ```
 
-Edge Function là phía duy nhất đọc reservation và dựng nội dung. Relay không nhận Supabase service
-role key, không gọi trực tiếp database, không giữ thông tin khách ngoài request đang xử lý.
+Edge Function là phía duy nhất đọc reservation và dựng nội dung. Relay hiện có endpoint
+`POST https://zalo.soccernow.net/mevo/relay`; Edge Function lấy URL này từ secret
+`MEVO_ZCA_RELAY_URL`. Relay không nhận Supabase service-role key, không gọi trực tiếp database,
+không giữ thông tin khách ngoài request đang xử lý.
 
 Mỗi request có body JSON:
 
@@ -90,10 +92,17 @@ X-Mevo-Timestamp: <Unix seconds>
 X-Mevo-Signature: sha256=<HMAC-SHA256(secret, timestamp + "." + raw body)>
 ```
 
-Relay từ chối chữ ký sai, timestamp lệch quá 5 phút, `notification_id` đã xử lý, hoặc `group_id`
-không nằm trong allow-list của store. Relay lưu idempotency key đủ lâu để retry Edge Function không
-tạo tin thứ hai. Chỉ HTTPS, URL relay và HMAC secret để trong Supabase Edge secrets; group ID và
-enable/disable để trong bảng cấu hình theo store, không trả cho anon/staff.
+`timestamp` là Unix giây nguyên, `raw body` là chính bytes UTF-8 gửi qua `fetch`; Edge Function
+phải serialize đúng một lần, ký `timestamp + '.' + raw body`, sau đó gửi lại đúng bytes đó, không
+nén request. Relay từ chối chữ ký sai, timestamp lệch quá 5 phút, `notification_id` đã xử lý, hoặc
+`group_id` không nằm trong allow-list của store. Relay lưu idempotency key đủ lâu để retry Edge
+Function không tạo tin thứ hai. Chỉ HTTPS, URL relay và HMAC secret `MEVO_HMAC_SECRET` để trong
+Supabase Edge secrets; group ID và enable/disable để trong bảng cấu hình theo store, không trả cho
+anon/staff.
+
+Nhóm thử hiện có ID `3531071701486961908` (`TEST-ZALO BL`). Giá trị này chỉ được nhập vào cấu
+hình Bảo Lương sau khi phía relay allowlist cặp canonical `store_id:group_id`; không được hardcode
+vào Mini App, Admin Web hay Edge Function.
 
 Relay trả một trong các kết quả chuẩn:
 
@@ -103,8 +112,10 @@ type RelayResult =
   | { ok: false; code: 'BOT_OFFLINE' | 'GROUP_NOT_FOUND' | 'RATE_LIMITED' | 'PROVIDER_REJECTED' | 'INVALID_REQUEST'; message: string; retryable: boolean }
 ```
 
-`BOT_OFFLINE`, timeout, HTTP 429 và HTTP 5xx là retryable. Chữ ký sai, group sai và request sai là
-`action_required`. HTTP 2xx không đủ để coi delivery thành công: body phải có `ok: true`.
+`BOT_OFFLINE`, timeout, HTTP 429 và HTTP 5xx là retryable. `PROVIDER_REJECTED` là trạng thái mơ
+hồ: không tạo delivery mới hay retry vòng lặp; relay dedup cùng `notification_id` nên chỉ cho phép
+kiểm tra/retry thủ công cùng ID. Chữ ký sai, group sai và request sai là `action_required`. HTTP
+2xx không đủ để coi delivery thành công: body phải có `ok: true`.
 
 ## 5. Cấu hình theo quán và quan sát
 
