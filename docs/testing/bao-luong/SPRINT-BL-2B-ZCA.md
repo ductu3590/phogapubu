@@ -1,8 +1,8 @@
-# Bảo Lương — Sprint BL-2B ZCA relay: cảnh báo nhóm Zalo nội bộ
+# Bảo Lương — Sprint BL-2B ZCA relay: thông báo nội bộ
 
 Ngày cập nhật: 2026-09-22
 
-Trạng thái: **Task 1 PASS — Task 2 chờ nghiệm thu**
+Trạng thái: **Task 1–2 PASS — Task 3 chờ nghiệm thu**
 
 > Chưa có request HTTP nào đến `zalo.soccernow.net`. Migration production đã áp; channel vẫn trống,
 > chưa nhập HMAC secret, chưa bật channel và chưa gửi tin Zalo.
@@ -85,3 +85,43 @@ allowlist, tạo Database Webhook và gửi tin thử thuộc Task 4 sau khi coc
 
 **PASS:** Anh Tú trả `Task 2 PASS`. Khi đó mới làm Task 3 cockpit cấu hình; vẫn không bật channel
 hay gọi relay thật.
+
+## Task 3 — cockpit MEVO cấu hình nhóm Zalo
+
+Panel OA recipient cũ trên cockpit quán được thay bằng **Thông báo nội bộ (best-effort)**.
+Các form credential Mini App, OA/Webhook và ZaloPay vẫn giữ nguyên. Chỉ MEVO superadmin có thể:
+
+- lưu Group ID (sau khi lưu chỉ hiện `Đã lưu (ẩn)`, không trả ID ra client);
+- bật/tắt channel; tắt không xoá delivery đã có;
+- tạo delivery `owner_test` và gọi Edge Function khi bấm **Gửi tin thử**.
+
+Nút Lưu chỉ ghi DB, không gọi relay. Bởi Task 4 chưa tạo Database Webhook/deploy function nên không
+có booking thật nào có thể tự gửi tin ở giai đoạn này.
+
+## Test 3A — tự động (Codex đã chạy, không cần chạy lại)
+
+```text
+reservation-group-notifications action/UI: 6/6 PASS
+toàn bộ Admin Web: 353/353 PASS
+npx tsc --noEmit: PASS
+npm run build: PASS
+```
+
+Các case action/UI bao phủ: superadmin-only, state không lộ Group ID, lưu/tắt không fetch relay,
+test delivery snapshot và text/response không lộ Group ID.
+
+## Test 3B — UI local (chưa deploy)
+
+Tại worktree, chạy `cd admin-web; npm run dev`, đăng nhập bằng MEVO superadmin rồi mở
+`/mevo/stores/<Bảo Lương>`:
+
+1. Trong khung **Zalo — cấu hình tích hợp**, xác nhận panel **Thông báo nội bộ** xuất hiện;
+   panel yêu cầu OA recipient/mã kết nối không còn hiển thị.
+2. Chưa nhập Group ID: trạng thái `Chưa lưu`; không bấm Gửi tin thử được.
+3. Nhập một Group ID thử, **bỏ chọn Bật cảnh báo**, Lưu: trang không gửi tin và reload chỉ ghi
+   `Đã lưu (ẩn)`, không cho nhìn lại ID.
+4. Bấm **Tắt cảnh báo**: trạng thái `Đang tắt`; booking/POS không bị ảnh hưởng.
+
+Không bật bằng Group ID vận hành hoặc bấm Gửi tin thử trước Task 4 allowlist + secret + deploy.
+
+**PASS:** Anh Tú trả `Task 3 PASS`. Khi đó mới làm Task 4 deploy, allowlist và gửi tin thử thật.

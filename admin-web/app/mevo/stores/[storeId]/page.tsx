@@ -12,8 +12,8 @@ import {
   loadMevoWorkflowSettings,
   saveMevoWorkflowSettings,
 } from '@/lib/actions/workflow-settings'
-import { getOwnerOaNotificationState } from '@/lib/actions/zalo-owner-notifications'
-import ZaloOwnerNotifications from './zalo-owner-notifications'
+import { getGroupNotificationState } from '@/lib/actions/reservation-group-notifications'
+import ReservationGroupNotifications from './reservation-group-notifications'
 import SecretField from './secret-field'
 
 export default async function StoreDetailPage({ params }: { params: Promise<{ storeId: string }> }) {
@@ -24,7 +24,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
   if (!store) notFound()
 
   const workflowSettings = await loadMevoWorkflowSettings(storeId)
-  const ownerOaState = await getOwnerOaNotificationState(storeId)
+  const groupNotificationState = await getGroupNotificationState(storeId)
 
   const { data: appConfig } = await admin.from('store_app_configs').select('*').eq('store_id', storeId).maybeSingle()
   const { data: checkoutConfig } = await admin.from('store_checkout_configs').select('zalo_mini_app_id, zalo_checkout_secret_key, is_enabled, updated_at').eq('store_id', storeId).maybeSingle()
@@ -115,7 +115,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
           <SecretField label="OA Access Token (bỏ trống nếu không đổi)" name="zalo_oa_access_token" value={zaloConfig?.zalo_oa_access_token ?? ''} />
           <SecretField label="OA API App Secret Key — webhook (bỏ trống nếu không đổi)" name="zalo_app_secret_key" value={zaloConfig?.zalo_app_secret_key ?? ''} />
         </SaveForm>
-        <ZaloOwnerNotifications storeId={storeId} initialState={ownerOaState} />
+        <ReservationGroupNotifications storeId={storeId} initialState={groupNotificationState} />
       </Section>
       </div>
       </div>
