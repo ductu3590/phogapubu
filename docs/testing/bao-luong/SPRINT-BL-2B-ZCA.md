@@ -2,9 +2,9 @@
 
 Ngày cập nhật: 2026-09-22
 
-Trạng thái: **Task 1 hoàn tất kỹ thuật — chờ nghiệm thu**
+Trạng thái: **Task 1 PASS — Task 2 chờ nghiệm thu**
 
-> Không có request HTTP nào đến `zalo.soccernow.net` trong Task 1. Chưa áp migration production,
+> Chưa có request HTTP nào đến `zalo.soccernow.net`. Migration production đã áp; channel vẫn trống,
 > chưa nhập HMAC secret, chưa bật channel và chưa gửi tin Zalo.
 
 ## Task 1 — Schema channel và outbox relay
@@ -31,8 +31,7 @@ và không lộ số điện thoại/ghi chú.
 
 ## Test 1B — migration production
 
-Codex sẽ chạy migration production sau khi anh xác nhận Task 1 PASS. Sau đó, trong Supabase SQL
-Editor kiểm tra:
+Migration production đã chạy sau Task 1 PASS. Kết quả kiểm tra quyền:
 
 ```sql
 select
@@ -42,7 +41,7 @@ select
   has_function_privilege('service_role', 'public.claim_reservation_zca_notification(uuid,uuid)', 'EXECUTE') as service_claim;
 ```
 
-Kỳ vọng:
+Kết quả:
 
 ```text
 anon_channel_select = false
@@ -51,8 +50,38 @@ anon_claim = false
 service_claim = true
 ```
 
-Không tự tạo channel Bảo Lương trong Task 1. Bảng channel trống sau migration là đúng; Task 3 mới
-có cockpit để superadmin lưu group và Task 4 mới bật sau allowlist relay.
+`channel_count = 0`: không tự tạo channel Bảo Lương. Task 3 mới có cockpit để superadmin lưu group
+và Task 4 mới bật sau allowlist relay.
 
-**PASS:** Anh Tú trả `Task 1 PASS`. Khi đó mới bắt đầu Task 2 sender HMAC, vẫn chỉ unit test/mock,
-không gọi relay thật.
+**PASS:** `Task 1 PASS` — 2026-09-22.
+
+## Task 2 — sender HMAC raw-body và Edge Function
+
+Tạo sender `zca-relay.ts`, handler `reservation-zca-notify` và HTTP entrypoint. Sender serialise
+payload đúng một lần, ký HMAC SHA-256 trên `timestamp + '.' + raw UTF-8 bytes`, timeout 20 giây và
+gửi chính bytes đó. Handler claim/finish delivery qua RPC Task 1; không có SĐT, ghi chú, HMAC,
+signature hay group ID trong log/response.
+
+## Test 2A — tự động (Codex đã chạy, không cần chạy lại)
+
+```text
+supabase/functions/_shared/zca-relay.test.ts
+supabase/functions/reservation-zca-notify/handler.test.ts
+14/14 PASS
+```
+
+Bao phủ: vector HMAC raw bytes cố định, response `ok:true`, đủ năm mã relay, HTTP/JSON/network
+lỗi, no-op delivery đã claim và mapping `sent`/`failed`/`action_required`. Test cũng khẳng định text
+gửi relay không chứa SĐT hoặc ghi chú.
+
+Lưu ý môi trường Windows hiện không cài Deno CLI, nên không chạy được type-check Deno cục bộ; unit
+test TypeScript chạy qua Vitest dùng dependency runtime của workspace chính. Chưa deploy Edge
+Function và chưa gọi relay thật.
+
+## Test 2B — nghiệm thu an toàn
+
+Anh chỉ cần đọc nhanh thay đổi; không có thao tác UI/production ở Task 2. Việc deploy, nhập secret,
+allowlist, tạo Database Webhook và gửi tin thử thuộc Task 4 sau khi cockpit Task 3 đã có.
+
+**PASS:** Anh Tú trả `Task 2 PASS`. Khi đó mới làm Task 3 cockpit cấu hình; vẫn không bật channel
+hay gọi relay thật.
