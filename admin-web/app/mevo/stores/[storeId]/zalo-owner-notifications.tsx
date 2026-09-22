@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import {
   createOwnerOaChallenge,
   disableOwnerOaRecipient,
+  sendOwnerOaTest,
   type getOwnerOaNotificationState,
 } from '@/lib/actions/zalo-owner-notifications'
 
@@ -47,6 +48,18 @@ export default function ZaloOwnerNotifications({
         setState((current) => ({ ...current, recipientStatus: 'disabled' }))
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Không tắt được người nhận OA')
+      }
+    })
+  }
+
+  function sendTest() {
+    setError(null)
+    startTransition(async () => {
+      try {
+        const result = await sendOwnerOaTest(storeId)
+        setState((current) => ({ ...current, lastTestedAt: new Date().toISOString(), lastTestStatus: result.status === 'sent' ? 'sent' : 'failed' }))
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Không gửi được tin thử')
       }
     })
   }
@@ -120,6 +133,16 @@ export default function ZaloOwnerNotifications({
             Tắt người nhận
           </button>
         )}
+        {state.recipientStatus === 'verified' && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={sendTest}
+            className="rounded-lg border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 disabled:opacity-50"
+          >
+            {pending ? 'Đang gửi…' : 'Gửi tin thử'}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => window.location.reload()}
@@ -128,6 +151,12 @@ export default function ZaloOwnerNotifications({
           Tải lại trạng thái
         </button>
       </div>
+
+      {state.lastTestedAt && (
+        <p className="text-xs text-gray-500">
+          Gửi thử gần nhất: {new Date(state.lastTestedAt).toLocaleString('vi-VN')} — {state.lastTestStatus === 'sent' ? 'Đã gửi' : 'Thất bại'}
+        </p>
+      )}
 
       {!canCreate && (
         <p className="text-sm text-amber-700">

@@ -1,6 +1,6 @@
 'use server'
 
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { requireSuperadmin } from '@/lib/auth/operator'
 import { createAdminClient } from '@/lib/supabase/server'
@@ -116,4 +116,51 @@ export async function disableOwnerOaRecipient(storeId: string) {
     .eq('purpose', 'reservation_owner_alert')
   if (error) throw new Error(`Không tắt được người nhận OA: ${error.message}`)
   revalidatePath(`/mevo/stores/${storeId}`)
+}
+
+export async function sendOwnerOaTest(storeId: string) {
+  await requireSuperadmin()
+  const admin = createAdminClient()
+  const setup = await loadOwnerOaSetup(admin, storeId)
+  if (!setup.configEnabled || !setup.hasAccessToken || !setup.hasAppSecret) {
+    throw new Error('Thiếu Access Token, App Secret hoặc cấu hình OA chưa được bật')
+  }
+  if (setup.recipientStatus !== 'verified') throw new Error('Chủ quán chưa xác minh người nhận OA')
+
+  const { data: recipient, error: recipientError } = await admin
+    .from('store_zalo_notification_recipients')
+    .select('id')
+    .eq('store_id', storeId)
+    .eq('purpose', 'reservation_owner_alert')
+    .eq('status', 'verified')
+    .single()
+  if (recipientError || !recipient) throw new Error('Không tìm thấy người nhận OA đã xác minh')
+
+  const { data: delivery, error: deliveryError } = await admin
+    .from('reservation_notification_deliveries')
+    .insert({
+      store_id: storeId,
+      recipient_id: recipient.id,
+      kind: 'owner_test',
+      status: 'queued',
+      idempotency_key: `owner-test:${storeId}:${randomUUID()}`,
+    })
+    .select('id, dispatch_token')
+    .single()
+  if (deliveryError || !delivery) throw new Error(`Không tạo được delivery gửi thử: ${deliveryError?.message ?? 'không rõ lỗi'}`)
+
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!baseUrl || !serviceRole) throw new Error('Thiếu cấu hình Supabase server')
+  const response = await fetch(`${baseUrl}/functions/v1/reservation-owner-notify`, {
+    method: 'POST',
+    headers: { apikey: serviceRole, Authorization: `Bearer ${serviceRole}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ delivery_id: delivery.id, dispatch_token: delivery.dispatch_token }),
+  })
+  const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; status?: string; providerCode?: string } | null
+  if (!response.ok || !result?.ok) throw new Error(result?.error || `Gửi thử thất bại (${response.status})`)
+
+  await admin.from('store_zalo_notification_recipients').update({ last_tested_at: new Date().toISOString(), last_test_status: 'sent', updated_at: new Date().toISOString() }).eq('id', recipient.id).eq('store_id', storeId)
+  revalidatePath(`/mevo/stores/${storeId}`)
+  return { status: result.status ?? 'sent', providerCode: result.providerCode ?? '0' }
 }

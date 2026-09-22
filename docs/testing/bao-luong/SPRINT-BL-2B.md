@@ -1,7 +1,17 @@
 # Bảo Lương — Sprint BL-2B: thông báo Zalo OA cho chủ quán
 
-Ngày cập nhật: 2026-09-21
-Trạng thái: **Task 1 PASS — Task 2 code hoàn tất, chờ credential/live OA**
+Ngày cập nhật: 2026-09-22
+Trạng thái: **Task 1 PASS — Task 2 PASS (anh Tú xác nhận Test 2B–2D ngày 2026-09-22)**
+
+### Nghiệm thu live ngày 2026-09-22
+
+- Anh Tú xác nhận **PASS Test 2B–2D**: cấu hình, claim bằng Zalo thật, tắt/kết nối lại người nhận.
+- Ảnh cockpit thể hiện `Đã xác minh` lúc 08:35:06 22/09/2026 và trạng thái `Đã tắt` khi thử tắt.
+- Ảnh Console có thông báo gửi sự kiện mẫu thành công; ảnh khác vẫn hiện HTTP 408 khi kiểm tra
+  URL. Ghi nhận riêng hiện tượng 408, chưa xác định thời điểm/nguyên nhân; không coi là đã khắc phục
+  timeout chỉ từ kết quả onboarding PASS.
+- Các mục thiếu credential phía dưới là lịch sử checkpoint trước khi cấu hình, không còn là blocker.
+- Chưa nghiệm thu gửi thông báo đặt bàn cho chủ quán; phần sender thuộc task tiếp theo.
 
 ## Phạm vi Task 1
 
@@ -256,3 +266,30 @@ có recipient `579745863508352884`, msg_id `This is message id`, text `This is t
 1. **PASS do Codex chạy trên Chrome**: Console kiểm tra URL OA Bảo Lương không còn 403 và cho lưu.
 2. **PASS**: đã lưu, Console hiển thị URL `/api/zalo-oa-webhook/<store Bảo Lương>`.
 3. Test 2B–2D bằng tin nhắn thật vẫn là nghiệm thu onboarding; nút Kiểm tra chỉ xác minh kết nối.
+
+## Task 3 — sender OA và gửi thử
+
+### Kết quả tự động đã chạy
+
+- `supabase/functions/_shared/zalo-oa.test.ts`: **4/4 PASS**.
+- `supabase/functions/reservation-owner-notify/handler.test.ts`: **3/3 PASS**.
+- Admin action/UI hồi quy: **8/8 PASS**.
+- TypeScript Admin Web: **PASS**.
+- Edge Function `reservation-owner-notify` đã deploy production với JWT verification tắt.
+- Endpoint kiểm tra thiếu payload trả HTTP `400`; không gọi provider.
+
+### Luồng đã triển khai
+
+- Gửi qua OA API `POST https://openapi.zalo.me/v3.0/oa/message/cs`.
+- Chỉ coi là thành công khi HTTP thành công và provider trả `error = 0`.
+- Delivery được claim trước khi gửi; `sent`/`processing` không gửi lặp.
+- Lỗi 429/5xx/network chuyển `failed`; lỗi provider không retry được chuyển `action_required`.
+- Nút **Gửi tin thử** tạo `owner_test`, gọi cùng Edge Function và chỉ hiện thành công sau khi delivery được ghi `sent`.
+
+### Còn chờ nghiệm thu live
+
+1. Cấu hình Database Webhook trên Supabase: INSERT `reservation_notification_deliveries` với `status=queued`, gọi Edge Function bằng JSON chỉ gồm `delivery_id` và `dispatch_token`.
+2. Trên cockpit Bảo Lương bấm **Gửi tin thử**, kiểm tra tin nhắn xuất hiện đúng OA chủ quán.
+3. Tạo một booking khách thật, kiểm tra một delivery và một tin OA.
+
+Chưa đánh dấu Task 3 PASS cho tới khi tin thử xuất hiện trên Zalo thật.
