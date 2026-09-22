@@ -293,3 +293,12 @@ có recipient `579745863508352884`, msg_id `This is message id`, text `This is t
 3. Tạo một booking khách thật, kiểm tra một delivery và một tin OA.
 
 Chưa đánh dấu Task 3 PASS cho tới khi tin thử xuất hiện trên Zalo thật.
+
+### Sự cố live và bản sửa 2026-09-22
+
+- Delivery live trả provider code `-224`: OA cần nâng cấp gói Zalo để dùng chức năng gửi tin.
+- Đây là giới hạn gói OA, không phải lỗi Access Token/App Secret.
+- Cockpit đã sửa để hiển thị thông báo tiếng Việt, ghi `last_test_status = failed` và không còn làm
+  lỗi Server Components khi provider trả HTTP 200 nhưng `error != 0`.
+- Edge Function đã deploy lại; Admin Web production deployment mới đã Ready.
+- Sau bản sửa: Admin **347/347 PASS**, sender/handler **7/7 PASS**, TypeScript **PASS**.
