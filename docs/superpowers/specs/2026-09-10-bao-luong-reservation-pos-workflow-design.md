@@ -49,7 +49,8 @@ Trong pilot, chủ quán Bảo Lương chính là thu ngân; hệ thống chưa 
 quầy là nguồn quyết định vận hành. Mọi đơn từ QR, đặt trước hoặc nhân viên đều phải chờ chủ
 quán xác nhận trước khi thuộc luồng bếp. Chủ quán quyết định lúc in hai liên. Bảo Lương không dùng
 Kitchen Display; "xuống bếp" trong tài liệu này nghĩa là POS đã xác nhận và chủ quán có thể in
-phiếu bếp.
+phiếu bếp. Hai liên in cùng danh sách món, đơn giá và tổng tiền; liên bếp chỉ khác nhãn để tránh
+nhân viên phát nhầm phiếu sang khách hoặc ngược lại.
 
 ### 3.2 Cấu hình theo quán
 

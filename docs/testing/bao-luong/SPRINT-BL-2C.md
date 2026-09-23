@@ -27,8 +27,10 @@ PASS nếu owner duyệt đúng một revision, chỉ có phiếu giấy từ PO
 ## Test 2 — Hai liên, bản điều chỉnh và popup
 
 1. Tab in của lần đầu có hai liên:
-   - Liên 1: **PHIẾU BẾP**, không giá.
-   - Liên 2: phiếu món, có giá và ô tick.
+   - Liên 1: **PHIẾU BẾP**, có giá và tổng phiếu.
+   - Liên 2: phiếu món, cùng giá/tổng và có ô tick.
+
+   Hai liên cố ý cùng số tiền để không thể phát nhầm phiếu bếp sang khách hoặc ngược lại.
 2. Nếu card đang là revision 2 sau khi revision 1 đã in: mở card, kiểm có lời nhắc khách vừa sửa. Bấm **Xác nhận & in 2 liên**.
 3. Phiếu mới phải đề **PHIẾU ĐIỀU CHỈNH** và `v2`; bếp chỉ làm theo phiếu v2 sau khi chủ quán giao phiếu, không thay đổi gì ngay từ lúc khách sửa.
 4. Thử đóng/cấm popup trước lúc thao tác: POS phải báo phiếu đã tạo nhưng không xác nhận giấy đã ra. Không được rollback duyệt món; mở lại thao tác in để lấy phiếu.

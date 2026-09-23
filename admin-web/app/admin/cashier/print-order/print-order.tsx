@@ -97,7 +97,7 @@ export default function PrintOrder({ slip }: { slip: OrderSlip }) {
           <div key={i} style={{ marginBottom: 4 }}>
             <div className="row to">
               <span className="name">{it.name}</span>
-              <span className="num">x{it.quantity}</span>
+              <span className="num">x{it.quantity} · {dong(donGia(it) * it.quantity)}</span>
             </div>
             {it.toppings.length > 0 && (
               <div style={{ paddingLeft: 8 }}>+ {it.toppings.map((t) => t.name).join(', ')}</div>
@@ -111,6 +111,11 @@ export default function PrintOrder({ slip }: { slip: OrderSlip }) {
             <p className="ghichu">Ghi chú đơn: {slip.orderNote}</p>
           </>
         )}
+        <hr />
+        <div className="row to">
+          <span>Tổng phiếu</span>
+          <span className="num">{dong(slip.orderTotal)}</span>
+        </div>
         <hr />
         <p style={{ textAlign: 'center' }}>— hết phiếu bếp —</p>
       </div>
