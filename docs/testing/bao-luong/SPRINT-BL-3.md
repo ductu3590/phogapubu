@@ -61,4 +61,4 @@ Task 2 đã được kiểm thử tự động. Chưa có route/UI để thao t�
 
 **Kết quả Codex:** utility display `3/3 PASS`; toàn Mini App `61/61 PASS`; `git diff --check` sạch. `npm run typecheck` còn đúng 4 lỗi nợ kỹ thuật BL-3 đã ghi ở trên, không có lỗi mới từ Task 3.
 
-**Nghiệm thu:** `Task 3 PASS` hoặc nêu mục chưa đạt. Chưa tiếp tục Task 4 trước khi được xác nhận.
+**Nghiệm thu:** ✅ `Task 3 PASS` — anh Tú xác nhận ngày 2026-09-23.
