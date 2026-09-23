@@ -1,11 +1,11 @@
 # Bảo Lương — Sprint BL-2B ZCA relay: thông báo nội bộ
 
-Ngày cập nhật: 2026-09-22
+Ngày cập nhật: 2026-09-23
 
-Trạng thái: **Task 1–2 PASS — Task 3 chờ nghiệm thu**
+Trạng thái: **Task 1–4 đã triển khai — chờ anh Tú nghiệm thu Test 4**
 
-> Chưa có request HTTP nào đến `zalo.soccernow.net`. Migration production đã áp; channel vẫn trống,
-> chưa nhập HMAC secret, chưa bật channel và chưa gửi tin Zalo.
+> Production hiện đã có request relay thành công. Chi tiết triển khai và bằng chứng E2E nằm ở
+> Task 4; Group ID, HMAC và các secret không được ghi trong tài liệu này.
 
 ## Task 1 — Schema channel và outbox relay
 
@@ -124,4 +124,55 @@ Tại worktree, chạy `cd admin-web; npm run dev`, đăng nhập bằng MEVO su
 
 Không bật bằng Group ID vận hành hoặc bấm Gửi tin thử trước Task 4 allowlist + secret + deploy.
 
-**PASS:** Anh Tú trả `Task 3 PASS`. Khi đó mới làm Task 4 deploy, allowlist và gửi tin thử thật.
+**PASS:** `Task 3 PASS` — 2026-09-22. Task 4 chỉ bắt đầu gửi thật sau khi Supabase deploy được
+Edge Function, HMAC secret được nhập và relay xác nhận allowlist.
+
+## Task 4 — Deploy, webhook và relay thật
+
+Đã triển khai production:
+
+- Edge Function `reservation-zca-notify` với `--no-verify-jwt`;
+- secrets relay/HMAC đã được nhập trực tiếp qua terminal, không lưu trong repository;
+- Database Webhook `trg_dispatch_reservation_zca_delivery_webhook` chỉ gọi Function khi có
+  delivery `queued` của provider `zca_group`;
+- channel Bảo Lương được bật sau khi relay allowlist; Group ID không được ghi trong tài liệu này.
+
+## Test 4A — tin thử từ cockpit: PASS
+
+MEVO superadmin đã bấm **Gửi tin thử**. Relay trả `sent`/`OK`; một tin thử đến đúng nhóm vận hành.
+
+## Test 4B — booking E2E và idempotency: PASS
+
+Ngày 2026-09-23, Codex tạo đúng một reservation kiểm thử rõ nhãn **KIỂM THỬ RELAY BL-2B**,
+2 khách, giờ đến 19:00 ngày hôm sau. Kết quả production:
+
+```text
+reservation: pending
+delivery: owner_new_reservation / zca_group
+attempt_count: 1
+status: sent
+provider_code: OK
+```
+
+Relay hoàn tất sau khoảng 7 giây. Gọi lại `create_reservation` cùng `client_request_id` cho kết quả
+`created=false`; kiểm tra DB còn đúng **1** customer-created event và **1** ZCA delivery. Nhóm chỉ
+nhận một tin. Reservation thử được giữ ở `pending` để nhìn thấy trên hàng đợi và phải được chủ quán
+đóng tay như một bản ghi test, không xóa trực tiếp.
+
+## Test 4C — giới hạn phạm vi hiện tại
+
+Booking tạo từ màn Mini App chưa thể test vì form đặt bàn thuộc **BL-3**, không thuộc BL-2B.
+Đường được kiểm ở Test 4B chính là RPC `create_reservation` mà BL-3 sẽ gọi; trigger/outbox/Function
+không phụ thuộc client. Case bot offline và `PROVIDER_REJECTED` đã được unit test ở Task 2:
+delivery chuyển `failed` hoặc `action_required`, booking/POS không bị rollback và không tự gửi lại.
+
+## Test 4D — anh Tú nghiệm thu
+
+1. Mở nhóm Zalo vận hành: xác nhận chỉ có **một** tin về booking `KIỂM THỬ RELAY BL-2B`.
+2. Mở `/admin/reservations`: xác nhận booking thử có trạng thái `Chờ duyệt`/`pending`, không ảnh hưởng
+   các thao tác POS khác. Sau khi xem, chủ quán đóng tay bản ghi test theo quy trình vận hành.
+3. Trên cockpit Bảo Lương, xác nhận trạng thái gửi gần nhất là `Đã gửi`; tắt channel rồi bật lại chỉ
+   khi cần dừng/tái mở cảnh báo — không cần gửi thêm booking thử.
+
+**Chờ nghiệm thu:** trả `BL-2B ZCA PASS` nếu ba bước trên đúng. Không chuyển BL-2C hoặc BL-3 trước
+khi nhận PASS.
