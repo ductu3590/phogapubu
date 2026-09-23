@@ -15,6 +15,8 @@ export default function ReservationPreorderPanel({
   onResolveWaste: (row: ReservationPreorderRow, reason: string) => Promise<{ ok: boolean; error?: string }>
 }) {
   const [expanded, setExpanded] = useState<string | null>(null)
+  const pendingRows = rows.filter((row) => row.wasteReviewRequired || row.needsReview || row.needsPrint)
+  const printedRows = rows.filter((row) => !pendingRows.includes(row))
   if (rows.length === 0) return null
 
   // Popup phải mở trong đúng click gesture. Khi RPC xong mới điều hướng sang snapshot job.
@@ -28,14 +30,15 @@ export default function ReservationPreorderPanel({
   }
 
   return (
-    <section className="mx-5 mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3" aria-label="Món đặt trước cần xử lý">
+    <>
+    {pendingRows.length > 0 && <section className="mx-5 mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3" aria-label="Món đặt trước cần xử lý">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-bold text-violet-950">🍲 Món đặt trước cần xử lý</h2>
-        <span className="rounded-full bg-violet-700 px-2 py-0.5 text-[11px] font-bold text-white">{rows.length}</span>
+        <span className="rounded-full bg-violet-700 px-2 py-0.5 text-[11px] font-bold text-white">{pendingRows.length}</span>
       </div>
       <p className="mt-1 text-xs text-violet-800">Duyệt theo phiên bản rồi mới in. In trước giờ đến chưa có cọc: chủ quán tự quyết định.</p>
       <ul className="mt-2 space-y-2">
-        {rows.map((row) => {
+        {pendingRows.map((row) => {
           const open = expanded === row.orderId
           const canRelease = row.orderStatus !== 'cancelled' && row.needsReview
           const printedCurrent = !row.needsPrint && row.releasedRevision > 0
@@ -59,6 +62,11 @@ export default function ReservationPreorderPanel({
           </li>
         })}
       </ul>
-    </section>
+    </section>}
+    {printedRows.length > 0 && <section className="mx-5 mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3" aria-label="Đã duyệt/in hôm nay">
+      <h2 className="text-xs font-bold text-slate-700">✓ Đã duyệt/in hôm nay · {printedRows.length}</h2>
+      <div className="mt-2 space-y-1 text-xs text-slate-600">{printedRows.map((row) => <div key={row.orderId} className="flex justify-between rounded bg-white px-2 py-1.5"><span>{row.customerName} · {row.tableNumbers.join(', ') || 'chưa phân bàn'}</span><b>{money(row.totalAmount)}</b></div>)}</div>
+    </section>}
+    </>
   )
 }

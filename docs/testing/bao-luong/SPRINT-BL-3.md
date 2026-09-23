@@ -155,15 +155,16 @@ Task 6 là checkpoint BL-2C riêng trước khi mở UI chọn món đặt trư�
 ### Anh cần test
 
 1. Booking đã xác nhận hiện hai lựa chọn: **Chọn món trước** và **Gọi sau tại quán**. Bấm Gọi sau chỉ hiện lời nhắn, không tạo đơn.
-2. Bấm Chọn món trước: menu mở dù quán đang ngoài giờ gọi món; thêm món thường, món có biến thể/topping. Giỏ chỉ là giỏ đặt trước, không làm xuất hiện giỏ QR/mang về.
+2. Bấm Chọn món trước: menu mở dù quán đang ngoài giờ gọi món. Với món thường, dùng cụm **− / số lượng / +** để kiểm soát số lượng; món có biến thể/topping vẫn mở lựa chọn. Giỏ chỉ là giỏ đặt trước, không làm xuất hiện giỏ QR/mang về.
 3. Vào **Gửi món trước** rồi bấm **Xác nhận đặt trước món**. Sau khi thành công phải hiện đúng thông báo: **“Đã gửi món đặt trước. Món đã chốt, vui lòng gọi thêm tại quán nếu cần.”**
 4. Quay lại booking: không có nút sửa/hủy món. Bấm lại đường chọn món cũng không được tạo batch đặt trước thứ hai.
-5. Trên POS `/admin/cashier`, booking có đúng một card món chờ chủ quán **Xác nhận & in 2 liên**. Món chưa tự xuống Kitchen Display.
-6. Tắt mạng đúng lúc bấm xác nhận, bật lại rồi thử gửi lại: chỉ một batch xuất hiện ở POS, không nhân đôi món.
+5. Trên POS `/admin/cashier`, booking có đúng một card món chờ chủ quán **Xác nhận & in 2 liên**, ghi đúng bàn đã được phân bổ và giờ đến, kể cả bàn đó đang có bill của khách hiện tại. Món chưa tự xuống Kitchen Display.
+6. In xong: card rời **Món đặt trước cần xử lý**, xuất hiện gọn trong **Đã duyệt/in hôm nay**; vẫn thấy bàn và tổng để đối soát.
+7. Tắt mạng đúng lúc bấm xác nhận, bật lại rồi thử gửi lại: chỉ một batch xuất hiện ở POS, không nhân đôi món.
 
 ### Codex đã tự kiểm
 
-- Mini App: `64/64 PASS`, gồm API capability/request-ID và giỏ tách theo booking.
+- Mini App: `65/65 PASS`, gồm API capability/request-ID, giỏ tách theo booking và tăng/giảm số lượng.
 - Server PGlite: `16/16 PASS` cho preorder/lifecycle/release/khóa món; production đã có migration `071`.
 - `npm run typecheck` vẫn còn 4 lỗi nền đã ghi ở Test 2; không có lỗi từ file Task 7.
 

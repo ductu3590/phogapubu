@@ -18,4 +18,12 @@ describe('ReservationPreorderPanel', () => {
     expect(html).toContain('In trước giờ đến chưa có cọc')
     expect(html).toContain('Nguyễn Văn A')
   })
+
+  it('hiển thị bàn đã phân bổ trước giờ đến và thu gọn món đã in khỏi hàng chờ', () => {
+    const printed = { ...row, orderId: 'order-printed', needsReview: false, needsPrint: false, releasedRevision: 2, tableNumbers: ['Bàn 8'] }
+    const html = renderToStaticMarkup(<ReservationPreorderPanel rows={[row, printed]} busy={false} onRelease={async () => ({ ok: true })} onPrint={async () => ({ ok: true })} onResolveWaste={async () => ({ ok: true })} />)
+    expect(html).toContain('Đã duyệt/in hôm nay')
+    expect(html).toContain('Bàn 8')
+    expect(html).toContain('Món đặt trước cần xử lý')
+  })
 })

@@ -13,4 +13,12 @@ describe("preorder cart", () => {
     expect(s.items("store", "booking-b")).toHaveLength(1);
     expect(storage.has("mevo_cart")).toBe(false);
   });
+
+  it("tăng giảm số lượng ngay trên giỏ booking", async () => {
+    const { usePreorderCartStore } = await import("./preorder-cart.store"); const s = usePreorderCartStore.getState();
+    s.add("store", "booking", { productId: "pho", productName: "Phở", basePrice: 80000, productImage: "", selectedVariants: [], quantity: 1 });
+    const item = s.items("store", "booking")[0]; s.updateQuantity("store", "booking", item.id, 3);
+    expect(s.items("store", "booking")[0].quantity).toBe(3);
+    s.updateQuantity("store", "booking", item.id, 0); expect(s.items("store", "booking")).toHaveLength(0);
+  });
 });
