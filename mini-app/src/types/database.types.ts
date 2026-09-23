@@ -266,6 +266,41 @@ export interface Database {
         Args: { p_store_id: string }
         Returns: Json
       }
+      prepare_reservation_request: {
+        Args: { p_store_id: string; p_client_request_id: string }
+        Returns: Json
+      }
+      create_customer_reservation: {
+        Args: {
+          p_store_id: string; p_client_request_id: string; p_customer_token: string
+          p_customer_name: string; p_customer_phone: string; p_party_size: number
+          p_arrival_at: string; p_note?: string | null; p_zalo_user_id?: string | null
+        }
+        Returns: Json
+      }
+      get_customer_reservation: {
+        Args: { p_reservation_id: string; p_customer_token: string }
+        Returns: Json
+      }
+      request_reservation_change: {
+        Args: {
+          p_reservation_id: string; p_customer_token: string; p_requested_arrival_at: string
+          p_requested_party_size: number; p_change_note?: string | null
+        }
+        Returns: Json
+      }
+      cancel_customer_reservation: {
+        Args: { p_reservation_id: string; p_customer_token: string; p_reason?: string | null }
+        Returns: Json
+      }
+      get_public_reservation_config: {
+        Args: { p_store_id: string }
+        Returns: Json
+      }
+      get_reservation_slots: {
+        Args: { p_store_id: string; p_local_date: string }
+        Returns: Json
+      }
       get_spin_state: {
         Args: { p_order_id: string }
         Returns: Json
