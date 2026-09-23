@@ -204,6 +204,7 @@ before(async () => {
     '056_reservation_session_completion.sql',
     '057_reservation_operations_queue.sql',
     '058_reservation_queue_hold_window.sql',
+    '068_reservation_queue_session_id.sql',
   ]) {
     try {
       await db.exec(await readFile(new URL(`../migrations/${migration}`, import.meta.url), 'utf8'))
@@ -252,6 +253,17 @@ test('queue trả snapshot thời lượng giữ bàn để client chỉ khóa �
   const queue = await listQueue(store, new Date(Date.now() - 86_400_000).toISOString(), new Date(Date.now() + 7 * 86_400_000).toISOString())
   const item = queue.find((row) => row.reservation_id === booking.reservation_id)
   assert.equal(item.planning_hold_minutes, 180)
+})
+
+test('queue trả session id sau khi nhận khách để Admin mở đúng bill POS', async () => {
+  const booking = await createBooking(id(39), { arrivalAt: await localArrival(1, '11:30') })
+  await login(owner)
+  await confirm(booking.reservation_id, [table1])
+  const arrived = await arrive(booking.reservation_id)
+
+  const queue = await listQueue(store, new Date(Date.now() - 86_400_000).toISOString(), new Date(Date.now() + 7 * 86_400_000).toISOString())
+  const item = queue.find((row) => row.reservation_id === booking.reservation_id)
+  assert.equal(item.session_id, arrived.session_id)
 })
 
 test('reschedule conflict không làm mất allocation cũ, thành công thì thay allocation nguyên tử', async () => {

@@ -133,3 +133,7 @@ Màn chọn món trước thuộc Task 7, nên hiện chưa thể tạo preorder
 **Kết quả Codex:** database/PGlite `25/25 PASS`; Admin Web `355/355 PASS`; Mini App hồi quy `61/61 PASS`; `git diff --check` sạch. Migration `067` đã áp dụng và xác minh có đủ RPC/trigger trên Supabase.
 
 **Nghiệm thu:** Sau khi 5A và 5B đều đúng, trả lời **`Task 5 PASS`**. Em sẽ dừng ở đây chờ anh xác nhận trước khi sang Task 6.
+
+### Cập nhật sau vòng test đầu
+
+5A đã PASS. Vòng 5B đầu tiên phát hiện card đã đến thiếu nút **Mở bill trên POS** dù POS có đúng mâm. Nguyên nhân là queue owner thiếu `session_id`; migration `068_reservation_queue_session_id.sql` đã áp dụng để bổ sung đúng trường này, chỉ cho hàng đợi owner. Anh chỉ cần **tải lại `/admin/reservations`**, làm lại bước 5B và xác nhận card có nút **Mở bill trên POS**.
