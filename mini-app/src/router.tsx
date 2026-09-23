@@ -6,6 +6,9 @@ import CheckoutPage from "./pages/checkout";
 import OrderStatusPage from "./pages/order-status";
 import SessionOrdersPage from "./pages/session-orders";
 import StoreInfoPage from "./pages/store-info";
+import ReservationsPage from "./pages/reservations";
+import NewReservationPage from "./pages/reservations/new";
+import ReservationDetailPage from "./pages/reservations/detail";
 import type { RouteHandle } from "./types/router.types";
 
 const router = createBrowserRouter(
@@ -23,6 +26,10 @@ const router = createBrowserRouter(
 
         // Tab: Thông tin nhà hàng
         { path: "/store-info", element: <StoreInfoPage />, handle: { hideHeader: true } },
+
+        { path: "/reservations", element: <ReservationsPage />, handle: { title: "Đặt bàn của tôi", back: false, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
+        { path: "/reservations/new", element: <NewReservationPage />, handle: { title: "Đặt bàn trước", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
+        { path: "/reservations/:reservationId", element: <ReservationDetailPage />, handle: { title: "Chi tiết đặt bàn", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
 
         // Checkout: đặt món + chọn thanh toán
         {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore } from "@/stores/app.store";
 import { useStoreMenu } from "@/services/category/category.queries";
@@ -128,10 +129,14 @@ function OrderingUnavailableBanner({
   entryKind,
   loading,
   error,
+  showReservation,
+  onReserve,
 }: {
   entryKind: "root" | "table";
   loading: boolean;
   error: string | null;
+  showReservation: boolean;
+  onReserve: () => void;
 }) {
   const root = entryKind === "root";
   return (
@@ -146,13 +151,13 @@ function OrderingUnavailableBanner({
             ? "Quét QR tại bàn để gọi món."
             : "Bạn vẫn có thể xem menu. Vui lòng hỏi chủ quán hoặc nhân viên để được hỗ trợ."}
       </p>
-      {root && !loading && !error && import.meta.env.DEV && (
+      {root && showReservation && !loading && !error && (
         <button
           type="button"
-          disabled
-          className="mt-2 rounded-lg bg-white px-3 py-2 text-small-m font-semibold text-[#C0341A] disabled:opacity-70"
+          onClick={onReserve}
+          className="mt-2 rounded-lg bg-white px-3 py-2 text-small-m font-semibold text-[#C0341A]"
         >
-          Đặt bàn trước — sẽ mở ở BL-3
+          Đặt bàn trước
         </button>
       )}
     </div>
@@ -160,6 +165,7 @@ function OrderingUnavailableBanner({
 }
 
 export default function MenuPage() {
+  const navigate = useNavigate();
   const { storeId, storeName, storeLogoUrl, tableId, tableNumber, orderMode, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState, entryContext, workflow, workflowError } = useAppStore();
   const { data: menu, isLoading, error } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
@@ -347,6 +353,8 @@ export default function MenuPage() {
           entryKind={entryContext.kind}
           loading={(!workflow || !hasVerifiedTable) && !workflowError}
           error={workflowError}
+          showReservation={entryContext.kind === "root" && workflow?.reservationsEnabled === true}
+          onReserve={() => navigate("/reservations/new")}
         />
       )}
 
