@@ -62,3 +62,22 @@ Task 2 đã được kiểm thử tự động. Chưa có route/UI để thao t�
 **Kết quả Codex:** utility display `3/3 PASS`; toàn Mini App `61/61 PASS`; `git diff --check` sạch. `npm run typecheck` còn đúng 4 lỗi nợ kỹ thuật BL-3 đã ghi ở trên, không có lỗi mới từ Task 3.
 
 **Nghiệm thu:** ✅ `Task 3 PASS` — anh Tú xác nhận ngày 2026-09-23.
+
+## Test 4 — Server tạo, sửa và hủy món đặt trước theo phiên bản
+
+Task này chỉ tạo lớp dữ liệu/RPC. UI chọn món sẽ có ở Task 7; anh chưa cần deploy Mini App hoặc test tay ở thời điểm này.
+
+- ✅ Chỉ booking đã **confirmed** và chưa đến giờ mới gửi món được; token sai, booking pending, quán không bật preorder hoặc không phải mô hình **postpay + cash** đều bị chặn tại server.
+- ✅ Giá, tên và topping snapshot từ menu server; payload giá từ client bị bỏ qua. Item sai quán/hết bán/biến thể hoặc topping không hợp lệ bị helper định giá server từ chối.
+- ✅ Một batch luôn chưa có `table_id`/`session_id`, liên kết kép với đúng booking/quán; không có đường anon đọc trực tiếp `orders`, `order_items`, revision hoặc print-job preorder.
+- ✅ Gửi lại cùng request ID và cùng payload trả đúng snapshot revision cũ; đổi payload trên request ID cũ trả lỗi `preorder_request_payload_mismatch`, không tạo thêm đơn.
+- ✅ Mỗi revision giữ snapshot món/tổng/ghi chú bất biến; order hiện hành phản ánh revision mới nhất. `needs_pos_review` dựa vào `revision > released_revision`, không dựa vào `confirmed_at`.
+- ✅ Chỉ sửa/hủy trước cutoff 30 phút snapshot. Đúng mốc cutoff đã khóa. Dù POS đã release/in revision cũ, khách vẫn được sửa trước cutoff và revision mới được đánh dấu cần POS xem lại.
+- ✅ Cơ chế workflow QR tại bàn không chặn preorder: `reservation_preorder` được tách khỏi `table_ordering_enabled`; các order source hiện hữu vẫn dùng trigger cũ.
+- ✅ Có schema private cho print job/`waste_review_required`, nhưng Task 4 không tự in hoặc tự phát tín hiệu bếp. Task 5–6 sẽ nối bill/lifecycle/POS release.
+
+**Kết quả Codex:** PGlite Task 4 `6/6 PASS`; hồi quy RPC booking Task 1 `12/12 PASS`; toàn Mini App `61/61 PASS`; `git diff --check` sạch.
+
+`npm run typecheck` vẫn còn 4 lỗi nền đã ghi tại Test 2 (không có lỗi từ type preorder mới). Sẽ xử lý trước nghiệm thu cuối BL-3.
+
+**Nghiệm thu:** `Task 4 PASS`. Chưa áp migration `066_reservation_preorders.sql` lên Supabase và chưa tiếp tục Task 5 trước khi anh xác nhận.

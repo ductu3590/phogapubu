@@ -58,3 +58,28 @@ export type ReservationConfig = {
 };
 
 export type ReservationSlot = { arrivalAt: string; localTime: string };
+
+/** Snapshot server trả về cho một lượt món đặt trước; giá luôn là giá đã chốt ở server. */
+export type ReservationPreorderItem = {
+  menuItemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  note: string | null;
+  variantId: string | null;
+  variantName: string | null;
+  toppings: unknown[];
+};
+
+export type ReservationPreorderBatch = {
+  orderId: string;
+  revision: number;
+  releasedRevision: number;
+  status: string;
+  totalAmount: number;
+  note: string | null;
+  editDeadline: string;
+  canEdit: boolean;
+  needsPosReview: boolean;
+  items: ReservationPreorderItem[];
+};

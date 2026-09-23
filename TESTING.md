@@ -6,6 +6,9 @@
 
 ## Checklist mới tách riêng
 
+- ⏳ [Bảo Lương — duyệt plan BL-3](docs/testing/bao-luong/PLAN-BL-3-2026-09-23.md) — chờ PLAN BL-3 PASS
+- ⏳ [Bảo Lương — Sprint BL-3](docs/testing/bao-luong/SPRINT-BL-3.md) — Task 1–3 PASS; Task 4 chờ nghiệm thu
+
 - ✅ [Bảo Lương — sửa spec quy trình 2026-09-11](docs/testing/bao-luong/SPEC-REVISION-2026-09-11.md) — PASS 2026-09-11
 - ⏳ [Bảo Lương — duyệt implementation plan BL-0](docs/testing/bao-luong/PLAN-BL-0-2026-09-11.md) — chờ PASS
 - ✅ [Bảo Lương — Sprint BL-0](docs/testing/bao-luong/SPRINT-BL-0.md) — PASS 2026-09-18
