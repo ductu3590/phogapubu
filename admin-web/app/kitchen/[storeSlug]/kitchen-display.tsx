@@ -16,7 +16,7 @@ import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { watchServiceRequests } from '@/lib/service-request-queue'
 import { sessionTableLabel } from '@/lib/session-table-label'
 
-type KitchenDisplayOrder = KitchenOrder & { confirmedAt: string | null; releasedPreorderRevision: number }
+type KitchenDisplayOrder = KitchenOrder & { confirmedAt: string | null }
 type KitchenWorkflow = {
   paymentTiming: StorePaymentTiming
   kitchenReleasePolicy: KitchenReleasePolicy
@@ -86,9 +86,6 @@ async function callZnsNotify(orderId: string) {
 // ─── Map raw Supabase row → KitchenOrder ────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapOrder(row: any, tableNumber: string, items: any[]): KitchenDisplayOrder {
-  const released = row.order_source === 'reservation_preorder'
-    ? (row.released_preorder_snapshot?.items ?? [])
-    : items
   return {
     id: row.id,
     storeId: row.store_id,
@@ -104,7 +101,6 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenDisplayOr
     orderType: (row.order_type ?? 'dine_in') as KitchenOrder['orderType'],
     orderSource: row.order_source ?? 'customer_zalo',
     confirmedAt: row.confirmed_at ?? null,
-    releasedPreorderRevision: row.released_preorder_revision ?? 0,
     paymentReceivedAt: row.payment_received_at ?? null,
     bankHandoffAt: row.bank_handoff_at ?? null,
     paymentInstrument: row.payment_instrument ?? null,
@@ -112,14 +108,14 @@ function mapOrder(row: any, tableNumber: string, items: any[]): KitchenDisplayOr
     customerPhone: row.customer_phone ?? null,
     pickupTime: row.pickup_time ?? null,
     deliveryAddress: row.delivery_address ?? null,
-    items: released.map((item: any, index: number) => ({
-      id: item.id ?? `preorder-${row.id}-${row.released_preorder_revision}-${index}`,
+    items: items.map((item) => ({
+      id: item.id,
       menuItemId: item.menu_item_id ?? null,
-      name: item.item_name ?? item.name,
+      name: item.item_name,
       quantity: item.quantity,
-      price: item.item_price ?? item.price,
+      price: item.item_price,
       note: item.note ?? null,
-      selectedToppings: (item.selected_toppings ?? item.toppings ?? []) as { id: string; name: string; price: number }[],
+      selectedToppings: (item.selected_toppings ?? []) as { id: string; name: string; price: number }[],
       voidType: item.void_type === 'cancelled' || item.void_type === 'gift' ? item.void_type : null,
       voidReason: item.void_reason ?? null,
     })),

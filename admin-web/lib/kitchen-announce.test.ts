@@ -16,9 +16,8 @@ const o = (p: Partial<KitchenPredicateFields> = {}): KitchenPredicateFields => (
 })
 
 describe('orderInKitchen (§7 — vào bếp theo order_source)', () => {
-  it('preorder chỉ vào bếp sau khi chủ quán release revision', () => {
-    expect(orderInKitchen(o({ orderSource: 'reservation_preorder', releasedPreorderRevision: 0 }))).toBe(false)
-    expect(orderInKitchen(o({ orderSource: 'reservation_preorder', releasedPreorderRevision: 1 }))).toBe(true)
+  it('preorder Bảo Lương chỉ ra phiếu giấy từ POS, không bao giờ hiện Kitchen Display', () => {
+    expect(orderInKitchen(o({ orderSource: 'reservation_preorder' }))).toBe(false)
   })
   it('đơn thu ngân thêm tay dù ghi cash vẫn KHÔNG vào bếp', () => {
     expect(orderInKitchen(o({ orderSource: 'pos', paymentMethod: 'cash' }))).toBe(false)
