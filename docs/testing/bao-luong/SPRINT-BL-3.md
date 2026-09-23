@@ -65,19 +65,27 @@ Task 2 đã được kiểm thử tự động. Chưa có route/UI để thao t�
 
 ## Test 4 — Server tạo, sửa và hủy món đặt trước theo phiên bản
 
-Task này chỉ tạo lớp dữ liệu/RPC. UI chọn món sẽ có ở Task 7; anh chưa cần deploy Mini App hoặc test tay ở thời điểm này.
+### Anh cần làm gì?
 
-- ✅ Chỉ booking đã **confirmed** và chưa đến giờ mới gửi món được; token sai, booking pending, quán không bật preorder hoặc không phải mô hình **postpay + cash** đều bị chặn tại server.
-- ✅ Giá, tên và topping snapshot từ menu server; payload giá từ client bị bỏ qua. Item sai quán/hết bán/biến thể hoặc topping không hợp lệ bị helper định giá server từ chối.
-- ✅ Một batch luôn chưa có `table_id`/`session_id`, liên kết kép với đúng booking/quán; không có đường anon đọc trực tiếp `orders`, `order_items`, revision hoặc print-job preorder.
-- ✅ Gửi lại cùng request ID và cùng payload trả đúng snapshot revision cũ; đổi payload trên request ID cũ trả lỗi `preorder_request_payload_mismatch`, không tạo thêm đơn.
-- ✅ Mỗi revision giữ snapshot món/tổng/ghi chú bất biến; order hiện hành phản ánh revision mới nhất. `needs_pos_review` dựa vào `revision > released_revision`, không dựa vào `confirmed_at`.
-- ✅ Chỉ sửa/hủy trước cutoff 30 phút snapshot. Đúng mốc cutoff đã khóa. Dù POS đã release/in revision cũ, khách vẫn được sửa trước cutoff và revision mới được đánh dấu cần POS xem lại.
-- ✅ Cơ chế workflow QR tại bàn không chặn preorder: `reservation_preorder` được tách khỏi `table_ordering_enabled`; các order source hiện hữu vẫn dùng trigger cũ.
-- ✅ Có schema private cho print job/`waste_review_required`, nhưng Task 4 không tự in hoặc tự phát tín hiệu bếp. Task 5–6 sẽ nối bill/lifecycle/POS release.
+**Không cần thao tác tay, không cần deploy Mini App, cũng không cần chạy SQL.** Chưa có màn chọn món ở Task 4; màn đó thuộc Task 7. Vì vậy, ở checkpoint này anh chỉ cần đọc và xác nhận 5 quy tắc bên dưới đúng với cách quán muốn vận hành.
+
+1. Khách chỉ gửi món sau khi đặt bàn đã được chủ quán **xác nhận** và trước giờ đến. Quán Bảo Lương phải là mô hình **trả sau + tiền mặt**; quán khác không phù hợp sẽ bị chặn, không tự chuyển sang thanh toán online.
+2. Khách được sửa hoặc hủy món đến **trước giờ đến 30 phút**. Đến đúng mốc 30 phút thì hệ thống khóa sửa/hủy. Chủ quán đã in món trước đó vẫn không làm mất quyền sửa trước cutoff; bản sửa sẽ chờ POS xem và in điều chỉnh ở Task 6.
+3. Gửi lại do mất mạng không tạo đơn thứ hai: cùng một lần gửi trả lại cùng bản món. Nếu cùng mã gửi nhưng nội dung khác, hệ thống từ chối thay vì ghi đè.
+4. Giá/biến thể/topping do server tự lấy từ menu hiện tại. Khách không thể sửa giá trong request; món hết bán hoặc thuộc quán khác bị từ chối.
+5. Món đặt trước chưa thuộc bàn hay bill nào cho đến khi chủ quán bấm **Khách đã đến** ở Task 5. Nó chưa xuống bếp và chưa tự in; chỉ POS mới release/in ở Task 6.
+
+Nếu cả 5 quy tắc trên đúng ý anh, chỉ cần trả lời **`Task 4 PASS`**. Sau đó em sẽ áp migration `066` lên Supabase và bắt đầu Task 5.
+
+### Codex đã tự kiểm gì?
+
+- Token sai, booking pending, quán sai cấu hình, request trùng nhưng khác nội dung đều bị từ chối.
+- Giá do server tính; revision/retry/cutoff chạy qua PGlite thật; anon không đọc trực tiếp được preorder.
+- Bảo Lương đang tắt QR gọi món vẫn không làm hỏng preorder; Pubu/QR hiện có giữ nguyên trigger workflow.
+- Schema đã chuẩn bị audit phiên bản, print-job và cờ đối soát hao hụt cho Task 5–6, nhưng chưa kích hoạt in/bếp.
 
 **Kết quả Codex:** PGlite Task 4 `6/6 PASS`; hồi quy RPC booking Task 1 `12/12 PASS`; toàn Mini App `61/61 PASS`; `git diff --check` sạch.
 
 `npm run typecheck` vẫn còn 4 lỗi nền đã ghi tại Test 2 (không có lỗi từ type preorder mới). Sẽ xử lý trước nghiệm thu cuối BL-3.
 
-**Nghiệm thu:** `Task 4 PASS`. Chưa áp migration `066_reservation_preorders.sql` lên Supabase và chưa tiếp tục Task 5 trước khi anh xác nhận.
+**Nghiệm thu:** Không có thao tác tay ở Test 4. Xác nhận 5 quy tắc ở trên bằng `Task 4 PASS`. Chưa áp migration `066_reservation_preorders.sql` lên Supabase và chưa tiếp tục Task 5 trước khi anh xác nhận.
