@@ -42,4 +42,8 @@ Task 2 đã được kiểm thử tự động. Chưa có route/UI để thao t�
 
 `npm run typecheck` vẫn dừng vì 4 lỗi nền có trước Task 2: `SnackbarProvider` của ZaUI, thiếu `app-config.json` declaration, và cast ở `category.api.ts`. Không có lỗi typecheck nào trong `services/reservation` hay type RPC BL-3 mới.
 
-**Nghiệm thu:** `Task 2 PASS` hoặc nêu mục chưa đạt. Chưa tiếp tục Task 3 trước khi được xác nhận.
+**Nghiệm thu:** ✅ `Task 2 PASS` — anh Tú xác nhận ngày 2026-09-23.
+
+### Nợ kỹ thuật BL-3 — bắt buộc xử lý trước khi chốt Sprint
+
+`npm run typecheck` hiện còn 4 lỗi nền, không phát sinh từ Task 2: `SnackbarProvider` của ZaUI trong `src/app.tsx`, thiếu declaration cho `app-config.json` trong `src/index.ts`, và cast quan hệ menu trong `src/services/category/category.api.ts`. Để mở đến khi toàn bộ BL-3 hoàn thành; phải sửa và chạy lại typecheck trước nghiệm thu cuối Sprint.
