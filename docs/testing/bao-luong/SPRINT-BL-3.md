@@ -63,17 +63,17 @@ Task 2 đã được kiểm thử tự động. Chưa có route/UI để thao t�
 
 **Nghiệm thu:** ✅ `Task 3 PASS` — anh Tú xác nhận ngày 2026-09-23.
 
-## Test 4 — Server tạo, sửa và hủy món đặt trước theo phiên bản
+## Test 4 — Server tạo và khóa món đặt trước ngay khi khách gửi
 
 ### Anh cần làm gì?
 
 **Không cần thao tác tay, không cần deploy Mini App, cũng không cần chạy SQL.** Chưa có màn chọn món ở Task 4; màn đó thuộc Task 7. Vì vậy, ở checkpoint này anh chỉ cần đọc và xác nhận 5 quy tắc bên dưới đúng với cách quán muốn vận hành.
 
 1. Khách chỉ gửi món sau khi đặt bàn đã được chủ quán **xác nhận** và trước giờ đến. Quán Bảo Lương phải là mô hình **trả sau + tiền mặt**; quán khác không phù hợp sẽ bị chặn, không tự chuyển sang thanh toán online.
-2. Khách được sửa hoặc hủy món đến **trước giờ đến 30 phút**. Đến đúng mốc 30 phút thì hệ thống khóa sửa/hủy. Chủ quán đã in món trước đó vẫn không làm mất quyền sửa trước cutoff; bản sửa sẽ chờ POS xem và in điều chỉnh ở Task 6.
+2. Ngay khi khách gửi món, món đặt trước được **chốt ngay**: khách không có nút sửa/hủy và server cũng từ chối mọi lời gọi API sửa/hủy. Không áp dụng cutoff 30 phút cho Bảo Lương.
 3. Gửi lại do mất mạng không tạo đơn thứ hai: cùng một lần gửi trả lại cùng bản món. Nếu cùng mã gửi nhưng nội dung khác, hệ thống từ chối thay vì ghi đè.
 4. Giá/biến thể/topping do server tự lấy từ menu hiện tại. Khách không thể sửa giá trong request; món hết bán hoặc thuộc quán khác bị từ chối.
-5. Món đặt trước chưa thuộc bàn hay bill nào cho đến khi chủ quán bấm **Khách đã đến** ở Task 5. Nó chưa xuống bếp và chưa tự in; chỉ POS mới release/in ở Task 6.
+5. Gửi lại cùng mã yêu cầu sau lỗi mạng chỉ trả về batch cũ, không tạo đơn trùng; gửi một batch mới thứ hai bị chặn. Sau khi khách đến, món gọi thêm đi qua QR/bill ở Task 8 và không sửa batch đặt trước. Món đặt trước chưa thuộc bàn hay bill nào cho đến khi chủ quán bấm **Khách đã đến** ở Task 5. Nó chưa xuống bếp và chưa tự in; chỉ POS mới release/in ở Task 6.
 
 Nếu cả 5 quy tắc trên đúng ý anh, chỉ cần trả lời **`Task 4 PASS`**. Sau đó em sẽ áp migration `066` lên Supabase và bắt đầu Task 5.
 
@@ -89,6 +89,8 @@ Nếu cả 5 quy tắc trên đúng ý anh, chỉ cần trả lời **`Task 4 PA
 `npm run typecheck` vẫn còn 4 lỗi nền đã ghi tại Test 2 (không có lỗi từ type preorder mới). Sẽ xử lý trước nghiệm thu cuối BL-3.
 
 **Nghiệm thu:** ✅ `Task 4 PASS` — anh Tú xác nhận ngày 2026-09-23. Migration `066_reservation_preorders.sql` đã áp dụng lên Supabase.
+
+**Cập nhật sau nghiệm thu:** Quy tắc Bảo Lương đổi thành khóa món ngay sau khi gửi. Migration `071_reservation_preorder_lock_on_submit.sql` có regression test PGlite riêng: sửa, hủy hoặc gửi batch thứ hai đều bị từ chối; retry cùng request id vẫn idempotent.
 
 ## Test 5 — Nhận khách, đưa món đặt trước vào bill và hủy có kiểm soát
 
