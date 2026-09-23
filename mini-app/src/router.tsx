@@ -9,6 +9,8 @@ import StoreInfoPage from "./pages/store-info";
 import ReservationsPage from "./pages/reservations";
 import NewReservationPage from "./pages/reservations/new";
 import ReservationDetailPage from "./pages/reservations/detail";
+import ReservationPreorderPage from "./pages/reservations/preorder";
+import ReservationPreorderCheckoutPage from "./pages/reservations/preorder-checkout";
 import type { RouteHandle } from "./types/router.types";
 
 const router = createBrowserRouter(
@@ -30,6 +32,8 @@ const router = createBrowserRouter(
         { path: "/reservations", element: <ReservationsPage />, handle: { title: "Đặt bàn của tôi", back: false, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
         { path: "/reservations/new", element: <NewReservationPage />, handle: { title: "Đặt bàn trước", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
         { path: "/reservations/:reservationId", element: <ReservationDetailPage />, handle: { title: "Chi tiết đặt bàn", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
+        { path: "/reservations/:reservationId/preorder", element: <ReservationPreorderPage />, handle: { title: "Chọn món trước", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
+        { path: "/reservations/:reservationId/preorder/checkout", element: <ReservationPreorderCheckoutPage />, handle: { title: "Xác nhận món trước", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
 
         // Checkout: đặt món + chọn thanh toán
         {

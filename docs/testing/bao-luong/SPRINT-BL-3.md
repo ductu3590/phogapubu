@@ -143,3 +143,28 @@ Màn chọn món trước thuộc Task 7, nên hiện chưa thể tạo preorder
 **Nghiệm thu:** ✅ `Task 5 PASS` — anh Tú xác nhận ngày 2026-09-23.
 
 Task 6 là checkpoint BL-2C riêng trước khi mở UI chọn món đặt trước ở Task 7. Test tại [SPRINT-BL-2C.md](SPRINT-BL-2C.md).
+
+## Test 7 — Chọn và gửi món đặt trước trên Mini App
+
+### Chuẩn bị
+
+1. Deploy instance **Bia lẩu Bảo Lương** từ `D:\Code\mevo\mini-app-instances\bia-lau-bao-luong` sau khi đã merge/cherry-pick commit Task 7.
+2. Tạo một booking từ Mini App, sau đó chủ quán xác nhận và chọn bàn ở `/admin/reservations`.
+3. Mở lại **Chi tiết đặt bàn** trên chính điện thoại đã tạo booking.
+
+### Anh cần test
+
+1. Booking đã xác nhận hiện hai lựa chọn: **Chọn món trước** và **Gọi sau tại quán**. Bấm Gọi sau chỉ hiện lời nhắn, không tạo đơn.
+2. Bấm Chọn món trước: menu mở dù quán đang ngoài giờ gọi món; thêm món thường, món có biến thể/topping. Giỏ chỉ là giỏ đặt trước, không làm xuất hiện giỏ QR/mang về.
+3. Vào **Gửi món trước** rồi bấm **Xác nhận đặt trước món**. Sau khi thành công phải hiện đúng thông báo: **“Đã gửi món đặt trước. Món đã chốt, vui lòng gọi thêm tại quán nếu cần.”**
+4. Quay lại booking: không có nút sửa/hủy món. Bấm lại đường chọn món cũng không được tạo batch đặt trước thứ hai.
+5. Trên POS `/admin/cashier`, booking có đúng một card món chờ chủ quán **Xác nhận & in 2 liên**. Món chưa tự xuống Kitchen Display.
+6. Tắt mạng đúng lúc bấm xác nhận, bật lại rồi thử gửi lại: chỉ một batch xuất hiện ở POS, không nhân đôi món.
+
+### Codex đã tự kiểm
+
+- Mini App: `64/64 PASS`, gồm API capability/request-ID và giỏ tách theo booking.
+- Server PGlite: `16/16 PASS` cho preorder/lifecycle/release/khóa món; production đã có migration `071`.
+- `npm run typecheck` vẫn còn 4 lỗi nền đã ghi ở Test 2; không có lỗi từ file Task 7.
+
+**→ Báo Codex:** `Task 7 PASS` hoặc ảnh/lỗi ở đúng bước bị fail. Không tự chuyển Task 8 trước khi có PASS.

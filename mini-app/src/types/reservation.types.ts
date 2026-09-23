@@ -80,6 +80,8 @@ export type ReservationPreorderBatch = {
   note: string | null;
   editDeadline: string;
   canEdit: boolean;
+  canCancel: boolean;
+  customerMessage: string;
   needsPosReview: boolean;
   items: ReservationPreorderItem[];
 };
