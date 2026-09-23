@@ -61,7 +61,7 @@ export default function BillPanel({
   const tong = list.reduce((n, s) => n + s.total, 0)
   const chuaXong = list.reduce((n, s) => n + s.cooking_count, 0)
   // Đơn `pos` chỉ là ghi bổ sung đã phục vụ: không qua xác nhận, không in phiếu bếp.
-  const donCho = list.flatMap((s) => s.orders.filter((o) => o.status === 'pending' && o.order_source !== 'pos'))
+  const donCho = list.flatMap((s) => s.orders.filter((o) => o.status === 'pending' && o.order_source !== 'pos' && o.order_source !== 'reservation_preorder'))
 
   const dieuChinh = (itemId: string, type: 'cancelled' | 'gift') => {
     const label = type === 'cancelled' ? 'bỏ món này' : 'tặng món này'
@@ -191,7 +191,7 @@ export default function BillPanel({
             <li key={o.id} className="text-xs">
               <div className="flex justify-between text-gray-400">
                 <span>
-                  {gio(o.created_at)} · {o.order_source === 'staff' ? 'nhân viên' : o.order_source === 'pos' ? 'ghi tay' : 'khách'}
+                  {gio(o.created_at)} · {o.order_source === 'reservation_preorder' ? 'món đặt trước' : o.order_source === 'staff' ? 'nhân viên' : o.order_source === 'pos' ? 'ghi tay' : 'khách'}
                   {o.status === 'pending' && (
                     <span className="ml-1 font-semibold text-amber-600">chờ xác nhận</span>
                   )}
@@ -199,13 +199,11 @@ export default function BillPanel({
                 <span className="flex items-center gap-1.5">
                   {dong(o.total_amount)}
                   {o.payment_received_at && ' ✓'}
-                  <button
+                  {o.order_source !== 'reservation_preorder' && <button
                     onClick={() => onPrintOrder(o.id)}
                     title="In lại 2 liên của đơn này"
                     className="rounded px-1 hover:bg-gray-100"
-                  >
-                    🖨️
-                  </button>
+                  >🖨️</button>}
                 </span>
               </div>
               <ul className="mt-1 space-y-1 text-gray-700">

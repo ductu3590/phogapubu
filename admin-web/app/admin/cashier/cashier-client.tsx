@@ -45,6 +45,15 @@ import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
 import { createReservationReminderCoordinator, type ReminderStorage } from '@/lib/reservation-reminders'
 import { heldTableIdsForReservationWindow } from '../reservations/reservation-table-picker'
 import ReservationQueuePanel from './reservation-queue-panel'
+import ReservationPreorderPanel from './reservation-preorder-panel'
+import {
+  listReservationPreorderQueue,
+  releaseReservationPreorder,
+  requestReservationPreorderPrint,
+  resolvePreorderWaste,
+  type PreorderPrintKind,
+  type ReservationPreorderRow,
+} from '@/lib/actions/reservation-preorders'
 import {
   beginReservationTablePick,
   cancelReservationTablePick,
@@ -74,6 +83,8 @@ export default function CashierClient({
   reservationsEnabled,
   initialReservations,
   initialReservationError,
+  initialPreorders,
+  initialPreorderError,
 }: {
   storeId: string
   paymentTiming: 'prepay' | 'postpay'
@@ -87,14 +98,16 @@ export default function CashierClient({
   reservationsEnabled: boolean
   initialReservations: ReservationRow[]
   initialReservationError: string | null
+  initialPreorders: ReservationPreorderRow[]
+  initialPreorderError: string | null
 }) {
   const floor = useFloorLayout(storeId, initialFloor, initialFloorError)
   const placed = floor.draft.tables
   const arrange = floor.arrange
   const [sessions, setSessions] = useState(initialSessions)
   const [error, setError] = useState<CashierError | null>(
-    initialError || initialReservationError
-      ? { source: 'reload', message: initialError ?? initialReservationError ?? 'Không tải được POS' }
+    initialError || initialReservationError || initialPreorderError
+      ? { source: 'reload', message: initialError ?? initialReservationError ?? initialPreorderError ?? 'Không tải được POS' }
       : null,
   )
   const [busy, setBusy] = useState(false)
@@ -104,6 +117,7 @@ export default function CashierClient({
   const [pickedTableIds, setPickedTableIds] = useState<Set<string>>(new Set())
   const [manualSessionId, setManualSessionId] = useState<string | null>(null)
   const [reservations, setReservations] = useState(initialReservations)
+  const [preorders, setPreorders] = useState(initialPreorders)
   const [reservationPick, setReservationPick] = useState<ReservationTablePick | null>(null)
   const [reminderBusy, setReminderBusy] = useState(false)
   const [reminderAudioUnlocked, setReminderAudioUnlocked] = useState(false)
@@ -141,6 +155,15 @@ export default function CashierClient({
     }
   }, [reservationsEnabled])
 
+  const reloadPreorders = useCallback(async () => {
+    if (!reservationsEnabled) return
+    const result = await listReservationPreorderQueue()
+    if (result.ok) {
+      setPreorders(result.rows)
+      setError((current) => applyReloadError(current, null))
+    } else setError((current) => applyReloadError(current, result.error))
+  }, [reservationsEnabled])
+
   useEffect(() => {
     const watcher = watchCashierSessions({
       client: createClient(),
@@ -171,6 +194,16 @@ export default function CashierClient({
     })
     return () => watcher.dispose()
   }, [reservationsEnabled, storeId])
+
+  // Queue preorder chưa có session/table nên watcher phiên bàn không nhìn thấy. Poll 5 giây là
+  // fallback đáng tin; không xóa lỗi thao tác đang hiển thị (applyReloadError giữ action error).
+  useEffect(() => {
+    if (!reservationsEnabled) return
+    const timer = window.setInterval(() => { void reloadPreorders() }, 5_000)
+    const onFocus = () => { void reloadPreorders() }
+    window.addEventListener('focus', onFocus)
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
+  }, [reservationsEnabled, reloadPreorders])
 
   useEffect(() => {
     if (reservationsEnabled) reminders.sync(reservations, reminderAudioUnlocked)
@@ -373,6 +406,42 @@ export default function CashierClient({
     setReservationPick(next.reservationPick)
   }
 
+  const onReleasePreorder = async (row: ReservationPreorderRow) => {
+    setBusy(true)
+    const result = await releaseReservationPreorder(row.orderId, row.revision)
+    setBusy(false)
+    if (!result.ok) { reportActionError(result.error); return result }
+    await Promise.all([reloadPreorders(), reload()])
+    return result
+  }
+
+  const onPrintPreorder = async (row: ReservationPreorderRow, kind: PreorderPrintKind, popup: Window | null, reason?: string) => {
+    // Nếu chưa release, release trước; popup đã được panel mở trong gesture từ người dùng.
+    if (row.needsReview) {
+      const released = await onReleasePreorder(row)
+      if (!released.ok) return released
+    }
+    const latest = await listReservationPreorderQueue()
+    const fresh = latest.ok ? latest.rows.find((item) => item.orderId === row.orderId) ?? row : row
+    const printKind: PreorderPrintKind = kind === 'original' && fresh.releasedRevision > 0 && !fresh.needsPrint
+      ? (fresh.revision > 1 ? 'adjustment' : 'reprint') : kind
+    const result = await requestReservationPreorderPrint(fresh.orderId, fresh.releasedRevision, printKind, undefined, reason)
+    if (!result.ok) { reportActionError(result.error); return result }
+    if (popup && result.printJobId) popup.location.href = `/admin/cashier/print-order?job=${result.printJobId}`
+    else reportActionError('Phiếu đã tạo nhưng trình duyệt chặn tab in. Mở lại từ POS để in.')
+    await reloadPreorders()
+    return result
+  }
+
+  const onResolvePreorderWaste = async (row: ReservationPreorderRow, reason: string) => {
+    setBusy(true)
+    const result = await resolvePreorderWaste(row.orderId, reason)
+    setBusy(false)
+    if (!result.ok) reportActionError(result.error)
+    else await reloadPreorders()
+    return result
+  }
+
   const toggleReservationPickTable = (tableId: string) => {
     const next = toggleReservationTable({ selectedSessionId, pickedSessionIds, pickedTableIds, reservationPick }, tableId)
     setReservationPick(next.reservationPick)
@@ -549,6 +618,15 @@ export default function CashierClient({
               reminderIds={dueReminders.reservationIds}
               reminderBusy={reminderBusy}
               onSnooze={(minutes) => void snoozeReminders(minutes)}
+            />
+          )}
+          {reservationsEnabled && (
+            <ReservationPreorderPanel
+              rows={preorders}
+              busy={busy}
+              onRelease={onReleasePreorder}
+              onPrint={onPrintPreorder}
+              onResolveWaste={onResolvePreorderWaste}
             />
           )}
           <ServiceRequestQueue

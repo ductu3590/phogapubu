@@ -137,3 +137,7 @@ Màn chọn món trước thuộc Task 7, nên hiện chưa thể tạo preorder
 ### Cập nhật sau vòng test đầu
 
 5A đã PASS. Vòng 5B đầu tiên phát hiện card đã đến thiếu nút **Mở bill trên POS** dù POS có đúng mâm. Nguyên nhân là queue owner thiếu `session_id`; migration `068_reservation_queue_session_id.sql` đã áp dụng để bổ sung đúng trường này, chỉ cho hàng đợi owner. Anh chỉ cần **tải lại `/admin/reservations`**, làm lại bước 5B và xác nhận card có nút **Mở bill trên POS**.
+
+**Nghiệm thu:** ✅ `Task 5 PASS` — anh Tú xác nhận ngày 2026-09-23.
+
+Task 6 là checkpoint BL-2C riêng trước khi mở UI chọn món đặt trước ở Task 7. Test tại [SPRINT-BL-2C.md](SPRINT-BL-2C.md).

@@ -7,6 +7,7 @@ import type { PosMenuCategory } from './manual-order-sheet'
 import CashierClient from './cashier-client'
 import { listOpenServiceRequests } from '@/lib/actions/service-requests'
 import { listReservationQueue } from '@/lib/actions/reservations'
+import { listReservationPreorderQueue } from '@/lib/actions/reservation-preorders'
 
 function queueRange() {
   const now = Date.now()
@@ -38,6 +39,9 @@ export default async function CashierPage() {
   const requestsPromise = listOpenServiceRequests()
   const reservationsPromise = reservationsEnabled
     ? listReservationQueue(queueRange())
+    : Promise.resolve(null)
+  const preordersPromise = reservationsEnabled
+    ? listReservationPreorderQueue()
     : Promise.resolve(null)
 
   const { data: categoryRows } = await supabase
@@ -81,8 +85,8 @@ export default async function CashierPage() {
       })),
   }))
 
-  const [floor, res, requests, reservationQueue] = await Promise.all([
-    floorPromise, sessionsPromise, requestsPromise, reservationsPromise,
+  const [floor, res, requests, reservationQueue, preorderQueue] = await Promise.all([
+    floorPromise, sessionsPromise, requestsPromise, reservationsPromise, preordersPromise,
   ])
 
   return (
@@ -93,6 +97,8 @@ export default async function CashierPage() {
       reservationsEnabled={reservationsEnabled}
       initialReservations={reservationQueue?.ok ? reservationQueue.reservations : []}
       initialReservationError={reservationQueue && !reservationQueue.ok ? reservationQueue.error : null}
+      initialPreorders={preorderQueue?.ok ? preorderQueue.rows : []}
+      initialPreorderError={preorderQueue && !preorderQueue.ok ? preorderQueue.error : null}
       paymentTiming={
         workflowSettings?.payment_timing ??
         'prepay'

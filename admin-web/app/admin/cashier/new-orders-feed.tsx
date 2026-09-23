@@ -49,7 +49,7 @@ export default function NewOrdersFeed({
     return sessions
       .flatMap((s) =>
         s.orders
-          .filter((o) => o.order_source !== 'pos' && new Date(o.created_at).getTime() >= moc)
+          .filter((o) => o.order_source !== 'pos' && o.order_source !== 'reservation_preorder' && new Date(o.created_at).getTime() >= moc)
           .map((o) => ({ o, s })),
       )
       .sort((a, b) => b.o.created_at.localeCompare(a.o.created_at))
@@ -93,7 +93,7 @@ export default function NewOrdersFeed({
                 </button>
                 {/* Xác nhận thẳng từ đây: giờ đông khách, bắt thu ngân bấm bàn rồi mới xác nhận
                     là thêm một nhịp thừa. Vẫn in đúng 2 liên như bấm trong panel. */}
-                {o.status === 'pending' && o.order_source !== 'pos' && (
+                {o.status === 'pending' && o.order_source !== 'pos' && o.order_source !== 'reservation_preorder' && (
                   <button
                     onClick={() => onConfirmOrder(o.id)}
                     disabled={busy}
