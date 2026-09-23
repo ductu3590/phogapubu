@@ -9,6 +9,7 @@ export type ReservationUiAction =
   | 'arrive'
   | 'reschedule'
   | 'no_show'
+  | 'cancel_store'
   | 'open_session'
 
 export type ReservationCardView = {
@@ -70,7 +71,7 @@ export function reservationUiActions(reservation: ReservationRow): ReservationUi
   switch (reservation.status) {
     case 'pending': return ['call', 'confirm', 'reject']
     case 'change_requested': return ['call', 'resolve_change']
-    case 'confirmed': return ['call', 'arrive', 'reschedule', 'no_show']
+    case 'confirmed': return ['call', 'arrive', 'reschedule', 'no_show', 'cancel_store']
     case 'arrived': return reservation.sessionId ? ['open_session'] : []
     default: return []
   }

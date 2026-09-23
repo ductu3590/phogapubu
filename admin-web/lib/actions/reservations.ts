@@ -254,6 +254,21 @@ export async function markReservationNoShow(
   return rpcResult(data)
 }
 
+export async function cancelStoreReservation(
+  reservationId: string,
+  reason: string,
+): Promise<ReservationResult> {
+  const { supabase, error } = await ownerClient()
+  if (!supabase) return { ok: false, error: error ?? 'Không có quyền xử lý đặt bàn' }
+
+  const { data, error: rpcError } = await supabase.rpc('cancel_store_reservation', {
+    p_reservation_id: reservationId,
+    p_reason: reason,
+  })
+  if (rpcError) return { ok: false, error: rpcError.message }
+  return rpcResult(data)
+}
+
 export async function resolveReservationChange(
   reservationId: string,
   accept: boolean,

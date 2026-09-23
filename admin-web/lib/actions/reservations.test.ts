@@ -21,6 +21,7 @@ vi.mock('@/lib/supabase/server', () => ({
 
 const {
   arriveReservation,
+  cancelStoreReservation,
   confirmReservation,
   createManualReservation,
   listReservations,
@@ -113,6 +114,7 @@ describe('reservation actions', () => {
     ['từ chối', () => rejectReservation('reservation-1', 'Hết bàn')],
     ['nhận khách', () => arriveReservation('reservation-1')],
     ['no-show', () => markReservationNoShow('reservation-1', null)],
+    ['hủy đặt bàn', () => cancelStoreReservation('reservation-1', 'Quán đóng đột xuất')],
     ['đổi lịch', () => rescheduleReservation('reservation-1', '2026-09-21T12:00:00.000Z', 8, ['table-1'], 'Khách đổi giờ')],
     ['Snooze', () => snoozeReservationReminders(['reservation-1'], 15)],
   ])('staff bị chặn %s trước RPC', async (_action, invoke) => {
@@ -238,6 +240,15 @@ describe('reservation actions', () => {
     expect(mocks.rpc).toHaveBeenLastCalledWith('snooze_reservation_reminders', {
       p_reservation_ids: ['reservation-1', 'reservation-2'],
       p_minutes: 15,
+    })
+
+    await expect(cancelStoreReservation('reservation-1', 'Quán đóng đột xuất')).resolves.toMatchObject({
+      ok: true,
+      reservation: { reservationId: 'reservation-1' },
+    })
+    expect(mocks.rpc).toHaveBeenLastCalledWith('cancel_store_reservation', {
+      p_reservation_id: 'reservation-1',
+      p_reason: 'Quán đóng đột xuất',
     })
   })
 })

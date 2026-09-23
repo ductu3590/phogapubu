@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   arriveReservation,
+  cancelStoreReservation,
   confirmReservation,
   createManualReservation,
   listReservationQueue,
@@ -42,7 +43,7 @@ type TableOperation = {
 type ActiveOperation =
   | { kind: 'manual' }
   | TableOperation
-  | { kind: 'reject' | 'arrive' | 'no_show'; reservation: ReservationRow }
+  | { kind: 'reject' | 'arrive' | 'no_show' | 'cancel_store'; reservation: ReservationRow }
 
 function queueRange() {
   const now = Date.now()
@@ -394,7 +395,7 @@ export default function ReservationsClient({
               ))}
             />
           )}
-          {(operation.kind === 'reject' || operation.kind === 'arrive' || operation.kind === 'no_show') && (
+          {(operation.kind === 'reject' || operation.kind === 'arrive' || operation.kind === 'no_show' || operation.kind === 'cancel_store') && (
             <SimpleDecision
               kind={operation.kind} reservation={operation.reservation} busy={busy} actionError={actionError}
               onCancel={() => setOperation(null)}
@@ -402,6 +403,7 @@ export default function ReservationsClient({
                 if (operation.kind === 'reject') void runAction(() => rejectReservation(operation.reservation.reservationId, note))
                 if (operation.kind === 'arrive') void runAction(() => arriveReservation(operation.reservation.reservationId))
                 if (operation.kind === 'no_show') void runAction(() => markReservationNoShow(operation.reservation.reservationId, note))
+                if (operation.kind === 'cancel_store') void runAction(() => cancelStoreReservation(operation.reservation.reservationId, note ?? 'Chủ quán hủy đặt bàn'))
               }}
             />
           )}
@@ -421,6 +423,7 @@ function operationTitle(operation: ActiveOperation): string {
   if (operation.kind === 'reschedule') return 'Đổi lịch hoặc bàn'
   if (operation.kind === 'reject') return 'Từ chối đặt bàn'
   if (operation.kind === 'arrive') return 'Xác nhận khách đã đến'
+  if (operation.kind === 'cancel_store') return 'Hủy đặt bàn'
   return 'Đánh dấu khách không đến'
 }
 
@@ -461,7 +464,7 @@ function TableDecision({ operation, floor, sessions, busy, actionError, otherRes
 }
 
 function SimpleDecision({ kind, reservation, busy, actionError, onCancel, onSubmit }: {
-  kind: 'reject' | 'arrive' | 'no_show'
+  kind: 'reject' | 'arrive' | 'no_show' | 'cancel_store'
   reservation: ReservationRow
   busy: boolean
   actionError: string | null
@@ -469,10 +472,10 @@ function SimpleDecision({ kind, reservation, busy, actionError, onCancel, onSubm
   onSubmit: (note: string | null) => void
 }) {
   const [note, setNote] = useState('')
-  const label = kind === 'arrive' ? 'Khách đã đến' : kind === 'no_show' ? 'Không đến' : 'Từ chối đặt bàn'
+  const label = kind === 'arrive' ? 'Khách đã đến' : kind === 'no_show' ? 'Không đến' : kind === 'cancel_store' ? 'Hủy đặt bàn' : 'Từ chối đặt bàn'
   return <div className="space-y-4"><p className="text-sm text-gray-700">{reservation.customerName} · {reservation.partySize} khách</p>
-    {kind !== 'arrive' && <label className="block text-sm font-semibold text-gray-700">Ghi chú (không bắt buộc)<textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-normal" /></label>}
+    {kind !== 'arrive' && <label className="block text-sm font-semibold text-gray-700">{kind === 'cancel_store' ? 'Lý do hủy (bắt buộc)' : 'Ghi chú (không bắt buộc)'}<textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-normal" /></label>}
     {actionError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{actionError}</p>}
-    <div className="flex gap-2"><button type="button" disabled={busy} onClick={onCancel} className="min-h-11 flex-1 rounded-lg border border-gray-300 font-bold">Hủy</button><button type="button" disabled={busy} onClick={() => onSubmit(note.trim() || null)} className="min-h-11 flex-1 rounded-lg bg-gray-900 font-bold text-white disabled:opacity-50">{busy ? 'Đang lưu…' : label}</button></div>
+    <div className="flex gap-2"><button type="button" disabled={busy} onClick={onCancel} className="min-h-11 flex-1 rounded-lg border border-gray-300 font-bold">Hủy</button><button type="button" disabled={busy || (kind === 'cancel_store' && !note.trim())} onClick={() => onSubmit(note.trim() || null)} className="min-h-11 flex-1 rounded-lg bg-gray-900 font-bold text-white disabled:opacity-50">{busy ? 'Đang lưu…' : label}</button></div>
   </div>
 }

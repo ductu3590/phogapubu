@@ -88,4 +88,48 @@ Nếu cả 5 quy tắc trên đúng ý anh, chỉ cần trả lời **`Task 4 PA
 
 `npm run typecheck` vẫn còn 4 lỗi nền đã ghi tại Test 2 (không có lỗi từ type preorder mới). Sẽ xử lý trước nghiệm thu cuối BL-3.
 
-**Nghiệm thu:** Không có thao tác tay ở Test 4. Xác nhận 5 quy tắc ở trên bằng `Task 4 PASS`. Chưa áp migration `066_reservation_preorders.sql` lên Supabase và chưa tiếp tục Task 5 trước khi anh xác nhận.
+**Nghiệm thu:** ✅ `Task 4 PASS` — anh Tú xác nhận ngày 2026-09-23. Migration `066_reservation_preorders.sql` đã áp dụng lên Supabase.
+
+## Test 5 — Nhận khách, đưa món đặt trước vào bill và hủy có kiểm soát
+
+### Chuẩn bị
+
+Không cần deploy Mini App. Migration `067_reservation_preorder_lifecycle.sql` đã áp dụng trên Supabase.
+
+Chạy Admin Web tại thư mục `D:\Code\mevo\admin-web`:
+
+```powershell
+npm run dev
+```
+
+Đăng nhập bằng tài khoản **chủ quán Bảo Lương**, rồi mở [http://localhost:3000/admin/reservations](http://localhost:3000/admin/reservations).
+
+### 5A — Hủy đặt bàn từ phía quán
+
+1. Tạo một đặt bàn thủ công bằng nút **+ Tạo đặt bàn**, chọn giờ sắp tới và lưu.
+2. Bấm **Xác nhận & chọn bàn**, chọn ít nhất một bàn, rồi bấm **Xác nhận**.
+3. Trên card vừa xác nhận, phải có nút **Hủy đặt bàn**.
+4. Bấm nút đó: ô **Lý do hủy (bắt buộc)** hiện ra; để trống thì nút hủy cuối cùng bị vô hiệu hóa.
+5. Nhập ví dụ `Quán đóng đột xuất`, bấm **Hủy đặt bàn**.
+6. Card biến khỏi nhóm “Sắp đến”, chuyển vào “Lịch sử gần đây” với nhãn **Quán đã hủy**. Không thể bấm “Khách đã đến” hay mở bill nữa.
+
+### 5B — Không hồi quy nhận khách thành bill/mâm
+
+1. Tạo thêm một đặt bàn thủ công khác, xác nhận và chọn bàn.
+2. Bấm **Khách đã đến**.
+3. Card đổi thành **Khách đã đến** và chỉ còn nút **Mở bill trên POS**.
+4. Bấm nút đó: chuyển sang `/admin/cashier`; POS hiển thị đúng bàn/mâm vừa nhận khách và có thể tiếp tục nhận đơn QR như trước.
+
+### Những gì đã được kiểm tự động (chưa có màn khách để tạo món thật)
+
+Màn chọn món trước thuộc Task 7, nên hiện chưa thể tạo preorder bằng Mini App để nghiệm thu tay. Phần khó nhất đã chạy bằng PostgreSQL thật trong test:
+
+- Khi **Khách đã đến**, preorder giữ nguyên `order_id`, được gắn vào đúng session/bàn/mâm và vì thế được tính chung khi đóng bill.
+- No-show hoặc quán hủy làm preorder đang `pending` chuyển thành `cancelled`, không còn đơn mồ côi ngoài bill.
+- Nếu POS đã in preorder, hủy vẫn giữ dữ liệu/audit và gắn cờ `waste_review_required`; không tự in bếp, thanh toán hay hoàn tiền.
+- Khách không thể tự hủy đặt bàn khi món đã được release/in; chủ quán vẫn có quyền kết thúc với lý do.
+- Hủy món của khách và nhận khách khóa dữ liệu theo cùng thứ tự, tránh deadlock khi hai thao tác diễn ra sát nhau.
+
+**Kết quả Codex:** database/PGlite `25/25 PASS`; Admin Web `355/355 PASS`; Mini App hồi quy `61/61 PASS`; `git diff --check` sạch. Migration `067` đã áp dụng và xác minh có đủ RPC/trigger trên Supabase.
+
+**Nghiệm thu:** Sau khi 5A và 5B đều đúng, trả lời **`Task 5 PASS`**. Em sẽ dừng ở đây chờ anh xác nhận trước khi sang Task 6.
