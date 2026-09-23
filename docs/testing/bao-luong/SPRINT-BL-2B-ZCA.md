@@ -2,7 +2,7 @@
 
 Ngày cập nhật: 2026-09-23
 
-Trạng thái: **Task 1–4 đã triển khai — chờ anh Tú nghiệm thu Test 4**
+Trạng thái: **PASS — 2026-09-23**
 
 > Production hiện đã có request relay thành công. Chi tiết triển khai và bằng chứng E2E nằm ở
 > Task 4; Group ID, HMAC và các secret không được ghi trong tài liệu này.
@@ -174,5 +174,5 @@ delivery chuyển `failed` hoặc `action_required`, booking/POS không bị rol
 3. Trên cockpit Bảo Lương, xác nhận trạng thái gửi gần nhất là `Đã gửi`; tắt channel rồi bật lại chỉ
    khi cần dừng/tái mở cảnh báo — không cần gửi thêm booking thử.
 
-**Chờ nghiệm thu:** trả `BL-2B ZCA PASS` nếu ba bước trên đúng. Không chuyển BL-2C hoặc BL-3 trước
-khi nhận PASS.
+**PASS:** `BL-2B ZCA PASS` — 2026-09-23. Không có phần code/hạ tầng nào còn lại trong BL-2B ZCA.
+BL-2C (duyệt/in món đặt trước) vẫn để làm cùng hoặc sau BL-3, khi Mini App đã có luồng tạo preorder.
