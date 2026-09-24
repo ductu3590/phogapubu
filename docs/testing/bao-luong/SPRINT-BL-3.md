@@ -192,4 +192,28 @@ Task 6 là checkpoint BL-2C riêng trước khi mở UI chọn món đặt trư�
 - SQL contract: `3/3 PASS`; migration `073` đã áp dụng và kiểm tra RPC/table tồn tại trên Supabase.
 - `npm run typecheck` còn đúng 4 lỗi nền BL-3 ở `SnackbarProvider`, `app-config.json`, và cast category; Task 8 không phát sinh lỗi typecheck mới.
 
-**→ Báo Codex:** `Task 8 PASS` hoặc ảnh/lỗi tại đúng bước fail. Không tự chuyển Task 9 trước khi có PASS.
+**Nghiệm thu:** ✅ `Task 8 PASS` — anh Tú xác nhận ngày 2026-09-24.
+
+## Test 9 — Gọi nhắc khách trước giờ đến 60 phút
+
+### Chuẩn bị
+
+Migration `074_reservation_customer_call_tasks` đã áp dụng. Chạy Admin Web từ `D:\Code\mevo\admin-web` bằng `npm run dev`, đăng nhập tài khoản chủ quán Bảo Lương.
+
+### Anh cần test
+
+1. Tạo đặt bàn thủ công tại `/admin/reservations`, chọn giờ đến **trong 60 phút tới**, xác nhận và chọn bàn. Nếu chọn giờ đến còn xa hơn 60 phút, task chưa hiện là đúng.
+2. Với booking trong 60 phút, tải lại `/admin/reservations` hoặc `/admin/cashier`: xuất hiện khung **☎️ Gọi nhắc khách** với tên, số khách, giờ đến và ba nút **Gọi nhắc khách**, **Đã gọi**, **Chưa liên hệ được**.
+3. Bấm **Gọi nhắc khách**: ứng dụng mở cuộc gọi từ số khách. Quay lại màn hình: task vẫn còn; hệ thống không tự coi cuộc gọi là thành công.
+4. Bấm **Đã gọi**: task biến mất ở cả `/admin/reservations` và POS sau khi tải lại/tối đa 15 giây. Lặp lại cùng thao tác không tạo thêm audit hoặc task mới.
+5. Lặp lại với **Chưa liên hệ được**: task cũng rời hàng đợi nhưng được ghi kết quả khác trong audit. Không có tin Zalo/SMS nào được gửi cho khách.
+6. Tạo booking đã xác nhận trong 60 phút, sau đó đổi giờ hoặc bấm **Khách đã đến** / **Không đến** / **Hủy đặt bàn**: task cũ không còn hiện. Đổi sang giờ mới trong 60 phút tạo task theo giờ mới; đổi xa hơn 60 phút thì task sẽ chỉ hiện khi đến hạn.
+7. Đăng nhập staff hoặc owner quán khác: không truy cập được trang đặt bàn; gọi RPC trực tiếp cũng không được xem/đóng task của Bảo Lương.
+
+### Codex đã tự kiểm
+
+- Migration Task 9 contract `3/3 PASS`; migration `074` đã áp dụng và xác minh table, trigger, hai RPC có trên Supabase.
+- Admin Web `362/362 PASS`; component gọi nhắc có test riêng, bao gồm `tel:` không tự hoàn tất.
+- Task này không thêm chuông lặp, không thay đổi Snooze 10/15/30 phút của nhắc khách đã tới giờ, và không gửi ZCA/OA/ZNS cho khách.
+
+**Nghiệm thu:** Khi 7 mục trên đúng, trả lời **`Task 9 PASS`**. Em sẽ dừng chờ anh trước Task 10.

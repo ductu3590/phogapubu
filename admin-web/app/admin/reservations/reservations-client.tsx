@@ -33,6 +33,8 @@ import {
 } from './reservation-ui'
 import ReservationTablePicker, { heldTableIdsForReservationWindow } from './reservation-table-picker'
 import { ReservationForm, type ReservationFormSubmit } from './reservation-form'
+import CustomerCallTasks from './customer-call-tasks'
+import { listReservationCustomerCalls, resolveReservationCustomerCall, type ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
 
 type TableOperation = {
   kind: 'confirm' | 'resolve_change' | 'reschedule'
@@ -69,6 +71,7 @@ export default function ReservationsClient({
   initialFloorError,
   initialSessions,
   initialSessionsError,
+  initialCustomerCalls,
 }: {
   storeId: string
   initialReservations: ReservationRow[]
@@ -77,6 +80,7 @@ export default function ReservationsClient({
   initialFloorError: string | null
   initialSessions: OpenTableSession[]
   initialSessionsError: string | null
+  initialCustomerCalls: ReservationCustomerCallTask[]
 }) {
   const [reservations, setReservations] = useState(initialReservations)
   const [reloadError, setReloadError] = useState(initialError)
@@ -91,6 +95,8 @@ export default function ReservationsClient({
   const [busy, setBusy] = useState(false)
   const [reminderBusy, setReminderBusy] = useState(false)
   const [reminderAudioUnlocked, setReminderAudioUnlocked] = useState(false)
+  const [customerCalls, setCustomerCalls] = useState(initialCustomerCalls)
+  const [customerCallBusy, setCustomerCallBusy] = useState(false)
   const reminders = useMemo(() => createReservationReminderCoordinator({
     storeId, storage: browserStorage(), now: Date.now, playBell,
   }), [storeId])
@@ -135,6 +141,26 @@ export default function ReservationsClient({
     } else {
       setReloadError(result.error)
     }
+  }
+
+  const reloadCustomerCalls = useCallback(async () => {
+    const result = await listReservationCustomerCalls()
+    if (result.ok) setCustomerCalls(result.value)
+    else setActionError(result.error)
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => void reloadCustomerCalls(), 15_000)
+    return () => window.clearInterval(timer)
+  }, [reloadCustomerCalls])
+
+  const resolveCustomerCall = async (taskId: string, outcome: 'called' | 'unreachable') => {
+    setCustomerCallBusy(true)
+    setActionError(null)
+    const result = await resolveReservationCustomerCall(taskId, outcome)
+    if (!result.ok) setActionError(result.error)
+    await reloadCustomerCalls()
+    setCustomerCallBusy(false)
   }
 
   const refreshTableContext = async (): Promise<boolean> => {
@@ -275,6 +301,7 @@ export default function ReservationsClient({
           busy={reminderBusy}
           onSnooze={(minutes) => void snoozeReminders(dueReminders.reservationIds, minutes)}
         />
+        <CustomerCallTasks tasks={customerCalls} busy={customerCallBusy} onResolve={(id, outcome) => void resolveCustomerCall(id, outcome)} />
 
         <div className="mb-4 grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-200">

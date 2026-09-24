@@ -46,6 +46,8 @@ import { createReservationReminderCoordinator, type ReminderStorage } from '@/li
 import { heldTableIdsForReservationWindow } from '../reservations/reservation-table-picker'
 import ReservationQueuePanel from './reservation-queue-panel'
 import ReservationPreorderPanel from './reservation-preorder-panel'
+import CustomerCallTasks from '../reservations/customer-call-tasks'
+import { listReservationCustomerCalls, resolveReservationCustomerCall, type ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
 import {
   listReservationPreorderQueue,
   releaseReservationPreorder,
@@ -85,6 +87,7 @@ export default function CashierClient({
   initialReservationError,
   initialPreorders,
   initialPreorderError,
+  initialCustomerCalls,
 }: {
   storeId: string
   paymentTiming: 'prepay' | 'postpay'
@@ -100,6 +103,7 @@ export default function CashierClient({
   initialReservationError: string | null
   initialPreorders: ReservationPreorderRow[]
   initialPreorderError: string | null
+  initialCustomerCalls: ReservationCustomerCallTask[]
 }) {
   const floor = useFloorLayout(storeId, initialFloor, initialFloorError)
   const placed = floor.draft.tables
@@ -121,6 +125,8 @@ export default function CashierClient({
   const [reservationPick, setReservationPick] = useState<ReservationTablePick | null>(null)
   const [reminderBusy, setReminderBusy] = useState(false)
   const [reminderAudioUnlocked, setReminderAudioUnlocked] = useState(false)
+  const [customerCalls, setCustomerCalls] = useState(initialCustomerCalls)
+  const [customerCallBusy, setCustomerCallBusy] = useState(false)
   const reminders = useMemo(() => createReservationReminderCoordinator({
     storeId, storage: browserStorage(), now: Date.now, playBell,
   }), [storeId])
@@ -163,6 +169,29 @@ export default function CashierClient({
       setError((current) => applyReloadError(current, null))
     } else setError((current) => applyReloadError(current, result.error))
   }, [reservationsEnabled])
+
+  const reloadCustomerCalls = useCallback(async () => {
+    if (!reservationsEnabled) return
+    const result = await listReservationCustomerCalls()
+    if (result.ok) setCustomerCalls(result.value)
+    else setError((current) => applyReloadError(current, result.error))
+  }, [reservationsEnabled])
+
+  // Đến hạn 60 phút là mốc thời gian, không nhất thiết có row realtime đổi.
+  // Poll riêng để POS tab đang mở tự thấy task mà không cần F5/focus.
+  useEffect(() => {
+    if (!reservationsEnabled) return
+    const timer = window.setInterval(() => void reloadCustomerCalls(), 15_000)
+    return () => window.clearInterval(timer)
+  }, [reservationsEnabled, reloadCustomerCalls])
+
+  const resolveCustomerCall = async (taskId: string, outcome: 'called' | 'unreachable') => {
+    setCustomerCallBusy(true)
+    const result = await resolveReservationCustomerCall(taskId, outcome)
+    if (!result.ok) reportActionError(result.error)
+    await reloadCustomerCalls()
+    setCustomerCallBusy(false)
+  }
 
   useEffect(() => {
     const watcher = watchCashierSessions({
@@ -609,6 +638,9 @@ export default function CashierClient({
         )}
 
         <div className="min-h-0 flex-1 overflow-auto">
+          {reservationsEnabled && (
+            <CustomerCallTasks tasks={customerCalls} busy={customerCallBusy} onResolve={(id, outcome) => void resolveCustomerCall(id, outcome)} />
+          )}
           {reservationsEnabled && (
             <ReservationQueuePanel
               reservations={reservations}
