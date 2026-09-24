@@ -266,6 +266,21 @@ export interface Database {
         Args: { p_store_id: string }
         Returns: Json
       }
+      create_table_order_batch: {
+        Args: {
+          p_store_id: string
+          p_table_id: string
+          p_items: Json
+          p_payment_method: string
+          p_client_request_id: string
+          p_zalo_user_id?: string | null
+          p_device_id?: string | null
+          p_note?: string | null
+          p_voucher_code?: string | null
+          p_expected_session_id?: string | null
+        }
+        Returns: Json
+      }
       prepare_reservation_request: {
         Args: { p_store_id: string; p_client_request_id: string }
         Returns: Json

@@ -48,10 +48,12 @@ export interface Order {
 //   free   — bàn trống, phiên sẽ mở khi đơn đầu tiên được tạo
 //   owner  — máy này là chủ phiên (hoặc phiên chưa có chủ) → gọi món bình thường
 //   locked — bàn đang có khách KHÁC gọi món → chặn đặt, mời gọi nhân viên
+//   reserved — bàn đang được giữ cho booking hiện tại → chỉ gọi nhân viên, không lộ booking
 // ⚠️ Chỉ là LỚP HIỂN THỊ. Chốt chặn thật nằm trong create_order (client luôn có thể là bản cũ).
 export type TableSessionState =
   | { mode: "prepay" }
   | { mode: "postpay"; state: "free" }
+  | { mode: "postpay"; state: "reserved" }
   | { mode: "postpay"; state: "locked"; opened_at: string }
   | {
       mode: "postpay";
@@ -67,6 +69,8 @@ export type TableSessionState =
 
 export interface TableSessionBillItem {
   id: string;
+  menu_item_id?: string | null;
+  variant_id?: string | null;
   name: string;
   quantity: number;
   price: number;
@@ -115,6 +119,9 @@ export interface CreateOrderRequest {
   voucherCode?: string;
   // Chân định danh thứ hai cho phiên bàn trả sau (PB5) — xem services/device-id.ts
   deviceId?: string;
+  // Task 8: QR tại bàn đi qua batch idempotent; root/takeaway giữ RPC create_order cũ.
+  clientRequestId?: string;
+  expectedSessionId?: string | null;
 }
 
 export interface SessionOrder {

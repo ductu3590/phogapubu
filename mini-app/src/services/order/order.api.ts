@@ -21,16 +21,31 @@ export type OrderPaymentState =
 export const orderService = {
   createOrder: async (req: CreateOrderRequest): Promise<Order> => {
     // Giá + tên tính phía server trong RPC create_order (không tin client gửi giá)
-    const { data, error } = await supabase.rpc("create_order", {
+    const items = req.items.map((item) => ({
+      menu_item_id: item.menuItemId,
+      quantity: item.quantity,
+      note: item.note ?? null,
+      topping_ids: item.toppingIds ?? [],
+      variant_id: item.variantId ?? null,
+    }));
+    const tableBatch = req.orderType !== "pickup" && req.orderType !== "delivery" && !!req.tableId && !!req.clientRequestId;
+    const { data, error } = tableBatch
+      ? await supabase.rpc("create_table_order_batch", {
+          p_store_id: req.storeId,
+          p_table_id: req.tableId!,
+          p_items: items,
+          p_payment_method: req.paymentMethod,
+          p_client_request_id: req.clientRequestId!,
+          p_zalo_user_id: req.zaloUserId ?? null,
+          p_device_id: req.deviceId ?? null,
+          p_note: req.note ?? null,
+          p_voucher_code: req.voucherCode ?? null,
+          p_expected_session_id: req.expectedSessionId ?? null,
+        })
+      : await supabase.rpc("create_order", {
       p_store_id: req.storeId,
       p_table_id: req.tableId ?? null,
-      p_items: req.items.map((item) => ({
-        menu_item_id: item.menuItemId,
-        quantity: item.quantity,
-        note: item.note ?? null,
-        topping_ids: item.toppingIds ?? [],
-        variant_id: item.variantId ?? null,
-      })),
+      p_items: items,
       p_payment_method: req.paymentMethod,
       p_zalo_user_id: req.zaloUserId ?? null,
       p_note: req.note ?? null,

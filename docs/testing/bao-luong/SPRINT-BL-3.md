@@ -168,4 +168,28 @@ Task 6 là checkpoint BL-2C riêng trước khi mở UI chọn món đặt trư�
 - Server PGlite: `16/16 PASS` cho preorder/lifecycle/release/khóa món; production đã có migration `071`.
 - `npm run typecheck` vẫn còn 4 lỗi nền đã ghi ở Test 2; không có lỗi từ file Task 7.
 
-**→ Báo Codex:** `Task 7 PASS` hoặc ảnh/lỗi ở đúng bước bị fail. Không tự chuyển Task 8 trước khi có PASS.
+**Nghiệm thu:** ✅ `Task 7 PASS` — anh Tú xác nhận ngày 2026-09-23.
+
+## Test 8 — QR bàn đã giữ, mâm và gọi thêm an toàn
+
+### Chuẩn bị
+
+1. Deploy đúng instance **Bia lẩu Bảo Lương** sau commit Task 8; migration `073_reservation_table_ordering` đã có trên Supabase.
+2. Chủ quán xác nhận một booking và phân một bàn có giờ giữ đang hiệu lực.
+
+### Anh cần test
+
+1. Khi chưa bấm **Khách đã đến**, quét QR của bàn đã giữ: chỉ hiện **“Bàn đã được đặt trước. Vui lòng báo chủ quán để mở bàn.”** và nút **Gọi nhân viên**. Không hiện nút thêm món/giỏ; bấm gọi nhân viên vẫn thành công.
+2. Booking của ngày mai hoặc ngoài khoảng giờ giữ không khóa QR hôm nay.
+3. Chủ quán bấm **Khách đã đến** cho booking nhiều bàn: mở QR bất kỳ bàn nào trong mâm, menu hoạt động; gọi thêm từ hai máy/bàn đều về cùng một bill/mâm trên POS.
+4. Trước khi gửi món gọi thêm trùng hoàn toàn món đã đặt trước hoặc đã gọi (cùng biến thể/topping), Mini App hiện cảnh báo. Bấm **Kiểm tra lại** thì chưa tạo đơn; bấm **Vẫn gọi thêm** thì đơn vẫn được tạo đúng một lượt.
+5. Tắt mạng đúng lúc bấm gọi món, bật lại rồi bấm lại với giỏ không đổi: POS chỉ có một batch mới. Đóng bill hoặc để chủ quán đổi phiên giữa lúc đang chọn món: Mini App phải báo cần kiểm tra lại, không tự gửi giỏ cũ vào phiên mới.
+6. Regression Pubu: QR Pubu vẫn tạo/thanhtoán đơn như cũ, không có banner đặt bàn hoặc yêu cầu POS xác nhận của Bảo Lương.
+
+### Codex đã tự kiểm
+
+- Mini App: `67/67 PASS` (API batch QR và đối sánh món trùng).
+- SQL contract: `3/3 PASS`; migration `073` đã áp dụng và kiểm tra RPC/table tồn tại trên Supabase.
+- `npm run typecheck` còn đúng 4 lỗi nền BL-3 ở `SnackbarProvider`, `app-config.json`, và cast category; Task 8 không phát sinh lỗi typecheck mới.
+
+**→ Báo Codex:** `Task 8 PASS` hoặc ảnh/lỗi tại đúng bước fail. Không tự chuyển Task 9 trước khi có PASS.

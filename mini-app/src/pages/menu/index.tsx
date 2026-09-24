@@ -63,6 +63,23 @@ function TableLockedBanner({ openedAt, onCallStaff, calling }: {
   );
 }
 
+function TableReservedBanner({ onCallStaff, calling }: { onCallStaff: () => void; calling: boolean }) {
+  return (
+    <div className="border-b border-[#F0C9C0] bg-[#FDEDE9] px-4 py-2.5">
+      <div className="flex items-start gap-2">
+        <span className="text-base leading-tight">🪑</span>
+        <div>
+          <p className="text-small-m font-semibold text-[#C0341A]">Bàn đã được đặt trước</p>
+          <p className="text-xxsmall text-[#9A4634]">Vui lòng báo chủ quán để mở bàn.</p>
+        </div>
+      </div>
+      <button onClick={onCallStaff} disabled={calling} className="mt-2 w-full rounded-lg bg-white py-2 text-small-m font-semibold text-[#C0341A] active:opacity-70 disabled:opacity-50">
+        🔔 Gọi nhân viên
+      </button>
+    </div>
+  );
+}
+
 // Máy này đang giữ bàn — cho khách thấy cả bàn đang nợ bao nhiêu, khỏi bất ngờ lúc tính tiền.
 // Ở MÂM (nhiều bàn ghép, mig 040) thì hiện đủ tên các bàn để khách hiểu vì sao tổng lớn hơn
 // những gì mình gọi: đó là tiền của cả mâm.
@@ -177,6 +194,8 @@ export default function MenuPage() {
   // thì KHÔNG khoá oan — create_order vẫn là chốt chặn thật.
   const tableLocked =
     sessionState?.mode === "postpay" && sessionState.state === "locked";
+  const tableReserved =
+    sessionState?.mode === "postpay" && sessionState.state === "reserved";
   const sessionOwner =
     sessionState?.mode === "postpay" && sessionState.state === "owner"
       ? sessionState
@@ -185,7 +204,7 @@ export default function MenuPage() {
   const workflowAllowsOrdering = workflow
     ? canOrderInEntry(workflow, entryContext) && hasVerifiedTable
     : false;
-  const canOrder = storeOpen && !tableLocked && workflowAllowsOrdering;
+  const canOrder = storeOpen && !tableLocked && !tableReserved && workflowAllowsOrdering;
 
   const handleCallStaff = () => {
     if (!storeId || !tableId) return;
@@ -226,6 +245,10 @@ export default function MenuPage() {
         text: "Bàn này đang có khách khác gọi món. Nhờ nhân viên mở bàn giúp bạn.",
         type: "warning",
       });
+      return;
+    }
+    if (tableReserved) {
+      openSnackbar({ text: "Bàn đã được đặt trước. Vui lòng báo chủ quán để mở bàn.", type: "warning" });
       return;
     }
     if (!storeOpen) {
@@ -366,6 +389,7 @@ export default function MenuPage() {
           calling={isCallingStaff}
         />
       )}
+      {tableReserved && <TableReservedBanner onCallStaff={handleCallStaff} calling={isCallingStaff} />}
 
       {/* Máy này đang giữ bàn — hiện tổng cả bàn đang nợ */}
       {sessionOwner && (
