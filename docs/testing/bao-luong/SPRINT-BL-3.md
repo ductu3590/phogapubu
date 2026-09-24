@@ -223,3 +223,5 @@ Migration `074_reservation_customer_call_tasks` đã áp dụng. Chạy Admin We
 ### Hồi quy sau Task 9 — ưu tiên bàn đã đặt trước
 
 Migration `075_reservation_prearrival_table_lock` đã áp dụng. Tạo/đổi một booking xác nhận có giờ đến trong 60 phút, chọn Bàn 9. Trên POS Bàn 9 phải có biểu tượng 📅, nhãn **đã giữ** và không thao tác như bàn trống. Quét QR Bàn 9 từ máy khác chỉ thấy yêu cầu báo chủ quán mở bàn; không thêm món hay mở bill mới. Sau khi bấm **Khách đã đến**, nhãn giữ biến mất và QR hoạt động với đúng mâm/bill. Booking xa hơn một giờ vẫn không khóa QR/POS sớm.
+
+**Bổ sung trường hợp đã có phiên cũ:** Nếu Bàn 9 đã có một phiên mở trước khi bước vào 60 phút giữ bàn, QR vẫn phải hiện bàn đã được đặt trước và không tạo thêm món. POS không tự đóng phiên cũ; chủ quán xử lý khách đang ngồi theo thực tế.
