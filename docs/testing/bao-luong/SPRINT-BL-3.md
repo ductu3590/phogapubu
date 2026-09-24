@@ -247,4 +247,4 @@ Migration `077_pos_reject_pending_order` đã áp dụng. Chạy Admin Web từ 
 - PostgreSQL/PGlite `4/4 PASS`, gồm audit, idempotency, chặn staff, chặn đơn đã xác nhận và preorder.
 - Toàn bộ Admin Web `368/368 PASS`; TypeScript và production build đều sạch.
 
-**Nghiệm thu:** Khi 6 mục trên đúng, trả lời **`Task 10 PASS`**. Dừng tại đây trước khi làm phần tiếp theo.
+**Nghiệm thu:** ✅ `Task 10 PASS` — anh Tú xác nhận ngày 2026-09-24.
