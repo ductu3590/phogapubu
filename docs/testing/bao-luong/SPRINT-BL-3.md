@@ -226,7 +226,7 @@ Migration `075_reservation_prearrival_table_lock` đã áp dụng. Tạo/đổi 
 
 **Bổ sung trường hợp đã có phiên cũ:** Nếu Bàn 9 đã có một phiên mở trước khi bước vào 60 phút giữ bàn, QR vẫn phải hiện bàn đã được đặt trước và không tạo thêm món. POS không tự đóng phiên cũ; chủ quán xử lý khách đang ngồi theo thực tế.
 
-## Test 10 — Từ chối đơn chờ xác nhận tại POS
+## Hồi quy bổ sung — Từ chối đơn chờ xác nhận tại POS
 
 ### Chuẩn bị
 
@@ -247,4 +247,8 @@ Migration `077_pos_reject_pending_order` đã áp dụng. Chạy Admin Web từ 
 - PostgreSQL/PGlite `4/4 PASS`, gồm audit, idempotency, chặn staff, chặn đơn đã xác nhận và preorder.
 - Toàn bộ Admin Web `368/368 PASS`; TypeScript và production build đều sạch.
 
-**Nghiệm thu:** ✅ `Task 10 PASS` — anh Tú xác nhận ngày 2026-09-24.
+**Nghiệm thu:** ✅ PASS — anh Tú xác nhận ngày 2026-09-24.
+
+## Test 10 — Deploy và nghiệm thu E2E BL-3
+
+Task cuối của plan gốc: deploy đúng instance Bảo Lương, sau đó chạy trọn luồng trên thiết bị thật — đặt bàn, chủ quán xác nhận/chọn bàn, khách gửi món trước hoặc gọi sau, POS duyệt/in 2 liên, khóa bàn từ 60 phút trước giờ đến, khách đến mở mâm và gọi thêm qua QR, từ chối một đơn pending, rồi đóng bill. Đây là gate để ghi **`BL-3 PASS`**.
