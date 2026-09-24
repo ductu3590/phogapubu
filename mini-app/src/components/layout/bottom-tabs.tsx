@@ -3,6 +3,7 @@ import { useCartStore } from "@/stores/cart.store";
 import { useAppStore } from "@/stores/app.store";
 import { cn } from "@/utils/cn";
 import { rootCapabilities } from "@/utils/entry-context";
+import { getBookingAccesses } from "@/services/reservation/reservation-storage";
 
 const ALL_TABS = [
   {
@@ -13,6 +14,18 @@ const ALL_TABS = [
     icon: (active: boolean) => (
       <svg viewBox="0 0 24 24" className={cn("h-6 w-6", active ? "text-primary" : "text-neutral300")} fill="none" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    ),
+  },
+  {
+    path: "/reservations",
+    matchPaths: ["/reservations"],
+    label: "Đặt bàn",
+    takeawayVisible: true,
+    icon: (active: boolean) => (
+      <svg viewBox="0 0 24 24" className={cn("h-6 w-6", active ? "text-primary" : "text-neutral300")} fill="none" stroke="currentColor" strokeWidth={2}>
+        <rect x="4" y="5" width="16" height="15" rx="2" />
+        <path strokeLinecap="round" d="M8 3v4M16 3v4M8 11h8M8 15h5" />
       </svg>
     ),
   },
@@ -45,13 +58,14 @@ export default function BottomTabs() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { totalItems } = useCartStore();
-  const { orderMode, entryContext, workflow } = useAppStore();
+  const { orderMode, entryContext, workflow, storeId } = useAppStore();
 
   const rootReadOnly = entryContext.kind === "root" && (!workflow || rootCapabilities(workflow).readOnlyMenu);
+  const showReservations = entryContext.kind === "root" && (workflow?.reservationsEnabled === true || getBookingAccesses(storeId).length > 0);
   const TABS = ALL_TABS.filter((tab) =>
     (orderMode === "dine_in" || tab.takeawayVisible) &&
     !(rootReadOnly && tab.path === "/session-orders"),
-  );
+  ).filter((tab) => tab.path !== "/reservations" || showReservations);
 
   return (
     <div

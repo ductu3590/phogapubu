@@ -49,7 +49,8 @@ Trong pilot, chủ quán Bảo Lương chính là thu ngân; hệ thống chưa 
 quầy là nguồn quyết định vận hành. Mọi đơn từ QR, đặt trước hoặc nhân viên đều phải chờ chủ
 quán xác nhận trước khi thuộc luồng bếp. Chủ quán quyết định lúc in hai liên. Bảo Lương không dùng
 Kitchen Display; "xuống bếp" trong tài liệu này nghĩa là POS đã xác nhận và chủ quán có thể in
-phiếu bếp.
+phiếu bếp. Hai liên in cùng danh sách món, đơn giá và tổng tiền; liên bếp chỉ khác nhãn để tránh
+nhân viên phát nhầm phiếu sang khách hoặc ngược lại.
 
 ### 3.2 Cấu hình theo quán
 
@@ -89,7 +90,7 @@ Giá trị cho Bảo Lương:
 | Đơn nhân viên xuống bếp | Chờ POS xác nhận |
 | Mọi khách trong phiên được gọi thêm | Bật |
 | Phiên tự hết hạn an toàn | 6 giờ không hoạt động |
-| Khóa khách sửa/hủy món đặt trước | Trước giờ đến 30 phút |
+| Khóa khách sửa/hủy món đặt trước | Ngay sau khi khách gửi món |
 
 Các cấu hình này thuộc store/capability, có default giữ nguyên hành vi hiện tại của Pubu. Kiểm tra
 quyền và quy trình phải nằm trong DB/RPC; giao diện chỉ phản ánh kết quả. Admin Web phải cho chủ
@@ -118,7 +119,7 @@ Khu **Quy trình vận hành** chia thành các nhóm tiếng Việt:
 3. **Đặt bàn**: số phút đặt trước tối thiểu, số ngày được chọn, bước giờ, sức chứa gợi ý và khoảng
    giữ bàn để kiểm tra trùng.
 4. **Phiên bàn/mâm**: cho mọi khách gọi thêm và số giờ không hoạt động trước khi hết hạn an toàn.
-5. **Món đặt trước**: số phút trước giờ đến bắt đầu khóa khách sửa/hủy.
+5. **Món đặt trước**: chính sách sửa/hủy theo quán. Bảo Lương khóa ngay sau khi khách gửi; cấu hình cutoff cũ chỉ giữ tương thích cho mô hình quán khác trong tương lai.
 
 Giao diện không hiển thị tên cột/policy kỹ thuật. Các trường phụ thuộc được ẩn hoặc khóa kèm giải
 thích; ví dụ tắt Đặt bàn thì nhóm giới hạn đặt bàn không cho sửa, nhưng giá trị cũ vẫn được giữ để
@@ -249,11 +250,12 @@ Mỗi batch có `client_request_id` chống gửi trùng. Mốc xác nhận và 
 phía máy chủ. In lại là thao tác riêng, có nhãn **In lại** và audit người thực hiện. Trình duyệt
 không thể chứng minh giấy đã ra khỏi máy in; hệ thống chỉ cam kết audit lệnh in/in lại.
 
-Khách được sửa hoặc hủy món đặt trước đến trước giờ đến 30 phút, kể cả chủ quán đã xác nhận hoặc
-in. Từ mốc đó, phía khách bị khóa sửa/hủy vì bếp có thể đã chuẩn bị và chỉ có thể gọi quán. Chủ
-quán vẫn được xử lý ngoại lệ trên POS; mọi phiên bản, lệnh in lại, hao hụt do hủy/no-show và người
-thực hiện phải có audit để bếp không nhận hai phiên bản không phân biệt được. Chủ quán được phép
-in trước khi khách đến dù chưa có cọc; POS phải cảnh báo rủi ro nhưng không chặn.
+Ngay khi khách gửi món đặt trước, batch đó trở thành snapshot và khách không thể sửa hoặc hủy,
+kể cả khi chủ quán chưa in. Mini App xác nhận ngắn gọn: **“Đã gửi món đặt trước. Món đã chốt,
+vui lòng gọi thêm tại quán nếu cần.”** Khách chỉ gọi thêm sau khi đến quán, quét QR tại bàn và chủ
+quán đã mở phiên/bill. Chủ quán vẫn được xử lý ngoại lệ trên POS; mọi lệnh in lại, hao hụt do
+hủy/no-show và người thực hiện phải có audit. Chủ quán được phép in trước khi khách đến dù chưa
+có cọc; POS phải cảnh báo rủi ro nhưng không chặn.
 
 Khi booking bị hủy/no-show, các đơn chưa in chuyển trạng thái kết thúc và không treo `pending`.
 Đơn đã in được giữ để đối soát hao hụt, không đưa vào bill của khách khác và không tự hoàn tác việc
@@ -304,10 +306,9 @@ Nếu booking còn pending quá giờ đến, trang báo rõ **Quán chưa xác 
 đảm** và hiển thị nút gọi điện cho quán. Booking quá giờ không tự đóng và không cho khách tự
 chuyển trạng thái kết thúc; chủ quán xử lý đóng tay.
 
-Khách được tự hủy booking trước giờ đến nếu không có món đặt trước đã khóa/chuẩn bị. Riêng món đặt
-trước được sửa/hủy tới mốc 30 phút trước giờ đến. Sau mốc này, Mini App khóa sửa/hủy món và yêu
-cầu gọi quán, không phụ thuộc món đã in hay chưa. Hủy booking hợp lệ giải phóng bàn nhưng giữ lịch
-sử; các trường hợp còn lại do chủ quán xử lý tay.
+Khách được tự hủy booking trước giờ đến nếu chưa gửi món đặt trước. Món đặt trước bị khóa ngay sau
+lần gửi đầu, nên Mini App không hiển thị sửa/hủy món; khách cần gọi quán nếu có ngoại lệ. Hủy
+booking hợp lệ giải phóng bàn nhưng giữ lịch sử; các trường hợp còn lại do chủ quán xử lý tay.
 
 Đổi giờ hoặc số người sau xác nhận tạo yêu cầu thay đổi; lịch cũ không mất trong lúc chờ duyệt.
 
@@ -418,8 +419,8 @@ chờ bên ngoài hệ thống.
   và gọi nhân viên chưa đóng thay vì suy diễn từ cache.
 - Âm báo có thể phát lại sau reconnect nhưng không được tạo bản ghi mới.
 - Bàn/phiên đã thu tiền không thể nhận thêm đơn; RPC từ chối kể cả khi client cũ vẫn còn mở.
-- Mọi thời điểm lưu trong PostgreSQL bằng `timestamptz` UTC. Slot, giờ phục vụ, cutoff 30 phút,
-  nhắc 60 phút và hiển thị đều được tính theo `Asia/Ho_Chi_Minh`; server sinh hoặc xác thực slot,
+- Mọi thời điểm lưu trong PostgreSQL bằng `timestamptz` UTC. Slot, giờ phục vụ, giới hạn đặt trước
+  30 phút, nhắc 60 phút và hiển thị đều được tính theo `Asia/Ho_Chi_Minh`; server sinh hoặc xác thực slot,
   không tin slot do client tự tính.
 - PIN/mã dễ đọc không tồn tại. Capability token quản lý booking phải đủ ngẫu nhiên, có phạm vi
   tối thiểu, có thể thu hồi và không lộ qua QR bàn/log/UI.
@@ -493,7 +494,7 @@ Thiết kế chi tiết BL-2A:
 
 - Entry root có menu chỉ đọc và đặt bàn; Bảo Lương không có Mang về/Ship.
 - Theo dõi bằng token an toàn, OA chat, đổi/hủy và chọn món trước.
-- Khóa khách sửa/hủy món từ 30 phút trước giờ đến; xử lý vòng đời đơn hủy/no-show.
+- Khóa khách sửa/hủy món ngay sau lần gửi; xử lý vòng đời đơn hủy/no-show.
 - QR bàn đã giữ yêu cầu báo chủ quán mở bàn, không dùng PIN/mã đặt bàn.
 - QR nhiều bàn cùng mâm, mọi khách được gọi thêm.
 - Lịch sử lượt món, xác nhận gửi và cảnh báo món trùng.
@@ -539,8 +540,8 @@ chỉ thêm một dòng liên kết và trạng thái PASS/FAIL để làm mục
 8. Bảo Lương không còn bất kỳ entry Mang về/Ship nào nhưng Mini App root vẫn có giá trị độc lập
    nhờ menu chỉ đọc và chức năng đặt bàn.
 9. Từng Sprint có file kiểm thử riêng và đã được anh Tú xác nhận PASS trước khi chuyển Sprint.
-10. Khách sửa/hủy món đặt trước được tới trước giờ đến 30 phút, sau đó bị khóa; chủ quán vẫn xử
-    lý ngoại lệ có audit và được in sớm dù chưa có cọc.
+10. Khách không sửa/hủy được món đặt trước sau lần gửi; chủ quán vẫn xử lý ngoại lệ có audit và
+    được in sớm dù chưa có cọc.
 11. Booking quá giờ không tự hủy; POS nhắc gộp có Snooze và khách được nhắc trước 60 phút.
 12. Phiên Bảo Lương kết thúc khi đóng bill hoặc tự hết hạn sau 6 giờ không hoạt động, không dùng
     timeout để giới hạn thời gian ăn.

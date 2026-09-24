@@ -32,6 +32,9 @@ export type KitchenPredicateFields = {
 export function orderInKitchen(o: KitchenPredicateFields): boolean {
   // Món thu ngân ghi bổ sung là món đã phục vụ, tuyệt đối không tạo phiếu/loa bếp.
   if (o.orderSource === 'pos') return false
+  // Bảo Lương giao phiếu giấy từ POS cho bếp. Preorder không có đường Kitchen Display trong
+  // pilot; quán nào muốn dùng màn bếp phải có cấu hình workflow riêng ở phase sau.
+  if (o.orderSource === 'reservation_preorder') return false
   if (o.status !== 'pending' && o.status !== 'confirmed') return false
   const requiresPosConfirmation =
     o.orderSource === 'staff'

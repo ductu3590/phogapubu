@@ -96,5 +96,6 @@ const actionLabel: Record<Exclude<ReservationUiAction, 'call'>, string> = {
   arrive: 'Khách đã đến',
   reschedule: 'Đổi lịch/bàn',
   no_show: 'Không đến',
+  cancel_store: 'Hủy đặt bàn',
   open_session: 'Mở bill trên POS',
 }

@@ -9,15 +9,36 @@ import PrintOrder, { type OrderSlip } from './print-order'
 export default async function PrintOrderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ id?: string }>
+  searchParams: Promise<{ id?: string; job?: string }>
 }) {
   const operator = await requireOperatorOrRedirect()
   if (operator.role !== 'store_owner') redirect('/mevo')
 
-  const { id } = await searchParams
-  if (!id) return <p className="p-6 text-sm text-red-600">Thiếu mã đơn.</p>
+  const { id, job } = await searchParams
+  if (!id && !job) return <p className="p-6 text-sm text-red-600">Thiếu mã đơn.</p>
 
   const supabase = await createClient()
+
+  // Phiếu preorder luôn lấy snapshot ở print job, không bao giờ query món hiện hành: khách có
+  // thể đã sửa revision khác ngay sau lúc chủ quán bấm in.
+  if (job) {
+    const { data, error } = await supabase.rpc('get_reservation_preorder_print_job', { p_print_job_id: job })
+    if (error || !data || typeof data !== 'object') return <p className="p-6 text-sm text-red-600">{error?.message ?? 'Không tìm thấy phiếu in của quán này.'}</p>
+    const printJob = data as { kind: string; revision: number; snapshot: unknown; requested_at: string }
+    const { data: store } = await supabase.from('stores').select('name, phone').eq('id', operator.storeId).single()
+    const snapshot = printJob.snapshot as {
+      total_amount?: number; note?: string | null; items?: Array<{ name?: string; item_name?: string; quantity: number; price?: number; item_price?: number; note?: string | null; toppings?: Array<{ name: string; price: number }>; selected_toppings?: Array<{ name: string; price: number }>}>
+      table_numbers?: string[]
+    }
+    const slip: OrderSlip = {
+      storeName: store?.name ?? 'Quán', storePhone: store?.phone ?? null,
+      tableLabel: snapshot.table_numbers?.join(', ') || 'Chưa nhận khách', createdAt: printJob.requested_at as string,
+      orderNote: snapshot.note ?? null, orderTotal: snapshot.total_amount ?? 0, sessionTotal: snapshot.total_amount ?? 0,
+      orderSource: 'reservation_preorder', preorderPrintKind: printJob.kind as 'original' | 'adjustment' | 'reprint', preorderRevision: printJob.revision as number,
+      items: (snapshot.items ?? []).map((item) => ({ name: item.name ?? item.item_name ?? 'Món', quantity: item.quantity, price: item.price ?? item.item_price ?? 0, note: item.note ?? null, toppings: item.toppings ?? item.selected_toppings ?? [], isGift: false })),
+    }
+    return <PrintOrder slip={slip} />
+  }
 
   const { data: order } = await supabase
     .from('orders')

@@ -21,6 +21,8 @@ export type OrderSlip = {
   sessionTotal: number
   orderSource: string
   items: SlipItem[]
+  preorderPrintKind?: 'original' | 'adjustment' | 'reprint'
+  preorderRevision?: number
 }
 
 const dong = (n: number) => n.toLocaleString('vi-VN')
@@ -84,18 +86,18 @@ export default function PrintOrder({ slip }: { slip: OrderSlip }) {
 
       {/* ── LIÊN 1: PHIẾU BẾP — không giá, chữ to, chỉ thứ bếp cần ── */}
       <div className="lien">
-        <p className="tieude">PHIẾU BẾP</p>
+        <p className="tieude">{slip.preorderPrintKind === 'adjustment' ? 'PHIẾU ĐIỀU CHỈNH' : slip.preorderPrintKind === 'reprint' ? 'PHIẾU BẾP · IN LẠI' : 'PHIẾU BẾP'}</p>
         <p className="ban">{slip.tableLabel}</p>
         <div className="row">
           <span>{gio(slip.createdAt)}</span>
-          <span>{slip.orderSource === 'staff' ? 'NV đặt hộ' : 'Khách tự gọi'}</span>
+          <span>{slip.preorderRevision ? `Đặt trước · v${slip.preorderRevision}` : slip.orderSource === 'staff' ? 'NV đặt hộ' : 'Khách tự gọi'}</span>
         </div>
         <hr />
         {slip.items.map((it, i) => (
           <div key={i} style={{ marginBottom: 4 }}>
             <div className="row to">
               <span className="name">{it.name}</span>
-              <span className="num">x{it.quantity}</span>
+              <span className="num">x{it.quantity} · {dong(donGia(it) * it.quantity)}</span>
             </div>
             {it.toppings.length > 0 && (
               <div style={{ paddingLeft: 8 }}>+ {it.toppings.map((t) => t.name).join(', ')}</div>
@@ -110,12 +112,17 @@ export default function PrintOrder({ slip }: { slip: OrderSlip }) {
           </>
         )}
         <hr />
+        <div className="row to">
+          <span>Tổng phiếu</span>
+          <span className="num">{dong(slip.orderTotal)}</span>
+        </div>
+        <hr />
         <p style={{ textAlign: 'center' }}>— hết phiếu bếp —</p>
       </div>
 
       {/* ── LIÊN 2: PHIẾU BÀN — đặt ở bàn khách, có ô tick để nhân viên gạch khi bưng ra ── */}
       <div className="lien">
-        <p className="tieude">{slip.storeName}</p>
+        <p className="tieude">{slip.storeName}{slip.preorderPrintKind === 'reprint' ? ' · IN LẠI' : ''}</p>
         {slip.storePhone && <p style={{ textAlign: 'center' }}>ĐT: {slip.storePhone}</p>}
         <p className="ban">{slip.tableLabel}</p>
         <div className="row">

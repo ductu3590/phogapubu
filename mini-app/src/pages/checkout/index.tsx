@@ -18,6 +18,9 @@ import { isStoreOpen } from "@/utils/store-hours";
 import { canOrderInEntry } from "@/utils/entry-context";
 import VoucherSection from "@/components/checkout/voucher-section";
 import { estimateDiscount, MyVoucher } from "@/services/voucher/voucher.api";
+import { clearTableOrderRequest, tableOrderRequestId } from "@/services/table-order-request";
+import { useTableSessionBill } from "@/services/order/order.queries";
+import { findOrderDuplicates } from "@/utils/order-duplicates";
 
 function isPhoneValid(phone: string): boolean {
   return /^0\d{9}$/.test(phone.replace(/\s/g, ""));
@@ -62,6 +65,7 @@ export default function CheckoutPage() {
   const [voucher, setVoucher] = useState<MyVoucher | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("zalo_checkout");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [confirmingDuplicates, setConfirmingDuplicates] = useState(false);
   // Đơn ZaloPay đang chờ xử lý (kèm capability token để huỷ đơn nếu khách muốn sửa món).
   // Khởi tạo ĐỒNG BỘ từ localStorage: banner phải có ngay từ khung hình đầu tiên, nếu không
   // sẽ có một khoảnh khắc nút "Đặt món" còn bấm được → tạo đơn thứ hai cho cùng giỏ hàng.
@@ -86,7 +90,7 @@ export default function CheckoutPage() {
   const [addressError, setAddressError] = useState("");
 
   const { items: cartItems, updateQuantity, clearCart, setCartLock } = useCartStore();
-  const { storeId, tableId, tableNumber, zaloUserId, deviceId, paymentMethods, paymentTiming, orderMode, isAcceptingOrders, servingHours, entryContext, workflow, workflowError } = useAppStore();
+  const { storeId, tableId, tableNumber, zaloUserId, deviceId, paymentMethods, paymentTiming, orderMode, isAcceptingOrders, servingHours, entryContext, workflow, workflowError, sessionState } = useAppStore();
   const isTakeaway = orderMode === "takeaway";
   const hasVerifiedTable = entryContext.kind === "root" || tableId === entryContext.tableId;
   const orderingAllowed = workflow
@@ -97,6 +101,7 @@ export default function CheckoutPage() {
   // Trả sau TẠI BÀN: khách không chọn phương thức, không mở SDK thanh toán — gọi món xong là
   // vào bếp luôn, tiền thu khi ra về. Đơn mang về/ship VẪN trả trước (spec §3, chưa có COD).
   const isPostpayDineIn = paymentTiming === "postpay" && !isTakeaway;
+  const { data: sessionBill } = useTableSessionBill(tableId, zaloUserId, deviceId, isPostpayDineIn);
   const storeOpen = isStoreOpen({ isAcceptingOrders, servingHours });
   const singleMethod = paymentMethods.length === 1;
 
@@ -218,7 +223,7 @@ export default function CheckoutPage() {
     return false;
   };
 
-  const handleOrder = () => {
+  const handleOrder = (forceDuplicate = false) => {
     if (!orderingAllowed) {
       openSnackbar({
         text: workflowError ?? "Quán chưa nhận đặt món từ lối vào này.",
@@ -260,7 +265,29 @@ export default function CheckoutPage() {
       return;
     }
 
+    const duplicates = sessionBill?.found
+      ? findOrderDuplicates(
+          cartItems.map((item) => ({ productId: item.productId, variantId: item.variant?.id ?? null, toppingIds: item.selectedVariants.filter((v) => v.groupId === "topping").map((v) => v.optionId), quantity: item.quantity })),
+          sessionBill.orders.map((order) => ({
+            id: order.id, orderSource: order.order_source, status: order.status,
+            items: order.items.map((item) => ({ menuItemId: item.menu_item_id ?? null, variantId: item.variant_id ?? null, toppingIds: (item.toppings ?? []).map((topping) => topping.id), quantity: item.quantity })),
+          })),
+        )
+      : [];
+    if (!forceDuplicate && duplicates.length > 0) {
+      setConfirmingDuplicates(true);
+      return;
+    }
+
     setIsProcessing(true);
+
+    const tableSessionId = sessionState?.mode === "postpay" && sessionState.state === "owner" ? sessionState.session_id : null;
+    const clientRequestId = !isTakeaway && tableId
+      ? tableOrderRequestId(tableId, tableSessionId, {
+          items: cartItems.map((item) => ({ id: item.id, quantity: item.quantity })),
+          note: note.trim(), voucher: voucher?.code ?? null,
+        })
+      : undefined;
 
     createOrder(
       {
@@ -283,6 +310,8 @@ export default function CheckoutPage() {
         paymentMethod: isTakeaway ? "zalo_checkout" : isPostpayDineIn ? "cash" : paymentMethod,
         zaloUserId: zaloUserId || undefined,
         deviceId: deviceId || undefined,
+        clientRequestId,
+        expectedSessionId: tableSessionId,
         voucherCode: voucher?.code,
         ...(isTakeaway && {
           orderType: takeawayType,
@@ -295,6 +324,7 @@ export default function CheckoutPage() {
       },
       {
         onSuccess: async (order) => {
+          if (clientRequestId) clearTableOrderRequest(clientRequestId);
           // Đơn mới đã tạo → banner của đơn cũ không còn nghĩa gì
           applyUnpaidOrder(null);
           // Invalidate tab "Đã gọi" để hiện đơn mới ngay lập tức
@@ -681,7 +711,7 @@ export default function CheckoutPage() {
               </p>
             )}
             <Button
-              onClick={handleOrder}
+              onClick={() => handleOrder()}
               disabled={isLoading || cartItems.length === 0 || !isTakeawayFormValid || !storeOpen}
               className="w-full rounded-xl bg-primary py-3 font-semibold text-white active:bg-primary disabled:opacity-50"
               fullWidth
@@ -701,6 +731,18 @@ export default function CheckoutPage() {
           </>
         )}
       </div>
+      {confirmingDuplicates && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/40 px-3 pb-4">
+          <div className="w-full rounded-2xl bg-white p-4 shadow-xl">
+            <p className="text-large-m font-bold text-text-primary">Món này đã có trong bill</p>
+            <p className="mt-1 text-small text-text-secondary">Bạn đang chọn món trùng với món đã đặt trước hoặc đã gọi. Vui lòng kiểm tra để tránh trùng món.</p>
+            <div className="mt-4 flex gap-2">
+              <button className="flex-1 rounded-xl border border-neutral200 py-3 text-small-m font-semibold" onClick={() => setConfirmingDuplicates(false)}>Kiểm tra lại</button>
+              <button className="flex-1 rounded-xl bg-primary py-3 text-small-m font-semibold text-white" onClick={() => { setConfirmingDuplicates(false); handleOrder(true); }}>Vẫn gọi thêm</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

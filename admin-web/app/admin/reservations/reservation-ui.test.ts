@@ -64,7 +64,7 @@ describe('reservation mobile view model', () => {
   it('chỉ mở đúng các action theo lifecycle, chưa làm button mutation trong Task 3', () => {
     expect(reservationUiActions(reservation({ status: 'pending' }))).toEqual(['call', 'confirm', 'reject'])
     expect(reservationUiActions(reservation({ status: 'change_requested' }))).toEqual(['call', 'resolve_change'])
-    expect(reservationUiActions(reservation({ status: 'confirmed' }))).toEqual(['call', 'arrive', 'reschedule', 'no_show'])
+    expect(reservationUiActions(reservation({ status: 'confirmed' }))).toEqual(['call', 'arrive', 'reschedule', 'no_show', 'cancel_store'])
     expect(reservationUiActions(reservation({ status: 'arrived', sessionId: 'session-1' }))).toEqual(['open_session'])
     expect(reservationUiActions(reservation({ status: 'no_show' }))).toEqual([])
   })

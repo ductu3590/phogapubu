@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEVO POS — Điều hành bàn & đặt bàn (Bản hoàn thiện)</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .now-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ef4444;
+      z-index: 25;
+      pointer-events: none;
+    }
+    .now-line::after {
+      content: '19:15 Bây giờ';
+      position: absolute;
+      top: -22px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ef4444;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .booking-tentative {
+      background-image: repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(249, 115, 22, 0.08) 6px, rgba(249, 115, 22, 0.08) 12px);
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex flex-col overflow-hidden text-xs select-none">
+
+  <!-- TOP BAR -->
+  <header class="h-13 bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between shrink-0 z-30">
+    <div class="flex items-center space-x-3">
+      <div class="w-8 h-8 rounded-lg bg-orange-600 text-white flex items-center justify-center font-black text-base shadow-xs">M</div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <span class="font-extrabold text-slate-900 text-sm">MEVO POS</span>
+          <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-800">Quán Bia Lẩu Bảo Lương</span>
+        </div>
+        <p class="text-[10px] text-slate-500">Điều hành bàn & mâm gọi món ca cao điểm</p>
+      </div>
+
+      <div class="h-4 w-px bg-slate-200 mx-1"></div>
+      <div class="flex items-center space-x-1.5 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded text-[11px] font-semibold border border-emerald-200">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+        <span>Trực tuyến (Máy thu ngân 01)</span>
+      </div>
+      <div class="flex items-center space-x-1 text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[11px]">
+        <i class="fa-regular fa-calendar text-slate-400"></i>
+        <span class="font-bold">20/09/2026</span>
+        <span class="text-orange-600 font-semibold">Ca tối (17:00-23:30)</span>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-2">
+      <div class="relative w-56">
+        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+        <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Tìm khách, SĐT (09xx), bàn..." class="w-full pl-7 pr-2 py-1 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded text-xs outline-none">
+      </div>
+      <button onclick="resetDemoData()" title="Đặt lại toàn bộ dữ liệu mẫu" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded font-bold border border-slate-200 flex items-center gap-1">
+        <i class="fa-solid fa-rotate-left text-slate-500"></i> Reset Demo
+      </button>
+      <button onclick="openBookingModal()" class="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded font-bold shadow-xs flex items-center gap-1">
+        <i class="fa-solid fa-calendar-plus"></i> + Đặt bàn mới
+      </button>
+      <button onclick="quickWalkinModal()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded font-bold flex items-center gap-1">
+        <i class="fa-solid fa-person-walking"></i> Khách vãng lai
+      </button>
+      <div class="w-7 h-7 rounded-full bg-slate-800 text-white font-bold text-xs flex items-center justify-center ml-1">BL</div>
+    </div>
+  </header>
+
+  <!-- ACTION QUEUE -->
+  <div class="h-9 bg-slate-900 text-white px-4 flex items-center justify-between shrink-0 z-20 text-[11px]">
+    <div class="flex items-center space-x-2 overflow-x-auto custom-scrollbar">
+      <span class="text-slate-400 font-bold uppercase tracking-wider text-[10px]"><i class="fa-solid fa-bolt text-amber-400"></i> Hàng đợi:</span>
+      <button onclick="openQueue('bookings')" class="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full font-semibold flex items-center gap-1">
+        Đặt bàn chờ duyệt <span id="badgeBookings" class="bg-amber-500 text-slate-950 px-1 rounded-full text-[10px] font-black">2</span>
+      </button>
+      <button onclick="openQueue('overdue')" class="px-2 py-0.5 bg-red-500/20 text-red-300 border border-red-500/40 rounded-full font-semibold flex items-center gap-1">
+        <i class="fa-solid fa-clock-rotate-left"></i> Khách quá giờ <span class="bg-red-600 text-white px-1 rounded-full text-[10px] font-black">1 đoàn</span>
+      </button>
+      <button onclick="openQueue('rounds')" class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full font-semibold flex items-center gap-1">
+        <i class="fa-solid fa-bell-concierge"></i> Lượt món chờ duyệt <span id="badgeRounds" class="bg-emerald-500 text-slate-950 px-1 rounded-full text-[10px] font-black">2 lượt</span>
+      </button>
+      <button onclick="openQueue('staff')" class="px-2 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-500/40 rounded-full font-semibold flex items-center gap-1">
+        <i class="fa-solid fa-hand"></i> Gọi nhân viên <span id="badgeStaff" class="bg-blue-500 text-white px-1 rounded-full text-[10px] font-black">1 yêu cầu</span>
+      </button>
+      <button onclick="openQueue('unassigned')" class="px-2 py-0.5 bg-slate-800 text-slate-300 border border-slate-700 rounded text-[10px]">
+        Chưa xếp bàn: <strong>1 đơn</strong> (C. Thảo 4K)
+      </button>
+    </div>
+    <div class="flex items-center space-x-1 shrink-0 bg-slate-800 p-0.5 rounded border border-slate-700">
+      <span class="text-[9px] text-slate-400 px-1 font-bold uppercase">Mô phỏng:</span>
+      <button onclick="selectTable('MAM_09_10')" id="tab-m0910" class="px-1.5 py-0.5 rounded font-bold bg-orange-600 text-white">Mâm 09+10 (2 Lượt)</button>
+      <button onclick="selectTable('T_04')" id="tab-t04" class="px-1.5 py-0.5 rounded font-bold text-slate-300 hover:text-white">Bàn 04 (Trống)</button>
+      <button onclick="selectTable('T_01')" id="tab-t01" class="px-1.5 py-0.5 rounded font-bold text-slate-300 hover:text-white">Bàn 01 (1.45M)</button>
+      <button onclick="selectTable('T1_02')" id="tab-t102" class="px-1.5 py-0.5 rounded font-bold text-slate-300 hover:text-white">T1-02 (Xung đột)</button>
+    </div>
+  </div>
+
+  <!-- WORKSPACE -->
+  <div class="flex-1 flex overflow-hidden">
+    <!-- LEFT ICON SIDEBAR -->
+    <aside class="w-14 bg-white border-r border-slate-200 flex flex-col justify-between items-center py-2.5 shrink-0 z-10">
+      <div class="flex flex-col items-center space-y-2">
+        <button class="w-10 h-10 rounded-lg bg-orange-600 text-white flex flex-col items-center justify-center font-bold text-[9px] shadow-sm" title="Điều hành POS">
+          <i class="fa-solid fa-table-cells-large text-sm mb-0.5"></i>POS
+        </button>
+        <button onclick="openQueue('bookings')" class="w-10 h-10 rounded-lg text-slate-500 hover:bg-slate-100 flex flex-col items-center justify-center font-semibold text-[9px]" title="Đơn đặt bàn">
+          <i class="fa-regular fa-calendar-check text-sm mb-0.5"></i>Đặt
+        </button>
+        <button onclick="openQueue('rounds')" class="w-10 h-10 rounded-lg text-slate-500 hover:bg-slate-100 flex flex-col items-center justify-center font-semibold text-[9px]" title="Bếp chế biến">
+          <i class="fa-solid fa-fire-burner text-sm mb-0.5"></i>Bếp
+        </button>
+        <button onclick="openAddDishPanel()" class="w-10 h-10 rounded-lg text-slate-500 hover:bg-slate-100 flex flex-col items-center justify-center font-semibold text-[9px]" title="Thực đơn">
+          <i class="fa-solid fa-utensils text-sm mb-0.5"></i>Món
+        </button>
+      </div>
+      <button onclick="alert('Đã đồng bộ dữ liệu POS ca tối thành công!')" class="w-8 h-8 rounded text-slate-400 hover:text-slate-600 flex items-center justify-center">
+        <i class="fa-solid fa-gear"></i>
+      </button>
+    </aside>
+
+    <!-- TIMELINE CANVAS -->
+    <main class="flex-1 flex flex-col min-w-0 bg-white overflow-hidden">
+      <!-- SUBHEADER CONTROLS -->
+      <div class="h-10 border-b border-slate-200 px-3 flex items-center justify-between bg-slate-50 shrink-0">
+        <div class="flex items-center space-x-2">
+          <div class="bg-slate-200 p-0.5 rounded flex items-center text-[11px] font-bold">
+            <button class="px-2.5 py-0.5 rounded bg-orange-600 text-white shadow-xs">Timeline (Gantt)</button>
+            <button onclick="alert('Chuyển chế độ Sơ đồ bàn: Bàn đang chọn được giữ nguyên!')" class="px-2 py-0.5 text-slate-600 hover:text-slate-900">Sơ đồ bàn</button>
+            <button onclick="alert('Chuyển chế độ Danh sách: Bàn đang chọn được giữ nguyên!')" class="px-2 py-0.5 text-slate-600 hover:text-slate-900">Danh sách</button>
+          </div>
+          <div class="h-4 w-px bg-slate-300"></div>
+          <select id="zoneSelect" onchange="filterZone(this.value)" class="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-semibold text-slate-700 outline-none">
+            <option value="all">Tất cả khu vực (24 bàn)</option>
+            <option value="garden">Sân vườn ngoài trời (8 bàn)</option>
+            <option value="indoor">Tầng 1 máy lạnh (10 bàn)</option>
+            <option value="vip">Phòng VIP riêng tư (6 bàn)</option>
+          </select>
+          <button onclick="scrollToNow()" class="px-2 py-0.5 bg-white border border-slate-200 hover:bg-slate-100 rounded text-slate-700 font-bold flex items-center gap-1 shadow-xs">
+            <i class="fa-solid fa-crosshairs text-orange-500"></i> Về "Bây giờ" (19:15)
+          </button>
+        </div>
+        <div class="flex items-center space-x-3 text-[10px] font-medium text-slate-600">
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-emerald-600"></span> Đang phục vụ</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-orange-500"></span> Đã đặt trước</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-amber-400"></span> Chờ cọc</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-red-500"></span> Trễ giờ / Xung đột</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded border border-dashed border-slate-400 bg-white"></span> Bàn trống</span>
+        </div>
+      </div>
+
+      <!-- TIMELINE MATRIX WITH STICKY HEADERS -->
+      <div class="flex-1 flex overflow-hidden relative">
+        <!-- FIXED LEFT COLUMN -->
+        <div class="w-48 bg-slate-50 border-r border-slate-200 shrink-0 flex flex-col z-20 select-none shadow-[2px_0_4px_rgba(0,0,0,0.02)]">
+          <div class="h-9 border-b border-slate-200 px-3 flex items-center justify-between font-bold text-slate-600 bg-slate-100 text-[11px]">
+            <span>BÀN & SỨC CHỨA</span>
+            <span class="text-[9px] bg-slate-200 px-1 py-0.5 rounded font-mono">24 BÀN</span>
+          </div>
+          <div id="tableListCol" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100">
+            <!-- Dynamic Left List -->
+          </div>
+        </div>
+
+        <!-- SCROLLABLE MATRIX -->
+        <div id="timelineScrollArea" class="flex-1 flex flex-col overflow-x-auto overflow-y-auto custom-scrollbar relative bg-slate-50/30">
+          <!-- STICKY TIME HEADER (14 slots x 85px = 1190px) -->
+          <div class="h-9 border-b border-slate-200 bg-white sticky top-0 z-10 flex font-bold text-slate-600 min-w-[1190px] text-[11px]">
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">17:00</div>
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">17:30</div>
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">18:00</div>
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">18:30</div>
+            <div class="w-[85px] border-r border-red-200 bg-red-50/40 px-1 flex items-center justify-center shrink-0 text-red-600 font-black">19:00</div>
+            <div class="w-[85px] border-r border-orange-200 bg-orange-50/30 px-1 flex items-center justify-center shrink-0 text-orange-600 font-black">19:30</div>
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">20:00</div>
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">20:30</div>
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">21:00</div>
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">21:30</div>
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">22:00</div>
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">22:30</div>
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">23:00</div>
+            <div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">23:30</div>
+          </div>
+
+          <!-- THE NOW LINE (19:15 = 4 slots * 85px + 42.5px = 382.5px) -->
+          <div id="nowIndicator" class="now-line" style="left: 382.5px;"></div>
+
+          <!-- ROWS CONTAINER -->
+          <div id="timelineRows" class="min-w-[1190px] relative divide-y divide-slate-200">
+            <!-- Dynamic rows -->
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOTER SUMMARY STATS -->
+      <div class="h-10 border-t border-slate-200 bg-white px-4 flex items-center justify-between shrink-0 z-20 text-[11px]">
+        <div class="flex items-center space-x-5 font-semibold">
+          <span class="font-extrabold text-slate-800 text-xs">24 Tổng bàn</span>
+          <span class="text-emerald-700 flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> <strong id="servingCountText">14 bàn đang ăn</strong> (58% lấp đầy)</span>
+          <span class="text-orange-600 flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500"></span> <strong id="bookedCountText">7 bàn sắp đến / đã đặt</strong></span>
+          <span class="text-slate-500 flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-300"></span> <strong id="emptyCountText">3 bàn còn trống hoàn toàn</strong></span>
+        </div>
+        <div class="flex items-center space-x-2 text-slate-500">
+          <span><i class="fa-solid fa-lightbulb text-amber-500"></i> Bấm khoảng trống tương lai để đặt trước · Bấm bàn để mở bill</span>
+          <button onclick="alert('Đã xuất báo cáo ca tối Quán Bia Lẩu Bảo Lương dạng Excel (.xlsx)!')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded font-bold border border-slate-200 text-slate-700 flex items-center gap-1">
+            <i class="fa-solid fa-file-excel text-emerald-600"></i> Xuất Excel
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT CONTEXTUAL DRAWER (EXPANDABLE TO 740px WHEN ORDERING) -->
+    <aside id="rightDrawer" class="w-[410px] bg-white border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-lg transition-all duration-200">
+      <div id="drawerBody" class="h-full flex flex-col">
+        <!-- Rendered based on state -->
+      </div>
+    </aside>
+  </div>
+
+  <!-- MODAL CONTAINER -->
+  <div id="modalBackdrop" class="fixed inset-0 bg-slate-950/60 hidden z-50 flex items-center justify-center p-4">
+    <div id="modalBox" class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200"></div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastAlert" class="fixed bottom-4 right-4 bg-slate-900 text-white px-3.5 py-2 rounded-lg shadow-xl font-bold flex items-center space-x-2 transition-all duration-300 opacity-0 pointer-events-none z-50">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toastText">Thông báo</span>
+  </div>
+
+  <!-- INLINE IN-MEMORY JAVASCRIPT STATE ENGINE -->
+  <script>
+    // 1. Initial State Data Store
+    const initialAppState = {
+      menu: [
+        { id: 'M1', name: 'Lẩu Riêu Cua Bắp Bò Sườn Sụn (Nồi lớn)', price: 550000, cat: 'Lẩu', available: true, code: 'LR01' },
+        { id: 'M2', name: 'Lẩu Ếch Măng Cay Bảo Lương (Nồi lớn)', price: 480000, cat: 'Lẩu', available: true, code: 'LE01' },
+        { id: 'M3', name: 'Bò Tơ Cuộn Rau Rừng bánh tráng', price: 185000, cat: 'Bò/Gà', available: true, code: 'BT01' },
+        { id: 'M4', name: 'Dải heo nướng mọi lá móc mật', price: 165000, cat: 'Bò/Gà', available: true, code: 'DH01' },
+        { id: 'M5', name: 'Ngô chiên bơ tỏi giòn rụm', price: 65000, cat: 'Khai vị', available: true, code: 'NC01' },
+        { id: 'M6', name: 'Lạc rang húng lìu truyền thống', price: 25000, cat: 'Khai vị', available: true, code: 'LR00' },
+        { id: 'M7', name: 'Khăn lạnh tiệt trùng', price: 4000, cat: 'Khai vị', available: true, code: 'KL01' },
+        { id: 'M8', name: 'Bia Tiger Bạc (Tháp 3 Lít)', price: 340000, cat: 'Bia', available: true, code: 'TG03' },
+        { id: 'M9', name: 'Bia Saigon Special (Tháp 3 Lít)', price: 320000, cat: 'Bia', available: true, code: 'SG03' },
+        { id: 'M10', name: 'Gà nướng than hoa (1 con)', price: 290000, cat: 'Bò/Gà', available: false, code: 'GN01' }, // Hết hàng
+        { id: 'M11', name: 'Ba chỉ bò Mỹ thêm lẩu', price: 120000, cat: 'Lẩu', available: true, code: 'BB01' },
+        { id: 'M12', name: 'Rau muống chẻ & nấm tổng hợp', price: 45000, cat: 'Lẩu', available: true, code: 'RM01' }
+      ],
+      tables: {
+        'T_01': {
+          id: 'T_01', name: 'Bàn 01', zone: 'garden', cap: '4 - 6 khách', status: 'serving',
+          booking: { guest: 'A. Thành', phone: '0988***711', pax: 5, time: '18:00' },
+          bill: [
+            { id: 1, name: 'Lẩu Riêu Cua Bắp Bò Sườn Sụn', qty: 1, price: 550000, comped: false, deleted: false },
+            { id: 2, name: 'Bia Tiger Bạc (Tháp 3 Lít)', qty: 2, price: 340000, comped: false, deleted: false },
+            { id: 3, name: 'Dải heo nướng mọi', qty: 1, price: 165000, comped: false, deleted: false },
+            { id: 4, name: 'Khăn lạnh tiệt trùng', qty: 5, price: 4000, comped: false, deleted: false },
+            { id: 5, name: 'Ngô chiên bơ tỏi', qty: 1, price: 65000, comped: true, compReason: 'Tặng khách quen', deleted: false }
+          ],
+          pendingRounds: [],
+          draftCart: [],
+          logs: ['18:00 - Nhận khách Anh Thành vào bàn', '18:05 - Đã gửi in bếp Phiếu 1']
+        },
+        'T_02': {
+          id: 'T_02', name: 'Bàn 02', zone: 'garden', cap: '4 - 6 khách', status: 'booked',
+          booking: { guest: 'A. Dũng (Bia Lẩu)', phone: '0918***892', pax: 6, time: '19:15', note: 'Đã gọi xác nhận lúc 18:45, đang trên đường đến' },
+          bill: [], pendingRounds: [], draftCart: [], logs: ['15:30 - Tiếp nhận đặt trước của A. Dũng']
+        },
+        'T_03': {
+          id: 'T_03', name: 'Bàn 03 (Dài)', zone: 'garden', cap: '8 - 10 khách', status: 'serving',
+          booking: { guest: 'Hội Nghệ An', phone: '0903***556', pax: 8, time: '17:30' },
+          bill: [
+            { id: 31, name: 'Lẩu Riêu Cua Bắp Bò Sườn Sụn', qty: 2, price: 550000, comped: false, deleted: false },
+            { id: 32, name: 'Bò Tơ Cuộn Rau Rừng', qty: 4, price: 185000, comped: false, deleted: false },
+            { id: 33, name: 'Bia Tiger Bạc (Tháp 3 Lít)', qty: 2, price: 340000, comped: false, deleted: false },
+            { id: 34, name: 'Ngô chiên bơ tỏi', qty: 2, price: 65000, comped: false, deleted: false },
+            { id: 35, name: 'Khăn lạnh tiệt trùng', qty: 15, price: 4000, comped: false, deleted: false }
+          ],
+          pendingRounds: [], draftCart: [], callStaff: true,
+          logs: ['17:30 - Nhận khách Hội Nghệ An', '19:10 - Khách bấm chuông gọi nhân viên']
+        },
+        'T_04': {
+          id: 'T_04', name: 'Bàn 04', zone: 'garden', cap: '4 - 6 khách', status: 'empty',
+          booking: null, bill: [], pendingRounds: [], draftCart: [],
+          logs: ['Bàn đang trống sẵn sàng đón khách vãng lai hoặc ghép bàn']
+        },
+        'MAM_09_10': {
+          id: 'MAM_09_10', name: 'Mâm 09 + 10 (Ghép 2 bàn)', isLinked: true, linkedTables: ['Bàn 09', 'Bàn 10'], zone: 'garden', cap: '14 - 16 khách', status: 'serving',
+          booking: { guest: 'Anh Tú (Tiệc công ty)', phone: '0932***222', pax: 15, time: '19:00', note: 'Khách gọi kẹt xe đến trễ 15p, đã xác nhận lúc 18:50' },
+          bill: [
+            { id: 91, name: 'Lẩu Riêu Cua Bắp Bò Sườn Sụn (Nồi lớn)', qty: 2, price: 550000, comped: false, deleted: false },
+            { id: 92, name: 'Bò Tơ Cuộn Rau Rừng bánh tráng', qty: 3, price: 185000, comped: false, deleted: false },
+            { id: 93, name: 'Bia Tiger Bạc (Tháp 3 Lít)', qty: 2, price: 340000, comped: false, deleted: false },
+            { id: 94, name: 'Ngô chiên bơ tỏi giòn', qty: 2, price: 65000, comped: false, deleted: false },
+            { id: 95, name: 'Khăn lạnh tiệt trùng', qty: 15, price: 4000, comped: false, deleted: false },
+            { id: 96, name: 'Lạc rang húng lìu truyền thống', qty: 2, price: 25000, comped: false, deleted: false }
+          ],
+          pendingRounds: [
+            {
+              id: 'RND_02', source: 'Khách quét QR tại bàn', sender: 'Anh Tú (Trưởng bàn)', time: '19:08 (Cách đây 7 phút)',
+              status: 'Chờ chủ quán duyệt',
+              items: [
+                { id: 'M11', name: 'Ba chỉ bò Mỹ thêm lẩu', qty: 3, price: 120000, note: 'Để riêng đĩa đá' },
+                { id: 'M12', name: 'Rau muống chẻ & nấm tổng hợp', qty: 2, price: 45000, note: '' }
+              ]
+            },
+            {
+              id: 'RND_03', source: 'Nhân viên gọi hộ (NV Nam)', sender: 'NV Nam (Chạy bàn)', time: '19:12 (Cách đây 3 phút)',
+              status: 'Chờ chủ quán duyệt',
+              items: [
+                { id: 'M9', name: 'Bia Saigon Special (Tháp 3 Lít)', qty: 1, price: 320000, note: 'Ướp thật lạnh mang ngay' }
+              ]
+            }
+          ],
+          draftCart: [],
+          logs: [
+            '18:15 - Mở mâm ghép đoàn Bàn 09 + Bàn 10 cho Đoàn A. Tú',
+            '18:18 - Phát lệnh in Bếp lượt 01 thành công',
+            '19:08 - Tiếp nhận lượt gọi món #02 từ QR Khách',
+            '19:12 - Tiếp nhận lượt gọi món #03 từ NV Nam'
+          ]
+        },
+        'T1_01': {
+          id: 'T1_01', name: 'Bàn T1-01', zone: 'indoor', cap: '4 khách', status: 'serving',
+          booking: { guest: 'Gia đình chị Vy', phone: '0971***312', pax: 4, time: '17:45' },
+          bill: [
+            { id: 101, name: 'Lẩu Ếch Măng Cay Bảo Lương', qty: 1, price: 480000, comped: false, deleted: false },
+            { id: 102, name: 'Ngô chiên bơ tỏi', qty: 2, price: 65000, comped: false, deleted: false },
+            { id: 103, name: 'Khăn lạnh tiệt trùng', qty: 4, price: 4000, comped: false, deleted: false }
+          ],
+          pendingRounds: [], draftCart: [], logs: ['17:45 - Nhận khách gia đình chị Vy']
+        },
+        'T1_02': {
+          id: 'T1_02', name: 'Bàn T1-02', zone: 'indoor', cap: '4 - 6 khách', status: 'conflict',
+          booking: { guest: 'Nhóm A. Hoàng (Ăn quá giờ)', phone: '0905***881', pax: 4, time: '17:45' },
+          conflict: {
+            incomingGuest: 'Đoàn A. Phong (12 khách)', incomingTime: '19:30',
+            desc: 'A. Hoàng ngồi quá giờ dự kiến 30 phút vẫn đang uống bia. Đoàn 12 khách A. Phong hẹn 19:30 sắp đến ghép T1-02 + T1-03!'
+          },
+          bill: [
+            { id: 201, name: 'Bò Tơ Cuộn Rau Rừng', qty: 2, price: 185000, comped: false, deleted: false },
+            { id: 202, name: 'Bia Tiger Bạc (Tháp 3 Lít)', qty: 2, price: 340000, comped: false, deleted: false }
+          ],
+          pendingRounds: [], draftCart: [], logs: ['17:45 - Nhận khách A. Hoàng', '19:15 - Cảnh báo xung đột quá giờ']
+        },
+        'T1_03': {
+          id: 'T1_03', name: 'Bàn T1-03', zone: 'indoor', cap: '6 khách', status: 'serving',
+          booking: { guest: 'A. Khoa', phone: '0938***449', pax: 6, time: '18:15' },
+          bill: [
+            { id: 301, name: 'Lẩu Riêu Cua Bắp Bò Sườn Sụn', qty: 1, price: 550000, comped: false, deleted: false }
+          ],
+          pendingRounds: [], draftCart: [], logs: ['18:15 - Nhận khách A. Khoa']
+        },
+        'T1_04': {
+          id: 'T1_04', name: 'Bàn T1-04', zone: 'indoor', cap: '6 khách', status: 'booked',
+          booking: { guest: 'Chị Thảo (Chờ cọc)', phone: '0984***119', pax: 4, time: '19:45', note: 'Góc khuất gió điều hòa' },
+          bill: [], pendingRounds: [], draftCart: [], logs: ['18:30 - Nhận đơn đặt qua Web']
+        },
+        'VIP_01': {
+          id: 'VIP_01', name: 'VIP 01 (15-20K)', zone: 'vip', cap: '15 - 20 khách', status: 'booked',
+          booking: { guest: 'Anh Long (Tiệc công ty)', phone: '0908***999', pax: 18, time: '20:00', note: 'Có dàn Karaoke riêng, đặt trước lẩu riêu' },
+          bill: [], pendingRounds: [], draftCart: [], logs: ['16:00 - Nhận đặt phòng VIP 01']
+        }
+      },
+      unassignedBookings: [
+        { id: 'BK_99', guest: 'Chị Thảo', phone: '0984***119', pax: 4, time: '19:45', note: 'Cần phòng mát, tránh quạt mạnh' }
+      ],
+      activeTableId: 'MAM_09_10',
+      activeTab: 'bill', // 'bill', 'rounds', 'history', 'menu'
+      selectedZone: 'all',
+      menuFilterCat: 'Tất cả',
+      menuSearchText: ''
+    };
+
+    let appState = JSON.parse(JSON.stringify(initialAppState));
+
+    // Utilities
+    function fmtVND(val) {
+      return (val || 0).toLocaleString('vi-VN') + 'đ';
+    }
+
+    function showToast(msg, type = 'success') {
+      const el = document.getElementById('toastAlert');
+      const txt = document.getElementById('toastText');
+      const ico = document.getElementById('toastIcon');
+      txt.textContent = msg;
+      ico.className = type === 'success' ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-solid fa-triangle-exclamation text-amber-400';
+      el.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => el.classList.add('opacity-0', 'pointer-events-none'), 3000);
+    }
+
+    function resetDemoData() {
+      if (confirm('Đặt lại toàn bộ dữ liệu POS mẫu về trạng thái gốc?')) {
+        appState = JSON.parse(JSON.stringify(initialAppState));
+        renderAll();
+        showToast('Đã đặt lại dữ liệu Demo ban đầu!');
+      }
+    }
+
+    function calcTotals(table) {
+      const activeItems = (table.bill || []).filter(x => !x.deleted && !x.comped);
+      const confirmedTotal = activeItems.reduce((s, x) => s + (x.price * x.qty), 0);
+      const pendingTotal = (table.pendingRounds || []).reduce((s, r) => {
+        return s + r.items.reduce((rs, it) => rs + (it.price * it.qty), 0);
+      }, 0);
+      return { confirmedTotal, pendingTotal, grandTotal: confirmedTotal + pendingTotal };
+    }
+
+    // 2. Select Table
+    function selectTable(id) {
+      if (!appState.tables[id]) return;
+      appState.activeTableId = id;
+
+      const drawer = document.getElementById('rightDrawer');
+      if (appState.activeTab === 'menu') {
+        drawer.classList.remove('w-[410px]');
+        drawer.classList.add('w-[740px]');
+      } else {
+        drawer.classList.remove('w-[740px]');
+        drawer.classList.add('w-[410px]');
+      }
+
+      // Mock tabs highlight
+      document.querySelectorAll('[id^="tab-"]').forEach(b => b.className = 'px-1.5 py-0.5 rounded font-bold text-slate-300 hover:text-white');
+      if (id === 'MAM_09_10') document.getElementById('tab-m0910').className = 'px-1.5 py-0.5 rounded font-bold bg-orange-600 text-white';
+      if (id === 'T_04') document.getElementById('tab-t04').className = 'px-1.5 py-0.5 rounded font-bold bg-orange-600 text-white';
+      if (id === 'T_01') document.getElementById('tab-t01').className = 'px-1.5 py-0.5 rounded font-bold bg-orange-600 text-white';
+      if (id === 'T1_02') document.getElementById('tab-t102').className = 'px-1.5 py-0.5 rounded font-bold bg-orange-600 text-white';
+
+      renderTableList();
+      renderTimelineRows();
+      renderDrawer();
+    }
+
+    function scrollToNow() {
+      const area = document.getElementById('timelineScrollArea');
+      if (area) {
+        area.scrollTo({ left: 190, behavior: 'smooth' });
+        showToast('Đã chuyển góc nhìn về thời gian Hiện tại (19:15)');
+      }
+    }
+
+    // 3. Render Table Left Column
+    function renderTableList() {
+      const col = document.getElementById('tableListCol');
+      const isM0910 = (appState.activeTableId === 'MAM_09_10');
+
+      let html = `
+        <div class="bg-amber-50 px-2 py-1 font-bold text-amber-900 flex justify-between border-y border-amber-200 text-[10px]">
+          <span><i class="fa-solid fa-tree text-emerald-600"></i> SÂN VƯỜN (8 bàn)</span>
+          <span class="text-amber-700">Gió thoáng</span>
+        </div>
+        <div onclick="selectTable('T_01')" class="h-12 px-2.5 flex items-center justify-between cursor-pointer ${appState.activeTableId === 'T_01' ? 'bg-orange-100 border-l-4 border-orange-600' : 'hover:bg-slate-100'}">
+          <div><div class="font-bold text-slate-900">Bàn 01</div><div class="text-[10px] text-slate-500">4-6 khách</div></div>
+          <span class="px-1 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[9px]">Đang ăn</span>
+        </div>
+        <div onclick="selectTable('T_02')" class="h-12 px-2.5 flex items-center justify-between cursor-pointer ${appState.activeTableId === 'T_02' ? 'bg-orange-100 border-l-4 border-orange-600' : 'hover:bg-slate-100'}">
+          <div><div class="font-bold text-slate-900">Bàn 02</div><div class="text-[10px] text-slate-500">4-6 khách</div></div>
+          <span class="px-1 py-0.5 rounded bg-orange-100 text-orange-700 font-bold text-[9px]">Đã đặt</span>
+        </div>
+        <div onclick="selectTable('T_03')" class="h-12 px-2.5 flex items-center justify-between cursor-pointer ${appState.activeTableId === 'T_03' ? 'bg-orange-100 border-l-4 border-orange-600' : 'hover:bg-slate-100'}">
+          <div>
+            <div class="font-bold text-slate-900 flex items-center gap-1">
+              <span>Bàn 03 (Dài)</span>
+              ${appState.tables['T_03'].callStaff ? '<i class="fa-solid fa-hand text-blue-500 text-[9px]"></i>' : ''}
+            </div>
+            <div class="text-[10px] text-slate-500">8-10 khách</div>
+          </div>
+          <span class="px-1 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[9px]">Đang ăn</span>
+        </div>
+        <div onclick="selectTable('T_04')" class="h-12 px-2.5 flex items-center justify-between cursor-pointer ${appState.activeTableId === 'T_04' ? 'bg-orange-100 border-l-4 border-orange-600' : 'hover:bg-slate-100'}">
+          <div><div class="font-bold text-slate-900">Bàn 04</div><div class="text-[10px] text-slate-500">4-6 khách</div></div>
+          <span class="px-1 py-0.5 rounded bg-slate-200 text-slate-600 font-bold text-[9px]">Trống</span>
+        </div>
+        <div onclick="selectTable('MAM_09_10')" class="h-12 px-2.5 flex items-center justify-between cursor-pointer border-l-4 border-orange-500 ${isM0910 ? 'bg-orange-100' : 'bg-orange-50/40 hover:bg-orange-100/60'}">
+          <div><div class="font-bold text-orange-950 flex items-center gap-1"><span>Bàn 09</span><i class="fa-solid fa-link text-orange-600 text-[9px]"></i></div><div class="text-[10px] text-slate-500">Mâm ghép đoàn</div></div>
+          <span class="px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[9px]">Mâm 09+10</span>
+        </div>
+        <div onclick="selectTable('MAM_09_10')" class="h-12 px-2.5 flex items-center justify-between cursor-pointer border-l-4 border-orange-500 ${isM0910 ? 'bg-orange-100' : 'bg-orange-50/40 hover:bg-orange-100/60'}">
+          <div><div class="font-bold text-orange-950 flex items-center gap-1"><span>Bàn 10</span><i class="fa-solid fa-link text-orange-600 text-[9px]"></i></div><div class="text-[10px] text-slate-500">Mâm ghép đoàn</div></div>
+          <span class="px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[9px]">Mâm 09+10</span>
+        </div>
+
+        <div class="bg-blue-50 px-2 py-1 font-bold text-blue-900 flex justify-between border-y border-blue-200 text-[10px]">
+          <span><i class="fa-solid fa-snowflake text-blue-500"></i> TẦNG 1 MÁY LẠNH (10 bàn)</span>
+          <span class="text-blue-700">Điều hòa</span>
+        </div>
+        <div onclick="selectTable('T1_01')" class="h-12 px-2.5 flex items-center justify-between cursor-pointer ${appState.activeTableId === 'T1_01' ? 'bg-orange-100 border-l-4 border-orange-600' : 'hover:bg-slate-100'}">
+          <div><div class="font-bold text-slate-900">Bàn T1-01</div><div class="text-[10px] text-slate-500">4 khách</div></div>
+          <span class="px-1 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[9px]">Đang ăn</span>
+        </div>
+        <div onclick="selectTable('T1_02')" class="h-12 px-2.5 flex items-center justify-between cursor-pointer bg-red-50/40 ${appState.activeTableId === 'T1_02' ? 'border-l-4 border-red-600 bg-red-100' : 'hover:bg-red-50'}">
+          <div><div class="font-bold text-red-950 flex items-center gap-1"><span>Bàn T1-02</span><i class="fa-solid fa-triangle-exclamation text-red-500 text-[9px]"></i></div><div class="text-[10px] text-red-600 font-semibold">Khách ăn lâu</div></div>
+          <span class="px-1 py-0.5 rounded bg-red-100 text-red-800 font-bold text-[9px]">Xung đột</span>
+        </div>
+        <div onclick="selectTable('T1_03')" class="h-12 px-2.5 flex items-center justify-between cursor-pointer ${appState.activeTableId === 'T1_03' ? 'bg-orange-100 border-l-4 border-orange-600' : 'hover:bg-slate-100'}">
+          <div><div class="font-bold text-slate-900">Bàn T1-03</div><div class="text-[10px] text-slate-500">6 khách</div></div>
+          <span class="px-1 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[9px]">Đang ăn</span>
+        </div>
+        <div onclick="selectTable('T1_04')" class="h-12 px-2.5 flex items-center justify-between cursor-pointer ${appState.activeTableId === 'T1_04' ? 'bg-orange-100 border-l-4 border-orange-600' : 'hover:bg-slate-100'}">
+          <div><div class="font-bold text-slate-900">Bàn T1-04</div><div class="text-[10px] text-slate-500">6 khách</div></div>
+          <span class="px-1 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[9px]">Chờ cọc</span>
+        </div>
+
+        <div class="bg-purple-50 px-2 py-1 font-bold text-purple-900 flex justify-between border-y border-purple-200 text-[10px]">
+          <span><i class="fa-solid fa-crown text-purple-600"></i> PHÒNG VIP (6 phòng)</span>
+          <span class="text-purple-700">Karaoke</span>
+        </div>
+        <div onclick="selectTable('VIP_01')" class="h-12 px-2.5 flex items-center justify-between cursor-pointer ${appState.activeTableId === 'VIP_01' ? 'bg-orange-100 border-l-4 border-orange-600' : 'hover:bg-slate-100'}">
+          <div><div class="font-bold text-slate-900">VIP 01 (15-20K)</div><div class="text-[10px] text-slate-500">Karaoke</div></div>
+          <span class="px-1 py-0.5 rounded bg-orange-100 text-orange-700 font-bold text-[9px]">Đã đặt 20h</span>
+        </div>
+      `;
+      col.innerHTML = html;
+    }
+
+    // 4. Render Timeline Rows
+    function renderTimelineRows() {
+      const container = document.getElementById('timelineRows');
+      const t1 = appState.tables['T_01'];
+      const t2 = appState.tables['T_02'];
+      const t3 = appState.tables['T_03'];
+      const t4 = appState.tables['T_04'];
+      const m0910 = appState.tables['MAM_09_10'];
+      const t1_01 = appState.tables['T1_01'];
+      const t1_02 = appState.tables['T1_02'];
+      const t1_03 = appState.tables['T1_03'];
+      const t1_04 = appState.tables['T1_04'];
+      const vip01 = appState.tables['VIP_01'];
+
+      const totT1 = calcTotals(t1).confirmedTotal;
+      const totT3 = calcTotals(t3).confirmedTotal;
+      const totM0910 = calcTotals(m0910);
+      const totT101 = calcTotals(t1_01).confirmedTotal;
+      const totT102 = calcTotals(t1_02).confirmedTotal;
+      const totT103 = calcTotals(t1_03).confirmedTotal;
+
+      let html = `
+        <div class="h-6 bg-amber-50/40 border-b border-amber-200 px-3 flex items-center text-[10px] text-amber-800 font-medium">
+          Khu Sân Vườn ngoài trời thoáng mát
+        </div>
+
+        <!-- Bàn 01 -->
+        <div class="h-12 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+          <div onclick="selectTable('T_01')" class="absolute left-[170px] w-[340px] h-9 bg-emerald-600 text-white rounded p-1.5 flex items-center justify-between shadow-xs cursor-pointer hover:bg-emerald-700 border border-emerald-500">
+            <div class="truncate flex items-center space-x-1.5">
+              <i class="fa-solid fa-beer-mug-empty text-emerald-200"></i>
+              <span class="font-bold">${t1.booking ? t1.booking.guest + ' (5K)' : 'Đang ăn'}</span>
+              <span class="text-[9px] bg-emerald-800 px-1 rounded">18:00</span>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="font-black text-xs">${fmtVND(totT1)}</span>
+            </div>
+          </div>
+          <!-- Future slot for booking -->
+          <div onclick="quickBook('T_01', '21:00')" class="absolute left-[680px] w-[170px] h-8 border border-dashed border-slate-300 rounded flex items-center justify-center text-slate-400 hover:border-orange-500 hover:text-orange-600 cursor-pointer font-bold text-[10px]">
+            + Đặt lúc 21:00
+          </div>
+        </div>
+
+        <!-- Bàn 02 -->
+        <div class="h-12 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+          ${t2.status === 'booked' ? `
+            <div onclick="selectTable('T_02')" class="absolute left-[382px] w-[255px] h-9 bg-orange-500 text-white rounded p-1.5 flex items-center justify-between shadow-xs cursor-pointer hover:bg-orange-600 border border-orange-400">
+              <div class="truncate flex items-center space-x-1.5">
+                <i class="fa-solid fa-phone text-orange-200"></i>
+                <span class="font-bold">${t2.booking.guest} (6K)</span>
+                <span class="text-[9px] bg-orange-700 px-1 rounded">19:15</span>
+              </div>
+              <span class="text-[9px] font-bold bg-white text-orange-700 px-1.5 py-0.5 rounded">Đã xác nhận</span>
+            </div>
+          ` : `
+            <div onclick="selectTable('T_02')" class="absolute left-[382px] w-[255px] h-9 bg-emerald-600 text-white rounded p-1.5 flex items-center justify-between">
+              <span class="font-bold">${t2.booking ? t2.booking.guest : 'Đang ăn'}</span>
+              <span class="text-[9px] bg-emerald-800 text-emerald-100 px-1 rounded">Đang phục vụ</span>
+            </div>
+          `}
+        </div>
+
+        <!-- Bàn 03 -->
+        <div class="h-12 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+          <div onclick="selectTable('T_03')" class="absolute left-[85px] w-[320px] h-9 bg-emerald-600 text-white rounded p-1.5 flex items-center justify-between shadow-xs cursor-pointer hover:bg-emerald-700">
+            <div class="truncate flex items-center space-x-1.5">
+              <i class="fa-solid fa-users text-emerald-200"></i>
+              <span class="font-bold">Hội Nghệ An (8K)</span>
+              ${t3.callStaff ? '<span class="bg-blue-500 text-white text-[8px] px-1 rounded font-bold animate-pulse">Gọi PV</span>' : ''}
+            </div>
+            <span class="font-black text-xs">${fmtVND(totT3)}</span>
+          </div>
+          <!-- Tentative reservation at 20:00 -->
+          <div class="absolute left-[425px] w-[255px] h-9 bg-orange-100 text-orange-900 border border-dashed border-orange-400 rounded p-1.5 flex items-center justify-between booking-tentative">
+            <div class="truncate">
+              <span class="font-bold text-[10px]">C. Yến - Tiệc liên hoan (10K)</span>
+              <div class="text-[9px] text-orange-700">Hẹn 20:00 · Dự kiến</div>
+            </div>
+            <span class="text-[8px] bg-orange-600 text-white px-1 py-0.5 rounded font-bold">Dự kiến</span>
+          </div>
+        </div>
+
+        <!-- Bàn 04 (TRỐNG) -->
+        <div class="h-12 relative flex items-center px-3 bg-slate-50/50 hover:bg-slate-100/50 transition cursor-pointer" onclick="selectTable('T_04')">
+          <span class="text-[11px] text-slate-400 italic">Bàn trống sẵn sàng đón khách</span>
+          <button onclick="event.stopPropagation(); quickWalkinTable('T_04')" class="ml-3 px-2 py-0.5 bg-white hover:bg-orange-50 text-orange-600 border border-orange-200 rounded font-bold shadow-xs">
+            + Nhận khách ngay
+          </button>
+          <div onclick="event.stopPropagation(); quickBook('T_04', '19:30')" class="absolute left-[425px] w-[170px] h-8 border border-dashed border-orange-300 bg-orange-50/40 text-orange-700 rounded flex items-center justify-center font-bold hover:bg-orange-100 cursor-pointer">
+            + Đặt lúc 19:30
+          </div>
+        </div>
+
+        <!-- Bàn 09 (Mâm ghép đoàn A. Tú) -->
+        <div class="h-12 relative flex items-center px-1 bg-orange-50/20">
+          <div onclick="selectTable('MAM_09_10')" class="absolute left-[340px] w-[425px] h-9 bg-red-600 text-white rounded p-1.5 flex items-center justify-between shadow cursor-pointer hover:bg-red-700 border-2 border-amber-300 z-20">
+            <div class="flex items-center space-x-1.5 truncate">
+              <i class="fa-solid fa-clock-rotate-left text-amber-300"></i>
+              <span class="font-black text-[11px]">ĐOÀN A. TÚ (15 khách) - MÂM GHÉP 09+10</span>
+              <span class="bg-amber-400 text-slate-950 text-[8px] px-1 rounded font-extrabold">TRỄ 15P</span>
+            </div>
+            <div class="flex items-center space-x-1.5 shrink-0">
+              <span class="bg-white text-red-700 text-[10px] font-black px-1.5 py-0.2 rounded">${fmtVND(totM0910.confirmedTotal)}</span>
+              ${m0910.pendingRounds.length > 0 ? `<span class="bg-amber-300 text-slate-950 text-[9px] font-bold px-1 rounded animate-pulse">${m0910.pendingRounds.length} Lượt mới</span>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Bàn 10 (Liên kết Bàn 09) -->
+        <div class="h-12 relative flex items-center px-1 bg-orange-50/20">
+          <div onclick="selectTable('MAM_09_10')" class="absolute left-[340px] w-[425px] h-9 bg-red-700/80 text-white rounded p-1.5 flex items-center justify-between border-2 border-dashed border-amber-300 cursor-pointer hover:bg-red-700">
+            <span class="font-bold text-amber-200 flex items-center gap-1"><i class="fa-solid fa-link"></i> Liên kết cùng Bàn 09 (Chung 1 Bill mâm đoàn A. Tú)</span>
+            <span class="text-[9px] bg-red-900 text-amber-200 px-1.5 py-0.5 rounded">Mở Bill</span>
+          </div>
+        </div>
+
+        <div class="h-6 bg-blue-50/40 border-b border-blue-200 px-3 flex items-center text-[10px] text-blue-800 font-medium">
+          Khu Tầng 1 máy lạnh gia đình & đối tác
+        </div>
+
+        <!-- T1-01 -->
+        <div class="h-12 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+          <div onclick="selectTable('T1_01')" class="absolute left-[127px] w-[340px] h-9 bg-emerald-600 text-white rounded p-1.5 flex items-center justify-between cursor-pointer hover:bg-emerald-700">
+            <span class="font-bold">Gia đình chị Vy (4K)</span>
+            <span class="font-black text-xs">${fmtVND(totT101)}</span>
+          </div>
+        </div>
+
+        <!-- T1-02 (Xung đột) -->
+        <div class="h-12 relative flex items-center px-1 bg-red-50/30">
+          <div onclick="selectTable('T1_02')" class="absolute left-[127px] w-[297px] h-9 bg-emerald-600 text-white rounded p-1.5 flex items-center justify-between border-2 border-red-500 cursor-pointer">
+            <span class="font-bold flex items-center gap-1">Nhóm A. Hoàng (4K) <span class="bg-red-500 text-[8px] px-1 rounded">Quá giờ</span></span>
+            <span class="font-black text-xs">${fmtVND(totT102)}</span>
+          </div>
+          <!-- Conflict warning block -->
+          <div onclick="selectTable('T1_02')" class="absolute left-[425px] w-[297px] h-9 bg-red-100 border-2 border-red-500 text-red-900 rounded p-1.5 flex items-center justify-between cursor-pointer hover:bg-red-200 z-10">
+            <div class="truncate font-black flex items-center gap-1">
+              <i class="fa-solid fa-triangle-exclamation text-red-600"></i> XUNG ĐỘT: Đoàn A. Phong (12K)
+            </div>
+            <span class="text-[9px] bg-red-600 text-white font-bold px-1.5 py-0.5 rounded shrink-0">Điều phối</span>
+          </div>
+        </div>
+
+        <!-- T1-03 -->
+        <div class="h-12 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+          <div onclick="selectTable('T1_03')" class="absolute left-[212px] w-[340px] h-9 bg-emerald-600 text-white rounded p-1.5 flex items-center justify-between cursor-pointer hover:bg-emerald-700">
+            <span class="font-bold">A. Khoa (6 khách)</span>
+            <span class="font-black text-xs">${fmtVND(totT103)}</span>
+          </div>
+        </div>
+
+        <!-- T1-04 -->
+        <div class="h-12 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+          <div onclick="selectTable('T1_04')" class="absolute left-[467px] w-[255px] h-9 bg-amber-100 text-amber-900 border border-dashed border-amber-400 rounded p-1.5 flex items-center justify-between cursor-pointer hover:bg-amber-200">
+            <span class="font-bold">Chị Thảo (4 khách)</span>
+            <span class="text-[9px] bg-amber-500 text-slate-950 font-bold px-1 rounded">Chờ cọc</span>
+          </div>
+        </div>
+
+        <div class="h-6 bg-purple-50/40 border-b border-purple-200 px-3 flex items-center text-[10px] text-purple-800 font-medium">
+          Khu VIP riêng biệt
+        </div>
+
+        <!-- VIP 01 -->
+        <div class="h-12 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+          <div onclick="selectTable('VIP_01')" class="absolute left-[510px] w-[340px] h-9 bg-orange-500 text-white rounded p-1.5 flex items-center justify-between cursor-pointer hover:bg-orange-600">
+            <span class="font-bold">VIP 01: Anh Long (18K) - Hẹn 20:00</span>
+            <span class="text-[9px] bg-white text-orange-700 font-bold px-1.5 py-0.5 rounded">Đã cọc</span>
+          </div>
+        </div>
+      `;
+      container.innerHTML = html;
+    }
+
+    // 5. Render Right Drawer (Contextual Panel)
+    function renderDrawer() {
+      const body = document.getElementById('drawerBody');
+      const table = appState.tables[appState.activeTableId];
+      if (!table) return;
+
+      if (appState.activeTab === 'menu') {
+        renderMenuOrderView();
+        return;
+      }
+
+      // CASE A: BÀN TRỐNG (Bàn 04)
+      if (table.status === 'empty') {
+        body.innerHTML = `
+          <div class="p-3 bg-slate-900 text-white flex items-center justify-between">
+            <div>
+              <h2 class="font-extrabold text-sm flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> ${table.name}
+              </h2>
+              <p class="text-[10px] text-slate-400 mt-0.5">${table.cap} · Khu Sân Vườn</p>
+            </div>
+            <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-bold">BÀN TRỐNG</span>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar text-xs">
+            <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 text-center space-y-1">
+              <i class="fa-solid fa-circle-check text-xl text-emerald-600"></i>
+              <div class="font-bold">Bàn 04 đang hoàn toàn sẵn sàng</div>
+              <p class="text-[10px] text-emerald-700">Đã dọn dẹp sạch sẽ, sẵn sàng xếp khách vãng lai hoặc ghép đoàn.</p>
+            </div>
+
+            <div class="space-y-2">
+              <button onclick="quickWalkinTable('${table.id}')" class="w-full p-2.5 bg-white border-2 border-emerald-500 hover:bg-emerald-50 rounded-lg flex items-center justify-between text-left transition shadow-xs">
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-8 h-8 rounded bg-emerald-600 text-white flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-person-walking"></i></div>
+                  <div>
+                    <div class="font-bold text-slate-900 text-xs">Khách vãng lai vào ngồi ngay</div>
+                    <div class="text-[10px] text-slate-500">Mở bill & bắt đầu gọi món trực tiếp</div>
+                  </div>
+                </div>
+                <i class="fa-solid fa-chevron-right text-slate-400"></i>
+              </button>
+
+              <button onclick="quickBook('${table.id}', '19:30')" class="w-full p-2.5 bg-white border border-slate-300 hover:border-orange-500 hover:bg-orange-50/30 rounded-lg flex items-center justify-between text-left transition shadow-xs">
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-8 h-8 rounded bg-orange-600 text-white flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-calendar-plus"></i></div>
+                  <div>
+                    <div class="font-bold text-slate-900 text-xs">Đặt trước bàn này cho ca tối</div>
+                    <div class="text-[10px] text-slate-500">Lưu khách hẹn & món ăn trước</div>
+                  </div>
+                </div>
+                <i class="fa-solid fa-chevron-right text-slate-400"></i>
+              </button>
+            </div>
+
+            ${appState.unassignedBookings.length > 0 ? `
+              <div class="border border-amber-300 rounded-lg p-2.5 bg-amber-50/50 space-y-1.5">
+                <div class="flex justify-between items-center text-amber-900 font-bold text-[11px]">
+                  <span>Có 1 đơn chưa xếp bàn vật lý:</span>
+                  <span class="bg-amber-500 text-slate-950 text-[9px] px-1 rounded font-black">Hẹn 19:45</span>
+                </div>
+                <div class="bg-white p-2 rounded border border-amber-200">
+                  <div class="font-bold text-slate-900">${appState.unassignedBookings[0].guest} (${appState.unassignedBookings[0].pax} khách)</div>
+                  <div class="text-[10px] text-slate-500">SĐT: ${appState.unassignedBookings[0].phone} · ${appState.unassignedBookings[0].note}</div>
+                  <button onclick="assignToTable('${table.id}')" class="mt-2 w-full py-1 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded text-xs transition">
+                    Xếp đơn Chị Thảo vào ${table.name} ngay
+                  </button>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+        return;
+      }
+
+      // CASE B: BÀN ĐÃ ĐẶT (Bàn 02, T1-04, VIP 01)
+      if (table.status === 'booked') {
+        const bk = table.booking || {};
+        body.innerHTML = `
+          <div class="p-3 bg-slate-900 text-white flex items-center justify-between">
+            <div>
+              <h2 class="font-extrabold text-sm flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span> ${table.name}
+              </h2>
+              <p class="text-[10px] text-slate-400 mt-0.5">${table.cap} · Giữ chỗ đến hẹn</p>
+            </div>
+            <span class="text-[10px] bg-orange-600 text-white px-2 py-0.5 rounded font-bold">ĐÃ CHỐT ĐẶT</span>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar text-xs">
+            <div class="border border-orange-200 bg-orange-50/50 rounded-lg p-2.5 space-y-1.5">
+              <div class="flex justify-between items-center"><span class="text-slate-500">Khách đặt:</span><span class="font-bold text-slate-900">${bk.guest}</span></div>
+              <div class="flex justify-between items-center"><span class="text-slate-500">SĐT:</span><span class="font-mono font-bold text-slate-800">${bk.phone}</span></div>
+              <div class="flex justify-between items-center"><span class="text-slate-500">Giờ hẹn:</span><span class="font-black text-orange-600">${bk.time} (${bk.pax || 4} khách)</span></div>
+              <div class="border-t border-orange-200 pt-1.5 text-[10px] text-slate-600"><strong>Ghi chú:</strong> ${bk.note || 'Không có'}</div>
+            </div>
+
+            <div class="space-y-2">
+              <button onclick="checkInBooking('${table.id}')" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg shadow-xs flex items-center justify-center gap-1.5 transition">
+                <i class="fa-solid fa-check"></i> Khách đã đến (Nhận bàn & Mở bill)
+              </button>
+              <div class="grid grid-cols-2 gap-2">
+                <button onclick="alert('Đổi giờ/bàn: Chọn bàn khác còn trống để chuyển tiếp')" class="py-1.5 bg-white border border-slate-300 hover:bg-slate-50 font-bold rounded text-slate-700">Đổi giờ / Bàn</button>
+                <button onclick="extendBooking('${table.id}', 15)" class="py-1.5 bg-white border border-slate-300 hover:bg-slate-50 font-bold rounded text-slate-700">+ Nhắc lại 15p</button>
+              </div>
+              <button onclick="cancelBooking('${table.id}')" class="w-full py-1.5 bg-white border border-red-200 hover:bg-red-50 text-red-600 font-bold rounded">
+                Hủy đơn / Khách không đến
+              </button>
+            </div>
+
+            <div class="border-t border-slate-200 pt-2 text-[10px] text-slate-500 space-y-1">
+              <div class="font-bold text-slate-700">Lịch sử tác vụ:</div>
+              ${(table.logs || []).map(l => `<div>&bull; ${l}</div>`).join('')}
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // CASE C: XUNG ĐỘT (T1-02)
+      if (table.status === 'conflict') {
+        const cf = table.conflict || {};
+        body.innerHTML = `
+          <div class="p-3 bg-red-600 text-white flex items-center justify-between">
+            <div>
+              <h2 class="font-extrabold text-sm flex items-center gap-1.5">
+                <i class="fa-solid fa-triangle-exclamation text-amber-300"></i> ${table.name} — XUNG ĐỘT
+              </h2>
+              <p class="text-[10px] text-red-100">Khách ăn quá giờ ảnh hưởng lượt đặt tiếp theo</p>
+            </div>
+            <button onclick="selectTable('MAM_09_10')" class="text-white/80 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar text-xs">
+            <div class="bg-red-50 border border-red-300 rounded-lg p-2.5 text-red-950 space-y-1">
+              <div class="font-black text-red-700 flex items-center gap-1"><i class="fa-solid fa-circle-exclamation"></i> Tình huống xung đột:</div>
+              <p class="text-[11px] leading-tight">${cf.desc}</p>
+            </div>
+
+            <div class="bg-emerald-50 border border-emerald-300 rounded-lg p-3 space-y-2">
+              <div class="flex justify-between items-center">
+                <span class="font-black text-emerald-900 text-xs"><i class="fa-solid fa-wand-magic-sparkles text-emerald-600"></i> ĐỀ XUẤT ĐIỀU PHỐI (PHƯƠNG ÁN B):</span>
+                <span class="bg-emerald-600 text-white text-[9px] font-bold px-1 rounded">Tối ưu</span>
+              </div>
+              <div class="bg-white p-2.5 rounded border border-emerald-200 text-slate-800 space-y-1">
+                <div class="font-bold text-xs">Chuyển ghép sang Sân Vườn (Bàn 04 + Bàn 05)</div>
+                <div class="text-[10px] text-slate-600">Bàn 04 đang trống sẵn, có thể ghép phục vụ đủ 14 khách.</div>
+                <div class="p-1.5 bg-amber-50 rounded border border-amber-200 text-[10px] text-amber-900 font-semibold">
+                  <i class="fa-solid fa-bell"></i> Lưu ý: Nhân viên cần gọi điện xác nhận trước với khách chuyển từ phòng máy lạnh sang sân vườn.
+                </div>
+              </div>
+              <button onclick="applyConflictB()" class="w-full py-2 bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs rounded shadow-xs flex items-center justify-center gap-1">
+                <i class="fa-solid fa-arrows-split-up-and-left"></i> Xác nhận điều phối sang Sân Vườn (Bàn 04+05)
+              </button>
+            </div>
+
+            <div class="flex space-x-2">
+              <button onclick="window.open('tel:0978345345')" class="flex-1 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 font-bold rounded text-slate-800">Gọi Đoàn A. Phong</button>
+              <button onclick="alert('Đã cử nhân viên sang bàn A. Hoàng xin ý kiến đổi bàn phụ')" class="flex-1 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 font-bold rounded text-slate-800">Hỏi bàn A. Hoàng</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // CASE D: BÀN ĐANG PHỤC VỤ (Mâm 09+10, Bàn 01, Bàn 03, T1-01, T1-03)
+      const totals = calcTotals(table);
+      const pendingCount = (table.pendingRounds || []).length;
+
+      let billRows = (table.bill || []).map((item, idx) => {
+        if (item.deleted) {
+          return `
+            <div class="py-1 px-1 border-b border-slate-100 bg-red-50 text-slate-400 line-through text-[11px] flex justify-between items-center">
+              <span>${item.name} x${item.qty} (${item.deleteReason || 'Đã hủy'})</span>
+              <button onclick="restoreItem('${table.id}', ${item.id})" class="no-underline text-blue-600 font-bold hover:underline text-[10px]">Khôi phục</button>
+            </div>
+          `;
+        }
+        return `
+          <div class="py-1.5 border-b border-slate-100 text-xs flex items-center justify-between hover:bg-slate-50 px-1 rounded">
+            <div class="flex-1 pr-1 truncate">
+              <div class="font-bold text-slate-900 truncate flex items-center gap-1">
+                <span>${item.name}</span>
+                ${item.comped ? '<span class="bg-purple-100 text-purple-700 text-[8px] px-1 rounded font-black">TẶNG (0đ)</span>' : ''}
+              </div>
+              ${item.compReason ? `<div class="text-[9px] text-purple-600 italic">Lý do tặng: ${item.compReason}</div>` : ''}
+            </div>
+            <div class="w-8 text-center font-bold text-slate-700">x${item.qty}</div>
+            <div class="w-20 text-right font-black ${item.comped ? 'line-through text-slate-400' : 'text-slate-900'}">${fmtVND(item.price * item.qty)}</div>
+            <div class="relative ml-1 group">
+              <button class="w-5 h-5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center"><i class="fa-solid fa-ellipsis-vertical text-xs"></i></button>
+              <div class="absolute right-0 top-full hidden group-hover:block bg-white border border-slate-200 rounded shadow-lg py-1 w-24 z-30 text-[10px]">
+                <button onclick="promptComp('${table.id}', ${item.id})" class="w-full text-left px-2 py-1 hover:bg-purple-50 text-purple-700 font-semibold">Tặng món</button>
+                <button onclick="promptDelete('${table.id}', ${item.id})" class="w-full text-left px-2 py-1 hover:bg-red-50 text-red-600 font-semibold">Bỏ món</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      body.innerHTML = `
+        <div class="p-2.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
+          <div class="flex items-center space-x-2 truncate">
+            <div class="w-8 h-8 rounded bg-orange-600 flex items-center justify-center font-black text-sm shadow shrink-0">
+              ${table.isLinked ? '<i class="fa-solid fa-link"></i>' : '<i class="fa-solid fa-utensils"></i>'}
+            </div>
+            <div class="truncate">
+              <div class="flex items-center gap-1.5">
+                <h2 class="font-extrabold text-xs text-white truncate">${table.name}</h2>
+                <span class="bg-emerald-500 text-slate-950 font-black text-[8px] px-1 rounded uppercase">Đang ăn</span>
+              </div>
+              <p class="text-[10px] text-slate-300 truncate">${table.booking ? table.booking.guest + ' · ' + (table.booking.pax || 4) + 'K' : 'Khách vãng lai'}</p>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="text-[9px] text-slate-400 font-semibold uppercase">Đã duyệt bill</div>
+            <div class="font-black text-amber-400 text-sm leading-tight">${fmtVND(totals.confirmedTotal)}</div>
+          </div>
+        </div>
+
+        <!-- TABS -->
+        <div class="flex border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-600 shrink-0">
+          <button onclick="switchTab('bill')" class="flex-1 py-1.5 text-center border-b-2 ${appState.activeTab === 'bill' ? 'border-orange-600 text-orange-600 bg-white' : 'border-transparent hover:text-slate-900'}">
+            Hóa đơn (${(table.bill || []).filter(x => !x.deleted).length})
+          </button>
+          <button onclick="switchTab('rounds')" class="flex-1 py-1.5 text-center border-b-2 relative ${appState.activeTab === 'rounds' ? 'border-orange-600 text-orange-600 bg-white' : 'border-transparent hover:text-slate-900'}">
+            Lượt gọi mới
+            ${pendingCount > 0 ? `<span class="ml-1 bg-red-600 text-white text-[9px] px-1 rounded-full font-black animate-pulse">${pendingCount}</span>` : ''}
+          </button>
+          <button onclick="switchTab('history')" class="flex-1 py-1.5 text-center border-b-2 ${appState.activeTab === 'history' ? 'border-orange-600 text-orange-600 bg-white' : 'border-transparent hover:text-slate-900'}">
+            Lịch sử
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-2.5 custom-scrollbar text-xs">
+          ${appState.activeTab === 'bill' ? `
+            <div>
+              ${pendingCount > 0 ? `
+                <div onclick="switchTab('rounds')" class="mb-2 p-2 bg-amber-50 border border-amber-300 rounded flex items-center justify-between cursor-pointer hover:bg-amber-100 transition shadow-xs">
+                  <div class="flex items-center space-x-1.5">
+                    <i class="fa-solid fa-bell-concierge text-amber-600 text-sm animate-bounce"></i>
+                    <div>
+                      <div class="font-black text-amber-900 text-xs">Có ${pendingCount} lượt món đang chờ duyệt!</div>
+                      <div class="text-[10px] text-amber-700">Tổng chờ: <strong>${fmtVND(totals.pendingTotal)}</strong></div>
+                    </div>
+                  </div>
+                  <span class="bg-amber-500 text-slate-950 font-bold px-1.5 py-0.5 rounded text-[10px]">Duyệt ngay &rarr;</span>
+                </div>
+              ` : ''}
+
+              <div class="flex justify-between font-bold text-slate-700 pb-1 border-b border-slate-200 uppercase text-[9px]">
+                <span>Tên món</span><span class="w-8 text-center">SL</span><span class="w-20 text-right">Thành tiền</span><span class="w-5"></span>
+              </div>
+              <div class="divide-y divide-slate-100">${billRows.length > 0 ? billRows : '<div class="py-3 text-center text-slate-400">Chưa có món</div>'}</div>
+
+              <div class="mt-2.5 p-1.5 bg-slate-50 border border-slate-200 rounded text-[10px] text-slate-600 flex items-center justify-between">
+                <span>Khăn, đá mang ra sẵn (Chỉ ghi tiền, không in bếp):</span>
+                <button onclick="quickServedModal('${table.id}')" class="px-1.5 py-0.5 bg-white border border-slate-300 hover:bg-slate-100 font-bold rounded text-slate-700">+ Ghi nhận</button>
+              </div>
+            </div>
+          ` : ''}
+
+          ${appState.activeTab === 'rounds' ? `
+            <div class="space-y-2">
+              ${pendingCount === 0 ? `
+                <div class="py-6 text-center text-slate-400">
+                  <i class="fa-solid fa-circle-check text-2xl text-emerald-500 mb-1"></i>
+                  <div class="font-bold text-slate-700">Không có lượt gọi món nào chờ duyệt</div>
+                </div>
+              ` : table.pendingRounds.map((round) => `
+                <div class="border-2 border-orange-400 rounded p-2.5 bg-orange-50/40 space-y-1.5">
+                  <div class="flex justify-between items-center border-b border-orange-200 pb-1">
+                    <div>
+                      <span class="bg-orange-600 text-white text-[8px] font-extrabold px-1 rounded uppercase">${round.source}</span>
+                      <span class="font-bold text-slate-900 ml-1">#${round.id}</span>
+                      <div class="text-[9px] text-slate-500">${round.time} · ${round.sender}</div>
+                    </div>
+                    <div class="text-right">
+                      <div class="font-black text-xs text-orange-600">${fmtVND(round.items.reduce((s, x) => s + (x.price * x.qty), 0))}</div>
+                      <span class="text-[8px] text-amber-800 font-bold">Chờ duyệt</span>
+                    </div>
+                  </div>
+                  <div class="space-y-0.5">
+                    ${round.items.map(it => `
+                      <div class="flex justify-between items-center text-[11px]">
+                        <span><strong>${it.qty}x</strong> ${it.name} ${it.note ? '<span class="text-orange-600 text-[9px]">('+it.note+')</span>' : ''}</span>
+                        <span class="font-bold">${fmtVND(it.price * it.qty)}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                  <div class="pt-1.5 border-t border-orange-200 flex items-center space-x-1.5">
+                    <button onclick="approveRound('${table.id}', '${round.id}')" class="flex-1 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded flex items-center justify-center gap-1 shadow-xs">
+                      <i class="fa-solid fa-print"></i> Duyệt & In 2 liên (Bếp + Bàn)
+                    </button>
+                    <button onclick="rejectRound('${table.id}', '${round.id}')" class="px-2 py-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-bold rounded">Từ chối</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          ${appState.activeTab === 'history' ? `
+            <div class="space-y-1.5 text-[10px] text-slate-600">
+              ${(table.logs || []).map(l => `<div class="p-1.5 bg-slate-50 rounded border border-slate-200">${l}</div>`).join('')}
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="p-2.5 border-t border-slate-200 bg-slate-50 space-y-1.5 shrink-0">
+          <div class="grid grid-cols-2 gap-1.5">
+            <button onclick="openAddDishPanel()" class="py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold rounded flex items-center justify-center gap-1 shadow-xs">
+              <i class="fa-solid fa-plus text-orange-600"></i> Gọi thêm món
+            </button>
+            <button onclick="alert('Đã gửi lệnh in Phiếu tạm tính (Kẹp bill kiểm tra) cho ' + table.name)" class="py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold rounded flex items-center justify-center gap-1 shadow-xs">
+              <i class="fa-solid fa-receipt text-blue-600"></i> In tạm tính
+            </button>
+          </div>
+
+          ${pendingCount > 0 ? `
+            <button onclick="switchTab('rounds')" class="w-full py-2 bg-red-100 border border-red-300 text-red-800 font-black rounded flex items-center justify-center gap-1.5 hover:bg-red-200 transition">
+              <i class="fa-solid fa-ban text-red-600"></i> KHÓA THANH TOÁN (Còn ${pendingCount} lượt chờ duyệt)
+            </button>
+          ` : `
+            <button onclick="openPaymentModal('${table.id}')" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded shadow flex items-center justify-center gap-1.5 transition">
+              <i class="fa-solid fa-cash-register"></i> Thanh toán bàn (${fmtVND(totals.confirmedTotal)})
+            </button>
+          `}
+        </div>
+      `;
+    }
+
+    function switchTab(t) {
+      appState.activeTab = t;
+      renderDrawer();
+    }
+
+    // 6. Two-Column Ordering View
+    function openAddDishPanel() {
+      appState.activeTab = 'menu';
+      const drawer = document.getElementById('rightDrawer');
+      drawer.classList.remove('w-[410px]');
+      drawer.classList.add('w-[740px]');
+      renderDrawer();
+    }
+
+    function closeAddDishPanel() {
+      appState.activeTab = 'bill';
+      const drawer = document.getElementById('rightDrawer');
+      drawer.classList.remove('w-[740px]');
+      drawer.classList.add('w-[410px]');
+      renderDrawer();
+    }
+
+    function renderMenuOrderView() {
+      const body = document.getElementById('drawerBody');
+      const table = appState.tables[appState.activeTableId];
+      if (!table) return;
+
+      const cart = table.draftCart || [];
+
+      const filtered = appState.menu.filter(m => {
+        const catOk = (appState.menuFilterCat === 'Tất cả' || m.cat === appState.menuFilterCat);
+        const textOk = (!appState.menuSearchText || m.name.toLowerCase().includes(appState.menuSearchText.toLowerCase()) || m.code.toLowerCase().includes(appState.menuSearchText.toLowerCase()));
+        return catOk && textOk;
+      });
+
+      const menuGrid = filtered.map(m => `
+        <div class="p-2 border border-slate-200 rounded bg-white flex flex-col justify-between ${!m.available ? 'opacity-50 bg-slate-100' : 'hover:border-orange-500'}">
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="font-bold text-slate-900 text-xs">${m.name}</span>
+              <span class="text-[9px] font-mono text-slate-400">${m.code}</span>
+            </div>
+            <span class="text-[10px] text-slate-500">${m.cat}</span>
+          </div>
+          <div class="flex justify-between items-center mt-2 pt-1 border-t border-slate-100">
+            <span class="font-black text-orange-600 text-xs">${fmtVND(m.price)}</span>
+            ${m.available ? `
+              <button onclick="addToCart('${m.id}')" class="px-2 py-0.5 bg-orange-50 hover:bg-orange-600 hover:text-white text-orange-600 border border-orange-200 font-bold rounded text-[11px]">+ Thêm</button>
+            ` : `<span class="text-[9px] font-bold text-red-600 bg-red-100 px-1 rounded">HẾT HÀNG</span>`}
+          </div>
+        </div>
+      `).join('');
+
+      const cartRows = cart.map((c, idx) => `
+        <div class="p-1.5 border-b border-slate-100 flex items-center justify-between text-xs">
+          <div class="flex-1 pr-1 truncate">
+            <div class="font-bold text-slate-900 truncate">${c.name}</div>
+            <input type="text" value="${c.note || ''}" onchange="updateCartNote(${idx}, this.value)" placeholder="Ghi chú bếp..." class="w-full mt-0.5 px-1 py-0.5 text-[9px] border border-slate-200 rounded bg-slate-50 outline-none focus:border-orange-500">
+          </div>
+          <div class="flex items-center space-x-1">
+            <button onclick="changeCartQty(${idx}, -1)" class="w-4 h-4 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center">-</button>
+            <span class="font-bold w-4 text-center">${c.qty}</span>
+            <button onclick="changeCartQty(${idx}, 1)" class="w-4 h-4 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center">+</button>
+          </div>
+          <div class="w-16 text-right font-black">${fmtVND(c.price * c.qty)}</div>
+          <button onclick="removeCart(${idx})" class="ml-1 text-slate-400 hover:text-red-600"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+      `).join('');
+
+      const cartTotal = cart.reduce((s, x) => s + (x.price * x.qty), 0);
+
+      body.innerHTML = `
+        <div class="p-2.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
+          <div class="flex items-center space-x-2">
+            <button onclick="closeAddDishPanel()" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 flex items-center justify-center"><i class="fa-solid fa-arrow-left text-xs"></i></button>
+            <div>
+              <h3 class="font-extrabold text-xs">GỌI THÊM MÓN &rarr; ${table.name}</h3>
+              <p class="text-[9px] text-slate-400">Giỏ nháp độc lập từng bàn · Gửi in bếp chế biến hoặc ghi nhận tiền</p>
+            </div>
+          </div>
+          <span class="bg-orange-600 text-white font-bold text-[10px] px-2 py-0.5 rounded">Đích: ${table.name}</span>
+        </div>
+
+        <div class="flex-1 flex overflow-hidden">
+          <!-- LEFT 60% MENU -->
+          <div class="flex-1 border-r border-slate-200 flex flex-col bg-slate-50">
+            <div class="p-2 border-b border-slate-200 bg-white space-y-1.5">
+              <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" value="${appState.menuSearchText}" oninput="searchMenu(this.value)" placeholder="Tìm món (Lẩu riêu, dải heo, LE01...)" class="w-full pl-7 pr-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded outline-none focus:border-orange-500">
+              </div>
+              <div class="flex space-x-1 overflow-x-auto custom-scrollbar font-bold text-[10px]">
+                ${['Tất cả', 'Lẩu', 'Bò/Gà', 'Khai vị', 'Bia'].map(cat => `
+                  <button onclick="filterMenuCat('${cat}')" class="px-2 py-0.5 rounded shrink-0 transition ${appState.menuFilterCat === cat ? 'bg-orange-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">${cat}</button>
+                `).join('')}
+              </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-2 grid grid-cols-2 gap-2 custom-scrollbar">
+              ${menuGrid}
+            </div>
+          </div>
+
+          <!-- RIGHT 40% CART -->
+          <div class="w-72 flex flex-col bg-white">
+            <div class="p-2 border-b border-slate-200 bg-slate-100 font-bold text-slate-700 flex justify-between text-xs">
+              <span>GIỎ MÓN LƯỢT NÀY</span>
+              <span class="text-orange-600">${cart.length} món</span>
+            </div>
+            <div class="flex-1 overflow-y-auto p-2 divide-y divide-slate-100 custom-scrollbar">
+              ${cartRows.length > 0 ? cartRows : '<div class="py-8 text-center text-slate-400 italic">Chưa chọn món nào vào giỏ</div>'}
+            </div>
+            <div class="p-2.5 border-t border-slate-200 bg-slate-50 space-y-2 shrink-0">
+              <div class="flex justify-between items-center font-bold text-xs">
+                <span>Tổng lượt gọi:</span>
+                <span class="font-black text-orange-600 text-sm">${fmtVND(cartTotal)}</span>
+              </div>
+              <button onclick="submitCartAsNewRound('${table.id}')" ${cart.length === 0 ? 'disabled' : ''} class="w-full py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-extrabold text-xs rounded shadow flex items-center justify-center gap-1.5 transition">
+                <i class="fa-solid fa-paper-plane"></i> Gửi lượt gọi món mới (In Bếp)
+              </button>
+              <button onclick="closeAddDishPanel()" class="w-full py-1 text-slate-500 hover:text-slate-800 text-[10px] font-bold">Đóng giỏ (Giữ nguyên nháp)</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Cart Operations
+    function addToCart(menuId) {
+      const table = appState.tables[appState.activeTableId];
+      const item = appState.menu.find(x => x.id === menuId);
+      if (!table || !item || !item.available) return;
+      const ex = table.draftCart.find(x => x.id === menuId);
+      if (ex) ex.qty += 1;
+      else table.draftCart.push({ id: item.id, name: item.name, price: item.price, qty: 1, note: '' });
+      renderMenuOrderView();
+    }
+    function changeCartQty(idx, d) {
+      const table = appState.tables[appState.activeTableId];
+      if (!table) return;
+      table.draftCart[idx].qty += d;
+      if (table.draftCart[idx].qty <= 0) table.draftCart.splice(idx, 1);
+      renderMenuOrderView();
+    }
+    function updateCartNote(idx, v) {
+      const table = appState.tables[appState.activeTableId];
+      if (table) table.draftCart[idx].note = v;
+    }
+    function removeCart(idx) {
+      const table = appState.tables[appState.activeTableId];
+      if (table) { table.draftCart.splice(idx, 1); renderMenuOrderView(); }
+    }
+    function searchMenu(v) {
+      appState.menuSearchText = v;
+      renderMenuOrderView();
+    }
+    function filterMenuCat(c) {
+      appState.menuFilterCat = c;
+      renderMenuOrderView();
+    }
+
+    function submitCartAsNewRound(tableId) {
+      const table = appState.tables[tableId];
+      if (!table || table.draftCart.length === 0) return;
+      const newRound = {
+        id: 'RND_' + (table.pendingRounds.length + 4),
+        source: 'Chủ quán / Thu ngân gọi',
+        sender: 'Thu ngân quầy 01',
+        time: '19:16 (Vừa xong)',
+        status: 'Chờ chủ quán duyệt',
+        items: JSON.parse(JSON.stringify(table.draftCart))
+      };
+      table.pendingRounds.push(newRound);
+      table.draftCart = [];
+      table.logs.push('19:16 - Đã tạo lượt gọi món mới #' + newRound.id);
+      showToast('Đã thêm lượt gọi món mới vào hàng đợi duyệt!');
+      closeAddDishPanel();
+      selectTable(tableId);
+      renderAll();
+    }
+
+    // Round Approval / Rejection
+    function approveRound(tableId, roundId) {
+      const table = appState.tables[tableId];
+      const rIdx = table.pendingRounds.findIndex(r => r.id === roundId);
+      if (rIdx === -1) return;
+      const round = table.pendingRounds[rIdx];
+
+      round.items.forEach(it => {
+        table.bill.push({
+          id: Date.now() + Math.random(),
+          name: it.name,
+          qty: it.qty,
+          price: it.price,
+          note: it.note,
+          comped: false,
+          deleted: false
+        });
+      });
+      table.pendingRounds.splice(rIdx, 1);
+      table.logs.push('19:16 - Duyệt & gửi in 2 liên thành công cho lượt #' + roundId);
+      showToast('Đã duyệt lượt món & gửi lệnh in bếp 2 liên thành công!');
+      renderAll();
+    }
+
+    function rejectRound(tableId, roundId) {
+      const table = appState.tables[tableId];
+      const reason = prompt('Nhập lý do từ chối lượt gọi món này:', 'Hết nguyên liệu / Khách đổi ý');
+      if (reason === null) return;
+      const rIdx = table.pendingRounds.findIndex(r => r.id === roundId);
+      if (rIdx !== -1) {
+        table.pendingRounds.splice(rIdx, 1);
+        table.logs.push('19:16 - Từ chối lượt #' + roundId + ' (Lý do: ' + reason + ')');
+        showToast('Đã hủy bỏ lượt gọi món #' + roundId, 'warn');
+        renderAll();
+      }
+    }
+
+    // Bill adjustments
+    function promptComp(tableId, itemId) {
+      const table = appState.tables[tableId];
+      const it = table.bill.find(x => x.id === itemId);
+      if (!it) return;
+      const reason = prompt('Lý do tặng món (0đ):', 'Tặng khách quen / Tri ân');
+      if (reason) {
+        it.comped = true;
+        it.compReason = reason;
+        table.logs.push('Tặng món ' + it.name + ' (0đ) - Lý do: ' + reason);
+        renderDrawer();
+        showToast('Đã tặng món ' + it.name);
+      }
+    }
+    function promptDelete(tableId, itemId) {
+      const table = appState.tables[tableId];
+      const it = table.bill.find(x => x.id === itemId);
+      if (!it) return;
+      const reason = prompt('Lý do bỏ món khỏi hóa đơn:', 'Khách báo trả món');
+      if (reason) {
+        it.deleted = true;
+        it.deleteReason = reason;
+        table.logs.push('Hủy món ' + it.name + ' - Lý do: ' + reason);
+        renderDrawer();
+        showToast('Đã bỏ món ' + it.name, 'warn');
+      }
+    }
+    function restoreItem(tableId, itemId) {
+      const table = appState.tables[tableId];
+      const it = table.bill.find(x => x.id === itemId);
+      if (it) {
+        it.deleted = false;
+        table.logs.push('Khôi phục món ' + it.name);
+        renderDrawer();
+        showToast('Đã khôi phục món ' + it.name);
+      }
+    }
+
+    // Booking actions
+    function checkInBooking(tableId) {
+      const table = appState.tables[tableId];
+      table.status = 'serving';
+      table.logs.push('19:16 - Khách đã đến, nhận bàn & mở bill phục vụ');
+      showToast('Đã nhận bàn thành công cho ' + table.booking.guest);
+      selectTable(tableId);
+      renderAll();
+    }
+    function extendBooking(tableId, mins) {
+      const table = appState.tables[tableId];
+      table.logs.push('Hoãn nhắc lại +' + mins + ' phút');
+      showToast('Đã hoãn nhắc lại +' + mins + ' phút');
+      renderDrawer();
+    }
+    function cancelBooking(tableId) {
+      if (confirm('Xác nhận hủy đặt bàn cho ' + appState.tables[tableId].booking.guest + '?')) {
+        const table = appState.tables[tableId];
+        table.status = 'empty';
+        table.booking = null;
+        table.logs.push('19:16 - Đã hủy đơn đặt bàn');
+        showToast('Đã giải phóng bàn về trạng thái Trống!', 'warn');
+        selectTable(tableId);
+        renderAll();
+      }
+    }
+
+    // Conflict solution B
+    function applyConflictB() {
+      const t102 = appState.tables['T1_02'];
+      t102.status = 'serving'; // nhóm Hoàng tiếp tục ngồi
+      delete t102.conflict;
+      t102.logs.push('19:16 - Đã điều phối Đoàn A. Phong 12K sang ghép Sân Vườn (Bàn 04+05)');
+
+      // Bàn 04 trở thành booked cho đoàn A. Phong
+      const t04 = appState.tables['T_04'];
+      t04.status = 'booked';
+      t04.booking = { guest: 'Đoàn A. Phong (Ghép Bàn 04+05)', phone: '0978***345', pax: 12, time: '19:30', note: 'Đã gọi khách xác nhận đổi từ máy lạnh sang sân vườn gió thoáng' };
+      t04.logs.push('19:16 - Tiếp nhận điều phối ghép từ T1-02');
+
+      showToast('Đã điều phối thành công Đoàn A. Phong sang Bàn 04+05 Sân Vườn!');
+      selectTable('T_04');
+      renderAll();
+    }
+
+    function quickWalkinTable(tableId) {
+      const table = appState.tables[tableId];
+      table.status = 'serving';
+      table.booking = { guest: 'Khách vãng lai', phone: '', pax: 4, time: '19:16' };
+      table.logs.push('19:16 - Mở bàn khách vãng lai');
+      showToast('Đã mở bàn khách vãng lai tại ' + table.name);
+      selectTable(tableId);
+      renderAll();
+    }
+
+    function assignToTable(tableId) {
+      const table = appState.tables[tableId];
+      const bk = appState.unassignedBookings.shift();
+      table.status = 'booked';
+      table.booking = bk;
+      table.logs.push('19:16 - Đã xếp đơn của ' + bk.guest + ' vào ' + table.name);
+      showToast('Đã xếp đơn thành công vào ' + table.name);
+      selectTable(tableId);
+      renderAll();
+    }
+
+    // Modals
+    function openModal(html) {
+      const bd = document.getElementById('modalBackdrop');
+      const bx = document.getElementById('modalBox');
+      bx.innerHTML = html;
+      bd.classList.remove('hidden');
+    }
+    function closeModal() {
+      document.getElementById('modalBackdrop').classList.add('hidden');
+    }
+
+    function quickBook(tableId, timeStr) {
+      const table = appState.tables[tableId];
+      openModal(`
+        <div class="p-3.5 bg-slate-900 text-white flex justify-between items-center">
+          <h3 class="font-extrabold text-sm flex items-center gap-1.5"><i class="fa-solid fa-calendar-plus text-orange-500"></i> Đặt bàn mới tại ${table.name}</h3>
+          <button onclick="closeModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-4 space-y-3 text-xs">
+          <div><label class="font-bold text-slate-700 block mb-1">Tên khách hàng *</label><input type="text" id="modalGuest" value="A. Minh" class="w-full px-2 py-1.5 border border-slate-300 rounded outline-none focus:border-orange-500"></div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="font-bold text-slate-700 block mb-1">Số điện thoại *</label><input type="text" id="modalPhone" value="0912***678" class="w-full px-2 py-1.5 border border-slate-300 rounded outline-none focus:border-orange-500"></div>
+            <div><label class="font-bold text-slate-700 block mb-1">Số khách *</label><input type="number" id="modalPax" value="6" class="w-full px-2 py-1.5 border border-slate-300 rounded outline-none focus:border-orange-500"></div>
+          </div>
+          <div><label class="font-bold text-slate-700 block mb-1">Giờ đến hẹn</label><input type="text" id="modalTime" value="${timeStr}" class="w-full px-2 py-1.5 border border-slate-300 rounded outline-none focus:border-orange-500 font-bold text-orange-600"></div>
+          <div><label class="font-bold text-slate-700 block mb-1">Ghi chú</label><textarea id="modalNote" class="w-full px-2 py-1.5 border border-slate-300 rounded outline-none focus:border-orange-500">Đặt trước lẩu riêu cua sườn sụn lớn</textarea></div>
+          <button onclick="saveNewBooking('${tableId}')" class="w-full py-2 bg-orange-600 hover:bg-orange-700 text-white font-extrabold rounded shadow">Xác nhận đặt bàn</button>
+        </div>
+      `);
+    }
+
+    function saveNewBooking(tableId) {
+      const g = document.getElementById('modalGuest').value || 'Khách đặt';
+      const p = document.getElementById('modalPhone').value || '09xx';
+      const pax = parseInt(document.getElementById('modalPax').value) || 4;
+      const t = document.getElementById('modalTime').value || '19:30';
+      const n = document.getElementById('modalNote').value || '';
+      const table = appState.tables[tableId];
+      table.status = 'booked';
+      table.booking = { guest: g, phone: p, pax: pax, time: t, note: n };
+      table.logs.push('19:16 - Đặt bàn mới thành công cho ' + g);
+      closeModal();
+      showToast('Đã lưu thông tin đặt bàn cho ' + g);
+      selectTable(tableId);
+      renderAll();
+    }
+
+    function openBookingModal() {
+      quickBook('T_04', '19:30');
+    }
+    function quickWalkinModal() {
+      quickWalkinTable('T_04');
+    }
+
+    function quickServedModal(tableId) {
+      openModal(`
+        <div class="p-3 bg-slate-900 text-white flex justify-between items-center">
+          <h3 class="font-extrabold text-sm">Ghi nhận món đã phục vụ (Chỉ tính tiền)</h3>
+          <button onclick="closeModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-4 space-y-3 text-xs">
+          <p class="text-[11px] text-slate-500">Dành cho đồ uống, khăn lạnh lấy thêm mang ra bàn ngay. Chỉ ghi vào hóa đơn, không phát lệnh in bếp chế biến.</p>
+          <div class="space-y-2">
+            <button onclick="addQuickServed('${tableId}', 'Khăn lạnh tiệt trùng', 5, 4000)" class="w-full py-2 px-3 border border-slate-200 hover:border-orange-500 rounded flex justify-between font-bold">
+              <span>+ 5 Khăn lạnh</span><span>20.000đ</span>
+            </button>
+            <button onclick="addQuickServed('${tableId}', 'Bia Tiger Bạc (Lon)', 4, 26000)" class="w-full py-2 px-3 border border-slate-200 hover:border-orange-500 rounded flex justify-between font-bold">
+              <span>+ 4 Lon Tiger Bạc</span><span>104.000đ</span>
+            </button>
+          </div>
+        </div>
+      `);
+    }
+    function addQuickServed(tableId, name, qty, price) {
+      const table = appState.tables[tableId];
+      table.bill.push({
+        id: Date.now(),
+        name: name,
+        qty: qty,
+        price: price,
+        comped: false,
+        deleted: false
+      });
+      table.logs.push('Ghi nhận trực tiếp: ' + qty + 'x ' + name);
+      closeModal();
+      showToast('Đã thêm ' + name + ' vào hóa đơn!');
+      renderDrawer();
+    }
+
+    // Payment Modal
+    function openPaymentModal(tableId) {
+      const table = appState.tables[tableId];
+      const tot = calcTotals(table).confirmedTotal;
+      openModal(`
+        <div class="p-3.5 bg-slate-900 text-white flex justify-between items-center">
+          <h3 class="font-extrabold text-sm flex items-center gap-1.5"><i class="fa-solid fa-cash-register text-emerald-400"></i> Thanh toán — ${table.name}</h3>
+          <button onclick="closeModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-4 space-y-3 text-xs">
+          <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex justify-between items-center">
+            <div>
+              <span class="text-slate-500 text-[10px] uppercase font-bold">Tổng tiền cần thu:</span>
+              <div class="font-black text-emerald-700 text-lg">${fmtVND(tot)}</div>
+            </div>
+            <span class="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">Bàn: ${table.name}</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 font-bold">
+            <label class="p-2 border-2 border-orange-500 rounded bg-orange-50/50 flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="payType" value="cash" checked onchange="togglePayView('cash')"> <span>Tiền mặt</span>
+            </label>
+            <label class="p-2 border border-slate-200 rounded flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="payType" value="bank" onchange="togglePayView('bank')"> <span>Chuyển khoản VietQR</span>
+            </label>
+          </div>
+
+          <div id="cashView" class="space-y-2 p-2 bg-slate-50 rounded border border-slate-200">
+            <div class="flex justify-between items-center">
+              <span>Tiền khách đưa:</span>
+              <input type="number" id="cashGiven" value="${tot}" oninput="calcChange(${tot})" class="w-32 px-2 py-1 border border-slate-300 rounded font-bold text-right outline-none">
+            </div>
+            <div class="flex justify-between items-center font-bold">
+              <span>Tiền thừa thối lại:</span>
+              <span id="cashChange" class="font-black text-emerald-600">0đ</span>
+            </div>
+          </div>
+
+          <div id="bankView" class="hidden space-y-2 p-3 bg-slate-50 rounded border border-slate-200 text-center">
+            <div class="w-36 h-36 bg-white border border-slate-300 mx-auto flex flex-col items-center justify-center p-2 rounded shadow-xs">
+              <i class="fa-solid fa-qrcode text-6xl text-slate-800"></i>
+              <span class="text-[9px] text-slate-400 mt-1 font-mono">BIDV 123456789</span>
+            </div>
+            <div class="text-[10px] text-red-600 font-bold italic">QR minh họa — không dùng thanh toán thật</div>
+            <div class="text-[10px] text-slate-600">Chủ quán cần xác nhận tiền đã nổi tài khoản trước khi đóng bill.</div>
+          </div>
+
+          <button onclick="confirmCloseBill('${tableId}')" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg shadow transition">
+            Xác nhận đã thu tiền & Đóng bill
+          </button>
+        </div>
+      `);
+    }
+
+    function togglePayView(type) {
+      document.getElementById('cashView').classList.toggle('hidden', type !== 'cash');
+      document.getElementById('bankView').classList.toggle('hidden', type !== 'bank');
+    }
+    function calcChange(tot) {
+      const given = parseInt(document.getElementById('cashGiven').value) || 0;
+      const diff = given - tot;
+      document.getElementById('cashChange').textContent = diff >= 0 ? fmtVND(diff) : 'Còn thiếu ' + fmtVND(Math.abs(diff));
+    }
+    function confirmCloseBill(tableId) {
+      const table = appState.tables[tableId];
+      table.status = 'empty';
+      table.bill = [];
+      table.booking = null;
+      table.logs.push('19:16 - Đã thanh toán và đóng bill hoàn tất');
+      closeModal();
+      showToast('Đã thu tiền & đóng bill thành công!');
+      selectTable(tableId);
+      renderAll();
+    }
+
+    function openQueue(q) {
+      if (q === 'overdue') selectTable('MAM_09_10');
+      else if (q === 'rounds') { selectTable('MAM_09_10'); switchTab('rounds'); }
+      else if (q === 'staff') { selectTable('T_03'); showToast('Bàn 03 đang gọi nhân viên!'); }
+      else if (q === 'unassigned') { selectTable('T_04'); showToast('Xem đơn Chị Thảo chưa xếp bàn!'); }
+      else { selectTable('T_02'); }
+    }
+
+    function renderStats() {
+      let serving = 0, booked = 0, empty = 0;
+      Object.values(appState.tables).forEach(t => {
+        if (t.status === 'serving' || t.status === 'conflict') serving++;
+        else if (t.status === 'booked') booked++;
+        else empty++;
+      });
+      document.getElementById('servingCountText').textContent = serving + ' bàn đang ăn';
+      document.getElementById('bookedCountText').textContent = booked + ' bàn sắp đến / đã đặt';
+      document.getElementById('emptyCountText').textContent = empty + ' bàn còn trống hoàn toàn';
+    }
+
+    function renderAll() {
+      renderTableList();
+      renderTimelineRows();
+      renderDrawer();
+      renderStats();
+    }
+
+    // Startup
+    window.onload = () => {
+      renderAll();
+      scrollToNow();
+    };
+  </script>
+</body>
+</html>

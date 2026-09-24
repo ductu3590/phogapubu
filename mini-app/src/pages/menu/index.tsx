@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore } from "@/stores/app.store";
 import { useStoreMenu } from "@/services/category/category.queries";
@@ -56,6 +57,23 @@ function TableLockedBanner({ openedAt, onCallStaff, calling }: {
         disabled={calling}
         className="mt-2 w-full rounded-lg bg-white py-2 text-small-m font-semibold text-[#C0341A] active:opacity-70 disabled:opacity-50"
       >
+        🔔 Gọi nhân viên
+      </button>
+    </div>
+  );
+}
+
+function TableReservedBanner({ onCallStaff, calling }: { onCallStaff: () => void; calling: boolean }) {
+  return (
+    <div className="border-b border-[#F0C9C0] bg-[#FDEDE9] px-4 py-2.5">
+      <div className="flex items-start gap-2">
+        <span className="text-base leading-tight">🪑</span>
+        <div>
+          <p className="text-small-m font-semibold text-[#C0341A]">Bàn đã được đặt trước</p>
+          <p className="text-xxsmall text-[#9A4634]">Vui lòng báo chủ quán để mở bàn.</p>
+        </div>
+      </div>
+      <button onClick={onCallStaff} disabled={calling} className="mt-2 w-full rounded-lg bg-white py-2 text-small-m font-semibold text-[#C0341A] active:opacity-70 disabled:opacity-50">
         🔔 Gọi nhân viên
       </button>
     </div>
@@ -128,10 +146,14 @@ function OrderingUnavailableBanner({
   entryKind,
   loading,
   error,
+  showReservation,
+  onReserve,
 }: {
   entryKind: "root" | "table";
   loading: boolean;
   error: string | null;
+  showReservation: boolean;
+  onReserve: () => void;
 }) {
   const root = entryKind === "root";
   return (
@@ -146,13 +168,13 @@ function OrderingUnavailableBanner({
             ? "Quét QR tại bàn để gọi món."
             : "Bạn vẫn có thể xem menu. Vui lòng hỏi chủ quán hoặc nhân viên để được hỗ trợ."}
       </p>
-      {root && !loading && !error && import.meta.env.DEV && (
+      {root && showReservation && !loading && !error && (
         <button
           type="button"
-          disabled
-          className="mt-2 rounded-lg bg-white px-3 py-2 text-small-m font-semibold text-[#C0341A] disabled:opacity-70"
+          onClick={onReserve}
+          className="mt-2 rounded-lg bg-white px-3 py-2 text-small-m font-semibold text-[#C0341A]"
         >
-          Đặt bàn trước — sẽ mở ở BL-3
+          Đặt bàn trước
         </button>
       )}
     </div>
@@ -160,6 +182,7 @@ function OrderingUnavailableBanner({
 }
 
 export default function MenuPage() {
+  const navigate = useNavigate();
   const { storeId, storeName, storeLogoUrl, tableId, tableNumber, orderMode, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState, entryContext, workflow, workflowError } = useAppStore();
   const { data: menu, isLoading, error } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
@@ -171,6 +194,8 @@ export default function MenuPage() {
   // thì KHÔNG khoá oan — create_order vẫn là chốt chặn thật.
   const tableLocked =
     sessionState?.mode === "postpay" && sessionState.state === "locked";
+  const tableReserved =
+    sessionState?.mode === "postpay" && sessionState.state === "reserved";
   const sessionOwner =
     sessionState?.mode === "postpay" && sessionState.state === "owner"
       ? sessionState
@@ -179,7 +204,7 @@ export default function MenuPage() {
   const workflowAllowsOrdering = workflow
     ? canOrderInEntry(workflow, entryContext) && hasVerifiedTable
     : false;
-  const canOrder = storeOpen && !tableLocked && workflowAllowsOrdering;
+  const canOrder = storeOpen && !tableLocked && !tableReserved && workflowAllowsOrdering;
 
   const handleCallStaff = () => {
     if (!storeId || !tableId) return;
@@ -220,6 +245,10 @@ export default function MenuPage() {
         text: "Bàn này đang có khách khác gọi món. Nhờ nhân viên mở bàn giúp bạn.",
         type: "warning",
       });
+      return;
+    }
+    if (tableReserved) {
+      openSnackbar({ text: "Bàn đã được đặt trước. Vui lòng báo chủ quán để mở bàn.", type: "warning" });
       return;
     }
     if (!storeOpen) {
@@ -347,6 +376,8 @@ export default function MenuPage() {
           entryKind={entryContext.kind}
           loading={(!workflow || !hasVerifiedTable) && !workflowError}
           error={workflowError}
+          showReservation={entryContext.kind === "root" && workflow?.reservationsEnabled === true}
+          onReserve={() => navigate("/reservations/new")}
         />
       )}
 
@@ -358,6 +389,7 @@ export default function MenuPage() {
           calling={isCallingStaff}
         />
       )}
+      {tableReserved && <TableReservedBanner onCallStaff={handleCallStaff} calling={isCallingStaff} />}
 
       {/* Máy này đang giữ bàn — hiện tổng cả bàn đang nợ */}
       {sessionOwner && (

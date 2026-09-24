@@ -11,6 +11,7 @@ const STATUS_LABEL: Record<string, string> = {
   cooking: 'Đang làm',
   ready: 'Xong',
   paid: 'Hoàn tất',
+  cancelled: 'Đã từ chối',
 }
 
 const truoc = (iso: string, now: number) => {
@@ -30,11 +31,13 @@ export default function NewOrdersFeed({
   busy,
   onSelectSession,
   onConfirmOrder,
+  onRejectOrder,
 }: {
   sessions: OpenTableSession[]
   busy: boolean
   onSelectSession: (sessionId: string) => void
   onConfirmOrder: (orderId: string) => void
+  onRejectOrder: (orderId: string) => void
 }) {
   // Đồng hồ riêng, nhích 30 giây một lần: vừa tránh gọi Date.now() giữa lúc render (hàm không
   // thuần), vừa để "3' trước" tự già đi mà không cần đơn mới về.
@@ -49,7 +52,7 @@ export default function NewOrdersFeed({
     return sessions
       .flatMap((s) =>
         s.orders
-          .filter((o) => o.order_source !== 'pos' && new Date(o.created_at).getTime() >= moc)
+          .filter((o) => o.order_source !== 'pos' && o.order_source !== 'reservation_preorder' && new Date(o.created_at).getTime() >= moc)
           .map((o) => ({ o, s })),
       )
       .sort((a, b) => b.o.created_at.localeCompare(a.o.created_at))
@@ -93,14 +96,20 @@ export default function NewOrdersFeed({
                 </button>
                 {/* Xác nhận thẳng từ đây: giờ đông khách, bắt thu ngân bấm bàn rồi mới xác nhận
                     là thêm một nhịp thừa. Vẫn in đúng 2 liên như bấm trong panel. */}
-                {o.status === 'pending' && o.order_source !== 'pos' && (
-                  <button
-                    onClick={() => onConfirmOrder(o.id)}
-                    disabled={busy}
-                    className="flex-shrink-0 rounded-lg bg-green-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-green-700 disabled:opacity-50"
-                  >
-                    ✅ Xác nhận &amp; in
-                  </button>
+                {o.status === 'pending' && o.order_source !== 'pos' && o.order_source !== 'reservation_preorder' && (
+                  <div className="flex flex-shrink-0 gap-1.5">
+                    <button onClick={() => onRejectOrder(o.id)} disabled={busy}
+                      className="rounded-lg border border-red-300 px-2.5 py-1.5 text-[11px] font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">
+                      Từ chối
+                    </button>
+                    <button
+                      onClick={() => onConfirmOrder(o.id)}
+                      disabled={busy}
+                      className="rounded-lg bg-green-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-green-700 disabled:opacity-50"
+                    >
+                      ✅ Xác nhận &amp; in
+                    </button>
+                  </div>
                 )}
               </li>
             ))}

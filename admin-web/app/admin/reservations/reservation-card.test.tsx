@@ -52,7 +52,16 @@ describe('ReservationCard', () => {
 
     expect(html).toContain('Xác nhận &amp; chọn bàn')
     expect(html).toContain('Từ chối')
+    expect(html).not.toContain('Hủy đặt bàn')
     expect(html).not.toContain('Khách đã đến')
+  })
+
+  it('cho chủ quán hủy booking đã xác nhận với lý do riêng', () => {
+    const html = renderToStaticMarkup(
+      <ReservationCard reservation={overdueReservation} now={new Date('2026-09-20T12:00:00.000Z')} onAction={() => undefined} />,
+    )
+
+    expect(html).toContain('Hủy đặt bàn')
   })
 
   it('cho Snooze riêng booking quá giờ, nhưng ẩn nút khi Snooze còn hiệu lực', () => {

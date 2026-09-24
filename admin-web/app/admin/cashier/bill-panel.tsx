@@ -23,6 +23,7 @@ export default function BillPanel({
   onMergeInto,
   onReleaseHost,
   onConfirmOrder,
+  onRejectOrder,
   onPrintOrder,
   onOpenManualOrder,
   onVoidOrderItem,
@@ -48,6 +49,7 @@ export default function BillPanel({
   onMergeInto: (sessionId: string, targetSessionId: string) => void
   onReleaseHost: (sessionId: string) => void
   onConfirmOrder: (orderId: string) => void
+  onRejectOrder: (orderId: string) => void
   onPrintOrder: (orderId: string) => void
   onOpenManualOrder: (sessionId: string) => void
   onVoidOrderItem: (orderItemId: string, type: 'cancelled' | 'gift', reason?: string) => void
@@ -61,7 +63,7 @@ export default function BillPanel({
   const tong = list.reduce((n, s) => n + s.total, 0)
   const chuaXong = list.reduce((n, s) => n + s.cooking_count, 0)
   // Đơn `pos` chỉ là ghi bổ sung đã phục vụ: không qua xác nhận, không in phiếu bếp.
-  const donCho = list.flatMap((s) => s.orders.filter((o) => o.status === 'pending' && o.order_source !== 'pos'))
+  const donCho = list.flatMap((s) => s.orders.filter((o) => o.status === 'pending' && o.order_source !== 'pos' && o.order_source !== 'reservation_preorder'))
 
   const dieuChinh = (itemId: string, type: 'cancelled' | 'gift') => {
     const label = type === 'cancelled' ? 'bỏ món này' : 'tặng món này'
@@ -146,6 +148,10 @@ export default function BillPanel({
                     {dong(o.total_amount)} {xemDon === o.id ? '▲' : '▼'}
                   </span>
                 </button>
+                <button onClick={() => onRejectOrder(o.id)} disabled={busy}
+                  className="mt-2 w-full rounded-lg border border-red-300 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">
+                  Từ chối
+                </button>
 
                 {xemDon === o.id && (
                   <>
@@ -157,13 +163,15 @@ export default function BillPanel({
                         </li>
                       ))}
                     </ul>
-                    <button
-                      onClick={() => onConfirmOrder(o.id)}
-                      disabled={busy}
-                      className="mt-2 w-full rounded-lg bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
-                    >
-                      ✅ Xác nhận &amp; in 2 liên
-                    </button>
+                    <div className="mt-2">
+                      <button
+                        onClick={() => onConfirmOrder(o.id)}
+                        disabled={busy}
+                        className="w-full rounded-lg bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        ✅ Xác nhận &amp; in 2 liên
+                      </button>
+                    </div>
                     <p className="mt-1 text-[11px] text-gray-400">
                       In ra: 1 phiếu cho bếp, 1 phiếu đặt ở bàn khách.
                     </p>
@@ -191,21 +199,22 @@ export default function BillPanel({
             <li key={o.id} className="text-xs">
               <div className="flex justify-between text-gray-400">
                 <span>
-                  {gio(o.created_at)} · {o.order_source === 'staff' ? 'nhân viên' : o.order_source === 'pos' ? 'ghi tay' : 'khách'}
+                  {gio(o.created_at)} · {o.order_source === 'reservation_preorder' ? 'món đặt trước' : o.order_source === 'staff' ? 'nhân viên' : o.order_source === 'pos' ? 'ghi tay' : 'khách'}
                   {o.status === 'pending' && (
                     <span className="ml-1 font-semibold text-amber-600">chờ xác nhận</span>
+                  )}
+                  {o.status === 'cancelled' && (
+                    <span className="ml-1 font-semibold text-red-600">đã từ chối</span>
                   )}
                 </span>
                 <span className="flex items-center gap-1.5">
                   {dong(o.total_amount)}
                   {o.payment_received_at && ' ✓'}
-                  <button
+                  {o.order_source !== 'reservation_preorder' && <button
                     onClick={() => onPrintOrder(o.id)}
                     title="In lại 2 liên của đơn này"
                     className="rounded px-1 hover:bg-gray-100"
-                  >
-                    🖨️
-                  </button>
+                  >🖨️</button>}
                 </span>
               </div>
               <ul className="mt-1 space-y-1 text-gray-700">

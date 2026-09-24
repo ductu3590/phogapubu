@@ -135,15 +135,26 @@ function AppInit() {
       return;
     }
     let aborted = false;
-    sessionOrderService
-      .getTableSessionState(tableId, zaloUserId || null, deviceId || null)
-      .then((st) => { if (!aborted) setSessionState(st); })
-      .catch(() => {
-        // Không hỏi được trạng thái (mạng lỗi) thì KHÔNG khoá bàn oan — cứ cho gọi món,
-        // create_order vẫn là chốt chặn thật và sẽ từ chối nếu đúng là máy khác.
-        if (!aborted) setSessionState(null);
-      });
-    return () => { aborted = true; };
+    const refresh = () => {
+      void sessionOrderService
+        .getTableSessionState(tableId, zaloUserId || null, deviceId || null)
+        .then((st) => { if (!aborted) setSessionState(st); })
+        .catch(() => {
+          // Không hỏi được trạng thái thì không khóa oan; RPC tạo đơn vẫn là chốt chặn thật.
+          if (!aborted) setSessionState(null);
+        });
+    };
+    refresh();
+    // Chủ quán có thể vừa nhận khách ở POS trong khi khách vẫn mở QR ở đây.
+    window.addEventListener('focus', refresh);
+    window.addEventListener('online', refresh);
+    const interval = window.setInterval(refresh, 10_000);
+    return () => {
+      aborted = true;
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('online', refresh);
+      window.clearInterval(interval);
+    };
   }, [storeId, tableId, zaloUserId, deviceId, paymentTiming, setSessionState]);
 
   return null;

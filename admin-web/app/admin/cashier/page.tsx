@@ -7,6 +7,8 @@ import type { PosMenuCategory } from './manual-order-sheet'
 import CashierClient from './cashier-client'
 import { listOpenServiceRequests } from '@/lib/actions/service-requests'
 import { listReservationQueue } from '@/lib/actions/reservations'
+import { listReservationPreorderQueue } from '@/lib/actions/reservation-preorders'
+import { listReservationCustomerCalls } from '@/lib/actions/reservation-customer-calls'
 
 function queueRange() {
   const now = Date.now()
@@ -39,6 +41,10 @@ export default async function CashierPage() {
   const reservationsPromise = reservationsEnabled
     ? listReservationQueue(queueRange())
     : Promise.resolve(null)
+  const preordersPromise = reservationsEnabled
+    ? listReservationPreorderQueue()
+    : Promise.resolve(null)
+  const customerCallsPromise = reservationsEnabled ? listReservationCustomerCalls() : Promise.resolve(null)
 
   const { data: categoryRows } = await supabase
     .from('menu_categories')
@@ -81,8 +87,8 @@ export default async function CashierPage() {
       })),
   }))
 
-  const [floor, res, requests, reservationQueue] = await Promise.all([
-    floorPromise, sessionsPromise, requestsPromise, reservationsPromise,
+  const [floor, res, requests, reservationQueue, preorderQueue, customerCalls] = await Promise.all([
+    floorPromise, sessionsPromise, requestsPromise, reservationsPromise, preordersPromise, customerCallsPromise,
   ])
 
   return (
@@ -93,6 +99,9 @@ export default async function CashierPage() {
       reservationsEnabled={reservationsEnabled}
       initialReservations={reservationQueue?.ok ? reservationQueue.reservations : []}
       initialReservationError={reservationQueue && !reservationQueue.ok ? reservationQueue.error : null}
+      initialPreorders={preorderQueue?.ok ? preorderQueue.rows : []}
+      initialPreorderError={preorderQueue && !preorderQueue.ok ? preorderQueue.error : null}
+      initialCustomerCalls={customerCalls?.ok ? customerCalls.value : []}
       paymentTiming={
         workflowSettings?.payment_timing ??
         'prepay'
