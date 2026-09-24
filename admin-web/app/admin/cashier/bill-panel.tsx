@@ -23,6 +23,7 @@ export default function BillPanel({
   onMergeInto,
   onReleaseHost,
   onConfirmOrder,
+  onRejectOrder,
   onPrintOrder,
   onOpenManualOrder,
   onVoidOrderItem,
@@ -48,6 +49,7 @@ export default function BillPanel({
   onMergeInto: (sessionId: string, targetSessionId: string) => void
   onReleaseHost: (sessionId: string) => void
   onConfirmOrder: (orderId: string) => void
+  onRejectOrder: (orderId: string) => void
   onPrintOrder: (orderId: string) => void
   onOpenManualOrder: (sessionId: string) => void
   onVoidOrderItem: (orderItemId: string, type: 'cancelled' | 'gift', reason?: string) => void
@@ -146,6 +148,10 @@ export default function BillPanel({
                     {dong(o.total_amount)} {xemDon === o.id ? '▲' : '▼'}
                   </span>
                 </button>
+                <button onClick={() => onRejectOrder(o.id)} disabled={busy}
+                  className="mt-2 w-full rounded-lg border border-red-300 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">
+                  Từ chối
+                </button>
 
                 {xemDon === o.id && (
                   <>
@@ -157,13 +163,15 @@ export default function BillPanel({
                         </li>
                       ))}
                     </ul>
-                    <button
-                      onClick={() => onConfirmOrder(o.id)}
-                      disabled={busy}
-                      className="mt-2 w-full rounded-lg bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
-                    >
-                      ✅ Xác nhận &amp; in 2 liên
-                    </button>
+                    <div className="mt-2">
+                      <button
+                        onClick={() => onConfirmOrder(o.id)}
+                        disabled={busy}
+                        className="w-full rounded-lg bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        ✅ Xác nhận &amp; in 2 liên
+                      </button>
+                    </div>
                     <p className="mt-1 text-[11px] text-gray-400">
                       In ra: 1 phiếu cho bếp, 1 phiếu đặt ở bàn khách.
                     </p>
@@ -194,6 +202,9 @@ export default function BillPanel({
                   {gio(o.created_at)} · {o.order_source === 'reservation_preorder' ? 'món đặt trước' : o.order_source === 'staff' ? 'nhân viên' : o.order_source === 'pos' ? 'ghi tay' : 'khách'}
                   {o.status === 'pending' && (
                     <span className="ml-1 font-semibold text-amber-600">chờ xác nhận</span>
+                  )}
+                  {o.status === 'cancelled' && (
+                    <span className="ml-1 font-semibold text-red-600">đã từ chối</span>
                   )}
                 </span>
                 <span className="flex items-center gap-1.5">

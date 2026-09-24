@@ -7,6 +7,13 @@ export type ConfirmOrderResult =
   | { ok: true; already: boolean; status: string }
   | { ok: false; error: string }
 
+export type OrderRejectReason =
+  | 'out_of_stock'
+  | 'kitchen_overloaded'
+  | 'duplicate'
+  | 'customer_requested'
+  | 'other'
+
 export type PosBillResult =
   | { ok: true; orderId: string; totalAmount: number; alreadyApplied: boolean }
   | { ok: false; error: string }
@@ -41,6 +48,32 @@ export async function confirmOrder(orderId: string): Promise<ConfirmOrderResult>
 
   const row = data as { already?: boolean; status?: string } | null
   return { ok: true, already: !!row?.already, status: row?.status ?? 'confirmed' }
+}
+
+export async function rejectOrder(
+  orderId: string,
+  reasonCode: OrderRejectReason,
+  reasonNote: string | null,
+): Promise<ConfirmOrderResult> {
+  if (reasonCode === 'other' && !reasonNote?.trim()) {
+    return { ok: false, error: 'Vui lòng nhập lý do khác' }
+  }
+  try {
+    await requireStoreOwnerStoreId()
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Không có quyền' }
+  }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('pos_reject_order', {
+    p_order_id: orderId,
+    p_reason_code: reasonCode,
+    p_reason_note: reasonCode === 'other' ? reasonNote?.trim() || null : null,
+  })
+  if (error) return { ok: false, error: error.message }
+
+  const row = data as { already?: boolean; status?: string } | null
+  return { ok: true, already: !!row?.already, status: row?.status ?? 'cancelled' }
 }
 
 // Mọi thao tác sửa bill đều đi qua RPC SECURITY DEFINER. Server action chỉ giữ vai trò

@@ -15,7 +15,9 @@ import {
 import {
   addManualItems,
   confirmOrder,
+  rejectOrder,
   restoreOrderItem,
+  type OrderRejectReason,
   type PosManualItem,
   voidOrderItem,
 } from '@/lib/actions/pos-order'
@@ -28,6 +30,7 @@ import { assignTrayColors } from '@/lib/tray-colors'
 import FloorMap, { type TableState } from './floor-map'
 import BillPanel from './bill-panel'
 import NewOrdersFeed from './new-orders-feed'
+import RejectOrderSheet from './reject-order-sheet'
 import ManualOrderSheet, { type PosMenuCategory } from './manual-order-sheet'
 import ServiceRequestQueue from './service-request-queue'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
@@ -120,6 +123,7 @@ export default function CashierClient({
   const [pickedSessionIds, setPickedSessionIds] = useState<Set<string>>(new Set())
   const [pickedTableIds, setPickedTableIds] = useState<Set<string>>(new Set())
   const [manualSessionId, setManualSessionId] = useState<string | null>(null)
+  const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null)
   const [reservations, setReservations] = useState(initialReservations)
   const [preorders, setPreorders] = useState(initialPreorders)
   const [reservationPick, setReservationPick] = useState<ReservationTablePick | null>(null)
@@ -362,6 +366,29 @@ export default function CashierClient({
     setBusy(false)
     if (res.already) reportActionError('Đơn này đã được xác nhận trước đó — chỉ in lại phiếu.')
     await reload()
+  }
+
+  const onRejectOrder = async (
+    orderId: string,
+    reason: OrderRejectReason,
+    note: string | null,
+  ) => {
+    setBusy(true)
+    try {
+      const res = await rejectOrder(orderId, reason, note)
+      if (!res.ok) {
+        reportActionError(res.error)
+        return false
+      }
+      if (res.already) reportActionError('Đơn này đã được từ chối trước đó.')
+      await reload()
+      return true
+    } catch {
+      reportActionError('Lỗi kết nối. Kiểm tra trạng thái đơn rồi thử lại.')
+      return false
+    } finally {
+      setBusy(false)
+    }
   }
 
   const onPrintOrder = (orderId: string) => {
@@ -716,6 +743,7 @@ export default function CashierClient({
             selectSession(id, false)
           }}
           onConfirmOrder={(id) => void onConfirmOrder(id)}
+          onRejectOrder={setRejectingOrderId}
         />
       </div>
 
@@ -738,6 +766,7 @@ export default function CashierClient({
         onPay={(list, ins) => void onPay(list, ins)}
         onPrint={onPrint}
         onConfirmOrder={(id) => void onConfirmOrder(id)}
+        onRejectOrder={setRejectingOrderId}
         onPrintOrder={onPrintOrder}
         onOpenManualOrder={(sessionId) => setManualSessionId(sessionId)}
         onVoidOrderItem={(itemId, type, reason) => void onVoidOrderItem(itemId, type, reason)}
@@ -766,6 +795,14 @@ export default function CashierClient({
           />
         )
       })()}
+      {rejectingOrderId && (
+        <RejectOrderSheet
+          orderId={rejectingOrderId}
+          busy={busy}
+          onClose={() => setRejectingOrderId(null)}
+          onConfirm={(reason, note) => onRejectOrder(rejectingOrderId, reason, note)}
+        />
+      )}
     </div>
   )
 }

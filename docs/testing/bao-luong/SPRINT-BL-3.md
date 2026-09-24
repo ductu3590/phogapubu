@@ -225,3 +225,26 @@ Migration `074_reservation_customer_call_tasks` đã áp dụng. Chạy Admin We
 Migration `075_reservation_prearrival_table_lock` đã áp dụng. Tạo/đổi một booking xác nhận có giờ đến trong 60 phút, chọn Bàn 9. Trên POS Bàn 9 phải có biểu tượng 📅, nhãn **đã giữ** và không thao tác như bàn trống. Quét QR Bàn 9 từ máy khác chỉ thấy yêu cầu báo chủ quán mở bàn; không thêm món hay mở bill mới. Sau khi bấm **Khách đã đến**, nhãn giữ biến mất và QR hoạt động với đúng mâm/bill. Booking xa hơn một giờ vẫn không khóa QR/POS sớm.
 
 **Bổ sung trường hợp đã có phiên cũ:** Nếu Bàn 9 đã có một phiên mở trước khi bước vào 60 phút giữ bàn, QR vẫn phải hiện bàn đã được đặt trước và không tạo thêm món. POS không tự đóng phiên cũ; chủ quán xử lý khách đang ngồi theo thực tế.
+
+## Test 10 — Từ chối đơn chờ xác nhận tại POS
+
+### Chuẩn bị
+
+Migration `077_pos_reject_pending_order` đã áp dụng. Chạy Admin Web từ `D:\Code\mevo\admin-web` bằng `npm run dev`, đăng nhập owner Bảo Lương và tạo một đơn QR mới để đơn nằm ở trạng thái chờ xác nhận.
+
+### Anh cần test
+
+1. Trong thanh **Đơn mới**, đơn pending có cả **Từ chối** và **Xác nhận & in**. Mở bill bàn đó: khung **Đơn chờ xác nhận** cũng có nút **Từ chối**.
+2. Bấm **Từ chối**: hộp chọn hiện đủ **Hết đồ**, **Bếp quá tải**, **Đơn trùng**, **Khách yêu cầu huỷ**, **Lý do khác**. Chọn **Lý do khác** nhưng chưa nhập thì nút xác nhận bị vô hiệu hóa.
+3. Chọn **Hết đồ** rồi **Xác nhận từ chối**: không mở cửa sổ in, đơn rời hàng đợi chờ xác nhận, tổng bill giảm đúng phần đơn vừa từ chối và bàn/phiên vẫn mở để khách gọi lại.
+4. Trên Mini App, khách có thể gọi một đơn mới sau đó; đơn mới lại về POS chờ xác nhận bình thường. Đơn cũ không sống lại và không bị tính vào bill.
+5. Với một đơn khác, bấm **Xác nhận & in** trước rồi thử thao tác từ một tab POS cũ: server phải báo chỉ được từ chối đơn đang chờ xác nhận, không huỷ đơn đã in.
+6. Đăng nhập staff: giao diện staff không có quyền từ chối; gọi RPC trực tiếp cũng nhận lỗi **Chỉ chủ quán mới được từ chối đơn**.
+
+### Codex đã tự kiểm
+
+- Test TDD Admin Web `6/6 PASS`, gồm action, payload RPC, quyền và hai vị trí nút.
+- PostgreSQL/PGlite `4/4 PASS`, gồm audit, idempotency, chặn staff, chặn đơn đã xác nhận và preorder.
+- Toàn bộ Admin Web `368/368 PASS`; TypeScript và production build đều sạch.
+
+**Nghiệm thu:** Khi 6 mục trên đúng, trả lời **`Task 10 PASS`**. Dừng tại đây trước khi làm phần tiếp theo.
