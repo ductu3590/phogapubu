@@ -13,7 +13,8 @@ Sau khi hoàn thành BẤT KỲ Sprint hoặc task nào, Codex PHẢI:
    vào `TESTING.md`, không nối checklist mới vào file tổng
 3. Nói với anh Tú chính xác file và nhóm test cần chạy: *"Xong rồi anh, test theo
    `docs/testing/.../SPRINT-X.md` — Test Y nhé"*
-4. Chờ anh Tú xác nhận "PASS" trước khi tiếp tục
+4. Chờ anh Tú xác nhận "PASS" trước khi tiếp tục; ngay khi nhận PASS, tự commit thay đổi của Task
+   trước khi báo checkpoint (không cần chờ nhắc riêng)
 
 Vi phạm quy tắc này = build trên nền không ổn định = mất gấp đôi thời gian fix sau.
 
