@@ -252,3 +252,5 @@ Migration `077_pos_reject_pending_order` đã áp dụng. Chạy Admin Web từ 
 ## Test 10 — Deploy và nghiệm thu E2E BL-3
 
 Task cuối của plan gốc: deploy đúng instance Bảo Lương, sau đó chạy trọn luồng trên thiết bị thật — đặt bàn, chủ quán xác nhận/chọn bàn, khách gửi món trước hoặc gọi sau, POS duyệt/in 2 liên, khóa bàn từ 60 phút trước giờ đến, khách đến mở mâm và gọi thêm qua QR, từ chối một đơn pending, rồi đóng bill. Đây là gate để ghi **`BL-3 PASS`**.
+
+**Nghiệm thu:** ✅ `BL-3 PASS` — anh Tú xác nhận ngày 2026-09-24.

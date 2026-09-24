@@ -6,8 +6,14 @@
 
 ## Checklist mới tách riêng
 
-- ⏳ [Bảo Lương — duyệt plan BL-3](docs/testing/bao-luong/PLAN-BL-3-2026-09-23.md) — chờ PLAN BL-3 PASS
-- ⏳ [Bảo Lương — Sprint BL-3](docs/testing/bao-luong/SPRINT-BL-3.md) — Task 1–3 PASS; Task 4 chờ nghiệm thu
+- ✅ [Bảo Lương — duyệt plan BL-3](docs/testing/bao-luong/PLAN-BL-3-2026-09-23.md) — PASS
+- ✅ [Bảo Lương — Sprint BL-3](docs/testing/bao-luong/SPRINT-BL-3.md) — BL-3 PASS
+- ✅ [Bảo Lương — BL-2C duyệt/in món đặt trước](docs/testing/bao-luong/SPRINT-BL-2C.md) — PASS
+
+- ✅ [BL-2B — vá kiểm tra webhook OA 403, Test 2E](docs/testing/bao-luong/SPRINT-BL-2B.md) — Console PASS 2026-09-21; Test 2B–2D được anh Tú xác nhận PASS 2026-09-22; ghi chú riêng ảnh 408.
+- ⏳ [MEVO — giao Stitch thiết kế trang bổ sung 2026-09-21](docs/testing/bao-luong/STITCH-ADMIN-SUITE-2026-09-21.md) — brief đã gửi; chờ PASS Test 1, 2
+- ⏳ [Bảo Lương — review prototype POS Timeline 2026-09-21](docs/testing/bao-luong/REVIEW-POS-TIMELINE-2026-09-21.md) — chờ PASS Test 1, 2
+- ⏳ [Bảo Lương — nghiên cứu/prompt POS Timeline 2026-09-20](docs/testing/bao-luong/DESIGN-POS-TIMELINE-2026-09-20.md) — chờ PASS Test 1, 2
 
 - ✅ [Bảo Lương — sửa spec quy trình 2026-09-11](docs/testing/bao-luong/SPEC-REVISION-2026-09-11.md) — PASS 2026-09-11
 - ⏳ [Bảo Lương — duyệt implementation plan BL-0](docs/testing/bao-luong/PLAN-BL-0-2026-09-11.md) — chờ PASS

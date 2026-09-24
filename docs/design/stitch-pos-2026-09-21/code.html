@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEVO POS — Điều hành bàn & đặt bàn</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .now-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ef4444;
+      z-index: 25;
+      pointer-events: none;
+    }
+    .now-line::after {
+      content: '19:15 Hiện tại';
+      position: absolute;
+      top: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ef4444;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .booking-tentative {
+      background-image: repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(249, 115, 22, 0.08) 6px, rgba(249, 115, 22, 0.08) 12px);
+    }
+    .linked-group-border {
+      box-shadow: 0 0 0 2px #f97316;
+    }
+    .pulse-danger {
+      animation: pulseDanger 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulseDanger {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .6; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex flex-col overflow-hidden text-sm select-none">
+
+  <!-- TOP APP BAR -->
+  <header class="h-14 bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0 z-30">
+    <div class="flex items-center space-x-4">
+      <!-- Toggle sidebar -->
+      <button id="toggleSidebarBtn" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-600 flex items-center justify-center transition">
+        <i class="fa-solid fa-bars text-base"></i>
+      </button>
+
+      <!-- Brand -->
+      <div class="flex items-center space-x-2.5">
+        <div class="w-8 h-8 rounded-lg bg-orange-600 text-white flex items-center justify-center font-black text-base shadow-sm">
+          M
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-extrabold text-slate-900 tracking-tight leading-none text-base">MEVO POS</span>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-800">
+              Quán Bia Lẩu Bảo Lương
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-500 font-medium leading-tight">Hệ thống điều hành bàn & mâm gọi món</p>
+        </div>
+      </div>
+
+      <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+      <!-- Live Sync Status -->
+      <div class="flex items-center space-x-2 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md text-xs font-semibold border border-emerald-200">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+        <span class="w-2 h-2 rounded-full bg-emerald-500 -ml-4"></span>
+        <span>Trực tuyến (Máy thu ngân 01)</span>
+      </div>
+
+      <!-- Quick date / shift -->
+      <div class="flex items-center space-x-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1">
+        <i class="fa-regular fa-calendar text-slate-400"></i>
+        <span class="font-bold text-slate-800">Hôm nay, 20/09/2026</span>
+        <span class="text-slate-400">|</span>
+        <span class="font-semibold text-orange-600">Ca tối (17:00 - 23:30)</span>
+      </div>
+    </div>
+
+    <!-- Search & Fast Operations -->
+    <div class="flex items-center space-x-3">
+      <!-- Search -->
+      <div class="relative w-64">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+        <input type="text" placeholder="Tìm tên khách, SĐT (09xx), số bàn..." 
+          class="w-full pl-8 pr-3 py-1.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-orange-500 rounded-lg text-xs outline-none transition" />
+      </div>
+
+      <!-- Action buttons -->
+      <button onclick="switchState('booking_conflict')" class="flex items-center space-x-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold text-xs transition shadow-sm">
+        <i class="fa-solid fa-calendar-plus"></i>
+        <span>+ Đặt bàn mới</span>
+      </button>
+
+      <button onclick="openWalkinModal()" class="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-semibold text-xs transition">
+        <i class="fa-solid fa-person-walking-luggage"></i>
+        <span>Khách vãng lai</span>
+      </button>
+
+      <div class="h-5 w-px bg-slate-200"></div>
+
+      <!-- Quick role info -->
+      <div class="flex items-center space-x-2 pl-1">
+        <div class="w-8 h-8 rounded-full bg-slate-800 text-white font-bold text-xs flex items-center justify-center">
+          BL
+        </div>
+        <div class="text-left hidden xl:block">
+          <div class="text-xs font-bold text-slate-900 leading-none">Chủ quán (Thu ngân)</div>
+          <div class="text-[10px] text-slate-400 leading-tight">baoluong@mevo.vn</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ACTION QUEUE RIBBON (Dải việc cần xử lý gọn) -->
+  <div class="h-10 bg-slate-900 text-white px-4 flex items-center justify-between text-xs shrink-0 z-20 shadow-inner">
+    <div class="flex items-center space-x-3 overflow-x-auto custom-scrollbar py-1">
+      <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider shrink-0 flex items-center gap-1.5">
+        <i class="fa-solid fa-bolt text-amber-400"></i> Hàng đợi cần xử lý:
+      </span>
+
+      <!-- Item 1: Booking chờ duyệt -->
+      <button onclick="switchState('booking_conflict')" class="flex items-center space-x-1.5 px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-full font-medium shrink-0 transition">
+        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+        <span>Đặt bàn chờ duyệt</span>
+        <span class="bg-amber-500 text-slate-950 px-1.5 py-0.2 rounded-full text-[10px] font-black">2</span>
+      </button>
+
+      <!-- Item 2: Khách quá giờ -->
+      <button onclick="switchState('booking_conflict')" class="flex items-center space-x-1.5 px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 rounded-full font-medium shrink-0 transition pulse-danger">
+        <i class="fa-solid fa-clock-rotate-left text-xs"></i>
+        <span>Khách quá giờ (Trễ 15p)</span>
+        <span class="bg-red-600 text-white px-1.5 py-0.2 rounded-full text-[10px] font-black">1 đoàn</span>
+      </button>
+
+      <!-- Item 3: Lượt món chờ duyệt (Bếp) -->
+      <button onclick="switchState('order_review')" class="flex items-center space-x-1.5 px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-full font-medium shrink-0 transition">
+        <i class="fa-solid fa-bell-concierge text-xs"></i>
+        <span>Lượt món chờ duyệt</span>
+        <span class="bg-emerald-500 text-slate-950 px-1.5 py-0.2 rounded-full text-[10px] font-black">2 lượt</span>
+      </button>
+
+      <!-- Item 4: Gọi nhân viên -->
+      <button onclick="alert('Bàn 03 gọi phục vụ thêm khăn lạnh & đá bia lúc 19:12 (Chờ 3 phút)')" class="flex items-center space-x-1.5 px-2.5 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 rounded-full font-medium shrink-0 transition">
+        <i class="fa-solid fa-hand text-xs"></i>
+        <span>Gọi nhân viên</span>
+        <span class="bg-blue-500 text-white px-1.5 py-0.2 rounded-full text-[10px] font-black">1 yêu cầu</span>
+      </button>
+
+      <!-- Item 5: Chưa xếp bàn -->
+      <button onclick="switchState('booking_conflict')" class="flex items-center space-x-1.5 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] shrink-0 border border-slate-700">
+        <i class="fa-solid fa-list-check text-slate-400"></i>
+        <span>Chưa xếp bàn: <strong>1 đơn</strong> (Đoàn Chị Thảo 6K)</span>
+      </button>
+    </div>
+
+    <!-- State Switcher Bar (Demo all required views in 1 page) -->
+    <div class="flex items-center space-x-1 shrink-0 ml-3 bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+      <span class="text-[10px] text-slate-400 px-2 font-bold uppercase">Mô phỏng trạng thái:</span>
+      <button onclick="switchState('timeline_overview')" id="btn-state-timeline" class="px-2 py-1 rounded text-[11px] font-bold bg-orange-600 text-white transition">1. Tổng quan Timeline</button>
+      <button onclick="switchState('booking_conflict')" id="btn-state-booking" class="px-2 py-1 rounded text-[11px] font-bold text-slate-300 hover:text-white transition">2. Đặt bàn & Xung đột</button>
+      <button onclick="switchState('order_review')" id="btn-state-order" class="px-2 py-1 rounded text-[11px] font-bold text-slate-300 hover:text-white transition">3. Bill & 2 Lượt duyệt</button>
+      <button onclick="switchState('add_items')" id="btn-state-add" class="px-2 py-1 rounded text-[11px] font-bold text-slate-300 hover:text-white transition">4. Menu 2 Cột</button>
+      <button onclick="switchState('print_kitchen')" id="btn-state-print" class="px-2 py-1 rounded text-[11px] font-bold text-slate-300 hover:text-white transition">5. In bếp 2 liên</button>
+      <button onclick="switchState('payment_block')" id="btn-state-pay" class="px-2 py-1 rounded text-[11px] font-bold text-slate-300 hover:text-white transition">6. Thanh toán</button>
+    </div>
+  </div>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- LEFT SIDEBAR (Icon & Menu) -->
+    <aside id="mainSidebar" class="w-16 bg-white border-r border-slate-200 flex flex-col justify-between items-center py-3 shrink-0 z-10 transition-all duration-200">
+      <div class="flex flex-col items-center space-y-2 w-full">
+        <!-- Active Nav: Điều hành POS -->
+        <a href="#" class="w-12 h-12 rounded-xl bg-orange-600 text-white flex flex-col items-center justify-center text-[10px] font-bold shadow-md shadow-orange-500/30" title="Điều hành POS">
+          <i class="fa-solid fa-table-cells-large text-base mb-0.5"></i>
+          <span>POS</span>
+        </a>
+        <a href="#" class="w-12 h-12 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 flex flex-col items-center justify-center text-[10px] font-medium transition" title="Đơn hàng">
+          <i class="fa-regular fa-file-lines text-base mb-0.5"></i>
+          <span>Đơn</span>
+        </a>
+        <a href="#" class="w-12 h-12 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 flex flex-col items-center justify-center text-[10px] font-medium transition" title="Màn hình Bếp & Bar">
+          <i class="fa-solid fa-fire-burner text-base mb-0.5"></i>
+          <span>Bếp</span>
+        </a>
+        <a href="#" class="w-12 h-12 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 flex flex-col items-center justify-center text-[10px] font-medium transition" title="Thực đơn & Giá">
+          <i class="fa-solid fa-utensils text-base mb-0.5"></i>
+          <span>Món</span>
+        </a>
+        <a href="#" class="w-12 h-12 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 flex flex-col items-center justify-center text-[10px] font-medium transition" title="Báo cáo doanh thu ca">
+          <i class="fa-solid fa-chart-pie text-base mb-0.5"></i>
+          <span>Báo cáo</span>
+        </a>
+      </div>
+
+      <div class="flex flex-col items-center space-y-3 w-full border-t border-slate-100 pt-3">
+        <button class="w-10 h-10 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center" title="Cài đặt quán">
+          <i class="fa-solid fa-gear text-base"></i>
+        </button>
+        <button class="w-10 h-10 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center" title="Đăng xuất">
+          <i class="fa-solid fa-arrow-right-from-bracket text-base"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- CENTER CANVAS (TIMELINE AS PRIMARY OPERATION SURFACE) -->
+    <main class="flex-1 flex flex-col min-w-0 bg-white overflow-hidden">
+      
+      <!-- SUB HEADER: View switcher & Filter Controls -->
+      <div class="h-12 border-b border-slate-200 px-4 flex items-center justify-between bg-slate-50/70 shrink-0">
+        <div class="flex items-center space-x-3">
+          <!-- 3 Modes: Timeline (default) / Floor / List -->
+          <div class="bg-slate-200/80 p-0.5 rounded-lg flex items-center text-xs font-semibold">
+            <button class="px-3 py-1 rounded-md bg-orange-600 text-white shadow-sm flex items-center gap-1.5">
+              <i class="fa-solid fa-chart-gantt text-xs"></i>
+              <span>Timeline (Gantt)</span>
+            </button>
+            <button onclick="alert('Chuyển sang chế độ Sơ đồ bàn (Floor plan 2D) nhưng vẫn bảo lưu phiên bàn và giỏ món!')" class="px-3 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5">
+              <i class="fa-solid fa-map-location-dot text-xs"></i>
+              <span>Sơ đồ bàn</span>
+            </button>
+            <button onclick="alert('Chuyển sang chế độ Danh sách đặt bàn (List View)')" class="px-3 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5">
+              <i class="fa-solid fa-list text-xs"></i>
+              <span>Danh sách</span>
+            </button>
+          </div>
+
+          <div class="h-4 w-px bg-slate-300"></div>
+
+          <!-- Quick Filters -->
+          <div class="flex items-center space-x-2 text-xs">
+            <label class="text-slate-500 font-medium">Khu vực:</label>
+            <select class="bg-white border border-slate-200 rounded-md px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-orange-500">
+              <option>Tất cả khu vực (24 bàn)</option>
+              <option>Sân vườn ngoài trời (8 bàn)</option>
+              <option>Tầng 1 máy lạnh (10 bàn)</option>
+              <option>Phòng VIP riêng tư (6 bàn)</option>
+            </select>
+          </div>
+
+          <!-- Go to Now Button -->
+          <button class="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-md text-xs font-semibold flex items-center gap-1">
+            <i class="fa-solid fa-crosshairs text-orange-500"></i>
+            <span>Về "Bây giờ" (19:15)</span>
+          </button>
+        </div>
+
+        <!-- Legend (Chú giải trạng thái & thao tác) -->
+        <div class="flex items-center space-x-3 text-[11px] font-medium">
+          <div class="flex items-center space-x-1.5">
+            <span class="w-2.5 h-2.5 rounded bg-emerald-600"></span>
+            <span class="text-slate-600">Đang phục vụ</span>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <span class="w-2.5 h-2.5 rounded bg-orange-500"></span>
+            <span class="text-slate-600">Đã chốt đặt trước</span>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <span class="w-2.5 h-2.5 rounded bg-amber-400"></span>
+            <span class="text-slate-600">Chờ duyệt / Đổi</span>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <span class="w-2.5 h-2.5 rounded bg-red-500"></span>
+            <span class="text-slate-600">Trễ giờ / Xung đột</span>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <span class="w-2.5 h-2.5 rounded border border-dashed border-slate-400 bg-slate-50"></span>
+            <span class="text-slate-400">Bàn trống</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIMELINE GRID CONTAINER -->
+      <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- Sticky Left Column: Danh sách bàn cố định -->
+        <div class="w-56 bg-slate-50 border-r border-slate-200 shrink-0 flex flex-col z-20 shadow-[2px_0_5px_rgba(0,0,0,0.03)]">
+          <div class="h-10 border-b border-slate-200 px-3 flex items-center justify-between text-xs font-bold text-slate-600 bg-slate-100">
+            <span>BÀN & SỨC CHỨA</span>
+            <span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">24 BÀN</span>
+          </div>
+          
+          <!-- Tables list scroll synchronized -->
+          <div class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100 text-xs">
+            
+            <!-- SECTION 1: KHU SÂN VƯỜN -->
+            <div class="bg-amber-50/70 px-3 py-1.5 font-bold text-amber-900 flex items-center justify-between border-y border-amber-200">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-tree text-emerald-600"></i>
+                <span>SÂN VƯỜN (8 bàn)</span>
+              </span>
+              <span class="text-[10px] font-semibold text-amber-700">Gió thoáng</span>
+            </div>
+
+            <!-- Bàn 01 -->
+            <div class="h-14 px-3 flex items-center justify-between hover:bg-slate-100 transition">
+              <div>
+                <div class="font-bold text-slate-900">Bàn 01</div>
+                <div class="text-[11px] text-slate-500">4 - 6 khách</div>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">Đang ăn</span>
+            </div>
+
+            <!-- Bàn 02 -->
+            <div class="h-14 px-3 flex items-center justify-between hover:bg-slate-100 transition">
+              <div>
+                <div class="font-bold text-slate-900">Bàn 02</div>
+                <div class="text-[11px] text-slate-500">4 - 6 khách</div>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-bold">Đã đặt</span>
+            </div>
+
+            <!-- Bàn 03 -->
+            <div class="h-14 px-3 flex items-center justify-between hover:bg-slate-100 transition">
+              <div>
+                <div class="font-bold text-slate-900">Bàn 03 (Dài)</div>
+                <div class="text-[11px] text-slate-500">8 - 10 khách</div>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">Đang ăn</span>
+            </div>
+
+            <!-- Bàn 04 -->
+            <div class="h-14 px-3 flex items-center justify-between hover:bg-slate-100 transition">
+              <div>
+                <div class="font-bold text-slate-900">Bàn 04</div>
+                <div class="text-[11px] text-slate-500">4 - 6 khách</div>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">Trống</span>
+            </div>
+
+            <!-- Bàn 09 (Thuộc đoàn lớn) -->
+            <div id="row-table-09" class="h-14 px-3 flex items-center justify-between bg-orange-50/50 hover:bg-orange-100/50 transition border-l-4 border-orange-500">
+              <div>
+                <div class="font-bold text-orange-950 flex items-center gap-1">
+                  <span>Bàn 09</span>
+                  <i class="fa-solid fa-link text-[10px] text-orange-600" title="Ghép đoàn cùng Bàn 10"></i>
+                </div>
+                <div class="text-[11px] text-slate-500">Mâm ghép đoàn</div>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">Mâm 09+10</span>
+            </div>
+
+            <!-- Bàn 10 (Thuộc đoàn lớn) -->
+            <div id="row-table-10" class="h-14 px-3 flex items-center justify-between bg-orange-50/50 hover:bg-orange-100/50 transition border-l-4 border-orange-500">
+              <div>
+                <div class="font-bold text-orange-950 flex items-center gap-1">
+                  <span>Bàn 10</span>
+                  <i class="fa-solid fa-link text-[10px] text-orange-600" title="Ghép đoàn cùng Bàn 09"></i>
+                </div>
+                <div class="text-[11px] text-slate-500">Mâm ghép đoàn</div>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">Mâm 09+10</span>
+            </div>
+
+            <!-- SECTION 2: KHU TẦNG 1 MÁY LẠNH -->
+            <div class="bg-blue-50/70 px-3 py-1.5 font-bold text-blue-900 flex items-center justify-between border-y border-blue-200">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-snowflake text-blue-500"></i>
+                <span>TẦNG 1 MÁY LẠNH (10 bàn)</span>
+              </span>
+              <span class="text-[10px] font-semibold text-blue-700">Điều hòa</span>
+            </div>
+
+            <!-- Bàn T1-01 -->
+            <div class="h-14 px-3 flex items-center justify-between hover:bg-slate-100 transition">
+              <div>
+                <div class="font-bold text-slate-900">Bàn T1-01</div>
+                <div class="text-[11px] text-slate-500">4 khách</div>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">Đang ăn</span>
+            </div>
+
+            <!-- Bàn T1-02 (Cảnh báo xung đột) -->
+            <div class="h-14 px-3 flex items-center justify-between hover:bg-slate-100 transition bg-red-50/30">
+              <div>
+                <div class="font-bold text-red-900 flex items-center gap-1">
+                  <span>Bàn T1-02</span>
+                  <i class="fa-solid fa-triangle-exclamation text-[10px] text-red-500"></i>
+                </div>
+                <div class="text-[11px] text-red-600 font-medium">Khách ăn lâu</div>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-800 font-bold">Cần điều phối</span>
+            </div>
+
+            <!-- Bàn T1-03 -->
+            <div class="h-14 px-3 flex items-center justify-between hover:bg-slate-100 transition">
+              <div>
+                <div class="font-bold text-slate-900">Bàn T1-03</div>
+                <div class="text-[11px] text-slate-500">6 khách</div>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">Đang ăn</span>
+            </div>
+            
+            <!-- SECTION 3: KHU VIP -->
+            <div class="bg-purple-50/70 px-3 py-1.5 font-bold text-purple-900 flex items-center justify-between border-y border-purple-200">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-crown text-purple-600"></i>
+                <span>PHÒNG VIP (6 phòng)</span>
+              </span>
+              <span class="text-[10px] font-semibold text-purple-700">Karaoke</span>
+            </div>
+
+            <!-- VIP 01 -->
+            <div class="h-14 px-3 flex items-center justify-between hover:bg-slate-100 transition">
+              <div>
+                <div class="font-bold text-slate-900">VIP 01 (15-20K)</div>
+                <div class="text-[11px] text-slate-500">Có Karaoke riêng</div>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-bold">Đã đặt 20h</span>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Scrollable Timeline Matrix -->
+        <div class="flex-1 flex flex-col overflow-x-auto overflow-y-auto custom-scrollbar relative bg-slate-50/40">
+          
+          <!-- Sticky Header: Timeline hours (17:00 - 23:00) -->
+          <div class="h-10 border-b border-slate-200 bg-white sticky top-0 z-10 flex text-xs font-bold text-slate-600 min-w-[1100px]">
+            <div class="w-[90px] border-r border-slate-200 px-2 flex items-center justify-center shrink-0">17:00</div>
+            <div class="w-[90px] border-r border-slate-200 px-2 flex items-center justify-center shrink-0">17:30</div>
+            <div class="w-[90px] border-r border-slate-200 px-2 flex items-center justify-center shrink-0">18:00</div>
+            <div class="w-[90px] border-r border-slate-200 px-2 flex items-center justify-center shrink-0">18:30</div>
+            <div class="w-[90px] border-r border-red-300 bg-red-50/30 px-2 flex items-center justify-center shrink-0 text-red-600">
+              <span>19:00</span>
+            </div>
+            <div class="w-[90px] border-r border-slate-200 px-2 flex items-center justify-center shrink-0 text-orange-600 font-extrabold">19:30</div>
+            <div class="w-[90px] border-r border-slate-200 px-2 flex items-center justify-center shrink-0">20:00</div>
+            <div class="w-[90px] border-r border-slate-200 px-2 flex items-center justify-center shrink-0">20:30</div>
+            <div class="w-[90px] border-r border-slate-200 px-2 flex items-center justify-center shrink-0">21:00</div>
+            <div class="w-[90px] border-r border-slate-200 px-2 flex items-center justify-center shrink-0">21:30</div>
+            <div class="w-[90px] border-r border-slate-200 px-2 flex items-center justify-center shrink-0">22:00</div>
+            <div class="w-[90px] border-r border-slate-200 px-2 flex items-center justify-center shrink-0">22:30</div>
+          </div>
+
+          <!-- The Now Indicator (19:15) -->
+          <div class="now-line" style="left: 395px;"></div>
+
+          <!-- Timeline Rows Canvas -->
+          <div class="min-w-[1100px] relative divide-y divide-slate-200 text-xs">
+            
+            <!-- SECTION 1 HEADER ROW -->
+            <div class="h-[29px] bg-amber-50/40 border-b border-amber-200 px-4 flex items-center text-[11px] text-amber-800 font-medium">
+              Khu vực thoáng đãng ngoài trời - Thích hợp nhậu bạn bè & tiệc bia lẩu nướng
+            </div>
+
+            <!-- ROW BÀN 01 -->
+            <div class="h-14 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+              <!-- Booking Block: Đang ăn A. Thành (Vào 18:00 đến nay 19:15...) -->
+              <div onclick="selectServingTable('Bàn 01', 'Anh Thành', '5 khách', '1.450.000đ', '18:00')" 
+                class="absolute left-[180px] w-[360px] h-11 bg-emerald-600 text-white rounded-lg p-2 flex items-center justify-between shadow-sm cursor-pointer hover:bg-emerald-700 transition border border-emerald-500">
+                <div class="flex items-center space-x-2 truncate">
+                  <div class="w-6 h-6 rounded bg-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">
+                    <i class="fa-solid fa-beer-mug-empty"></i>
+                  </div>
+                  <div class="truncate">
+                    <div class="font-bold leading-tight flex items-center gap-1.5">
+                      <span>A. Thành (5K)</span>
+                      <span class="text-[10px] bg-emerald-800/80 px-1 rounded font-normal">Vào 18:00</span>
+                    </div>
+                    <div class="text-[10px] text-emerald-100 truncate">1 Tháp Tiger Bạc, Lẩu Thái hải sản</div>
+                  </div>
+                </div>
+                <div class="text-right shrink-0">
+                  <div class="font-black text-xs">1.450.000đ</div>
+                  <span class="text-[9px] bg-emerald-800 text-emerald-200 px-1 rounded">Đang phục vụ</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ROW BÀN 02 -->
+            <div class="h-14 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+              <!-- Booking Block: Đã chốt Anh Dũng (Hẹn 19:15 - 21:30) -->
+              <div onclick="selectConfirmedBooking('A. Dũng (Bia Lẩu)', '6 khách', 'Bàn 02', '19:15', '0918.xxx.892')" 
+                class="absolute left-[390px] w-[270px] h-11 bg-orange-500 text-white rounded-lg p-2 flex items-center justify-between shadow-sm cursor-pointer hover:bg-orange-600 transition border border-orange-400">
+                <div class="flex items-center space-x-2 truncate">
+                  <div class="w-6 h-6 rounded bg-orange-600 flex items-center justify-center text-xs font-bold shrink-0">
+                    <i class="fa-solid fa-phone"></i>
+                  </div>
+                  <div class="truncate">
+                    <div class="font-bold leading-tight flex items-center gap-1">
+                      <span>A. Dũng (6K)</span>
+                      <span class="text-[10px] bg-orange-600 px-1 rounded">Hẹn 19:15</span>
+                    </div>
+                    <div class="text-[10px] text-orange-100 truncate">Đã gọi xác nhận - Đang tới</div>
+                  </div>
+                </div>
+                <div class="text-right shrink-0">
+                  <span class="text-[10px] font-bold bg-white text-orange-700 px-1.5 py-0.5 rounded">Đã xác nhận</span>
+                </div>
+              </div>
+
+              <!-- Empty slot click to book -->
+              <div onclick="promptEmptySlot('Bàn 02', '17:30')" class="absolute left-0 w-[360px] h-10 border border-dashed border-slate-200 rounded flex items-center justify-center text-slate-300 text-xs hover:border-orange-400 hover:text-orange-500 cursor-pointer">
+                + Nhấn để đặt trước / nhận khách tại đây
+              </div>
+            </div>
+
+            <!-- ROW BÀN 03 -->
+            <div class="h-14 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+              <!-- Booking Đang ăn: Hội đồng hương Nghệ An -->
+              <div onclick="selectServingTable('Bàn 03', 'Hội đồng hương Nghệ An', '8 khách', '2.890.000đ', '17:30')" 
+                class="absolute left-[90px] w-[340px] h-11 bg-emerald-600 text-white rounded-lg p-2 flex items-center justify-between shadow-sm cursor-pointer hover:bg-emerald-700 transition">
+                <div class="flex items-center space-x-2 truncate">
+                  <div class="w-6 h-6 rounded bg-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">
+                    <i class="fa-solid fa-users"></i>
+                  </div>
+                  <div class="truncate">
+                    <div class="font-bold leading-tight">Hội Nghệ An (8K)</div>
+                    <div class="text-[10px] text-emerald-100 truncate">Đang tráng miệng / Gọi thêm bia</div>
+                  </div>
+                </div>
+                <div class="text-right shrink-0 flex flex-col items-end">
+                  <span class="font-black text-xs">2.890.000đ</span>
+                  <span class="text-[9px] bg-blue-500 text-white px-1 rounded flex items-center gap-0.5">
+                    <i class="fa-solid fa-hand text-[8px]"></i> 1 gọi PV
+                  </span>
+                </div>
+              </div>
+
+              <!-- Lượt đặt tiếp theo sau đó: C. Yến -->
+              <div class="absolute left-[450px] w-[270px] h-11 bg-orange-100 text-orange-800 border border-orange-300 rounded-lg p-2 flex items-center justify-between">
+                <div class="truncate">
+                  <div class="font-bold text-xs">C. Yến - Tiệc liên hoan (10K)</div>
+                  <div class="text-[10px] text-orange-600">Hẹn 20:00 · Đặt trước lẩu riêu</div>
+                </div>
+                <span class="text-[9px] bg-orange-600 text-white px-1.5 py-0.5 rounded font-bold shrink-0">Dự kiến</span>
+              </div>
+            </div>
+
+            <!-- ROW BÀN 04 (Trống hoàn toàn) -->
+            <div class="h-14 relative flex items-center px-4 bg-slate-50/50 hover:bg-slate-100/50 transition">
+              <span class="text-xs text-slate-400 italic">Bàn trống ca tối · Sẵn sàng đón khách vãng lai hoặc xếp đơn chờ</span>
+              <button onclick="promptEmptySlot('Bàn 04', '19:15')" class="ml-4 px-2.5 py-1 bg-white hover:bg-orange-50 text-orange-600 border border-orange-200 rounded text-xs font-semibold">
+                + Nhận khách ngay
+              </button>
+            </div>
+
+            <!-- ROW BÀN 09 (MÂM GHÉP ĐOÀN 15 KHÁCH ANH TÚ) -->
+            <div id="grid-row-09" class="h-14 relative flex items-center px-1 bg-orange-50/20">
+              <!-- Linked Multi-table Booking: Anh Tú (Bàn 09 + Bàn 10) -->
+              <div onclick="selectMevGroup('Mâm 09 + 10', 'Anh Tú (Tiệc công ty)', '15 khách', '3.420.000đ', 'Bàn 09 + 10')" 
+                class="absolute left-[360px] w-[450px] h-11 bg-red-600 text-white rounded-lg p-2 flex items-center justify-between shadow-md cursor-pointer hover:bg-red-700 transition border-2 border-amber-300 linked-group-border z-20">
+                <div class="flex items-center space-x-2 truncate">
+                  <div class="w-7 h-7 rounded bg-red-800 flex items-center justify-center text-xs font-bold shrink-0 animate-bounce">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                  </div>
+                  <div class="truncate">
+                    <div class="font-black text-xs leading-tight flex items-center gap-1.5">
+                      <span>ĐOÀN A. TÚ (15 khách) - MÂM GHÉP 09 + 10</span>
+                      <span class="bg-amber-400 text-slate-950 text-[9px] px-1.5 py-0.2 rounded font-extrabold uppercase">Trễ 15p</span>
+                    </div>
+                    <div class="text-[10px] text-red-100 truncate">
+                      Hẹn 19:00 · Khách gọi kẹt xe đang đến · <strong class="underline">Có 2 lượt gọi món chờ duyệt</strong>
+                    </div>
+                  </div>
+                </div>
+                <div class="text-right shrink-0 flex items-center space-x-2">
+                  <span class="bg-white text-red-700 text-[11px] font-black px-2 py-0.5 rounded shadow">
+                    3.420.000đ
+                  </span>
+                  <span class="bg-amber-300 text-slate-900 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                    2 Lượt mới
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ROW BÀN 10 (MÂM GHÉP ĐOÀN 15 KHÁCH ANH TÚ - PHẦN LIÊN KẾT) -->
+            <div id="grid-row-10" class="h-14 relative flex items-center px-1 bg-orange-50/20">
+              <!-- Visual connector bar between Table 09 and Table 10 -->
+              <div onclick="selectMevGroup('Mâm 09 + 10', 'Anh Tú (Tiệc công ty)', '15 khách', '3.420.000đ', 'Bàn 09 + 10')"
+                class="absolute left-[360px] w-[450px] h-11 bg-red-700/80 text-white rounded-lg p-2 flex items-center justify-between border-2 border-dashed border-amber-300 cursor-pointer hover:bg-red-700">
+                <div class="flex items-center space-x-2 text-xs">
+                  <i class="fa-solid fa-link text-amber-300"></i>
+                  <span class="font-bold text-amber-200">Liên kết cùng Bàn 09 (Chung 1 Bill mâm đoàn Anh Tú)</span>
+                </div>
+                <span class="text-[10px] bg-red-900 text-amber-200 px-2 py-0.5 rounded font-semibold">Bấm để mở Bill</span>
+              </div>
+            </div>
+
+            <!-- SECTION 2 HEADER ROW -->
+            <div class="h-[29px] bg-blue-50/40 border-b border-blue-200 px-4 flex items-center text-[11px] text-blue-800 font-medium">
+              Khu vực trong nhà điều hòa êm ái - Phù hợp gia đình, đối tác, trẻ nhỏ
+            </div>
+
+            <!-- ROW BÀN T1-01 -->
+            <div class="h-14 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+              <!-- Đang ăn & Lượt sau -->
+              <div class="absolute left-[90px] w-[270px] h-11 bg-slate-200 text-slate-700 rounded-lg p-2 flex items-center justify-between border border-slate-300">
+                <div>
+                  <div class="font-bold text-xs">Gia đình chị Vy (4K)</div>
+                  <div class="text-[10px] text-slate-500">Đã thanh toán (18:55) - Đang dọn</div>
+                </div>
+                <span class="text-[9px] bg-slate-400 text-white px-1.5 rounded font-bold">Xong</span>
+              </div>
+
+              <!-- Lượt đặt 19:30: Anh Tuấn -->
+              <div class="absolute left-[390px] w-[270px] h-11 bg-orange-500 text-white rounded-lg p-2 flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-xs">Anh Tuấn (3 khách)</div>
+                  <div class="text-[10px] text-orange-100">Cần ghế trẻ em · Lẩu ếch măng cay</div>
+                </div>
+                <span class="text-[9px] bg-white text-orange-700 font-bold px-1.5 py-0.5 rounded">Đã xác nhận</span>
+              </div>
+            </div>
+
+            <!-- ROW BÀN T1-02 (TÌNH HUỐNG XUNG ĐỘT: KHÁCH ĐANG ĂN LÂU TRÀN GIỜ) -->
+            <div class="h-14 relative flex items-center px-1 bg-red-50/40">
+              <!-- Khách hiện tại đang ngồi lố giờ -->
+              <div class="absolute left-[120px] w-[310px] h-11 bg-emerald-600 text-white rounded-lg p-2 flex items-center justify-between border-2 border-red-500">
+                <div>
+                  <div class="font-bold text-xs flex items-center gap-1">
+                    <span>Nhóm A. Hoàng (4K)</span>
+                    <span class="bg-red-500 text-white text-[9px] px-1 rounded font-bold">Ăn quá giờ dự kiến</span>
+                  </div>
+                  <div class="text-[10px] text-emerald-100">Vào từ 17:45 · Vẫn đang uống bia</div>
+                </div>
+                <span class="text-xs font-black">980.000đ</span>
+              </div>
+
+              <!-- Lượt đặt 19:30 Bị Xung Đột: Đoàn A. Phong (12 khách cần ghép T1-02 + T1-03) -->
+              <div onclick="switchState('booking_conflict')" 
+                class="absolute left-[440px] w-[320px] h-11 bg-red-100 border-2 border-red-500 text-red-900 rounded-lg p-2 flex items-center justify-between cursor-pointer hover:bg-red-200 transition z-10 shadow">
+                <div class="flex items-center space-x-2 truncate">
+                  <i class="fa-solid fa-triangle-exclamation text-red-600 text-sm animate-pulse"></i>
+                  <div class="truncate">
+                    <div class="font-black text-xs leading-tight">XUNG ĐỘT: Đoàn A. Phong (12K)</div>
+                    <div class="text-[10px] text-red-700">Hẹn 19:30 nhưng T1-02 chưa trả bàn!</div>
+                  </div>
+                </div>
+                <span class="text-[10px] bg-red-600 text-white font-bold px-2 py-0.5 rounded shrink-0">
+                  Điều phối ngay
+                </span>
+              </div>
+            </div>
+
+            <!-- ROW BÀN T1-03 -->
+            <div class="h-14 relative flex items-center px-1 bg-white hover:bg-slate-50 transition">
+              <div class="absolute left-[270px] w-[360px] h-11 bg-emerald-600 text-white rounded-lg p-2 flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-xs">A. Khoa (6 khách)</div>
+                  <div class="text-[10px] text-emerald-100">Lẩu riêu cua sườn sụn đặc biệt</div>
+                </div>
+                <span class="font-black text-xs">1.820.000đ</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FOOTER STATS SUMMARY (Khớp dữ liệu mẫu 24 bàn) -->
+      <div class="h-11 border-t border-slate-200 bg-white px-4 flex items-center justify-between text-xs shrink-0 z-20">
+        <div class="flex items-center space-x-6">
+          <div class="flex items-center space-x-1.5 font-bold text-slate-800">
+            <span class="text-sm">24</span>
+            <span class="text-slate-500 font-normal">Tổng bàn toàn quán</span>
+          </div>
+          <div class="flex items-center space-x-1.5 text-emerald-700 font-bold">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>14 bàn đang ăn</span>
+            <span class="text-slate-400 font-normal">(58% lấp đầy)</span>
+          </div>
+          <div class="flex items-center space-x-1.5 text-orange-600 font-bold">
+            <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+            <span>7 bàn sắp đến / Đã đặt trước</span>
+          </div>
+          <div class="flex items-center space-x-1.5 text-slate-500 font-bold">
+            <span class="w-2 h-2 rounded-full bg-slate-300"></span>
+            <span>3 bàn còn trống hoàn toàn</span>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3 text-slate-500 text-[11px]">
+          <span><i class="fa-solid fa-lightbulb text-amber-500"></i> Bấm đúp vào khoảng trống để xếp bàn · Bấm đơn đặt bàn để mở điều phối</span>
+          <button class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-semibold border border-slate-200 flex items-center gap-1">
+            <i class="fa-solid fa-file-excel text-emerald-600"></i>
+            <span>Xuất file ca trực (.xlsx)</span>
+          </button>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- RIGHT CONTEXTUAL DRAWER / PANEL (380px - 760px khi mở menu 2 cột) -->
+    <aside id="rightPanel" class="w-[430px] bg-white border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-xl transition-all duration-300">
+      
+      <!-- DYNAMIC PANEL CONTENT INJECTED HERE VIA JS -->
+      <div id="panelContent" class="h-full flex flex-col">
+        <!-- Default: Tình huống 3 - Mâm đang ăn 09+10, Bill & 2 lượt món chờ duyệt -->
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- MODAL / DIALOG PLACEHOLDERS -->
+  <div id="modalOverlay" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-4">
+    <!-- Popups dynamically populated -->
+    <div id="modalContainer" class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-150">
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT STATE CONTROLLER & WORKFLOWS -->
+  <script>
+    // System Data Mock
+    const mockData = {
+      mmevGroup: {
+        id: 'MAM_09_10',
+        title: 'Mâm 09 + 10 (Ghép 2 bàn)',
+        guestName: 'Anh Tú (Tiệc công ty)',
+        phone: '0932.xxx.222',
+        guestCount: 15,
+        inTime: '18:15',
+        totalAmount: 3420000,
+        pendingReviewsCount: 2,
+        tables: ['Bàn 09', 'Bàn 10'],
+        billItems: [
+          { id: 1, name: 'Lẩu Riêu Cua Bắp Bò Sườn Sụn (Nồi lớn)', qty: 2, price: 550000, status: 'served', note: 'Cay vừa' },
+          { id: 2, name: 'Bò Tơ Cuộn Rau Rừng bánh tráng', qty: 3, price: 185000, status: 'served', note: 'Mắm nêm riêng' },
+          { id: 3, name: 'Bia Tiger Bạc (Tháp 3 Lít)', qty: 2, price: 340000, status: 'served', note: 'Kèm đá xô' },
+          { id: 4, name: 'Ngô chiên bơ tỏi giòn', qty: 2, price: 65000, status: 'served', note: '' },
+          { id: 5, name: 'Khăn lạnh tiệt trùng', qty: 15, price: 4000, status: 'served', note: '' },
+          { id: 6, name: 'Lạc rang húng lìu truyền thống', qty: 2, price: 25000, status: 'served', note: '' }
+        ],
+        pendingRounds: [
+          {
+            roundId: 'ROUND_02',
+            source: 'Khách quét QR tại bàn',
+            time: '19:08 (Cách đây 7 phút)',
+            sender: 'Anh Tú (Trưởng bàn)',
+            items: [
+              { name: 'Ba chỉ bò Mỹ thêm cho lẩu', qty: 3, price: 120000, note: 'Để riêng đĩa đá' },
+              { name: 'Nấm tổng hợp & rau muống chẻ', qty: 2, price: 45000, note: '' }
+            ],
+            roundTotal: 450000,
+            status: 'pending_confirmation'
+          },
+          {
+            roundId: 'ROUND_03',
+            source: 'Nhân viên gọi hộ (NV Nam)',
+            time: '19:12 (Cách đây 3 phút)',
+            sender: 'NV Nam (Thu ngân/chạy bàn)',
+            items: [
+              { name: 'Tháp Bia Saigon Special (3L)', qty: 1, price: 320000, note: 'Ướp thật lạnh mang ngay' }
+            ],
+            roundTotal: 320000,
+            status: 'pending_confirmation'
+          }
+        ]
+      },
+      menuList: [
+        { id: 'M1', name: 'Lẩu Ếch Măng Cay Bảo Lương (Nồi lớn)', price: 480000, cat: 'Lẩu', available: true, code: 'LE01' },
+        { id: 'M2', name: 'Lẩu Riêu Cua Bắp Bò Sườn Sụn', price: 550000, cat: 'Lẩu', available: true, code: 'LR01' },
+        { id: 'M3', name: 'Lẩu Gà Lá É Phú Yên chuẩn vị', price: 460000, cat: 'Lẩu', available: true, code: 'LG01' },
+        { id: 'M4', name: 'Dải heo nướng mọi lá móc mật', price: 165000, cat: 'Nướng', available: true, code: 'DH01' },
+        { id: 'M5', name: 'Bê chao Mộc Châu tương gừng', price: 195000, cat: 'Món nhậu', available: true, code: 'BC01' },
+        { id: 'M6', name: 'Mực trứng chiên nước mắm Phú Quốc', price: 220000, cat: 'Hải sản', available: true, code: 'MT01' },
+        { id: 'M7', name: 'Bia Heineken Silver (Lon)', price: 26000, cat: 'Bia & Đồ uống', available: true, code: 'HN01' },
+        { id: 'M8', name: 'Bia Tiger Bạc (Tháp 3 Lít)', price: 340000, cat: 'Bia & Đồ uống', available: true, code: 'TG03' },
+        { id: 'M9', name: 'Nước suối Aquafina 500ml', price: 15000, cat: 'Bia & Đồ uống', available: true, code: 'AQ01' },
+        { id: 'M10', name: 'Gà nướng lu than hoa 1 con', price: 290000, cat: 'Nướng', available: false, code: 'GN01' }
+      ],
+      newCart: [
+        { id: 'M4', name: 'Dải heo nướng mọi lá móc mật', qty: 2, price: 165000, note: 'Nướng cháy cạnh' },
+        { id: 'M7', name: 'Bia Heineken Silver (Lon)', qty: 6, price: 26000, note: 'Kèm ly đá' }
+      ]
+    };
+
+    // State Rendering Engine
+    function switchState(stateKey) {
+      // Update toggle buttons styling
+      const states = ['timeline', 'booking', 'order', 'add', 'print', 'pay'];
+      const currentActive = stateKey.split('_')[0];
+      
+      document.querySelectorAll('[id^="btn-state-"]').forEach(btn => {
+        btn.className = 'px-2 py-1 rounded text-[11px] font-bold text-slate-300 hover:text-white transition';
+      });
+
+      const rightPanel = document.getElementById('rightPanel');
+      const panelContent = document.getElementById('panelContent');
+
+      // Reset panel width
+      rightPanel.classList.remove('w-[760px]');
+      rightPanel.classList.add('w-[430px]');
+
+      if (stateKey === 'timeline_overview') {
+        document.getElementById('btn-state-timeline').className = 'px-2 py-1 rounded text-[11px] font-bold bg-orange-600 text-white transition';
+        renderTimelineOverviewPanel();
+      } else if (stateKey === 'booking_conflict') {
+        document.getElementById('btn-state-booking').className = 'px-2 py-1 rounded text-[11px] font-bold bg-orange-600 text-white transition';
+        renderBookingConflictPanel();
+      } else if (stateKey === 'order_review') {
+        document.getElementById('btn-state-order').className = 'px-2 py-1 rounded text-[11px] font-bold bg-orange-600 text-white transition';
+        renderServingBillPanel();
+      } else if (stateKey === 'add_items') {
+        document.getElementById('btn-state-add').className = 'px-2 py-1 rounded text-[11px] font-bold bg-orange-600 text-white transition';
+        rightPanel.classList.remove('w-[430px]');
+        rightPanel.classList.add('w-[760px]');
+        renderAddItemsMenuPanel();
+      } else if (stateKey === 'print_kitchen') {
+        document.getElementById('btn-state-print').className = 'px-2 py-1 rounded text-[11px] font-bold bg-orange-600 text-white transition';
+        renderKitchenPrintPanel();
+      } else if (stateKey === 'payment_block') {
+        document.getElementById('btn-state-pay').className = 'px-2 py-1 rounded text-[11px] font-bold bg-orange-600 text-white transition';
+        renderPaymentBlockedPanel();
+      }
+    }
+
+    // 1. Panel: Tổng quan ca trực & Hàng đợi
+    function renderTimelineOverviewPanel() {
+      const panelContent = document.getElementById('panelContent');
+      panelContent.innerHTML = `
+        <div class="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-sm">Hàng đợi điều phối ca trực</h3>
+            <p class="text-xs text-slate-500">Giờ cao điểm ca tối: 19:15 · 24 Bàn</p>
+          </div>
+          <span class="bg-orange-100 text-orange-800 text-[10px] font-black px-2 py-1 rounded">5 Việc cần xử lý</span>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar text-xs">
+          <!-- Queue Group 1: Quá giờ chưa đến -->
+          <div class="border border-red-300 rounded-lg p-3 bg-red-50/60">
+            <div class="flex items-center justify-between font-bold text-red-900 mb-1.5">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-clock-rotate-left text-red-600"></i>
+                <span>CẢNH BÁO QUÁ GIỜ (15 phút)</span>
+              </span>
+              <span class="bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-black">Hẹn 19:00</span>
+            </div>
+            <div class="font-bold text-slate-900 text-sm">A. Tú - Đoàn 15 khách (Mâm 09+10)</div>
+            <p class="text-slate-600 mt-0.5">SĐT: <strong class="text-slate-900 font-mono">0932.xxx.222</strong> · Đã giữ 2 bàn ngoài sân vườn.</p>
+            <p class="text-red-700 font-medium text-[11px] mt-1 italic">Khách gọi báo tắc đường, xin giữ bàn thêm 15p. Đã có món order trước.</p>
+            <div class="flex items-center space-x-2 mt-2.5">
+              <button onclick="window.open('tel:0932356222')" class="flex-1 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 font-bold rounded flex items-center justify-center gap-1">
+                <i class="fa-solid fa-phone text-emerald-600"></i> Gọi khách
+              </button>
+              <button onclick="switchState('order_review')" class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded flex items-center justify-center gap-1">
+                <i class="fa-solid fa-check"></i> Khách đã đến
+              </button>
+              <button onclick="alert('Đã gửi nhắc hẹn gia hạn thêm 15 phút. Hệ thống giữ bàn tới 19:30.')" class="px-2 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold rounded" title="Gia hạn">
+                +15p
+              </button>
+            </div>
+          </div>
+
+          <!-- Queue Group 2: Đặt bàn chưa xếp bàn -->
+          <div class="border border-amber-300 rounded-lg p-3 bg-amber-50/60">
+            <div class="flex items-center justify-between font-bold text-amber-900 mb-1.5">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-user-clock text-amber-600"></i>
+                <span>CHƯA XẾP BÀN VẬT LÝ</span>
+              </span>
+              <span class="bg-amber-500 text-slate-950 text-[10px] px-1.5 py-0.5 rounded font-black">Hẹn 19:45</span>
+            </div>
+            <div class="font-bold text-slate-900 text-sm">Chị Thảo (6 khách) - Cần bàn máy lạnh</div>
+            <p class="text-slate-600 mt-0.5">SĐT: 0984.xxx.119 · Ghi chú: Có người lớn tuổi, tránh gió quạt mạnh.</p>
+            <div class="mt-2 flex items-center justify-between bg-white p-2 rounded border border-amber-200">
+              <span class="text-slate-500">Gợi ý bàn trống:</span>
+              <span class="font-bold text-slate-800">Bàn T1-04 (6 khách)</span>
+            </div>
+            <button onclick="switchState('booking_conflict')" class="w-full mt-2.5 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded">
+              Chọn bàn & Xác nhận đặt chỗ
+            </button>
+          </div>
+
+          <!-- Queue Group 3: Thao tác nhanh cho thu ngân -->
+          <div class="border border-slate-200 rounded-lg p-3 bg-white">
+            <div class="font-bold text-slate-800 mb-2">Thao tác ca trực nhanh:</div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="openWalkinModal()" class="p-2 border border-slate-200 rounded hover:bg-slate-50 text-left">
+                <i class="fa-solid fa-chair text-orange-600 mb-1"></i>
+                <div class="font-bold text-slate-800">Mở bàn vãng lai</div>
+                <div class="text-[10px] text-slate-400">Không đặt trước</div>
+              </button>
+              <button onclick="switchState('order_review')" class="p-2 border border-slate-200 rounded hover:bg-slate-50 text-left">
+                <i class="fa-solid fa-receipt text-emerald-600 mb-1"></i>
+                <div class="font-bold text-slate-800">Mâm 09+10</div>
+                <div class="text-[10px] text-slate-400">Xem bill hiện tại</div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-500 flex justify-between">
+          <span>Máy in bill: <strong class="text-emerald-600">Sẵn sàng (Khổ 80mm)</strong></span>
+          <span>Bếp chính: <strong class="text-emerald-600">Kết nối</strong></span>
+        </div>
+      `;
+    }
+
+    // 2. Panel: Đặt bàn & Xử lý xung đột (T1-02 bị khách ngồi lâu)
+    function renderBookingConflictPanel() {
+      const panelContent = document.getElementById('panelContent');
+      panelContent.innerHTML = `
+        <div class="p-4 border-b border-slate-200 bg-red-50 flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-1.5 text-red-700 font-extrabold text-xs">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span>CẢNH BÁO XUNG ĐỘT BÀN GIỜ CAO ĐIỂM</span>
+            </div>
+            <h3 class="font-extrabold text-slate-900 text-sm">Đoàn A. Phong (12 khách) - Hẹn 19:30</h3>
+          </div>
+          <button onclick="switchState('timeline_overview')" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-base"></i></button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar text-xs">
+          <!-- Chi tiết đơn đặt -->
+          <div class="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-slate-500">Khách hàng:</span>
+              <span class="font-bold text-slate-900 text-sm">Anh Phong (Liên hoan công ty)</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-500">Số điện thoại:</span>
+              <span class="font-mono font-bold text-slate-800">0978.xxx.345 <button class="ml-1 text-orange-600"><i class="fa-solid fa-phone"></i></button></span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-500">Giờ hẹn đến:</span>
+              <span class="font-bold text-orange-600">19:30 hôm nay (Còn 15 phút)</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-500">Số lượng khách:</span>
+              <span class="font-extrabold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">12 người lớn</span>
+            </div>
+            <div class="border-t border-slate-100 pt-2 text-slate-600">
+              <strong>Ghi chú đặt trước:</strong> Cần ghép bàn dài trong nhà điều hòa mát mẻ, đã xem set Lẩu riêu cua sườn sụn.
+            </div>
+          </div>
+
+          <!-- Nguyên nhân xung đột -->
+          <div class="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2 text-red-900">
+            <div class="font-bold flex items-center gap-1.5 text-xs">
+              <i class="fa-solid fa-circle-xmark text-red-600"></i>
+              <span>Vướng bàn vật lý dự kiến (Bàn T1-02):</span>
+            </div>
+            <p class="text-[11px] leading-relaxed">
+              Dự kiến ghép <strong>Bàn T1-02 + T1-03</strong>. Tuy nhiên hiện tại <strong>Bàn T1-02</strong> (Nhóm A. Hoàng 4K) đã quá giờ dự kiến 30 phút nhưng vẫn đang dùng tráng miệng và bia, chưa thể trả bàn!
+            </p>
+            <div class="text-[11px] bg-white p-2 rounded border border-red-200 text-slate-800">
+              <strong>Quy tắc hệ thống:</strong> Tuyệt đối không tự hủy booking hoặc tự động ép khách hiện tại rời bàn khi chưa có xác nhận từ thu ngân/chủ quán.
+            </div>
+          </div>
+
+          <!-- Phương án giải quyết điều phối -->
+          <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-2 text-emerald-950">
+            <div class="font-bold text-xs flex items-center justify-between">
+              <span class="flex items-center gap-1"><i class="fa-solid fa-wand-magic-sparkles text-emerald-600"></i> GỢI Ý ĐIỀU PHỐI TỐI ƯU:</span>
+              <span class="bg-emerald-600 text-white text-[10px] px-1.5 rounded">Khuyên dùng</span>
+            </div>
+            <div class="space-y-1.5 text-[11px]">
+              <label class="flex items-start gap-2 bg-white p-2 rounded border border-emerald-300 cursor-pointer">
+                <input type="radio" name="solution" checked class="mt-0.5 text-emerald-600" />
+                <div>
+                  <div class="font-bold text-slate-900">Phương án A: Chuyển ghép sang Sân Vườn (Bàn 04 + Bàn 05)</div>
+                  <div class="text-slate-500">Khu sân vườn thoáng mát, Bàn 04 đang trống sẵn, Bàn 05 trống từ 19:15. Đủ sức chứa 14-16 khách.</div>
+                </div>
+              </label>
+
+              <label class="flex items-start gap-2 bg-white p-2 rounded border border-slate-200 hover:border-emerald-300 cursor-pointer">
+                <input type="radio" name="solution" class="mt-0.5 text-emerald-600" />
+                <div>
+                  <div class="font-bold text-slate-900">Phương án B: Nâng cấp lên Phòng VIP 01 (Phụ thu 0đ)</div>
+                  <div class="text-slate-500">Phòng VIP 01 đang trống tới 20:30, riêng tư, điều hòa mát rượi, nhân viên chăm sóc riêng.</div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-200 bg-slate-50 space-y-2">
+          <button onclick="confirmConflictResolution()" class="w-full py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs rounded-lg shadow-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-arrows-split-up-and-left"></i>
+            <span>Xác nhận điều phối sang Bàn 04 + 05 (Sân vườn)</span>
+          </button>
+          <div class="flex space-x-2">
+            <button onclick="window.open('tel:0978345345')" class="flex-1 py-1.5 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded hover:bg-slate-100 flex items-center justify-center gap-1">
+              <i class="fa-solid fa-phone"></i> Gọi báo khách
+            </button>
+            <button onclick="switchState('timeline_overview')" class="flex-1 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded">
+              Bỏ qua / Xem tiếp
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // 3. Panel: Mâm đang ăn 09+10, Bill chi tiết & 2 lượt món chờ duyệt
+    function renderServingBillPanel() {
+      const panelContent = document.getElementById('panelContent');
+      const data = mockData.mmevGroup;
+
+      let billHtml = data.billItems.map(item => `
+        <div class="flex items-center justify-between py-1.5 border-b border-slate-100 text-xs">
+          <div class="flex-1 pr-2 truncate">
+            <div class="font-semibold text-slate-900 truncate">${item.name}</div>
+            ${item.note ? `<div class="text-[10px] text-orange-600 font-medium italic">Ghi chú: ${item.note}</div>` : ''}
+          </div>
+          <div class="w-12 text-center font-bold text-slate-700">x${item.qty}</div>
+          <div class="w-24 text-right font-black text-slate-900">${(item.price * item.qty).toLocaleString('vi-VN')}đ</div>
+        </div>
+      `).join('');
+
+      panelContent.innerHTML = `
+        <!-- HEADER MÂM ĐANG ĂN -->
+        <div class="p-3 bg-slate-900 text-white flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-9 h-9 rounded-lg bg-orange-600 flex items-center justify-center font-black text-base shadow">
+              <i class="fa-solid fa-link"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="font-extrabold text-sm leading-tight text-white">${data.title}</h2>
+                <span class="bg-emerald-500 text-slate-950 font-black text-[9px] px-1.5 py-0.2 rounded uppercase">Đang phục vụ</span>
+              </div>
+              <p class="text-[11px] text-slate-300">Khách: <strong>${data.guestName}</strong> · ${data.guestCount} khách · Vào lúc ${data.inTime}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-[10px] text-slate-400 font-semibold uppercase">Tổng bill hiện tại</div>
+            <div class="font-black text-amber-400 text-base leading-tight">${data.totalAmount.toLocaleString('vi-VN')}đ</div>
+          </div>
+        </div>
+
+        <!-- TAB NAVIGATION -->
+        <div class="flex border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-600">
+          <button id="tab-btn-bill" onclick="showTab('bill')" class="flex-1 py-2 text-center border-b-2 border-orange-600 text-orange-600 bg-white">
+            <i class="fa-regular fa-receipt"></i> Hóa đơn (${data.billItems.length})
+          </button>
+          <button id="tab-btn-rounds" onclick="showTab('rounds')" class="flex-1 py-2 text-center border-b-2 border-transparent hover:text-slate-900 relative">
+            <i class="fa-solid fa-bell-concierge"></i> Lượt gọi món mới
+            <span class="ml-1 bg-red-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-black animate-pulse">2</span>
+          </button>
+          <button id="tab-btn-history" onclick="showTab('history')" class="flex-1 py-2 text-center border-b-2 border-transparent hover:text-slate-900 text-slate-500">
+            <i class="fa-solid fa-timeline"></i> Lịch sử
+          </button>
+        </div>
+
+        <!-- TAB CONTENT CONTAINER -->
+        <div id="tabContainer" class="flex-1 overflow-y-auto p-3 custom-scrollbar text-xs">
+          
+          <!-- TAB 1: DANH SÁCH MÓN ĐÃ PHỤC VỤ TRONG BILL -->
+          <div id="tab-bill-view">
+            <!-- 2 LƯỢT CHỜ DUYỆT BANNER -->
+            <div onclick="showTab('rounds')" class="mb-3 p-2.5 bg-amber-50 border border-amber-300 rounded-lg flex items-center justify-between cursor-pointer hover:bg-amber-100 transition">
+              <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-bell-concierge text-amber-600 text-base animate-bounce"></i>
+                <div>
+                  <div class="font-black text-amber-900 text-xs">Có 2 lượt gọi món đang chờ duyệt!</div>
+                  <div class="text-[10px] text-amber-700">1 lượt từ Khách quét QR + 1 lượt từ NV gọi hộ (Tổng 770.000đ)</div>
+                </div>
+              </div>
+              <span class="bg-amber-500 text-slate-950 font-bold px-2 py-1 rounded text-[11px]">Duyệt ngay &rarr;</span>
+            </div>
+
+            <div class="flex items-center justify-between font-bold text-slate-700 pb-1 border-b border-slate-200 uppercase text-[10px]">
+              <span>Tên món</span>
+              <span class="w-12 text-center">SL</span>
+              <span class="w-24 text-right">Thành tiền</span>
+            </div>
+
+            <div class="divide-y divide-slate-100">
+              ${billHtml}
+            </div>
+
+            <!-- Nút phụ: Bổ sung món đã phục vụ vào bill -->
+            <div class="mt-3 p-2 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-600 flex items-center justify-between">
+              <div>
+                <span class="font-bold text-slate-800"><i class="fa-solid fa-circle-info text-blue-500"></i> Bổ sung món đã dùng:</span>
+                <p class="text-[10px] text-slate-400">Chỉ ghi nhận tiền vào bill, không in gửi bếp chế biến lại.</p>
+              </div>
+              <button onclick="alert('Mở form ghi nhận món mang ra sẵn (Khăn, nước ngọt, đá bia)')" class="px-2 py-1 bg-white border border-slate-300 hover:bg-slate-100 font-bold rounded text-slate-700">
+                + Ghi nhận
+              </button>
+            </div>
+          </div>
+
+          <!-- TAB 2: LƯỢT GỌI MÓN CHỜ DUYỆT (ẨN MẶC ĐỊNH HOẶC CHUYỂN QUA) -->
+          <div id="tab-rounds-view" class="hidden space-y-3">
+            <!-- LƯỢT 1: QR CODE CỦA KHÁCH -->
+            <div class="border-2 border-orange-400 rounded-lg p-3 bg-orange-50/40">
+              <div class="flex items-center justify-between border-b border-orange-200 pb-2">
+                <div>
+                  <span class="bg-orange-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase">Khách quét QR</span>
+                  <span class="font-extrabold text-slate-900 ml-1">Lượt #02</span>
+                  <div class="text-[10px] text-slate-500 mt-0.5">Gửi lúc 19:08 · Người gửi: Anh Tú (Trưởng bàn)</div>
+                </div>
+                <div class="text-right">
+                  <span class="font-black text-sm text-orange-600">450.000đ</span>
+                  <div class="text-[9px] text-amber-700 font-bold">Chờ Owner duyệt</div>
+                </div>
+              </div>
+
+              <div class="py-2 space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                  <div>
+                    <span class="font-bold text-slate-900">3x Ba chỉ bò Mỹ thêm cho lẩu</span>
+                    <div class="text-[10px] text-orange-600 italic">Ghi chú: Để riêng đĩa đá, kèm sốt chấm</div>
+                  </div>
+                  <span class="font-black text-slate-800">360.000đ</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                  <div>
+                    <span class="font-bold text-slate-900">2x Nấm tổng hợp & rau muống chẻ</span>
+                  </div>
+                  <span class="font-black text-slate-800">90.000đ</span>
+                </div>
+              </div>
+
+              <div class="pt-2 border-t border-orange-200 flex items-center space-x-2">
+                <button onclick="switchState('print_kitchen')" class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded flex items-center justify-center gap-1">
+                  <i class="fa-solid fa-print"></i> Xác nhận & In 2 liên (Bếp + Bàn)
+                </button>
+                <button onclick="alert('Đã từ chối lượt gọi món này với lý do: Quán tạm hết nấm tổng hợp!')" class="px-2.5 py-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-bold rounded">
+                  Từ chối
+                </button>
+              </div>
+            </div>
+
+            <!-- LƯỢT 2: NHÂN VIÊN GỌI HỘ TẠI BÀN -->
+            <div class="border border-slate-300 rounded-lg p-3 bg-white">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div>
+                  <span class="bg-blue-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase">NV gọi hộ</span>
+                  <span class="font-extrabold text-slate-900 ml-1">Lượt #03</span>
+                  <div class="text-[10px] text-slate-500 mt-0.5">Gửi lúc 19:12 · Nhân viên Nam (Chạy bàn)</div>
+                </div>
+                <div class="text-right">
+                  <span class="font-black text-sm text-slate-900">320.000đ</span>
+                  <div class="text-[9px] text-amber-700 font-bold">Chờ Owner duyệt</div>
+                </div>
+              </div>
+
+              <div class="py-2 space-y-1">
+                <div class="flex justify-between items-center text-xs">
+                  <div>
+                    <span class="font-bold text-slate-900">1x Tháp Bia Saigon Special (3 Lít)</span>
+                    <div class="text-[10px] text-slate-500 italic">Ướp thật lạnh mang ngay</div>
+                  </div>
+                  <span class="font-black text-slate-800">320.000đ</span>
+                </div>
+              </div>
+
+              <div class="pt-2 border-t border-slate-100 flex items-center space-x-2">
+                <button onclick="switchState('print_kitchen')" class="flex-1 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-extrabold rounded flex items-center justify-center gap-1">
+                  <i class="fa-solid fa-check"></i> Duyệt & Gửi Bar bia
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: LỊCH SỬ THAO TÁC -->
+          <div id="tab-history-view" class="hidden space-y-2 text-[11px] text-slate-600">
+            <div class="p-2 bg-slate-50 rounded border border-slate-200">
+              <span class="font-bold text-slate-800">18:15</span> - Nhận khách vào Bàn 09 + Bàn 10, mở mâm ghép đoàn (Thu ngân Bảo Lương).
+            </div>
+            <div class="p-2 bg-slate-50 rounded border border-slate-200">
+              <span class="font-bold text-slate-800">18:18</span> - In phiếu bếp Lượt #01 (2 Lẩu riêu, 3 Bò tơ, 2 Tháp Tiger). Máy in Bill 80mm: Thành công.
+            </div>
+            <div class="p-2 bg-slate-50 rounded border border-slate-200">
+              <span class="font-bold text-slate-800">18:45</span> - Phục vụ thêm 15 khăn lạnh và 2 đĩa lạc rang.
+            </div>
+          </div>
+
+        </div>
+
+        <!-- FOOTER ACTIONS -->
+        <div class="p-3 border-t border-slate-200 bg-slate-50 space-y-2 shrink-0">
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="switchState('add_items')" class="py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-extrabold text-xs rounded-lg flex items-center justify-center gap-1.5 shadow-xs">
+              <i class="fa-solid fa-plus text-orange-600"></i> Gọi thêm món
+            </button>
+            <button onclick="alert('Đã in phiếu tạm tính cho Mâm 09+10 gửi ra bàn để khách kiểm tra!')" class="py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-extrabold text-xs rounded-lg flex items-center justify-center gap-1.5 shadow-xs">
+              <i class="fa-solid fa-receipt text-blue-600"></i> In tạm tính
+            </button>
+          </div>
+          
+          <button onclick="switchState('payment_block')" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-lg shadow-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-cash-register"></i>
+            <span>Thanh toán mâm (${data.totalAmount.toLocaleString('vi-VN')}đ)</span>
+          </button>
+        </div>
+      `;
+    }
+
+    // Tab switcher inside Serving Bill Panel
+    function showTab(tabName) {
+      document.getElementById('tab-bill-view').classList.add('hidden');
+      document.getElementById('tab-rounds-view').classList.add('hidden');
+      document.getElementById('tab-history-view').classList.add('hidden');
+
+      document.getElementById('tab-btn-bill').className = 'flex-1 py-2 text-center border-b-2 border-transparent text-slate-600 hover:text-slate-900';
+      document.getElementById('tab-btn-rounds').className = 'flex-1 py-2 text-center border-b-2 border-transparent text-slate-600 hover:text-slate-900 relative';
+      document.getElementById('tab-btn-history').className = 'flex-1 py-2 text-center border-b-2 border-transparent text-slate-600 hover:text-slate-900 text-slate-500';
+
+      if (tabName === 'bill') {
+        document.getElementById('tab-bill-view').classList.remove('hidden');
+        document.getElementById('tab-btn-bill').className = 'flex-1 py-2 text-center border-b-2 border-orange-600 text-orange-600 bg-white font-bold';
+      } else if (tabName === 'rounds') {
+        document.getElementById('tab-rounds-view').classList.remove('hidden');
+        document.getElementById('tab-btn-rounds').className = 'flex-1 py-2 text-center border-b-2 border-orange-600 text-orange-600 bg-white font-bold relative';
+      } else if (tabName === 'history') {
+        document.getElementById('tab-history-view').classList.remove('hidden');
+        document.getElementById('tab-btn-history').className = 'flex-1 py-2 text-center border-b-2 border-orange-600 text-orange-600 bg-white font-bold';
+      }
+    }
+
+    // 4. Panel: Gọi món mới (Mở rộng 2 cột: Thực đơn + Giỏ món ngay tại trang)
+    function renderAddItemsMenuPanel() {
+      const panelContent = document.getElementById('panelContent');
+      const menu = mockData.menuList;
+      const cart = mockData.newCart;
+
+      let menuHtml = menu.map(m => `
+        <div class="p-2.5 border border-slate-200 rounded-lg hover:border-orange-500 hover:shadow-xs transition bg-white flex flex-col justify-between ${!m.available ? 'opacity-60 bg-slate-50' : ''}">
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="font-bold text-slate-900 text-xs">${m.name}</span>
+              <span class="text-[10px] font-mono text-slate-400">${m.code}</span>
+            </div>
+            <div class="text-[11px] text-slate-500 mt-0.5">${m.cat}</div>
+          </div>
+          <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+            <span class="font-extrabold text-orange-600 text-xs">${m.price.toLocaleString('vi-VN')}đ</span>
+            ${m.available ? `
+              <button onclick="addToCart('${m.id}')" class="px-2 py-1 bg-orange-50 hover:bg-orange-600 hover:text-white text-orange-600 border border-orange-200 font-bold text-xs rounded transition">
+                + Thêm
+              </button>
+            ` : `
+              <span class="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">Hết món</span>
+            `}
+          </div>
+        </div>
+      `).join('');
+
+      let cartHtml = cart.map(c => `
+        <div class="p-2 border-b border-slate-100 flex items-center justify-between text-xs">
+          <div class="flex-1 pr-2 truncate">
+            <div class="font-bold text-slate-900 truncate">${c.name}</div>
+            <input type="text" value="${c.note}" placeholder="Ghi chú chế biến..." class="w-full mt-1 px-1.5 py-0.5 text-[10px] border border-slate-200 rounded bg-slate-50 text-slate-600 outline-none" />
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <button class="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs flex items-center justify-center">-</button>
+            <span class="font-bold w-4 text-center">${c.qty}</span>
+            <button class="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs flex items-center justify-center">+</button>
+          </div>
+          <div class="w-20 text-right font-black text-slate-900">${(c.price * c.qty).toLocaleString('vi-VN')}đ</div>
+        </div>
+      `).join('');
+
+      const cartTotal = cart.reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
+
+      panelContent.innerHTML = `
+        <!-- HEADER 2 CỘT -->
+        <div class="p-3 bg-slate-900 text-white flex items-center justify-between shrink-0">
+          <div class="flex items-center space-x-2">
+            <button onclick="switchState('order_review')" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
+              <i class="fa-solid fa-arrow-left text-xs"></i>
+            </button>
+            <div>
+              <h3 class="font-extrabold text-sm">GỌI THÊM MÓN &rarr; ${mockData.mmevGroup.title}</h3>
+              <p class="text-[11px] text-slate-400">Tự động tạo lượt món mới, qua bước xác nhận & in bếp</p>
+            </div>
+          </div>
+          <span class="bg-orange-600 text-white font-bold text-xs px-2.5 py-1 rounded">Bàn đích: Mâm 09+10</span>
+        </div>
+
+        <!-- 2 COLUMNS BODY -->
+        <div class="flex-1 flex overflow-hidden">
+          
+          <!-- LEFT COLUMN: THỰC ĐƠN & DANH MỤC (60%) -->
+          <div class="flex-1 border-r border-slate-200 flex flex-col bg-slate-50">
+            <!-- Filter & Search món -->
+            <div class="p-2.5 border-b border-slate-200 bg-white space-y-2">
+              <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" placeholder="Tìm tên món, mã món (LE01, DH01)..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-orange-500" />
+              </div>
+              <div class="flex space-x-1.5 overflow-x-auto custom-scrollbar text-xs font-semibold">
+                <button class="px-2.5 py-1 bg-orange-600 text-white rounded-md shrink-0">Tất cả (10)</button>
+                <button class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md shrink-0">Lẩu (3)</button>
+                <button class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md shrink-0">Món nhậu (2)</button>
+                <button class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md shrink-0">Bia & Đồ uống (3)</button>
+                <button class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md shrink-0">Hải sản (1)</button>
+              </div>
+            </div>
+
+            <!-- Menu Grid -->
+            <div class="flex-1 overflow-y-auto p-3 grid grid-cols-2 gap-2.5 custom-scrollbar">
+              ${menuHtml}
+            </div>
+          </div>
+
+          <!-- RIGHT COLUMN: GIỎ MÓN CỦA LƯỢT NÀY (40%) -->
+          <div class="w-[320px] flex flex-col bg-white">
+            <div class="p-2.5 border-b border-slate-200 bg-slate-100 flex items-center justify-between text-xs font-bold text-slate-800">
+              <span>LƯỢT MÓN ĐANG CHỌN (${cart.length})</span>
+              <button onclick="alert('Đã xóa toàn bộ giỏ món nháp!')" class="text-slate-400 hover:text-red-600 text-[11px] font-normal">Xóa tất cả</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-2 custom-scrollbar">
+              ${cartHtml}
+            </div>
+
+            <!-- Cart Summary & Actions -->
+            <div class="p-3 border-t border-slate-200 bg-slate-50 space-y-2">
+              <div class="flex justify-between items-center text-xs">
+                <span class="text-slate-500 font-medium">Tổng tiền lượt này:</span>
+                <span class="font-black text-base text-orange-600">${cartTotal.toLocaleString('vi-VN')}đ</span>
+              </div>
+              
+              <button onclick="switchState('print_kitchen')" class="w-full py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs rounded-lg shadow flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>Gửi lượt món & In bếp (${cartTotal.toLocaleString('vi-VN')}đ)</span>
+              </button>
+
+              <button onclick="switchState('order_review')" class="w-full py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded">
+                Hủy / Quay lại Bill
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+      `;
+    }
+
+    // 5. Panel: Xác nhận & In 2 liên (Phiếu Bếp + Phiếu Bàn) & Tình huống in lại
+    function renderKitchenPrintPanel() {
+      const panelContent = document.getElementById('panelContent');
+      panelContent.innerHTML = `
+        <div class="p-4 border-b border-slate-200 bg-emerald-50 flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-1.5 text-emerald-700 font-extrabold text-xs">
+              <i class="fa-solid fa-print"></i>
+              <span>XÁC NHẬN & PHÁT LỆNH IN 2 LIÊN</span>
+            </div>
+            <h3 class="font-extrabold text-slate-900 text-sm">Lượt gọi món #02 · Mâm 09+10</h3>
+          </div>
+          <button onclick="switchState('order_review')" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-base"></i></button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar text-xs">
+          <!-- Thông tin 2 liên in -->
+          <div class="bg-white border border-slate-200 rounded-lg p-3 space-y-3">
+            <div class="font-bold text-slate-900 text-xs border-b border-slate-100 pb-1.5 flex items-center justify-between">
+              <span>Nội dung phiếu in bếp & bar:</span>
+              <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">Lệnh in: #PRN-8821</span>
+            </div>
+
+            <div class="space-y-2">
+              <div class="p-2 bg-slate-50 rounded border border-slate-200 flex justify-between items-center">
+                <div>
+                  <div class="font-bold text-slate-800">Liên 1: Phiếu Báo Chế Biến (Bếp chính)</div>
+                  <div class="text-[10px] text-slate-500">Máy in Bếp nhiệt 80mm · Ba chỉ bò Mỹ (3 đĩa) + Nấm & rau</div>
+                </div>
+                <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">Sẵn sàng</span>
+              </div>
+
+              <div class="p-2 bg-slate-50 rounded border border-slate-200 flex justify-between items-center">
+                <div>
+                  <div class="font-bold text-slate-800">Liên 2: Phiếu Giữ Bàn (Kiểm món tại bàn)</div>
+                  <div class="text-[10px] text-slate-500">Máy in Quầy Thu Ngân · Nhân viên kẹp vào kẹp bill bàn 09</div>
+                </div>
+                <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">Sẵn sàng</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trạng thái in & Xử lý lỗi in / In lại -->
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2 text-amber-950">
+            <div class="font-bold text-xs flex items-center gap-1.5">
+              <i class="fa-solid fa-triangle-exclamation text-amber-600"></i>
+              <span>Xử lý tình huống máy in kẹt giấy hoặc hết giấy:</span>
+            </div>
+            <p class="text-[11px] leading-relaxed">
+              Hệ thống tách biệt rõ ràng: <strong>Lệnh gửi in &ne; Đã in thành công</strong>. Nếu máy in bếp bị kẹt giấy, đơn đặt vẫn giữ nguyên trạng thái "Đã xác nhận", không tạo bản sao đơn mới làm sai lệch doanh thu hay trùng bill.
+            </p>
+            <button onclick="reprintTicket()" class="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 font-bold rounded flex items-center gap-1.5">
+              <i class="fa-solid fa-arrows-rotate"></i>
+              <span>Thử in lại phiếu này (Lưu vết In lần 2)</span>
+            </button>
+          </div>
+
+          <!-- Món trong lượt này -->
+          <div class="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
+            <div class="font-bold text-slate-800">Chi tiết món gửi chế biến:</div>
+            <div class="divide-y divide-slate-100">
+              <div class="py-1 flex justify-between">
+                <span>3x Ba chỉ bò Mỹ thêm</span>
+                <span class="font-mono font-bold">360.000đ</span>
+              </div>
+              <div class="py-1 flex justify-between">
+                <span>2x Nấm tổng hợp & rau muống chẻ</span>
+                <span class="font-mono font-bold">90.000đ</span>
+              </div>
+            </div>
+            <div class="pt-2 border-t border-slate-200 flex justify-between font-black text-slate-900">
+              <span>Tổng lượt in:</span>
+              <span class="text-orange-600">450.000đ</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-200 bg-slate-50 space-y-2">
+          <button onclick="completePrintingAndMerge()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-lg shadow-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-check-double"></i>
+            <span>Xác nhận in thành công & Nối vào Bill mâm</span>
+          </button>
+          <button onclick="switchState('order_review')" class="w-full py-1.5 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded">
+            Quay lại kiểm tra
+          </button>
+        </div>
+      `;
+    }
+
+    // 6. Panel: Thanh toán (2 trạng thái: BỊ CHẶN do còn lượt chờ & SẴN SÀNG THU TIỀN)
+    function renderPaymentBlockedPanel() {
+      const panelContent = document.getElementById('panelContent');
+      const data = mockData.mmevGroup;
+
+      panelContent.innerHTML = `
+        <div class="p-4 border-b border-slate-200 bg-red-50 flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-1.5 text-red-700 font-extrabold text-xs">
+              <i class="fa-solid fa-ban"></i>
+              <span>CHẶN THANH TOÁN (BILL CHƯA HOÀN TẤT)</span>
+            </div>
+            <h3 class="font-extrabold text-slate-900 text-sm">${data.title}</h3>
+          </div>
+          <button onclick="switchState('order_review')" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-base"></i></button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar text-xs">
+          <!-- Cảnh báo chặn thanh toán -->
+          <div class="bg-red-50 border-2 border-red-300 rounded-lg p-3 space-y-2 text-red-950">
+            <div class="font-black text-xs flex items-center gap-1.5 text-red-700">
+              <i class="fa-solid fa-circle-exclamation text-base"></i>
+              <span>Không thể đóng bill: Còn 2 lượt gọi món chưa được xử lý!</span>
+            </div>
+            <p class="text-[11px] leading-relaxed">
+              Quy chuẩn nghiệp vụ Bảo Lương yêu cầu: Để tránh thất thoát tiền đồ uống hoặc món gọi thêm, chủ quán phải <strong>Duyệt in bếp</strong> hoặc <strong>Hủy bỏ dứt khoát</strong> các lượt gọi món đang chờ trước khi thu tiền.
+            </p>
+            <div class="bg-white p-2.5 rounded border border-red-200 space-y-1 text-slate-800">
+              <div class="font-bold text-xs text-red-800">Các lượt đang nghẽn:</div>
+              <div class="flex justify-between text-[11px]">
+                <span>&bull; Lượt #02 (QR Khách): 3x Ba chỉ bò + Nấm</span>
+                <strong class="font-mono">450.000đ</strong>
+              </div>
+              <div class="flex justify-between text-[11px]">
+                <span>&bull; Lượt #03 (NV gọi hộ): 1x Tháp Bia Saigon</span>
+                <strong class="font-mono">320.000đ</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nút giải phóng nghẽn nhanh -->
+          <button onclick="resolveAllAndReadyPayment()" class="w-full py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs rounded-lg flex items-center justify-center gap-2 shadow">
+            <i class="fa-solid fa-check-to-slot"></i>
+            <span>Duyệt nhanh tất cả món vào bill & Chuyển sang thu tiền</span>
+          </button>
+        </div>
+
+        <div class="p-4 border-t border-slate-200 bg-slate-50">
+          <button onclick="switchState('order_review')" class="w-full py-2 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded">
+            &larr; Quay lại danh sách lượt gọi món để duyệt từng món
+          </button>
+        </div>
+      `;
+    }
+
+    // Chuyển sang trạng thái Thanh toán Sẵn sàng thu tiền
+    function resolveAllAndReadyPayment() {
+      const panelContent = document.getElementById('panelContent');
+      // Update total including 2 pending rounds
+      const finalTotal = 3420000 + 450000 + 320000; // 4.190.000đ
+
+      panelContent.innerHTML = `
+        <div class="p-4 border-b border-slate-200 bg-emerald-50 flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-1.5 text-emerald-700 font-extrabold text-xs">
+              <i class="fa-solid fa-cash-register"></i>
+              <span>SẴN SÀNG THU TIỀN VÀ ĐÓNG MÂM</span>
+            </div>
+            <h3 class="font-extrabold text-slate-900 text-sm">Mâm 09 + 10 (Anh Tú 15K)</h3>
+          </div>
+          <button onclick="switchState('order_review')" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-base"></i></button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar text-xs">
+          <!-- Tổng tiền thanh toán lớn -->
+          <div class="bg-slate-900 text-white rounded-xl p-4 text-center space-y-1 shadow">
+            <div class="text-xs text-slate-400 font-semibold uppercase">Tổng phải thanh toán (Trả sau tại quầy)</div>
+            <div class="text-3xl font-black text-amber-400 tracking-tight">${finalTotal.toLocaleString('vi-VN')}đ</div>
+            <div class="text-[11px] text-slate-400">Đã chốt toàn bộ 8 món & đồ uống · Không vướng lượt chờ</div>
+          </div>
+
+          <!-- Phương thức thanh toán -->
+          <div class="space-y-2">
+            <div class="font-bold text-slate-800">Chọn hình thức nhận tiền thực tế:</div>
+            
+            <div class="grid grid-cols-2 gap-2">
+              <label class="p-3 border-2 border-orange-500 rounded-lg bg-orange-50/40 cursor-pointer flex flex-col items-center text-center">
+                <input type="radio" name="payMethod" checked class="hidden" />
+                <i class="fa-solid fa-qrcode text-2xl text-orange-600 mb-1"></i>
+                <span class="font-bold text-slate-900">Chuyển khoản QR</span>
+                <span class="text-[10px] text-slate-500">VietQR qua App Ngân hàng</span>
+              </label>
+
+              <label class="p-3 border border-slate-200 rounded-lg hover:border-slate-400 bg-white cursor-pointer flex flex-col items-center text-center">
+                <input type="radio" name="payMethod" class="hidden" />
+                <i class="fa-solid fa-money-bill-wave text-2xl text-emerald-600 mb-1"></i>
+                <span class="font-bold text-slate-900">Tiền mặt</span>
+                <span class="text-[10px] text-slate-500">Có tính tiền thừa</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- QR code hiển thị và QUY TẮC BẢO LƯƠNG -->
+          <div class="p-3 bg-white border border-slate-200 rounded-lg space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-800">Mã VietQR động chính xác số tiền:</span>
+              <span class="text-[11px] font-mono text-slate-500">STK: 0398829101 - MBBank</span>
+            </div>
+            
+            <div class="flex items-center space-x-3 bg-slate-50 p-2 rounded border border-slate-100">
+              <div class="w-20 h-20 bg-white border border-slate-300 rounded p-1 flex items-center justify-center shrink-0">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=MEVOPOS-MAM0910-4190000VND" alt="QR" class="w-full h-full object-contain" />
+              </div>
+              <div class="text-[11px] space-y-1 text-slate-600">
+                <div>Nội dung CK: <strong class="font-mono text-slate-900">BL MAM0910</strong></div>
+                <div>Số tiền: <strong class="text-orange-600 font-bold">${finalTotal.toLocaleString('vi-VN')}đ</strong></div>
+                <div class="text-[10px] text-amber-800 font-semibold bg-amber-50 p-1 rounded border border-amber-200">
+                  <i class="fa-solid fa-shield-halved"></i> Quy tắc: Chủ quán phải xác nhận đã biến động số dư tài khoản thực tế trước khi bấm đóng bill!
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="p-4 border-t border-slate-200 bg-slate-50 space-y-2">
+          <button onclick="confirmFinalPaymentAndFreeTable()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-lg shadow flex items-center justify-center gap-2">
+            <i class="fa-solid fa-check"></i>
+            <span>XÁC NHẬN ĐÃ THU ĐỦ & ĐÓNG BILL MÂM</span>
+          </button>
+          <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked class="rounded text-orange-600" />
+              <span>In hóa đơn thanh toán cho khách (80mm)</span>
+            </label>
+            <button onclick="switchState('order_review')" class="text-slate-500 hover:text-slate-800">Quay lại</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Xử lý xác nhận đóng bill và trả bàn
+    function confirmFinalPaymentAndFreeTable() {
+      alert('Đã thanh toán thành công 4.190.000đ cho Mâm 09 + 10!\n- Máy in đã xuất Hóa đơn thanh toán.\n- Bàn 09 và Bàn 10 đã được chuyển sang trạng thái Trống sẵn sàng đón khách ca tiếp theo.');
+      switchState('timeline_overview');
+    }
+
+    function confirmConflictResolution() {
+      alert('Đã điều phối thành công Đoàn Anh Phong sang ghép Bàn 04 + Bàn 05 tại khu Sân vườn!\n- Lịch giữ bàn được cập nhật trên timeline.\n- Không làm ảnh hưởng nhóm đang ăn tại Bàn T1-02.');
+      switchState('timeline_overview');
+    }
+
+    function reprintTicket() {
+      alert('Đang gửi lệnh in lại tới máy in Bếp chính... (Đã ghi nhận lịch sử: In lần 2)');
+    }
+
+    function completePrintingAndMerge() {
+      alert('Đã xác nhận in thành công 2 liên (Bếp + Bàn)!\nToàn bộ món đã được gộp chính thức vào Bill mâm 09+10.');
+      switchState('order_review');
+    }
+
+    function selectServingTable(table, guest, pax, amount, inTime) {
+      switchState('order_review');
+    }
+
+    function selectConfirmedBooking(guest, pax, table, time, phone) {
+      switchState('booking_conflict');
+    }
+
+    function selectMevGroup(group, guest, pax, amount, tables) {
+      switchState('order_review');
+    }
+
+    function promptEmptySlot(tableName, time) {
+      const modalOverlay = document.getElementById('modalOverlay');
+      const modalContainer = document.getElementById('modalContainer');
+      
+      modalContainer.innerHTML = `
+        <div class="p-4 bg-slate-900 text-white flex justify-between items-center">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-chair text-orange-500"></i>
+            <h3 class="font-bold text-sm">Thao tác tại ${tableName} (${time})</h3>
+          </div>
+          <button onclick="closeModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-4 space-y-3 text-xs">
+          <p class="text-slate-600">Chọn thao tác bạn muốn thực hiện tại vị trí bàn này:</p>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeModal(); openWalkinModal()" class="p-3 border-2 border-slate-200 hover:border-orange-500 rounded-lg text-left bg-slate-50 hover:bg-white transition">
+              <i class="fa-solid fa-person-walking text-xl text-emerald-600 mb-1"></i>
+              <div class="font-extrabold text-slate-900 text-sm">Nhận khách ngay</div>
+              <div class="text-[11px] text-slate-500">Khách vãng lai vào quán ngồi luôn</div>
+            </button>
+            <button onclick="closeModal(); switchState('booking_conflict')" class="p-3 border-2 border-slate-200 hover:border-orange-500 rounded-lg text-left bg-slate-50 hover:bg-white transition">
+              <i class="fa-solid fa-calendar-plus text-xl text-orange-600 mb-1"></i>
+              <div class="font-extrabold text-slate-900 text-sm">Đặt trước bàn này</div>
+              <div class="text-[11px] text-slate-500">Ghi nhận thông tin khách hẹn sau</div>
+            </button>
+          </div>
+        </div>
+      `;
+      modalOverlay.classList.remove('hidden');
+    }
+
+    function openWalkinModal() {
+      const modalOverlay = document.getElementById('modalOverlay');
+      const modalContainer = document.getElementById('modalContainer');
+      
+      modalContainer.innerHTML = `
+        <div class="p-4 bg-orange-600 text-white flex justify-between items-center">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-person-walking-luggage"></i>
+            <h3 class="font-extrabold text-sm">Mở bàn khách vãng lai (Không đặt trước)</h3>
+          </div>
+          <button onclick="closeModal()" class="text-white/80 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-4 space-y-3 text-xs">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Tên khách / Tên nhận diện:</label>
+            <input type="text" value="Khách vãng lai 4 người" class="w-full px-3 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-orange-500" />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">Số lượng khách:</label>
+              <input type="number" value="4" class="w-full px-3 py-1.5 border border-slate-300 rounded text-xs outline-none" />
+            </div>
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">Chọn bàn trống:</label>
+              <select class="w-full px-3 py-1.5 border border-slate-300 rounded text-xs outline-none">
+                <option>Bàn 04 (Sân vườn - 4-6K)</option>
+                <option>Bàn T1-04 (Tầng 1 - 6K)</option>
+                <option>Bàn VIP 02 (Phòng riêng - 8K)</option>
+              </select>
+            </div>
+          </div>
+          <div class="bg-amber-50 p-2 rounded border border-amber-200 text-amber-900 text-[11px]">
+            Hệ thống sẽ mở một phiên phục vụ mới và kích hoạt ngay giao diện gọi món cho bàn này.
+          </div>
+        </div>
+        <div class="p-3 bg-slate-50 border-t border-slate-200 flex justify-end space-x-2">
+          <button onclick="closeModal()" class="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 font-bold rounded text-xs">Hủy</button>
+          <button onclick="closeModal(); switchState('add_items')" class="px-3 py-1.5 bg-orange-600 text-white font-bold rounded text-xs shadow">Xác nhận mở bàn & Chọn món</button>
+        </div>
+      `;
+      modalOverlay.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.add('hidden');
+    }
+
+    // Initial render
+    document.addEventListener('DOMContentLoaded', () => {
+      switchState('order_review');
+    });
+
+    // Toggle Left Sidebar
+    const toggleBtn = document.getElementById('toggleSidebarBtn');
+    const sidebar = document.getElementById('mainSidebar');
+    let isCollapsed = false;
+    toggleBtn.addEventListener('click', () => {
+      isCollapsed = !isCollapsed;
+      if (isCollapsed) {
+        sidebar.classList.add('hidden');
+      } else {
+        sidebar.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>
