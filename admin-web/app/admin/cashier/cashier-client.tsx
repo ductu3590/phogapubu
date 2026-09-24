@@ -287,6 +287,11 @@ export default function CashierClient({
       selectedReservation.planningHoldMinutes,
     )
     : new Set<string>(), [reservations, selectedReservation])
+  const prearrivalReservedTableIds = useMemo(() => new Set(reservations
+    .filter((reservation) => reservation.status === 'confirmed' && reservation.sessionId === null
+      && new Date(reservation.arrivalAt).getTime() - 60 * 60_000 <= Date.now()
+      && new Date(reservation.arrivalAt).getTime() + reservation.planningHoldMinutes * 60_000 > Date.now())
+    .flatMap((reservation) => reservation.tableIds)), [reservations])
 
   const sauKhiXong = async (msg?: string) => {
     setBusy(false)
@@ -694,6 +699,7 @@ export default function CashierClient({
             mode={reservationPick ? 'reservation' : 'normal'}
             reservationTableIds={reservationPick?.tableIds ?? new Set()}
             reservationBlockedTableIds={reservationBlockedTableIds}
+            prearrivalReservedTableIds={prearrivalReservedTableIds}
             onReservationPick={toggleReservationPickTable}
           />
           </div>

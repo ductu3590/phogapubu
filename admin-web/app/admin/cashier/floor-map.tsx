@@ -21,6 +21,7 @@ export default function FloorMap({
   mode = 'normal',
   reservationTableIds = new Set<string>(),
   reservationBlockedTableIds = new Set<string>(),
+  prearrivalReservedTableIds = new Set<string>(),
   selectedSessionId,
   pickedSessionIds,
   pickedTableIds,
@@ -37,6 +38,8 @@ export default function FloorMap({
   mode?: 'normal' | 'reservation'
   reservationTableIds?: Set<string>
   reservationBlockedTableIds?: Set<string>
+  /** Bàn đã ưu tiên cho booking trong 60 phút trước giờ đến. */
+  prearrivalReservedTableIds?: Set<string>
   selectedSessionId: string | null
   pickedSessionIds: Set<string>
   pickedTableIds: Set<string>
@@ -121,6 +124,7 @@ export default function FloorMap({
               arrange={arrange}
               reservationMode={mode === 'reservation'}
               reservationSelected={reservationTableIds.has(table.id)}
+              prearrivalReserved={prearrivalReservedTableIds.has(table.id)}
               disabledReason={
                 mode === 'reservation'
                   ? stateByTable.has(table.id)
@@ -128,6 +132,8 @@ export default function FloorMap({
                     : reservationBlockedTableIds.has(table.id)
                       ? 'Đã giữ cho booking khác'
                       : null
+                  : !stateByTable.has(table.id) && prearrivalReservedTableIds.has(table.id)
+                    ? 'Đã giữ cho khách sắp đến'
                   : null
               }
               selected={
@@ -164,6 +170,7 @@ function Tile({
   arrange,
   reservationMode,
   reservationSelected,
+  prearrivalReserved,
   disabledReason,
   selected,
   picked,
@@ -174,6 +181,7 @@ function Tile({
   arrange: boolean
   reservationMode: boolean
   reservationSelected: boolean
+  prearrivalReserved: boolean
   disabledReason: string | null
   selected: boolean
   picked: boolean
@@ -202,6 +210,8 @@ function Tile({
         ? 'ring-2 ring-orange-400'
         : s?.needs_review
           ? 'ring-2 ring-amber-400'
+          : prearrivalReserved
+            ? 'ring-2 ring-violet-500'
           : ''
 
   return (
@@ -244,8 +254,9 @@ function Tile({
           </span>
         </>
       ) : (
-        <span className="text-[10px]">trống</span>
+        <span className="text-[10px]">{prearrivalReserved ? 'đã giữ' : 'trống'}</span>
       )}
+      {prearrivalReserved && <span className="absolute left-1.5 top-1.5 text-xs" title="Đã giữ cho khách sắp đến">📅</span>}
       {cho > 0 && (
         <span className="absolute inset-x-1 bottom-1 rounded bg-amber-500 px-1 py-0.5 text-[10px] font-bold text-white">
           {cho} đơn chờ xác nhận

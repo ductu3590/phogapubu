@@ -217,3 +217,9 @@ Migration `074_reservation_customer_call_tasks` đã áp dụng. Chạy Admin We
 - Task này không thêm chuông lặp, không thay đổi Snooze 10/15/30 phút của nhắc khách đã tới giờ, và không gửi ZCA/OA/ZNS cho khách.
 
 **Nghiệm thu:** Khi 7 mục trên đúng, trả lời **`Task 9 PASS`**. Em sẽ dừng chờ anh trước Task 10.
+
+**Nghiệm thu:** ✅ `Task 9 PASS` — anh Tú xác nhận ngày 2026-09-24.
+
+### Hồi quy sau Task 9 — ưu tiên bàn đã đặt trước
+
+Migration `075_reservation_prearrival_table_lock` đã áp dụng. Tạo/đổi một booking xác nhận có giờ đến trong 60 phút, chọn Bàn 9. Trên POS Bàn 9 phải có biểu tượng 📅, nhãn **đã giữ** và không thao tác như bàn trống. Quét QR Bàn 9 từ máy khác chỉ thấy yêu cầu báo chủ quán mở bàn; không thêm món hay mở bill mới. Sau khi bấm **Khách đã đến**, nhãn giữ biến mất và QR hoạt động với đúng mâm/bill. Booking xa hơn một giờ vẫn không khóa QR/POS sớm.
