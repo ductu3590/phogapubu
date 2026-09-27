@@ -6,6 +6,7 @@
 
 ## Checklist mới tách riêng
 
+- ✅ [Bảo Lương — review design BL-4](docs/testing/bao-luong/REVIEW-BL-4-2026-09-27.md) — SPEC BL-4 PASS, Test R1 ngày 2026-09-27
 - ✅ [Bảo Lương — duyệt plan BL-3](docs/testing/bao-luong/PLAN-BL-3-2026-09-23.md) — PASS
 - ✅ [Bảo Lương — Sprint BL-3](docs/testing/bao-luong/SPRINT-BL-3.md) — BL-3 PASS
 - ✅ [Bảo Lương — BL-2C duyệt/in món đặt trước](docs/testing/bao-luong/SPRINT-BL-2C.md) — PASS
