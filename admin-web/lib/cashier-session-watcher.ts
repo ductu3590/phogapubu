@@ -17,7 +17,25 @@ export function watchCashierSessions({
   onConnected: (connected: boolean) => void
   fallbackIntervalMs?: number
 }) {
-  const refresh = () => { void reload() }
+  let stopped = false
+  let running = false
+  let pending = false
+  const refresh = () => {
+    if (stopped) return
+    if (running) { pending = true; return }
+    running = true
+    const finish = () => {
+      running = false
+      if (pending && !stopped) {
+        pending = false
+        refresh()
+      }
+    }
+    const result = reload()
+    if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
+      void Promise.resolve(result).finally(finish)
+    } else finish()
+  }
   const channel = client
     .channel(`cashier-${storeId}`)
     .on(
@@ -40,10 +58,26 @@ export function watchCashierSessions({
     })
 
   const fallback = setInterval(refresh, fallbackIntervalMs)
+  const onFocus = () => refresh()
+  const onOnline = () => refresh()
+  const onVisibility = () => {
+    if (typeof document === 'undefined' || !document.hidden) refresh()
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('online', onOnline)
+  }
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility)
 
   return {
     dispose() {
+      stopped = true
       clearInterval(fallback)
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', onFocus)
+        window.removeEventListener('online', onOnline)
+      }
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility)
       void client.removeChannel(channel)
     },
   }

@@ -69,7 +69,7 @@ describe('service request snapshots', () => {
     s.watcher.dispose()
   })
 
-  it('không áp snapshot cũ khi event tới lúc RPC đang chạy; tải lại sau đó', async () => {
+  it('áp snapshot đang chạy rồi tải lại khi event tới', async () => {
     const s = setup()
     let finish!: (value: { ok: true; requests: ServiceRequestRow[] }) => void
     s.load.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
@@ -80,8 +80,9 @@ describe('service request snapshots', () => {
     finish({ ok: true, requests: [row('stale')] })
     await vi.advanceTimersByTimeAsync(0)
     expect(s.load).toHaveBeenCalledTimes(2)
-    expect(s.onRows).toHaveBeenCalledTimes(1)
-    expect(s.onRows).toHaveBeenCalledWith([row()])
+    expect(s.onRows).toHaveBeenCalledTimes(2)
+    expect(s.onRows).toHaveBeenNthCalledWith(1, [row('stale')])
+    expect(s.onRows).toHaveBeenNthCalledWith(2, [row()])
     s.watcher.dispose()
   })
 
@@ -130,6 +131,17 @@ describe('service request snapshots', () => {
     expect(s.onRows).not.toHaveBeenCalled()
     expect(s.onNew).not.toHaveBeenCalled()
     expect(s.client.removeChannel).toHaveBeenCalledWith(s.channel)
+  })
+
+  it('áp snapshot sau khi tải chậm hơn chu kỳ poll', async () => {
+    const s = setup()
+    let finish!: (value: { ok: true; requests: ServiceRequestRow[] }) => void
+    s.load.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    await vi.advanceTimersByTimeAsync(5_100)
+    finish({ ok: true, requests: [row()] })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(s.onRows).toHaveBeenCalledWith([row()])
+    s.watcher.dispose()
   })
 })
 

@@ -25,7 +25,7 @@ export function watchServiceRequests({ client, storeId, load, initial, onRows, o
 }) {
   let stopped = false
   let running = false
-  let revision = 0
+  let dirty = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let known = initial === null ? null : new Map(initial.map(r => [r.id, r.last_ping_at]))
 
@@ -33,14 +33,11 @@ export function watchServiceRequests({ client, storeId, load, initial, onRows, o
     if (stopped || running) return
     running = true
     try {
-      let ticket: number
       do {
-        ticket = revision
+        dirty = false
         try {
           const result = await load()
           if (stopped) return
-          // Có sự kiện trong lúc RPC chạy: bỏ snapshot cũ và tải lại, không mất lượt mới.
-          if (ticket !== revision) continue
           if (!result.ok) { onError(result.error); continue }
           const rows = result.requests.filter(r => r.store_id === storeId && r.resolved_at === null)
           const fresh = known === null ? [] : rows.filter(r => known!.get(r.id) !== r.last_ping_at)
@@ -49,16 +46,16 @@ export function watchServiceRequests({ client, storeId, load, initial, onRows, o
           onError(null)
           if (fresh.length) onNew(fresh)
         } catch {
-          if (!stopped && ticket === revision) onError('Không tải được yêu cầu gọi nhân viên. Kiểm tra mạng rồi thử lại.')
+          if (!stopped) onError('Không tải được yêu cầu gọi nhân viên. Kiểm tra mạng rồi thử lại.')
         }
-      } while (!stopped && ticket !== revision)
+      } while (!stopped && dirty)
     } finally {
       running = false
     }
   }
 
   function refresh() {
-    ++revision
+    dirty = true
     clearTimeout(timer)
     timer = setTimeout(() => void drain(), 150)
   }

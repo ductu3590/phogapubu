@@ -127,7 +127,7 @@ describe('reservation queue watcher', () => {
     watcher.dispose()
   })
 
-  it('bỏ snapshot cũ khi event đến trong lúc request đang chạy', async () => {
+  it('áp snapshot đang chạy rồi tải lại khi event đến', async () => {
     vi.useFakeTimers()
     const socket = fakeClient()
     const first = deferred<{ ok: true; reservations: ReservationRow[] }>()
@@ -150,8 +150,9 @@ describe('reservation queue watcher', () => {
     first.resolve({ ok: true, reservations: [reservation('stale')] })
     await vi.advanceTimersByTimeAsync(100)
 
-    expect(onRows).toHaveBeenCalledTimes(1)
-    expect(onRows).toHaveBeenCalledWith([reservation('fresh')])
+    expect(onRows).toHaveBeenCalledTimes(2)
+    expect(onRows).toHaveBeenNthCalledWith(1, [reservation('stale')])
+    expect(onRows).toHaveBeenNthCalledWith(2, [reservation('fresh')])
     watcher.dispose()
   })
 
@@ -178,5 +179,27 @@ describe('reservation queue watcher', () => {
 
     expect(load).toHaveBeenCalledTimes(1)
     expect(socket.client.removeChannel).toHaveBeenCalledTimes(1)
+  })
+
+  it('áp snapshot sau khi tải chậm hơn chu kỳ poll', async () => {
+    vi.useFakeTimers()
+    const socket = fakeClient()
+    const first = deferred<{ ok: true; reservations: ReservationRow[] }>()
+    const load = vi.fn().mockReturnValue(first.promise)
+    const onRows = vi.fn()
+    const watcher = watchReservationQueue({
+      client: socket.client as never,
+      storeId: 'store-1',
+      load,
+      onRows,
+      onError: vi.fn(),
+      onConnected: vi.fn(),
+      eventTarget: fakeEvents(),
+    })
+    await vi.advanceTimersByTimeAsync(5_100)
+    first.resolve({ ok: true, reservations: [reservation('slow')] })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(onRows).toHaveBeenCalledWith([reservation('slow')])
+    watcher.dispose()
   })
 })

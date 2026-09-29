@@ -33,33 +33,30 @@ export function watchReservationQueue({
 }) {
   let stopped = false
   let running = false
-  let revision = 0
+  let dirty = false
   let timer: ReturnType<typeof setTimeout> | undefined
 
   async function drain() {
     if (stopped || running) return
     running = true
     try {
-      let ticket: number
       do {
-        ticket = revision
+        dirty = false
         try {
           const result = await load()
           if (stopped) return
-          // Event mới đến trong lúc server action đang chạy: snapshot cũ không được ghi đè.
-          if (ticket !== revision) continue
           if (!result.ok) {
             onError(result.error)
-            continue
+          } else {
+            onRows(result.reservations.filter((reservation) => reservation.storeId === storeId))
+            onError(null)
           }
-          onRows(result.reservations.filter((reservation) => reservation.storeId === storeId))
-          onError(null)
         } catch {
-          if (!stopped && ticket === revision) {
+          if (!stopped) {
             onError('Không tải được hàng đợi đặt bàn. Kiểm tra mạng rồi thử lại.')
           }
         }
-      } while (!stopped && ticket !== revision)
+      } while (!stopped && dirty)
     } finally {
       running = false
     }
@@ -67,7 +64,7 @@ export function watchReservationQueue({
 
   function refresh() {
     if (stopped) return
-    revision += 1
+    dirty = true
     clearTimeout(timer)
     timer = setTimeout(() => void drain(), 100)
   }
