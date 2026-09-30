@@ -6,6 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "test": "vitest run",
+    "test:bl4:sequential": "node ../scripts/bl4-sequential-runner.mjs",
+    "test:bl4:prepare-db": "node ../scripts/bl4-prepare-test-db.mjs",
+    "test:bl4:postgres": "node ../supabase/tests/bl4-postgres.integration.mjs",
     "start": "next start",
     "lint": "eslint"
   },
@@ -30,6 +33,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "pg": "^8.23.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.9"

@@ -6,7 +6,7 @@
 
 ## Checklist mới tách riêng
 
-- ⏳ [Bảo Lương — duyệt plan BL-4](docs/testing/bao-luong/PLAN-BL-4-2026-09-27.md) — chờ PLAN BL-4 PASS (Test P1–P2)
+- ✅ [Bảo Lương — duyệt plan BL-4](docs/testing/bao-luong/PLAN-BL-4-2026-09-27.md) — PLAN BL-4 PASS (2026-09-29, Test P1–P2)
 - ✅ [Bảo Lương — review design BL-4](docs/testing/bao-luong/REVIEW-BL-4-2026-09-27.md) — SPEC BL-4 PASS, Test R1 ngày 2026-09-27
 - ✅ [Bảo Lương — duyệt plan BL-3](docs/testing/bao-luong/PLAN-BL-3-2026-09-23.md) — PASS
 - ✅ [Bảo Lương — Sprint BL-3](docs/testing/bao-luong/SPRINT-BL-3.md) — BL-3 PASS
@@ -1433,3 +1433,4 @@ Test bằng tài khoản **chủ quán Bia lẩu Bảo Lương** tại `/admin/c
 *File này là bộ nhớ test của dự án MEVO.*
 *Claude Code PHẢI đọc file này trước khi báo bất kỳ Sprint nào là "done".*
 - [x] [BL-4 — Task 1: Đồng bộ POS khi mạng chậm](docs/testing/bao-luong/SPRINT-BL-4.md) — `Task 1 PASS` (2026-09-29)
+- [x] [BL-4 — Task 2: PostgreSQL concurrency](docs/testing/bao-luong/SPRINT-BL-4.md) — tuần tự 50/50 PASS; PostgreSQL đồng thời PASS đầy đủ ngày 2026-09-30

@@ -58,6 +58,7 @@ before(async () => {
   `)
   await db.exec(await readFile(new URL('../migrations/069_reservation_preorder_release.sql', import.meta.url), 'utf8'))
   await db.exec(await readFile(new URL('../migrations/070_reservation_preorder_print_job_access.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../migrations/078_bl4_concurrency_fixes.sql', import.meta.url), 'utf8'))
 })
 beforeEach(async () => { await db.exec('BEGIN') })
 afterEach(async () => { await db.exec('ROLLBACK'); await db.exec('RESET ROLE') })
@@ -94,6 +95,15 @@ test('revision cũ không thể release revision mới; print cùng request tr�
   await rpc('SELECT release_reservation_preorder($1,2,$2) AS value',[order,id(706)])
   const adjustment = await rpc("SELECT request_reservation_preorder_print($1,2,'adjustment',$2,NULL) AS value",[order,id(707)])
   assert.equal(adjustment.snapshot.kind, 'adjustment'); assert.equal(adjustment.snapshot.previous_snapshot.revision, 1)
+})
+
+test('owner không thể release món đặt trước sau khi booking đã kết thúc', async () => {
+  await db.query("UPDATE public.reservations SET status='cancelled_by_customer' WHERE id=$1", [reservation])
+  await login(owner)
+  await assert.rejects(
+    () => rpc('SELECT release_reservation_preorder($1,1,$2) AS value',[order,id(709)]),
+    /Đặt bàn đã kết thúc/,
+  )
 })
 
 test('queue chỉ lộ cho owner, nhận khách không tự sinh print job và hao hụt cần owner đóng', async () => {
