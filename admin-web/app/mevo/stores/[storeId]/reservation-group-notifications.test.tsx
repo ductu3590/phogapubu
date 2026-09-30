@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/actions/reservation-group-notifications', () => ({
-  saveGroupNotificationChannel: vi.fn(), disableGroupNotificationChannel: vi.fn(), sendGroupNotificationTest: vi.fn(),
+  saveGroupNotificationChannel: vi.fn(), disableGroupNotificationChannel: vi.fn(), sendGroupNotificationTest: vi.fn(), retryGroupNotificationDelivery: vi.fn(),
 }))
 
 const { default: ReservationGroupNotifications } = await import('./reservation-group-notifications')
@@ -13,7 +13,7 @@ describe('ReservationGroupNotifications', () => {
     const html = renderToStaticMarkup(
       <ReservationGroupNotifications storeId="store-1" initialState={{
         provider: 'zca_group', enabled: true, hasDestination: true,
-        lastDeliveryStatus: 'sent', lastDeliveryAt: '2026-09-22T00:00:00Z', lastProviderCode: 'OK',
+        lastDeliveryStatus: 'sent', lastDeliveryAt: '2026-09-22T00:00:00Z', lastProviderCode: 'OK', retryContractVerified: false,
       }} />,
     )
     expect(html).toContain('Thông báo nội bộ')

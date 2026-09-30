@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import { handleReservationZcaNotify } from './handler'
 
-function db(data: unknown) {
-  return { rpc: vi.fn(async (name: string) => name.startsWith('claim') ? { data, error: null } : { data: true, error: null }) }
+function db(data: unknown, freeze: unknown = null, finish: unknown = true) {
+  return {
+    rpc: vi.fn(async (name: string) => {
+      if (name.startsWith('claim')) return { data, error: null }
+      if (name.startsWith('freeze')) return { data: freeze, error: null }
+      return { data: finish, error: null }
+    }),
+  }
 }
 
 const delivery = {
@@ -27,6 +33,28 @@ describe('reservation ZCA notify handler', () => {
     expect(result).toMatchObject({ ok: true, status: 'sent' })
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ notificationId: 'd1', groupId: 'group-1', text: expect.not.stringContaining('must-not-exist') }))
     expect(database.rpc).toHaveBeenCalledWith('finish_reservation_zca_notification', expect.objectContaining({ p_status: 'sent', p_provider_detail: 'm1' }))
+  })
+
+  it('chỉ gửi payload đã freeze; mất claim trước finish trả lost_claim', async () => {
+    const payload = {
+      version: 1, notification_id: 'd1', store_id: delivery.store_id,
+      group_id: 'group-1', text: 'Payload đã freeze',
+    }
+    const database = db({ ...delivery, message_snapshot: { version: 1 } }, payload, false)
+    const send = vi.fn(async () => ({ ok: true as const, providerMessageId: 'm1' }))
+    await expect(handleReservationZcaNotify({ delivery_id: 'd1', dispatch_token: 't1' }, {
+      db: database, send, adminOrigin: 'https://origin-moi.test',
+    })).resolves.toEqual({ ok: false, status: 'lost_claim', providerCode: 'LOST_CLAIM', message: null })
+    expect(send).toHaveBeenCalledWith({ notificationId: 'd1', storeId: delivery.store_id, groupId: 'group-1', text: 'Payload đã freeze' })
+  })
+
+  it('freeze không còn token hợp lệ thì không gửi relay', async () => {
+    const database = db({ ...delivery, message_snapshot: { version: 1 } }, null)
+    const send = vi.fn()
+    await expect(handleReservationZcaNotify({ delivery_id: 'd1', dispatch_token: 't1' }, {
+      db: database, send, adminOrigin: 'https://admin.test',
+    })).resolves.toEqual({ ok: false, status: 'lost_claim', providerCode: 'LOST_CLAIM', message: null })
+    expect(send).not.toHaveBeenCalled()
   })
 
   it.each([

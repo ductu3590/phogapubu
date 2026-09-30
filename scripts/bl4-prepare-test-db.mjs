@@ -3,8 +3,10 @@ import { createRequire } from 'node:module'
 import { readdir, readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { loadBl4TestEnvironment } from './bl4-test-env.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+loadBl4TestEnvironment()
 const require = createRequire(resolve(root, 'admin-web', 'package.json'))
 const { Client } = require('pg')
 const markerName = 'mevo_bl4_test_database'
@@ -52,7 +54,7 @@ try {
       const match = entry.name.match(/^(\d+)([a-z]?)_/i)
       return { name: entry.name, version: Number(match[1]), suffix: match[2].toLowerCase() }
     })
-    .filter(entry => entry.version >= 1 && entry.version <= 78)
+    .filter(entry => entry.version >= 1 && entry.version <= 80)
     .sort((a, b) => a.version - b.version || a.suffix.localeCompare(b.suffix) || a.name.localeCompare(b.name))
 
   for (const migration of files) {

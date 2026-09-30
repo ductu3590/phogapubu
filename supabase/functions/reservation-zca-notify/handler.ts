@@ -9,6 +9,15 @@ type Delivery = {
   customer_name: string | null
   party_size: number | null
   arrival_at: string | null
+  message_snapshot?: { version: number } | null
+}
+
+type FrozenPayload = {
+  version: 1
+  notification_id: string
+  store_id: string
+  group_id: string
+  text: string
 }
 
 type Db = {
@@ -53,14 +62,37 @@ export async function handleReservationZcaNotify(input: { delivery_id: string; d
   if (claimed.error) throw new Error(claimed.error.message)
   if (!claimed.data) return { ok: true, skipped: true }
   const delivery = claimed.data as Delivery
+  // Delivery mới phải đóng băng body trước khi relay thấy nó. Nếu token đã bị
+  // rotate trong khoảng này thì không được gửi một payload cũ.
+  let message: { notificationId: string; storeId: string; groupId: string; text: string }
+  if (delivery.message_snapshot?.version === 1) {
+    const frozen = await deps.db.rpc('freeze_reservation_zca_payload', {
+      p_delivery_id: input.delivery_id,
+      p_dispatch_token: input.dispatch_token,
+      p_text: messageFor(delivery, deps.adminOrigin),
+    })
+    if (frozen.error) throw new Error(frozen.error.message)
+    if (!frozen.data) return { ok: false, status: 'lost_claim', providerCode: 'LOST_CLAIM', message: null }
+    const payload = frozen.data as FrozenPayload
+    message = {
+      notificationId: payload.notification_id,
+      storeId: payload.store_id,
+      groupId: payload.group_id,
+      text: payload.text,
+    }
+  } else {
+    // Bản cũ chỉ được gửi theo contract chuyển tiếp hiện có; vì không có
+    // snapshot đáng tin cậy nên migration không cho requeue các delivery này.
+    message = {
+      notificationId: delivery.delivery_id,
+      storeId: delivery.store_id,
+      groupId: delivery.destination_group_id,
+      text: messageFor(delivery, deps.adminOrigin),
+    }
+  }
   const result = await (deps.send ?? ((message) => sendZcaGroupMessage(message, {
     relayUrl: Deno.env.get('MEVO_ZCA_RELAY_URL')!, hmacSecret: Deno.env.get('MEVO_HMAC_SECRET')!,
-  })))({
-    notificationId: delivery.delivery_id,
-    storeId: delivery.store_id,
-    groupId: delivery.destination_group_id,
-    text: messageFor(delivery, deps.adminOrigin),
-  })
+  })))(message)
   const finish = statusFor(result)
   const saved = await deps.db.rpc('finish_reservation_zca_notification', {
     p_delivery_id: input.delivery_id,
@@ -70,5 +102,6 @@ export async function handleReservationZcaNotify(input: { delivery_id: string; d
     p_provider_detail: finish.detail,
   })
   if (saved.error) throw new Error(saved.error.message)
+  if (saved.data !== true) return { ok: false, status: 'lost_claim', providerCode: 'LOST_CLAIM', message: null }
   return { ok: result.ok, status: finish.status, providerCode: finish.code, message: result.ok ? null : result.message }
 }

@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import os from 'node:os'
+import { loadBl4TestEnvironment } from '../../../scripts/bl4-test-env.mjs'
 const require = createRequire(new URL('../../../admin-web/package.json', import.meta.url))
 const { Client } = require('pg')
 
@@ -10,6 +11,7 @@ function hostnameOf(value) {
 }
 
 export function requireTestDatabaseUrl() {
+  loadBl4TestEnvironment()
   const value = process.env.BL4_TEST_DATABASE_URL
   if (!value) throw new Error('BLOCKED: thiếu BL4_TEST_DATABASE_URL; không chạy concurrency trên database thật.')
   const host = hostnameOf(value)
@@ -68,6 +70,18 @@ export async function waitForBlock(observer, blockedPid, blockerPid, timeoutMs =
 async function cleanupBl4Store(client, storeId, ownerId) {
   await client.query('BEGIN')
   try {
+    await client.query(`
+      DELETE FROM reservation_notification_recovery_events
+      WHERE store_id = $1
+    `, [storeId])
+    await client.query(`
+      DELETE FROM reservation_notification_deliveries
+      WHERE store_id = $1
+    `, [storeId])
+    await client.query(`
+      DELETE FROM store_reservation_notification_channels
+      WHERE store_id = $1
+    `, [storeId])
     await client.query('DELETE FROM reservation_customer_call_tasks WHERE store_id = $1', [storeId])
     await client.query('DELETE FROM reservation_preorder_waste_resolutions WHERE store_id = $1', [storeId])
     await client.query('DELETE FROM reservation_preorder_print_jobs WHERE store_id = $1', [storeId])

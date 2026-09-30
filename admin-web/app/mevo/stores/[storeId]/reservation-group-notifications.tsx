@@ -5,20 +5,34 @@ import {
   disableGroupNotificationChannel,
   saveGroupNotificationChannel,
   sendGroupNotificationTest,
+  retryGroupNotificationDelivery,
   type GroupNotificationState,
 } from '@/lib/actions/reservation-group-notifications'
+import { deliveryStatusLabel, type DeliverySummary } from '@/lib/reservation-delivery-status'
 
 const statusLabel: Record<NonNullable<GroupNotificationState['lastDeliveryStatus']>, string> = {
-  sent: 'Đã gửi', failed: 'Sẽ thử lại', action_required: 'Cần kiểm tra thủ công',
+  queued: 'Đang chờ gửi', processing: 'Đang gửi', sent: 'Đã gửi', failed: 'Gửi thất bại', action_required: 'Cần kiểm tra',
 }
 
-export default function ReservationGroupNotifications({ storeId, initialState }: { storeId: string; initialState: GroupNotificationState }) {
+export default function ReservationGroupNotifications({ storeId, initialState, initialDeliveries }: { storeId: string; initialState: GroupNotificationState; initialDeliveries?: DeliverySummary[] }) {
   const [state, setState] = useState(initialState)
   const [groupId, setGroupId] = useState('')
   const [enabled, setEnabled] = useState(initialState.enabled)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+
+  function retry(delivery: DeliverySummary) {
+    setError(null); setNotice(null)
+    startTransition(async () => {
+      const result = await retryGroupNotificationDelivery(storeId, {
+        deliveryId: delivery.id, expectedUpdatedAt: delivery.updatedAt,
+        requestId: crypto.randomUUID(), reason: 'MEVO kiểm tra và gửi lại thông báo nội bộ',
+      })
+      if (!result.ok) setError(result.error || 'Không thể gửi lại delivery')
+      else setNotice(result.already ? 'Yêu cầu gửi lại đã được ghi nhận trước đó.' : 'Đã xếp delivery vào hàng đợi gửi lại.')
+    })
+  }
 
   function save() {
     setError(null); setNotice(null)
@@ -49,8 +63,8 @@ export default function ReservationGroupNotifications({ storeId, initialState }:
     startTransition(async () => {
       try {
         const result = await sendGroupNotificationTest(storeId)
-        setState((current) => ({ ...current, lastDeliveryAt: new Date().toISOString(), lastDeliveryStatus: result.ok ? 'sent' : 'action_required' }))
-        if (result.ok) setNotice('Đã gửi tin thử vào nhóm Zalo.')
+        setState((current) => ({ ...current, lastDeliveryAt: new Date().toISOString(), lastDeliveryStatus: result.ok ? 'queued' : 'action_required' }))
+        if (result.ok) setNotice('Đã xếp tin thử vào hàng đợi. Trạng thái thực tế sẽ cập nhật từ server.')
         else setError(result.message || 'Relay chưa gửi được tin thử')
       } catch (cause) { setError(cause instanceof Error ? cause.message : 'Không gửi được tin thử') }
     })
@@ -67,6 +81,7 @@ export default function ReservationGroupNotifications({ storeId, initialState }:
         <Status label="Group ID" value={state.hasDestination ? 'Đã lưu (ẩn)' : 'Chưa lưu'} ok={state.hasDestination} />
         <Status label="Gửi gần nhất" value={state.lastDeliveryStatus ? statusLabel[state.lastDeliveryStatus] : 'Chưa có'} ok={state.lastDeliveryStatus === 'sent'} />
       </div>
+      <p className="text-xs text-gray-500">Gửi lại: {state.retryContractVerified ? 'Đã xác minh relay khử trùng theo mã delivery' : 'Đang khóa đến khi MEVO xác minh relay không gửi trùng'}</p>
       {state.lastDeliveryAt && <p className="text-xs text-gray-500">Cập nhật gần nhất: {new Date(state.lastDeliveryAt).toLocaleString('vi-VN')}{state.lastProviderCode ? ` · ${state.lastProviderCode}` : ''}</p>}
       <label className="block text-sm font-medium text-gray-700">
         Zalo Group ID mới
@@ -78,6 +93,11 @@ export default function ReservationGroupNotifications({ storeId, initialState }:
         <button type="button" disabled={pending || !state.enabled} onClick={sendTest} className="rounded-lg border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 disabled:opacity-50">Gửi tin thử</button>
         {state.enabled && <button type="button" disabled={pending} onClick={disable} className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 disabled:opacity-50">Tắt cảnh báo</button>}
       </div>
+      {(initialDeliveries?.length ?? 0) > 0 && <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <table className="min-w-full text-left text-xs"><thead className="bg-gray-50 text-gray-500"><tr><th className="px-3 py-2">Trạng thái</th><th className="px-3 py-2">Lần gửi</th><th className="px-3 py-2">Cập nhật</th><th className="px-3 py-2">Thao tác</th></tr></thead>
+          <tbody>{initialDeliveries!.map((delivery) => <tr key={delivery.id} className="border-t border-gray-100"><td className="px-3 py-2">{deliveryStatusLabel(delivery.status, delivery.stale)}{delivery.providerCode ? ` · ${delivery.providerCode}` : ''}</td><td className="px-3 py-2">{delivery.attemptCount}</td><td className="px-3 py-2">{new Date(delivery.updatedAt).toLocaleString('vi-VN')}</td><td className="px-3 py-2">{delivery.canRetry ? <button type="button" disabled={pending} onClick={() => retry(delivery)} className="text-blue-700 disabled:opacity-50">Gửi lại</button> : <span title={delivery.retryBlockedReason ?? undefined}>—</span>}</td></tr>)}</tbody>
+        </table>
+      </div>}
       {notice && <p className="text-sm font-medium text-green-700">{notice}</p>}
       {error && <p className="text-sm font-medium text-red-600">{error}</p>}
     </div>

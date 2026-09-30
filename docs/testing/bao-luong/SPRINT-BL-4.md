@@ -65,3 +65,62 @@ Lệnh sau tự thu hồi fixture BL4 còn sót từ lần chạy lỗi trước
 Kết quả đạt cần có `BL-4 PostgreSQL concurrency PASS: full lock/race matrix`, mọi dòng `PASS ...`, và không có `FAIL`, timeout (`57014`), lock timeout (`55P03`) hay deadlock (`40P01`). Nếu có lỗi, gửi phần output từ dòng `FAIL` đầu tiên đến lỗi tổng kết; không gửi connection string.
 
 **Nghiệm thu:** ✅ `Task 2 PASS` — anh Tú xác nhận ngày 2026-09-30. Bằng chứng đồng thời là output kết thúc `BL-4 PostgreSQL concurrency PASS: full lock/race matrix`; không có deadlock, lock timeout hay timeout trong ma trận.
+
+## Test 3 — Phục hồi Thông báo nội bộ có kiểm soát
+
+### Codex đã chạy
+
+- ✅ Outbox delivery mới đóng băng payload trước khi relay gửi; retry dùng lại chính `notification_id` và payload đã đóng băng. Delivery legacy không có snapshot không thể gửi lại.
+- ✅ Worker không gửi nếu không freeze được payload; nếu claim/finish mất quyền thì kết quả là `lost_claim`, không báo gửi thành công giả.
+- ✅ Retry chỉ mở cho MEVO superadmin, có optimistic version, audit request id, cooldown 60 giây, giới hạn 3 lần/24 giờ, và chỉ khi booking còn `pending`/chưa đến giờ.
+- ✅ Đổi Group ID hoặc provider tự xóa bằng chứng retry. Nút **Gửi lại** bị khóa cho đến khi relay được MEVO xác minh khử trùng theo `notification_id`.
+- ✅ Trigger dispatch chỉ nhận delivery `queued` có dispatch token mới; thiếu URL dispatch giữ delivery ở `queued` với mã `DISPATCH_URL_MISSING`, không rollback booking.
+- ✅ `npm run test:bl4:sequential`: **55/55 PASS**.
+- ✅ Admin action/UI: **8/8 PASS**; TypeScript `npx tsc --noEmit --pretty false` PASS.
+- ✅ Production build `npm run build` PASS.
+- ✅ PostgreSQL test thật ngày 2026-09-30: `BL-4 PostgreSQL delivery recovery PASS: requeue lock 133176 -> 133177`.
+
+### Anh Tú cần chạy — Test 3A: PostgreSQL test thật
+
+Đây là database test BL-4 đã có marker, **không phải database vận hành**. Không cần tạo project/user/marker lại. Cấu hình một lần vào file local (đã nằm trong `.gitignore`, không dán URL/password vào chat):
+
+```powershell
+cd D:\Code\mevo
+Copy-Item .env.bl4-test.example .env.bl4-test.local
+notepad .env.bl4-test.local
+```
+
+Điền đủ ba giá trị `BL4_TEST_DATABASE_URL`, `BL4_TEST_ALLOWED_HOST`, `BL4_TEST_OWNER_ID`, rồi lưu. Mọi lệnh BL-4 sẽ tự nạp file này; biến `$env:` nếu có vẫn được ưu tiên để phục vụ CI.
+
+Sau đó, trong chính cửa sổ đó, chạy:
+
+```powershell
+cd D:\Code\mevo\admin-web
+npm run test:bl4:prepare-db
+npm run test:bl4:delivery-postgres
+```
+
+Lệnh prepare chỉ áp bổ sung `079_reservation_delivery_recovery.sql` và `080_reservation_zca_dispatch.sql` nếu chưa có đúng hash. Nó không reset database. URL dispatch trong DB test đang để trống nên không được gửi ra relay thật.
+
+PASS khi lệnh hai kết thúc bằng dạng:
+
+```text
+BL-4 PostgreSQL delivery recovery PASS: requeue lock <PID A> -> <PID B>
+```
+
+và không có `40P01`, `55P03`, `57014` hoặc `FAIL`. Không gửi connection string vào chat nếu có lỗi.
+
+### Test 3B — kiểm tra UI sau khi migration được áp lên môi trường Admin dùng để test
+
+1. Đăng nhập MEVO superadmin, mở `/mevo/stores/<store-id>`.
+2. Khu **Thông báo nội bộ (best-effort)** vẫn che Group ID đã lưu; không hiển thị giá trị cũ ở bất kỳ card/table/toast nào.
+3. Bấm **Gửi tin thử**. Kết quả đúng lúc này là *“Đã xếp tin thử vào hàng đợi”*, không được hiện *“đã gửi”* trước khi server trả trạng thái thực.
+4. Khi DB chưa cấu hình URL dispatch, delivery hiện **Đang chờ gửi · DISPATCH_URL_MISSING**. Booking/POS không bị lỗi hay bị rollback.
+5. Với delivery lỗi hoặc quá hạn, cột thao tác hiển thị `—`; rê chuột thấy lý do relay chưa được xác minh. Không có cách gửi lại từ UI khi chưa có bằng chứng relay.
+6. Sửa Group ID rồi lưu. Xác nhận trạng thái retry vẫn khóa; thay nhóm không được kế thừa quyền gửi lại của nhóm cũ.
+
+### Test 3C — relay thật (chưa chạy)
+
+Không tự khởi động/restart bot Pickleball đang hoạt động. Chỉ khi có endpoint relay sandbox riêng và bot đã xác minh khử trùng `notification_id`, MEVO mới lưu evidence/version 1 rồi test một retry. Khi đó cần chứng minh relay nhận cùng `notification_id` hai lần nhưng chỉ phát **một** tin vào nhóm; nếu timeout sau khi relay đã gửi thì delivery không được tạo tin thứ hai.
+
+**Nghiệm thu:** ✅ `Task 3 PASS` — anh Tú xác nhận ngày 2026-09-30. Test 3C là điều kiện mở retry thật, không chặn outbox/POS và không được giả lập là PASS.

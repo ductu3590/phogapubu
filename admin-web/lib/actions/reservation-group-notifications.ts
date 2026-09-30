@@ -3,9 +3,8 @@
 import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { requireSuperadmin } from '@/lib/auth/operator'
-import { createAdminClient } from '@/lib/supabase/server'
-
-type DeliveryStatus = 'sent' | 'failed' | 'action_required'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { deliveryIsStale, type DeliveryStatus, type DeliverySummary } from '@/lib/reservation-delivery-status'
 
 export type GroupNotificationState = {
   provider: 'none' | 'zca_group' | 'zalo_oa'
@@ -14,6 +13,7 @@ export type GroupNotificationState = {
   lastDeliveryStatus: DeliveryStatus | null
   lastDeliveryAt: string | null
   lastProviderCode: string | null
+  retryContractVerified: boolean
 }
 
 function channelState(row: { provider?: string | null; is_enabled?: boolean | null; destination_group_id?: string | null } | null): Pick<GroupNotificationState, 'provider' | 'enabled' | 'hasDestination'> {
@@ -30,7 +30,7 @@ export async function getGroupNotificationState(storeId: string): Promise<GroupN
   const admin = createAdminClient()
   const [channelResult, deliveryResult] = await Promise.all([
     admin.from('store_reservation_notification_channels')
-      .select('provider, is_enabled, destination_group_id').eq('store_id', storeId).maybeSingle(),
+      .select('provider, is_enabled, destination_group_id, retry_contract_verified_at, retry_contract_evidence, retry_contract_version').eq('store_id', storeId).maybeSingle(),
     admin.from('reservation_notification_deliveries')
       .select('status, created_at, provider_code').eq('store_id', storeId).eq('delivery_provider', 'zca_group')
       .order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -40,9 +40,12 @@ export async function getGroupNotificationState(storeId: string): Promise<GroupN
   const delivery = deliveryResult.data
   return {
     ...channelState(channelResult.data),
-    lastDeliveryStatus: delivery?.status === 'sent' || delivery?.status === 'failed' || delivery?.status === 'action_required' ? delivery.status : null,
+    lastDeliveryStatus: delivery && ['queued', 'processing', 'sent', 'failed', 'action_required'].includes(delivery.status ?? '') ? delivery.status as DeliveryStatus : null,
     lastDeliveryAt: delivery?.created_at ?? null,
     lastProviderCode: delivery?.provider_code ?? null,
+    retryContractVerified: channelResult.data?.retry_contract_verified_at != null
+      && Boolean(channelResult.data?.retry_contract_evidence?.trim())
+      && channelResult.data?.retry_contract_version === 1,
   }
 }
 
@@ -85,29 +88,53 @@ export async function sendGroupNotificationTest(storeId: string): Promise<{ ok: 
   if (channelError) throw new Error(`Không đọc được cấu hình nhóm Zalo: ${channelError.message}`)
   if (!state.enabled || !channel?.destination_group_id?.trim()) throw new Error('Hãy lưu và bật cảnh báo nhóm Zalo trước khi gửi thử')
 
-  const { data: delivery, error: deliveryError } = await admin.from('reservation_notification_deliveries').insert({
+  const { error: deliveryError } = await admin.from('reservation_notification_deliveries').insert({
     store_id: storeId,
     kind: 'owner_test',
     status: 'queued',
     idempotency_key: `zca-test:${storeId}:${randomUUID()}`,
     delivery_provider: 'zca_group',
     destination_group_id: channel.destination_group_id,
-  }).select('id, dispatch_token').single()
-  if (deliveryError || !delivery) throw new Error(`Không tạo được delivery gửi thử: ${deliveryError?.message ?? 'không rõ lỗi'}`)
-
-  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!baseUrl || !serviceRole) throw new Error('Thiếu cấu hình Supabase server')
-  const response = await fetch(`${baseUrl}/functions/v1/reservation-zca-notify`, {
-    method: 'POST',
-    headers: { apikey: serviceRole, Authorization: `Bearer ${serviceRole}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ delivery_id: delivery.id, dispatch_token: delivery.dispatch_token }),
+    queued_at: new Date().toISOString(),
+    recovery_version: 1,
+    message_snapshot: { version: 1, kind: 'owner_test' },
   })
-  const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; status?: string; providerCode?: string; message?: string | null } | null
-  if (!response.ok || !result) throw new Error(result?.error || `Gửi thử thất bại (${response.status})`)
+  if (deliveryError) throw new Error(`Không tạo được delivery gửi thử: ${deliveryError.message}`)
   revalidatePath(`/mevo/stores/${storeId}`)
-  if (result.ok !== true || result.status !== 'sent') {
-    return { ok: false, status: result.status ?? 'action_required', message: result.message ?? `Relay từ chối gửi tin (${result.providerCode ?? 'không rõ mã'})` }
-  }
-  return { ok: true, status: 'sent', message: null }
+  return { ok: true, status: 'queued', message: null }
+}
+
+export async function listGroupNotificationDeliveries(storeId: string, retryContractVerified: boolean): Promise<{ rows: DeliverySummary[] }> {
+  await requireSuperadmin()
+  const { data, error } = await createAdminClient().from('reservation_notification_deliveries')
+    .select('id,status,updated_at,created_at,queued_at,processing_started_at,attempt_count,requeue_count,provider_code')
+    .eq('store_id', storeId).eq('delivery_provider', 'zca_group')
+    .order('created_at', { ascending: false }).limit(20)
+  if (error) throw new Error(`Không đọc được delivery thông báo nội bộ: ${error.message}`)
+  return { rows: (data ?? []).map((row: Record<string, unknown>) => {
+    const status = row.status as DeliveryStatus
+    const stale = deliveryIsStale(status, (row.processing_started_at ?? row.queued_at ?? row.updated_at) as string | null)
+    const recoveryCandidate = ['failed', 'action_required'].includes(status) || stale
+    const canRetry = recoveryCandidate && retryContractVerified
+    return { id: String(row.id), status, updatedAt: String(row.updated_at), createdAt: String(row.created_at),
+      queuedAt: row.queued_at as string | null, processingStartedAt: row.processing_started_at as string | null,
+      attemptCount: Number(row.attempt_count ?? 0), requeueCount: Number(row.requeue_count ?? 0),
+      providerCode: row.provider_code as string | null, stale, canRetry,
+      retryBlockedReason: !recoveryCandidate ? 'Delivery chưa ở trạng thái có thể gửi lại'
+        : 'Relay chưa được MEVO xác minh khử trùng tin nhắn, nên chưa thể gửi lại' }
+  }) }
+}
+
+export async function retryGroupNotificationDelivery(storeId: string, input: {
+  deliveryId: string; expectedUpdatedAt: string; requestId: string; reason: string
+}): Promise<{ ok: boolean; error?: string; already?: boolean }> {
+  await requireSuperadmin()
+  const client = await createClient()
+  const { data, error } = await client.rpc('requeue_reservation_zca_notification', {
+    p_store_id: storeId, p_delivery_id: input.deliveryId, p_expected_updated_at: input.expectedUpdatedAt,
+    p_request_id: input.requestId, p_reason: input.reason,
+  })
+  if (error) return { ok: false, error: 'Không thể gửi lại delivery này. Vui lòng tải lại trạng thái.' }
+  revalidatePath(`/mevo/stores/${storeId}`)
+  return { ok: data?.ok === true, already: data?.already === true }
 }

@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => {
   const rows: Record<string, unknown> = {}
   const upserts: Array<{ table: string; value: unknown }> = []
   const inserts: Array<{ table: string; value: unknown }> = []
+  const rpc = vi.fn()
+  const client = { rpc }
   const admin = {
     from: vi.fn((table: string) => {
       const builder = {
@@ -22,11 +24,11 @@ const mocks = vi.hoisted(() => {
       return builder
     }),
   }
-  return { requireSuperadmin, revalidatePath, fetch, rows, upserts, inserts, admin }
+  return { requireSuperadmin, revalidatePath, fetch, rows, upserts, inserts, admin, rpc, client }
 })
 
 vi.mock('@/lib/auth/operator', () => ({ requireSuperadmin: mocks.requireSuperadmin }))
-vi.mock('@/lib/supabase/server', () => ({ createAdminClient: vi.fn(() => mocks.admin) }))
+vi.mock('@/lib/supabase/server', () => ({ createAdminClient: vi.fn(() => mocks.admin), createClient: vi.fn(async () => mocks.client) }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
 const {
@@ -34,6 +36,7 @@ const {
   saveGroupNotificationChannel,
   disableGroupNotificationChannel,
   sendGroupNotificationTest,
+  retryGroupNotificationDelivery,
 } = await import('./reservation-group-notifications')
 
 describe('group Zalo notification actions', () => {
@@ -47,6 +50,7 @@ describe('group Zalo notification actions', () => {
     })
     mocks.requireSuperadmin.mockResolvedValue({ userId: 'operator-1', role: 'mevo_superadmin', storeId: null })
     mocks.fetch.mockResolvedValue({ ok: true, json: async () => ({ ok: true, status: 'sent', providerCode: 'message-1', message: null }) })
+    mocks.rpc.mockResolvedValue({ data: { ok: true, already: false }, error: null })
     vi.stubGlobal('fetch', mocks.fetch)
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co'
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-secret'
@@ -75,13 +79,13 @@ describe('group Zalo notification actions', () => {
     expect(mocks.fetch).not.toHaveBeenCalled()
   })
 
-  it('gửi thử tạo delivery zca và gọi Edge Function, không lộ group ID', async () => {
-    await expect(sendGroupNotificationTest('store-1')).resolves.toMatchObject({ ok: true, status: 'sent' })
+  it('gửi thử chỉ enqueue delivery zca, không gọi Edge trực tiếp và không lộ group ID', async () => {
+    await expect(sendGroupNotificationTest('store-1')).resolves.toMatchObject({ ok: true, status: 'queued' })
     expect(mocks.inserts).toContainEqual(expect.objectContaining({
       table: 'reservation_notification_deliveries',
       value: expect.objectContaining({ store_id: 'store-1', delivery_provider: 'zca_group', destination_group_id: 'group-secret', kind: 'owner_test' }),
     }))
-    expect(mocks.fetch).toHaveBeenCalledWith('https://project.supabase.co/functions/v1/reservation-zca-notify', expect.objectContaining({ method: 'POST' }))
+    expect(mocks.fetch).not.toHaveBeenCalled()
     expect(JSON.stringify(mocks.fetch.mock.calls)).not.toContain('group-secret')
   })
 
@@ -91,5 +95,14 @@ describe('group Zalo notification actions', () => {
     await expect(sendGroupNotificationTest('store-1')).rejects.toThrow('superadmin')
     await expect(disableGroupNotificationChannel('store-1')).rejects.toThrow('superadmin')
     expect(mocks.admin.from).not.toHaveBeenCalled()
+  })
+
+  it('gửi lại luôn đi qua RPC người dùng, không dùng service role', async () => {
+    await expect(retryGroupNotificationDelivery('store-1', {
+      deliveryId: 'delivery-1', expectedUpdatedAt: '2026-09-22T00:00:00Z', requestId: 'request-1', reason: 'Relay không phản hồi',
+    })).resolves.toEqual({ ok: true, already: false })
+    expect(mocks.rpc).toHaveBeenCalledWith('requeue_reservation_zca_notification', expect.objectContaining({
+      p_store_id: 'store-1', p_delivery_id: 'delivery-1', p_request_id: 'request-1',
+    }))
   })
 })

@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const tests = [
+  'scripts/bl4-test-env.test.mjs',
   '065_reservation_customer_access.test.mjs',
   '066_reservation_preorders.test.mjs',
   '067_reservation_preorder_lifecycle.test.mjs',
@@ -16,7 +17,9 @@ const tests = [
   '076_reservation_hold_blocks_existing_qr_session.test.mjs',
   '077_pos_reject_pending_order.test.mjs',
   '078a_bl4_prearrival_hold.test.mjs',
-].map(name => resolve(root, 'supabase', 'tests', name))
+  '079_reservation_delivery_recovery.test.mjs',
+  '080_reservation_zca_dispatch.test.mjs',
+].map(name => name.startsWith('scripts/') ? resolve(root, name) : resolve(root, 'supabase', 'tests', name))
 
 const result = spawnSync(process.execPath, ['--test', ...tests], {
   cwd: root,
