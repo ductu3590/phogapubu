@@ -28,3 +28,7 @@
 2. Chạy `node scripts/bl4-check-release.mjs --instance <absolute-instance-dir> --expected-commit <sha> --expected-app-id <app-id>` trước deploy. Không in secret.
 3. Lệnh `zmp deploy` chỉ chạy trong `<instance>/mini-app`, không chạy ở root repo. Dừng nếu checkout còn `MERGE_HEAD` hoặc `CHERRY_PICK_HEAD`.
 4. Rollback ưu tiên công tắc server đã được kiểm. Rollback Mini App công khai cần Publish lại và có thể chờ Zalo duyệt; không coi Testing là bản khách thật.
+
+### Cấu hình URL dispatch Thông báo nội bộ
+
+URL Edge Function nằm trong `mevo_private.runtime_settings` (key `reservation_zca_notify_url`). Không dùng `ALTER DATABASE ... SET app.settings.*` từ SQL Editor vì role của SQL Editor không có quyền đặt custom parameter đó. Schema riêng này đã thu hồi quyền của `anon`, `authenticated` và `service_role`; URL không được lưu trong mã nguồn hoặc browser.

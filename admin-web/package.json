@@ -11,6 +11,7 @@
     "test:bl4:postgres": "node ../supabase/tests/bl4-postgres.integration.mjs",
     "test:bl4:delivery-postgres": "node ../supabase/tests/bl4-delivery-recovery.integration.mjs",
     "test:bl4:release-contract": "node ../supabase/tests/bl4-release-contract.integration.mjs",
+    "test:bl4:dispatch-config": "node --test ../supabase/tests/083_reservation_zca_dispatch_config.test.mjs",
     "start": "next start",
     "lint": "eslint"
   },

@@ -19,6 +19,7 @@ const tests = [
   '078a_bl4_prearrival_hold.test.mjs',
   '079_reservation_delivery_recovery.test.mjs',
   '080_reservation_zca_dispatch.test.mjs',
+  '083_reservation_zca_dispatch_config.test.mjs',
 ].map(name => name.startsWith('scripts/') ? resolve(root, name) : resolve(root, 'supabase', 'tests', name))
 
 const result = spawnSync(process.execPath, ['--test', ...tests], {

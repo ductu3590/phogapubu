@@ -131,7 +131,7 @@ và không có `40P01`, `55P03`, `57014` hoặc `FAIL`. Không gửi connection 
 
 Anh Tú đã nhận đúng các tin fixture trong nhóm MEVO. Không có ID nhóm, secret hay nội dung dữ liệu vận hành nào được ghi vào evidence.
 
-**Nghiệm thu:** ✅ `Task 3 PASS` — anh Tú xác nhận ngày 2026-09-30. ✅ `Test 3C PASS` ngày 2026-10-01; có thể ghi evidence/version 1 để mở retry thật sau khi migration 079/080 được áp lên môi trường vận hành.
+**Nghiệm thu:** ✅ `Task 3 PASS` — anh Tú xác nhận ngày 2026-09-30. ✅ `Test 3C PASS` ngày 2026-10-01. Migrations 079/080 đã áp lên DB vận hành ngày 2026-10-01; cấu hình dispatch được ghi ở migration 083, không dùng `ALTER DATABASE`.
 
 ## Test 4 — Runbook, công tắc server và release gate
 
@@ -160,6 +160,16 @@ Thực hiện trên **quán/test booking riêng**, không dùng booking khách t
 
 ## Test 5 — Diễn tập Testing và bằng chứng bản Publish
 
+### Codex đã chuẩn bị/chạy
+
+- ✅ Môi trường vận hành đã áp migration `078`, `078a`, `079`–`083`; URL `reservation-zca-notify` đặt trong `mevo_private.runtime_settings` và anon/authenticated không có quyền đọc schema/bảng này.
+- ✅ Lỗi quyền `ALTER DATABASE ... app.settings.*` được loại bỏ bằng migration 083. Không tự gửi lại delivery cũ; delivery queued từ 22/9 vẫn giữ nguyên.
+- ✅ Regression test ban đầu tái hiện việc migration 081 chặn nhầm preorder lúc quán đóng. Migration additive `082_bl4_allow_preorder_when_store_closed.sql` miễn trừ đúng order source `reservation_preorder`; PostgreSQL release contract PASS.
+- ✅ `npm run test:bl4:dispatch-config` **1/1 PASS**; `npm run test:bl4:sequential` **56/56 PASS**; `npm run test:bl4:release-contract` PASS.
+- ✅ Mini App Bảo Lương `npm test` **65/65 PASS**; `npx --yes zmp-cli@4.0.3 build` PASS; release gate App ID/commit/working tree PASS.
+- ⚠️ Instance `npm run typecheck` còn 2 lỗi TypeScript ở `src/app.tsx:155` (`SnackbarProvider`) và `src/services/category/category.api.ts:65` (kiểu quan hệ menu). Production build ZMP vẫn thành công; ghi nhận để xử lý nợ kỹ thuật, không che lỗi.
+- ✅ Máy hiện tại có `zmp.ps1` trỏ tới package toàn cục đã mất. Đã xác minh CLI tạm `npx --yes zmp-cli@4.0.3` hoạt động, nên lệnh Test 5A bên dưới dùng CLI này.
+
 ### Trước khi bắt đầu
 
 - Mục tiêu Test 5A là nghiệm thu **bản Testing**; chưa được coi là QR khách thật/Pubish.
@@ -169,7 +179,16 @@ Thực hiện trên **quán/test booking riêng**, không dùng booking khách t
 
 ### Test 5A — Testing E2E (thực hiện sau khi Codex báo chuẩn bị xong)
 
-1. Ghi vào evidence: commit instance, version Testing do Zalo trả về, thời gian Asia/Ho_Chi_Minh, điện thoại dùng test và URL Admin đang dùng. Không ghi QR token.
+1. Mở PowerShell và chạy release gate, sau đó deploy vào Testing từ đúng thư mục instance:
+
+   ```powershell
+   cd D:\Code\mevo
+   node scripts/bl4-check-release.mjs --instance D:\Code\mevo\mini-app-instances\bia-lau-bao-luong --expected-commit b68ff0d --expected-app-id 671794256689452743
+   cd D:\Code\mevo\mini-app-instances\bia-lau-bao-luong\mini-app
+   npx --yes zmp-cli@4.0.3 deploy --testing --desc "BL4-5A-b68ff0d"
+   ```
+
+   Chọn/kiểm tra trạng thái **Testing** trong CLI; dừng nếu release gate báo lỗi. Ghi version Testing Zalo trả về, thời gian Asia/Ho_Chi_Minh, điện thoại dùng test và URL Admin đang dùng vào evidence. Không ghi QR token.
 2. Từ Mini App root không có mã bàn, tạo booking `TEST BL4` cho ngày/giờ hợp lệ. Trên POS xác nhận, chọn **hai bàn**, nhưng chưa nhận khách.
 3. Từ màn khách, chọn **Đặt món trước**, gửi một batch. POS phải thấy đúng booking/bàn đã gán; owner duyệt và in hai liên giấy. Hai liên đều có giá/tổng, nhưng nhãn rõ `Bếp` và `Khách`.
 4. Một giờ trước giờ đến, quét QR của bàn đã gán: không tạo phiên/đơn mới; phải báo bàn đã được đặt và yêu cầu báo chủ quán.
@@ -189,6 +208,8 @@ Thực hiện trên **quán/test booking riêng**, không dùng booking khách t
 3. Lặp lại tối thiểu luồng: booking → POS xác nhận/chọn bàn → preorder → nhận khách → QR gọi thêm. Kiểm bill/mâm/bàn đúng và Bảo Lương vẫn chỉ dùng POS + phiếu giấy.
 4. Mở Pubu bằng khách thường và kiểm pickup/delivery/prepay không hồi quy.
 
-**PASS 5B khi:** QR khách thường chạy đúng bản Publish. Bản Testing đạt nhưng QR vẫn mở bản cũ là `WAITING_PUBLISH`, không được kết luận BL-4 PASS.
+**PASS 5B khi:** QR khách thường chạy đúng bản Publish. Bản Testing đạt nhưng QR vẫn mở bản cũ là `WAITING_PUBLISH`.
 
-**Nghiệm thu:** chờ Test 5A PASS trước; chưa tự Publish Mini App.
+**Quyết định phát hành sau Test 5A:** anh Tú không Publish bản Mini App Bảo Lương hiện tại để chờ Zalo duyệt, vì giao diện Mini App và POS chưa đạt yêu cầu thẩm mỹ. Test 5B được **hoãn có chủ đích** đến sau đợt cải tổ giao diện chung Mini App + web POS; đây không phải lỗi chức năng hay blocker đóng BL-4. Khi giao diện mới sẵn sàng, cần lập kế hoạch riêng, chạy lại kiểm thử giao diện/chức năng trên Testing, rồi mới quyết định Publish và nghiệm thu QR khách thường.
+
+**Nghiệm thu BL-4:** ✅ anh Tú xác nhận `Test 5A PASS` và kết luận `BL-4 PASS` ngày 2026-10-01. Test 5B: `DEFERRED_UI_REDESIGN` — chưa Publish theo chủ đích; không ghi nhận là PASS.
