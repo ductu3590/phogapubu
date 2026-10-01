@@ -156,4 +156,39 @@ Thực hiện trên **quán/test booking riêng**, không dùng booking khách t
 
 **PASS khi:** công tắc chỉ chặn yêu cầu mới; booking/bill cũ không biến mất và chủ quán vẫn nhận khách/đóng bill được. Nếu gặp lỗi, chụp màn hình kèm thời điểm và công tắc đang tắt.
 
-**Nghiệm thu:** chờ `Task 4 PASS`. Sau PASS Codex sẽ commit đúng checkpoint, chưa tự deploy hoặc Publish Mini App.
+**Nghiệm thu:** ✅ `Task 4 PASS` — anh Tú xác nhận ngày 2026-10-01. Commit checkpoint `746ed3a`; chưa tự deploy hoặc Publish Mini App.
+
+## Test 5 — Diễn tập Testing và bằng chứng bản Publish
+
+### Trước khi bắt đầu
+
+- Mục tiêu Test 5A là nghiệm thu **bản Testing**; chưa được coi là QR khách thật/Pubish.
+- Dùng instance `D:\Code\mevo\mini-app-instances\bia-lau-bao-luong\mini-app`. Trước khi deploy phải chạy release gate, không dùng thư mục `D:\Code\mevo\mini-app` mặc định.
+- Chỉ dùng dữ liệu có tên `TEST BL4`; kết thúc từng lượt bằng thao tác nghiệp vụ (từ chối/no-show/đóng bill), không xóa thẳng dữ liệu.
+- Không ghi token QR, nhóm Zalo, key hoặc mật khẩu vào evidence.
+
+### Test 5A — Testing E2E (thực hiện sau khi Codex báo chuẩn bị xong)
+
+1. Ghi vào evidence: commit instance, version Testing do Zalo trả về, thời gian Asia/Ho_Chi_Minh, điện thoại dùng test và URL Admin đang dùng. Không ghi QR token.
+2. Từ Mini App root không có mã bàn, tạo booking `TEST BL4` cho ngày/giờ hợp lệ. Trên POS xác nhận, chọn **hai bàn**, nhưng chưa nhận khách.
+3. Từ màn khách, chọn **Đặt món trước**, gửi một batch. POS phải thấy đúng booking/bàn đã gán; owner duyệt và in hai liên giấy. Hai liên đều có giá/tổng, nhưng nhãn rõ `Bếp` và `Khách`.
+4. Một giờ trước giờ đến, quét QR của bàn đã gán: không tạo phiên/đơn mới; phải báo bàn đã được đặt và yêu cầu báo chủ quán.
+5. Owner bấm **Khách đã đến**. Dùng hai điện thoại quét QR hai bàn trong mâm, mỗi máy gọi thêm một món. POS phải nhận đúng **một mâm/bill**, xác nhận một đơn và từ chối một đơn với lý do; không xuất hiện màn Kitchen Display cho Bảo Lương.
+6. Tạo thêm một booking `TEST BL4 - gọi sau`; xác nhận/nhận khách nhưng không gửi món trước. Luồng QR sau khi đến vẫn gọi thêm bình thường.
+7. Kiểm nhánh vận hành: booking pending quá giờ được owner đóng tay; no-show và huỷ trước/sau khi release ghi dấu vết/audit, không tự xóa booking hoặc giấu món đã in.
+8. Tắt mạng rồi bật lại trên một màn POS; dữ liệu phải tự hội tụ, không F5. Để POS tab nền ít nhất 5 phút, quay lại và ghi độ trễ nhận cập nhật vào evidence.
+9. Tắt thử kênh Thông báo nội bộ/relay (nếu có quyền môi trường test): booking vẫn vào POS, không tự xác nhận. Bật lại sau test.
+10. Kiểm Pubu riêng: root còn `Tự qua lấy` + `Ship`, đơn trả trước/đơn staff giữ luồng Kitchen như trước.
+
+**PASS 5A khi:** toàn bộ 10 bước đạt trên bản **Testing** và evidence có đủ version/commit/môi trường. Sau PASS Codex chỉ commit evidence; Publish là Test 5B riêng.
+
+### Test 5B — QR bản Publish (chỉ thực hiện sau 5A PASS)
+
+1. Publish đúng artifact Testing đã đạt; ghi version Publish và thời điểm console xác nhận công khai.
+2. Bằng một tài khoản Zalo **không nằm trong tester**, quét QR bàn vật lý và mở root Mini App. Xác nhận không còn nhận bản Testing cũ.
+3. Lặp lại tối thiểu luồng: booking → POS xác nhận/chọn bàn → preorder → nhận khách → QR gọi thêm. Kiểm bill/mâm/bàn đúng và Bảo Lương vẫn chỉ dùng POS + phiếu giấy.
+4. Mở Pubu bằng khách thường và kiểm pickup/delivery/prepay không hồi quy.
+
+**PASS 5B khi:** QR khách thường chạy đúng bản Publish. Bản Testing đạt nhưng QR vẫn mở bản cũ là `WAITING_PUBLISH`, không được kết luận BL-4 PASS.
+
+**Nghiệm thu:** chờ Test 5A PASS trước; chưa tự Publish Mini App.
