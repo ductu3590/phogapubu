@@ -18,6 +18,13 @@ try {
     anon.query('SELECT public.create_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [fixture.store_id, fixture.table_id, JSON.stringify([{ menu_item_id: fixture.menu_item_id, quantity: 1 }]), 'cash', null, null, 'dine_in', null, null, null, null, randomUUID()]),
     /tạm nghỉ|không nhận đơn/i,
   )
+  // Món đặt trước thuộc booking đã xác nhận: khách có thể gửi trước giờ đến,
+  // kể cả khi quán đang tạm nghỉ tại thời điểm gửi. Đây không phải QR order mới.
+  const preorder = await anon.query(
+    'SELECT public.submit_reservation_preorder($1,$2,$3,$4::jsonb,$5) AS value',
+    [fixture.reservation_id, fixture.customerToken, randomUUID(), JSON.stringify([{ menu_item_id: fixture.menu_item_id, quantity: 1 }]), 'BL4 outside-hours preorder'],
+  )
+  assert.ok(preorder.rows[0].value.order_id)
   await db.observer.query(`UPDATE store_workflow_settings SET reservation_preorder_enabled=false,reservations_enabled=false WHERE store_id=$1`, [fixture.store_id])
   await assert.rejects(anon.query('SELECT public.prepare_reservation_request($1,$2)', [fixture.store_id, randomUUID()]), /đặt bàn|cấu hình/i)
   const after = await anon.query('SELECT public.get_customer_reservation($1,$2) AS value', [fixture.reservation_id, fixture.customerToken])

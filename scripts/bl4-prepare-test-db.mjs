@@ -54,7 +54,7 @@ try {
       const match = entry.name.match(/^(\d+)([a-z]?)_/i)
       return { name: entry.name, version: Number(match[1]), suffix: match[2].toLowerCase() }
     })
-    .filter(entry => entry.version >= 1 && entry.version <= 81)
+    .filter(entry => entry.version >= 1 && entry.version <= 82)
     .sort((a, b) => a.version - b.version || a.suffix.localeCompare(b.suffix) || a.name.localeCompare(b.name))
 
   for (const migration of files) {
