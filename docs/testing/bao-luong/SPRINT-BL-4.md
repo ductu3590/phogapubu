@@ -119,8 +119,16 @@ và không có `40P01`, `55P03`, `57014` hoặc `FAIL`. Không gửi connection 
 5. Với delivery lỗi hoặc quá hạn, cột thao tác hiển thị `—`; rê chuột thấy lý do relay chưa được xác minh. Không có cách gửi lại từ UI khi chưa có bằng chứng relay.
 6. Sửa Group ID rồi lưu. Xác nhận trạng thái retry vẫn khóa; thay nhóm không được kế thừa quyền gửi lại của nhóm cũ.
 
-### Test 3C — relay thật (chưa chạy)
+### Test 3C — relay thật
 
-Không tự khởi động/restart bot Pickleball đang hoạt động. Chỉ khi có endpoint relay sandbox riêng và bot đã xác minh khử trùng `notification_id`, MEVO mới lưu evidence/version 1 rồi test một retry. Khi đó cần chứng minh relay nhận cùng `notification_id` hai lần nhưng chỉ phát **một** tin vào nhóm; nếu timeout sau khi relay đã gửi thì delivery không được tạo tin thứ hai.
+✅ Chạy ngày 2026-10-01 trên relay `zca-js` đang vận hành, vào **nhóm MEVO riêng** (không dùng nhóm Pickleball):
 
-**Nghiệm thu:** ✅ `Task 3 PASS` — anh Tú xác nhận ngày 2026-09-30. Test 3C là điều kiện mở retry thật, không chặn outbox/POS và không được giả lập là PASS.
+- Hai request đồng thời cùng `notification_id` chỉ tạo một tin.
+- Sau giả lập mất phản hồi, retry cùng mã và raw payload không tạo tin thứ hai.
+- Phát hiện và vá lỗi thật: cùng mã nhưng payload khác trước đây trả cached-success. Relay nay lưu SHA-256 của raw JSON đã ký; payload khác trả `INVALID_REQUEST`, `retryable: false`, không dispatch.
+- Rebuild/restart relay sau khi đã gửi fixture mới; retry lại raw payload cũ trả cached-success. Log chỉ có **một** lần `Đã gửi tin MEVO`; kho bền có entry `sent` với `payloadHash` hợp lệ.
+- Relay source commit: `e6cca75 fix: bind mevo delivery id to payload`; `npm run build` và `npm test` đều PASS (**32/32**).
+
+Anh Tú đã nhận đúng các tin fixture trong nhóm MEVO. Không có ID nhóm, secret hay nội dung dữ liệu vận hành nào được ghi vào evidence.
+
+**Nghiệm thu:** ✅ `Task 3 PASS` — anh Tú xác nhận ngày 2026-09-30. ✅ `Test 3C PASS` ngày 2026-10-01; có thể ghi evidence/version 1 để mở retry thật sau khi migration 079/080 được áp lên môi trường vận hành.

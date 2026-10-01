@@ -8,7 +8,7 @@
 
 - ✅ [Bảo Lương — duyệt plan BL-4](docs/testing/bao-luong/PLAN-BL-4-2026-09-27.md) — PLAN BL-4 PASS (2026-09-29, Test P1–P2)
 - ✅ [Bảo Lương — review design BL-4](docs/testing/bao-luong/REVIEW-BL-4-2026-09-27.md) — SPEC BL-4 PASS, Test R1 ngày 2026-09-27
-- ⏳ [Bảo Lương — Sprint BL-4](docs/testing/bao-luong/SPRINT-BL-4.md) — Task 1–3 PASS; chưa hoàn tất Sprint
+- ⏳ [Bảo Lương — Sprint BL-4](docs/testing/bao-luong/SPRINT-BL-4.md) — Task 1–3 PASS; Test 3C relay thật PASS; chưa hoàn tất Sprint
 - ✅ [Bảo Lương — duyệt plan BL-3](docs/testing/bao-luong/PLAN-BL-3-2026-09-23.md) — PASS
 - ✅ [Bảo Lương — Sprint BL-3](docs/testing/bao-luong/SPRINT-BL-3.md) — BL-3 PASS
 - ✅ [Bảo Lương — BL-2C duyệt/in món đặt trước](docs/testing/bao-luong/SPRINT-BL-2C.md) — PASS
