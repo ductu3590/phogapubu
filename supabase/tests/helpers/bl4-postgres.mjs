@@ -168,7 +168,7 @@ export async function seedBl4Fixture(database) {
         reservation_preorder_edit_cutoff_minutes
       ) VALUES (
         $1, $2, 'pending', 'BL4 Test', '0900000000', 2,
-        now() + interval '2 hours', gen_random_uuid(), repeat('a', 64),
+        now() + interval '2 hours', gen_random_uuid(), encode(extensions.digest(repeat('a', 64), 'sha256'), 'hex'),
         30, 7, 15, 6, 180, 30
       )
     `, [ids.reservation_id, ids.store_id])

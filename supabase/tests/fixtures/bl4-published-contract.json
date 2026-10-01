@@ -1,0 +1,9 @@
+{
+  "baseline": "07aab7f",
+  "status": "baseline_only_publish_version_not_yet_evidenced",
+  "rpc": [
+    { "name": "create_order", "args": ["p_store_id", "p_table_id", "p_items", "p_payment_method", "p_zalo_user_id", "p_note", "p_order_type", "p_customer_name", "p_customer_phone", "p_delivery_address", "p_voucher_code", "p_device_id"] },
+    { "name": "create_table_order_batch", "args": ["p_store_id", "p_table_id", "p_items", "p_payment_method", "p_client_request_id", "p_zalo_user_id", "p_device_id", "p_note", "p_voucher_code", "p_expected_session_id"] },
+    { "name": "create_customer_reservation", "args": ["p_store_id", "p_client_request_id", "p_customer_token", "p_customer_name", "p_customer_phone", "p_party_size", "p_arrival_at", "p_note", "p_zalo_user_id"] }
+  ]
+}

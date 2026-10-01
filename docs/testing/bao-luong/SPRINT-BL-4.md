@@ -132,3 +132,28 @@ và không có `40P01`, `55P03`, `57014` hoặc `FAIL`. Không gửi connection 
 Anh Tú đã nhận đúng các tin fixture trong nhóm MEVO. Không có ID nhóm, secret hay nội dung dữ liệu vận hành nào được ghi vào evidence.
 
 **Nghiệm thu:** ✅ `Task 3 PASS` — anh Tú xác nhận ngày 2026-09-30. ✅ `Test 3C PASS` ngày 2026-10-01; có thể ghi evidence/version 1 để mở retry thật sau khi migration 079/080 được áp lên môi trường vận hành.
+
+## Test 4 — Runbook, công tắc server và release gate
+
+### Codex đã chạy
+
+- ✅ Release checker kiểm instance sạch, không merge/cherry-pick dở, commit là ancestor và App ID trong `.env` khớp expected; test **2/2 PASS**, không in secret.
+- ✅ Checker chạy trên instance Bảo Lương hiện có với App ID Bảo Lương và commit `b68ff0d`: PASS.
+- ✅ PostgreSQL thật: `BL-4 release contract PASS: server switches block new traffic and preserve existing reservation`.
+- ✅ Test này đã phát hiện lỗi thật: `create_order` mở session mới trước khi kiểm quán tạm nghỉ, khiến session mới bị coi là phiên cũ ân hạn. Migration additive `081_bl4_block_new_session_when_store_closed.sql` chặn đơn đầu tiên và rollback session mới.
+- ✅ `npm run test:bl4:sequential` **55/55 PASS**; Admin Web **62 file / 372 test PASS**; typecheck và production build PASS.
+- ✅ Runbook: [bao-luong-pilot-runbook.md](../../operations/bao-luong-pilot-runbook.md). Contract baseline bản Publish tạm ghi rõ chưa có evidence version Publish thật; không tự coi `HEAD` là Publish.
+
+### Anh Tú cần test tay — Test 4A
+
+Thực hiện trên **quán/test booking riêng**, không dùng booking khách thật:
+
+1. Tạo một booking test, xác nhận và phân bàn nhưng chưa bấm **Khách đã đến**.
+2. Vào Cài đặt quán, tắt **Nhận đơn**. Quét QR một bàn khác và thử gọi món: phải bị chặn ngay.
+3. Quay lại `/admin/reservations`: booking test vẫn mở được. Bấm **Khách đã đến**: phải tạo được phiên/bill cho booking cũ.
+4. Tắt **Đặt bàn trước** và **Đặt món trước**. Mở Mini App root: không tạo được booking mới; nhưng booking test cũ vẫn xem được trên POS và xử lý tiếp được.
+5. Bật lại toàn bộ công tắc sau test. Xác nhận QR mới gọi món bình thường.
+
+**PASS khi:** công tắc chỉ chặn yêu cầu mới; booking/bill cũ không biến mất và chủ quán vẫn nhận khách/đóng bill được. Nếu gặp lỗi, chụp màn hình kèm thời điểm và công tắc đang tắt.
+
+**Nghiệm thu:** chờ `Task 4 PASS`. Sau PASS Codex sẽ commit đúng checkpoint, chưa tự deploy hoặc Publish Mini App.

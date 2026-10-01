@@ -10,6 +10,7 @@
     "test:bl4:prepare-db": "node ../scripts/bl4-prepare-test-db.mjs",
     "test:bl4:postgres": "node ../supabase/tests/bl4-postgres.integration.mjs",
     "test:bl4:delivery-postgres": "node ../supabase/tests/bl4-delivery-recovery.integration.mjs",
+    "test:bl4:release-contract": "node ../supabase/tests/bl4-release-contract.integration.mjs",
     "start": "next start",
     "lint": "eslint"
   },
