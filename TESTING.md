@@ -6,6 +6,17 @@
 
 ## Checklist mới tách riêng
 
+- ✅ [UI Reform — review bản POS đã chọn](docs/testing/ui-reform/REVIEW-CHOSEN-POS-2026-10-02.md) — PASS, Codex tự rà theo ủy quyền 02/10; thiết kế chốt, chưa code
+
+- [UI Reform — rà thiết kế 02/10/2026](docs/testing/ui-reform/DESIGN-REVIEW-2026-10-02.md) — A2 dùng nguồn cd573, chưa duyệt thiết kế
+- [UI Reform — Task B1](docs/testing/ui-reform/TASK-B1.md) — PLANNED, khóa trước duyệt thiết kế
+- [UI Reform — Task B2](docs/testing/ui-reform/TASK-B2.md) — PLANNED, khóa trước duyệt thiết kế
+- [UI Reform — Task B3](docs/testing/ui-reform/TASK-B3.md) — PLANNED, khóa trước duyệt thiết kế
+- [UI Reform — Task B4](docs/testing/ui-reform/TASK-B4.md) — PLANNED, khóa trước duyệt thiết kế
+- [UI Reform — Task B5](docs/testing/ui-reform/TASK-B5.md) — PLANNED, khóa trước duyệt thiết kế
+- [UI Reform — Task B6](docs/testing/ui-reform/TASK-B6.md) — PLANNED, khóa trước duyệt thiết kế
+- [UI Reform — review cũ 01/10 và R0–R7](docs/testing/ui-reform/REVIEW-2026-10-01.md) — SUPERSEDED, không triển khai theo plan cũ
+
 - ✅ [Bảo Lương — duyệt plan BL-4](docs/testing/bao-luong/PLAN-BL-4-2026-09-27.md) — PLAN BL-4 PASS (2026-09-29, Test P1–P2)
 - ✅ [Bảo Lương — review design BL-4](docs/testing/bao-luong/REVIEW-BL-4-2026-09-27.md) — SPEC BL-4 PASS, Test R1 ngày 2026-09-27
 - ✅ [Bảo Lương — Sprint BL-4](docs/testing/bao-luong/SPRINT-BL-4.md) — BL-4 PASS; Test 5A PASS (2026-10-01); Test 5B hoãn đến sau cải tổ giao diện, chưa Publish
