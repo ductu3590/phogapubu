@@ -1,6 +1,9 @@
 'use client'
 
+import { Phone } from 'lucide-react'
 import type { ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
+import { Button } from '@/components/ui/button'
+import { getButtonClasses } from '@/components/ui/button-classes'
 import { phoneHref, formatReservationArrival } from './reservation-ui'
 
 export function dueCustomerCallTasks(tasks: ReservationCustomerCallTask[], now = new Date()) {
@@ -16,23 +19,32 @@ export default function CustomerCallTasks({
 }) {
   if (tasks.length === 0) return null
   return (
-    <section className="mb-4 rounded-xl border border-violet-200 bg-violet-50 p-4" aria-label="Gọi nhắc khách">
-      <h2 className="text-sm font-bold text-violet-950">☎️ Gọi nhắc khách ({tasks.length})</h2>
-      <p className="mt-1 text-xs text-violet-800">Đến hạn trước giờ khách đến 60 phút. Mở cuộc gọi không tự đánh dấu hoàn tất.</p>
-      <div className="mt-3 space-y-2">
+    <section className="mb-4 rounded-xl border border-border bg-surface p-4" aria-label="Gọi nhắc khách">
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <Phone className="size-4 text-info" aria-hidden />
+        Gọi nhắc khách <span className="font-normal text-muted tabular">({tasks.length})</span>
+      </h2>
+      <p className="mt-1 text-[13px] text-muted">Đến hạn trước giờ khách đến 60 phút. Mở cuộc gọi không tự đánh dấu hoàn tất.</p>
+      <ul className="mt-3 divide-y divide-border">
         {tasks.map((task) => {
           const href = phoneHref(task.customerPhone)
-          return <article key={task.taskId} className="rounded-lg border border-violet-100 bg-white p-3">
-            <p className="font-bold text-gray-900">{task.customerName} · {task.partySize} khách</p>
-            <p className="mt-0.5 text-xs text-gray-600">Đến {formatReservationArrival(task.arrivalAt)}</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {href ? <a href={href} className="min-h-9 rounded-md bg-violet-700 px-3 py-2 text-xs font-bold text-white">Gọi nhắc khách</a> : <span className="text-xs text-red-700">Số điện thoại không hợp lệ</span>}
-              <button type="button" disabled={busy} onClick={() => onResolve(task.taskId, 'called')} className="min-h-9 rounded-md border border-violet-300 bg-white px-3 py-2 text-xs font-bold text-violet-900 disabled:opacity-50">Đã gọi</button>
-              <button type="button" disabled={busy} onClick={() => onResolve(task.taskId, 'unreachable')} className="min-h-9 rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-gray-700 disabled:opacity-50">Chưa liên hệ được</button>
+          return <li key={task.taskId} className="flex flex-col gap-2 py-3 md:flex-row md:items-center">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-foreground">{task.customerName} · {task.partySize} khách</p>
+              <p className="mt-0.5 text-[13px] text-muted">Đến {formatReservationArrival(task.arrivalAt)}</p>
             </div>
-          </article>
+            <div className="flex flex-wrap gap-2">
+              {href ? (
+                <a href={href} className={getButtonClasses('primary')}><Phone className="size-4" aria-hidden />Gọi nhắc khách</a>
+              ) : (
+                <span className="self-center text-[13px] text-error-text">Số điện thoại không hợp lệ</span>
+              )}
+              <Button disabled={busy} onClick={() => onResolve(task.taskId, 'called')}>Đã gọi</Button>
+              <Button variant="ghost" disabled={busy} onClick={() => onResolve(task.taskId, 'unreachable')}>Chưa liên hệ được</Button>
+            </div>
+          </li>
         })}
-      </div>
+      </ul>
     </section>
   )
 }

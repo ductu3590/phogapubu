@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { tableDot, pendingCount, type SessionStatusLike } from './table-status'
+import { tableDot, pendingCount, tableVisualState, type SessionStatusLike } from './table-status'
 
 const phien = (statuses: string[], status = 'open'): SessionStatusLike => ({
   status,
@@ -43,5 +43,32 @@ describe('pendingCount', () => {
 
   it('phiên đã đóng thì không còn gì để xác nhận', () => {
     expect(pendingCount(phien(['pending'], 'closed'))).toBe(0)
+  })
+})
+
+describe('tableVisualState (quy ước màu 2026-10-02)', () => {
+  it('không có phiên → trống; có giữ chỗ trước giờ đến → đã đặt', () => {
+    expect(tableVisualState(undefined)).toBe('free')
+    expect(tableVisualState(undefined, { prearrivalReserved: true })).toBe('booked')
+  })
+
+  it('mâm vừa ghép, chưa gọi món vẫn là trống', () => {
+    expect(tableVisualState(phien([]))).toBe('free')
+  })
+
+  it('có món đã xác nhận → đang phục vụ', () => {
+    expect(tableVisualState(phien(['confirmed']))).toBe('serving')
+  })
+
+  it('còn đơn chờ xác nhận → chờ duyệt, thắng đang phục vụ', () => {
+    expect(tableVisualState(phien(['confirmed', 'pending']))).toBe('pending')
+  })
+
+  it('phiên quá hạn còn tiền chưa thu → trễ, thắng mọi trạng thái', () => {
+    expect(tableVisualState({ ...phien(['pending'], 'closed'), needs_review: true })).toBe('late')
+  })
+
+  it('bàn đang có khách thì không hiện "đã đặt" dù có booking kế tiếp', () => {
+    expect(tableVisualState(phien(['confirmed']), { prearrivalReserved: true })).toBe('serving')
   })
 })

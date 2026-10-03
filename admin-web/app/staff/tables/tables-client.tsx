@@ -1,6 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Banknote, Ellipsis, Landmark, Layers, Link2, Plus, Printer, RefreshCw, Trash2 } from 'lucide-react'
+import { StatusDot } from '@/components/ui/badge'
+import { Button, IconButton } from '@/components/ui/button'
+import { Dialog } from '@/components/ui/dialog'
+import { Banner, EmptyState } from '@/components/ui/feedback'
+import { TABLE_STATE } from '@/components/ui/status'
+import { tableVisualState } from '@/lib/table-status'
+import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import {
   addTableToSession,
@@ -206,36 +214,42 @@ export default function TablesClient({
       return next
     })
 
+  const dongSheet = () => { if (!busy) setSheet({ kind: 'none' }) }
+
+  const sheetTitle =
+    sheet.kind === 'pay'
+      ? `Thu ${dong(sheet.sessions.reduce((n, s) => n + s.total, 0))}${sheet.sessions.length === 1 ? ` — ${sheet.sessions[0].table_number}` : ` — ${sheet.sessions.length} mâm`}`
+      : sheet.kind === 'more'
+        ? sheet.session.table_number
+        : sheet.kind === 'reset'
+          ? `Bỏ ${sheet.session.table_number} mà KHÔNG thu tiền?`
+          : sheet.kind === 'tray'
+            ? 'Ghép bàn thành mâm'
+            : sheet.kind === 'merge'
+              ? `Nhập ${sheet.session.table_number} vào mâm nào?`
+              : sheet.kind === 'addTable'
+                ? `Thêm bàn vào ${sheet.session.table_number}`
+                : ''
+
   return (
-    <div className="relative mx-auto flex h-full max-w-md flex-col">
-      <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-gray-100 bg-white px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <span
-            className={`inline-block h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-300'}`}
-          />
-          <span className="text-xs font-medium text-gray-500">
-            {connected ? 'Đang cập nhật trực tiếp' : 'Mất kết nối — đang thử lại...'}
-          </span>
-        </div>
-        <button
-          onClick={() => setSheet({ kind: 'tray' })}
-          disabled={busy || freeTables.length === 0}
-          className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white active:bg-black disabled:opacity-40"
-        >
-          ＋ Ghép mâm
-        </button>
+    <div className="relative mx-auto flex h-full max-w-md flex-col bg-background">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-surface px-4 py-2.5">
+        <span className="inline-flex items-center gap-1.5 text-[13px] text-muted" role="status">
+          <StatusDot tone={connected ? 'success' : 'neutral'} />
+          {connected ? 'Đang cập nhật trực tiếp' : 'Mất kết nối — đang thử lại...'}
+        </span>
+        <Button icon={<Layers />} onClick={() => setSheet({ kind: 'tray' })} disabled={busy || freeTables.length === 0}>
+          Ghép mâm
+        </Button>
       </div>
 
       {error && (
-        <div className="mx-4 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 font-semibold underline">
-            Đóng
-          </button>
+        <div className="px-4 pt-3">
+          <Banner tone="warning" title={error} onClose={() => setError(null)} />
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 pb-24">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-28">
         <ServiceRequestQueue
           storeId={storeId}
           initialRequests={initialRequests}
@@ -247,276 +261,198 @@ export default function TablesClient({
             else setError(`${request.table_number}: không còn phiên tương ứng. Yêu cầu vẫn chờ xử lý.`)
           }}
         />
+        <div className="px-4 py-3">
         {sessions.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="text-sm text-gray-400">Chưa có bàn nào đang mở.</p>
+          <div className="py-8">
+            <EmptyState className="py-0">Chưa có bàn nào đang mở.</EmptyState>
             {paymentTiming === 'prepay' && (
-              <p className="mt-2 text-xs text-gray-400">
-                Quán đang chạy <b>trả trước</b> — phiên bàn chỉ dùng ở chế độ trả sau.
+              <p className="mt-2 text-center text-[13px] text-muted">
+                Quán đang chạy <b className="font-semibold">trả trước</b> — phiên bàn chỉ dùng ở chế độ trả sau.
               </p>
             )}
           </div>
         ) : (
           <ul className="space-y-3">
-            {sessions.map((s) => (
+            {sessions.map((s) => {
+              const tray = trayColors.get(s.session_id)
+              const state = TABLE_STATE[tableVisualState(s)]
+              return (
               <li
                 key={s.session_id}
                 id={`session-${s.session_id}`}
-                className={`rounded-xl border bg-white p-3 ${
-                  picked.has(s.session_id)
-                    ? 'border-orange-400 ring-1 ring-orange-200'
-                    : s.needs_review
-                      ? 'border-amber-300'
-                      : 'border-gray-100'
-                } ${trayColors.get(s.session_id)?.color.bar ?? ''}`}
+                className={cn(
+                  'rounded-xl border bg-surface p-3',
+                  picked.has(s.session_id) ? 'border-primary ring-2 ring-primary/20' : s.needs_review ? 'border-critical-border' : 'border-border',
+                  tray?.color.bar,
+                )}
               >
                 {s.needs_review && (
-                  <p className="mb-2 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
-                    ⏰ {sessionTimeoutMessage(s.idle_timeout_minutes)} nên bàn được mở khoá, nhưng
-                    <b> vẫn còn {dong(s.unpaid_total)} chưa thu</b>. {canClose ? 'Xử lý nốt rồi đóng.' : 'Báo chủ quán xử lý bill.'}
-                  </p>
+                  <Banner tone="error" title={`${sessionTimeoutMessage(s.idle_timeout_minutes)} nên bàn được mở khoá`} className="mb-3 p-3">
+                    Vẫn còn <b className="font-semibold tabular">{dong(s.unpaid_total)} chưa thu</b>. {canClose ? 'Xử lý nốt rồi đóng.' : 'Báo chủ quán xử lý bill.'}
+                  </Banner>
                 )}
 
-                <div className="mb-2 flex items-start gap-2">
+                <div className="mb-2 flex items-start gap-3">
                   {canClose && <input
                     type="checkbox"
                     checked={picked.has(s.session_id)}
                     onChange={() => togglePick(s.session_id)}
-                    className="mt-1 h-4 w-4 flex-shrink-0 accent-orange-500"
+                    className="mt-1 size-5 shrink-0 accent-[var(--primary)]"
                     aria-label={`Chọn ${s.table_number} để gộp bill`}
                   />}
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-gray-900">
-                      {s.is_open_ordering ? '🍲' : '🪑'} {s.table_number}
-                      {trayColors.has(s.session_id) && (
-                        <span
-                          className={`ml-1.5 text-[11px] font-bold ${trayColors.get(s.session_id)!.color.label}`}
-                        >
-                          Mâm {trayColors.get(s.session_id)!.index}
-                        </span>
-                      )}
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-semibold text-foreground">
+                      {s.table_number}
+                      {tray && <span className={`text-[13px] font-medium ${tray.color.label}`}>Mâm {tray.index}</span>}
                       {s.is_open_ordering && s.tables.length > 1 && (
-                        <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
-                          mâm {s.tables.length} bàn
-                        </span>
+                        <span className="text-[13px] font-normal text-muted">· mâm {s.tables.length} bàn</span>
                       )}
                     </p>
-                    <p className="text-xs text-gray-400">
-                      mở lúc {gio(s.opened_at)} · {s.order_count} đơn
+                    <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted">
+                      <StatusDot tone={state.tone} />
+                      {state.label} · mở lúc {gio(s.opened_at)} · {s.order_count} đơn
                       {s.opened_by === 'staff' && ' · nhân viên mở'}
                       {!s.is_open_ordering && !s.has_host && ' · chưa có máy giữ bàn'}
                     </p>
                   </div>
-                  <span className="flex-shrink-0 font-bold text-gray-900">{dong(s.total)}</span>
+                  <span className="shrink-0 font-semibold text-foreground tabular">{dong(s.total)}</span>
                 </div>
 
-                <ul className="mb-2.5 space-y-1">
-                  {s.orders.map((o) => (
-                    <li key={o.id} className="flex items-start justify-between gap-2 text-xs">
-                      <span className="min-w-0 text-gray-600">
-                        •{' '}
-                        {o.items.map((it) => it.name + ' ×' + it.quantity).join(', ') ||
-                          'Không có món'}
-                      </span>
-                      <span className="flex-shrink-0 text-gray-400">
-                        {gio(o.created_at)} {STATUS_LABEL[o.status] ?? o.status}
-                        {o.payment_received_at && ' ✓'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {s.orders.length > 0 && (
+                  <ul className="mb-3 space-y-1 border-t border-border pt-2">
+                    {s.orders.map((o) => (
+                      <li key={o.id} className="flex items-start justify-between gap-2 text-[13px]">
+                        <span className="min-w-0 text-foreground/80">
+                          {o.items.map((it) => it.name + ' ×' + it.quantity).join(', ') || 'Không có món'}
+                        </span>
+                        <span className="shrink-0 text-muted tabular">
+                          {gio(o.created_at)} {STATUS_LABEL[o.status] ?? o.status}
+                          {o.payment_received_at && ' ✓'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
                 <div className="flex gap-2">
-                  {canClose && <button
-                    onClick={() => setSheet({ kind: 'pay', sessions: [s] })}
-                    disabled={busy}
-                    className="flex-1 rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white active:bg-orange-600 disabled:opacity-50"
-                  >
-                    Thu tiền &amp; đóng bàn
-                  </button>}
-                  <button
-                    onClick={() => printBill([s])}
-                    disabled={busy}
-                    className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-semibold text-gray-500 active:bg-gray-50 disabled:opacity-50"
-                    title="In bill"
-                  >
-                    🖨️
-                  </button>
-                  <button
-                    onClick={() => setSheet({ kind: 'more', session: s })}
-                    disabled={busy}
-                    className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-semibold text-gray-500 active:bg-gray-50 disabled:opacity-50"
-                  >
-                    ⋯
-                  </button>
+                  {canClose && (
+                    <Button variant="primary" onClick={() => setSheet({ kind: 'pay', sessions: [s] })} disabled={busy} className="flex-1">
+                      Thu tiền &amp; đóng bàn
+                    </Button>
+                  )}
+                  <IconButton icon={<Printer />} label="In bill" onClick={() => printBill([s])} disabled={busy} className="border border-border-strong bg-surface" />
+                  <IconButton icon={<Ellipsis />} label="Thao tác khác" onClick={() => setSheet({ kind: 'more', session: s })} disabled={busy} className="border border-border-strong bg-surface" />
                 </div>
               </li>
-            ))}
+              )
+            })}
           </ul>
         )}
+        </div>
       </div>
 
       {/* Thanh gộp bill — chỉ hiện khi đã tick từ 2 mâm trở lên */}
       {canClose && picked.size > 1 && (
-        <div className="absolute inset-x-0 bottom-0 mx-auto max-w-md border-t border-gray-200 bg-white p-3 shadow-lg">
+        <div className="absolute inset-x-0 bottom-0 mx-auto max-w-md border-t border-border bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-modal">
           <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="text-gray-500">Gộp {picked.size} mâm</span>
-            <span className="font-bold text-gray-900">{dong(pickedTotal)}</span>
+            <span className="text-muted">Gộp {picked.size} mâm</span>
+            <span className="font-semibold text-foreground tabular">{dong(pickedTotal)}</span>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => setPicked(new Set())}
-              className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-semibold text-gray-500"
-            >
-              Bỏ chọn
-            </button>
-            <button
-              onClick={() => printBill(pickedSessions)}
-              className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-semibold text-gray-700"
-            >
-              🖨️ In 1 hoá đơn
-            </button>
-            <button
-              onClick={() => setSheet({ kind: 'pay', sessions: pickedSessions })}
-              disabled={busy}
-              className="flex-1 rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white active:bg-orange-600 disabled:opacity-50"
-            >
+            <Button variant="ghost" onClick={() => setPicked(new Set())}>Bỏ chọn</Button>
+            <Button icon={<Printer />} onClick={() => printBill(pickedSessions)}>In 1 hoá đơn</Button>
+            <Button variant="primary" onClick={() => setSheet({ kind: 'pay', sessions: pickedSessions })} disabled={busy} className="flex-1">
               Thu tiền
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {sheet.kind !== 'none' && (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-black/40"
-          onClick={() => !busy && setSheet({ kind: 'none' })}
+        <Dialog
+          open
+          placement="side"
+          title={sheetTitle}
+          onClose={dongSheet}
+          dismissible={!busy}
+          className="md:inset-x-0 md:top-auto md:bottom-0 md:mx-auto md:h-auto md:max-h-[85dvh] md:w-full md:max-w-md md:rounded-none md:rounded-t-2xl"
         >
-          <div
-            className="mx-auto max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-4 pb-6"
-            onClick={(e) => e.stopPropagation()}
-          >
             {canClose && sheet.kind === 'pay' && (
               <>
-                <p className="text-base font-bold text-gray-900">
-                  Thu {dong(sheet.sessions.reduce((n, s) => n + s.total, 0))}
-                  {sheet.sessions.length === 1
-                    ? ` — ${sheet.sessions[0].table_number}`
-                    : ` — ${sheet.sessions.length} mâm`}
-                </p>
                 {sheet.sessions.some((s) => s.cooking_count > 0) && (
-                  <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    ⚠️ Còn {sheet.sessions.reduce((n, s) => n + s.cooking_count, 0)} món chưa xong.
+                  <Banner tone="warning" title={`Còn ${sheet.sessions.reduce((n, s) => n + s.cooking_count, 0)} món chưa xong`} className="mb-3">
                     Vẫn thu tiền và đóng bàn? Món đang làm vẫn nằm ở màn bếp.
-                  </p>
+                  </Banner>
                 )}
-                <p className="mt-3 text-xs text-gray-500">Khách trả bằng gì?</p>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    onClick={() => void doClose(sheet.sessions, 'paid', 'cash')}
-                    disabled={busy}
-                    className="flex-1 rounded-xl bg-orange-500 py-3 text-sm font-semibold text-white active:bg-orange-600 disabled:opacity-50"
-                  >
-                    💵 Tiền mặt
-                  </button>
-                  <button
-                    onClick={() => void doClose(sheet.sessions, 'paid', 'bank')}
-                    disabled={busy}
-                    className="flex-1 rounded-xl bg-gray-800 py-3 text-sm font-semibold text-white active:bg-gray-900 disabled:opacity-50"
-                  >
-                    🏦 Chuyển khoản
-                  </button>
+                <p className="text-sm text-muted">Khách trả bằng gì?</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Button variant="primary" size="touch" icon={<Banknote />} onClick={() => void doClose(sheet.sessions, 'paid', 'cash')} disabled={busy}>
+                    Tiền mặt
+                  </Button>
+                  <Button size="touch" icon={<Landmark />} onClick={() => void doClose(sheet.sessions, 'paid', 'bank')} disabled={busy}>
+                    Chuyển khoản
+                  </Button>
                 </div>
-                <p className="mt-2 text-[11px] text-gray-400">
+                <p className="mt-2 text-[13px] text-muted">
                   Chuyển khoản: cho khách quét mã QR của quán, nghe loa báo tiền về rồi mới bấm.
                 </p>
               </>
             )}
 
             {sheet.kind === 'more' && (
-              <>
-                <p className="text-base font-bold text-gray-900">{sheet.session.table_number}</p>
-
-                <button
+              <div className="space-y-2">
+                <ActionRow
+                  icon={<Plus />}
+                  title="Thêm bàn vào mâm"
+                  description="Đoàn đông thêm người. Thêm bàn xong là cả nhóm cùng gọi vào một bill."
                   onClick={() => setSheet({ kind: 'addTable', session: sheet.session })}
                   disabled={busy || freeTables.length === 0}
-                  className="mt-3 w-full rounded-xl border border-gray-200 py-3 text-left text-sm font-semibold text-gray-700 active:bg-gray-50 disabled:opacity-50"
-                >
-                  <span className="px-3">➕ Thêm bàn vào mâm</span>
-                  <span className="mt-0.5 block px-3 text-xs font-normal text-gray-400">
-                    Đoàn đông thêm người. Thêm bàn xong là cả nhóm cùng gọi vào một bill.
-                  </span>
-                </button>
-
-                <button
+                />
+                <ActionRow
+                  icon={<Link2 />}
+                  title="Nhập vào mâm khác"
+                  description="Khách quét QR trước khi kịp ghép bàn. Chuyển cả món lẫn bàn sang mâm đích."
                   onClick={() => setSheet({ kind: 'merge', session: sheet.session })}
                   disabled={busy || openSessions.length < 2}
-                  className="mt-2 w-full rounded-xl border border-gray-200 py-3 text-left text-sm font-semibold text-gray-700 active:bg-gray-50 disabled:opacity-50"
-                >
-                  <span className="px-3">🔗 Nhập vào mâm khác</span>
-                  <span className="mt-0.5 block px-3 text-xs font-normal text-gray-400">
-                    Khách quét QR trước khi kịp ghép bàn. Chuyển cả món lẫn bàn sang mâm đích.
-                  </span>
-                </button>
-
+                />
                 {!sheet.session.is_open_ordering && (
-                  <button
+                  <ActionRow
+                    icon={<RefreshCw />}
+                    title="Chuyển quyền gọi món"
+                    description="Nhả máy đang giữ bàn. Máy nào gọi món tiếp theo sẽ thành chủ. Bàn vẫn mở, bill giữ nguyên."
                     onClick={() => void doSimple(() => releaseTableSessionHost(sheet.session.session_id))}
                     disabled={busy || sheet.session.status !== 'open'}
-                    className="mt-2 w-full rounded-xl border border-gray-200 py-3 text-left text-sm font-semibold text-gray-700 active:bg-gray-50 disabled:opacity-50"
-                  >
-                    <span className="px-3">🔄 Chuyển quyền gọi món</span>
-                    <span className="mt-0.5 block px-3 text-xs font-normal text-gray-400">
-                      Nhả máy đang giữ bàn. Máy nào gọi món tiếp theo sẽ thành chủ. Bàn vẫn mở,
-                      bill giữ nguyên.
-                    </span>
-                  </button>
+                  />
                 )}
-
-                {canClose && <button
-                  onClick={() => setSheet({ kind: 'reset', session: sheet.session })}
-                  disabled={busy}
-                  className="mt-2 w-full rounded-xl border border-red-200 py-3 text-left text-sm font-semibold text-red-600 active:bg-red-50 disabled:opacity-50"
-                >
-                  <span className="px-3">🗑️ Bỏ bàn (không thu tiền)</span>
-                  <span className="mt-0.5 block px-3 text-xs font-normal text-red-400">
-                    Dùng cho đơn ma. Huỷ món chưa nấu, giữ nguyên món đã vào bếp.
-                  </span>
-                </button>}
-              </>
+                {canClose && (
+                  <ActionRow
+                    danger
+                    icon={<Trash2 />}
+                    title="Bỏ bàn (không thu tiền)"
+                    description="Dùng cho đơn ma. Huỷ món chưa nấu, giữ nguyên món đã vào bếp."
+                    onClick={() => setSheet({ kind: 'reset', session: sheet.session })}
+                    disabled={busy}
+                  />
+                )}
+              </div>
             )}
 
             {canClose && sheet.kind === 'reset' && (
               <>
-                <p className="text-base font-bold text-gray-900">
-                  Bỏ {sheet.session.table_number} mà KHÔNG thu tiền?
-                </p>
-                <p className="mt-2 text-sm text-gray-500">
-                  {dong(sheet.session.total)} sẽ không được ghi nhận. Món chưa nấu bị huỷ; món đã
+                <p className="text-sm text-muted">
+                  <span className="font-semibold text-foreground tabular">{dong(sheet.session.total)}</span> sẽ không được ghi nhận. Món chưa nấu bị huỷ; món đã
                   vào bếp giữ nguyên và vẫn phải xử lý tay.
                 </p>
-                <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={() => setSheet({ kind: 'more', session: sheet.session })}
-                    className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-semibold text-gray-600"
-                  >
-                    Quay lại
-                  </button>
-                  <button
-                    onClick={() => void doClose([sheet.session], 'staff_reset', null)}
-                    disabled={busy}
-                    className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-semibold text-white active:bg-red-600 disabled:opacity-50"
-                  >
-                    Bỏ bàn
-                  </button>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button size="touch" onClick={() => setSheet({ kind: 'more', session: sheet.session })}>Quay lại</Button>
+                  <Button variant="danger" size="touch" onClick={() => void doClose([sheet.session], 'staff_reset', null)} disabled={busy}>Bỏ bàn</Button>
                 </div>
               </>
             )}
 
             {sheet.kind === 'tray' && (
               <>
-                <p className="text-base font-bold text-gray-900">Ghép bàn thành mâm</p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="text-sm text-muted">
                   Chọn các bàn đoàn đang ngồi. QR của bàn nào trong mâm cũng dẫn về đúng mâm này,
                   và cả nhóm gọi thêm được — không khoá theo một máy.
                 </p>
@@ -524,92 +460,110 @@ export default function TablesClient({
                   {freeTables.map((t) => (
                     <button
                       key={t.id}
+                      type="button"
+                      aria-pressed={pickTables.has(t.id)}
                       onClick={() => toggleTable(t.id)}
-                      className={`rounded-lg border-2 py-2.5 text-sm font-semibold ${
-                        pickTables.has(t.id)
-                          ? 'border-orange-500 bg-orange-50 text-orange-600'
-                          : 'border-gray-200 text-gray-600'
-                      }`}
+                      className={cn(
+                        'min-h-12 cursor-pointer rounded-lg border text-sm font-medium transition-colors',
+                        pickTables.has(t.id) ? 'border-primary bg-primary-light text-primary' : 'border-border-strong text-foreground active:bg-item-hover',
+                      )}
                     >
                       {t.table_number}
                     </button>
                   ))}
                 </div>
-                {freeTables.length === 0 && (
-                  <p className="mt-3 text-sm text-gray-400">Không còn bàn trống nào.</p>
-                )}
-                <button
+                {freeTables.length === 0 && <EmptyState>Không còn bàn trống nào.</EmptyState>}
+                <Button
+                  variant="primary"
+                  size="touch"
                   onClick={() => void doSimple(() => createTraySession([...pickTables]))}
                   disabled={busy || pickTables.size === 0}
-                  className="mt-4 w-full rounded-xl bg-orange-500 py-3 text-sm font-semibold text-white active:bg-orange-600 disabled:opacity-50"
+                  className="mt-4 w-full"
                 >
                   Ghép {pickTables.size > 0 ? `${pickTables.size} bàn ` : ''}thành mâm
-                </button>
+                </Button>
               </>
             )}
 
             {sheet.kind === 'merge' && (
               <>
-                <p className="text-base font-bold text-gray-900">
-                  Nhập {sheet.session.table_number} vào mâm nào?
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="text-sm text-muted">
                   Cả món đã gọi lẫn bàn sẽ chuyển sang mâm đích. Phiên này đóng lại, tiền gộp vào
                   bill của mâm đích.
                 </p>
-                <div className="mt-3 space-y-2">
+                <ul className="mt-3 divide-y divide-border rounded-xl border border-border">
                   {openSessions
                     .filter((s) => s.session_id !== sheet.session.session_id)
                     .map((s) => (
-                      <button
-                        key={s.session_id}
-                        onClick={() =>
-                          void doSimple(() =>
-                            mergeSessionIntoTray(sheet.session.session_id, s.session_id),
-                          )
-                        }
-                        disabled={busy}
-                        className="w-full rounded-xl border border-gray-200 p-3 text-left active:bg-gray-50 disabled:opacity-50"
-                      >
-                        <span className="block text-sm font-semibold text-gray-800">
-                          {s.is_open_ordering ? '🍲' : '🪑'} {s.table_number}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-gray-400">
-                          {s.order_count} đơn · {dong(s.total)}
-                        </span>
-                      </button>
+                      <li key={s.session_id}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void doSimple(() =>
+                              mergeSessionIntoTray(sheet.session.session_id, s.session_id),
+                            )
+                          }
+                          disabled={busy}
+                          className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-3 px-3 text-left active:bg-item-hover disabled:opacity-50"
+                        >
+                          <span className="text-sm font-medium text-foreground">{s.table_number}</span>
+                          <span className="text-[13px] text-muted tabular">{s.order_count} đơn · {dong(s.total)}</span>
+                        </button>
+                      </li>
                     ))}
-                </div>
+                </ul>
               </>
             )}
 
             {sheet.kind === 'addTable' && (
               <>
-                <p className="text-base font-bold text-gray-900">
-                  Thêm bàn vào {sheet.session.table_number}
-                </p>
-                <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {freeTables.map((t) => (
                     <button
                       key={t.id}
+                      type="button"
                       onClick={() =>
                         void doSimple(() => addTableToSession(sheet.session.session_id, t.id))
                       }
                       disabled={busy}
-                      className="rounded-lg border-2 border-gray-200 py-2.5 text-sm font-semibold text-gray-600 active:bg-gray-50 disabled:opacity-50"
+                      className="min-h-12 cursor-pointer rounded-lg border border-border-strong text-sm font-medium text-foreground active:bg-item-hover disabled:opacity-50"
                     >
                       {t.table_number}
                     </button>
                   ))}
                 </div>
-                {freeTables.length === 0 && (
-                  <p className="mt-3 text-sm text-gray-400">Không còn bàn trống nào.</p>
-                )}
+                {freeTables.length === 0 && <EmptyState>Không còn bàn trống nào.</EmptyState>}
               </>
             )}
-          </div>
-        </div>
+        </Dialog>
       )}
     </div>
+  )
+}
+
+function ActionRow({ icon, title, description, onClick, disabled, danger = false }: {
+  icon: React.ReactNode
+  title: string
+  description: string
+  onClick: () => void
+  disabled?: boolean
+  danger?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'flex w-full cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        danger ? 'border-transparent bg-danger-bg active:bg-danger-bg-hover' : 'border-border-strong active:bg-item-hover',
+      )}
+    >
+      <span className={cn('mt-0.5 inline-flex shrink-0 [&>svg]:size-5', danger ? 'text-danger' : 'text-muted')} aria-hidden>{icon}</span>
+      <span className="min-w-0">
+        <span className={cn('block text-sm font-medium', danger ? 'text-danger' : 'text-foreground')}>{title}</span>
+        <span className={cn('mt-0.5 block text-[13px]', danger ? 'text-danger/80' : 'text-muted')}>{description}</span>
+      </span>
+    </button>
   )
 }

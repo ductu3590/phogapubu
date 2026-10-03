@@ -1,8 +1,11 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 import { LAYOUT_COLS, type PlacedTable } from '@/lib/table-layout'
-import { pendingCount, tableDot } from '@/lib/table-status'
+import { pendingCount, tableVisualState } from '@/lib/table-status'
+import { StatusDot } from '@/components/ui/badge'
+import { TABLE_STATE } from '@/components/ui/status'
+import { cn } from '@/lib/utils'
 import type { OpenTableSession } from '@/lib/actions/table-session'
 import type { TrayAssignment } from '@/lib/tray-colors'
 
@@ -11,6 +14,17 @@ const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 export type TableState = {
   session: OpenTableSession
   tray: TrayAssignment | undefined
+}
+
+const PHONE_QUERY = '(max-width: 767px)'
+function subscribePhone(onChange: () => void) {
+  const query = window.matchMedia(PHONE_QUERY)
+  query.addEventListener('change', onChange)
+  return () => query.removeEventListener('change', onChange)
+}
+/** Server render coi như desktop; trình duyệt đọc matchMedia thật ngay lần vẽ đầu. */
+function useIsPhone() {
+  return useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false)
 }
 
 export default function FloorMap({
@@ -54,17 +68,31 @@ export default function FloorMap({
   const rows = Math.min(200, Math.max(1, ...placed.map((t) => t.y + 1)) + (arrange ? 1 : 0))
   const byCell = new Map(placed.map((t) => [`${t.x},${t.y}`, t]))
 
+  // Điện thoại (không sắp xếp): bỏ toạ độ, xếp bàn thành lưới 3 cột theo thứ tự hàng → cột,
+  // để không phải cuộn ngang mới thấy bàn. Sắp xếp bàn thì luôn hiện lưới toạ độ thật.
+  const isPhone = useIsPhone()
+  const compact = isPhone && !arrange
+  // Ngoài lúc sắp xếp chỉ vẽ tới cột cuối cùng có bàn: lưới 12 cột cho khu chỉ dùng 7 cột thì
+  // ô bàn bị bóp tới mức chữ trạng thái bị cắt. Lúc sắp xếp vẫn đủ 12 cột để kéo bàn đi khắp nơi.
+  const cols = arrange ? LAYOUT_COLS : Math.min(LAYOUT_COLS, Math.max(1, ...placed.map((t) => t.x + 1)))
+
   const cells: { x: number; y: number; table: PlacedTable | undefined }[] = []
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < LAYOUT_COLS; x++) {
-      cells.push({ x, y, table: byCell.get(`${x},${y}`) })
+  if (compact) {
+    for (const t of [...placed].sort((a, b) => a.y - b.y || a.x - b.x)) cells.push({ x: t.x, y: t.y, table: t })
+  } else {
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        cells.push({ x, y, table: byCell.get(`${x},${y}`) })
+      }
     }
   }
 
   return (
     <div
-      className="grid min-w-[960px] gap-3"
-      style={{ gridTemplateColumns: `repeat(${LAYOUT_COLS}, minmax(0, 1fr))` }}
+      className={compact ? 'grid grid-cols-3 gap-2' : 'grid w-full gap-2'}
+      style={compact ? undefined : {
+        gridTemplateColumns: arrange ? `repeat(${LAYOUT_COLS}, minmax(88px, 1fr))` : `repeat(${cols}, minmax(88px, 160px))`,
+      }}
       onPointerDown={e => {
         if (!arrange || mode === 'reservation' || locked || !e.isPrimary || e.button !== 0) return
         const tile = (e.target as HTMLElement).closest<HTMLElement>('[data-table-id]')
@@ -110,11 +138,11 @@ export default function FloorMap({
         <div
           key={`${x}-${y}`}
           data-floor-cell={`${x},${y}`}
-          style={hoverCell === `${x},${y}` ? { outline: '2px solid #f97316', borderRadius: 12 } : undefined}
+          style={hoverCell === `${x},${y}` ? { outline: '2px solid var(--primary)', borderRadius: 12 } : undefined}
           className={
             arrange && !table
-              ? 'min-h-24 rounded-xl border border-dashed border-gray-200'
-              : 'min-h-24'
+              ? 'min-h-28 rounded-xl border border-dashed border-border-strong'
+              : 'min-h-28'
           }
         >
           {table && (
@@ -189,35 +217,39 @@ function Tile({
 }) {
   const s = state?.session
   const tray = state?.tray
-  const dot = tableDot(s)
   const cho = pendingCount(s)
+  // Một nguồn màu + nhãn cho cả POS và màn nhân viên (lib/table-status.ts, chốt 2026-10-02).
+  const visual = tableVisualState(s, { prearrivalReserved })
+  const { label, tone } = TABLE_STATE[visual]
 
-  // Màu nền: mâm dùng bảng màu chung với màn nhân viên; bàn lẻ có khách = cam; trống = xám.
-  const base = !s
-    ? 'border-gray-200 bg-white text-gray-400'
-    : tray
-      ? `${tray.color.box} text-gray-800`
-      : 'border-orange-200 bg-orange-50 text-gray-800'
+  // Nền ô luôn trắng — màu mâm chỉ còn ở vạch trái, trạng thái nói bằng chấm + chữ.
+  // Riêng hai trạng thái phải làm ngay (chờ duyệt, quá hạn) mới tô nền nhạt để bắt mắt.
+  const nen =
+    visual === 'pending'
+      ? 'border-warning-border bg-warning-bg'
+      : visual === 'late'
+        ? 'border-critical-border bg-critical-bg'
+        : 'border-border bg-surface'
 
-  // Đơn chưa xác nhận thắng mọi viền khác: đó là việc thu ngân phải làm NGAY.
+  // Thứ tự ưu tiên viền: đang chọn bàn cho booking > đơn chờ xác nhận > đang mở bill > đang tick.
   const vien = reservationMode && reservationSelected
-    ? 'ring-2 ring-sky-600'
+    ? 'ring-2 ring-info-dot'
     : cho > 0
-    ? 'ring-4 ring-amber-500 animate-pulse'
-    : selected
-      ? 'ring-2 ring-gray-900'
-      : picked
-        ? 'ring-2 ring-orange-400'
-        : s?.needs_review
-          ? 'ring-2 ring-amber-400'
-          : prearrivalReserved
-            ? 'ring-2 ring-violet-500'
+      ? 'ring-2 ring-warning-dot animate-pulse motion-reduce:animate-none'
+      : selected
+        ? 'ring-2 ring-foreground'
+        : picked
+          ? 'ring-2 ring-primary'
           : ''
+
+  // Đang chờ duyệt thì nhãn trạng thái đã mang số đơn — bỏ dòng "N đơn" để ô hẹp vẫn đủ chỗ cho chữ.
+  const phu = s ? (tray ? `Mâm ${tray.index}` : cho > 0 ? null : `${s.order_count} đơn`) : null
 
   return (
     <button
       type="button"
       data-table-id={table.id}
+      data-visual-state={visual}
       disabled={disabledReason !== null}
       style={arrange ? { touchAction: 'none', userSelect: 'none' } : undefined}
       aria-label={
@@ -225,43 +257,32 @@ function Tile({
           ? `${table.table_number}: ${disabledReason}`
           : arrange
             ? `${table.table_number}, cột ${table.x + 1}, hàng ${table.y + 1}. Dùng phím mũi tên để di chuyển.`
-            : table.table_number
+            : `${table.table_number}: ${label}${cho > 0 ? `, ${cho} đơn` : ""}`
       }
-      title={disabledReason ?? undefined}
+      title={disabledReason ?? table.table_number}
       onClick={onClick}
-      className={`relative flex h-24 w-full flex-col items-center justify-center rounded-xl border p-1 text-center transition-colors ${base} ${vien} ${
-        disabledReason
-          ? 'cursor-not-allowed opacity-50'
-          : arrange
-            ? 'cursor-move'
-            : 'cursor-pointer hover:brightness-95'
-      }`}
+      className={cn(
+        'relative flex h-28 w-full flex-col justify-between overflow-hidden rounded-xl border p-2 text-left transition-colors md:p-2.5',
+        nen,
+        tray?.color.bar,
+        vien,
+        disabledReason ? 'cursor-not-allowed opacity-50' : arrange ? 'cursor-move' : 'cursor-pointer hover:bg-surface-hover',
+      )}
     >
-      {/* Chấm trạng thái: đỏ = đang có khách ngồi ăn, xanh = trống (kể cả mâm chưa gọi món) */}
-      <span
-        className={`absolute right-1.5 top-1.5 h-3 w-3 rounded-full ${
-          dot === 'busy' ? 'bg-red-500' : 'bg-green-500'
-        }`}
-        title={dot === 'busy' ? 'Đang có khách, chưa thu tiền' : 'Bàn trống'}
-      />
-      {s?.needs_review && <span className="absolute left-1.5 top-1.5 text-xs">⏰</span>}
-      <span className="w-full truncate text-sm font-bold">{table.table_number}</span>
-      {s ? (
-        <>
-          <span className="text-xs font-semibold">{dong(s.total)}</span>
-          <span className="text-[10px] text-gray-500">
-            {tray ? `Mâm ${tray.index}` : `${s.order_count} đơn`}
-          </span>
-        </>
-      ) : (
-        <span className="text-[10px]">{prearrivalReserved ? 'đã giữ' : 'trống'}</span>
-      )}
-      {prearrivalReserved && <span className="absolute left-1.5 top-1.5 text-xs" title="Đã giữ cho khách sắp đến">📅</span>}
-      {cho > 0 && (
-        <span className="absolute inset-x-1 bottom-1 rounded bg-amber-500 px-1 py-0.5 text-[10px] font-bold text-white">
-          {cho} đơn chờ xác nhận
+      <span className="min-w-0">
+        <span className={cn('block truncate text-sm font-semibold', s ? 'text-foreground' : 'text-muted')}>{table.table_number}</span>
+        {s ? <span className="block text-[13px] font-medium text-foreground tabular">{dong(s.total)}</span> : null}
+      </span>
+      <span className="min-w-0">
+        {phu ? (
+          <span className={cn('block truncate text-[13px]', tray ? `font-medium ${tray.color.label}` : 'text-muted')}>{phu}</span>
+        ) : null}
+        <span className="flex min-w-0 items-start gap-1.5 text-[13px] text-foreground/80">
+          <span className="mt-1 inline-flex">
+          <StatusDot tone={tone} /></span>
+          <span className="line-clamp-2 leading-tight">{cho > 0 ? `${label} · ${cho}` : label}</span>
         </span>
-      )}
+      </span>
     </button>
   )
 }

@@ -3,18 +3,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { paymentBadge } from '@/lib/order-payment-badge'
+import { Badge, StatusDot } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/feedback'
+import { orderStatusTone } from '@/components/ui/status'
 import { mapStaffOrderRow, STAFF_ORDER_SELECT, ACTIVE_STATUSES, type StaffOrder } from './types'
 
 const dong = (n: number) => `${n.toLocaleString('vi-VN')}đ`
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Chờ xử lý', confirmed: 'Đã xác nhận', cooking: 'Đang làm', ready: 'Xong',
-}
-const STATUS_COLOR: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  confirmed: 'bg-blue-100 text-blue-700',
-  cooking: 'bg-orange-100 text-orange-700',
-  ready: 'bg-green-100 text-green-700',
 }
 
 export default function StaffOrdersClient({
@@ -109,55 +106,47 @@ export default function StaffOrdersClient({
   }, [storeId])
 
   return (
-    <div className="mx-auto flex h-full max-w-md flex-col">
-      <div className="flex flex-shrink-0 items-center gap-2 border-b border-gray-100 bg-white px-4 py-2.5">
-        <span
-          className={`inline-block h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-300'}`}
-        />
-        <span className="text-xs font-medium text-gray-500">
+    <div className="mx-auto flex h-full max-w-md flex-col bg-background">
+      <div className="flex shrink-0 items-center border-b border-border bg-surface px-4 py-3">
+        <span className="inline-flex items-center gap-1.5 text-[13px] text-muted" role="status">
+          <StatusDot tone={connected ? 'success' : 'neutral'} />
           {connected ? 'Đang cập nhật trực tiếp' : 'Mất kết nối — đang thử lại...'}
         </span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {orders.length === 0 ? (
-          <p className="py-12 text-center text-sm text-gray-400">Chưa có đơn nào đang xử lý hôm nay.</p>
+          <EmptyState className="py-12">Chưa có đơn nào đang xử lý hôm nay.</EmptyState>
         ) : (
-          <ul className="space-y-2.5">
+          <ul className="space-y-3">
             {orders.map((o) => {
               const pay = paymentBadge(o.paymentMethod, !!(o.paymentReceivedAt || o.zalopayTransId), !!o.sessionId)
               return (
-                <li key={o.id} className="rounded-xl border border-gray-100 bg-white p-3">
+                <li key={o.id} className="rounded-xl border border-border bg-surface p-3">
                   <div className="mb-2 flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-bold text-gray-900">🪑 {o.tableNumber}</span>
-                      <span className="text-xs text-gray-400">#{o.id.slice(-6).toUpperCase()}</span>
-                      {o.orderSource === 'staff' && (
-                        <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-600">Đặt hộ</span>
-                      )}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-semibold text-foreground">{o.tableNumber}</span>
+                      <span className="font-mono text-[13px] text-muted">#{o.id.slice(-6).toUpperCase()}</span>
+                      {o.orderSource === 'staff' && <span className="text-[13px] text-muted">· Đặt hộ</span>}
                     </div>
-                    <span className="flex-shrink-0 font-bold text-gray-900">{dong(o.totalAmount)}</span>
+                    <span className="shrink-0 font-semibold text-foreground tabular">{dong(o.totalAmount)}</span>
                   </div>
 
                   <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[o.status] ?? 'bg-gray-100 text-gray-500'}`}>
-                      {STATUS_LABEL[o.status] ?? o.status}
-                    </span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${pay.tone === 'received' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-700'}`}>
-                      {pay.label}
-                    </span>
-                    <span className="text-[11px] text-gray-400">
+                    <Badge tone={orderStatusTone(o.status)}>{STATUS_LABEL[o.status] ?? o.status}</Badge>
+                    <Badge tone={pay.tone === 'received' ? 'success' : 'warning'}>{pay.label}</Badge>
+                    <span className="text-[13px] text-muted tabular">
                       {new Date(o.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
 
-                  <div className="space-y-0.5">
+                  <ul className="space-y-0.5">
                     {o.items.map((it) => (
-                      <p key={it.id} className="text-sm text-gray-600">
-                        <span className="font-medium text-gray-800">×{it.quantity}</span> {it.name}
-                      </p>
+                      <li key={it.id} className="text-sm text-foreground/80">
+                        <span className="font-medium text-foreground tabular">×{it.quantity}</span> {it.name}
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </li>
               )
             })}

@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { Printer } from 'lucide-react'
 import type { OpenTableSession } from '@/lib/actions/table-session'
+import { Button } from '@/components/ui/button'
 
 const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 
@@ -58,57 +60,44 @@ export default function NewOrdersFeed({
       .sort((a, b) => b.o.created_at.localeCompare(a.o.created_at))
   }, [sessions, now])
 
-  return (
-    <div className="flex max-h-44 flex-col border-t border-gray-200 bg-white">
-      <div className="flex items-center gap-2 px-5 py-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Đơn mới</span>
-        <span className="text-[11px] text-gray-400">{CUA_SO_PHUT} phút gần nhất</span>
+  return (
+    <section aria-label="Đơn mới" className="flex max-h-56 flex-col border-t border-border bg-surface">
+      <div className="flex items-baseline gap-2 px-4 pt-3 pb-2 md:px-5">
+        <h2 className="text-sm font-semibold text-foreground">Đơn mới</h2>
+        <span className="text-[13px] text-muted">{CUA_SO_PHUT} phút gần nhất</span>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 md:px-3">
         {rows.length === 0 ? (
-          <p className="py-2 text-xs text-gray-400">Chưa có đơn nào mới.</p>
+          <p className="px-2 py-2 text-sm text-muted">Chưa có đơn nào mới.</p>
         ) : (
-          <ul className="space-y-1">
+          <ul className="divide-y divide-border">
             {rows.map(({ o, s }) => (
-              <li key={o.id} className="flex items-center gap-2">
+              <li key={o.id} className="flex flex-col gap-2 py-1.5 sm:flex-row sm:items-center">
                 <button
+                  type="button"
                   onClick={() => onSelectSession(s.session_id)}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-gray-50"
+                  className="grid min-w-0 flex-1 cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 rounded-lg px-2 py-1.5 text-left hover:bg-item-hover md:grid-cols-[8rem_minmax(0,1fr)_auto_auto_auto]"
                 >
-                  <span className="w-32 flex-shrink-0 truncate font-semibold text-gray-800">
-                    {s.table_number}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-gray-600">
+                  <span className="truncate text-sm font-semibold text-foreground">{s.table_number}</span>
+                  <span className="text-right text-sm font-semibold text-foreground tabular md:order-last">{dong(o.total_amount)}</span>
+                  <span className="col-span-2 min-w-0 truncate text-[13px] text-muted md:col-span-1 md:text-sm">
                     {o.items.map((it) => `${it.name} ×${it.quantity}`).join(', ') || 'Không có món'}
                   </span>
-                  <span className="flex-shrink-0 text-gray-400">
-                    {o.order_source === 'staff' ? '🧑‍🍳 nhân viên' : '👤 khách'}
+                  <span className="hidden text-[13px] text-muted md:inline">
+                    {o.order_source === 'staff' ? 'Nhân viên' : 'Khách'} · {truoc(o.created_at, now)}
                   </span>
-                  <span className="w-20 flex-shrink-0 text-right text-gray-400">
-                    {truoc(o.created_at, now)}
-                  </span>
-                  <span className="w-20 flex-shrink-0 text-right text-gray-500">
-                    {STATUS_LABEL[o.status] ?? o.status}
-                  </span>
-                  <span className="w-24 flex-shrink-0 text-right font-semibold text-gray-800">
-                    {dong(o.total_amount)}
-                  </span>
+                  <span className="hidden text-[13px] text-muted md:inline">{STATUS_LABEL[o.status] ?? o.status}</span>
                 </button>
                 {/* Xác nhận thẳng từ đây: giờ đông khách, bắt thu ngân bấm bàn rồi mới xác nhận
                     là thêm một nhịp thừa. Vẫn in đúng 2 liên như bấm trong panel. */}
                 {o.status === 'pending' && o.order_source !== 'pos' && o.order_source !== 'reservation_preorder' && (
-                  <div className="flex flex-shrink-0 gap-1.5">
-                    <button onClick={() => onRejectOrder(o.id)} disabled={busy}
-                      className="rounded-lg border border-red-300 px-2.5 py-1.5 text-[11px] font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">
+                  <div className="flex shrink-0 gap-2 px-2 sm:px-0">
+                    <Button variant="danger" onClick={() => onRejectOrder(o.id)} disabled={busy} className="flex-1 sm:flex-none">
                       Từ chối
-                    </button>
-                    <button
-                      onClick={() => onConfirmOrder(o.id)}
-                      disabled={busy}
-                      className="rounded-lg bg-green-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-green-700 disabled:opacity-50"
-                    >
-                      ✅ Xác nhận &amp; in
-                    </button>
+                    </Button>
+                    <Button variant="primary" icon={<Printer />} onClick={() => onConfirmOrder(o.id)} disabled={busy} className="flex-1 sm:flex-none">
+                      Xác nhận &amp; in
+                    </Button>
                   </div>
                 )}
               </li>
@@ -116,6 +105,6 @@ export default function NewOrdersFeed({
           </ul>
         )}
       </div>
-    </div>
+    </section>
   )
 }

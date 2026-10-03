@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Bell, RotateCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { listOpenServiceRequests, resolveServiceRequest, type ServiceRequestRow } from '@/lib/actions/service-requests'
 import type { OpenTableSession } from '@/lib/actions/table-session'
 import { createClient } from '@/lib/supabase/client'
@@ -54,32 +57,48 @@ export default function ServiceRequestQueue({ storeId, initialRequests, initialE
     }
   }
 
+  const loi = actionError ?? error
+
   return (
-    <section aria-label="Gọi nhân viên" className="border-b border-orange-200 bg-orange-50 p-3 text-gray-900" onClickCapture={() => unlockBell()}>
+    <section aria-label="Gọi nhân viên" className={cn('border-b border-border px-4 py-3 md:px-5', requests.length > 0 ? 'bg-warning-bg' : 'bg-surface')} onClickCapture={() => unlockBell()}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-bold">🔔 Gọi nhân viên ({requests.length})</h2>
-        {!connected && <span className="text-xs text-amber-800">Đang kết nối lại…</span>}
-        <button className="text-xs underline" onClick={() => refresh.current()}>Tải lại yêu cầu</button>
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Bell className={cn('size-4', requests.length > 0 ? 'text-warning' : 'text-muted')} aria-hidden />
+          Gọi nhân viên
+          <span className={cn('tabular', requests.length > 0 ? 'text-warning' : 'font-normal text-muted')}>({requests.length})</span>
+          {!requests.length && !loi && <span className="font-normal text-muted">· Không có yêu cầu đang chờ.</span>}
+        </h2>
+        <div className="flex items-center gap-2">
+          {!connected && <span className="text-[13px] text-warning">Đang kết nối lại…</span>}
+          <Button variant="ghost" icon={<RotateCw />} onClick={() => refresh.current()} className="min-h-9 px-2.5 text-[13px] md:min-h-9">
+            Tải lại yêu cầu
+          </Button>
+        </div>
       </div>
-      {(error || actionError) && <p role="alert" className="mt-2 text-xs text-red-700">{actionError ?? error}</p>}
-      {!requests.length && !error && <p className="mt-1 text-xs text-gray-600">Không có yêu cầu đang chờ.</p>}
-      <ul className="mt-2 flex max-h-52 flex-wrap gap-2 overflow-y-auto">
-        {requests.map(request => {
-          const session = serviceRequestSession(request, sessions)
-          const label = session?.table_number ?? request.table_number
-          return (
-            <li key={request.id} className="flex items-center gap-3 rounded-lg border border-orange-200 bg-white p-3">
-              <div>
-                {onSelect ? <button className="text-left text-sm font-bold underline" onClick={() => onSelect(request)}>{label}</button> : <p className="text-sm font-bold">{label}</p>}
-                <p className="text-xs text-gray-600">Gọi lần cuối <time dateTime={request.last_ping_at}>{new Date(request.last_ping_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</time> · {request.ping_count} lần</p>
-              </div>
-              <button disabled={busyId !== null} onClick={() => void resolve(request.id)} className="rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
-                {busyId === request.id ? 'Đang xử lý…' : 'Đã xử lý'}
-              </button>
-            </li>
-          )
-        })}
-      </ul>
+      {loi && <p role="alert" className="mt-2 text-sm text-error-text">{loi}</p>}
+      {requests.length > 0 && (
+        <ul className="mt-2 flex max-h-52 flex-wrap gap-2 overflow-y-auto">
+          {requests.map(request => {
+            const session = serviceRequestSession(request, sessions)
+            const label = session?.table_number ?? request.table_number
+            return (
+              <li key={request.id} className="flex items-center gap-3 rounded-xl border border-warning-border bg-surface p-3">
+                <div className="min-w-0">
+                  {onSelect ? (
+                    <button type="button" className="cursor-pointer text-left text-sm font-semibold text-foreground underline-offset-4 hover:underline" onClick={() => onSelect(request)}>{label}</button>
+                  ) : (
+                    <p className="text-sm font-semibold text-foreground">{label}</p>
+                  )}
+                  <p className="text-[13px] text-muted">Gọi lần cuối <time dateTime={request.last_ping_at}>{new Date(request.last_ping_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</time> · {request.ping_count} lần</p>
+                </div>
+                <Button variant="primary" disabled={busyId !== null && busyId !== request.id} isLoading={busyId === request.id} onClick={() => void resolve(request.id)}>
+                  Đã xử lý
+                </Button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </section>
   )
 }

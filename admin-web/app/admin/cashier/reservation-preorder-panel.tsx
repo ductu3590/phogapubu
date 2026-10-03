@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { CheckCircle2, ChevronDown, ChevronUp, Printer, Soup } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import type { PreorderPrintKind, ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
 
 const money = (value: number) => value.toLocaleString('vi-VN') + 'đ'
@@ -31,41 +33,50 @@ export default function ReservationPreorderPanel({
 
   return (
     <>
-    {pendingRows.length > 0 && <section className="mx-5 mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3" aria-label="Món đặt trước cần xử lý">
+    {pendingRows.length > 0 && <section className="mx-4 mt-3 rounded-xl border border-border bg-surface p-4 md:mx-5" aria-label="Món đặt trước cần xử lý">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-bold text-violet-950">🍲 Món đặt trước cần xử lý</h2>
-        <span className="rounded-full bg-violet-700 px-2 py-0.5 text-[11px] font-bold text-white">{pendingRows.length}</span>
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Soup className="size-4 text-warning" aria-hidden />
+          Món đặt trước cần xử lý
+        </h2>
+        <span className="min-w-6 rounded-full bg-warning-bg px-2 text-center text-[13px] leading-6 font-semibold text-warning tabular">{pendingRows.length}</span>
       </div>
-      <p className="mt-1 text-xs text-violet-800">Duyệt theo phiên bản rồi mới in. In trước giờ đến chưa có cọc: chủ quán tự quyết định.</p>
-      <ul className="mt-2 space-y-2">
+      <p className="mt-1 text-[13px] text-muted">Duyệt theo phiên bản rồi mới in. In trước giờ đến chưa có cọc: chủ quán tự quyết định.</p>
+      <ul className="mt-3 divide-y divide-border rounded-lg border border-border">
         {pendingRows.map((row) => {
           const open = expanded === row.orderId
           const canRelease = row.orderStatus !== 'cancelled' && row.needsReview
           const printedCurrent = !row.needsPrint && row.releasedRevision > 0
-          return <li key={row.orderId} className="rounded-lg border border-violet-100 bg-white p-2.5">
-            <button className="flex w-full items-start justify-between gap-3 text-left" onClick={() => setExpanded(open ? null : row.orderId)}>
-              <span><b className="text-sm text-gray-900">{row.customerName}</b><span className="ml-1 text-xs text-gray-500">· {row.partySize} khách</span>
-                <span className="mt-0.5 block text-xs text-gray-600">Đến {time(row.arrivalAt)}{row.tableNumbers.length ? ` · ${row.tableNumbers.join(', ')}` : ' · chưa nhận khách'}</span></span>
-              <span className="text-right text-xs"><b className="block text-violet-800">v{row.revision}</b><span className="text-gray-500">{money(row.totalAmount)}</span></span>
+          return <li key={row.orderId} className="p-3">
+            <button type="button" aria-expanded={open} className="flex w-full cursor-pointer items-start justify-between gap-3 text-left" onClick={() => setExpanded(open ? null : row.orderId)}>
+              <span className="min-w-0"><b className="text-sm font-semibold text-foreground">{row.customerName}</b><span className="ml-1 text-[13px] text-muted">· {row.partySize} khách</span>
+                <span className="mt-0.5 block text-[13px] text-muted">Đến {time(row.arrivalAt)}{row.tableNumbers.length ? ` · ${row.tableNumbers.join(', ')}` : ' · chưa nhận khách'}</span></span>
+              <span className="flex shrink-0 items-start gap-1 text-right text-[13px]">
+                <span><b className="block font-semibold text-foreground">v{row.revision}</b><span className="text-muted tabular">{money(row.totalAmount)}</span></span>
+                {open ? <ChevronUp className="mt-0.5 size-4 text-muted" aria-hidden /> : <ChevronDown className="mt-0.5 size-4 text-muted" aria-hidden />}
+              </span>
             </button>
-            {open && <div className="mt-2 border-t border-violet-100 pt-2">
-              <ul className="space-y-1 text-xs text-gray-700">
-                {row.currentSnapshot.items.map((item, index) => <li key={index} className="flex justify-between gap-2"><span>{item.name}{item.note ? ` · ${item.note}` : ''}</span><b>×{item.quantity}</b></li>)}
+            {open && <div className="mt-2 border-t border-border pt-2">
+              <ul className="space-y-1 text-sm text-foreground">
+                {row.currentSnapshot.items.map((item, index) => <li key={index} className="flex justify-between gap-2"><span className="min-w-0">{item.name}{item.note ? ` · ${item.note}` : ''}</span><b className="shrink-0 font-medium tabular">×{item.quantity}</b></li>)}
               </ul>
-              {row.wasteReviewRequired ? <button disabled={busy} onClick={() => { const reason = prompt('Kết quả đối soát hao hụt'); if (reason) void onResolveWaste(row, reason) }} className="mt-2 w-full rounded-lg border border-red-300 py-2 text-xs font-bold text-red-700 disabled:opacity-50">Đối soát món đã huỷ/in</button>
-                : <div className="mt-2 grid grid-cols-2 gap-2">
-                  {canRelease && <button disabled={busy} onClick={() => void releaseAndPrint(row, 'original')} className="rounded-lg bg-violet-700 py-2 text-xs font-bold text-white disabled:opacity-50">✓ Xác nhận &amp; in 2 liên</button>}
-                  {row.releasedRevision > 0 && <button disabled={busy || row.needsReview} onClick={() => void releaseAndPrint(row, printedCurrent ? (row.revision > 1 ? 'adjustment' : 'reprint') : 'original')} className="rounded-lg bg-orange-600 py-2 text-xs font-bold text-white disabled:opacity-50">🖨️ {printedCurrent ? 'In lại / điều chỉnh' : 'In 2 liên'}</button>}
+              {row.wasteReviewRequired ? <Button variant="danger" disabled={busy} onClick={() => { const reason = prompt('Kết quả đối soát hao hụt'); if (reason) void onResolveWaste(row, reason) }} className="mt-3 w-full">Đối soát món đã huỷ/in</Button>
+                : <div className="mt-3 grid grid-cols-2 gap-2">
+                  {canRelease && <Button variant="primary" icon={<CheckCircle2 />} disabled={busy} onClick={() => void releaseAndPrint(row, 'original')}>Xác nhận &amp; in 2 liên</Button>}
+                  {row.releasedRevision > 0 && <Button icon={<Printer />} disabled={busy || row.needsReview} onClick={() => void releaseAndPrint(row, printedCurrent ? (row.revision > 1 ? 'adjustment' : 'reprint') : 'original')}>{printedCurrent ? 'In lại / điều chỉnh' : 'In 2 liên'}</Button>}
                 </div>}
-              {row.needsReview && row.releasedRevision > 0 && <p className="mt-2 text-[11px] text-amber-700">Khách vừa sửa sau lần duyệt. Duyệt v{row.revision} trước khi in phiếu điều chỉnh.</p>}
+              {row.needsReview && row.releasedRevision > 0 && <p className="mt-2 text-[13px] text-warning">Khách vừa sửa sau lần duyệt. Duyệt v{row.revision} trước khi in phiếu điều chỉnh.</p>}
             </div>}
           </li>
         })}
       </ul>
     </section>}
-    {printedRows.length > 0 && <section className="mx-5 mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3" aria-label="Đã duyệt/in hôm nay">
-      <h2 className="text-xs font-bold text-slate-700">✓ Đã duyệt/in hôm nay · {printedRows.length}</h2>
-      <div className="mt-2 space-y-1 text-xs text-slate-600">{printedRows.map((row) => <div key={row.orderId} className="flex justify-between rounded bg-white px-2 py-1.5"><span>{row.customerName} · {row.tableNumbers.join(', ') || 'chưa phân bàn'}</span><b>{money(row.totalAmount)}</b></div>)}</div>
+    {printedRows.length > 0 && <section className="mx-4 mt-3 rounded-xl border border-border bg-surface p-4 md:mx-5" aria-label="Đã duyệt/in hôm nay">
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <CheckCircle2 className="size-4 text-success" aria-hidden />
+        Đã duyệt/in hôm nay <span className="font-normal text-muted tabular">· {printedRows.length}</span>
+      </h2>
+      <ul className="mt-2 divide-y divide-border text-sm">{printedRows.map((row) => <li key={row.orderId} className="flex justify-between gap-2 py-2"><span className="min-w-0 text-foreground">{row.customerName} <span className="text-muted">· {row.tableNumbers.join(', ') || 'chưa phân bàn'}</span></span><b className="shrink-0 font-medium tabular">{money(row.totalAmount)}</b></li>)}</ul>
     </section>}
     </>
   )

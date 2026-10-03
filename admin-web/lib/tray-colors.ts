@@ -7,9 +7,9 @@
 // không nhìn thấy → build production ra màn hình trắng trơn không màu.
 export type TrayColor = {
   key: string
-  /** Khối bao ngoài của mâm ở màn Chọn bàn */
+  /** Khối bao ngoài của mâm ở màn Chọn bàn (nền trắng + vạch trái màu mâm) */
   box: string
-  /** Nút bàn bên trong khối mâm */
+  /** Nút bàn bên trong khối mâm (trung tính — màu đã có ở vạch của khối) */
   chip: string
   /** Dải màu dày bên trái thẻ phiên ở màn Bàn */
   bar: string
@@ -17,50 +17,39 @@ export type TrayColor = {
   label: string
 }
 
-// Cố tình KHÔNG có cam (màu nút hành động chính) và hổ phách (màu cảnh báo needs_review) —
-// tô mâm bằng hai màu đó là nhân viên đọc nhầm tín hiệu.
+// Màu mâm chỉ là NHẬN DIỆN (mâm nào là mâm nào), KHÔNG phải trạng thái. Chốt 2026-10-02:
+// - Chỉ còn vạch trái 4px + chữ "Mâm N"; nền ô/khối luôn trắng. Trạng thái bàn nói bằng chấm + chữ.
+// - Cố tình KHÔNG có cam (màu nút), xanh lá / xanh dương / vàng / đỏ / xám (năm màu trạng thái,
+//   components/ui/status.ts) và các sắc sát chúng (teal, emerald, sky, cyan, lime, rose).
+//   Mâm tô xanh lá sẽ bị đọc thành "đang phục vụ".
 export const TRAY_COLORS: TrayColor[] = [
   {
-    key: 'blue',
-    box: 'border-blue-200 bg-blue-50',
-    chip: 'border-blue-300 bg-blue-100 text-blue-900 active:bg-blue-200',
-    bar: 'border-l-4 border-l-blue-400',
-    label: 'text-blue-700',
-  },
-  {
     key: 'violet',
-    box: 'border-violet-200 bg-violet-50',
-    chip: 'border-violet-300 bg-violet-100 text-violet-900 active:bg-violet-200',
+    box: 'border-border bg-surface border-l-4 border-l-violet-400',
+    chip: 'border-border-strong bg-surface text-foreground active:bg-item-hover',
     bar: 'border-l-4 border-l-violet-400',
     label: 'text-violet-700',
   },
   {
-    key: 'emerald',
-    box: 'border-emerald-200 bg-emerald-50',
-    chip: 'border-emerald-300 bg-emerald-100 text-emerald-900 active:bg-emerald-200',
-    bar: 'border-l-4 border-l-emerald-400',
-    label: 'text-emerald-700',
-  },
-  {
     key: 'pink',
-    box: 'border-pink-200 bg-pink-50',
-    chip: 'border-pink-300 bg-pink-100 text-pink-900 active:bg-pink-200',
+    box: 'border-border bg-surface border-l-4 border-l-pink-400',
+    chip: 'border-border-strong bg-surface text-foreground active:bg-item-hover',
     bar: 'border-l-4 border-l-pink-400',
     label: 'text-pink-700',
   },
   {
-    key: 'teal',
-    box: 'border-teal-200 bg-teal-50',
-    chip: 'border-teal-300 bg-teal-100 text-teal-900 active:bg-teal-200',
-    bar: 'border-l-4 border-l-teal-400',
-    label: 'text-teal-700',
-  },
-  {
     key: 'indigo',
-    box: 'border-indigo-200 bg-indigo-50',
-    chip: 'border-indigo-300 bg-indigo-100 text-indigo-900 active:bg-indigo-200',
+    box: 'border-border bg-surface border-l-4 border-l-indigo-400',
+    chip: 'border-border-strong bg-surface text-foreground active:bg-item-hover',
     bar: 'border-l-4 border-l-indigo-400',
     label: 'text-indigo-700',
+  },
+  {
+    key: 'fuchsia',
+    box: 'border-border bg-surface border-l-4 border-l-fuchsia-400',
+    chip: 'border-border-strong bg-surface text-foreground active:bg-item-hover',
+    bar: 'border-l-4 border-l-fuchsia-400',
+    label: 'text-fuchsia-700',
   },
 ]
 

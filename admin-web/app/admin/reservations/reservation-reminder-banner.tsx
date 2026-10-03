@@ -1,5 +1,10 @@
 'use client'
 
+import { AlarmClock } from 'lucide-react'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { getButtonClasses } from '@/components/ui/button-classes'
+
 export default function ReservationReminderBanner({
   reservationIds,
   busy,
@@ -12,13 +17,16 @@ export default function ReservationReminderBanner({
   if (reservationIds.length === 0) return null
 
   return (
-    <section className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm" aria-label="Nhắc đặt bàn đến giờ">
-      <p className="text-sm font-bold">⏰ {reservationIds.length} đặt bàn đã tới giờ — kiểm tra khách đã đến chưa</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <a href="/admin/reservations" className="min-h-10 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-bold text-amber-900">Xem</a>
-        <button type="button" disabled={busy} onClick={() => onSnooze(10)} className="min-h-10 rounded-lg bg-amber-800 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Nhắc lại sau 10 phút</button>
-        <button type="button" disabled={busy} onClick={() => onSnooze(15)} className="min-h-10 rounded-lg border border-amber-400 bg-white px-3 py-2 text-sm font-bold text-amber-900 disabled:opacity-50">15 phút</button>
-        <button type="button" disabled={busy} onClick={() => onSnooze(30)} className="min-h-10 rounded-lg border border-amber-400 bg-white px-3 py-2 text-sm font-bold text-amber-900 disabled:opacity-50">30 phút</button>
+    <section className="mb-3 flex flex-col gap-3 rounded-xl border border-warning-border bg-warning-bg p-4 md:flex-row md:items-center" aria-label="Nhắc đặt bàn đến giờ">
+      <p className="flex min-w-0 flex-1 items-start gap-2 text-sm font-medium text-warning">
+        <AlarmClock className="mt-0.5 size-5 shrink-0" aria-hidden />
+        <span>{reservationIds.length} đặt bàn đã tới giờ — kiểm tra khách đã đến chưa</span>
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Link href="/admin/reservations" className={getButtonClasses('outline')}>Xem</Link>
+        <Button disabled={busy} onClick={() => onSnooze(10)}>Nhắc lại sau 10 phút</Button>
+        <Button disabled={busy} onClick={() => onSnooze(15)}>15 phút</Button>
+        <Button disabled={busy} onClick={() => onSnooze(30)}>30 phút</Button>
       </div>
     </section>
   )

@@ -86,9 +86,21 @@ describe('assignTrayColors', () => {
   it('class Tailwind viết nguyên chuỗi, không ghép động — build mới không xoá mất màu', () => {
     for (const c of TRAY_COLORS) {
       expect(c.box).toContain(`-${c.key}-`)
-      expect(c.chip).toContain(`-${c.key}-`)
       expect(c.bar).toContain(`-${c.key}-`)
       expect(c.label).toContain(`-${c.key}-`)
     }
+  })
+
+  it('màu mâm chỉ là vạch trái: nền khối và nút bàn luôn trắng/trung tính (chốt 2026-10-02)', () => {
+    for (const c of TRAY_COLORS) {
+      expect(c.box).toContain('bg-surface')
+      expect(c.box).not.toMatch(/\bbg-[a-z]+-\d/)
+      expect(c.chip).not.toContain(`-${c.key}-`)
+    }
+  })
+
+  it('không mâm nào dùng cam hay sắc của năm màu trạng thái bàn', () => {
+    const banned = ['orange', 'amber', 'yellow', 'green', 'emerald', 'teal', 'lime', 'blue', 'sky', 'cyan', 'red', 'rose', 'slate', 'gray']
+    for (const c of TRAY_COLORS) expect(banned).not.toContain(c.key)
   })
 })

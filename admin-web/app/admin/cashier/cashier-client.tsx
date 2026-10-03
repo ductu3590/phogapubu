@@ -1,6 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeftRight, BellRing, CalendarDays, Check } from 'lucide-react'
+import { Badge, StatusDot, TableStateLegend } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Banner, EmptyState } from '@/components/ui/feedback'
 import { createClient } from '@/lib/supabase/client'
 import {
   addTableToSession,
@@ -599,44 +603,51 @@ export default function CashierClient({
 
   const tongDonCho = sessions.reduce((n, s) => n + pendingCount(s), 0)
 
+  const dongBill = () => {
+    setSelectedSessionId(null)
+    setPickedSessionIds(new Set())
+    setPickedTableIds(new Set())
+  }
+
   return (
     // Trình duyệt chặn phát tiếng cho tới khi người dùng chạm vào trang — mượn cú bấm đầu tiên
     // (bất kỳ chỗ nào) để mở khoá chuông, khỏi bắt thu ngân bấm một nút "bật tiếng" riêng.
-    <div className="flex h-full min-h-0 flex-1" onClickCapture={unlockAllBells}>
+    <div className="flex h-full min-h-0 flex-1 bg-background" onClickCapture={unlockAllBells}>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-5 py-3">
-          <div className="flex items-center gap-2">
-            <span
-              className={`inline-block h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-300'}`}
-            />
-            <span className="text-xs font-medium text-gray-500">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border bg-surface px-4 py-2.5 md:px-5">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="inline-flex items-center gap-1.5 text-[13px] text-muted" role="status">
+              <StatusDot tone={connected ? 'success' : 'neutral'} />
               {connected ? 'Đang cập nhật trực tiếp' : 'Mất kết nối — đang thử lại...'}
             </span>
-            <span className="ml-3 text-xs text-gray-400">
+            <span className="text-[13px] text-muted tabular">
               {placed.length} bàn · {freeTables.length} trống
             </span>
             {tongDonCho > 0 && (
-              <span className="ml-1 rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-white">
-                🔔 {tongDonCho} đơn chờ xác nhận
-              </span>
+              <Badge tone="warning" icon={<BellRing />}>
+                {tongDonCho} đơn chờ xác nhận
+              </Badge>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {openSessions.length > 1 && !arrange && !reservationPick && (
-              <button
+              <Button
+                variant="ghost"
                 onClick={() =>
                   setPickedSessionIds((prev) =>
                     prev.size > 0 ? new Set() : new Set(openSessions.map((s) => s.session_id)),
                   )
                 }
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
               >
                 {pickedSessionIds.size > 0 ? 'Bỏ chọn tất cả' : 'Chọn tất cả để gộp bill'}
-              </button>
+              </Button>
             )}
-            {arrange && <button disabled={floor.saving} onClick={floor.cancel} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold disabled:opacity-50">Hủy chỉnh sửa</button>}
-            <button
-              disabled={floor.saving || !floor.ready || reservationPick !== null}
+            {arrange && <Button disabled={floor.saving} onClick={floor.cancel}>Hủy chỉnh sửa</Button>}
+            <Button
+              variant={arrange ? 'primary' : 'outline'}
+              icon={arrange ? <Check /> : <ArrowLeftRight />}
+              isLoading={floor.saving}
+              disabled={!floor.ready || reservationPick !== null}
               onClick={() => {
                 if (arrange) { void floor.save(); return }
                 void floor.begin()
@@ -644,34 +655,37 @@ export default function CashierClient({
                 setPickedTableIds(new Set())
                 setPickedSessionIds(new Set())
               }}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                arrange ? 'bg-gray-900 text-white' : 'border border-gray-200 text-gray-600'
-              }`}
             >
-              {reservationPick ? 'Đang chọn bàn đặt trước' : floor.saving ? 'Đang xử lý…' : arrange ? 'Lưu sơ đồ' : '⇄ Sắp xếp bàn'}
-            </button>
+              {reservationPick ? 'Đang chọn bàn đặt trước' : arrange ? 'Lưu sơ đồ' : 'Sắp xếp bàn'}
+            </Button>
           </div>
         </div>
 
         {error && (
-          <div className="mx-5 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            {error.message}
-            <button onClick={() => setError(null)} className="ml-2 font-semibold underline">
-              Đóng
-            </button>
+          <div className="px-4 pt-3 md:px-5">
+            {error.source === 'reload' ? (
+              <Banner tone="error" title="Không tải được dữ liệu mới nhất" action={<Button onClick={() => void reload()} className="min-h-9 md:min-h-9">Thử lại</Button>}>
+                {error.message}
+              </Banner>
+            ) : (
+              <Banner tone="warning" title={error.message} onClose={() => setError(null)} />
+            )}
           </div>
         )}
 
         {paymentTiming === 'prepay' && (
-          <p className="mx-5 mt-3 rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-500">
-            Quán đang chạy <b>trả trước</b> — phiên bàn chỉ dùng ở chế độ trả sau. Vẫn sắp xếp
-            được vị trí bàn cho sau này.
-          </p>
+          <div className="px-4 pt-3 md:px-5">
+            <Banner tone="info" title="Quán đang chạy trả trước">
+              Phiên bàn chỉ dùng ở chế độ trả sau. Vẫn sắp xếp được vị trí bàn cho sau này.
+            </Banner>
+          </div>
         )}
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {reservationsEnabled && (
-            <CustomerCallTasks tasks={customerCalls} busy={customerCallBusy} onResolve={(id, outcome) => void resolveCustomerCall(id, outcome)} />
+          {reservationsEnabled && customerCalls.length > 0 && (
+            <div className="px-4 pt-3 md:px-5">
+              <CustomerCallTasks tasks={customerCalls} busy={customerCallBusy} onResolve={(id, outcome) => void resolveCustomerCall(id, outcome)} />
+            </div>
           )}
           {reservationsEnabled && (
             <ReservationQueuePanel
@@ -693,25 +707,30 @@ export default function CashierClient({
               onResolveWaste={onResolvePreorderWaste}
             />
           )}
-          <ServiceRequestQueue
-            storeId={storeId}
-            initialRequests={initialRequests}
-            initialError={initialRequestError}
-            sessions={sessions}
-            onSelect={(request) => {
-              if (arrange || reservationPick) { reportActionError('Hoàn tất chọn bàn đặt trước hoặc sắp xếp bàn trước khi mở yêu cầu.'); return }
-              const session = serviceRequestSession(request, sessions)
-              const table = placed.find(t => session ? session.tables.some(st => st.id === t.id) : t.id === request.table_id)
-              if (table) floor.setAreaId(table.area_id)
-              setSelectedSessionId(session?.session_id ?? null)
-              setPickedSessionIds(new Set())
-              setPickedTableIds(new Set(session ? [] : [request.table_id]))
-              if (!session) reportActionError(`${request.table_number}: không còn phiên tương ứng để mở bill. Yêu cầu vẫn chờ xử lý.`)
-            }}
-          />
+          <div className={reservationsEnabled && preorders.length > 0 ? 'mt-3' : undefined}>
+            <ServiceRequestQueue
+              storeId={storeId}
+              initialRequests={initialRequests}
+              initialError={initialRequestError}
+              sessions={sessions}
+              onSelect={(request) => {
+                if (arrange || reservationPick) { reportActionError('Hoàn tất chọn bàn đặt trước hoặc sắp xếp bàn trước khi mở yêu cầu.'); return }
+                const session = serviceRequestSession(request, sessions)
+                const table = placed.find(t => session ? session.tables.some(st => st.id === t.id) : t.id === request.table_id)
+                if (table) floor.setAreaId(table.area_id)
+                setSelectedSessionId(session?.session_id ?? null)
+                setPickedSessionIds(new Set())
+                setPickedTableIds(new Set(session ? [] : [request.table_id]))
+                if (!session) reportActionError(`${request.table_number}: không còn phiên tương ứng để mở bill. Yêu cầu vẫn chờ xử lý.`)
+              }}
+            />
+          </div>
           <AreaControls floor={floor} />
-          <div className="overflow-auto p-5">
-          {floor.ready && !placed.some(t => t.area_id === floor.areaId) && <p className="mb-3 text-sm text-gray-500">Khu vực này chưa có bàn. Vào Sắp xếp bàn để phân bàn vào khu vực.</p>}
+          <div className="px-4 pt-3 md:px-5">
+            <TableStateLegend />
+          </div>
+          <div className="overflow-auto p-4 md:p-5">
+          {floor.ready && !placed.some(t => t.area_id === floor.areaId) && <EmptyState className="py-4 text-left">Khu vực này chưa có bàn. Vào Sắp xếp bàn để phân bàn vào khu vực.</EmptyState>}
           <FloorMap
             placed={placed.filter(t => t.area_id === floor.areaId)}
             stateByTable={stateByTable}
@@ -780,6 +799,7 @@ export default function CashierClient({
           setPickedSessionIds(new Set())
           setPickedTableIds(new Set())
         }}
+        onDismiss={dongBill}
       />
       )}
       {manualSessionId && (() => {
@@ -821,14 +841,23 @@ function ReservationPickPanel({
   onConfirm: () => void
 }) {
   return (
-    <aside className="flex w-[400px] flex-shrink-0 flex-col overflow-y-auto border-l border-sky-200 bg-sky-50 p-4">
-      <h2 className="text-base font-bold text-sky-950">📅 Xác nhận đặt bàn</h2>
-      <p className="mt-1 text-sm font-semibold text-gray-900">{reservation.customerName} · {reservation.partySize} khách</p>
-      <p className="mt-1 text-xs text-gray-600">Chọn bàn trực tiếp trên sơ đồ. Bill đang mở được giữ nguyên và không thể thao tác trong lúc này.</p>
-      <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-sky-900">Đã chọn {tableCount} bàn</p>
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <button type="button" disabled={busy} onClick={onCancel} className="min-h-11 rounded-lg border border-sky-200 bg-white text-sm font-bold text-sky-900 disabled:opacity-50">Hủy</button>
-        <button type="button" disabled={busy || tableCount === 0} onClick={onConfirm} className="min-h-11 rounded-lg bg-sky-700 text-sm font-bold text-white disabled:opacity-50">Xác nhận bàn</button>
+    // Dưới 1280px: thanh dính đáy để sơ đồ phía trên vẫn bấm chọn bàn được; từ xl là cột bên phải.
+    <aside
+      aria-label="Xác nhận đặt bàn"
+      className="fixed inset-x-0 bottom-0 z-40 flex flex-col gap-3 border-t border-info-border bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-modal xl:static xl:w-[400px] xl:shrink-0 xl:overflow-y-auto xl:border-t-0 xl:border-l xl:border-l-border xl:shadow-none"
+    >
+      <div>
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+          <CalendarDays className="size-5 text-info" aria-hidden />
+          Xác nhận đặt bàn
+        </h2>
+        <p className="mt-1 text-sm font-medium text-foreground">{reservation.customerName} · {reservation.partySize} khách</p>
+        <p className="mt-1 text-[13px] text-muted">Chọn bàn trực tiếp trên sơ đồ. Bill đang mở được giữ nguyên và không thể thao tác trong lúc này.</p>
+      </div>
+      <p className="rounded-lg bg-info-bg px-3 py-2 text-sm font-medium text-info tabular">Đã chọn {tableCount} bàn</p>
+      <div className="grid grid-cols-2 gap-2">
+        <Button size="touch" disabled={busy} onClick={onCancel}>Hủy</Button>
+        <Button variant="primary" size="touch" isLoading={busy} disabled={tableCount === 0} onClick={onConfirm}>Xác nhận bàn</Button>
       </div>
     </aside>
   )

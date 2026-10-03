@@ -2,6 +2,10 @@
 
 import { useState } from 'react'
 import type { OrderRejectReason } from '@/lib/actions/pos-order'
+import { Button } from '@/components/ui/button'
+import { Dialog } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/field'
+import { cn } from '@/lib/utils'
 
 const REASONS: { code: OrderRejectReason; label: string }[] = [
   { code: 'out_of_stock', label: 'Hết đồ' },
@@ -31,31 +35,55 @@ export default function RejectOrderSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true" aria-label="Từ chối đơn">
-      <div className="w-full max-w-md rounded-t-2xl bg-white p-4 shadow-xl sm:rounded-2xl">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-gray-900">Từ chối đơn</h2>
-          <button type="button" onClick={onClose} disabled={busy} className="rounded-lg px-3 py-1 text-gray-500 disabled:opacity-50">Đóng</button>
-        </div>
-        <p className="mt-1 text-xs text-gray-500">Đơn sẽ không được in và không tính vào bill.</p>
-        <fieldset className="mt-3 space-y-2" disabled={busy}>
-          {REASONS.map((item) => (
-            <label key={item.code} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-3 text-sm">
-              <input type="radio" name={`reject-${orderId}`} value={item.code} checked={reason === item.code} onChange={() => setReason(item.code)} />
-              <span>{item.label}</span>
-            </label>
-          ))}
-        </fieldset>
-        {reason === 'other' && (
-          <textarea value={note} onChange={(event) => setNote(event.target.value)} disabled={busy} autoFocus
-            placeholder="Nhập lý do từ chối" maxLength={300}
-            className="mt-3 min-h-20 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none focus:border-red-500 disabled:opacity-50" />
-        )}
-        <button type="button" onClick={() => void submit()} disabled={busy || (reason === 'other' && !note.trim())}
-          className="mt-4 w-full rounded-xl bg-red-600 py-3 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50">
-          Xác nhận từ chối
-        </button>
-      </div>
-    </div>
+    <Dialog
+      open
+      onClose={() => { if (!busy) onClose() }}
+      dismissible={!busy}
+      title="Từ chối đơn"
+      description="Đơn sẽ không được in và không tính vào bill."
+      footer={
+        <>
+          <Button onClick={onClose} disabled={busy}>Đóng</Button>
+          <Button variant="danger" isLoading={busy} onClick={() => void submit()} disabled={reason === 'other' && !note.trim()}>
+            Xác nhận từ chối
+          </Button>
+        </>
+      }
+    >
+      <fieldset className="space-y-2" disabled={busy}>
+        <legend className="sr-only">Lý do từ chối</legend>
+        {REASONS.map((item) => (
+          <label
+            key={item.code}
+            className={cn(
+              'flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm text-foreground transition-colors',
+              reason === item.code ? 'border-primary bg-primary-light' : 'border-border-strong hover:bg-surface-hover',
+            )}
+          >
+            <input
+              type="radio"
+              name={`reject-${orderId}`}
+              value={item.code}
+              checked={reason === item.code}
+              onChange={() => setReason(item.code)}
+              className="size-4 accent-[var(--primary)]"
+            />
+            <span>{item.label}</span>
+          </label>
+        ))}
+      </fieldset>
+      {reason === 'other' && (
+        <Textarea
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          disabled={busy}
+          autoFocus
+          aria-label="Lý do từ chối"
+          placeholder="Nhập lý do từ chối"
+          maxLength={300}
+          className="mt-3"
+        />
+      )}
+    </Dialog>
   )
 }
