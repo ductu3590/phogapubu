@@ -14,14 +14,14 @@ describe('adminNavGroups', () => {
 
   it('giữ đủ các mục cũ của sidebar chủ quán', () => {
     expect(hrefs(false)).toEqual([
-      '/admin/dashboard', '/admin/cashier', '/admin/orders', '/admin/kitchen',
+      '/admin/dashboard', '/admin/pos', '/admin/orders', '/admin/kitchen',
       '/admin/menu', '/admin/vouchers', '/admin/spin',
       '/admin/settings', '/admin/tables', '/admin/staff', '/admin/account',
     ])
   })
 
   it('trang con vẫn sáng đúng mục cha', () => {
-    expect(findActiveHref('/admin/cashier/print-order', adminNavGroups(false))).toBe('/admin/cashier')
+    expect(findActiveHref('/admin/pos/print-order', adminNavGroups(false))).toBe('/admin/pos')
     expect(findActiveHref('/admin/reservations', adminNavGroups(true))).toBe('/admin/reservations')
   })
 })

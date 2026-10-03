@@ -1,6 +1,6 @@
 import {
   LayoutDashboard,
-  Calculator,
+  GanttChart,
   ClipboardList,
   ChefHat,
   UtensilsCrossed,
@@ -22,7 +22,7 @@ export function adminNavGroups(reservationsEnabled = false): AppNavGroup[] {
     {
       label: 'Vận hành',
       items: [
-        { href: '/admin/cashier', label: 'Thu ngân (POS)', icon: <Calculator /> },
+        { href: '/admin/pos', label: 'Thu ngân (POS)', icon: <GanttChart /> },
         { href: '/admin/orders', label: 'Đơn hàng', icon: <ClipboardList /> },
         { href: '/admin/kitchen', label: 'Màn hình bếp', icon: <ChefHat /> },
         ...(reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []),

@@ -10,7 +10,12 @@
 - ✅ [UI-2 — POS thu ngân + màn nhân viên](docs/testing/ui-system/UI-2.md) — UI-2 PASS (2026-10-02), nhánh `feat/ui-system`
 - ✅ [UI-3 — Khu quản trị chủ quán /admin](docs/testing/ui-system/UI-3.md) — UI-3 PASS (2026-10-03), nhánh `feat/ui-system`
 - ✅ [UI-4 — Khu MEVO superadmin /mevo](docs/testing/ui-system/UI-4.md) — UI-4 PASS (2026-10-03), nhánh `feat/ui-system`
-- [UI-5 — Mini App khách](docs/testing/ui-system/UI-5.md) — đã commit (60f20cc) + merge main + 2 worktree quán; chờ anh zmp deploy Development để test
+- ✅ [UI-5 — Mini App khách](docs/testing/ui-system/UI-5.md) — UI-5 PASS (2026-10-03)
+- ✅ [POS-1 — Trang mới /admin/pos: Timeline](docs/testing/pos-stitch/POS-1.md) — POS-1 PASS (2026-10-03, cả bài 13)
+- ✅ [POS-2 — Việc cần xử lý + duyệt lượt gọi](docs/testing/pos-stitch/POS-2.md) — POS-2 PASS (2026-10-03)
+- ✅ [POS-3 — Bill dạng tab + Thanh toán một nút](docs/testing/pos-stitch/POS-3.md) — POS-3 PASS (2026-10-03, sau vá vòng 1)
+- ✅ [POS-4 — Tiếp nhận khách đặt bàn + đặt bàn từ Timeline](docs/testing/pos-stitch/POS-4.md) — POS-4 PASS (2026-10-03, sau vá vòng 2)
+- [Dọn POS cũ — xoá /admin/cashier](docs/testing/pos-stitch/POS-CLEANUP.md) — nhánh `feat/pos-timeline`, chờ test
 
 - ✅ [UI Reform — review bản POS đã chọn](docs/testing/ui-reform/REVIEW-CHOSEN-POS-2026-10-02.md) — PASS, Codex tự rà theo ủy quyền 02/10; thiết kế chốt, chưa code
 

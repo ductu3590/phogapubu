@@ -225,7 +225,7 @@ export default function ReservationsClient({
       return
     }
     if (action === 'open_session') {
-      window.location.href = '/admin/cashier'
+      window.location.href = '/admin/pos'
       return
     }
     if (action === 'call') return

@@ -41,11 +41,16 @@ export function StatusDot({ tone, className }: { tone: StatusTone; className?: s
   return <span className={cn('inline-block size-2 shrink-0 rounded-full', STATUS_TONE_CLASSES[tone].dot, className)} aria-hidden />
 }
 
-export function TableStateBadge({ state, className }: { state: TableVisualState; className?: string }) {
-  const { label, tone } = TABLE_STATE[state]
+export function TableStateBadge({ state, label, className }: {
+  state: TableVisualState
+  /** Nhãn cụ thể hơn ("Trễ 15p"); màu vẫn theo trạng thái. */
+  label?: string
+  className?: string
+}) {
+  const { label: defaultLabel, tone } = TABLE_STATE[state]
   return (
     <Badge tone={tone} withDot className={className}>
-      {label}
+      {label ?? defaultLabel}
     </Badge>
   )
 }

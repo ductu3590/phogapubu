@@ -1,4 +1,4 @@
-// Sơ đồ bàn của màn POS (/admin/cashier) — logic xếp lưới tách hẳn khỏi React để test được.
+// Sơ đồ bàn của màn POS (/admin/pos, tab Sơ đồ bàn) — logic xếp lưới tách hẳn khỏi React để test được.
 //
 // Toạ độ là Ô LƯỚI, không phải pixel (spec 2026-09-03 §1.2): snap lưới thì không bao giờ có
 // hai bàn chồng nhau, và sơ đồ không vỡ khi cửa sổ đổi cỡ.

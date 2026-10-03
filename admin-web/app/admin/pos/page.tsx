@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation'
 import { listOpenTableSessions } from '@/lib/actions/table-session'
 import { loadFloorLayout } from '@/lib/actions/floor-layout'
 import type { PosMenuCategory } from './manual-order-sheet'
-import CashierClient from './cashier-client'
+import type { ServingPeriod } from '@/lib/pos-timeline'
+import PosClient from './pos-client'
 import { listOpenServiceRequests } from '@/lib/actions/service-requests'
 import { listReservationQueue } from '@/lib/actions/reservations'
 import { listReservationPreorderQueue } from '@/lib/actions/reservation-preorders'
@@ -18,9 +19,9 @@ function queueRange() {
   }
 }
 
-// Màn POS thu ngân — chỉ chủ quán. AdminLayout đã chặn, kiểm lại ở đây cho fail-closed
-// theo tầng (page có thể bị render ngoài layout khi Next đổi cách nhóm route).
-export default async function CashierPage() {
+// Màn POS thu ngân (Timeline) — chỉ chủ quán. Kèm giờ phục vụ + bước giờ / khoảng giữ bàn của
+// đặt bàn để dựng trục giờ. AdminLayout đã chặn, kiểm lại ở đây cho fail-closed theo tầng.
+export default async function PosPage() {
   const operator = await requireOperatorOrRedirect()
   if (operator.role !== 'store_owner') redirect('/mevo')
 
@@ -33,6 +34,9 @@ export default async function CashierPage() {
   const workflowSettings = workflow as {
     payment_timing?: 'prepay' | 'postpay'
     reservations_enabled?: boolean
+    serving_hours?: ServingPeriod[] | null
+    slot_interval_minutes?: number
+    planning_hold_minutes?: number
   } | null
   const reservationsEnabled = workflowSettings?.reservations_enabled === true
   const floorPromise = loadFloorLayout()
@@ -92,7 +96,10 @@ export default async function CashierPage() {
   ])
 
   return (
-    <CashierClient
+    <PosClient
+      servingHours={Array.isArray(workflowSettings?.serving_hours) ? workflowSettings.serving_hours : []}
+      slotIntervalMinutes={workflowSettings?.slot_interval_minutes ?? 30}
+      planningHoldMinutes={workflowSettings?.planning_hold_minutes ?? 120}
       storeId={operator.storeId}
       initialRequests={requests.ok ? requests.requests : []}
       initialRequestError={requests.ok ? null : requests.error}

@@ -23,7 +23,7 @@ import {
 } from '@/lib/actions/table-session'
 import { assignTrayColors } from '@/lib/tray-colors'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
-import ServiceRequestQueue from '@/app/admin/cashier/service-request-queue'
+import ServiceRequestQueue from './service-request-queue'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { serviceRequestSession } from '@/lib/service-request-queue'
 
@@ -379,11 +379,6 @@ export default function TablesClient({
         >
             {canClose && sheet.kind === 'pay' && (
               <>
-                {sheet.sessions.some((s) => s.cooking_count > 0) && (
-                  <Banner tone="warning" title={`Còn ${sheet.sessions.reduce((n, s) => n + s.cooking_count, 0)} món chưa xong`} className="mb-3">
-                    Vẫn thu tiền và đóng bàn? Món đang làm vẫn nằm ở màn bếp.
-                  </Banner>
-                )}
                 <p className="text-sm text-muted">Khách trả bằng gì?</p>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <Button variant="primary" size="touch" icon={<Banknote />} onClick={() => void doClose(sheet.sessions, 'paid', 'cash')} disabled={busy}>

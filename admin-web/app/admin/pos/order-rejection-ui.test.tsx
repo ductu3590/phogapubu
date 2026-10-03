@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { OpenTableSession } from '@/lib/actions/table-session'
-import BillPanel from './bill-panel'
-import NewOrdersFeed from './new-orders-feed'
+import { buildWorkQueue } from '@/lib/pos-work-queue'
+import PosBillPanel from './bill-panel'
 import RejectOrderSheet from './reject-order-sheet'
+import WorkQueue from './work-queue'
 
 const session: OpenTableSession = {
   session_id: 'session-1',
@@ -39,22 +40,32 @@ const session: OpenTableSession = {
 }
 
 describe('nút từ chối đơn chờ xác nhận', () => {
-  it('hiện cạnh xác nhận ở danh sách Đơn mới', () => {
+  it('hiện cạnh Duyệt & in bếp ở thẻ lượt món trong Việc cần xử lý', () => {
+    const now = Date.now()
+    const items = buildWorkQueue({ sessions: [session], requests: [], reservations: [], reservationBars: new Map(), customerCalls: [], now })
     const html = renderToStaticMarkup(
-      <NewOrdersFeed sessions={[session]} busy={false} onSelectSession={vi.fn()} onConfirmOrder={vi.fn()} onRejectOrder={vi.fn()} />,
+      <WorkQueue items={items} filter="all" onFilter={vi.fn()} now={now} reservationsEnabled={false}
+        sessionsById={new Map([[session.session_id, session]])} requestsById={new Map()} reservationsById={new Map()}
+        customerCallsById={new Map()} trayColors={new Map()} reminderIds={new Set()} busy={false} requestBusyId={null}
+        requestError={null}
+        handlers={{ onOpenSession: vi.fn(), onOpenReservation: vi.fn(), onConfirmOrder: vi.fn(), onRejectOrder: vi.fn(),
+          onResolveRequest: vi.fn(), onConfirmReservation: vi.fn(), onArriveReservation: vi.fn(), onSnoozeReservation: vi.fn(),
+          onResolveCustomerCall: vi.fn() }} />,
     )
-    expect(html).toContain('Xác nhận &amp; in')
+    expect(html).toContain('Duyệt &amp; in bếp')
     expect(html).toContain('Từ chối')
   })
 
-  it('hiện trong đơn chờ xác nhận của bill bàn', () => {
+  it('bill bàn có lượt chờ duyệt: báo Duyệt ngay và khoá Thanh toán', () => {
     const html = renderToStaticMarkup(
-      <BillPanel selected={session} picked={[]} freeTables={[]} otherSessions={[]} pickedFreeTables={0} busy={false}
+      <PosBillPanel selected={session} picked={[]} freeTables={[]} otherSessions={[]} pickedFreeTables={0} trayColors={new Map()} busy={false}
         onPay={vi.fn()} onPrint={vi.fn()} onReset={vi.fn()} onCreateTray={vi.fn()} onAddTable={vi.fn()}
         onMergeInto={vi.fn()} onReleaseHost={vi.fn()} onConfirmOrder={vi.fn()} onRejectOrder={vi.fn()}
-        onPrintOrder={vi.fn()} onOpenManualOrder={vi.fn()} onVoidOrderItem={vi.fn()} onRestoreOrderItem={vi.fn()} onClearPick={vi.fn()} />,
+        onPrintOrder={vi.fn()} onOpenManualOrder={vi.fn()} onVoidOrderItem={vi.fn()} onRestoreOrderItem={vi.fn()} onClearPick={vi.fn()}
+        onDismiss={vi.fn()} />,
     )
-    expect(html).toContain('Từ chối')
+    expect(html).toContain('Duyệt ngay')
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>(?:(?!<\/button>).)*Thanh toán/)
   })
 
   it('sheet có đủ lý do chọn nhanh và ô nhập cho lý do khác', () => {

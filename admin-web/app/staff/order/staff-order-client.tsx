@@ -621,7 +621,7 @@ function OptionSheet({ item, onClose, onAdd }: {
   )
 }
 
-// Nút bàn ở màn chọn bàn — chấm + chữ trạng thái đọc CÙNG hàm với sơ đồ POS (/admin/cashier).
+// Nút bàn ở màn chọn bàn — chấm + chữ trạng thái đọc CÙNG hàm với sơ đồ POS (/admin/pos).
 function BanNut({ label, session, className, onClick }: { label: string; session: OpenTableSession | undefined; className?: string; onClick: () => void }) {
   const state = TABLE_STATE[tableVisualState(session)]
   return (

@@ -1,4 +1,4 @@
-// Trạng thái một ô bàn trên sơ đồ POS (/admin/cashier) và trên màn chọn bàn của nhân viên
+// Trạng thái một ô bàn trên sơ đồ POS (/admin/pos) và trên màn chọn bàn của nhân viên
 // (/staff/order). Hai màn PHẢI đọc cùng một hàm, nếu mỗi màn tự suy thì thu ngân và nhân viên
 // nhìn hai màu khác nhau về cùng một cái bàn.
 //

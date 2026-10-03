@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import FloorMap, { type TableState } from '@/app/admin/cashier/floor-map'
+import FloorMap, { type TableState } from '@/app/admin/pos/floor-map'
 import type { OpenTableSession } from '@/lib/actions/table-session'
 import type { PlacedTable } from '@/lib/table-layout'
 import { TRAY_COLORS } from '@/lib/tray-colors'

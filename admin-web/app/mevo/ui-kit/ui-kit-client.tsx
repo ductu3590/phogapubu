@@ -27,6 +27,10 @@ import { Tabs } from '@/components/ui/tabs'
 import { ToastProvider, useToast } from '@/components/ui/toast'
 import { formatVND } from '@/lib/utils'
 import PosTilesDemo from './pos-tiles-demo'
+import PosTimelineDemo from './pos-timeline-demo'
+import PosWorkQueueDemo from './pos-work-queue-demo'
+import PosBillDemo from './pos-bill-demo'
+import PosReceptionDemo from './pos-reception-demo'
 
 // Dữ liệu minh hoạ — cố ý có ca biên: tên dài, số 9 chữ số, số 0.
 const SAMPLE_ROWS = [
@@ -204,8 +208,27 @@ function UiKitBody() {
         </Card>
       </Section>
 
-      <Section title="Ô bàn POS" description="Đúng component sơ đồ bàn của /admin/cashier, dữ liệu minh hoạ. Nền ô trắng; màu mâm chỉ ở vạch trái; trạng thái = chấm + chữ.">
+      <Section title="Ô bàn POS" description="Đúng component Sơ đồ bàn của /admin/pos, dữ liệu minh hoạ. Nền ô trắng; màu mâm chỉ ở vạch trái; trạng thái = chấm + chữ.">
         <PosTilesDemo />
+      </Section>
+
+      <Section title="Timeline POS" description="Đúng component Timeline của /admin/pos, dữ liệu minh hoạ đặt theo giờ hiện tại. Thanh liền = phiên đang mở, viền đứt = đặt bàn.">
+        <PosTimelineDemo />
+      </Section>
+
+      <Section title="Việc cần xử lý (POS)" description="Cột phải của /admin/pos: một danh sách gộp, việc gấp lên đầu, lọc theo loại. Dữ liệu minh hoạ, nút không làm gì.">
+        <PosWorkQueueDemo />
+      </Section>
+
+      <Section title="Bill POS" description="Bill của /admin/pos: tab Hoá đơn / Lượt gọi mới / Lịch sử in; Thanh toán khoá khi còn lượt chờ duyệt. Bấm Thanh toán ở bill bên phải để xem màn thu tiền. Dữ liệu minh hoạ.">
+        <div className="flex flex-wrap gap-4">
+          <PosBillDemo withPending />
+          <PosBillDemo withPending={false} />
+        </div>
+      </Section>
+
+      <Section title="Tiếp nhận khách đặt bàn (POS)" description="Bấm thanh đặt bàn trên Timeline /admin/pos → panel này. Dữ liệu minh hoạ (khách trễ 25 phút, có món đặt trước), nút không làm gì.">
+        <PosReceptionDemo />
       </Section>
 
       <Section title="Form" description="Nhãn trên ô. Lỗi hiện ngay dưới ô và giữ nguyên chữ đã gõ.">
