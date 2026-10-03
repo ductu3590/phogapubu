@@ -1,54 +1,228 @@
 @import "tailwindcss";
 
+/* ============================================================================
+   MEVO DESIGN TOKENS — chốt 2026-10-02 (CLAUDE.md, Hướng 1 "sáng, hai mật độ")
+   Nền slate phẳng, viền mảnh, bóng chỉ cho lớp nổi. Một font: Be Vietnam Pro.
+   Component dùng chung ở `components/ui/*` CHỈ đọc màu qua các token này,
+   không viết `orange-500`, `gray-*`, mã hex rải rác.
+
+   ĐỔI MÀU NHẤN: sửa đúng khối "MÀU NHẤN" bên dưới.
+   ĐỔI FONT: sửa `Be_Vietnam_Pro` trong app/layout.tsx.
+   ============================================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  /* Font nạp bằng next/font ở app/layout.tsx (biến --font-be-vietnam). */
+  --app-font: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+
+  /* ===== MÀU NHẤN ===== */
+  /* Nút chính, link, viền focus. #EA580C (cam MEVO) với chữ trắng chỉ đạt 3.6:1,
+     dưới mức 4.5:1 cho chữ 14px → nút dùng bậc đậm hơn #C2410C (5.2:1). */
+  --primary: #c2410c;
+  --primary-hover: #9a3412;
+  --primary-foreground: #ffffff;
+  --primary-light: #fff7ed;    /* nền mục đang chọn, nền nhạt theo màu nhấn */
+  /* Cam MEVO gốc: CHỈ cho dấu nhận diện không mang chữ (logo, vạch mục đang chọn). */
+  --brand: #ea580c;
+  /* ==================== */
+
+  --background: #f1f5f9;       /* nền trang (slate-100) */
+  --surface: #ffffff;          /* card, ô nhập, header, panel */
+  --foreground: #0f172a;       /* chữ chính (slate-900) */
+  --muted: #475569;            /* chữ phụ, nhãn, icon phụ (slate-600): 7.6:1 trên trắng, 6.9:1 trên nền */
+  --border: #e2e8f0;           /* viền card, đường chia (slate-200) */
+  --border-strong: #cbd5e1;    /* viền ô nhập và nút viền (slate-300): chỗ gõ / chỗ bấm */
+
+  --item-hover: #f1f5f9;       /* nền rê mục menu, link sidebar */
+  --surface-hover: #f8fafc;    /* nền rê dòng bảng tràn khung trắng */
+  --secondary: #f1f5f9;        /* nút phụ không viền */
+  --secondary-hover: #e2e8f0;
+  --button-hover: #f1f5f9;     /* nền rê nút viền: chỉ đổi nền, viền giữ nguyên */
+
+  --border-focus: var(--primary);
+  --ring-focus: rgb(194 65 12 / 0.15);
+
+  --surface-overlay: #ffffff;
+  --elevation-popover: 0 10px 15px -3px rgb(15 23 42 / 0.1), 0 4px 6px -4px rgb(15 23 42 / 0.1);
+  --elevation-modal: 0 20px 25px -5px rgb(15 23 42 / 0.12), 0 8px 10px -6px rgb(15 23 42 / 0.1);
+
+  /* ===== MÀU MANG NGHĨA ===== */
+  /* Hành động nguy hiểm (xoá, huỷ, bỏ món): nền mờ + chữ đỏ, không viền. */
+  --danger: #b91c1c;
+  --danger-bg: rgb(239 68 68 / 0.1);
+  --danger-bg-hover: rgb(239 68 68 / 0.16);
+  /* Lỗi đã xảy ra: viền ô nhập, câu lỗi. */
+  --error: #ef4444;
+  --error-text: #dc2626;
+  --error-ring: rgb(239 68 68 / 0.12);
+
+  /* Năm tông trạng thái — một bảng duy nhất cho cả hệ (badge, chấm, thanh timeline).
+     Nghĩa ở bàn POS (chốt 2026-10-02):
+       success = đang phục vụ · info = đã đặt · warning = chờ duyệt
+       danger  = trễ / xung đột · neutral = trống
+     KHÔNG có tông cam: cam chỉ dành cho nút. Luôn kèm chữ hoặc icon. */
+  --success: #047857;  --success-bg: #ecfdf5;  --success-border: #a7f3d0;  --success-dot: #10b981;
+  --info: #1d4ed8;     --info-bg: #eff6ff;     --info-border: #bfdbfe;     --info-dot: #3b82f6;
+  --warning: #b45309;  --warning-bg: #fffbeb;  --warning-border: #fde68a;  --warning-dot: #f59e0b;
+  --critical: #b91c1c; --critical-bg: #fef2f2; --critical-border: #fecaca; --critical-dot: #ef4444;
+  --neutral: #475569;  --neutral-bg: #f1f5f9;  --neutral-border: #e2e8f0;  --neutral-dot: #94a3b8;
 }
 
+/* Map token sang class Tailwind v4 (`bg-surface`, `text-muted`, `border-border-strong`...).
+   Tên bên trái khác tên bên phải để không tự trỏ vào chính nó. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--app-font);
   --font-mono: var(--font-geist-mono);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-light: var(--primary-light);
+  --color-brand: var(--brand);
+
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-item-hover: var(--item-hover);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-button-hover: var(--button-hover);
+
+  --border-color-focus: var(--border-focus);
+  --ring-color-focus: var(--ring-focus);
+
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-bg-hover: var(--danger-bg-hover);
+  --color-error: var(--error);
+  --color-error-text: var(--error-text);
+  --color-error-ring: var(--error-ring);
+
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-success-dot: var(--success-dot);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-info-border: var(--info-border);
+  --color-info-dot: var(--info-dot);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --color-warning-dot: var(--warning-dot);
+  --color-critical: var(--critical);
+  --color-critical-bg: var(--critical-bg);
+  --color-critical-border: var(--critical-border);
+  --color-critical-dot: var(--critical-dot);
+  --color-neutral: var(--neutral);
+  --color-neutral-bg: var(--neutral-bg);
+  --color-neutral-border: var(--neutral-border);
+  --color-neutral-dot: var(--neutral-dot);
+
+  --shadow-popover: var(--elevation-popover);
+  --shadow-modal: var(--elevation-modal);
 }
 
-/* Admin web luôn dùng light mode — không theo OS dark mode */
-/* Uncomment nếu muốn bật dark mode sau này:
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-*/
+/* Admin web luôn dùng light mode — chưa có dark mode (quyết định 2026-10-02). */
 
 body {
-  background: var(--background);
+  /* UI-1: nền body giữ TRẮNG như cũ để các màn chưa chuyển sang hệ mới không đổi.
+     Màn nào chuyển sang AppShell (UI-2→UI-4) thì tự đặt nền `bg-background`. */
+  background: var(--surface);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--app-font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Utility classes dùng trong form admin */
-.input {
-  width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid #e5e7eb;
-  padding: 0.625rem 1rem;
-  font-size: 0.875rem;
-  color: #111827;           /* luôn dùng màu tối, bất kể dark/light mode */
-  background-color: #ffffff;
-  outline: none;
+/* Số tiền, giờ, số bàn: chữ số thẳng hàng của chính font, không đổi sang mono. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
-.input:focus {
-  border-color: #fb923c;
+
+/* Lớp nổi (Dialog/Sheet dựng trên <dialog>): mở đóng bằng opacity + transform, 180ms. */
+dialog.ui-dialog {
+  opacity: 0;
+  transition: opacity 180ms ease, transform 180ms ease, overlay 180ms allow-discrete, display 180ms allow-discrete;
 }
-.input::placeholder {
-  color: #9ca3af;
+dialog.ui-dialog[open] {
+  opacity: 1;
 }
-.label {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #374151;
+@starting-style {
+  dialog.ui-dialog[open] {
+    opacity: 0;
+  }
+}
+dialog.ui-dialog::backdrop {
+  background: rgb(15 23 42 / 0);
+  transition: background 180ms ease, overlay 180ms allow-discrete, display 180ms allow-discrete;
+}
+dialog.ui-dialog[open]::backdrop {
+  background: rgb(15 23 42 / 0.4);
+}
+@starting-style {
+  dialog.ui-dialog[open]::backdrop {
+    background: rgb(15 23 42 / 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog.ui-dialog,
+  dialog.ui-dialog::backdrop {
+    transition: none;
+  }
+}
+
+/* Lớp dùng chung cho form admin cũ (các trang còn viết className="input"/"label").
+   Từ UI-3 tô bằng token — CÙNG dáng với components/ui/field.tsx: nền trắng, viền --border-strong,
+   focus = viền màu nhấn + quầng mờ, 44px trên điện thoại (chữ 16px để iOS không tự phóng to), 40px từ md.
+   Nằm trong @layer components để class Tailwind viết kèm (w-24, py-1...) vẫn đè được. */
+@layer components {
+  .input {
+    width: 100%;
+    min-height: 2.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-strong);
+    padding: 0.5rem 0.875rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
+    color: var(--foreground);
+    background-color: var(--surface);
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 2px var(--ring-focus);
+  }
+  .input::placeholder {
+    color: var(--muted);
+  }
+  .input:disabled {
+    cursor: not-allowed;
+    background-color: var(--background);
+    color: var(--muted);
+  }
+  .input[aria-invalid="true"] {
+    border-color: var(--error);
+  }
+  @media (min-width: 48rem) {
+    .input {
+      min-height: 2.5rem;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+    }
+  }
+  .label {
+    display: block;
+    margin-bottom: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--foreground);
+  }
 }
