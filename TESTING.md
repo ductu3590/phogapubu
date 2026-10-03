@@ -10,7 +10,7 @@
 - ✅ [UI-2 — POS thu ngân + màn nhân viên](docs/testing/ui-system/UI-2.md) — UI-2 PASS (2026-10-02), nhánh `feat/ui-system`
 - ✅ [UI-3 — Khu quản trị chủ quán /admin](docs/testing/ui-system/UI-3.md) — UI-3 PASS (2026-10-03), nhánh `feat/ui-system`
 - ✅ [UI-4 — Khu MEVO superadmin /mevo](docs/testing/ui-system/UI-4.md) — UI-4 PASS (2026-10-03), nhánh `feat/ui-system`
-- [UI-5 — Mini App khách](docs/testing/ui-system/UI-5.md) — code xong, chờ commit + merge worktree + zmp deploy Development để test (nhánh `feat/ui-system`)
+- [UI-5 — Mini App khách](docs/testing/ui-system/UI-5.md) — đã commit (60f20cc) + merge main + 2 worktree quán; chờ anh zmp deploy Development để test
 
 - ✅ [UI Reform — review bản POS đã chọn](docs/testing/ui-reform/REVIEW-CHOSEN-POS-2026-10-02.md) — PASS, Codex tự rà theo ủy quyền 02/10; thiết kế chốt, chưa code
 
