@@ -6,6 +6,12 @@
 
 ## Checklist mới tách riêng
 
+- ✅ [UI-1 — Nền móng design system](docs/testing/ui-system/UI-1.md) — UI-1 PASS (2026-10-02), nhánh `feat/ui-system`
+- ✅ [UI-2 — POS thu ngân + màn nhân viên](docs/testing/ui-system/UI-2.md) — UI-2 PASS (2026-10-02), nhánh `feat/ui-system`
+- ✅ [UI-3 — Khu quản trị chủ quán /admin](docs/testing/ui-system/UI-3.md) — UI-3 PASS (2026-10-03), nhánh `feat/ui-system`
+- ✅ [UI-4 — Khu MEVO superadmin /mevo](docs/testing/ui-system/UI-4.md) — UI-4 PASS (2026-10-03), nhánh `feat/ui-system`
+- [UI-5 — Mini App khách](docs/testing/ui-system/UI-5.md) — code xong, chờ commit + merge worktree + zmp deploy Development để test (nhánh `feat/ui-system`)
+
 - ✅ [UI Reform — review bản POS đã chọn](docs/testing/ui-reform/REVIEW-CHOSEN-POS-2026-10-02.md) — PASS, Codex tự rà theo ủy quyền 02/10; thiết kế chốt, chưa code
 
 - [UI Reform — rà thiết kế 02/10/2026](docs/testing/ui-reform/DESIGN-REVIEW-2026-10-02.md) — A2 dùng nguồn cd573, chưa duyệt thiết kế
