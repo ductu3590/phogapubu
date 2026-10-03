@@ -120,10 +120,10 @@ export default function ReservationTablePicker({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600">{reservationSelectionHint(selectedTableIds, suggestedTableCount)}</p>
+      <p className="text-sm text-muted">{reservationSelectionHint(selectedTableIds, suggestedTableCount)}</p>
       {groups.map((group) => (
         <section key={group.id ?? 'unassigned'}>
-          <h3 className="mb-2 text-sm font-bold text-gray-800">{group.name}</h3>
+          <h3 className="mb-2 text-sm font-bold text-foreground">{group.name}</h3>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {group.tables.map((table) => (
               <button
@@ -133,14 +133,14 @@ export default function ReservationTablePicker({
                 onClick={() => onToggle(table.id)}
                 className={`min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold ${
                   table.selected
-                    ? 'border-orange-500 bg-orange-500 text-white'
+                    ? 'border-primary bg-primary text-white'
                     : table.disabled
-                      ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                      : 'border-gray-300 bg-white text-gray-800 hover:border-orange-400'
+                      ? 'cursor-not-allowed border-border bg-secondary text-muted'
+                      : 'border-border-strong bg-surface text-foreground hover:border-primary'
                 }`}
               >
                 <span className="block">{table.tableNumber}</span>
-                {table.reason && <span className="block text-[11px] font-normal">{table.reason}</span>}
+                {table.reason && <span className="block text-xs font-normal">{table.reason}</span>}
               </button>
             ))}
           </div>

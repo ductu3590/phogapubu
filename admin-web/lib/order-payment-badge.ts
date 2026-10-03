@@ -16,9 +16,9 @@ export type PaymentBadge = {
 
 export function paymentBadge(paymentMethod: string, received: boolean, hasSession = false): PaymentBadge {
   if (received) return { label: '✓ Đã nhận tiền', tone: 'received' }
-  if (hasSession) return { label: '🪑 Trả sau · chưa thu', tone: 'pending' }
-  if (paymentMethod === 'cash') return { label: '💵 Tiền mặt · chưa thu', tone: 'pending' }
-  if (paymentMethod === 'bank_transfer') return { label: '🏦 Chuyển khoản · chưa nhận', tone: 'pending' }
+  if (hasSession) return { label: 'Trả sau · chưa thu', tone: 'pending' }
+  if (paymentMethod === 'cash') return { label: 'Tiền mặt · chưa thu', tone: 'pending' }
+  if (paymentMethod === 'bank_transfer') return { label: 'Chuyển khoản · chưa nhận', tone: 'pending' }
   // ZaloPay chưa có trans_id = chưa trả tiền
   return { label: 'Chờ thanh toán', tone: 'pending' }
 }

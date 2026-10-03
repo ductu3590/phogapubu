@@ -1,5 +1,6 @@
 'use client'
 
+import { Download, Trash2 } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { addTable, toggleTable, deleteTable } from '@/lib/actions/tables'
@@ -69,10 +70,10 @@ export default function TablesClient({
     <div className="flex-1 overflow-y-auto p-6">
       {/* Nút thêm bàn */}
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-500">{tables.length} bàn</p>
+        <p className="text-sm text-muted">{tables.length} bàn</p>
         <button
           onClick={() => setShowAdd(true)}
-          className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+          className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
         >
           + Thêm bàn
         </button>
@@ -84,11 +85,11 @@ export default function TablesClient({
           <div
             key={table.id}
             className={`rounded-xl border p-4 transition-all ${
-              table.is_active ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50'
+              table.is_active ? 'border-border bg-surface' : 'border-border bg-background'
             }`}
           >
             <div className="mb-3 flex items-start justify-between">
-              <p className={`font-bold ${table.is_active ? 'text-gray-900' : 'text-gray-400'}`}>
+              <p className={`font-bold ${table.is_active ? 'text-foreground' : 'text-muted'}`}>
                 {table.table_number}
               </p>
               {/* Toggle active */}
@@ -97,8 +98,8 @@ export default function TablesClient({
                 disabled={isPending}
                 className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                   table.is_active
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-500'
+                    ? 'bg-success-bg text-success'
+                    : 'bg-secondary text-muted'
                 }`}
               >
                 {table.is_active ? 'Mở' : 'Đóng'}
@@ -111,10 +112,10 @@ export default function TablesClient({
               <img
                 src={table.qrDataUrl}
                 alt={`QR ${table.table_number}`}
-                className="mx-auto mb-3 aspect-square w-full max-w-[180px] rounded-lg border border-gray-100 bg-white"
+                className="mx-auto mb-3 aspect-square w-full max-w-[180px] rounded-lg border border-border bg-surface"
               />
             ) : (
-              <div className="mx-auto mb-3 flex aspect-square w-full max-w-[180px] items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-center text-[11px] text-gray-400">
+              <div className="mx-auto mb-3 flex aspect-square w-full max-w-[180px] items-center justify-center rounded-lg border border-dashed border-border bg-background p-3 text-center text-xs text-muted">
                 Chưa cấu hình Zalo Mini App cho quán
               </div>
             )}
@@ -124,17 +125,17 @@ export default function TablesClient({
               <button
                 onClick={() => handleDownloadQR(table)}
                 disabled={generatingQR === table.id}
-                className="w-full rounded-lg border border-orange-200 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50 disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-strong py-2 text-[13px] font-medium text-foreground hover:bg-button-hover disabled:opacity-50"
               >
-                {generatingQR === table.id ? '⏳ Đang tạo...' : '📥 Tải QR PNG'}
+                <Download className="size-3.5" aria-hidden />{generatingQR === table.id ? 'Đang tạo...' : 'Tải QR PNG'}
               </button>
 
               {/* Xoá */}
               <button
                 onClick={() => handleDelete(table.id, table.table_number)}
-                className="w-full rounded-lg py-1.5 text-xs text-gray-400 hover:bg-red-50 hover:text-red-500"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-[13px] text-muted hover:bg-danger-bg hover:text-danger"
               >
-                🗑️ Xoá
+                <Trash2 className="size-3.5" aria-hidden />Xoá
               </button>
             </div>
           </div>
@@ -144,8 +145,8 @@ export default function TablesClient({
       {/* Modal thêm bàn */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowAdd(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl text-gray-900" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-4 text-lg font-bold text-gray-900">Thêm bàn mới</h3>
+          <div className="w-full max-w-sm rounded-2xl bg-surface p-6 shadow-xl text-foreground" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-4 text-lg font-bold text-foreground">Thêm bàn mới</h3>
             <form
               action={async (fd) => {
                 await addTable(fd)
@@ -155,17 +156,17 @@ export default function TablesClient({
               className="flex flex-col gap-3"
             >
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Tên bàn *</label>
+                <label className="mb-1 block text-sm font-medium text-foreground/80">Tên bàn *</label>
                 <input
                   name="table_number"
                   required
                   placeholder="VD: Bàn 11, Bàn VIP A, Sân thượng 1..."
-                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 bg-white placeholder-gray-400 outline-none focus:border-orange-400"
+                  className="w-full rounded-xl border border-border px-4 py-2.5 text-sm text-foreground bg-surface placeholder-muted outline-none focus:border-focus"
                 />
               </div>
               <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setShowAdd(false)} className="flex-1 rounded-xl border py-2.5 text-sm font-medium text-gray-600">Huỷ</button>
-                <button type="submit" className="flex-1 rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white hover:bg-orange-600">Thêm</button>
+                <button type="button" onClick={() => setShowAdd(false)} className="flex-1 rounded-lg border border-border-strong py-2.5 text-sm font-medium text-foreground hover:bg-button-hover">Huỷ</button>
+                <button type="submit" className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-hover">Thêm</button>
               </div>
             </form>
           </div>

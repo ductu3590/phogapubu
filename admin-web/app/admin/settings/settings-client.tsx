@@ -84,7 +84,7 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phon
           setError(e instanceof Error ? e.message : 'Lỗi khi lưu')
         }
       }}
-      className="flex max-w-md flex-col gap-4 text-gray-900"
+      className="flex max-w-md flex-col gap-4 text-foreground"
     >
       <div>
         <label className="label">Tên quán *</label>
@@ -100,7 +100,7 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phon
       <div>
         <label className="label">Logo quán (vuông 1:1)</label>
         <SquareCropper initialUrl={logoUrl} onChange={setLogo} />
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-muted">
           Hiện ở đầu trang menu + header trên mini-app của khách.
         </p>
       </div>
@@ -146,7 +146,7 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phon
           placeholder="VD: pubu2024"
           className="input"
         />
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-muted">
           Hiện ở tab &quot;Nhà hàng&quot; trên mini-app, khách bấm là sao chép mật khẩu. Để trống tên wifi = không hiện.
         </p>
       </div>
@@ -161,7 +161,7 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phon
           rows={3}
           className="input resize-none"
         />
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-muted">
           Hiện ở tab &quot;Nhà hàng&quot; trên mini-app. Có thể ghi lời cảm ơn, hotline, chính sách...
         </p>
       </div>
@@ -176,7 +176,7 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phon
           rows={10}
           className="input resize-none font-mono text-sm"
         />
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-muted">
           Hiện ở tab &quot;Nhà hàng&quot; trên mini-app khi khách bấm &quot;Điều khoản sử dụng&quot;.
           Hỗ trợ Markdown nhẹ: <code># Tiêu đề</code>, <code>## Tiêu đề nhỏ</code>,{' '}
           <code>- gạch đầu dòng</code>, <code>**in đậm**</code>, <code>[chữ](link)</code>.
@@ -193,7 +193,7 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phon
           placeholder="VD: Ship trong bán kính ~3km khu vực TP. Lào Cai"
           className="input"
         />
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-muted">
           Chỉ hiển thị ở tab &quot;Nhà hàng&quot; trên mini-app để khách tham khảo. Không tự động chặn đơn ngoài vùng.
         </p>
       </div>
@@ -227,7 +227,7 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phon
           />
         )}
         {removeBanner && !banner && (
-          <p className="mb-2 text-xs text-orange-500">
+          <p className="mb-2 text-xs text-primary">
             Banner sẽ bị xoá khi bấm Lưu.{' '}
             <button type="button" onClick={() => setRemoveBanner(false)} className="underline">
               Hoàn tác
@@ -246,9 +246,9 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phon
               setBanner(null)
             }
           }}
-          className="block text-sm text-gray-600"
+          className="block text-sm text-muted"
         />
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-muted">
           Hiện ở menu khi khách mở app không quét QR. Tỉ lệ 4:1 (VD: 1200×300px). Để trống = không hiện.
         </p>
       </div>
@@ -262,22 +262,22 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phon
           placeholder="https://zalo.me/phogapubu"
           className="input"
         />
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-muted">
           Link trang Zalo OA của quán. Khách bấm vào tab &quot;Nhà hàng&quot; sẽ thấy nút mở trang này.
           Lấy tại Zalo OA Manager → Thông tin cơ bản → Link chia sẻ.
         </p>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <div className="flex items-center gap-3 pt-1">
         <button
           type="submit"
-          className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
+          className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
         >
           Lưu
         </button>
-        {saved && <span className="text-sm text-green-600">✓ Đã lưu</span>}
+        {saved && <span className="text-sm text-success">✓ Đã lưu</span>}
       </div>
     </form>
   )

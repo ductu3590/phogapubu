@@ -4,6 +4,13 @@ import Link from 'next/link'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { redirect } from 'next/navigation'
 import { completeOrder } from '@/lib/actions/orders'
+import { Banknote, ChefHat, Check, ClipboardList, QrCode, UtensilsCrossed, Wallet } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { getButtonClasses } from '@/components/ui/button-classes'
+import { Card, PageHeader } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/feedback'
+import { orderStatusTone } from '@/components/ui/status'
+import { cn } from '@/lib/utils'
 
 export default async function DashboardPage() {
   const operator = await requireOperatorOrRedirect()
@@ -35,130 +42,98 @@ export default async function DashboardPage() {
   const activeOrders = activeOrdersRaw ?? []
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-        </p>
-      </div>
+    <div className="flex-1 overflow-y-auto bg-background">
+      <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-6">
+        <PageHeader
+          title="Dashboard"
+          description={new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        />
 
-      {/* Stats cards */}
-      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          label="Doanh thu hôm nay"
-          value={formatVND(Number(s.total_revenue))}
-          icon="💰"
-          color="bg-green-50 text-green-700"
-        />
-        <StatCard
-          label="Tổng đơn hôm nay"
-          value={String(s.total_orders)}
-          icon="📋"
-          color="bg-blue-50 text-blue-700"
-        />
-        <StatCard
-          label="Đang xử lý"
-          value={String(activeOrders.length)}
-          icon="🍳"
-          color="bg-orange-50 text-orange-700"
-        />
-        <StatCard
-          label="Tiền mặt chờ thu"
-          value={String(s.cash_pending)}
-          icon="💵"
-          color="bg-yellow-50 text-yellow-700"
-        />
-      </div>
-
-      {/* Shortcut buttons */}
-      <h2 className="mb-3 text-base font-semibold text-gray-700">Truy cập nhanh</h2>
-      <div className="grid grid-cols-3 gap-3">
-        <ShortcutCard href="/admin/menu" icon="🍽️" label="Quản lý menu" desc="Thêm/sửa món, bật tắt hết hàng" />
-        <ShortcutCard href="/admin/tables" icon="🪑" label="Bàn & QR" desc="Tạo bàn, tải QR in dán" />
-        <ShortcutCard href="/admin/orders" icon="📋" label="Đơn hàng" desc="Xem đơn, xác nhận tiền mặt" />
-      </div>
-
-      {/* Đơn đang active */}
-      {activeOrders.length > 0 && (
-        <div className="mt-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-gray-700">Đơn đang xử lý ({activeOrders.length})</h2>
-            <Link href="/admin/orders" className="text-sm text-orange-500 hover:underline">Xem tất cả →</Link>
-          </div>
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-            {activeOrders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between border-b border-gray-100 px-4 py-3 last:border-0">
-                <div>
-                  <span className="text-sm font-medium text-gray-800">
-                    #{(order.id as string).slice(-6).toUpperCase()}
-                  </span>
-                  <span className="ml-2 text-xs text-gray-400">
-                    {new Date(order.created_at as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-700">{formatVND(Number(order.total_amount))}</span>
-                  <StatusBadge status={order.status as string} />
-                  {/* Hoàn tất & đã thu: đóng đơn treo (xác nhận tiền nếu chưa thu) */}
-                  <form action={completeOrder.bind(null, order.id as string)}>
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-green-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-600"
-                    >
-                      ✓ Hoàn tất
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* Số liệu trong ngày — thẻ trắng, icon trung tính; màu chỉ dùng khi có việc cần làm */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard label="Doanh thu hôm nay" value={formatVND(Number(s.total_revenue))} icon={<Wallet />} />
+          <StatCard label="Tổng đơn hôm nay" value={String(s.total_orders)} icon={<ClipboardList />} />
+          <StatCard label="Đang xử lý" value={String(activeOrders.length)} icon={<ChefHat />} attention={activeOrders.length > 0} />
+          <StatCard label="Tiền mặt chờ thu" value={String(s.cash_pending)} icon={<Banknote />} attention={Number(s.cash_pending) > 0} />
         </div>
-      )}
+
+        <section>
+          <h2 className="mb-3 text-base font-semibold text-foreground">Truy cập nhanh</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <ShortcutCard href="/admin/menu" icon={<UtensilsCrossed />} label="Quản lý menu" desc="Thêm/sửa món, bật tắt hết hàng" />
+            <ShortcutCard href="/admin/tables" icon={<QrCode />} label="Bàn & QR" desc="Tạo bàn, tải QR in dán" />
+            <ShortcutCard href="/admin/orders" icon={<ClipboardList />} label="Đơn hàng" desc="Xem đơn, xác nhận tiền mặt" />
+          </div>
+        </section>
+
+        <Card
+          title={`Đơn đang xử lý (${activeOrders.length})`}
+          action={<Link href="/admin/orders" className="text-sm font-medium text-foreground underline-offset-4 hover:underline">Xem tất cả</Link>}
+          flush
+        >
+          {activeOrders.length === 0 ? (
+            <EmptyState>Chưa có đơn nào đang xử lý hôm nay.</EmptyState>
+          ) : (
+            <ul className="divide-y divide-border">
+              {activeOrders.map((order) => (
+                <li key={order.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-3">
+                  <div className="min-w-0">
+                    <span className="font-mono text-sm font-medium text-foreground">
+                      #{(order.id as string).slice(-6).toUpperCase()}
+                    </span>
+                    <span className="ml-2 text-[13px] text-muted tabular">
+                      {new Date(order.created_at as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-foreground tabular">{formatVND(Number(order.total_amount))}</span>
+                    <Badge tone={orderStatusTone(order.status as string)}>{STATUS_LABEL[order.status as string] ?? (order.status as string)}</Badge>
+                    {/* Hoàn tất & đã thu: đóng đơn treo (xác nhận tiền nếu chưa thu) */}
+                    <form action={completeOrder.bind(null, order.id as string)}>
+                      <button type="submit" className={getButtonClasses('outline')}>
+                        <Check className="size-4" aria-hidden />
+                        Hoàn tất
+                      </button>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
     </div>
   )
 }
 
-function StatCard({ label, value, icon, color }: { label: string; value: string; icon: string; color: string }) {
-  const [bg, text] = color.split(' ')
+const STATUS_LABEL: Record<string, string> = {
+  pending: 'Chờ', confirmed: 'Xác nhận', cooking: 'Đang làm',
+  ready: 'Xong', paid: 'Đã TT', cancelled: 'Huỷ',
+}
+
+function StatCard({ label, value, icon, attention = false }: { label: string; value: string; icon: React.ReactNode; attention?: boolean }) {
   return (
-    <div className={`rounded-xl p-4 ${bg}`}>
-      <div className="mb-2 text-2xl">{icon}</div>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className={`mt-1 text-xs font-medium ${text}`}>{label}</p>
+    <div className={cn('rounded-xl border bg-surface p-4', attention ? 'border-warning-border' : 'border-border')}>
+      <span className={cn('grid size-9 place-items-center rounded-lg [&>svg]:size-[18px]', attention ? 'bg-warning-bg text-warning' : 'bg-secondary text-muted')} aria-hidden>
+        {icon}
+      </span>
+      <p className="mt-3 text-2xl font-semibold text-foreground tabular">{value}</p>
+      <p className="mt-0.5 text-[13px] text-muted">{label}</p>
     </div>
   )
 }
 
-function ShortcutCard({ href, icon, label, desc }: { href: string; icon: string; label: string; desc: string }) {
+function ShortcutCard({ href, icon, label, desc }: { href: string; icon: React.ReactNode; label: string; desc: string }) {
   return (
     <Link
       href={href}
-      className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 transition-all hover:border-orange-200 hover:shadow-sm"
+      className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-hover"
     >
-      <span className="text-2xl">{icon}</span>
-      <p className="font-semibold text-gray-800">{label}</p>
-      <p className="text-xs text-gray-400">{desc}</p>
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-muted [&>svg]:size-[18px]" aria-hidden>{icon}</span>
+      <span className="min-w-0">
+        <span className="block font-medium text-foreground">{label}</span>
+        <span className="mt-0.5 block text-[13px] text-muted">{desc}</span>
+      </span>
     </Link>
-  )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colorMap: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-700',
-    confirmed: 'bg-blue-100 text-blue-700',
-    cooking: 'bg-orange-100 text-orange-700',
-    ready: 'bg-green-100 text-green-700',
-    paid: 'bg-gray-100 text-gray-600',
-    cancelled: 'bg-red-100 text-red-600',
-  }
-  const labelMap: Record<string, string> = {
-    pending: 'Chờ', confirmed: 'Xác nhận', cooking: 'Đang làm',
-    ready: 'Xong', paid: 'Đã TT', cancelled: 'Huỷ',
-  }
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${colorMap[status] ?? 'bg-gray-100 text-gray-600'}`}>
-      {labelMap[status] ?? status}
-    </span>
   )
 }

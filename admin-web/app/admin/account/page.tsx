@@ -28,9 +28,9 @@ export default async function AccountPage() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
-        <h1 className="text-xl font-bold text-gray-900">Tài khoản</h1>
-        <p className="text-sm text-gray-500">Cập nhật thông tin đăng nhập của chủ quán</p>
+      <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
+        <h1 className="text-xl font-bold text-foreground">Tài khoản</h1>
+        <p className="text-sm text-muted">Cập nhật thông tin đăng nhập của chủ quán</p>
       </div>
       <div className="flex-1 overflow-y-auto p-6">
         <AccountClient

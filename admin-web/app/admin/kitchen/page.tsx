@@ -15,9 +15,9 @@ export default async function AdminKitchenPage() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
-        <h1 className="text-xl font-bold text-gray-900">🍳 Màn hình bếp</h1>
-        <p className="text-sm text-gray-500">
+      <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
+        <h1 className="text-xl font-bold text-foreground">Màn hình bếp</h1>
+        <p className="text-sm text-muted">
           Lấy link mở màn hình bếp trên tablet. Mỗi link gắn riêng quán {storeName}.
         </p>
       </div>

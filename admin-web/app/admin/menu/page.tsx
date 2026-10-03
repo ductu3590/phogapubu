@@ -30,9 +30,9 @@ export default async function MenuPage() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
-        <h1 className="text-xl font-bold text-gray-900">🍽️ Quản lý menu</h1>
-        <p className="text-sm text-gray-500">Toggle hết hàng, thêm/sửa/xóa món</p>
+      <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
+        <h1 className="text-xl font-bold text-foreground">Quản lý menu</h1>
+        <p className="text-sm text-muted">Toggle hết hàng, thêm/sửa/xóa món</p>
       </div>
       <MenuClient key={menuVersion} categories={categories ?? []} toppings={toppings ?? []} storeId={storeId} />
     </div>

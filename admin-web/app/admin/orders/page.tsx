@@ -1,3 +1,6 @@
+import { Check, Gift } from 'lucide-react'
+import { ORDER_STATUS_TONE, STATUS_TONE_CLASSES } from '@/components/ui/status'
+import { getButtonClasses } from '@/components/ui/button-classes'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { formatVND } from '@/lib/utils'
@@ -15,14 +18,10 @@ const STATUS_LABEL: Record<string, string> = {
   pending: 'Chờ', confirmed: 'Xác nhận', cooking: 'Đang làm',
   ready: 'Xong', paid: 'Đã TT', cancelled: 'Huỷ',
 }
-const STATUS_COLOR: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  confirmed: 'bg-blue-100 text-blue-700',
-  cooking: 'bg-orange-100 text-orange-700',
-  ready: 'bg-green-100 text-green-700',
-  paid: 'bg-gray-100 text-gray-500',
-  cancelled: 'bg-red-100 text-red-500',
-}
+// Màu trạng thái đơn lấy từ bảng chung (components/ui/status.ts) — không màn nào tự chọn màu.
+const STATUS_COLOR: Record<string, string> = Object.fromEntries(
+  Object.entries(ORDER_STATUS_TONE).map(([status, tone]) => [status, STATUS_TONE_CLASSES[tone].badge]),
+)
 
 export default async function OrdersPage({
   searchParams,
@@ -83,13 +82,13 @@ export default async function OrdersPage({
       {/* Tự làm mới khi có đơn/thanh toán thay đổi — không bắt F5 */}
       <OrdersRealtime storeId={storeId} />
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
-        <div className="flex items-center justify-between">
+      <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">📋 Đơn hàng</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-xl font-bold text-foreground">Đơn hàng</h1>
+            <p className="text-sm text-muted">
               {fullList.length} đơn • Doanh thu: {formatVND(totalRevenue)}
-              {unpaidCount > 0 && <span className="text-yellow-600"> • Chưa thu: {unpaidCount}</span>}
+              {unpaidCount > 0 && <span className="text-warning"> • Chưa thu: {unpaidCount}</span>}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -98,8 +97,8 @@ export default async function OrdersPage({
               href={showUnpaidOnly ? `/admin/orders?date=${selectedDate}` : `/admin/orders?date=${selectedDate}&unpaid=1`}
               className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
                 showUnpaidOnly
-                  ? 'border-yellow-300 bg-yellow-50 text-yellow-700'
-                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  ? 'border-warning-border bg-warning-bg text-warning'
+                  : 'border-border text-muted hover:bg-item-hover'
               }`}
             >
               {showUnpaidOnly ? '✓ Chưa thu' : 'Chưa thu'}
@@ -113,7 +112,7 @@ export default async function OrdersPage({
       {/* Danh sách đơn */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {list.length === 0 && (
-          <div className="flex h-40 items-center justify-center text-gray-400">
+          <div className="flex h-40 items-center justify-center text-muted">
             Không có đơn nào ngày {selectedDate}
           </div>
         )}
@@ -126,19 +125,19 @@ export default async function OrdersPage({
           const isActive = order.status !== 'paid' && order.status !== 'cancelled'
 
           return (
-            <div key={order.id} className="rounded-xl border border-gray-200 bg-white p-4">
+            <div key={order.id} className="rounded-xl border border-border bg-surface p-4">
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-gray-900">{tableNumber}</span>
-                    <span className="text-sm text-gray-400">#{shortId}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[order.status] ?? 'bg-gray-100'}`}>
+                    <span className="font-bold text-foreground">{tableNumber}</span>
+                    <span className="text-sm text-muted">#{shortId}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[order.status] ?? 'bg-secondary'}`}>
                       {STATUS_LABEL[order.status] ?? order.status}
                     </span>
                     {(() => {
                       const pay = paymentBadge(order.payment_method, hasRealMoney(order), !!order.session_id)
                       return (
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${pay.tone === 'received' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-700'}`}>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${pay.tone === 'received' ? 'bg-success-bg text-success' : 'bg-warning-bg text-warning'}`}>
                           {pay.label}
                         </span>
                       )
@@ -151,41 +150,41 @@ export default async function OrdersPage({
                         key={tag.label}
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                           tag.tone === 'source'
-                            ? 'bg-indigo-50 text-indigo-600'
-                            : 'bg-slate-100 text-slate-600'
+                            ? 'bg-info-bg text-info'
+                            : 'bg-background text-muted'
                         }`}
                       >
                         {tag.label}
                       </span>
                     ))}
                   </div>
-                  <p className="mt-0.5 text-xs text-gray-400">
+                  <p className="mt-0.5 text-xs text-muted">
                     {new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
-                <p className="flex-shrink-0 font-bold text-gray-900">{formatVND(order.total_amount)}</p>
+                <p className="flex-shrink-0 font-bold text-foreground">{formatVND(order.total_amount)}</p>
               </div>
 
               {/* Items */}
               <div className="mb-3 space-y-0.5">
                 {items.map((item: {id: string; item_name: string; quantity: number; item_price: number}) => (
-                  <p key={item.id} className="text-sm text-gray-600">
+                  <p key={item.id} className="text-sm text-muted">
                     <span className="font-medium">×{item.quantity}</span> {item.item_name}
-                    <span className="ml-1 text-gray-400">{formatVND(item.item_price * item.quantity)}</span>
+                    <span className="ml-1 text-muted">{formatVND(item.item_price * item.quantity)}</span>
                   </p>
                 ))}
               </div>
 
               {order.discount_amount > 0 && (
-                <p className="mb-3 text-sm text-green-600">
-                  🎟️ Giảm giá −{formatVND(order.discount_amount)}
+                <p className="mb-3 text-sm text-success">
+                  Giảm giá −{formatVND(order.discount_amount)}
                   {(order.vouchers as { code: string } | null)?.code &&
                     ` (mã ${(order.vouchers as { code: string }).code})`}
                 </p>
               )}
 
               {order.note && (
-                <p className="mb-3 text-xs text-gray-500 italic">📝 {order.note}</p>
+                <p className="mb-3 text-[13px] text-muted italic">Ghi chú: {order.note}</p>
               )}
 
               {/* Kết quả vòng quay */}
@@ -193,21 +192,21 @@ export default async function OrdersPage({
                 const spin = spinByOrder.get(order.id)
                 if (!spin) return null
                 return (
-                  <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#FBF4EF] px-3 py-2">
-                    <span className="text-sm">🎁</span>
-                    <span className="flex-1 text-sm text-gray-700">{spin.reward_label}</span>
+                  <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                    <Gift className="size-4 shrink-0 text-muted" aria-hidden />
+                    <span className="flex-1 text-sm text-foreground/80">{spin.reward_label}</span>
                     {spin.reward_type === 'gift' && spin.status === 'won' && (
                       <form action={redeemSpin.bind(null, spin.id)}>
                         <button
                           type="submit"
-                          className="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600"
+                          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover"
                         >
                           Đã đổi thưởng
                         </button>
                       </form>
                     )}
                     {spin.status === 'redeemed' && (
-                      <span className="text-xs font-medium text-green-600">✓ Đã đổi</span>
+                      <span className="text-xs font-medium text-success">✓ Đã đổi</span>
                     )}
                   </div>
                 )
@@ -220,18 +219,19 @@ export default async function OrdersPage({
                     <form action={confirmManualPayment.bind(null, order.id)}>
                       <button
                         type="submit"
-                        className="rounded-xl border border-green-500 px-4 py-2 text-sm font-semibold text-green-600 hover:bg-green-50"
+                        className={getButtonClasses('outline')}
                       >
-                        ✓ Đã nhận tiền
+                        <Check className="size-4" aria-hidden />
+                        Đã nhận tiền
                       </button>
                     </form>
                   )}
                   <form action={completeOrder.bind(null, order.id)}>
                     <button
                       type="submit"
-                      className="rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
+                      className={getButtonClasses('primary')}
                     >
-                      ✓ Hoàn tất
+                      Hoàn tất
                     </button>
                   </form>
                   {/* Huỷ đơn: mọi đơn đang xử lý mà CHƯA nhận tiền thật — gồm cả đơn khách tự đặt
@@ -241,7 +241,7 @@ export default async function OrdersPage({
                     <form action={cancelOrder.bind(null, order.id)}>
                       <button
                         type="submit"
-                        className="rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50"
+                        className={getButtonClasses('danger')}
                       >
                         Huỷ đơn
                       </button>

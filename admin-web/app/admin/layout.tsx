@@ -1,14 +1,12 @@
+import { LogOut } from 'lucide-react'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { signOut } from '@/app/(auth)/login/actions'
-import AdminNav from './admin-nav'
-import AdminMobileNav from './admin-mobile-nav'
-import AdminDesktopSidebar from './admin-desktop-sidebar'
-import {
-  adminMainClass,
-  adminShellClass,
-} from './admin-responsive-layout'
+import { AppShell } from '@/components/ui/app-shell'
+import { getButtonClasses } from '@/components/ui/button-classes'
+import { cn } from '@/lib/utils'
+import { adminNavGroups } from './admin-nav'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const operator = await requireOperatorOrRedirect()
@@ -28,47 +26,24 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const reservationsEnabled = (workflowResult.data as { reservations_enabled?: unknown } | null)
     ?.reservations_enabled === true
 
+  // AppShell: sidebar từ 1024px (thu gọn được để POS rộng hơn), dưới 1024px là thanh trên + ngăn kéo menu.
   return (
-    <div className={adminShellClass}>
-      {/* Sidebar chỉ dành cho desktop; điện thoại dùng drawer để không ép nội dung còn 150px. */}
-      <AdminDesktopSidebar>
-        {/* Brand */}
-        <div className="border-b border-gray-100 px-6 py-5">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🍜</span>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-orange-500">MEVO</p>
-              <p className="truncate text-sm font-semibold text-gray-800">{storeName}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Nav links (accordion — xem admin-nav.tsx) */}
-        <AdminNav reservationsEnabled={reservationsEnabled} />
-
-        {/* Bottom: đăng xuất */}
-        <div className="border-t border-gray-100 px-3 py-4">
-          <p className="mb-2 truncate px-3 text-xs text-gray-400">{user?.email}</p>
+    <AppShell
+      brand={{ title: storeName, subtitle: 'MEVO · Chủ quán' }}
+      groups={adminNavGroups(reservationsEnabled)}
+      footer={
+        <div className="space-y-1">
+          {user?.email ? <p className="truncate px-3 text-[13px] text-muted">{user.email}</p> : null}
           <form action={signOut}>
-            <button
-              type="submit"
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-red-500 transition-colors hover:bg-red-50"
-            >
-              🚪 Đăng xuất
+            <button type="submit" className={cn(getButtonClasses('ghost'), 'w-full justify-start px-3')}>
+              <LogOut className="size-4" aria-hidden />
+              Đăng xuất
             </button>
           </form>
         </div>
-      </AdminDesktopSidebar>
-
-      {/* Main content */}
-      <main className={adminMainClass}>
-        <AdminMobileNav
-          storeName={storeName}
-          reservationsEnabled={reservationsEnabled}
-          userEmail={user?.email ?? null}
-        />
-        {children}
-      </main>
-    </div>
+      }
+    >
+      <div className="flex h-full min-h-0 flex-col">{children}</div>
+    </AppShell>
   )
 }

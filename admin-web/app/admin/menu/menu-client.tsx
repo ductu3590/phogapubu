@@ -1,5 +1,6 @@
 'use client'
 
+import { ImageOff, Pencil, Trash2 } from 'lucide-react'
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { GripVertical } from 'lucide-react'
@@ -165,9 +166,9 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
   }
 
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
       {/* Category tabs bên trái */}
-      <aside className="w-52 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-gray-50 py-3">
+      <aside className="max-h-44 shrink-0 overflow-y-auto border-b border-border bg-background py-3 md:max-h-none md:w-52 md:border-r md:border-b-0">
         {categories.map((cat) => (
           <div
             key={cat.id}
@@ -178,37 +179,38 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
             onDrop={() => handleCategoryDrop(cat.id)}
             className={`group flex items-center ${draggedCategoryId === cat.id ? 'opacity-60' : ''}`}
           >
-            <span className="ml-1 rounded p-1 text-gray-300 group-hover:text-gray-500" title="Kéo để sắp xếp danh mục">
+            <span className="ml-1 rounded p-1 text-muted/60 group-hover:text-muted" title="Kéo để sắp xếp danh mục">
               <GripVertical className="h-4 w-4" />
             </span>
             <button
               onClick={() => setSelectedCatId(cat.id)}
               className={`flex-1 px-2 py-2.5 text-left text-sm font-medium transition-colors ${
-                selectedCatId === cat.id ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-100'
+                selectedCatId === cat.id ? 'bg-primary-light text-primary' : 'text-muted hover:bg-item-hover'
               }`}
             >
               {cat.name}
-              <span className="ml-1 text-xs text-gray-400">({cat.menu_items?.length ?? 0})</span>
+              <span className="ml-1 text-xs text-muted">({cat.menu_items?.length ?? 0})</span>
             </button>
             <button
               onClick={() => setEditCat(cat)}
-              className="mr-1 px-1.5 py-1 text-gray-300 opacity-0 transition-opacity hover:text-gray-600 group-hover:opacity-100"
+              className="mr-1 px-1.5 py-1 text-muted/60 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
               title="Sửa danh mục"
+              aria-label="Sửa danh mục"
             >
-              ✎
+              <Pencil className="size-4" aria-hidden />
             </button>
           </div>
         ))}
         <button
           onClick={() => setShowAddCat(true)}
-          className="mt-2 w-full px-4 py-2 text-left text-sm text-orange-500 hover:bg-orange-50"
+          className="mt-2 w-full px-4 py-2 text-left text-sm text-primary hover:bg-primary-light"
         >
           + Thêm danh mục
         </button>
         <button
           onClick={() => setSelectedCatId('__toppings__')}
-          className={`mt-2 w-full px-4 py-2.5 text-left text-sm font-medium ${selectedCatId === '__toppings__' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-100'}`}
-        >🧀 Topping <span className="ml-1 text-xs text-gray-400">({toppings.length})</span></button>
+          className={`mt-2 w-full px-4 py-2.5 text-left text-sm font-medium ${selectedCatId === '__toppings__' ? 'bg-primary-light text-primary' : 'text-muted hover:bg-item-hover'}`}
+        >Topping <span className="ml-1 text-xs text-muted">({toppings.length})</span></button>
       </aside>
 
       {/* Kho topping dùng chung — khi chọn nút "🧀 Topping" */}
@@ -217,14 +219,14 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
       ) : (
       /* Danh sách món bên phải */
       <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-          <p className="font-semibold text-gray-700">{selectedCat?.name}</p>
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 md:px-5">
+          <p className="min-w-0 truncate font-semibold text-foreground">{selectedCat?.name}</p>
           <button
             onClick={() => {
               setAddImage(null)
               setShowAddItem(true)
             }}
-            className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+            className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-semibold whitespace-nowrap text-white hover:bg-primary-hover"
           >
             + Thêm món
           </button>
@@ -242,11 +244,11 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
                     onDragEnd={() => setDraggedItemId(null)}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={() => handleItemDrop(item.id)}
-                    className={`flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-3 ${
+                    className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-surface px-3 py-3 md:flex-nowrap ${
                       draggedItemId === item.id ? 'opacity-60' : ''
                     }`}
                   >
-                    <span className="flex-shrink-0 rounded p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-500" title="Kéo để sắp xếp món">
+                    <span className="flex-shrink-0 rounded p-1 text-muted/60 hover:bg-item-hover hover:text-foreground" title="Kéo để sắp xếp món">
                       <GripVertical className="h-5 w-5" />
                     </span>
                     {/* Toggle on/off */}
@@ -254,45 +256,45 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
                       onClick={() => handleToggle(item.id, isAvailable)}
                       disabled={isPending}
                       className={`relative h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 ${
-                        isAvailable ? 'bg-green-500' : 'bg-gray-300'
+                        isAvailable ? 'bg-primary' : 'bg-border-strong'
                       }`}
                       title={isAvailable ? 'Đang bán — bấm để ẩn' : 'Tạm hết — bấm để bán lại'}
                     >
                       <span
-                        className={`absolute top-[2px] h-5 w-5 rounded-full bg-white shadow-sm transition-all duration-200 ${
+                        className={`absolute top-[2px] h-5 w-5 rounded-full bg-surface shadow-sm transition-all duration-200 ${
                           isAvailable ? 'left-[22px]' : 'left-[2px]'
                         }`}
                       />
                     </button>
 
                     {/* Thumbnail ảnh món (vuông 1:1) */}
-                    <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                    <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-lg bg-secondary">
                       {item.image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-lg">🍽️</div>
+                        <div className="flex h-full w-full items-center justify-center text-muted/60" aria-label="Chưa có ảnh"><ImageOff className="size-5" aria-hidden /></div>
                       )}
                     </div>
 
                     {/* Tên + giá */}
-                    <div className="min-w-0 flex-1">
-                      <p className={`truncate font-medium ${isAvailable ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                    <div className="min-w-32 flex-1">
+                      <p className={`truncate font-medium ${isAvailable ? 'text-foreground' : 'text-muted line-through'}`}>
                         {item.name}
                       </p>
-                      {item.description && <p className="truncate text-xs text-gray-400">{item.description}</p>}
+                      {item.description && <p className="truncate text-xs text-muted">{item.description}</p>}
                       {(item.menu_item_toppings?.length ?? 0) > 0 && (
-                        <span className="mt-0.5 inline-block rounded bg-orange-50 px-1.5 py-0.5 text-[11px] font-medium text-orange-600">
+                        <span className="mt-0.5 inline-block rounded-full border border-border bg-secondary px-2 py-0.5 text-xs font-medium text-muted">
                           {item.menu_item_toppings!.length} topping
                         </span>
                       )}
                       {(item.menu_item_variants?.length ?? 0) > 0 && (
-                        <span className="mt-0.5 ml-1 inline-block rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-600">
+                        <span className="mt-0.5 ml-1 inline-block rounded-full border border-border bg-secondary px-2 py-0.5 text-xs font-medium text-muted">
                           {item.menu_item_variants!.length} lựa chọn
                         </span>
                       )}
                     </div>
-                    <p className="flex-shrink-0 font-semibold text-gray-700">{formatVND(item.price)}</p>
+                    <p className="ml-auto flex-shrink-0 font-semibold text-foreground tabular">{formatVND(item.price)}</p>
 
                     {/* Sửa */}
                     <button
@@ -301,19 +303,21 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
                         setEditItem(item)
                       }}
                       disabled={isPending}
-                      className="flex-shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40"
+                      className="flex-shrink-0 rounded-lg p-1.5 text-muted hover:bg-item-hover hover:text-foreground disabled:opacity-40"
                       title="Sửa món"
+                      aria-label="Sửa món"
                     >
-                      ✎
+                      <Pencil className="size-4" aria-hidden />
                     </button>
                     {/* Xoá */}
                     <button
                       onClick={() => handleDeleteItem(item.id, item.name)}
                       disabled={isPending}
-                      className="flex-shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+                      className="flex-shrink-0 rounded-lg p-1.5 text-muted hover:bg-danger-bg hover:text-danger disabled:opacity-40"
                       title="Xoá món"
+                      aria-label="Xoá món"
                     >
-                      🗑️
+                      <Trash2 className="size-4" aria-hidden />
                     </button>
                   </div>
                 )
@@ -396,8 +400,8 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
               <input name="name" required placeholder="VD: Đồ uống, Tráng miệng..." className="input" />
             </div>
             <div className="flex gap-2 pt-1">
-              <button type="button" onClick={() => setShowAddCat(false)} className="flex-1 rounded-xl border py-2.5 text-sm font-medium text-gray-600">Huỷ</button>
-              <button type="submit" className="flex-1 rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white hover:bg-orange-600">Thêm</button>
+              <button type="button" onClick={() => setShowAddCat(false)} className="flex-1 rounded-lg border border-border-strong py-2.5 text-sm font-medium text-foreground hover:bg-button-hover">Huỷ</button>
+              <button type="submit" className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-hover">Thêm</button>
             </div>
           </form>
         </Modal>
@@ -423,12 +427,12 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
                 type="button"
                 onClick={() => handleDeleteCat(editCat)}
                 disabled={isPending}
-                className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 disabled:opacity-40"
+                className="rounded-xl border border-critical-border px-4 py-2.5 text-sm font-medium text-danger hover:bg-danger-bg disabled:opacity-40"
               >
-                🗑️ Xoá
+                Xoá
               </button>
-              <button type="button" onClick={() => setEditCat(null)} className="flex-1 rounded-xl border py-2.5 text-sm font-medium text-gray-600">Huỷ</button>
-              <button type="submit" className="flex-1 rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white hover:bg-orange-600">Lưu</button>
+              <button type="button" onClick={() => setEditCat(null)} className="flex-1 rounded-lg border border-border-strong py-2.5 text-sm font-medium text-foreground hover:bg-button-hover">Huỷ</button>
+              <button type="submit" className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-hover">Lưu</button>
             </div>
           </form>
         </Modal>
@@ -512,10 +516,10 @@ function ItemForm({
           initial={item?.price}
           placeholder="80.000"
           readOnly={hasVariants}
-          className={`input ${hasVariants ? 'bg-gray-50 text-gray-500' : ''}`}
+          className={`input ${hasVariants ? 'bg-background text-muted' : ''}`}
         />
         {hasVariants && (
-          <p className="mt-1 text-xs text-orange-600">
+          <p className="mt-1 text-xs text-primary">
             {displayPriceLabel(item!.price, true)} — giá đang do tuỳ chọn quyết định.
             Sửa giá ở danh sách lựa chọn bên dưới.
           </p>
@@ -526,8 +530,8 @@ function ItemForm({
         <SquareCropper initialUrl={item?.image_url ?? null} onChange={onImage} />
       </div>
       <div className="flex gap-2 pt-1">
-        <button type="button" onClick={onCancel} className="flex-1 rounded-xl border py-2.5 text-sm font-medium text-gray-600">Huỷ</button>
-        <button type="submit" className="flex-1 rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white hover:bg-orange-600">{submitLabel}</button>
+        <button type="button" onClick={onCancel} className="flex-1 rounded-lg border border-border-strong py-2.5 text-sm font-medium text-foreground hover:bg-button-hover">Huỷ</button>
+        <button type="submit" className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-hover">{submitLabel}</button>
       </div>
     </form>
   )
@@ -536,11 +540,11 @@ function ItemForm({
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      {/* text-gray-900 + bg-white explicit để tránh inherit dark mode từ body */}
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 text-gray-900 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      {/* text-foreground + bg-surface explicit để tránh inherit dark mode từ body */}
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-6 text-foreground shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+          <h3 className="text-lg font-bold text-foreground">{title}</h3>
+          <button onClick={onClose} className="text-muted hover:text-foreground">✕</button>
         </div>
         {children}
       </div>
@@ -571,49 +575,49 @@ function ToppingPool({ toppings, router }: { toppings: Topping[]; router: Return
   }
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="border-b border-gray-100 px-5 py-3"><p className="font-semibold text-gray-700">🧀 Kho topping</p></div>
+      <div className="border-b border-border px-5 py-3"><p className="font-semibold text-foreground/80">Kho topping</p></div>
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-2">
           {toppings.slice().sort((a,b)=>a.sort_order-b.sort_order).map((t) => (
-            <div key={t.id} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3">
+            <div key={t.id} className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3">
               {editId === t.id ? (
                 <>
                   {/* class riêng, KHÔNG dùng .input (tránh width:100% bóp ô trong flex) */}
                   <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Tên"
-                    className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-900" />
+                    className="min-w-0 flex-1 rounded-lg border border-border px-2 py-1 text-sm text-foreground" />
                   <input value={editPrice} onChange={(e) => setEditPrice(formatVndTyping(e.target.value))} inputMode="numeric" placeholder="Giá"
-                    className="w-24 flex-shrink-0 rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-900" />
+                    className="w-24 flex-shrink-0 rounded-lg border border-border px-2 py-1 text-sm text-foreground" />
                   <button onClick={() => saveEdit(t)} disabled={isPending}
-                    className="flex-shrink-0 rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">Lưu</button>
+                    className="flex-shrink-0 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-40">Lưu</button>
                   <button onClick={() => setEditId(null)} disabled={isPending}
-                    className="flex-shrink-0 rounded-lg border px-3 py-1.5 text-sm text-gray-600">Huỷ</button>
+                    className="flex-shrink-0 rounded-lg border border-border-strong px-3 py-1.5 text-sm text-foreground hover:bg-button-hover">Huỷ</button>
                 </>
               ) : (
                 <>
                   <button onClick={() => toggle(t)} disabled={isPending}
-                    className={`h-6 w-11 flex-shrink-0 rounded-full ${t.is_available ? 'bg-green-500' : 'bg-gray-300'}`}
+                    className={`h-6 w-11 flex-shrink-0 rounded-full ${t.is_available ? 'bg-primary' : 'bg-border-strong'}`}
                     title={t.is_available ? 'Đang bán — bấm để tạm hết' : 'Tạm hết — bấm để bán lại'}>
-                    <span className={`block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${t.is_available ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                    <span className={`block h-5 w-5 rounded-full bg-surface shadow-sm transition-transform ${t.is_available ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
-                  <span className={`min-w-0 flex-1 truncate font-medium ${t.is_available ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{t.name}</span>
-                  <span className="flex-shrink-0 font-semibold text-gray-700">{formatVND(t.price)}</span>
+                  <span className={`min-w-0 flex-1 truncate font-medium ${t.is_available ? 'text-foreground' : 'text-muted line-through'}`}>{t.name}</span>
+                  <span className="flex-shrink-0 font-semibold text-foreground/80">{formatVND(t.price)}</span>
                   <button onClick={() => startEdit(t)} disabled={isPending}
-                    className="flex-shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40" title="Sửa tên/giá">✎</button>
+                    className="flex-shrink-0 rounded-lg p-1.5 text-muted hover:bg-item-hover hover:text-foreground disabled:opacity-40" title="Sửa tên/giá" aria-label="Sửa tên/giá"><Pencil className="size-4" aria-hidden /></button>
                   <button onClick={() => del(t)} disabled={isPending}
-                    className="flex-shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40" title="Xoá">🗑️</button>
+                    className="flex-shrink-0 rounded-lg p-1.5 text-muted hover:bg-danger-bg hover:text-danger disabled:opacity-40" title="Xoá" aria-label="Xoá"><Trash2 className="size-4" aria-hidden /></button>
                 </>
               )}
             </div>
           ))}
-          {toppings.length === 0 && <p className="px-1 py-6 text-center text-sm text-gray-400">Chưa có topping nào trong kho</p>}
+          {toppings.length === 0 && <p className="px-1 py-6 text-center text-sm text-muted">Chưa có topping nào trong kho</p>}
         </div>
       </div>
-      <div className="border-t border-gray-100 p-4">
+      <div className="border-t border-border p-4">
         <div className="flex flex-col gap-2">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên topping (VD: Thêm trứng)" className="input" />
           <div className="flex gap-2">
             <input value={price} onChange={(e) => setPrice(formatVndTyping(e.target.value))} inputMode="numeric" placeholder="Giá (VNĐ)" className="input min-w-0 flex-1" />
-            <button onClick={add} disabled={isPending} className="flex-shrink-0 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">+ Thêm</button>
+            <button onClick={add} disabled={isPending} className="flex-shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-40">+ Thêm</button>
           </div>
         </div>
       </div>
@@ -640,15 +644,15 @@ function ItemToppingPicker({ item, toppings, router }: { item: MenuItem; topping
     startTransition(async () => { await setMenuItemToppings(item.id, [...next]); router.refresh() })
   }
   return (
-    <div className="mt-2 border-t border-gray-100 pt-3">
-      <p className="mb-2 text-sm font-semibold text-gray-700">Topping của món (tick để gán)</p>
-      {toppings.length === 0 && <p className="text-xs text-gray-400">Kho topping trống — thêm ở khu "🧀 Topping" trước.</p>}
+    <div className="mt-2 border-t border-border pt-3">
+      <p className="mb-2 text-sm font-semibold text-foreground/80">Topping của món (tick để gán)</p>
+      {toppings.length === 0 && <p className="text-xs text-muted">Kho topping trống — thêm ở khu &quot;Topping&quot; trước.</p>}
       <div className="flex flex-col gap-1.5">
         {toppings.slice().sort((a,b)=>a.sort_order-b.sort_order).map((t) => (
           <label key={t.id} className="flex cursor-pointer items-center gap-2 text-sm">
             <input type="checkbox" checked={linked.has(t.id)} disabled={isPending} onChange={() => toggle(t.id)} className="h-4 w-4" />
-            <span className="flex-1 text-gray-800">{t.name}</span>
-            <span className="text-gray-500">{formatVND(t.price)}</span>
+            <span className="flex-1 text-foreground">{t.name}</span>
+            <span className="text-muted">{formatVND(t.price)}</span>
           </label>
         ))}
       </div>
@@ -722,9 +726,9 @@ function ItemVariantEditor({ item, router }: { item: MenuItem; router: ReturnTyp
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-gray-200 p-4">
-      <p className="font-semibold text-gray-700">📐 Tuỳ chọn quyết định giá</p>
-      <p className="mt-1 text-xs text-gray-500">
+    <div className="mt-4 rounded-xl border border-border p-4">
+      <p className="font-semibold text-foreground/80">Tuỳ chọn quyết định giá</p>
+      <p className="mt-1 text-xs text-muted">
         Khách phải chọn đúng một. Giá gõ ở đây là giá bán thật của món, không phải tiền cộng thêm.
       </p>
 
@@ -738,7 +742,7 @@ function ItemVariantEditor({ item, router }: { item: MenuItem; router: ReturnTyp
 
       <div className="mt-3 space-y-2">
         {variants.map((v, idx) => (
-          <div key={v.id} className="rounded-xl border border-gray-100 px-3 py-2">
+          <div key={v.id} className="rounded-xl border border-border px-3 py-2">
             {editId === v.id ? (
               // Chế độ sửa: xuống hàng riêng (tên + giá rồi Lưu/Huỷ) thay vì nhét chung
               // hàng với ▲▼ — hàng hiển thị vốn đã đủ 5 phần tử, thêm 2 ô nhập nữa vào
@@ -746,43 +750,43 @@ function ItemVariantEditor({ item, router }: { item: MenuItem; router: ReturnTyp
               <div className="flex flex-col gap-2">
                 <div className="flex gap-2">
                   <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Tên"
-                    className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-900" />
+                    className="min-w-0 flex-1 rounded-lg border border-border px-2 py-1 text-sm text-foreground" />
                   <input value={editPrice} onChange={(e) => setEditPrice(formatVndTyping(e.target.value))} inputMode="numeric" placeholder="Giá"
-                    className="w-24 flex-shrink-0 rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-900" />
+                    className="w-24 flex-shrink-0 rounded-lg border border-border px-2 py-1 text-sm text-foreground" />
                 </div>
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={() => setEditId(null)} disabled={isPending}
-                    className="flex-shrink-0 rounded-lg border px-3 py-1.5 text-sm text-gray-600">Huỷ</button>
+                    className="flex-shrink-0 rounded-lg border border-border-strong px-3 py-1.5 text-sm text-foreground hover:bg-button-hover">Huỷ</button>
                   <button type="button" onClick={() => saveEdit(v)} disabled={isPending}
-                    className="flex-shrink-0 rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">Lưu</button>
+                    className="flex-shrink-0 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-40">Lưu</button>
                 </div>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <span className="flex flex-shrink-0 flex-col leading-none">
                   <button type="button" onClick={() => move(idx, -1)} disabled={isPending || idx === 0}
-                    className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Lên">▲</button>
+                    className="text-xs text-muted hover:text-foreground disabled:opacity-30" aria-label="Lên">▲</button>
                   <button type="button" onClick={() => move(idx, 1)} disabled={isPending || idx === variants.length - 1}
-                    className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Xuống">▼</button>
+                    className="text-xs text-muted hover:text-foreground disabled:opacity-30" aria-label="Xuống">▼</button>
                 </span>
-                <span className={`min-w-0 flex-1 truncate text-sm ${v.is_available ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                <span className={`min-w-0 flex-1 truncate text-sm ${v.is_available ? 'text-foreground' : 'text-muted line-through'}`}>
                   {v.name}
                 </span>
-                <span className="flex-shrink-0 text-sm font-semibold text-gray-700">{formatVND(v.price)}</span>
+                <span className="flex-shrink-0 text-sm font-semibold text-foreground/80">{formatVND(v.price)}</span>
                 <button type="button" onClick={() => startEdit(v)} disabled={isPending}
-                  className="flex-shrink-0 text-xs text-gray-500 hover:text-orange-600 disabled:opacity-40">Sửa</button>
+                  className="flex-shrink-0 text-xs text-muted hover:text-primary disabled:opacity-40">Sửa</button>
                 <button type="button" onClick={() => toggle(v)} disabled={isPending}
-                  className="flex-shrink-0 text-xs text-gray-500 hover:text-orange-600 disabled:opacity-40">
+                  className="flex-shrink-0 text-xs text-muted hover:text-primary disabled:opacity-40">
                   {v.is_available ? 'Tắt bán' : 'Bật bán'}
                 </button>
                 <button type="button" onClick={() => del(v)} disabled={isPending}
-                  className="flex-shrink-0 text-xs text-red-500 hover:text-red-700 disabled:opacity-40">Xoá</button>
+                  className="flex-shrink-0 text-xs text-danger hover:text-danger disabled:opacity-40">Xoá</button>
               </div>
             )}
           </div>
         ))}
         {variants.length === 0 && (
-          <p className="px-1 py-3 text-center text-sm text-gray-400">
+          <p className="px-1 py-3 text-center text-sm text-muted">
             Chưa có lựa chọn nào — món đang bán theo giá món.
           </p>
         )}
@@ -793,9 +797,9 @@ function ItemVariantEditor({ item, router }: { item: MenuItem; router: ReturnTyp
           placeholder="Tên lựa chọn (VD: Đĩa to)" className="input min-w-0 flex-1" />
         {/* class riêng cho ô giá, KHÔNG dùng .input (width:100% sẽ bóp hỏng ô trong flex) */}
         <input value={price} onChange={(e) => setPrice(formatVndTyping(e.target.value))} inputMode="numeric" placeholder="Giá"
-          className="w-24 flex-shrink-0 rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-orange-400" />
+          className="w-24 flex-shrink-0 rounded-xl border border-border px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted focus:border-focus" />
         <button type="button" onClick={add} disabled={isPending}
-          className="flex-shrink-0 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">+ Thêm</button>
+          className="flex-shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-40">+ Thêm</button>
       </div>
     </div>
   )

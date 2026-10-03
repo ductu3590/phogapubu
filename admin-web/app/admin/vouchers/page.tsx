@@ -29,9 +29,9 @@ export default async function VouchersPage() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
-        <h1 className="text-xl font-bold text-gray-900">🎟️ Ưu đãi</h1>
-        <p className="text-sm text-gray-500">
+      <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
+        <h1 className="text-xl font-bold text-foreground">Ưu đãi</h1>
+        <p className="text-sm text-muted">
           Mã shipper (khoá theo Zalo của shipper) và mã vòng quay khách đã trúng.
         </p>
       </div>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-const fieldClass = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base font-normal text-gray-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100'
+const fieldClass = 'w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-base font-normal text-foreground outline-none focus:border-focus focus:ring-2 focus:ring-focus'
 
 export type ReservationFormErrors = Partial<Record<
   'customerName' | 'customerPhone' | 'partySize' | 'arrivalLocal' | 'reason' | 'tableIds',
@@ -165,11 +165,11 @@ export function ReservationForm({
       <Field label={manual ? 'Lý do tạo tay' : 'Lý do đổi lịch/bàn'} error={errors.reason}>
         <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} className={fieldClass} />
       </Field>
-      {errors.tableIds && <p className="text-sm font-medium text-red-700">{errors.tableIds}</p>}
-      {actionError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{actionError}</p>}
+      {errors.tableIds && <p className="text-sm font-medium text-danger">{errors.tableIds}</p>}
+      {actionError && <p className="rounded-lg bg-critical-bg px-3 py-2 text-sm text-critical">{actionError}</p>}
       <div className="flex gap-2">
-        <button type="button" onClick={onCancel} disabled={busy} className="min-h-11 flex-1 rounded-lg border border-gray-300 bg-white px-4 text-sm font-bold text-gray-700">Hủy</button>
-        <button type="submit" disabled={busy} className="min-h-11 flex-1 rounded-lg bg-orange-500 px-4 text-sm font-bold text-white disabled:opacity-50">
+        <button type="button" onClick={onCancel} disabled={busy} className="min-h-11 flex-1 rounded-lg border border-border-strong bg-surface px-4 text-sm font-bold text-foreground/80">Hủy</button>
+        <button type="submit" disabled={busy} className="min-h-11 flex-1 rounded-lg bg-primary px-4 text-sm font-bold text-white disabled:opacity-50">
           {busy ? 'Đang lưu…' : manual ? 'Tạo đặt bàn' : 'Lưu thay đổi'}
         </button>
       </div>
@@ -179,10 +179,10 @@ export function ReservationForm({
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
-    <label className="block text-sm font-semibold text-gray-700">
+    <label className="block text-sm font-semibold text-foreground/80">
       {label}
       <span className="mt-1 block">{children}</span>
-      {error && <span className="mt-1 block text-xs font-medium text-red-700">{error}</span>}
+      {error && <span className="mt-1 block text-xs font-medium text-danger">{error}</span>}
     </label>
   )
 }

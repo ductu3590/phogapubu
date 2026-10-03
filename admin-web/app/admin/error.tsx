@@ -1,5 +1,10 @@
 'use client'
 
+import { RotateCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+
+// Lỗi tải một trang /admin. Header/sidebar vẫn đứng yên (AppShell), chỉ vùng nội dung báo lỗi.
+// Chi tiết kỹ thuật gấp lại: chủ quán chỉ cần biết thử lại; mã lỗi để chụp gửi MEVO khi cần.
 export default function AdminError({
   error,
   reset,
@@ -8,21 +13,24 @@ export default function AdminError({
   reset: () => void
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-      <div className="text-4xl">⚠️</div>
-      <h2 className="text-xl font-bold text-gray-900">Lỗi tải trang</h2>
-      <pre className="max-w-2xl overflow-auto rounded-xl bg-red-50 p-4 text-left text-xs text-red-700">
-        {error.message}
-        {'\n\n'}
-        {error.stack}
-      </pre>
-      <p className="text-sm text-gray-500">digest: {error.digest}</p>
-      <button
-        onClick={reset}
-        className="rounded-xl bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
-      >
+    <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center md:p-8">
+      <div>
+        <h2 className="text-lg font-semibold text-error-text">Không tải được trang này</h2>
+        <p className="mt-1 max-w-md text-sm text-pretty text-muted">
+          Có thể do mạng chập chờn hoặc phiên đăng nhập hết hạn. Bấm Thử lại; nếu vẫn lỗi, chụp màn hình gửi MEVO.
+        </p>
+      </div>
+      <Button icon={<RotateCw />} onClick={reset}>
         Thử lại
-      </button>
+      </Button>
+      <details className="w-full max-w-2xl text-left">
+        <summary className="cursor-pointer text-center text-[13px] text-muted">Chi tiết kỹ thuật</summary>
+        <pre className="mt-2 overflow-auto rounded-xl border border-critical-border bg-critical-bg p-4 text-xs text-critical">
+          {error.message}
+          {error.digest ? `\n\nMã lỗi: ${error.digest}` : ''}
+          {error.stack ? `\n\n${error.stack}` : ''}
+        </pre>
+      </details>
     </div>
   )
 }

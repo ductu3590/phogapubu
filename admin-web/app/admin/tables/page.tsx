@@ -46,9 +46,9 @@ export default async function TablesPage() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
-        <h1 className="text-xl font-bold text-gray-900">🪑 Quản lý bàn & QR</h1>
-        <p className="text-sm text-gray-500">Tạo bàn, tải QR về in dán lên bàn</p>
+      <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
+        <h1 className="text-xl font-bold text-foreground">Quản lý bàn & QR</h1>
+        <p className="text-sm text-muted">Tạo bàn, tải QR về in dán lên bàn</p>
       </div>
       <TablesClient
         tables={tablesWithQr}

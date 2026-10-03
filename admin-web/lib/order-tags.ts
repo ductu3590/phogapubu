@@ -6,15 +6,15 @@
 export type OrderTag = { label: string; tone: 'source' | 'type' }
 
 export function orderSourceTag(orderSource: string | null): OrderTag | null {
-  if (orderSource === 'staff') return { label: '🧑‍🍳 Nhân viên đặt', tone: 'source' }
-  if (orderSource === 'customer_zalo') return { label: '📱 Khách tự đặt', tone: 'source' }
+  if (orderSource === 'staff') return { label: 'Nhân viên đặt', tone: 'source' }
+  if (orderSource === 'customer_zalo') return { label: 'Khách tự đặt', tone: 'source' }
   return null
 }
 
 export function orderTypeTag(orderType: string | null): OrderTag | null {
-  if (orderType === 'dine_in') return { label: '🍽️ Tại bàn', tone: 'type' }
-  if (orderType === 'pickup') return { label: '🥡 Mang về', tone: 'type' }
-  if (orderType === 'delivery') return { label: '🛵 Ship', tone: 'type' }
+  if (orderType === 'dine_in') return { label: 'Tại bàn', tone: 'type' }
+  if (orderType === 'pickup') return { label: 'Mang về', tone: 'type' }
+  if (orderType === 'delivery') return { label: 'Ship', tone: 'type' }
   return null
 }
 

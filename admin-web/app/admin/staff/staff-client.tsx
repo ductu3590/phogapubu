@@ -43,16 +43,16 @@ export default function StaffClient({ staff }: { staff: Staff[] }) {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* Form thêm nhân viên */}
-      <div className="mb-6 max-w-lg rounded-2xl border border-gray-200 bg-white p-5">
-        <h2 className="mb-3 text-sm font-bold text-gray-900">Thêm nhân viên</h2>
-        {error && <p className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</p>}
+      <div className="mb-6 max-w-lg rounded-2xl border border-border bg-surface p-5">
+        <h2 className="mb-3 text-sm font-bold text-foreground">Thêm nhân viên</h2>
+        {error && <p className="mb-3 rounded-lg bg-critical-bg p-3 text-sm text-danger">{error}</p>}
         {created && (
-          <div className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+          <div className="mb-3 rounded-lg bg-success-bg p-3 text-sm text-success">
             Đã thêm <strong>{created.email}</strong>.
             {created.tempPassword ? (
               <>
                 {' '}Mật khẩu tạm (chỉ hiện 1 lần — gửi ngay cho nhân viên):{' '}
-                <code className="rounded bg-white px-2 py-0.5 font-mono">{created.tempPassword}</code>
+                <code className="rounded bg-surface px-2 py-0.5 font-mono">{created.tempPassword}</code>
               </>
             ) : (
               ' Tài khoản đã có sẵn, mật khẩu giữ nguyên như cũ.'
@@ -61,18 +61,18 @@ export default function StaffClient({ staff }: { staff: Staff[] }) {
         )}
         <form action={handleCreate} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="block flex-1">
-            <span className="mb-1 block text-sm font-medium text-gray-700">Email nhân viên</span>
+            <span className="mb-1 block text-sm font-medium text-foreground/80">Email nhân viên</span>
             <input
               name="email"
               type="email"
               required
               placeholder="nhanvien@quan.vn"
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-orange-400"
+              className="w-full rounded-xl border border-border px-4 py-2.5 text-sm text-foreground outline-none focus:border-focus"
             />
           </label>
           <button
             type="submit"
-            className="rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
+            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
           >
             Thêm nhân viên
           </button>
@@ -81,21 +81,21 @@ export default function StaffClient({ staff }: { staff: Staff[] }) {
 
       {/* Danh sách nhân viên */}
       <div className="max-w-lg">
-        <p className="mb-2 text-sm text-gray-500">{staff.length} nhân viên</p>
+        <p className="mb-2 text-sm text-muted">{staff.length} nhân viên</p>
         {staff.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-400">
+          <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted">
             Chưa có nhân viên nào.
           </p>
         ) : (
-          <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
             {staff.map((s) => (
               <li key={s.userId} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex min-w-0 items-center gap-2">
-                  <span className={`truncate text-sm ${s.isActive ? 'text-gray-800' : 'text-gray-400 line-through'}`}>
+                  <span className={`truncate text-sm ${s.isActive ? 'text-foreground' : 'text-muted line-through'}`}>
                     {s.email}
                   </span>
                   {!s.isActive && (
-                    <span className="flex-shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                    <span className="flex-shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted">
                       Đã tắt
                     </span>
                   )}
@@ -105,8 +105,8 @@ export default function StaffClient({ staff }: { staff: Staff[] }) {
                   disabled={isPending}
                   className={`flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50 ${
                     s.isActive
-                      ? 'text-red-500 hover:bg-red-50'
-                      : 'text-green-600 hover:bg-green-50'
+                      ? 'text-danger hover:bg-danger-bg'
+                      : 'text-success hover:bg-success-bg'
                   }`}
                 >
                   {s.isActive ? 'Vô hiệu hoá' : 'Bật lại'}

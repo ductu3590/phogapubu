@@ -1,5 +1,6 @@
 'use client'
 
+import { ImagePlus } from 'lucide-react'
 import { useEffect, useRef, useState, useCallback } from 'react'
 
 const VIEWPORT = 260 // kích thước khung crop hiển thị (px)
@@ -129,21 +130,21 @@ export default function SquareCropper({
             <img
               src={initialUrl}
               alt="Ảnh hiện tại"
-              className="h-24 w-24 rounded-xl border border-gray-200 object-cover"
+              className="h-24 w-24 rounded-xl border border-border object-cover"
             />
           )}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="rounded-xl border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500 hover:border-orange-400 hover:text-orange-500"
+            className="rounded-xl border border-dashed border-border-strong px-4 py-3 text-sm text-muted hover:border-primary hover:text-primary"
           >
-            {initialUrl ? '🖼️ Đổi ảnh món' : '🖼️ Chọn ảnh món (sẽ cắt vuông)'}
+            <ImagePlus className="size-4" aria-hidden />{initialUrl ? 'Đổi ảnh món' : 'Chọn ảnh món (sẽ cắt vuông)'}
           </button>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2">
           <div
-            className="relative cursor-move touch-none overflow-hidden rounded-xl bg-gray-100"
+            className="relative cursor-move touch-none overflow-hidden rounded-xl bg-secondary"
             style={{ width: VIEWPORT, height: VIEWPORT }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
@@ -164,8 +165,8 @@ export default function SquareCropper({
             className="w-full max-w-[260px] accent-orange-500"
           />
           <div className="flex gap-3 text-xs">
-            <span className="text-gray-400">Kéo để chỉnh • thanh trượt để phóng to</span>
-            <button type="button" onClick={clearImg} className="text-red-500 hover:underline">
+            <span className="text-muted">Kéo để chỉnh • thanh trượt để phóng to</span>
+            <button type="button" onClick={clearImg} className="text-danger hover:underline">
               Bỏ ảnh
             </button>
           </div>

@@ -266,15 +266,15 @@ export default function ReservationsClient({
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6" onClickCapture={unlockReminderBell}>
+    <div className="min-h-0 flex-1 overflow-y-auto bg-background p-4 sm:p-6" onClickCapture={unlockReminderBell}>
       <div className="mx-auto max-w-3xl">
         <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-gray-900">📅 Đặt bàn</h1>
-              <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <h1 className="text-xl font-bold text-foreground">Đặt bàn</h1>
+              <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-success-dot' : 'bg-border-strong'}`} />
             </div>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-muted">
               {connected ? 'Đang cập nhật trực tiếp' : 'Đang kết nối — vẫn tự tải lại mỗi vài giây'}
             </p>
           </div>
@@ -282,14 +282,14 @@ export default function ReservationsClient({
             <button
               type="button"
               onClick={() => { setActionError(null); setOperation({ kind: 'manual' }) }}
-              className="min-h-11 rounded-lg bg-orange-500 px-4 text-sm font-bold text-white hover:bg-orange-600"
+              className="min-h-11 rounded-lg bg-primary px-4 text-sm font-bold text-white hover:bg-primary-hover"
             >
               + Tạo đặt bàn
             </button>
             <button
               type="button"
               onClick={() => void reloadNow()}
-              className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              className="min-h-11 rounded-lg border border-border-strong bg-surface px-4 text-sm font-semibold text-foreground/80 hover:bg-item-hover"
             >
               ↻ Tải lại
             </button>
@@ -304,49 +304,49 @@ export default function ReservationsClient({
         <CustomerCallTasks tasks={customerCalls} busy={customerCallBusy} onResolve={(id, outcome) => void resolveCustomerCall(id, outcome)} />
 
         <div className="mb-4 grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-200">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Cần duyệt / đổi</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{pendingCount}</p>
+          <div className="rounded-xl border border-border bg-surface p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Cần duyệt / đổi</p>
+            <p className="mt-1 text-2xl font-bold text-foreground">{pendingCount}</p>
           </div>
-          <div className="rounded-xl bg-red-50 p-3 shadow-sm ring-1 ring-red-200">
-            <p className="text-xs font-semibold uppercase tracking-wide text-red-700">Quá giờ chưa đến</p>
-            <p className="mt-1 text-2xl font-bold text-red-800">{overdueCount}</p>
+          <div className="rounded-xl border border-critical-border bg-critical-bg p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-danger">Quá giờ chưa đến</p>
+            <p className="mt-1 text-2xl font-bold text-critical">{overdueCount}</p>
           </div>
         </div>
 
-        <label className="mb-5 block rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-200">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Lọc lịch đã xử lý / sắp tới</span>
+        <label className="mb-5 block rounded-xl border border-border bg-surface p-3">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-muted">Lọc lịch đã xử lý / sắp tới</span>
           <input
             type="date"
             value={selectedDate}
             onChange={(event) => setSelectedDate(event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-base text-gray-900"
+            className="mt-2 min-h-11 w-full rounded-lg border border-border-strong bg-surface px-3 text-base text-foreground"
           />
-          <span className="mt-1 block text-xs text-gray-500">Việc chờ duyệt, khách yêu cầu đổi, quá giờ và đã đến luôn được giữ lại.</span>
+          <span className="mt-1 block text-xs text-muted">Việc chờ duyệt, khách yêu cầu đổi, quá giờ và đã đến luôn được giữ lại.</span>
         </label>
 
         {reloadError && (
-          <div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+          <div className="mb-4 rounded-xl bg-warning-bg px-4 py-3 text-sm text-warning ring-1 ring-warning-border">
             {reloadError}
           </div>
         )}
         {actionError && (
-          <div className="mb-4 flex items-start justify-between gap-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900 ring-1 ring-red-200">
+          <div className="mb-4 flex items-start justify-between gap-3 rounded-xl bg-critical-bg px-4 py-3 text-sm text-critical ring-1 ring-critical-border">
             <span>{actionError}</span>
             <button type="button" onClick={() => setActionError(null)} className="font-bold underline">Đóng</button>
           </div>
         )}
 
         {groups.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-12 text-center text-sm text-gray-500">
+          <div className="rounded-xl border border-dashed border-border-strong bg-surface px-5 py-12 text-center text-sm text-muted">
             Chưa có đặt bàn cần theo dõi trong khoảng thời gian này.
           </div>
         ) : (
           <div className="space-y-6">
             {groups.map((group) => (
               <section key={group.title} aria-label={group.title}>
-                <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-700">
-                  {group.title} <span className="text-gray-400">({group.reservations.length})</span>
+                <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-foreground/80">
+                  {group.title} <span className="text-muted">({group.reservations.length})</span>
                 </h2>
                 <div className="space-y-3">
                   {group.reservations.map((reservation) => (
@@ -435,7 +435,7 @@ export default function ReservationsClient({
             />
           )}
           {(operation.kind === 'confirm' || operation.kind === 'resolve_change' || operation.kind === 'reschedule') && !floor && (
-            <p className="text-sm text-red-800">{floorError ?? sessionsError ?? 'Không tải được sơ đồ bàn'}</p>
+            <p className="text-sm text-critical">{floorError ?? sessionsError ?? 'Không tải được sơ đồ bàn'}</p>
           )}
         </ReservationOperationSheet>
       )}
@@ -457,8 +457,8 @@ function operationTitle(operation: ActiveOperation): string {
 function ReservationOperationSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-40 flex items-end bg-black/35 p-0 sm:items-center sm:justify-center sm:p-6">
-      <section className="max-h-[90dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-xl sm:rounded-2xl" role="dialog" aria-modal="true" aria-label={title}>
-        <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-lg font-bold text-gray-900">{title}</h2><button type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-lg text-xl text-gray-600">×</button></div>
+      <section className="max-h-[90dvh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 shadow-xl sm:max-w-xl sm:rounded-2xl" role="dialog" aria-modal="true" aria-label={title}>
+        <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-lg font-bold text-foreground">{title}</h2><button type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-lg text-xl text-muted">×</button></div>
         {children}
       </section>
     </div>
@@ -480,13 +480,13 @@ function TableDecision({ operation, floor, sessions, busy, actionError, otherRes
   const [rejectNote, setRejectNote] = useState('')
   const canRejectChange = operation.kind === 'resolve_change' && reservationChangeDecisionActions().includes('reject')
   return <div className="space-y-4">
-    {operation.kind === 'resolve_change' && <p className="text-sm text-amber-800">Khách yêu cầu: {operation.reservation.changeNote ?? 'đổi thông tin đặt bàn'}</p>}
+    {operation.kind === 'resolve_change' && <p className="text-sm text-warning">Khách yêu cầu: {operation.reservation.changeNote ?? 'đổi thông tin đặt bàn'}</p>}
     <ReservationTablePicker floor={floor} sessions={sessions} selectedTableIds={operation.selectedTableIds}
       currentReservationTableIds={new Set(operation.reservation.tableIds)} otherReservationTableIds={otherReservationTableIds}
       suggestedTableCount={operation.reservation.suggestedTableCount} onToggle={onToggle} />
-    {actionError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{actionError}</p>}
-    {canRejectChange && <label className="block text-sm font-semibold text-gray-700">Ghi chú từ chối (không bắt buộc)<textarea value={rejectNote} onChange={(event) => setRejectNote(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-normal" /></label>}
-    <div className="flex gap-2"><button type="button" disabled={busy} onClick={onCancel} className="min-h-11 flex-1 rounded-lg border border-gray-300 font-bold">Hủy</button>{canRejectChange && <button type="button" disabled={busy} onClick={() => onReject(rejectNote.trim() || null)} className="min-h-11 flex-1 rounded-lg border border-red-300 bg-white font-bold text-red-700">Từ chối thay đổi</button>}<button type="button" disabled={busy} onClick={onSubmit} className="min-h-11 flex-1 rounded-lg bg-orange-500 font-bold text-white disabled:opacity-50">{busy ? 'Đang lưu…' : operation.kind === 'confirm' ? 'Xác nhận' : 'Chấp nhận thay đổi'}</button></div>
+    {actionError && <p className="rounded-lg bg-critical-bg px-3 py-2 text-sm text-critical">{actionError}</p>}
+    {canRejectChange && <label className="block text-sm font-semibold text-foreground/80">Ghi chú từ chối (không bắt buộc)<textarea value={rejectNote} onChange={(event) => setRejectNote(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-border-strong px-3 py-2 font-normal" /></label>}
+    <div className="flex gap-2"><button type="button" disabled={busy} onClick={onCancel} className="min-h-11 flex-1 rounded-lg border border-border-strong font-bold">Hủy</button>{canRejectChange && <button type="button" disabled={busy} onClick={() => onReject(rejectNote.trim() || null)} className="min-h-11 flex-1 rounded-lg border border-critical-border bg-surface font-bold text-danger">Từ chối thay đổi</button>}<button type="button" disabled={busy} onClick={onSubmit} className="min-h-11 flex-1 rounded-lg bg-primary font-bold text-white disabled:opacity-50">{busy ? 'Đang lưu…' : operation.kind === 'confirm' ? 'Xác nhận' : 'Chấp nhận thay đổi'}</button></div>
   </div>
 }
 
@@ -500,9 +500,9 @@ function SimpleDecision({ kind, reservation, busy, actionError, onCancel, onSubm
 }) {
   const [note, setNote] = useState('')
   const label = kind === 'arrive' ? 'Khách đã đến' : kind === 'no_show' ? 'Không đến' : kind === 'cancel_store' ? 'Hủy đặt bàn' : 'Từ chối đặt bàn'
-  return <div className="space-y-4"><p className="text-sm text-gray-700">{reservation.customerName} · {reservation.partySize} khách</p>
-    {kind !== 'arrive' && <label className="block text-sm font-semibold text-gray-700">{kind === 'cancel_store' ? 'Lý do hủy (bắt buộc)' : 'Ghi chú (không bắt buộc)'}<textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-normal" /></label>}
-    {actionError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{actionError}</p>}
-    <div className="flex gap-2"><button type="button" disabled={busy} onClick={onCancel} className="min-h-11 flex-1 rounded-lg border border-gray-300 font-bold">Hủy</button><button type="button" disabled={busy || (kind === 'cancel_store' && !note.trim())} onClick={() => onSubmit(note.trim() || null)} className="min-h-11 flex-1 rounded-lg bg-gray-900 font-bold text-white disabled:opacity-50">{busy ? 'Đang lưu…' : label}</button></div>
+  return <div className="space-y-4"><p className="text-sm text-foreground/80">{reservation.customerName} · {reservation.partySize} khách</p>
+    {kind !== 'arrive' && <label className="block text-sm font-semibold text-foreground/80">{kind === 'cancel_store' ? 'Lý do hủy (bắt buộc)' : 'Ghi chú (không bắt buộc)'}<textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-border-strong px-3 py-2 font-normal" /></label>}
+    {actionError && <p className="rounded-lg bg-critical-bg px-3 py-2 text-sm text-critical">{actionError}</p>}
+    <div className="flex gap-2"><button type="button" disabled={busy} onClick={onCancel} className="min-h-11 flex-1 rounded-lg border border-border-strong font-bold">Hủy</button><button type="button" disabled={busy || (kind === 'cancel_store' && !note.trim())} onClick={() => onSubmit(note.trim() || null)} className="min-h-11 flex-1 rounded-lg bg-foreground font-bold text-white disabled:opacity-50">{busy ? 'Đang lưu…' : label}</button></div>
   </div>
 }

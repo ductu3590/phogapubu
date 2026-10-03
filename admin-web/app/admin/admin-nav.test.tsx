@@ -1,23 +1,27 @@
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
-import AdminNav from './admin-nav'
+import { describe, expect, it } from 'vitest'
+import { findActiveHref } from '@/components/ui/app-shell'
+import { adminNavGroups } from './admin-nav'
 
-vi.mock('next/navigation', () => ({
-  usePathname: () => '/admin/dashboard',
-}))
+const hrefs = (enabled: boolean) => adminNavGroups(enabled).flatMap((group) => group.items.map((item) => item.href))
 
-describe('AdminNav', () => {
+describe('adminNavGroups', () => {
   it('chỉ hiện Đặt bàn trong vận hành khi quán bật capability đặt bàn', () => {
-    const enabled = renderToStaticMarkup(
-      createElement(AdminNav, { reservationsEnabled: true } as never),
-    )
-    const disabled = renderToStaticMarkup(
-      createElement(AdminNav, { reservationsEnabled: false } as never),
-    )
+    expect(hrefs(true)).toContain('/admin/reservations')
+    expect(hrefs(false)).not.toContain('/admin/reservations')
+    const vanHanh = adminNavGroups(true).find((group) => group.label === 'Vận hành')
+    expect(vanHanh?.items.map((item) => item.label)).toContain('Đặt bàn')
+  })
 
-    expect(enabled).toContain('Đặt bàn')
-    expect(enabled).toContain('href="/admin/reservations"')
-    expect(disabled).not.toContain('Đặt bàn')
+  it('giữ đủ các mục cũ của sidebar chủ quán', () => {
+    expect(hrefs(false)).toEqual([
+      '/admin/dashboard', '/admin/cashier', '/admin/orders', '/admin/kitchen',
+      '/admin/menu', '/admin/vouchers', '/admin/spin',
+      '/admin/settings', '/admin/tables', '/admin/staff', '/admin/account',
+    ])
+  })
+
+  it('trang con vẫn sáng đúng mục cha', () => {
+    expect(findActiveHref('/admin/cashier/print-order', adminNavGroups(false))).toBe('/admin/cashier')
+    expect(findActiveHref('/admin/reservations', adminNavGroups(true))).toBe('/admin/reservations')
   })
 })

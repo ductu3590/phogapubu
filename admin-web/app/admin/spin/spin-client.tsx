@@ -1,5 +1,6 @@
 'use client'
 
+import { StatusDot } from '@/components/ui/badge'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { setSpinEnabled, saveRewards, type RewardInput } from '@/lib/actions/spin'
@@ -87,12 +88,12 @@ export default function SpinClient({
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-5 text-gray-900">
+    <div className="flex max-w-2xl flex-col gap-5 text-foreground">
       {/* Toggle bật/tắt */}
-      <div className="flex items-center justify-between rounded-xl border-2 border-gray-200 bg-white p-4">
+      <div className="flex items-center justify-between rounded-xl border border-border bg-surface p-4">
         <div>
-          <p className="font-semibold">{isEnabled ? '🟢 Đang bật' : '⚪ Đang tắt'}</p>
-          <p className="text-xs text-gray-500">
+          <p className="flex items-center gap-2 font-semibold"><StatusDot tone={isEnabled ? 'success' : 'neutral'} />{isEnabled ? 'Đang bật' : 'Đang tắt'}</p>
+          <p className="text-xs text-muted">
             Tắt = khách thanh toán xong KHÔNG thấy vòng quay.
           </p>
         </div>
@@ -100,17 +101,17 @@ export default function SpinClient({
           type="button"
           onClick={handleToggle}
           disabled={busy}
-          className={`h-7 w-12 rounded-full transition-colors ${isEnabled ? 'bg-green-500' : 'bg-gray-300'} disabled:opacity-50`}
+          className={`h-7 w-12 rounded-full transition-colors ${isEnabled ? 'bg-primary' : 'bg-border-strong'} disabled:opacity-50`}
         >
           <div
-            className={`h-6 w-6 translate-y-0.5 rounded-full bg-white shadow transition-transform ${isEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
+            className={`h-6 w-6 translate-y-0.5 rounded-full bg-surface shadow transition-transform ${isEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
           />
         </button>
       </div>
 
       {isEnabled && activeCount === 0 && (
-        <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-600">
-          ⚠️ Cần ít nhất 1 quà đang bật, nếu không khách sẽ không thấy vòng quay.
+        <p className="rounded-lg border border-warning-border bg-warning-bg px-3 py-2 text-sm text-warning">
+          Cần ít nhất 1 quà đang bật, nếu không khách sẽ không thấy vòng quay.
         </p>
       )}
 
@@ -122,7 +123,7 @@ export default function SpinClient({
             <button
               type="button"
               onClick={loadDefaults}
-              className="text-sm font-medium text-orange-600 hover:underline"
+              className="text-sm font-medium text-primary hover:underline"
             >
               + Tạo bộ mặc định 6 ô
             </button>
@@ -133,7 +134,7 @@ export default function SpinClient({
           {rows.map((r) => (
             <div
               key={r.key}
-              className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white p-2.5"
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-2.5"
             >
               <input
                 value={r.label}
@@ -147,8 +148,8 @@ export default function SpinClient({
                 className="input w-32"
                 title="Loại"
               >
-                <option value="gift">🎁 Có quà</option>
-                <option value="voucher">🎟️ Mã giảm giá</option>
+                <option value="gift">Có quà</option>
+                <option value="voucher">Mã giảm giá</option>
                 <option value="none">— Trượt</option>
               </select>
               {r.type === 'voucher' && (
@@ -200,7 +201,7 @@ export default function SpinClient({
                       title="Giảm tối đa (đ)"
                     />
                   )}
-                  <label className="flex items-center gap-1 text-xs text-gray-500">
+                  <label className="flex items-center gap-1 text-xs text-muted">
                     HSD
                     <input
                       type="number"
@@ -214,7 +215,7 @@ export default function SpinClient({
                   </label>
                 </>
               )}
-              <label className="flex items-center gap-1 text-xs text-gray-500">
+              <label className="flex items-center gap-1 text-xs text-muted">
                 Tỉ lệ
                 <input
                   type="number"
@@ -225,7 +226,7 @@ export default function SpinClient({
                   title="Tỉ trọng (số càng lớn càng dễ trúng)"
                 />
               </label>
-              <label className="flex items-center gap-1 text-xs text-gray-500">
+              <label className="flex items-center gap-1 text-xs text-muted">
                 <input
                   type="checkbox"
                   checked={r.is_active}
@@ -236,7 +237,7 @@ export default function SpinClient({
               <button
                 type="button"
                 onClick={() => remove(r.key)}
-                className="rounded-lg px-2 py-1 text-sm text-red-500 hover:bg-red-50"
+                className="rounded-lg px-2 py-1 text-sm text-danger hover:bg-danger-bg"
                 title="Xoá ô"
               >
                 ✕
@@ -249,30 +250,30 @@ export default function SpinClient({
           <button
             type="button"
             onClick={addRow}
-            className="mt-2 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50"
+            className="mt-2 rounded-lg border border-dashed border-border-strong px-3 py-1.5 text-sm text-muted hover:bg-item-hover"
           >
             + Thêm ô
           </button>
         )}
-        <p className="mt-2 text-xs text-gray-400">
+        <p className="mt-2 text-xs text-muted">
           &quot;Tỉ lệ&quot; là tỉ trọng random — ô tỉ lệ 4 dễ trúng gấp 4 lần ô tỉ lệ 1.
           Nên để vài ô &quot;Trượt&quot; tỉ lệ cao để không tặng quà mọi lượt.
           Ô &quot;Mã giảm giá&quot;: khách trúng sẽ được mã TỰ ĐỘNG áp vào lần đặt món sau.
         </p>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={handleSave}
           disabled={busy}
-          className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+          className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
         >
           Lưu quà
         </button>
-        {saved && <span className="text-sm text-green-600">✓ Đã lưu</span>}
+        {saved && <span className="text-sm text-success">✓ Đã lưu</span>}
       </div>
     </div>
   )

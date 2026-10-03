@@ -1,17 +1,18 @@
+import { Clock, Phone, Users } from 'lucide-react'
 import type { ReservationRow } from '@/lib/actions/reservations'
 import { reservationQueueState } from '@/lib/reservation-queue'
 import { reservationCardView, reservationUiActions, type ReservationUiAction } from './reservation-ui'
 
 const toneClasses = {
-  normal: 'border-gray-200 bg-white',
-  attention: 'border-amber-300 bg-amber-50/60',
-  critical: 'border-red-300 bg-red-50/70',
+  normal: 'border-border bg-surface',
+  attention: 'border-warning-border bg-warning-bg',
+  critical: 'border-critical-border bg-critical-bg',
 }
 
 const badgeClasses = {
-  normal: 'bg-gray-100 text-gray-700',
-  attention: 'bg-amber-100 text-amber-900',
-  critical: 'bg-red-100 text-red-800',
+  normal: 'bg-secondary text-foreground/80',
+  attention: 'bg-warning-bg text-warning',
+  critical: 'bg-critical-bg text-critical',
 }
 
 export default function ReservationCard({
@@ -32,23 +33,23 @@ export default function ReservationCard({
   const reminderDue = reservationQueueState(reservation, now).reminderDue
 
   return (
-    <article className={`rounded-xl border p-4 shadow-sm ${toneClasses[view.tone]}`}>
+    <article className={`rounded-xl border p-4 ${toneClasses[view.tone]}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate text-base font-bold text-gray-900">{reservation.customerName}</h3>
-          <p className="mt-1 text-sm font-medium text-gray-700">🕒 {view.arrivalLabel}</p>
+          <h3 className="truncate text-base font-bold text-foreground">{reservation.customerName}</h3>
+          <p className="mt-1 text-sm font-medium text-foreground/80 flex items-center gap-1.5"><Clock className="size-4 shrink-0 text-muted" aria-hidden />{view.arrivalLabel}</p>
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${badgeClasses[view.tone]}`}>
           {view.statusLabel}
         </span>
       </div>
 
-      <p className="mt-3 text-sm text-gray-700">👥 {view.summary}</p>
+      <p className="mt-3 text-sm text-foreground/80 flex items-start gap-1.5"><Users className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden /><span>{view.summary}</span></p>
       {reservation.note && (
-        <p className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-sm text-gray-600">Ghi chú: {reservation.note}</p>
+        <p className="mt-2 rounded-lg bg-surface/70 px-3 py-2 text-sm text-muted">Ghi chú: {reservation.note}</p>
       )}
       {reservation.changeNote && (
-        <p className="mt-2 rounded-lg bg-amber-100/80 px-3 py-2 text-sm text-amber-900">
+        <p className="mt-2 rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning">
           Khách nhắn đổi: {reservation.changeNote}
         </p>
       )}
@@ -56,9 +57,9 @@ export default function ReservationCard({
       {view.phoneHref && (
         <a
           href={view.phoneHref}
-          className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-bold text-gray-800 transition-colors hover:bg-gray-50"
+          className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-4 text-sm font-bold text-foreground transition-colors hover:bg-item-hover"
         >
-          📞 Gọi khách · {reservation.customerPhone}
+          <Phone className="size-4" aria-hidden />Gọi khách · {reservation.customerPhone}
         </a>
       )}
       {actions.length > 0 && (
@@ -68,7 +69,7 @@ export default function ReservationCard({
               key={action}
               type="button"
               onClick={() => onAction?.(action, reservation)}
-              className="min-h-11 rounded-lg bg-gray-900 px-3 text-sm font-bold text-white hover:bg-gray-800"
+              className="min-h-11 rounded-lg bg-foreground px-3 text-sm font-bold text-white hover:bg-foreground/90"
             >
               {actionLabel[action]}
             </button>
@@ -80,7 +81,7 @@ export default function ReservationCard({
           type="button"
           disabled={snoozeBusy}
           onClick={() => onSnooze(reservation)}
-          className="mt-2 min-h-11 w-full rounded-lg border border-amber-300 bg-white px-3 text-sm font-bold text-amber-900 hover:bg-amber-50 disabled:opacity-50"
+          className="mt-2 min-h-11 w-full rounded-lg border border-warning-border bg-surface px-3 text-sm font-bold text-warning hover:bg-warning-bg disabled:opacity-50"
         >
           Nhắc lại 10 phút
         </button>

@@ -121,9 +121,9 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
     reservationsDisabled || !draft.reservationPreorderEnabled
 
   return (
-    <form onSubmit={submit} className="space-y-5 text-gray-900">
+    <form onSubmit={submit} className="space-y-5 text-foreground">
       <div>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted">
           {context === 'mevo'
             ? 'Bạn đang cấu hình thay mặt quán. Mọi lần lưu đều được ghi audit với nguồn MEVO.'
             : 'Thay đổi áp dụng cho yêu cầu mới của quán và được ghi audit theo tài khoản chủ quán.'}
@@ -163,14 +163,14 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
           checked={draft.isAcceptingOrders}
           onChange={(checked) => update('isAcceptingOrders', checked)}
         />
-        <div className="rounded-xl border border-gray-200 p-3">
+        <div className="rounded-xl border border-border p-3">
           <p className="text-sm font-semibold">Giờ phục vụ</p>
-          <p className="mb-3 text-xs text-gray-500">
+          <p className="mb-3 text-xs text-muted">
             Không có ca = mở cả ngày. Có thể thêm nhiều ca nếu quán nghỉ giữa ngày.
           </p>
           <div className="space-y-2">
             {draft.servingHours.length === 0 && (
-              <p className="text-xs text-gray-400">Chưa có ca — quán mở cả ngày.</p>
+              <p className="text-xs text-muted">Chưa có ca — quán mở cả ngày.</p>
             )}
             {draft.servingHours.map((shift, index) => (
               <div key={index} className="flex items-center gap-2">
@@ -182,7 +182,7 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
                   onChange={(event) => updateShift(index, 'open', event.target.value)}
                   className="input min-w-0 flex-1"
                 />
-                <span className="text-gray-400">–</span>
+                <span className="text-muted">–</span>
                 <input
                   aria-label={`Giờ đóng ca ${index + 1}`}
                   type="time"
@@ -200,7 +200,7 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
                       draft.servingHours.filter((_, currentIndex) => currentIndex !== index),
                     )
                   }
-                  className="rounded-lg px-2 py-1 text-sm text-red-500 hover:bg-red-50"
+                  className="rounded-lg px-2 py-1 text-sm text-danger hover:bg-danger-bg"
                 >
                   ✕
                 </button>
@@ -215,7 +215,7 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
                 { open: '08:00', close: '22:00' },
               ])
             }
-            className="mt-3 rounded-lg border border-orange-300 px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50"
+            className="mt-3 rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light"
           >
             + Thêm ca phục vụ
           </button>
@@ -279,7 +279,7 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
             ]}
           />
           <div>
-            <p className="mb-1 text-sm font-medium text-gray-700">Phương thức thanh toán</p>
+            <p className="mb-1 text-sm font-medium text-foreground/80">Phương thức thanh toán</p>
             <div className="space-y-2">
               <Toggle
                 name="paymentMethodZalo"
@@ -422,22 +422,22 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
       </WorkflowSection>
 
       {error && (
-        <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="rounded-lg bg-critical-bg p-3 text-sm text-danger">
           {error}
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
+      <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
         <button
           type="submit"
           disabled={saving || !isDirty}
-          className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? 'Đang lưu…' : 'Lưu quy trình'}
         </button>
-        {saved && <span className="text-sm text-green-600">✓ Đã lưu</span>}
+        {saved && <span className="text-sm text-success">✓ Đã lưu</span>}
         {isDirty && !saving && (
-          <span className="text-sm text-amber-600">Có thay đổi chưa lưu</span>
+          <span className="text-sm text-warning">Có thay đổi chưa lưu</span>
         )}
       </div>
     </form>
@@ -462,27 +462,27 @@ function PresetButton({
       onClick={onClick}
       className={`rounded-xl border-2 p-3 text-left transition-colors ${
         active
-          ? 'border-orange-500 bg-orange-50'
-          : 'border-gray-200 bg-white hover:border-orange-200'
+          ? 'border-primary bg-primary-light'
+          : 'border-border bg-surface hover:border-primary/40'
       }`}
     >
       <span className="block text-sm font-semibold">{title}</span>
-      <span className="mt-1 block text-xs text-gray-500">{description}</span>
+      <span className="mt-1 block text-xs text-muted">{description}</span>
     </button>
   )
 }
 
 function ChangePreview({ changes }: { changes: WorkflowSettingChange[] }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-4">
-      <p className="text-sm font-semibold text-slate-800">Xem trước thay đổi</p>
+    <div className="rounded-xl bg-background p-4">
+      <p className="text-sm font-semibold text-foreground">Xem trước thay đổi</p>
       {changes.length === 0 ? (
-        <p className="mt-1 text-xs text-slate-500">Chưa có thay đổi so với lần lưu gần nhất.</p>
+        <p className="mt-1 text-xs text-muted">Chưa có thay đổi so với lần lưu gần nhất.</p>
       ) : (
-        <ul className="mt-2 space-y-1 text-xs text-slate-600">
+        <ul className="mt-2 space-y-1 text-xs text-muted">
           {changes.map((change) => (
             <li key={change.key}>
-              <span className="font-medium text-slate-800">{change.label}:</span>{' '}
+              <span className="font-medium text-foreground">{change.label}:</span>{' '}
               {formatValue(change.key, change.before)} → {formatValue(change.key, change.after)}
             </li>
           ))}
@@ -528,10 +528,10 @@ function WorkflowSection({
 }) {
   return (
     <section
-      className={`rounded-xl border border-gray-200 p-4 ${disabled ? 'bg-gray-50' : 'bg-white'}`}
+      className={`rounded-xl border border-border p-4 ${disabled ? 'bg-background' : 'bg-surface'}`}
     >
-      <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-      <p className="mt-1 text-xs text-gray-500">{description}</p>
+      <h3 className="text-base font-semibold text-foreground">{title}</h3>
+      <p className="mt-1 text-xs text-muted">{description}</p>
       <div className={`mt-4 space-y-3 ${disabled ? 'opacity-60' : ''}`}>{children}</div>
     </section>
   )
@@ -554,13 +554,13 @@ function Toggle({
 }) {
   return (
     <label
-      className={`relative flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-3 ${
-        disabled ? 'cursor-not-allowed bg-gray-50' : 'cursor-pointer bg-white'
+      className={`relative flex items-center justify-between gap-3 rounded-xl border border-border p-3 ${
+        disabled ? 'cursor-not-allowed bg-background' : 'cursor-pointer bg-surface'
       }`}
     >
       <span>
-        <span className="block text-sm font-medium text-gray-800">{label}</span>
-        {description && <span className="mt-0.5 block text-xs text-gray-500">{description}</span>}
+        <span className="block text-sm font-medium text-foreground">{label}</span>
+        {description && <span className="mt-0.5 block text-xs text-muted">{description}</span>}
       </span>
       <input
         name={name}
@@ -595,7 +595,7 @@ function NumberInput({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
+      <span className="mb-1 block text-sm font-medium text-foreground/80">{label}</span>
       <input
         name={name}
         type="number"
@@ -605,9 +605,9 @@ function NumberInput({
         disabled={disabled}
         required
         onChange={(event) => onChange(Number(event.target.value))}
-        className="input disabled:cursor-not-allowed disabled:bg-gray-100"
+        className="input disabled:cursor-not-allowed disabled:bg-secondary"
       />
-      {description && <span className="mt-1 block text-xs text-gray-500">{description}</span>}
+      {description && <span className="mt-1 block text-xs text-muted">{description}</span>}
     </label>
   )
 }
@@ -627,12 +627,12 @@ function SelectInput({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
+      <span className="mb-1 block text-sm font-medium text-foreground/80">{label}</span>
       <select
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className="input disabled:cursor-not-allowed disabled:bg-gray-100"
+        className="input disabled:cursor-not-allowed disabled:bg-secondary"
       >
         {options.map(([optionValue, optionLabel]) => (
           <option key={optionValue} value={optionValue}>

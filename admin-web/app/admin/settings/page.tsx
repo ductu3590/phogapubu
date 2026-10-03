@@ -26,14 +26,14 @@ export default async function SettingsPage() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
-        <h1 className="text-xl font-bold text-gray-900">⚙️ Cài đặt quán</h1>
-        <p className="text-sm text-gray-500">Thông tin hiển thị và quy trình vận hành</p>
+      <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
+        <h1 className="text-xl font-bold text-foreground">Cài đặt quán</h1>
+        <p className="text-sm text-muted">Thông tin hiển thị và quy trình vận hành</p>
       </div>
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-4xl space-y-6">
-          <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Thông tin quán</h2>
+          <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Thông tin quán</h2>
             <SettingsClient
               name={store?.name ?? ''}
               logoUrl={store?.logo_url ?? null}
@@ -49,8 +49,8 @@ export default async function SettingsPage() {
             />
           </section>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Quy trình vận hành</h2>
+          <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Quy trình vận hành</h2>
             <WorkflowSettingsForm
               key={storeId}
               initial={workflowSettings}

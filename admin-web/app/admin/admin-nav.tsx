@@ -1,7 +1,3 @@
-'use client'
-
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   Calculator,
@@ -15,92 +11,39 @@ import {
   QrCode,
   Users,
   User,
-  type LucideIcon,
 } from 'lucide-react'
+import type { AppNavGroup } from '@/components/ui/app-shell'
 
-type Leaf = { href: string; icon: LucideIcon; label: string }
-type Section = { label: string; children: Leaf[] }
-
-// Mục nổi (luôn hiện, không thuộc nhóm)
-const DASHBOARD: Leaf = { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' }
-
-// 3 nhóm gom theo tần suất dùng: xem hàng ngày → sửa theo tuần → dựng một lần
-const SECTIONS: Section[] = [
-  {
-    label: 'Vận hành',
-    children: [
-      { href: '/admin/cashier', icon: Calculator, label: 'Thu ngân (POS)' },
-      { href: '/admin/orders', icon: ClipboardList, label: 'Đơn hàng' },
-      { href: '/admin/kitchen', icon: ChefHat, label: 'Màn hình bếp' },
-    ],
-  },
-  {
-    label: 'Kinh doanh',
-    children: [
-      { href: '/admin/menu', icon: UtensilsCrossed, label: 'Quản lý menu' },
-      { href: '/admin/vouchers', icon: Ticket, label: 'Ưu đãi' },
-      { href: '/admin/spin', icon: Gift, label: 'Vòng quay' },
-    ],
-  },
-  {
-    label: 'Thiết lập quán',
-    children: [
-      { href: '/admin/settings', icon: Settings, label: 'Cài đặt quán' },
-      { href: '/admin/tables', icon: QrCode, label: 'Bàn & QR' },
-      { href: '/admin/staff', icon: Users, label: 'Nhân viên' },
-    ],
-  },
-]
-
-// Mục lẻ cuối danh sách
-const ACCOUNT: Leaf = { href: '/admin/account', icon: User, label: 'Tài khoản' }
-const RESERVATIONS: Leaf = { href: '/admin/reservations', icon: CalendarDays, label: 'Đặt bàn' }
-
-export default function AdminNav({ reservationsEnabled = false }: { reservationsEnabled?: boolean }) {
-  const path = usePathname()
-  const sections = SECTIONS.map((section) =>
-    section.label === 'Vận hành' && reservationsEnabled
-      ? { ...section, children: [...section.children, RESERVATIONS] }
-      : section,
-  )
-
-  return (
-    <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-      <NavLink leaf={DASHBOARD} active={path.startsWith(DASHBOARD.href)} />
-
-      {sections.map((sec) => (
-        <div key={sec.label} className="pt-3">
-          <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-            {sec.label}
-          </p>
-          <div className="ml-[1.35rem] space-y-0.5 border-l border-gray-100 pl-2">
-            {sec.children.map((leaf) => (
-              <NavLink key={leaf.href} leaf={leaf} active={path.startsWith(leaf.href)} />
-            ))}
-          </div>
-        </div>
-      ))}
-
-      <div className="pt-3">
-        <NavLink leaf={ACCOUNT} active={path.startsWith(ACCOUNT.href)} />
-      </div>
-    </nav>
-  )
-}
-
-function NavLink({ leaf, active }: { leaf: Leaf; active: boolean }) {
-  const Icon = leaf.icon
-  return (
-    <Link
-      href={leaf.href}
-      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-        active
-          ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/25'
-          : 'text-gray-700 hover:bg-orange-50 hover:text-orange-600'
-      }`}
-    >
-      <Icon size={18} strokeWidth={1.75} className="shrink-0" />
-      {leaf.label}
-    </Link>
-  )
+// Menu khu chủ quán cho AppShell. Gom theo tần suất dùng: xem hàng ngày → sửa theo tuần → dựng một lần.
+// Không 'use client': layout server dựng sẵn mảng này (icon là phần tử), AppShell tự tô mục đang mở.
+export function adminNavGroups(reservationsEnabled = false): AppNavGroup[] {
+  return [
+    { items: [{ href: '/admin/dashboard', label: 'Dashboard', icon: <LayoutDashboard /> }] },
+    {
+      label: 'Vận hành',
+      items: [
+        { href: '/admin/cashier', label: 'Thu ngân (POS)', icon: <Calculator /> },
+        { href: '/admin/orders', label: 'Đơn hàng', icon: <ClipboardList /> },
+        { href: '/admin/kitchen', label: 'Màn hình bếp', icon: <ChefHat /> },
+        ...(reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []),
+      ],
+    },
+    {
+      label: 'Kinh doanh',
+      items: [
+        { href: '/admin/menu', label: 'Quản lý menu', icon: <UtensilsCrossed /> },
+        { href: '/admin/vouchers', label: 'Ưu đãi', icon: <Ticket /> },
+        { href: '/admin/spin', label: 'Vòng quay', icon: <Gift /> },
+      ],
+    },
+    {
+      label: 'Thiết lập quán',
+      items: [
+        { href: '/admin/settings', label: 'Cài đặt quán', icon: <Settings /> },
+        { href: '/admin/tables', label: 'Bàn & QR', icon: <QrCode /> },
+        { href: '/admin/staff', label: 'Nhân viên', icon: <Users /> },
+      ],
+    },
+    { items: [{ href: '/admin/account', label: 'Tài khoản', icon: <User /> }] },
+  ]
 }
