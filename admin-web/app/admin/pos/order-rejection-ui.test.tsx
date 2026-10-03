@@ -62,10 +62,10 @@ describe('nút từ chối đơn chờ xác nhận', () => {
         onPay={vi.fn()} onPrint={vi.fn()} onReset={vi.fn()} onCreateTray={vi.fn()} onAddTable={vi.fn()}
         onMergeInto={vi.fn()} onReleaseHost={vi.fn()} onConfirmOrder={vi.fn()} onRejectOrder={vi.fn()}
         onPrintOrder={vi.fn()} onOpenManualOrder={vi.fn()} onVoidOrderItem={vi.fn()} onRestoreOrderItem={vi.fn()} onClearPick={vi.fn()}
-        onDismiss={vi.fn()} />,
+        onDismiss={vi.fn()} preorders={[]} onPrintPreorder={async () => ({ ok: true })} />,
     )
     expect(html).toContain('Duyệt ngay')
-    expect(html).toMatch(/<button[^>]*disabled[^>]*>(?:(?!<\/button>).)*Thanh toán/)
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>(?:(?!<\/button>).)*Khoá thanh toán \(còn 1 lượt chờ duyệt\)/)
   })
 
   it('sheet có đủ lý do chọn nhanh và ô nhập cho lý do khác', () => {

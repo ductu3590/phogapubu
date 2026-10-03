@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { CalendarDays, Phone, UtensilsCrossed, X } from 'lucide-react'
+import { CalendarDays, Phone, Printer, UtensilsCrossed, X } from 'lucide-react'
 import { TableStateBadge } from '@/components/ui/badge'
 import { Button, IconButton } from '@/components/ui/button'
 import { Field, Textarea } from '@/components/ui/field'
@@ -28,6 +28,7 @@ export default function ReservationDetail({
   onSnooze,
   onNoShow,
   onCancel,
+  onPrintPreorder,
 }: {
   reservation: ReservationRow
   bar: TimelineBar | undefined
@@ -41,6 +42,8 @@ export default function ReservationDetail({
   onSnooze: (reservationId: string, minutes: 10 | 15 | 30) => void
   onNoShow: (reservation: ReservationRow) => void
   onCancel: (reservation: ReservationRow, reason: string) => void
+  /** In phiếu món đặt trước (chưa duyệt thì duyệt rồi in) — dùng lại đúng luồng của khối Món đặt trước. */
+  onPrintPreorder?: (row: ReservationPreorderRow, popup: Window | null, reason?: string) => Promise<{ ok: boolean }>
 }) {
   const r = reservation
   const [cancelling, setCancelling] = useState(false)
@@ -49,21 +52,32 @@ export default function ReservationDetail({
   const href = phoneHref(r.customerPhone)
   const items = preorder?.currentSnapshot?.items ?? []
 
+  // Tab in phải mở NGAY trong cú bấm (trình duyệt chặn popup mở sau await), rồi mới gọi server.
+  const printPreorder = async () => {
+    if (!preorder || !onPrintPreorder) return
+    const reprint = preorder.releasedRevision > 0 && !preorder.needsPrint
+    const reason = reprint ? prompt('Lý do in lại phiếu') ?? undefined : undefined
+    const popup = window.open('', '_blank')
+    if (popup) popup.document.write('<p style="font-family:sans-serif;padding:24px">Đang tạo phiếu in…</p>')
+    const result = await onPrintPreorder(preorder, popup, reason)
+    if (!result.ok && popup && !popup.closed) {
+      popup.document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px">Chưa tạo được phiếu. Quay lại POS để thử lại.</p>'
+    }
+  }
+
   return (
     <aside
       aria-label="Tiếp nhận khách"
-      className="fixed inset-x-0 bottom-0 z-40 flex max-h-[85dvh] flex-col rounded-t-2xl border-t border-border bg-surface shadow-modal xl:static xl:max-h-none xl:w-[400px] xl:shrink-0 xl:rounded-none xl:border-t-0 xl:border-l xl:shadow-none"
+      className="fixed inset-x-0 bottom-0 z-40 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-border bg-surface shadow-modal xl:static xl:max-h-none xl:w-[400px] xl:shrink-0 xl:rounded-none xl:border-t-0 xl:border-l xl:shadow-none"
     >
-      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border py-3 pr-2 pl-5">
-        <div className="min-w-0 py-1">
-          <p className="text-[13px] font-medium text-muted">Tiếp nhận khách đặt bàn</p>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-            <CalendarDays className="size-5 shrink-0 text-info" aria-hidden />
-            <span className="truncate">{r.customerName}</span>
-          </h2>
-          <p className="mt-0.5 text-sm text-muted tabular">Hẹn {clock(new Date(r.arrivalAt).getTime())} · {r.partySize} khách</p>
+      <header className="flex shrink-0 items-start gap-2.5 bg-slate-900 px-3 py-3 text-white">
+        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-orange-600 [&>svg]:size-5" aria-hidden><CalendarDays /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Tiếp nhận khách đặt bàn</p>
+          <h2 className="truncate text-base font-bold text-white">{r.customerName}</h2>
+          <p className="text-[13px] text-slate-300 tabular">Hẹn {clock(new Date(r.arrivalAt).getTime())} · {r.partySize} khách</p>
         </div>
-        <IconButton icon={<X />} label="Đóng" onClick={onClose} />
+        <IconButton icon={<X />} label="Đóng" onClick={onClose} className="shrink-0 text-slate-300 hover:bg-white/10 hover:text-white" />
       </header>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4 text-sm">
@@ -106,7 +120,13 @@ export default function ReservationDetail({
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-[13px] text-muted">Món đặt trước vào bill của bàn khi bấm khách đã đến. Duyệt / in bếp ở mục Món đặt trước trong Việc cần xử lý.</p>
+            {onPrintPreorder && (
+              <div className="mt-2 flex justify-end border-t border-border pt-2">
+                <Button icon={<Printer />} disabled={busy} onClick={() => printPreorder()} className="min-h-9 md:min-h-9">
+                  {preorder!.releasedRevision > 0 && !preorder!.needsPrint ? 'In lại phiếu' : 'Duyệt & in 2 liên'}
+                </Button>
+              </div>
+            )}
           </section>
         )}
 

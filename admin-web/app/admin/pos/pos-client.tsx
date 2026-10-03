@@ -5,13 +5,11 @@
 // Logic dữ liệu / thao tác giữ nguyên của POS cũ: cùng server action, cùng watcher realtime, cùng chuông.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ArrowLeftRight, Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, Layers, ListTodo, TriangleAlert, X } from 'lucide-react'
-import { StatusDot, TableStateLegend } from '@/components/ui/badge'
+import { ArrowLeftRight, Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, Layers, ListTodo, TriangleAlert, X, Zap } from 'lucide-react'
+import { TableStateLegend } from '@/components/ui/badge'
 import { Button, IconButton } from '@/components/ui/button'
 import { Banner, EmptyState, SkeletonList } from '@/components/ui/feedback'
-import { Tabs } from '@/components/ui/tabs'
 import type { StatusTone } from '@/components/ui/status'
-import { STATUS_TONE_CLASSES } from '@/components/ui/status'
 import { createClient } from '@/lib/supabase/client'
 import {
   addTableToSession,
@@ -37,7 +35,7 @@ import type { FloorSnapshot } from '@/lib/area-layout'
 import { assignTrayColors } from '@/lib/tray-colors'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { serviceRequestSession } from '@/lib/service-request-queue'
-import { buildWorkQueue, type WorkFilter } from '@/lib/pos-work-queue'
+import { buildWorkQueue, isReviewableOrder, type WorkFilter } from '@/lib/pos-work-queue'
 import { watchCashierSessions } from '@/lib/cashier-session-watcher'
 import { actionError, applyReloadError, type CashierError } from '@/lib/cashier-error-state'
 import {
@@ -62,7 +60,7 @@ import {
   type PreorderPrintKind,
   type ReservationPreorderRow,
 } from '@/lib/actions/reservation-preorders'
-import { buildTimeline, clock, timelineWindow, type ServingPeriod, type TimelineBar } from '@/lib/pos-timeline'
+import { buildTimeline, servingShiftEnd, timelineWindow, type ServingPeriod, type TimelineBar } from '@/lib/pos-timeline'
 import { cn } from '@/lib/utils'
 import { heldTableIdsForReservationWindow } from '../reservations/reservation-table-picker'
 import { useFloorLayout } from './use-floor-layout'
@@ -83,11 +81,22 @@ import ListView from './list-view'
 import ReservationDetail from './reservation-detail'
 import NewReservationSheet from './new-reservation-sheet'
 import { useNow } from './use-now'
+import { useOnline } from './use-online'
 import { useServiceRequests } from './use-service-requests'
 import WorkQueue from './work-queue'
 import PosBillPanel from './bill-panel'
 
 type View = 'timeline' | 'floor' | 'list'
+
+// Chip hàng đợi trên dải nền xanh than (Stitch P01): viền + chữ sáng cùng sắc, số tô đặc.
+const QUEUE_CHIP: Record<StatusTone, { chip: string; count: string }> = {
+  warning: { chip: 'border-amber-400/70 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20', count: 'bg-amber-500 text-white' },
+  critical: { chip: 'border-red-400/70 bg-red-400/10 text-red-300 hover:bg-red-400/20', count: 'bg-red-600 text-white' },
+  success: { chip: 'border-emerald-400/70 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20', count: 'bg-emerald-600 text-white' },
+  info: { chip: 'border-sky-400/70 bg-sky-400/10 text-sky-300 hover:bg-sky-400/20', count: 'bg-sky-600 text-white' },
+  accent: { chip: 'border-orange-400/70 bg-orange-400/10 text-orange-300 hover:bg-orange-400/20', count: 'bg-orange-600 text-white' },
+  neutral: { chip: 'border-slate-500 text-slate-200 hover:bg-slate-800', count: 'bg-slate-600 text-white' },
+}
 const ALL = '__all__'
 const NO_AREA = '__none__'
 
@@ -109,6 +118,7 @@ function queueRange() {
 
 export default function PosClient({
   storeId,
+  storeName,
   paymentTiming,
   servingHours,
   slotIntervalMinutes,
@@ -128,6 +138,7 @@ export default function PosClient({
   initialCustomerCalls,
 }: {
   storeId: string
+  storeName: string
   paymentTiming: 'prepay' | 'postpay'
   servingHours: ServingPeriod[]
   /** Bước giờ đặt bàn (Cài đặt quán) — làm tròn giờ đặt bàn mới. */
@@ -168,6 +179,7 @@ export default function PosClient({
   )
   const [busy, setBusy] = useState(false)
   const [connected, setConnected] = useState(false)
+  const online = useOnline()
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [pickedSessionIds, setPickedSessionIds] = useState<Set<string>>(new Set())
   // Chế độ gộp bill: bấm thanh / ô bàn là thêm-bớt mâm, không cần giữ Ctrl (máy cảm ứng không có Ctrl).
@@ -280,7 +292,8 @@ export default function PosClient({
     const dangCho = new Set<string>()
     for (const s of sessions) {
       if (s.status !== 'open') continue
-      for (const o of s.orders) if (o.status === 'pending') dangCho.add(o.id)
+      // Chỉ đơn cần thu ngân duyệt mới kêu — món ghi tay POS không kêu chuông.
+      for (const o of s.orders) if (isReviewableOrder(o)) dangCho.add(o.id)
     }
     if (daKeu.current === null) {
       daKeu.current = dangCho
@@ -743,13 +756,17 @@ export default function PosClient({
   const panel: 'pick' | 'reservation' | 'bill' | 'work' =
     reservationPick && pickReservation ? 'pick' : selectedReservation ? 'reservation' : hasBill ? 'bill' : 'work'
 
+  // "Trực tuyến" chỉ khi: trình duyệt có mạng + kênh realtime đang nối + lần tải dữ liệu gần nhất không lỗi.
+  // Trước đây chỉ đọc trạng thái kênh realtime — mất mạng kênh chưa kịp báo nên vẫn hiện xanh.
+  const live = online && connected && error?.source !== 'reload'
+
   const chips: { key: string; label: string; count: number; tone: StatusTone; icon: ReactNode; filter: WorkFilter }[] = [
-    { key: 'orders', label: 'Lượt món chờ duyệt', count: workItems.filter((i) => i.kind === 'order').length, tone: 'warning', icon: <BellRing />, filter: 'orders' },
-    { key: 'calls', label: 'Gọi nhân viên', count: serviceRequests.requests.length, tone: 'warning', icon: <Bell />, filter: 'calls' },
+    { key: 'orders', label: 'Lượt món chờ duyệt', count: workItems.filter((i) => i.kind === 'order').length, tone: 'success', icon: <BellRing />, filter: 'orders' },
+    { key: 'calls', label: 'Gọi nhân viên', count: serviceRequests.requests.length, tone: 'info', icon: <Bell />, filter: 'calls' },
     ...(reservationsEnabled ? [
       { key: 'booking', label: 'Đặt bàn chờ duyệt', count: timeline.summary.pendingReservations, tone: 'warning' as const, icon: <CalendarDays />, filter: 'booking' as const },
       { key: 'late', label: 'Khách trễ / xung đột', count: timeline.summary.lateReservations + timeline.summary.conflicts, tone: 'critical' as const, icon: <TriangleAlert />, filter: 'booking' as const },
-      { key: 'unassigned', label: 'Chưa xếp bàn', count: timeline.summary.unassignedReservations, tone: 'info' as const, icon: <CalendarClock />, filter: 'booking' as const },
+      { key: 'unassigned', label: 'Chưa xếp bàn', count: timeline.summary.unassignedReservations, tone: 'neutral' as const, icon: <CalendarClock />, filter: 'booking' as const },
     ] : []),
   ]
   const workTotal = workItems.length
@@ -762,30 +779,48 @@ export default function PosClient({
   ]
 
   return (
-    <div className="flex h-full min-h-0 flex-1 bg-background" onClickCapture={unlockAllBells}>
+    <div className="flex h-full min-h-0 flex-1 bg-slate-50" onClickCapture={unlockAllBells}>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {/* Thanh trên: kết nối + ca + thao tác */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border bg-surface px-4 py-2.5 md:px-5">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="text-base font-semibold text-foreground">Điều hành bàn</h1>
-            <span className="inline-flex items-center gap-1.5 text-[13px] text-muted" role="status">
-              <StatusDot tone={connected ? 'success' : 'neutral'} />
-              {connected ? 'Trực tiếp' : 'Mất kết nối — đang thử lại...'}
+        {/* Thanh trên — bản Stitch P01: tên trang + quán, trực tuyến, ca, nút chính cam đặc */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-200 bg-white px-4 py-2.5 md:px-5">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-slate-900">MEVO POS</h1>
+                <span className="max-w-48 truncate rounded-md border border-orange-200 bg-orange-50 px-2 py-0.5 text-[13px] font-semibold text-orange-700">{storeName}</span>
+              </div>
+              <p className="hidden text-[13px] text-slate-500 sm:block">Điều hành bàn &amp; mâm gọi món</p>
+            </div>
+            <span
+              role="status"
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[13px] font-medium',
+                live ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700',
+              )}
+            >
+              <span className={cn('size-2 rounded-full', live ? 'bg-emerald-500' : 'animate-pulse bg-red-500')} aria-hidden />
+              {live ? 'Trực tuyến' : 'Mất kết nối — đang thử lại'}
             </span>
-            {clockNow !== null && <span className="text-[13px] text-muted tabular">Ca {clock(timeWindow.start)}–{clock(timeWindow.end)}</span>}
+            {clockNow !== null && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[13px] font-medium text-slate-700 tabular">
+                <CalendarDays className="size-3.5 text-slate-400" aria-hidden />
+                {new Date(now).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                <span className="font-semibold text-orange-600">{servingHours.length ? `Ca ${servingHours.map((p) => `${p.open}–${p.close}`).join(', ')}` : 'Phục vụ cả ngày'}</span>
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {reservationsEnabled && !arrange && !reservationPick && (
-              <Button icon={<CalendarPlus />} onClick={() => {
+              <Button variant="primary" icon={<CalendarPlus />} onClick={() => {
                 setBookingError(null)
                 const step = Math.max(5, slotIntervalMinutes) * 60_000
                 setNewBooking({ table: null, arrivalAt: new Date(Math.ceil(Date.now() / step) * step).toISOString() })
               }}>
-                Đặt bàn
+                Đặt bàn mới
               </Button>
             )}
             {openSessions.length > 1 && !arrange && !reservationPick && !mergeMode && (
-              <Button icon={<Layers />} onClick={beginMerge}>Gộp bill</Button>
+              <Button icon={<Layers />} onClick={beginMerge} className="border-slate-900 bg-slate-900 text-white hover:bg-slate-800 hover:text-white">Gộp bill</Button>
             )}
             <Button icon={<ListTodo />} onClick={() => openWork()} className="xl:hidden">
               Việc cần xử lý{workTotal > 0 ? ` · ${workTotal}` : ''}
@@ -810,24 +845,27 @@ export default function PosClient({
           </div>
         )}
 
-        {/* Hàng đợi: chip bấm được → mở cột Việc cần xử lý */}
-        <div className="flex items-center gap-2 overflow-x-auto border-b border-border bg-surface px-4 py-2 [scrollbar-width:none] md:px-5 [&::-webkit-scrollbar]:hidden">
-          <span className="shrink-0 text-[13px] font-medium text-muted">Hàng đợi:</span>
+        {/* Hàng đợi — dải tối như Stitch P01: chip viền màu + số tô đặc. Bấm chip mở Việc cần xử lý đúng bộ lọc. */}
+        <div className="flex items-center gap-2 overflow-x-auto bg-slate-900 px-4 py-2 [scrollbar-width:none] md:px-5 [&::-webkit-scrollbar]:hidden">
+          <span className="flex shrink-0 items-center gap-1 text-[13px] font-bold tracking-wide text-amber-400 uppercase">
+            <Zap className="size-3.5" aria-hidden />Hàng đợi:
+          </span>
           {chips.map((c) => {
             const active = c.count > 0
+            const dark = QUEUE_CHIP[c.tone]
             return (
               <button
                 key={c.key}
                 type="button"
                 onClick={() => openWork(c.filter)}
                 className={cn(
-                  'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium whitespace-nowrap [&>svg]:size-3.5',
-                  active ? STATUS_TONE_CLASSES[c.tone].badge : 'border-border bg-surface text-muted',
+                  'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold whitespace-nowrap transition-colors [&>svg]:size-3.5',
+                  active ? dark.chip : 'border-slate-700 text-slate-400 hover:text-slate-200',
                 )}
               >
                 {c.icon}
                 {c.label}
-                <span className="tabular font-semibold">{c.count}</span>
+                <span className={cn('rounded-full px-1.5 text-[12px] leading-5 font-bold tabular', active ? dark.count : 'bg-slate-800 text-slate-400')}>{c.count}</span>
               </button>
             )
           })}
@@ -853,26 +891,44 @@ export default function PosClient({
           </div>
         )}
 
-        {/* Đổi cách xem + lọc khu vực */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pt-3 md:px-5">
-          <Tabs
-            variant="segmented"
-            label="Cách xem"
-            value={view}
-            onValueChange={(v) => {
-              if (arrange && v !== 'floor') return
-              if (reservationPick && v !== 'floor') return
-              setView(v)
-            }}
-            items={[
-              { value: 'timeline', label: 'Timeline' },
-              { value: 'floor', label: 'Sơ đồ bàn' },
-              { value: 'list', label: 'Danh sách' },
-            ]}
-          />
+        {/* Đổi cách xem + lọc khu vực + chú giải — bản Stitch P01 */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200 bg-white px-4 py-2 md:px-5">
+          <div role="tablist" aria-label="Cách xem" className="inline-flex rounded-lg bg-slate-100 p-1">
+            {([['timeline', 'Timeline'], ['floor', 'Sơ đồ bàn'], ['list', 'Danh sách']] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={view === value}
+                onClick={() => {
+                  if (arrange && value !== 'floor') return
+                  if (reservationPick && value !== 'floor') return
+                  setView(value)
+                }}
+                className={cn(
+                  'min-h-9 cursor-pointer rounded-md px-4 text-sm font-semibold transition-colors',
+                  view === value ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {view !== 'floor' && areaItems.length > 1 && (
-            <Tabs label="Khu vực" value={areaFilter} onValueChange={setAreaFilter} items={areaItems} className="min-w-0 flex-1" />
+            <label className="flex items-center gap-2 text-[13px] font-medium text-slate-500">
+              <span className="sr-only">Khu vực</span>
+              <select
+                value={areaFilter}
+                onChange={(e) => setAreaFilter(e.target.value)}
+                className="min-h-9 cursor-pointer rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none"
+              >
+                {areaItems.map((a) => (
+                  <option key={a.value} value={a.value}>{a.value === ALL ? `Tất cả khu vực (${a.count} bàn)` : `${a.label} (${a.count} bàn)`}</option>
+                ))}
+              </select>
+            </label>
           )}
+          {view !== 'floor' && <TableStateLegend className="ml-auto hidden 2xl:flex" />}
           {view === 'floor' && (
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {arrange && <Button disabled={floor.saving} onClick={floor.cancel}>Hủy chỉnh sửa</Button>}
@@ -895,7 +951,7 @@ export default function PosClient({
         </div>
 
         {/* Vùng chính */}
-        <div className="flex min-h-0 flex-1 flex-col pt-3">
+        <div className="flex min-h-0 flex-1 flex-col">
           {clockNow === null && view !== 'floor' && <div className="px-4 md:px-5"><SkeletonList rows={6} label="Đang dựng Timeline" /></div>}
           {clockNow !== null && view === 'timeline' && (
             <TimelineView
@@ -915,6 +971,7 @@ export default function PosClient({
               onSelectReservation={selectReservation}
               slotMinutes={slotIntervalMinutes}
               holdMinutes={planningHoldMinutes}
+              bookUntil={servingShiftEnd(servingHours, now)}
               onPickSlot={reservationsEnabled && !mergeMode && !arrange && !reservationPick ? (tableId, at) => {
                 const table = placed.find((t) => t.id === tableId)
                 if (!table || arrange || reservationPick) return
@@ -967,15 +1024,15 @@ export default function PosClient({
           )}
         </div>
 
-        {/* Chân: số liệu + chú giải */}
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-border bg-surface px-4 py-2.5 md:px-5">
-          <p className="text-[13px] text-muted tabular">
-            <b className="font-semibold text-foreground">{placed.length}</b> bàn ·{' '}
-            <b className="font-semibold text-foreground">{servingCount}</b> đang phục vụ ·{' '}
-            <b className="font-semibold text-foreground">{bookedSoon}</b> đã đặt trong ca ·{' '}
-            <b className="font-semibold text-foreground">{freeTables.length}</b> trống
-          </p>
-          <TableStateLegend />
+        {/* Chân — số liệu có chấm màu như Stitch P01 */}
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-slate-200 bg-white px-4 py-2.5 md:px-5">
+          <ul className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-slate-500 tabular">
+            <li><b className="text-base font-bold text-slate-900">{placed.length}</b> tổng bàn</li>
+            <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-emerald-500" aria-hidden /><b className="font-bold text-emerald-700">{servingCount} bàn đang ăn</b>{placed.length > 0 ? ` (${Math.round((servingCount / placed.length) * 100)}% lấp đầy)` : ''}</li>
+            <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-orange-500" aria-hidden /><b className="font-bold text-orange-700">{bookedSoon} đã đặt trong ca</b></li>
+            <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-slate-400" aria-hidden /><b className="font-bold text-slate-700">{freeTables.length} bàn trống</b></li>
+          </ul>
+          <TableStateLegend className="2xl:hidden" />
         </div>
       </div>
 
@@ -993,8 +1050,11 @@ export default function PosClient({
           'xl:w-[400px] xl:shrink-0 xl:border-l xl:border-border',
         )}
       >
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border py-2.5 pr-2 pl-5">
-          <h2 className="text-base font-semibold text-foreground">Việc cần xử lý</h2>
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b-2 border-orange-600 bg-white py-2.5 pr-2 pl-4">
+          <h2 className="flex items-center gap-2 text-base font-bold text-orange-700">
+            <ListTodo className="size-5" aria-hidden />Hàng đợi việc cần xử lý
+            {workTotal > 0 && <span className="grid min-w-6 place-items-center rounded-full bg-red-600 px-1.5 text-[12px] leading-6 font-bold text-white tabular">{workTotal}</span>}
+          </h2>
           <IconButton icon={<X />} label="Đóng" onClick={() => setWorkOpen(false)} className="xl:hidden" />
         </header>
         <WorkQueue
@@ -1060,6 +1120,7 @@ export default function PosClient({
           onSnooze={(id, minutes) => void snoozeReminders([id], minutes)}
           onNoShow={noShowReservation}
           onCancel={(r, reason) => void reservationAction(() => cancelStoreReservation(r.reservationId, reason))}
+          onPrintPreorder={(row, popup, reason) => onPrintPreorder(row, 'original', popup, reason)}
         />
       )}
       {panel === 'bill' && (
@@ -1067,6 +1128,8 @@ export default function PosClient({
           // Đổi bàn / gộp bill khác = bill mới: về tab Hoá đơn, thoát màn thanh toán đang dở.
           key={selected?.session_id ?? [...pickedSessionIds].sort().join(',') ?? 'pick'}
           trayColors={trayColors}
+          preorders={preorders}
+          onPrintPreorder={(row, popup, reason) => onPrintPreorder(row, 'original', popup, reason)}
           selected={selected}
           picked={pickedSessions}
           freeTables={freeTables}

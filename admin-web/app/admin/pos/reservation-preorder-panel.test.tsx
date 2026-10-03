@@ -19,11 +19,13 @@ describe('ReservationPreorderPanel', () => {
     expect(html).toContain('Nguyễn Văn A')
   })
 
-  it('hiển thị bàn đã phân bổ trước giờ đến và thu gọn món đã in khỏi hàng chờ', () => {
-    const printed = { ...row, orderId: 'order-printed', needsReview: false, needsPrint: false, releasedRevision: 2, tableNumbers: ['Bàn 8'] }
+  it('đơn đã duyệt + in xong không còn hiện (bỏ khối "Đã duyệt/in hôm nay")', () => {
+    const printed = { ...row, orderId: 'order-printed', customerName: 'Khách Đã In', needsReview: false, needsPrint: false, releasedRevision: 2, tableNumbers: ['Bàn 8'] }
     const html = renderToStaticMarkup(<ReservationPreorderPanel rows={[row, printed]} busy={false} onRelease={async () => ({ ok: true })} onPrint={async () => ({ ok: true })} onResolveWaste={async () => ({ ok: true })} />)
-    expect(html).toContain('Đã duyệt/in hôm nay')
-    expect(html).toContain('Bàn 8')
+    expect(html).not.toContain('Đã duyệt/in hôm nay')
+    expect(html).not.toContain('Khách Đã In')
     expect(html).toContain('Món đặt trước cần xử lý')
+    const onlyPrinted = renderToStaticMarkup(<ReservationPreorderPanel rows={[printed]} busy={false} onRelease={async () => ({ ok: true })} onPrint={async () => ({ ok: true })} onResolveWaste={async () => ({ ok: true })} />)
+    expect(onlyPrinted).toBe('')
   })
 })

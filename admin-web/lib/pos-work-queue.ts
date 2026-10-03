@@ -19,7 +19,9 @@ type CustomerCallLike = { taskId: string; reservationId: string; arrivalAt: stri
 export type WorkItem =
   | { kind: 'call'; key: string; filter: 'calls'; tone: StatusTone; since: number; requestId: string; sessionId: string | null }
   | { kind: 'order'; key: string; filter: 'orders'; tone: StatusTone; since: number; orderId: string; sessionId: string; round: number }
-  | { kind: 'reservation'; key: string; filter: 'booking'; tone: StatusTone; since: number; reservationId: string; reason: ReservationReason; minutes: number }
+  | { kind: 'reservation'; key: string; filter: 'booking'; tone: StatusTone; since: number; reservationId: string; reason: ReservationReason; minutes: number
+      /** Việc "gọi nhắc khách" của cùng đặt bàn — gộp vào thẻ này thay vì một thẻ riêng. */
+      callTaskId?: string }
   | { kind: 'customer-call'; key: string; filter: 'booking'; tone: StatusTone; since: number; taskId: string; reservationId: string }
 
 export type ReservationReason = 'conflict' | 'late' | 'due' | 'pending' | 'change' | 'upcoming'
@@ -83,6 +85,10 @@ export function buildWorkQueue(input: {
     }
   }
 
+  // Gọi nhắc khách gắn theo đặt bàn: có thẻ đặt bàn thì gộp vào đó (anh Tú: 2 thẻ cùng một khách là thừa).
+  const callByReservation = new Map(input.customerCalls.map((t) => [t.reservationId, t.taskId]))
+  const merged = new Set<string>()
+
   for (const r of input.reservations) {
     if (r.sessionId) continue
     const arrival = new Date(r.arrivalAt).getTime()
@@ -95,15 +101,18 @@ export function buildWorkQueue(input: {
       if (bar?.conflict) reason = 'conflict'
       else if (bar?.lateMinutes) reason = 'late'
       else if (minutes >= 0) reason = 'due'
-      else if (-minutes <= UPCOMING_WINDOW_MINUTES) reason = 'upcoming'
+      else if (-minutes <= UPCOMING_WINDOW_MINUTES || callByReservation.has(r.reservationId)) reason = 'upcoming'
     }
     if (!reason) continue
-    const tone: StatusTone = reason === 'conflict' || reason === 'late' ? 'critical' : reason === 'upcoming' ? 'info' : 'warning'
-    items.push({ kind: 'reservation', key: `res:${r.reservationId}`, filter: 'booking', tone, since: arrival, reservationId: r.reservationId, reason, minutes })
+    const callTaskId = callByReservation.get(r.reservationId)
+    if (callTaskId) merged.add(callTaskId)
+    const tone: StatusTone = reason === 'conflict' || reason === 'late' ? 'critical' : reason === 'upcoming' ? 'accent' : 'warning'
+    items.push({ kind: 'reservation', key: `res:${r.reservationId}`, filter: 'booking', tone, since: arrival, reservationId: r.reservationId, reason, minutes, callTaskId })
   }
 
   // Server chỉ trả việc gọi nhắc đã đến hạn (POS cũ cũng hiện nguyên danh sách) — không lọc lại.
   for (const t of input.customerCalls) {
+    if (merged.has(t.taskId)) continue
     items.push({ kind: 'customer-call', key: `cc:${t.taskId}`, filter: 'booking', tone: 'info', since: new Date(t.dueAt).getTime(), taskId: t.taskId, reservationId: t.reservationId })
   }
 

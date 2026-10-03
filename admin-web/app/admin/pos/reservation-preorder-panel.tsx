@@ -18,8 +18,9 @@ export default function ReservationPreorderPanel({
 }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const pendingRows = rows.filter((row) => row.wasteReviewRequired || row.needsReview || row.needsPrint)
-  const printedRows = rows.filter((row) => !pendingRows.includes(row))
-  if (rows.length === 0) return null
+  // Đơn đã duyệt + in xong không hiện ở đây nữa (khối "Đã duyệt/in hôm nay" cũ chỉ để đọc, không thao tác).
+  // In lại: panel Tiếp nhận khách đặt bàn có nút in cạnh danh sách món.
+  if (pendingRows.length === 0) return null
 
   // Popup phải mở trong đúng click gesture. Khi RPC xong mới điều hướng sang snapshot job.
   const releaseAndPrint = async (row: ReservationPreorderRow, kind: PreorderPrintKind) => {
@@ -61,22 +62,15 @@ export default function ReservationPreorderPanel({
                 {row.currentSnapshot.items.map((item, index) => <li key={index} className="flex justify-between gap-2"><span className="min-w-0">{item.name}{item.note ? ` · ${item.note}` : ''}</span><b className="shrink-0 font-medium tabular">×{item.quantity}</b></li>)}
               </ul>
               {row.wasteReviewRequired ? <Button variant="danger" disabled={busy} onClick={() => { const reason = prompt('Kết quả đối soát hao hụt'); if (reason) void onResolveWaste(row, reason) }} className="mt-3 w-full">Đối soát món đã huỷ/in</Button>
-                : <div className="mt-3 grid grid-cols-2 gap-2">
-                  {canRelease && <Button variant="primary" icon={<CheckCircle2 />} disabled={busy} onClick={() => void releaseAndPrint(row, 'original')}>Xác nhận &amp; in 2 liên</Button>}
-                  {row.releasedRevision > 0 && <Button icon={<Printer />} disabled={busy || row.needsReview} onClick={() => void releaseAndPrint(row, printedCurrent ? (row.revision > 1 ? 'adjustment' : 'reprint') : 'original')}>{printedCurrent ? 'In lại / điều chỉnh' : 'In 2 liên'}</Button>}
+                : <div className="mt-3 flex flex-col gap-2">
+                  {canRelease && <Button variant="primary" icon={<CheckCircle2 />} disabled={busy} onClick={() => void releaseAndPrint(row, 'original')} className="w-full whitespace-nowrap">Duyệt &amp; in 2 liên</Button>}
+                  {row.releasedRevision > 0 && <Button icon={<Printer />} disabled={busy || row.needsReview} onClick={() => void releaseAndPrint(row, printedCurrent ? (row.revision > 1 ? 'adjustment' : 'reprint') : 'original')} className="w-full whitespace-nowrap">{printedCurrent ? 'In lại / điều chỉnh' : 'In 2 liên'}</Button>}
                 </div>}
               {row.needsReview && row.releasedRevision > 0 && <p className="mt-2 text-[13px] text-warning">Khách vừa sửa sau lần duyệt. Duyệt v{row.revision} trước khi in phiếu điều chỉnh.</p>}
             </div>}
           </li>
         })}
       </ul>
-    </section>}
-    {printedRows.length > 0 && <section className="mx-4 mt-3 rounded-xl border border-border bg-surface p-4 md:mx-5" aria-label="Đã duyệt/in hôm nay">
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <CheckCircle2 className="size-4 text-success" aria-hidden />
-        Đã duyệt/in hôm nay <span className="font-normal text-muted tabular">· {printedRows.length}</span>
-      </h2>
-      <ul className="mt-2 divide-y divide-border text-sm">{printedRows.map((row) => <li key={row.orderId} className="flex justify-between gap-2 py-2"><span className="min-w-0 text-foreground">{row.customerName} <span className="text-muted">· {row.tableNumbers.join(', ') || 'chưa phân bàn'}</span></span><b className="shrink-0 font-medium tabular">{money(row.totalAmount)}</b></li>)}</ul>
     </section>}
     </>
   )

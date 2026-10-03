@@ -3,8 +3,7 @@
 import { useRef, useState, useSyncExternalStore } from 'react'
 import { LAYOUT_COLS, type PlacedTable } from '@/lib/table-layout'
 import { pendingCount, tableVisualState } from '@/lib/table-status'
-import { StatusDot } from '@/components/ui/badge'
-import { TABLE_STATE } from '@/components/ui/status'
+import { STATUS_TONE_CLASSES, TABLE_STATE } from '@/components/ui/status'
 import { cn } from '@/lib/utils'
 import type { OpenTableSession } from '@/lib/actions/table-session'
 import type { TrayAssignment } from '@/lib/tray-colors'
@@ -222,20 +221,14 @@ function Tile({
   const visual = tableVisualState(s, { prearrivalReserved })
   const { label, tone } = TABLE_STATE[visual]
 
-  // Nền ô luôn trắng — màu mâm chỉ còn ở vạch trái, trạng thái nói bằng chấm + chữ.
-  // Riêng hai trạng thái phải làm ngay (chờ duyệt, quá hạn) mới tô nền nhạt để bắt mắt.
-  const nen =
-    visual === 'pending'
-      ? 'border-warning-border bg-warning-bg'
-      : visual === 'late'
-        ? 'border-critical-border bg-critical-bg'
-        : 'border-border bg-surface'
+  // Pha 4 (theo Stitch): ô tô nền nhạt theo trạng thái + nhãn trạng thái tô đặc; bàn trống giữ nền trắng.
+  const nen = visual === 'free' ? 'border-slate-200 bg-white' : STATUS_TONE_CLASSES[tone].badge
 
   // Thứ tự ưu tiên viền: đang chọn bàn cho booking > đơn chờ xác nhận > đang mở bill > đang tick.
   const vien = reservationMode && reservationSelected
     ? 'ring-2 ring-info-dot'
     : cho > 0
-      ? 'ring-2 ring-warning-dot animate-pulse motion-reduce:animate-none'
+      ? 'ring-2 ring-amber-500'
       : selected
         ? 'ring-2 ring-foreground'
         : picked
@@ -266,21 +259,26 @@ function Tile({
         nen,
         tray?.color.bar,
         vien,
-        disabledReason ? 'cursor-not-allowed opacity-50' : arrange ? 'cursor-move' : 'cursor-pointer hover:bg-surface-hover',
+        disabledReason ? 'cursor-not-allowed opacity-50' : arrange ? 'cursor-move' : 'cursor-pointer hover:brightness-95',
       )}
     >
+      {/* Chờ duyệt: chấm nháy ở góc thay vì nháy cả ô (ô nháy thì nhạt màu, khó đọc chữ). */}
+      {cho > 0 && (
+        <span className="absolute top-2 right-2 flex size-2.5" aria-hidden>
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75 motion-reduce:animate-none" />
+          <span className="relative inline-flex size-2.5 rounded-full bg-amber-500" />
+        </span>
+      )}
       <span className="min-w-0">
-        <span className={cn('block truncate text-sm font-semibold', s ? 'text-foreground' : 'text-muted')}>{table.table_number}</span>
-        {s ? <span className="block text-[13px] font-medium text-foreground tabular">{dong(s.total)}</span> : null}
+        <span className={cn('block truncate text-sm font-bold', s ? 'text-slate-900' : 'text-slate-600')}>{table.table_number}</span>
+        {s ? <span className="block text-[13px] font-bold text-slate-900 tabular">{dong(s.total)}</span> : null}
       </span>
       <span className="min-w-0">
         {phu ? (
           <span className={cn('block truncate text-[13px]', tray ? `font-medium ${tray.color.label}` : 'text-muted')}>{phu}</span>
         ) : null}
-        <span className="flex min-w-0 items-start gap-1.5 text-[13px] text-foreground/80">
-          <span className="mt-1 inline-flex">
-          <StatusDot tone={tone} /></span>
-          <span className="line-clamp-2 leading-tight">{cho > 0 ? `${label} · ${cho}` : label}</span>
+        <span className={cn('inline-flex max-w-full items-center rounded-md border px-1.5 text-[12px] leading-5 font-bold', STATUS_TONE_CLASSES[tone].solid)}>
+          <span className="truncate">{cho > 0 ? `${label} · ${cho}` : label}</span>
         </span>
       </span>
     </button>

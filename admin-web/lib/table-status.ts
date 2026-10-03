@@ -19,7 +19,7 @@ export type TableDot = 'free' | 'busy'
 /** Chỉ đúng 2 field mà hai hàm dưới thật sự đọc → OpenTableSession truyền thẳng vào được. */
 export type SessionStatusLike = {
   status: string
-  orders: { status: string }[]
+  orders: { status: string; order_source?: string }[]
 }
 
 export function tableDot(session: SessionStatusLike | undefined): TableDot {
@@ -33,7 +33,9 @@ export function tableDot(session: SessionStatusLike | undefined): TableDot {
  */
 export function pendingCount(session: SessionStatusLike | undefined): number {
   if (!session || session.status !== 'open') return 0
-  return session.orders.filter((o) => o.status === 'pending').length
+  // Món ghi tay ở POS ('pos') là thu ngân tự thêm = đã duyệt sẵn; món đặt trước có luồng duyệt riêng.
+  // Đếm chúng thì bàn hiện "Chờ duyệt" mà không có nút duyệt nào (anh Tú báo 2026-10-03).
+  return session.orders.filter((o) => o.status === 'pending' && o.order_source !== 'pos' && o.order_source !== 'reservation_preorder').length
 }
 
 /**

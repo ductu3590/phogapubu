@@ -42,7 +42,7 @@ export default function PosBillDemo({ withPending }: { withPending: boolean }) {
         selected={session} picked={[]} freeTables={[]} otherSessions={[]} pickedFreeTables={0} trayColors={trays} busy={false}
         onPay={noop} onPrint={noop} onReset={noop} onCreateTray={noop} onAddTable={noop} onMergeInto={noop} onReleaseHost={noop}
         onConfirmOrder={noop} onRejectOrder={noop} onPrintOrder={noop} onOpenManualOrder={noop} onVoidOrderItem={noop}
-        onRestoreOrderItem={noop} onClearPick={noop} onDismiss={noop}
+        onRestoreOrderItem={noop} onClearPick={noop} onDismiss={noop} preorders={[]} onPrintPreorder={async () => ({ ok: true })}
       />
     </div>
   )

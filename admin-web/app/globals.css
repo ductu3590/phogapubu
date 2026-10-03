@@ -57,16 +57,17 @@
   --error-text: #dc2626;
   --error-ring: rgb(239 68 68 / 0.12);
 
-  /* Năm tông trạng thái — một bảng duy nhất cho cả hệ (badge, chấm, thanh timeline).
-     Nghĩa ở bàn POS (chốt 2026-10-02):
-       success = đang phục vụ · info = đã đặt · warning = chờ duyệt
-       danger  = trễ / xung đột · neutral = trống
-     KHÔNG có tông cam: cam chỉ dành cho nút. Luôn kèm chữ hoặc icon. */
+  /* Các tông trạng thái — một bảng duy nhất cho cả hệ (badge, chấm, thanh timeline).
+     Nghĩa ở bàn POS (Pha 4, chốt 2026-10-03 — THAY bảng 2026-10-02, theo bản Stitch P01):
+       success = đang phục vụ · accent (cam) = đã đặt · warning = chờ duyệt / chờ cọc
+       critical = trễ / xung đột · neutral = trống · info = thông tin phụ (không phải trạng thái bàn)
+     Thanh / nhãn trạng thái luôn kèm chữ; nút cam phân biệt bằng hình dạng nút. */
   --success: #047857;  --success-bg: #ecfdf5;  --success-border: #a7f3d0;  --success-dot: #10b981;
   --info: #1d4ed8;     --info-bg: #eff6ff;     --info-border: #bfdbfe;     --info-dot: #3b82f6;
   --warning: #b45309;  --warning-bg: #fffbeb;  --warning-border: #fde68a;  --warning-dot: #f59e0b;
   --critical: #b91c1c; --critical-bg: #fef2f2; --critical-border: #fecaca; --critical-dot: #ef4444;
   --neutral: #475569;  --neutral-bg: #f1f5f9;  --neutral-border: #e2e8f0;  --neutral-dot: #94a3b8;
+  --accent: #c2410c;   --accent-bg: #fff7ed;   --accent-border: #fed7aa;   --accent-dot: #f97316;
 }
 
 /* Map token sang class Tailwind v4 (`bg-surface`, `text-muted`, `border-border-strong`...).
@@ -124,6 +125,10 @@
   --color-neutral-bg: var(--neutral-bg);
   --color-neutral-border: var(--neutral-border);
   --color-neutral-dot: var(--neutral-dot);
+  --color-accent: var(--accent);
+  --color-accent-bg: var(--accent-bg);
+  --color-accent-border: var(--accent-border);
+  --color-accent-dot: var(--accent-dot);
 
   --shadow-popover: var(--elevation-popover);
   --shadow-modal: var(--elevation-modal);

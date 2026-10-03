@@ -30,6 +30,7 @@ export default async function PosPage() {
   const { data: workflow } = await supabase.rpc('get_public_store_workflow', {
     p_store_id: operator.storeId,
   })
+  const { data: storeRow } = await supabase.from('stores').select('name').eq('id', operator.storeId).maybeSingle()
 
   const workflowSettings = workflow as {
     payment_timing?: 'prepay' | 'postpay'
@@ -97,6 +98,7 @@ export default async function PosPage() {
 
   return (
     <PosClient
+      storeName={(storeRow?.name as string | undefined) ?? 'Quán'}
       servingHours={Array.isArray(workflowSettings?.serving_hours) ? workflowSettings.serving_hours : []}
       slotIntervalMinutes={workflowSettings?.slot_interval_minutes ?? 30}
       planningHoldMinutes={workflowSettings?.planning_hold_minutes ?? 120}

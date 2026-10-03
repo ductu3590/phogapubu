@@ -3,10 +3,10 @@ import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { signOut } from '@/app/(auth)/login/actions'
-import { AppShell } from '@/components/ui/app-shell'
+import { IconRailShell } from '@/components/ui/icon-rail-shell'
 import { getButtonClasses } from '@/components/ui/button-classes'
 import { cn } from '@/lib/utils'
-import { adminNavGroups } from './admin-nav'
+import { adminMoreItems, adminRailItems } from './admin-nav'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const operator = await requireOperatorOrRedirect()
@@ -26,11 +26,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const reservationsEnabled = (workflowResult.data as { reservations_enabled?: unknown } | null)
     ?.reservations_enabled === true
 
-  // AppShell: sidebar từ 1024px (thu gọn được để POS rộng hơn), dưới 1024px là thanh trên + ngăn kéo menu.
+  // Khung Stitch P01: rail icon từ 768px, dưới đó thanh trên + ngăn kéo menu.
   return (
-    <AppShell
-      brand={{ title: storeName, subtitle: 'MEVO · Chủ quán' }}
-      groups={adminNavGroups(reservationsEnabled)}
+    <IconRailShell
+      brand={{ initial: 'M', title: storeName, subtitle: 'MEVO · Chủ quán' }}
+      items={adminRailItems(reservationsEnabled)}
+      moreItems={adminMoreItems()}
       footer={
         <div className="space-y-1">
           {user?.email ? <p className="truncate px-3 text-[13px] text-muted">{user.email}</p> : null}
@@ -44,6 +45,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       }
     >
       <div className="flex h-full min-h-0 flex-col">{children}</div>
-    </AppShell>
+    </IconRailShell>
   )
 }

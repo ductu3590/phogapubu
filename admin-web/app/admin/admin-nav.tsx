@@ -1,49 +1,45 @@
 import {
-  LayoutDashboard,
-  GanttChart,
-  ClipboardList,
-  ChefHat,
-  UtensilsCrossed,
-  Ticket,
-  Gift,
+  BarChart3,
   CalendarDays,
-  Settings,
+  ChefHat,
+  ClipboardList,
+  Gift,
+  LayoutGrid,
   QrCode,
-  Users,
+  Settings,
+  Ticket,
   User,
+  Users,
+  UtensilsCrossed,
 } from 'lucide-react'
-import type { AppNavGroup } from '@/components/ui/app-shell'
+import type { AppNavGroup, AppNavItem } from '@/components/ui/app-shell'
 
-// Menu khu chủ quán cho AppShell. Gom theo tần suất dùng: xem hàng ngày → sửa theo tuần → dựng một lần.
-// Không 'use client': layout server dựng sẵn mảng này (icon là phần tử), AppShell tự tô mục đang mở.
-export function adminNavGroups(reservationsEnabled = false): AppNavGroup[] {
+// Menu khu chủ quán (Pha 4, theo bản Stitch P01): rail icon chỉ giữ mục dùng hằng ngày,
+// mục cấu hình nằm trong ô "Thêm" (ST-3 sẽ gom thành hộp thoại A01–A05 đè lên POS).
+// Không 'use client': layout server dựng sẵn mảng này (icon là phần tử).
+export function adminRailItems(reservationsEnabled = false): AppNavItem[] {
   return [
-    { items: [{ href: '/admin/dashboard', label: 'Dashboard', icon: <LayoutDashboard /> }] },
-    {
-      label: 'Vận hành',
-      items: [
-        { href: '/admin/pos', label: 'Thu ngân (POS)', icon: <GanttChart /> },
-        { href: '/admin/orders', label: 'Đơn hàng', icon: <ClipboardList /> },
-        { href: '/admin/kitchen', label: 'Màn hình bếp', icon: <ChefHat /> },
-        ...(reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []),
-      ],
-    },
-    {
-      label: 'Kinh doanh',
-      items: [
-        { href: '/admin/menu', label: 'Quản lý menu', icon: <UtensilsCrossed /> },
-        { href: '/admin/vouchers', label: 'Ưu đãi', icon: <Ticket /> },
-        { href: '/admin/spin', label: 'Vòng quay', icon: <Gift /> },
-      ],
-    },
-    {
-      label: 'Thiết lập quán',
-      items: [
-        { href: '/admin/settings', label: 'Cài đặt quán', icon: <Settings /> },
-        { href: '/admin/tables', label: 'Bàn & QR', icon: <QrCode /> },
-        { href: '/admin/staff', label: 'Nhân viên', icon: <Users /> },
-      ],
-    },
-    { items: [{ href: '/admin/account', label: 'Tài khoản', icon: <User /> }] },
+    { href: '/admin/pos', label: 'POS', icon: <LayoutGrid /> },
+    ...(reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []),
+    { href: '/admin/kitchen', label: 'Bếp', icon: <ChefHat /> },
+    { href: '/admin/menu', label: 'Món', icon: <UtensilsCrossed /> },
+    { href: '/admin/orders', label: 'Đơn', icon: <ClipboardList /> },
+    { href: '/admin/dashboard', label: 'Báo cáo', icon: <BarChart3 /> },
   ]
+}
+
+export function adminMoreItems(): AppNavItem[] {
+  return [
+    { href: '/admin/settings', label: 'Cài đặt quán', icon: <Settings /> },
+    { href: '/admin/tables', label: 'Bàn & QR', icon: <QrCode /> },
+    { href: '/admin/staff', label: 'Nhân viên', icon: <Users /> },
+    { href: '/admin/vouchers', label: 'Ưu đãi', icon: <Ticket /> },
+    { href: '/admin/spin', label: 'Vòng quay', icon: <Gift /> },
+    { href: '/admin/account', label: 'Tài khoản', icon: <User /> },
+  ]
+}
+
+/** Toàn bộ mục (cho dò mục đang chọn và test). */
+export function adminNavGroups(reservationsEnabled = false): AppNavGroup[] {
+  return [{ items: adminRailItems(reservationsEnabled) }, { items: adminMoreItems() }]
 }

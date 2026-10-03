@@ -208,7 +208,7 @@ function UiKitBody() {
         </Card>
       </Section>
 
-      <Section title="Ô bàn POS" description="Đúng component Sơ đồ bàn của /admin/pos, dữ liệu minh hoạ. Nền ô trắng; màu mâm chỉ ở vạch trái; trạng thái = chấm + chữ.">
+      <Section title="Ô bàn POS" description="Đúng component Sơ đồ bàn của /admin/pos, dữ liệu minh hoạ. Ô tô nền nhạt theo trạng thái + nhãn tô đặc (bản Stitch); màu mâm ở vạch trái.">
         <PosTilesDemo />
       </Section>
 
@@ -220,7 +220,7 @@ function UiKitBody() {
         <PosWorkQueueDemo />
       </Section>
 
-      <Section title="Bill POS" description="Bill của /admin/pos: tab Hoá đơn / Lượt gọi mới / Lịch sử in; Thanh toán khoá khi còn lượt chờ duyệt. Bấm Thanh toán ở bill bên phải để xem màn thu tiền. Dữ liệu minh hoạ.">
+      <Section title="Bill POS" description="Bill của /admin/pos: tab Hoá đơn / Lượt gọi mới / Lịch sử; Thanh toán khoá khi còn lượt chờ duyệt. Bấm Thanh toán ở bill bên phải để xem màn thu tiền. Dữ liệu minh hoạ.">
         <div className="flex flex-wrap gap-4">
           <PosBillDemo withPending />
           <PosBillDemo withPending={false} />

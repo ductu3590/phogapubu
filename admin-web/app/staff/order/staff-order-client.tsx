@@ -6,13 +6,15 @@ import { listOpenTableSessions, type OpenTableSession } from '@/lib/actions/tabl
 import { createClient } from '@/lib/supabase/client'
 import { assignTrayColors } from '@/lib/tray-colors'
 import { tableVisualState } from '@/lib/table-status'
+import { listStaffUpcomingReservedTables, type StaffReservedTable } from '@/lib/actions/staff-reservations'
+import { reservationsByTable, type TableReservation } from '@/lib/staff-reserved-tables'
 import { ArrowLeftRight, Banknote, ChevronRight, CircleCheck, Landmark, Minus, Plus, ShoppingCart } from 'lucide-react'
 import { Badge, StatusDot } from '@/components/ui/badge'
 import { Button, IconButton } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { Banner, EmptyState } from '@/components/ui/feedback'
 import { Input } from '@/components/ui/field'
-import { TABLE_STATE } from '@/components/ui/status'
+import { STATUS_TONE_CLASSES, TABLE_STATE } from '@/components/ui/status'
 import { cn } from '@/lib/utils'
 
 type Topping = { id: string; name: string; price: number }
@@ -43,14 +45,20 @@ export default function StaffOrderClient({
   categories,
   paymentTiming,
   initialSessions,
+  initialReserved,
 }: {
   storeId: string
   tables: Table[]
   categories: Category[]
   paymentTiming: 'prepay' | 'postpay'
   initialSessions: OpenTableSession[]
+  initialReserved: StaffReservedTable[]
 }) {
   const [sessions, setSessions] = useState(initialSessions)
+  const [reserved, setReserved] = useState(initialReserved)
+  // Bàn đặt trước nhân viên vừa bấm — chờ chọn "Chọn bàn khác" / "Vẫn dùng bàn này".
+  const [reservedWarn, setReservedWarn] = useState<{ table: Table; booking: StaffReservedTable } | null>(null)
+  const [clockNow, setClockNow] = useState(() => Date.now())
   const [tableId, setTableId] = useState<string | null>(tables.length === 1 ? tables[0].id : null)
   const [cart, setCart] = useState<CartLine[]>([])
   const [activeCat, setActiveCat] = useState<string>(categories[0]?.id ?? '')
@@ -87,6 +95,9 @@ export default function StaffOrderClient({
       // Lỗi thì GIỮ nguyên danh sách cũ: mất màu còn đỡ hơn nhảy hết bàn về lưới "Bàn khác"
       // trong khi mâm vẫn đang mở.
       if (res.ok) setSessions(res.sessions)
+      const r = await listStaffUpcomingReservedTables()
+      if (r.ok) setReserved(r.rows)
+      setClockNow(Date.now())
     } finally {
       reloadingRef.current = false
     }
@@ -152,6 +163,21 @@ export default function StaffOrderClient({
     }
     return m
   }, [sessions])
+
+  // Đặt bàn không có sự kiện realtime cho nhân viên → tải lại mỗi phút (giờ giữ bàn cũng trôi theo phút).
+  useEffect(() => {
+    const timer = window.setInterval(() => void reloadSessions(), 60_000)
+    return () => window.clearInterval(timer)
+  }, [reloadSessions])
+
+  const reservedByTable = useMemo(() => reservationsByTable(reserved, clockNow), [reserved, clockNow])
+
+  // Bàn trống nhưng đang giữ cho khách đặt trước → hỏi lại trước khi mở cho khách khác.
+  const pickTable = (t: Table) => {
+    const r = reservedByTable.get(t.id)
+    if (r?.held && !sessionByTable.get(t.id)) { setReservedWarn({ table: t, booking: r.next }); return }
+    setTableId(t.id)
+  }
 
   const phienBanNay = tableId ? sessionByTable.get(tableId) : undefined
 
@@ -265,6 +291,33 @@ export default function StaffOrderClient({
   }
 
   // ---- Màn chọn bàn ----
+  // Hộp thoại bàn đặt trước — dùng ở màn chọn bàn (nơi bấm bàn), đặt ngoài hai nhánh hiển thị.
+  const reservedWarnDialog = reservedWarn ? (
+        <Dialog
+          open
+          onClose={() => setReservedWarn(null)}
+          title={`${reservedWarn.table.tableNumber} đã có khách đặt trước`}
+          footer={
+            <>
+              <Button onClick={() => setReservedWarn(null)}>Chọn bàn khác</Button>
+              <Button variant="primary" onClick={() => { setTableId(reservedWarn.table.id); setReservedWarn(null) }}>Vẫn dùng bàn này</Button>
+            </>
+          }
+        >
+          <div className="space-y-3 text-sm">
+            <p className="rounded-lg border border-accent-border bg-accent-bg px-3 py-2 font-medium text-accent tabular">
+              {reservedWarn.booking.customerName} · {reservedWarn.booking.partySize} khách · hẹn{' '}
+              {new Date(reservedWarn.booking.arrivalAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' })}
+            </p>
+            <p className="text-foreground">Nên xếp khách vào bàn khác để giữ bàn cho khách đặt.</p>
+            <p className="text-muted">
+              Nếu vẫn dùng bàn này: <b className="font-semibold text-foreground">báo chủ quán</b>{" "}để đổi bàn cho khách đặt. Màn thu ngân
+              cũng tự hiện cảnh báo &quot;Xung đột&quot; cho đặt bàn này.
+            </p>
+          </div>
+        </Dialog>
+  ) : null
+
   if (!tableId) {
     return (
       <div className="mx-auto h-full max-w-md overflow-y-auto px-4 py-5">
@@ -273,6 +326,7 @@ export default function StaffOrderClient({
           <li className="inline-flex items-center gap-1.5"><StatusDot tone={TABLE_STATE.free.tone} />{TABLE_STATE.free.label}</li>
           <li className="inline-flex items-center gap-1.5"><StatusDot tone={TABLE_STATE.serving.tone} />{TABLE_STATE.serving.label}</li>
           <li className="inline-flex items-center gap-1.5"><StatusDot tone={TABLE_STATE.pending.tone} />{TABLE_STATE.pending.label}</li>
+          <li className="inline-flex items-center gap-1.5"><StatusDot tone={TABLE_STATE.booked.tone} />{TABLE_STATE.booked.label}</li>
         </ul>
         {tables.length === 0 ? (
           <EmptyState className="rounded-xl border border-dashed border-border-strong">Quán chưa có bàn nào đang bật.</EmptyState>
@@ -288,7 +342,7 @@ export default function StaffOrderClient({
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {g.tables.map((t) => (
-                    <BanNut key={t.id} label={t.tableNumber} session={sessionByTable.get(t.id)} className={g.color.chip} onClick={() => setTableId(t.id)} />
+                    <BanNut key={t.id} label={t.tableNumber} session={sessionByTable.get(t.id)} reservation={reservedByTable.get(t.id)} className={g.color.chip} onClick={() => pickTable(t)} />
                   ))}
                 </div>
               </section>
@@ -301,12 +355,13 @@ export default function StaffOrderClient({
             {looseTables.length > 0 && (
               <div className="grid grid-cols-3 gap-2">
                 {looseTables.map((t) => (
-                  <BanNut key={t.id} label={t.tableNumber} session={sessionByTable.get(t.id)} onClick={() => setTableId(t.id)} />
+                  <BanNut key={t.id} label={t.tableNumber} session={sessionByTable.get(t.id)} reservation={reservedByTable.get(t.id)} onClick={() => pickTable(t)} />
                 ))}
               </div>
             )}
           </>
         )}
+        {reservedWarnDialog}
       </div>
     )
   }
@@ -622,15 +677,25 @@ function OptionSheet({ item, onClose, onAdd }: {
 }
 
 // Nút bàn ở màn chọn bàn — chấm + chữ trạng thái đọc CÙNG hàm với sơ đồ POS (/admin/pos).
-function BanNut({ label, session, className, onClick }: { label: string; session: OpenTableSession | undefined; className?: string; onClick: () => void }) {
-  const state = TABLE_STATE[tableVisualState(session)]
+function BanNut({ label, session, reservation, className, onClick }: {
+  label: string
+  session: OpenTableSession | undefined
+  reservation?: TableReservation<StaffReservedTable>
+  className?: string
+  onClick: () => void
+}) {
+  // Cùng hàm tableVisualState() với POS: bàn trống đang giữ cho khách đặt trước = "Đã đặt" (cam).
+  const visual = tableVisualState(session, { prearrivalReserved: reservation?.held })
+  const state = TABLE_STATE[visual]
+  const gioDat = reservation ? new Date(reservation.next.arrivalAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : null
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={`${label}: ${state.label}`}
+      aria-label={`${label}: ${state.label}${gioDat ? `, khách đặt ${gioDat}` : ''}`}
       className={cn(
-        'flex min-h-16 cursor-pointer flex-col items-start justify-center gap-1 rounded-xl border border-border-strong bg-surface px-3 py-2 text-left transition-colors active:bg-item-hover',
+        'flex min-h-16 cursor-pointer flex-col items-start justify-center gap-1 rounded-xl border px-3 py-2 text-left transition-colors active:brightness-95',
+        visual === 'free' ? 'border-border-strong bg-surface' : STATUS_TONE_CLASSES[state.tone].badge,
         className,
       )}
     >
@@ -639,6 +704,9 @@ function BanNut({ label, session, className, onClick }: { label: string; session
         <StatusDot tone={state.tone} />
         {state.label}
       </span>
+      {gioDat && !session ? (
+        <span className={cn('text-[12px] font-semibold tabular', reservation?.held ? 'text-accent' : 'text-muted')}>Đặt {gioDat}</span>
+      ) : null}
     </button>
   )
 }

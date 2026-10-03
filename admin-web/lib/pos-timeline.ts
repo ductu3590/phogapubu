@@ -13,8 +13,12 @@ const VN_OFFSET = 7 * HOUR
 
 /** Qua giờ hẹn bao nhiêu phút thì tô đỏ "Trễ". Anh Tú chốt 2026-10-03: quá giờ là đỏ luôn, không chờ. */
 export const LATE_GRACE_MINUTES = 0
-/** Trước giờ hẹn ngần này mà bàn còn khách khác ngồi thì báo xung đột. */
-export const CONFLICT_LEAD_MINUTES = 30
+/**
+ * Trước giờ hẹn ngần này mà bàn còn khách khác ngồi thì báo xung đột. Bằng đúng khung giữ bàn
+ * 60 phút của server (mig 075) và màn nhân viên (lib/staff-reserved-tables.ts): nhân viên chọn
+ * "Vẫn dùng bàn này" thì POS phải thấy xung đột NGAY để chủ quán đổi bàn cho khách đặt.
+ */
+export const CONFLICT_LEAD_MINUTES = 60
 /**
  * Phiên vừa mở vẫn vẽ dài tối thiểu ngần này (≈176px trên thước 132px/giờ) để đọc được tên bàn / mâm
  * và trạng thái. Chỉ là độ dài HIỂN THỊ: thanh có thể vượt vạch "bây giờ", không có nghĩa bàn đã đặt trước.
@@ -107,7 +111,7 @@ const ceilHour = (t: number) => Math.ceil((t + VN_OFFSET) / HOUR) * HOUR - VN_OF
 
 /**
  * Khung giờ của Timeline = ca phục vụ đang chạy (hoặc mọi ca hôm nay), luôn chứa "bây giờ"
- * kèm 30 phút trước / 60 phút sau, làm tròn theo giờ. Quán chưa đặt giờ phục vụ → 10:00–24:00.
+ * kèm 30 phút trước / 4 giờ sau, làm tròn theo giờ. Quán chưa đặt giờ phục vụ → 10:00–24:00.
  */
 export function timelineWindow(periods: ServingPeriod[], now: number): TimelineWindow {
   const today = vnDayStart(now)
@@ -119,8 +123,21 @@ export function timelineWindow(periods: ServingPeriod[], now: number): TimelineW
   let start = chosen.length > 0 ? Math.min(...chosen.map((s) => s.start)) : today + 10 * HOUR
   let end = chosen.length > 0 ? Math.max(...chosen.map((s) => s.end)) : today + DAY
   start = Math.min(start, now - 30 * MIN)
-  end = Math.max(end, now + HOUR)
+  // Luôn chừa ≥4 giờ sau "bây giờ": vạch đỏ đứng ở 1/4 khung nhìn (ST-1), gần cuối ca mà hết thước
+  // thì không cuộn tới được, vạch bị dồn về giữa.
+  end = Math.max(end, now + 4 * HOUR)
   return { start: floorHour(start), end: ceilHour(end) }
+}
+
+/**
+ * Giờ đóng của ca đang chạy (hoặc ca cuối hôm nay). Quán chưa đặt giờ phục vụ → null (không giới hạn).
+ * Nút "+ Đặt lúc" không được rơi sau giờ này dù thước giờ kéo dài thêm cho dễ nhìn.
+ */
+export function servingShiftEnd(periods: ServingPeriod[], now: number): number | null {
+  const today = vnDayStart(now)
+  const running = [...shiftsOfDay(periods, today - DAY), ...shiftsOfDay(periods, today)].filter((s) => s.start <= now && now < s.end)
+  const chosen = running.length > 0 ? running : shiftsOfDay(periods, today).filter((s) => s.end > now)
+  return chosen.length > 0 ? Math.max(...chosen.map((s) => s.end)) : null
 }
 
 /** Các mốc giờ tròn trong khung để vẽ thước. */
@@ -249,6 +266,8 @@ export function nextBookableSlot(input: {
   window: TimelineWindow
   slotMinutes: number
   holdMinutes: number
+  /** Giờ đóng ca — không đặt bàn sau mốc này (null = không giới hạn). */
+  until?: number | null
 }): number | null {
   const slot = Math.max(5, input.slotMinutes) * MIN
   const hold = Math.max(15, input.holdMinutes) * MIN
@@ -260,5 +279,6 @@ export function nextBookableSlot(input: {
     if (t + hold <= r.start || t >= r.end) continue
     t = up(r.end)
   }
-  return t + slot <= input.window.end ? t : null
+  const limit = Math.min(input.window.end, input.until ?? Infinity)
+  return t + slot <= limit ? t : null
 }

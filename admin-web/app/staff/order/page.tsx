@@ -1,6 +1,7 @@
 import { requireStaffAreaOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { listOpenTableSessions } from '@/lib/actions/table-session'
+import { listStaffUpcomingReservedTables } from '@/lib/actions/staff-reservations'
 import StaffOrderClient from './staff-order-client'
 
 // Loader dùng client authenticated → RLS (is_store_scoped_operator) tự khoá theo quán của nhân viên.
@@ -10,7 +11,7 @@ export default async function StaffOrderPage() {
   const storeId = operator.storeId
   const supabase = await createClient()
 
-  const [storeRes, tablesRes, categoriesRes, toppingsRes, sessionsRes] = await Promise.all([
+  const [storeRes, tablesRes, categoriesRes, toppingsRes, sessionsRes, reservedRes] = await Promise.all([
     supabase.from('stores').select('payment_timing').eq('id', storeId).single(),
     supabase.from('tables').select('id, table_number').eq('store_id', storeId).eq('is_active', true),
     supabase
@@ -23,6 +24,8 @@ export default async function StaffOrderPage() {
     // Phiên đang mở — chỉ dùng để nhóm + tô màu bàn cùng mâm ở màn chọn bàn.
     // Lỗi ở đây KHÔNG được chặn màn đặt món: mất màu thì vẫn đặt được, mất màn là mất đơn.
     listOpenTableSessions(),
+    // Bàn đã có khách đặt trước (mig 084) — lỗi thì coi như không có, không chặn màn đặt món.
+    listStaffUpcomingReservedTables(),
   ])
 
   // Bàn: sắp xếp tự nhiên (Bàn 2 trước Bàn 10)
@@ -75,6 +78,7 @@ export default async function StaffOrderPage() {
       categories={categories}
       paymentTiming={paymentTiming}
       initialSessions={sessionsRes.ok ? sessionsRes.sessions : []}
+      initialReserved={reservedRes.ok ? reservedRes.rows : []}
     />
   )
 }

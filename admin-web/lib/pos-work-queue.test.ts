@@ -63,7 +63,7 @@ describe('buildWorkQueue', () => {
     })
     expect(items.map((i) => i.key)).toEqual(['res:clash', 'res:late', 'res:due', 'res:pend', 'res:soon'])
     expect(items[0].tone).toBe('critical')
-    expect(items.at(-1)!.tone).toBe('info')
+    expect(items.at(-1)!.tone).toBe('accent')
   })
 
   it('đếm theo bộ lọc', () => {
@@ -81,5 +81,31 @@ describe('waitLabel', () => {
     expect(waitLabel(NOW - 20_000, NOW)).toBe('vừa xong')
     expect(waitLabel(NOW - 3 * 60_000, NOW)).toBe('3 phút')
     expect(waitLabel(NOW - 65 * 60_000, NOW)).toBe('1 giờ 5 phút')
+  })
+})
+
+describe('gộp gọi nhắc khách vào thẻ đặt bàn', () => {
+  it('cùng một đặt bàn → MỘT thẻ đặt bàn mang việc gọi nhắc', () => {
+    const items = buildWorkQueue({
+      ...empty,
+      reservations: [{ reservationId: 'r1', status: 'confirmed', arrivalAt: new Date(NOW + 33 * 60_000).toISOString(), sessionId: null }],
+      customerCalls: [{ taskId: 'c1', reservationId: 'r1', arrivalAt: new Date(NOW + 33 * 60_000).toISOString(), dueAt: ago(27) }],
+    })
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({ kind: 'reservation', reservationId: 'r1', callTaskId: 'c1' })
+  })
+
+  it('đặt bàn còn xa nhưng đã tới hạn gọi nhắc → vẫn một thẻ đặt bàn', () => {
+    const items = buildWorkQueue({
+      ...empty,
+      reservations: [{ reservationId: 'r1', status: 'confirmed', arrivalAt: new Date(NOW + 90 * 60_000).toISOString(), sessionId: null }],
+      customerCalls: [{ taskId: 'c1', reservationId: 'r1', arrivalAt: new Date(NOW + 90 * 60_000).toISOString(), dueAt: ago(1) }],
+    })
+    expect(items.map((i) => i.kind)).toEqual(['reservation'])
+  })
+
+  it('không thấy đặt bàn tương ứng → giữ thẻ gọi nhắc riêng', () => {
+    const items = buildWorkQueue({ ...empty, customerCalls: [{ taskId: 'c1', reservationId: 'x', arrivalAt: ago(-60), dueAt: ago(1) }] })
+    expect(items.map((i) => i.kind)).toEqual(['customer-call'])
   })
 })

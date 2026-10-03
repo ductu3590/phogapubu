@@ -28,6 +28,15 @@ describe('tableDot', () => {
   })
 })
 
+describe('pendingCount — bỏ món ghi tay POS và món đặt trước', () => {
+  it('món ghi tay (pos) và món đặt trước không làm bàn "Chờ duyệt"', () => {
+    const s = { status: 'open', orders: [{ status: 'pending', order_source: 'pos' }, { status: 'pending', order_source: 'reservation_preorder' }, { status: 'confirmed', order_source: 'customer_zalo' }] }
+    expect(pendingCount(s)).toBe(0)
+    expect(tableVisualState(s)).toBe('serving')
+    expect(pendingCount({ status: 'open', orders: [{ status: 'pending', order_source: 'customer_zalo' }] })).toBe(1)
+  })
+})
+
 describe('pendingCount', () => {
   it('không có phiên → 0', () => {
     expect(pendingCount(undefined)).toBe(0)

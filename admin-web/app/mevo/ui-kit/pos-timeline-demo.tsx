@@ -82,6 +82,7 @@ export default function PosTimelineDemo() {
           selectedReservationId={reservation}
           slotMinutes={30}
           holdMinutes={120}
+          bookUntil={null}
           onPickSlot={() => undefined}
           onSelectSession={(id, additive) => {
             setReservation(null)

@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/admin' }))
 describe('bảng trạng thái bàn', () => {
   it('đúng nghĩa đã chốt 2026-10-02', () => {
     expect(TABLE_STATE.serving).toEqual({ label: 'Đang phục vụ', tone: 'success' })
-    expect(TABLE_STATE.booked).toEqual({ label: 'Đã đặt', tone: 'info' })
+    expect(TABLE_STATE.booked).toEqual({ label: 'Đã đặt', tone: 'accent' })
     expect(TABLE_STATE.pending).toEqual({ label: 'Chờ duyệt', tone: 'warning' })
     expect(TABLE_STATE.late).toEqual({ label: 'Trễ / xung đột', tone: 'critical' })
     expect(TABLE_STATE.free).toEqual({ label: 'Trống', tone: 'neutral' })
@@ -25,10 +25,13 @@ describe('bảng trạng thái bàn', () => {
     expect(TABLE_STATE_ORDER).toHaveLength(Object.keys(TABLE_STATE).length)
   })
 
-  it('không tông trạng thái nào dùng màu nhấn (cam chỉ cho nút)', () => {
-    for (const classes of Object.values(STATUS_TONE_CLASSES)) {
-      expect(Object.values(classes).join(' ')).not.toMatch(/primary|brand|orange/)
+  it('trạng thái không dùng token của nút; cam chỉ ở tông "đã đặt" (Pha 4, theo Stitch)', () => {
+    for (const [tone, classes] of Object.entries(STATUS_TONE_CLASSES)) {
+      const all = Object.values(classes).join(' ')
+      expect(all).not.toMatch(/primary|brand/)
+      if (tone !== 'accent') expect(all).not.toMatch(/orange/)
     }
+    expect(TABLE_STATE.booked.tone).toBe('accent')
   })
 
   it('chú giải in nhãn chữ, không chỉ có màu', () => {

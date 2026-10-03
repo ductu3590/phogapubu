@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTimeline, hourTicks, nextBookableSlot, percentOf, timelineWindow, vnDayStart, type TimelineBar, type TimelineReservation, type TimelineSession } from './pos-timeline'
+import { buildTimeline, hourTicks, nextBookableSlot, percentOf, servingShiftEnd, timelineWindow, vnDayStart, type TimelineBar, type TimelineReservation, type TimelineSession } from './pos-timeline'
 
 // 2026-10-03 19:15 giờ Việt Nam = 12:15 UTC
 const NOW = Date.parse('2026-10-03T12:15:00Z')
@@ -24,11 +24,17 @@ describe('timelineWindow', () => {
     const now = at('01:00', '2026-10-04')
     const w = timelineWindow([{ open: '17:00', close: '02:00' }], now)
     expect(w.start).toBe(at('17:00'))
-    expect(w.end).toBe(at('02:00', '2026-10-04'))
+    // ca kết thúc 02:00 nhưng thước kéo tới 05:00 để còn 4 giờ phía trước "bây giờ"
+    expect(w.end).toBe(at('05:00', '2026-10-04'))
   })
 
   it('chưa đặt giờ phục vụ → 10:00–24:00', () => {
     expect(timelineWindow([], NOW)).toEqual({ start: at('10:00'), end: at('00:00', '2026-10-04') })
+  })
+
+  it('luôn chừa 4 giờ sau "bây giờ" để vạch đỏ đứng được ở 1/4 khung', () => {
+    const late = at('21:30')
+    expect(timelineWindow([{ open: '08:00', close: '23:00' }], late).end).toBeGreaterThanOrEqual(late + 4 * 3_600_000)
   })
 
   it('ngoài ca vẫn chứa "bây giờ" để thấy phiên đang mở', () => {
@@ -159,5 +165,18 @@ describe('nextBookableSlot', () => {
 
   it('hết khung giờ thì không có nút', () => {
     expect(nextBookableSlot({ bars: [bar('session', '18:00', '22:50')], now: NOW, window, slotMinutes: 30, holdMinutes: 120 })).toBeNull()
+  })
+})
+
+describe('servingShiftEnd + giới hạn nút đặt bàn', () => {
+  it('giờ đóng ca đang chạy; chưa đặt giờ phục vụ thì không giới hạn', () => {
+    expect(servingShiftEnd([{ open: '08:00', close: '23:00' }], NOW)).toBe(at('23:00'))
+    expect(servingShiftEnd([], NOW)).toBeNull()
+  })
+
+  it('không gợi ý đặt bàn từ giờ đóng cửa trở đi', () => {
+    const window = { start: at('17:00'), end: at('01:00', '2026-10-04') }
+    const bars: TimelineBar[] = [{ key: 'r', kind: 'reservation', start: at('21:00'), end: at('23:00'), clippedStart: false, state: 'booked', lane: 0 }]
+    expect(nextBookableSlot({ bars, now: at('20:21'), window, slotMinutes: 30, holdMinutes: 120, until: at('23:00') })).toBeNull()
   })
 })
