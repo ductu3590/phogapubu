@@ -23,9 +23,9 @@ export default function CartFloatButton({ itemCount }: CartFloatButtonProps) {
       className="fixed bottom-20 left-4 right-4 z-50 flex items-center justify-between rounded-2xl bg-primary px-4 py-3 shadow-lg active:opacity-90"
     >
       <div className="flex items-center gap-2">
-        <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
+        <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-surface/20">
           <CartIcon className="h-5 w-5 text-white" />
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white px-1 text-xxxsmall font-bold text-primary">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-surface px-1 text-xxxsmall font-bold text-primary">
             {formatCount(itemCount)}
           </span>
         </div>

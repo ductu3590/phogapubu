@@ -5,6 +5,7 @@ import { useAppStore } from "@/stores/app.store";
 import PermissionSheet from "@/components/common/permission-sheet";
 import TermsSheet from "@/components/common/terms-sheet";
 import { DEFAULT_TERMS } from "@/constants/terms";
+import { ScanLineIcon, UtensilsIcon, MapPinIcon, BikeIcon, PhoneIcon, WifiIcon, FileTextIcon, MessageCircleIcon, BellIcon } from "@/components/common/icons";
 
 function InfoRow({
   icon,
@@ -12,7 +13,7 @@ function InfoRow({
   value,
   onPress,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   value: string;
   onPress?: () => void;
@@ -23,7 +24,7 @@ function InfoRow({
       disabled={!onPress}
       className="flex w-full items-start gap-3 border-b border-neutral100 px-4 py-3 last:border-0 text-left disabled:cursor-default"
     >
-      <span className="text-xl">{icon}</span>
+      <span className="mt-0.5 shrink-0 text-text-secondary">{icon}</span>
       <div>
         <p className="text-xxsmall text-text-secondary">{label}</p>
         <p className="text-small text-text-primary">{value}</p>
@@ -113,7 +114,7 @@ export default function StoreInfoPage() {
   if (!storeId) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <div className="text-4xl">📷</div>
+        <ScanLineIcon className="size-10 text-text-disabled" />
         <p className="font-medium text-text-primary">Quét QR tại bàn trước</p>
       </div>
     );
@@ -125,7 +126,7 @@ export default function StoreInfoPage() {
       style={{ paddingTop: "calc(var(--zaui-safe-area-inset-top, 0px) + 16px)" }}
     >
       {/* Card thông tin quán */}
-      <div className="mx-3.5 rounded-xl bg-white px-4 py-4">
+      <div className="mx-3.5 rounded-xl bg-surface px-4 py-4">
         <div className="flex items-center gap-4">
           {storeLogoUrl ? (
             <img
@@ -134,8 +135,8 @@ export default function StoreInfoPage() {
               className="h-20 w-20 rounded-2xl object-cover"
             />
           ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 text-4xl">
-              🍽️
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <UtensilsIcon className="size-8" />
             </div>
           )}
           <div>
@@ -146,12 +147,12 @@ export default function StoreInfoPage() {
 
       {/* Card liên hệ */}
       {(storeAddress || storePhone || wifiName || deliveryAreaNote) && (
-        <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-white">
-          {storeAddress && <InfoRow icon="📍" label="Địa chỉ" value={storeAddress} />}
-          {deliveryAreaNote && <InfoRow icon="🛵" label="Phạm vi ship" value={deliveryAreaNote} />}
+        <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-surface">
+          {storeAddress && <InfoRow icon={<MapPinIcon />} label="Địa chỉ" value={storeAddress} />}
+          {deliveryAreaNote && <InfoRow icon={<BikeIcon />} label="Phạm vi ship" value={deliveryAreaNote} />}
           {storePhone && (
             <InfoRow
-              icon="📞"
+              icon={<PhoneIcon />}
               label="Điện thoại"
               value={storePhone}
               onPress={() => { window.location.href = `tel:${storePhone}`; }}
@@ -160,7 +161,7 @@ export default function StoreInfoPage() {
           {/* Wifi — hiện ngay dưới Điện thoại; wifi_name rỗng thì không render */}
           {wifiName && (
             <div className="flex items-start gap-3 border-b border-neutral100 px-4 py-3 last:border-0">
-              <span className="text-xl">📶</span>
+              <WifiIcon className="mt-0.5 size-5 shrink-0 text-text-secondary" />
               <div className="flex-1">
                 <p className="text-xxsmall text-text-secondary">Wifi</p>
                 <p className="text-small text-text-primary">
@@ -182,13 +183,13 @@ export default function StoreInfoPage() {
       )}
 
       {/* Card: Điều khoản sử dụng (luôn hiện) + Trang Zalo chính thức (nếu có) */}
-      <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-white">
+      <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-surface">
         {/* Điều khoản sử dụng — luôn hiện; rỗng thì dùng DEFAULT_TERMS */}
         <button
           onClick={() => setShowTerms(true)}
           className="flex w-full items-center gap-3 border-b border-neutral100 px-4 py-3 text-left last:border-0 active:bg-neutral50"
         >
-          <span className="text-xl">📄</span>
+          <FileTextIcon className="size-5 shrink-0 text-text-secondary" />
           <div className="flex-1">
             <p className="text-small text-primary">Điều khoản sử dụng</p>
           </div>
@@ -209,7 +210,7 @@ export default function StoreInfoPage() {
             onClick={() => void openWebview({ url: zaloOaUrl })}
             className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-neutral50"
           >
-            <span className="text-xl">💬</span>
+            <MessageCircleIcon className="size-5 shrink-0 text-text-secondary" />
             <div className="flex-1">
               <p className="text-xxsmall text-text-secondary">Trang Zalo chính thức</p>
               <p className="text-small text-primary">Xem trang Zalo OA của nhà hàng</p>
@@ -229,8 +230,8 @@ export default function StoreInfoPage() {
 
       {/* CTA card xin quyền — hiện mỗi lần vào tab cho đến khi thực sự kết nối */}
       {zaloOaId && !isConnected && (
-        <div className="mx-3.5 mt-3 rounded-xl border border-[#E8C9B3] bg-[#FBF4EF] px-4 py-3">
-          <p className="text-small-m font-semibold text-text-primary">🔔 Kết nối để nhận ưu đãi</p>
+        <div className="mx-3.5 mt-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
+          <p className="flex items-center gap-1.5 text-small-m font-semibold text-text-primary"><BellIcon className="size-4 text-primary" />Kết nối để nhận ưu đãi</p>
           <p className="mt-0.5 text-xxsmall text-text-secondary">
             Thông báo khi món xong + điền form nhanh hơn.
           </p>
@@ -245,7 +246,7 @@ export default function StoreInfoPage() {
 
       {/* Ghi chú / Lời nhắn từ quán */}
       {aboutText && (
-        <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-3">
+        <div className="mx-3.5 mt-3 rounded-xl bg-surface px-4 py-3">
           <p className="whitespace-pre-line text-small text-text-secondary">{aboutText}</p>
         </div>
       )}

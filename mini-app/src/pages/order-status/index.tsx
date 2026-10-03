@@ -11,46 +11,47 @@ import { Button } from "zmp-ui";
 import { cn } from "@/utils/cn";
 import { useAppStore } from "@/stores/app.store";
 import SpinSection from "@/components/spin/spin-section";
+import { HourglassIcon, CircleCheckIcon, ChefHatIcon, PartyPopperIcon, CircleXIcon, FootprintsIcon, MapPinIcon, BikeIcon } from "@/components/common/icons";
 
 const STATUS_CONFIG: Record<
   OrderState,
-  { label: string; sublabel: string; emoji: string; color: string }
+  { label: string; sublabel: string; icon: React.ReactNode; color: string }
 > = {
   pending: {
     label: "Đơn đã gửi",
     sublabel: "Đang chờ xác nhận...",
-    emoji: "⏳",
-    color: "text-orange500",
+    icon: <HourglassIcon className="size-14" />,
+    color: "text-warning",
   },
   confirmed: {
     label: "Đã xác nhận",
     sublabel: "Bếp đã nhận đơn của bạn",
-    emoji: "✅",
-    color: "text-green-600",
+    icon: <CircleCheckIcon className="size-14" />,
+    color: "text-success",
   },
   cooking: {
     label: "Đang làm món",
     sublabel: "Bếp đang chuẩn bị cho bạn",
-    emoji: "🍳",
-    color: "text-blue-500",
+    icon: <ChefHatIcon className="size-14" />,
+    color: "text-info",
   },
   ready: {
     label: "Món xong rồi!",
     sublabel: "Nhân viên đang mang ra cho bạn",
-    emoji: "🎉",
-    color: "text-green-600",
+    icon: <PartyPopperIcon className="size-14" />,
+    color: "text-success",
   },
   paid: {
     label: "Đã thanh toán",
     sublabel: "Cảm ơn bạn đã đến!",
-    emoji: "💚",
-    color: "text-green-600",
+    icon: <CircleCheckIcon className="size-14" />,
+    color: "text-success",
   },
   cancelled: {
     label: "Đã huỷ",
     sublabel: "Đơn hàng đã bị huỷ",
-    emoji: "❌",
-    color: "text-red-500",
+    icon: <CircleXIcon className="size-14" />,
+    color: "text-critical",
   },
 };
 
@@ -63,15 +64,15 @@ function TakeawayInfoCard({ order }: { order: Order }) {
   if (order.orderType === "pickup") {
     const ready = order.status === "ready";
     return (
-      <div className="mx-4 mt-4 rounded-xl border border-[#E8C9B3] bg-[#FBF4EF] p-4">
-        <p className="mb-1 text-xs text-text-secondary">🚶 Tự qua lấy</p>
+      <div className="mx-4 mt-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
+        <p className="mb-1 flex items-center gap-1.5 text-xs text-text-secondary"><FootprintsIcon className="size-4" />Tự qua lấy</p>
         <p className="text-base font-semibold text-primary">{storeName || "Quán"}</p>
         {storeAddress && (
-          <p className="mt-0.5 text-xs text-text-secondary">📍 {storeAddress}</p>
+          <p className="mt-0.5 flex items-start gap-1.5 text-xs text-text-secondary"><MapPinIcon className="mt-px size-3.5 shrink-0" />{storeAddress}</p>
         )}
-        <p className="mt-2 rounded-lg bg-white px-3 py-2 text-xs text-text-secondary">
+        <p className="mt-2 rounded-lg bg-surface px-3 py-2 text-xs text-text-secondary">
           {ready
-            ? "🎉 Món xong rồi! Mời bạn qua quán lấy đồ."
+            ? "Món xong rồi! Mời bạn qua quán lấy đồ."
             : "Bếp chuẩn bị theo thứ tự — bạn sẽ nhận thông báo Zalo khi món xong."}
         </p>
       </div>
@@ -80,11 +81,11 @@ function TakeawayInfoCard({ order }: { order: Order }) {
 
   if (order.orderType === "delivery" && order.deliveryAddress) {
     return (
-      <div className="mx-4 mt-4 rounded-xl border border-[#E8C9B3] bg-[#FBF4EF] p-4">
-        <p className="mb-1 text-xs text-text-secondary">🛵 Giao đến</p>
+      <div className="mx-4 mt-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
+        <p className="mb-1 flex items-center gap-1.5 text-xs text-text-secondary"><BikeIcon className="size-4" />Giao đến</p>
         <p className="text-sm font-semibold text-primary">{order.deliveryAddress}</p>
-        <p className="mt-2 rounded-lg bg-white px-3 py-2 text-xs text-[#92400E]">
-          ⚠️ Phí ship do shipper thu trực tiếp khi giao
+        <p className="mt-2 rounded-lg bg-surface px-3 py-2 text-xs text-warning">
+          Phí ship do shipper thu trực tiếp khi giao
         </p>
       </div>
     );
@@ -173,8 +174,8 @@ export default function OrderStatusPage() {
   const COMPLETED_CONFIG = {
     label: "Đã hoàn thành",
     sublabel: "Cảm ơn bạn! Hẹn gặp lại.",
-    emoji: "💚",
-    color: "text-green-600",
+    icon: <CircleCheckIcon className="size-14" />,
+    color: "text-success",
   };
   const config = isCompleted
     ? COMPLETED_CONFIG
@@ -195,12 +196,12 @@ export default function OrderStatusPage() {
   };
 
   return (
-    <div className="flex h-full flex-col bg-[#F7F8FA]">
+    <div className="flex h-full flex-col bg-background">
       <div className="no-scrollbar flex-1 overflow-y-auto pb-8">
 
         {/* Status hero */}
-        <div className="flex flex-col items-center bg-white px-6 pb-8 pt-10 shadow-sm">
-          <div className="mb-3 text-6xl">{config.emoji}</div>
+        <div className="flex flex-col items-center bg-surface px-6 pb-8 pt-10 shadow-sm">
+          <div className={cn("mb-3", config.color)}>{config.icon}</div>
           <h1 className={cn("text-2xl font-bold", config.color)}>
             {config.label}
           </h1>
@@ -211,7 +212,7 @@ export default function OrderStatusPage() {
 
         {/* Progress steps */}
         {order.status !== "cancelled" && order.status !== "paid" && !isCompleted && (
-          <div className="mx-4 mt-4 rounded-xl bg-white p-4">
+          <div className="mx-4 mt-4 rounded-xl bg-surface p-4">
             <p className="mb-4 text-small-m font-semibold text-text-secondary">
               Tiến trình đơn hàng
             </p>
@@ -277,7 +278,7 @@ export default function OrderStatusPage() {
           )}
 
         {/* Chi tiết đơn */}
-        <div className="mx-4 mt-4 rounded-xl bg-white p-4">
+        <div className="mx-4 mt-4 rounded-xl bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-small-m font-semibold">Chi tiết đơn hàng</p>
             <p className="text-xxsmall text-text-secondary">
@@ -316,7 +317,7 @@ export default function OrderStatusPage() {
 
         {/* Ghi chú */}
         {order.note && (
-          <div className="mx-4 mt-3 rounded-xl bg-white p-4">
+          <div className="mx-4 mt-3 rounded-xl bg-surface p-4">
             <p className="mb-1 text-xxsmall text-text-secondary">Ghi chú</p>
             <p className="text-small text-text-primary">{order.note}</p>
           </div>
@@ -327,7 +328,7 @@ export default function OrderStatusPage() {
           <div className="mx-4 mt-4">
             <Button
               onClick={() => navigate("/menu")}
-              className="w-full rounded-xl border-2 border-primary bg-white py-3 font-semibold text-primary active:bg-primary/5"
+              className="w-full rounded-xl border-2 border-primary bg-surface py-3 font-semibold text-primary active:bg-primary/5"
               fullWidth
             >
               Gọi thêm món
@@ -341,7 +342,7 @@ export default function OrderStatusPage() {
             <Button
               onClick={handleReceive}
               loading={isConfirming}
-              className="w-full rounded-xl bg-[#1D9E75] py-3 font-semibold text-white active:opacity-80"
+              className="w-full rounded-xl bg-success-dot py-3 font-semibold text-white active:opacity-80"
               fullWidth
             >
               Đã nhận

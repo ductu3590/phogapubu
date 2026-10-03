@@ -77,7 +77,7 @@ export default function SpinWheel({
               }}
             >
               <span
-                className="line-clamp-3 text-center text-[9px] font-bold leading-tight text-white"
+                className="line-clamp-3 text-center text-xs font-bold leading-tight text-white"
                 style={{ textShadow: "0 1px 2px rgba(0,0,0,.4)" }}
               >
                 {r.label}

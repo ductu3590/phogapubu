@@ -17,11 +17,12 @@ import { useSnackbar } from "zmp-ui";
 import { isStoreOpen, formatServingHours } from "@/utils/store-hours";
 import { canOrderInEntry } from "@/utils/entry-context";
 import mevoLogo from "@/static/mevo-logo.png";
+import { BikeIcon, LockIcon, ArmchairIcon, BellIcon, MoonIcon, CircleAlertIcon, UtensilsIcon, RotateCwIcon } from "@/components/common/icons";
 
 function TakeawayBanner({ storeName }: { storeName: string }) {
   return (
-    <div className="flex items-center gap-2 border-b border-[#E8C9B3] bg-[#FBF4EF] px-4 py-2">
-      <span className="text-sm">🛵</span>
+    <div className="flex items-center gap-2 border-b border-primary/30 bg-primary/5 px-4 py-2">
+      <BikeIcon className="size-4 shrink-0 text-primary" />
       <span className="text-xs font-medium text-primary">
         Mang về / Ship · {storeName}
       </span>
@@ -40,14 +41,14 @@ function TableLockedBanner({ openedAt, onCallStaff, calling }: {
     minute: "2-digit",
   });
   return (
-    <div className="border-b border-[#F0C9C0] bg-[#FDEDE9] px-4 py-2.5">
+    <div className="border-b border-warning-border bg-warning-bg px-4 py-2.5">
       <div className="flex items-start gap-2">
-        <span className="text-base leading-tight">🔒</span>
+        <LockIcon className="mt-0.5 size-4 shrink-0 text-warning" />
         <div className="min-w-0">
-          <p className="text-small-m font-semibold text-[#C0341A]">
+          <p className="text-small-m font-semibold text-warning">
             Bàn này đang có khách gọi món (từ {gio})
           </p>
-          <p className="text-xxsmall text-[#9A4634]">
+          <p className="text-xxsmall text-text-primary">
             Nếu bạn vừa ngồi vào, nhờ nhân viên mở bàn giúp. Bạn vẫn xem được menu.
           </p>
         </div>
@@ -55,9 +56,9 @@ function TableLockedBanner({ openedAt, onCallStaff, calling }: {
       <button
         onClick={onCallStaff}
         disabled={calling}
-        className="mt-2 w-full rounded-lg bg-white py-2 text-small-m font-semibold text-[#C0341A] active:opacity-70 disabled:opacity-50"
+        className="mt-2 w-full rounded-lg bg-surface py-2 text-small-m font-semibold text-primary active:opacity-70 disabled:opacity-50"
       >
-        🔔 Gọi nhân viên
+        <span className="inline-flex items-center justify-center gap-1.5"><BellIcon className="size-4" />Gọi nhân viên</span>
       </button>
     </div>
   );
@@ -65,16 +66,16 @@ function TableLockedBanner({ openedAt, onCallStaff, calling }: {
 
 function TableReservedBanner({ onCallStaff, calling }: { onCallStaff: () => void; calling: boolean }) {
   return (
-    <div className="border-b border-[#F0C9C0] bg-[#FDEDE9] px-4 py-2.5">
+    <div className="border-b border-warning-border bg-warning-bg px-4 py-2.5">
       <div className="flex items-start gap-2">
-        <span className="text-base leading-tight">🪑</span>
+        <ArmchairIcon className="mt-0.5 size-4 shrink-0 text-warning" />
         <div>
-          <p className="text-small-m font-semibold text-[#C0341A]">Bàn đã được đặt trước</p>
-          <p className="text-xxsmall text-[#9A4634]">Vui lòng báo chủ quán để mở bàn.</p>
+          <p className="text-small-m font-semibold text-warning">Bàn đã được đặt trước</p>
+          <p className="text-xxsmall text-text-primary">Vui lòng báo chủ quán để mở bàn.</p>
         </div>
       </div>
-      <button onClick={onCallStaff} disabled={calling} className="mt-2 w-full rounded-lg bg-white py-2 text-small-m font-semibold text-[#C0341A] active:opacity-70 disabled:opacity-50">
-        🔔 Gọi nhân viên
+      <button onClick={onCallStaff} disabled={calling} className="mt-2 w-full rounded-lg bg-surface py-2 text-small-m font-semibold text-primary active:opacity-70 disabled:opacity-50">
+        <span className="inline-flex items-center justify-center gap-1.5"><BellIcon className="size-4" />Gọi nhân viên</span>
       </button>
     </div>
   );
@@ -91,9 +92,9 @@ function SessionBar({ label, orderCount, total, isTray }: {
 }) {
   if (orderCount === 0) return null;
   return (
-    <div className="flex items-center justify-between border-b border-[#E6DCCF] bg-[#FBF6EF] px-4 py-2.5">
-      <p className="min-w-0 flex-1 truncate text-small text-[#6B5B45]">
-        {isTray ? "🍲" : "🪑"} {label || "Bàn của bạn"} · {orderCount} lần gọi
+    <div className="flex items-center justify-between border-b border-neutral100 bg-primary/5 px-4 py-2.5">
+      <p className="min-w-0 flex-1 truncate text-small text-text-secondary">
+        {label || "Bàn của bạn"} · {orderCount} lần gọi
       </p>
       <p className="ml-2 flex-shrink-0 text-small-m font-bold text-primary">
         {formatCurrency(total)}đ
@@ -110,13 +111,13 @@ function ClosedBanner({
   servingHours: string;
 }) {
   return (
-    <div className="flex items-start gap-2 border-b border-[#F0C9C0] bg-[#FDEDE9] px-4 py-2.5">
-      <span className="text-base leading-tight">😴</span>
+    <div className="flex items-start gap-2 border-b border-warning-border bg-warning-bg px-4 py-2.5">
+      <MoonIcon className="mt-0.5 size-4 shrink-0 text-warning" />
       <div>
-        <p className="text-small-m font-semibold text-[#C0341A]">
+        <p className="text-small-m font-semibold text-primary">
           {isAcceptingOrders ? "Ngoài giờ phục vụ" : "Quán đang tạm nghỉ"}
         </p>
-        <p className="text-xxsmall text-[#9A4634]">
+        <p className="text-xxsmall text-primary">
           {isAcceptingOrders
             ? servingHours
               ? `Giờ phục vụ: ${servingHours}. Bạn vẫn xem được menu.`
@@ -157,11 +158,11 @@ function OrderingUnavailableBanner({
 }) {
   const root = entryKind === "root";
   return (
-    <div className="border-b border-[#F0C9C0] bg-[#FDEDE9] px-4 py-2.5">
-      <p className="text-small-m font-semibold text-[#C0341A]">
+    <div className="border-b border-primary/30 bg-primary/10 px-4 py-2.5">
+      <p className="text-small-m font-semibold text-primary">
         {loading ? "Đang tải cấu hình quán" : root ? "Xem menu của quán" : "Quán chưa nhận gọi món qua QR"}
       </p>
-      <p className="mt-0.5 text-xxsmall text-[#9A4634]">
+      <p className="mt-0.5 text-xxsmall text-primary">
         {loading || error
           ? error ?? "Bạn vẫn có thể xem menu trong lúc hệ thống kiểm tra cấu hình."
           : root
@@ -172,7 +173,7 @@ function OrderingUnavailableBanner({
         <button
           type="button"
           onClick={onReserve}
-          className="mt-2 rounded-lg bg-white px-3 py-2 text-small-m font-semibold text-[#C0341A]"
+          className="mt-2 rounded-lg bg-surface px-3 py-2 text-small-m font-semibold text-primary"
         >
           Đặt bàn trước
         </button>
@@ -184,7 +185,7 @@ function OrderingUnavailableBanner({
 export default function MenuPage() {
   const navigate = useNavigate();
   const { storeId, storeName, storeLogoUrl, tableId, tableNumber, orderMode, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState, entryContext, workflow, workflowError } = useAppStore();
-  const { data: menu, isLoading, error } = useStoreMenu(storeId);
+  const { data: menu, isLoading, error, refetch, isRefetching } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
   const { openSnackbar } = useSnackbar();
   const storeOpen = isStoreOpen({ isAcceptingOrders, servingHours });
@@ -309,7 +310,7 @@ export default function MenuPage() {
       <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
         <img src={mevoLogo} alt="MEVO" className="h-24 w-24" draggable={false} />
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[#E4572E]">
+          <h1 className="text-2xl font-extrabold tracking-tight text-primary">
             MEVO<span className="text-text-primary">.VN</span>
           </h1>
           <p className="mt-2 text-small text-text-secondary">
@@ -326,21 +327,30 @@ export default function MenuPage() {
   if (error || !menu) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <div className="text-4xl">😕</div>
+        <CircleAlertIcon className="size-10 text-critical" />
         <p className="font-medium text-text-primary">Không thể tải menu</p>
         <p className="text-small text-text-secondary">
           Vui lòng thử lại hoặc hỏi nhân viên hỗ trợ.
         </p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          disabled={isRefetching}
+          className="mt-1 inline-flex min-h-11 items-center gap-2 rounded-lg border border-border-strong bg-surface px-4 text-small-m font-semibold text-text-primary active:bg-neutral50 disabled:opacity-60"
+        >
+          <RotateCwIcon className={isRefetching ? "size-4 animate-spin" : "size-4"} />
+          Thử lại
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#F7F8FA]">
+    <div className="flex h-full flex-col bg-background">
       {orderMode === "takeaway" && <TakeawayBanner storeName={storeName} />}
       {/* Header quán + bàn — chừa safe-area trên (Dynamic Island/notch iPhone) */}
       <div
-        className="flex-shrink-0 bg-white px-4 pb-3 shadow-sm"
+        className="flex-shrink-0 bg-surface px-4 pb-3 shadow-sm"
         style={{ paddingTop: "calc(var(--zaui-safe-area-inset-top, 0px) + 16px)" }}
       >
         <div className="flex items-center gap-2.5">
@@ -407,7 +417,7 @@ export default function MenuPage() {
       )}
 
       {/* Category tabs — cuộn ngang */}
-      <div className="flex-shrink-0 bg-white border-b border-neutral100">
+      <div className="flex-shrink-0 bg-surface border-b border-neutral100">
         <div className="no-scrollbar flex gap-1 overflow-x-auto px-3 py-2">
           {menu.map((cat) => (
             <button
@@ -484,7 +494,7 @@ function CategorySection({
   onDecrease: (product: Product) => void;
 }) {
   return (
-    <div id={category.id} className="mt-3 bg-white">
+    <div id={category.id} className="mt-3 bg-surface">
       <div className="border-b border-neutral100 px-4 pb-2 pt-4">
         <p className="text-large-m font-semibold text-text-primary">
           {category.name}
@@ -549,13 +559,13 @@ function MenuItemRow({
             draggable={false}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-3xl">
-            🍽️
+          <div className="flex h-full w-full items-center justify-center text-text-disabled" aria-label="Chưa có ảnh">
+            <UtensilsIcon className="size-7" />
           </div>
         )}
         {!available && (
           <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40">
-            <span className="rounded-full bg-white/90 px-2 py-0.5 text-xxxsmall font-medium text-text-primary">
+            <span className="rounded-full bg-surface/90 px-2 py-0.5 text-xxxsmall font-medium text-text-primary">
               Tạm hết
             </span>
           </div>
@@ -618,12 +628,12 @@ function MenuItemRow({
 
 function MenuSkeleton() {
   return (
-    <div className="flex h-full flex-col bg-[#F7F8FA]">
-      <div className="bg-white px-4 pb-3 pt-4">
+    <div className="flex h-full flex-col bg-background">
+      <div className="bg-surface px-4 pb-3 pt-4">
         <div className="h-6 w-40 animate-pulse rounded bg-neutral100" />
         <div className="mt-1 h-4 w-20 animate-pulse rounded bg-neutral100" />
       </div>
-      <div className="flex gap-2 bg-white px-3 py-2">
+      <div className="flex gap-2 bg-surface px-3 py-2">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
@@ -631,7 +641,7 @@ function MenuSkeleton() {
           />
         ))}
       </div>
-      <div className="mt-3 bg-white">
+      <div className="mt-3 bg-surface">
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}

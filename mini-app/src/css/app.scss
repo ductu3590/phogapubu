@@ -1,11 +1,20 @@
-@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap");
+/* Font chung toàn hệ MEVO (chốt 2026-10-02). Google Fonts tự gửi đủ subset tiếng Việt qua unicode-range. */
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap");
 
 :root {
   --zaui-light-bottom-navigation-divider-color: transparent;
+  /* Màu chính mặc định trước khi app.tsx đọc màu quán (applyPrimaryColor ghi đè). */
+  --color-primary: #A0673D;
+  --color-primary-rgb: 160 103 61;
 }
 
 * {
-  font-family: "Roboto", sans-serif;
+  font-family: "Be Vietnam Pro", Roboto, system-ui, sans-serif;
+}
+
+/* Số tiền, giờ: chữ số thẳng hàng của chính font. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 .zaui-list-item {
@@ -35,5 +44,5 @@
 }
 
 .zaui-bottom-navigation-item-active .zaui-bottom-navigation-item-label {
-  color: theme("colors.primary");
+  color: var(--color-primary);
 }

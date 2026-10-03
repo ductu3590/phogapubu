@@ -4,6 +4,7 @@ import { Product, Variant } from "@/types/product.types";
 import { SelectedVariant } from "@/types/cart.types";
 import { formatCurrency } from "@/utils/format";
 import { cn } from "@/utils/cn";
+import { UtensilsIcon } from "@/components/common/icons";
 
 interface OptionSheetProps {
   product: Product | null;
@@ -68,13 +69,13 @@ export default function OptionSheet({ product, visible, onClose, onConfirm }: Op
 
   return (
     <Sheet autoHeight visible={visible} onClose={handleClose}>
-      <div className="flex max-h-[75vh] flex-col bg-white">
+      <div className="flex max-h-[75vh] flex-col bg-surface">
         <div className="flex items-center gap-3 border-b border-neutral100 px-4 py-3">
           {product.image ? (
             <img src={product.image} alt={product.name}
               className="h-12 w-12 rounded-lg object-cover" draggable={false} />
           ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-neutral100 text-2xl">🍽️</div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-neutral100 text-text-disabled" aria-label="Chưa có ảnh"><UtensilsIcon className="size-5" /></div>
           )}
           <div className="min-w-0">
             <p className="text-normal-sb font-semibold text-text-primary line-clamp-1">{product.name}</p>

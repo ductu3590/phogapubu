@@ -4,7 +4,8 @@ import { theme } from "@/constants/copy";
 const iconColors = {
   active: theme.colors.text.primary,
   inactive: theme.colors.text.disabled,
-  accent: theme.colors.primary,
+  // Không dùng theme.colors.primary ở đây: giá trị đó có placeholder <alpha-value> chỉ Tailwind hiểu.
+  accent: "var(--color-primary, #A0673D)",
   white: theme.colors.white,
   black: theme.colors.black,
 };

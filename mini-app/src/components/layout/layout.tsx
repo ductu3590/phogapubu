@@ -19,7 +19,7 @@ export default function Layout() {
   const canShowCart = workflow !== null && hasVerifiedTable && canOrderInEntry(workflow, entryContext);
 
   return (
-    <div className="relative flex h-screen w-screen flex-col bg-[#F7F8FA]">
+    <div className="relative flex h-screen w-screen flex-col bg-background">
       {!hideHeader && (
         <Header
           title={handle?.title}

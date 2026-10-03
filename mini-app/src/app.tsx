@@ -8,6 +8,7 @@ import { supabase } from "./services/supabase";
 import { sessionOrderService } from "./services/order/order.api";
 import { getOrCreateDeviceId } from "./services/device-id";
 import { getPublicWorkflow } from "./services/workflow/workflow.api";
+import { applyPrimaryColor } from "@/utils/theme-color";
 import { getUserID } from "zmp-sdk";
 
 function AppInit() {
@@ -63,10 +64,7 @@ function AppInit() {
         // Màu chủ đạo theo quán (theme runtime) — set CSS var để mọi class Tailwind
         // dùng theme("colors.primary") (đã trỏ sang var(--color-primary) trong tokens.js)
         // đổi màu ngay không cần build lại.
-        document.documentElement.style.setProperty(
-          "--color-primary",
-          storeRes.data.primary_color || "#A0673D",
-        );
+        applyPrimaryColor(storeRes.data.primary_color);
         setStoreInfo({
           storeSlug: storeRes.data.slug,
           storeId: storeRes.data.id,

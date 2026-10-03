@@ -69,7 +69,7 @@ export default function BottomTabs() {
 
   return (
     <div
-      className="flex shrink-0 border-t border-neutral100 bg-white"
+      className="flex shrink-0 border-t border-neutral100 bg-surface"
       style={{ paddingBottom: "var(--zaui-safe-area-inset-bottom, 0px)" }}
     >
       {TABS.map((tab) => {
@@ -84,14 +84,14 @@ export default function BottomTabs() {
             <div className="relative">
               {tab.icon(active)}
               {isOrderTab && totalItems > 0 && (
-                <span className="absolute -right-1.5 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
+                <span className="absolute -right-1.5 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-white">
                   {totalItems > 9 ? "9+" : totalItems}
                 </span>
               )}
             </div>
             <span
               className={cn(
-                "text-[10px] font-medium",
+                "text-xs font-medium",
                 active ? "text-primary" : "text-neutral300",
               )}
             >

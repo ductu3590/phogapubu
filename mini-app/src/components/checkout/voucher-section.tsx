@@ -4,6 +4,7 @@ import {
   estimateDiscount,
   MyVoucher,
 } from "@/services/voucher/voucher.api";
+import { TicketIcon } from "@/components/common/icons";
 
 // Section mã giảm giá ở checkout. TỰ BỌC lỗi: voucher chết chỉ ẩn section,
 // KHÔNG được chặn luồng đặt món (giống SpinSection).
@@ -88,24 +89,24 @@ export default function VoucherSection({
   if (!zaloUserId) return null;
   if (vouchers.length === 0 && !selected && !showInput) {
     return (
-      <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-3">
+      <div className="mx-3.5 mt-3 rounded-xl bg-surface px-4 py-3">
         <button
           onClick={() => setShowInput(true)}
           className="text-small font-medium text-primary"
         >
-          🎟️ Nhập mã giảm giá
+          <span className="inline-flex items-center gap-1.5"><TicketIcon className="size-4" />Nhập mã giảm giá</span>
         </button>
       </div>
     );
   }
 
   return (
-    <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-4">
+    <div className="mx-3.5 mt-3 rounded-xl bg-surface px-4 py-4">
       <p className="mb-3 text-large-m font-semibold">Mã giảm giá</p>
 
       {selected && (
         <div className="flex items-center gap-3 rounded-xl border-2 border-primary bg-primary/5 p-3">
-          <span className="text-2xl">🎟️</span>
+          <TicketIcon className="size-6 shrink-0 text-primary" />
           <div className="flex-1">
             <p className="text-small-m font-semibold text-text-primary">{selected.label}</p>
             <p className="text-xxsmall text-text-secondary">
@@ -130,7 +131,7 @@ export default function VoucherSection({
             onClick={() => onSelect(v)}
             className="mb-2 flex w-full items-center gap-3 rounded-xl border-2 border-neutral100 p-3 text-left"
           >
-            <span className="text-2xl">🎟️</span>
+            <TicketIcon className="size-6 shrink-0 text-primary" />
             <div className="flex-1">
               <p className="text-small-m font-semibold text-text-primary">{v.label}</p>
               <p className="text-xxsmall text-text-secondary">
@@ -160,7 +161,7 @@ export default function VoucherSection({
               {checking ? "..." : "Áp dụng"}
             </button>
           </div>
-          {inputError && <p className="mt-1 text-xs text-red-500">{inputError}</p>}
+          {inputError && <p className="mt-1 text-xs text-critical">{inputError}</p>}
         </div>
       ) : (
         <button

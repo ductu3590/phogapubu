@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "zmp-ui";
 import { spinService, SpinReward, SpinResult } from "@/services/spin/spin.api";
 import SpinWheel, { targetRotation } from "./spin-wheel";
+import { GiftIcon } from "@/components/common/icons";
 
 type Phase = "loading" | "hidden" | "idle" | "spinning" | "result";
 
@@ -70,9 +71,9 @@ export default function SpinSection({ orderId }: { orderId: string }) {
   const isNone = result?.type === "none";
 
   return (
-    <div className="mx-4 mt-4 overflow-hidden rounded-xl bg-white p-4">
+    <div className="mx-4 mt-4 overflow-hidden rounded-xl bg-surface p-4">
       <p className="mb-3 text-center text-small-m font-bold text-primary">
-        🎁 Vòng quay may mắn
+        <span className="inline-flex items-center justify-center gap-1.5"><GiftIcon className="size-4" />Vòng quay may mắn</span>
       </p>
 
       <SpinWheel rewards={rewards} rotation={rotation} animate={animate} />
@@ -94,14 +95,14 @@ export default function SpinSection({ orderId }: { orderId: string }) {
       )}
 
       {phase === "result" && result && (
-        <div className="mt-4 rounded-xl border border-[#E8C9B3] bg-[#FBF4EF] p-4 text-center">
+        <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-4 text-center">
           {isNone ? (
             <p className="text-small font-semibold text-text-primary">
-              Chúc bạn may mắn lần sau 🍀
+              Chúc bạn may mắn lần sau
             </p>
           ) : result.type === "voucher" ? (
             <>
-              <p className="text-small text-text-secondary">🎉 Bạn trúng</p>
+              <p className="text-small text-text-secondary">Bạn trúng</p>
               <p className="mt-0.5 text-medium-m font-bold text-primary">
                 {result.label}
               </p>
@@ -110,7 +111,7 @@ export default function SpinSection({ orderId }: { orderId: string }) {
                 {result.voucher?.expires_at &&
                   ` • HSD ${new Date(result.voucher.expires_at).toLocaleDateString("vi-VN")}`}
               </p>
-              <div className="mt-2 inline-block rounded-lg bg-white px-3 py-1.5">
+              <div className="mt-2 inline-block rounded-lg bg-surface px-3 py-1.5">
                 <span className="text-small font-bold tracking-widest text-text-primary">
                   {result.voucher?.code ?? result.code}
                 </span>
@@ -118,20 +119,20 @@ export default function SpinSection({ orderId }: { orderId: string }) {
             </>
           ) : (
             <>
-              <p className="text-small text-text-secondary">🎉 Bạn trúng</p>
+              <p className="text-small text-text-secondary">Bạn trúng</p>
               <p className="mt-0.5 text-medium-m font-bold text-primary">
                 {result.label}
               </p>
               <p className="mt-2 text-xxsmall text-text-secondary">
                 Nhân viên sẽ mang ra cho bạn — hoặc đưa màn hình này để đổi
               </p>
-              <div className="mt-2 inline-block rounded-lg bg-white px-3 py-1.5">
+              <div className="mt-2 inline-block rounded-lg bg-surface px-3 py-1.5">
                 <span className="text-small font-bold tracking-widest text-text-primary">
                   {result.code}
                 </span>
               </div>
               {result.redeem_status === "redeemed" && (
-                <p className="mt-2 text-xxsmall font-medium text-green-600">
+                <p className="mt-2 text-xxsmall font-medium text-success">
                   ✓ Đã đổi thưởng
                 </p>
               )}

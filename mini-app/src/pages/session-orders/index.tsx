@@ -9,6 +9,7 @@ import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/utils/format";
 import { GET_SESSION_ORDERS_KEY, GET_TABLE_SESSION_BILL_KEY } from "@/constants/api";
 import type { SessionOrder, TakeawayOrder, OrderItem } from "@/types/order.types";
+import { ScanLineIcon, PackageIcon, ClipboardListIcon } from "@/components/common/icons";
 
 const UNPAID_STATUSES = new Set(["pending", "confirmed", "cooking", "ready"]);
 
@@ -18,9 +19,9 @@ function getPaymentInfo(
   status: string,
 ): { icon: string; label: string; paid: boolean } {
   if (paymentMethod === "zalo_checkout") {
-    return { icon: "💳", label: "ZaloPay", paid: status !== "pending" };
+    return { icon: "", label: "ZaloPay", paid: status !== "pending" };
   }
-  return { icon: "💵", label: "Tiền mặt", paid: status === "paid" };
+  return { icon: "", label: "Tiền mặt", paid: status === "paid" };
 }
 
 // Ở quán TRẢ SAU, suy "đã trả tiền" từ status là sai: đơn confirmed/cooking/ready đều chưa thu
@@ -32,7 +33,7 @@ function getPostpayPaymentInfo(paymentReceivedAt: string | null): {
 } {
   return paymentReceivedAt
     ? { icon: "✓", label: "Đã thanh toán", paid: true }
-    : { icon: "🪑", label: "Trả sau", paid: false };
+    : { icon: "", label: "Trả sau", paid: false };
 }
 
 // Hook dùng chung: mở/đóng card + fetch món lần đầu
@@ -163,10 +164,10 @@ function DineInOrdersView() {
   // Zalo UID vẫn phải xem được bill của bàn mình.
   if (!tableId || (!zaloUserId && !(isPostpay && deviceId))) {
     return (
-      <div className="flex h-full flex-col bg-[#F7F8FA]">
+      <div className="flex h-full flex-col bg-background">
         <Header title="Đơn hàng" />
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-          <div className="text-4xl">📋</div>
+          <ScanLineIcon className="size-10 text-text-disabled" />
           <p className="font-medium text-text-primary">Quét QR tại bàn trước</p>
           <p className="text-small text-text-secondary">
             Vui lòng dùng Zalo quét mã QR trên bàn để xem lịch sử gọi món.
@@ -177,7 +178,7 @@ function DineInOrdersView() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#F7F8FA]">
+    <div className="flex h-full flex-col bg-background">
       <Header title="Đơn hàng" subtitle={tableNumber || undefined} />
 
       <div className="no-scrollbar flex-1 overflow-y-auto pb-6">
@@ -187,7 +188,7 @@ function DineInOrdersView() {
             <button
               onClick={handleCallStaff}
               disabled={isCalling}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-50 py-3 text-orange-500 active:opacity-70 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-warning-bg py-3 text-warning active:opacity-70 disabled:opacity-50"
             >
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -225,7 +226,7 @@ function DineInOrdersView() {
               ))}
             </div>
 
-            <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-3">
+            <div className="mx-3.5 mt-3 rounded-xl bg-surface px-4 py-3">
               <div className="flex justify-between">
                 <p className="text-small text-text-secondary">
                   {isPostpay ? "Cả bàn" : "Tổng cộng"} {orders.length} lần gọi
@@ -279,10 +280,10 @@ function TakeawayOrdersView() {
   // Chưa lấy được Zalo user id (chưa mở từ Zalo / chưa cấp quyền)
   if (!zaloUserId) {
     return (
-      <div className="flex h-full flex-col bg-[#F7F8FA]">
+      <div className="flex h-full flex-col bg-background">
         <Header title="Đơn hàng" subtitle="Mang về / Ship" />
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-          <div className="text-4xl">📦</div>
+          <PackageIcon className="size-10 text-text-disabled" />
           <p className="font-medium text-text-primary">Chưa có thông tin đơn</p>
           <p className="text-small text-text-secondary">
             Vui lòng mở Mini App trong Zalo để xem đơn mang về của bạn.
@@ -293,7 +294,7 @@ function TakeawayOrdersView() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#F7F8FA]">
+    <div className="flex h-full flex-col bg-background">
       <Header title="Đơn hàng" subtitle="Mang về / Ship" />
 
       <div className="no-scrollbar flex-1 overflow-y-auto pb-6">
@@ -337,7 +338,7 @@ function TakeawayOrdersView() {
 function Header({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div
-      className="flex-shrink-0 bg-white px-4 pb-2 shadow-sm"
+      className="flex-shrink-0 bg-surface px-4 pb-2 shadow-sm"
       style={{ paddingTop: "calc(var(--zaui-safe-area-inset-top, 0px) + 16px)" }}
     >
       <p className="text-xlarge-sb font-bold text-text-primary">{title}</p>
@@ -349,7 +350,7 @@ function Header({ title, subtitle }: { title: string; subtitle?: string }) {
 function ListSkeleton() {
   return (
     <div className="mx-3.5 mt-3 space-y-3">
-      {[1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-xl bg-white" />)}
+      {[1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-xl bg-surface" />)}
     </div>
   );
 }
@@ -357,7 +358,7 @@ function ListSkeleton() {
 function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-      <div className="text-4xl">🍽️</div>
+      <ClipboardListIcon className="size-10 text-text-disabled" />
       <p className="font-medium text-text-primary">{title}</p>
       <p className="text-small text-text-secondary">{subtitle}</p>
     </div>
@@ -430,7 +431,7 @@ function DineInOrderCard({
   });
 
   return (
-    <div className="rounded-xl bg-white">
+    <div className="rounded-xl bg-surface">
       <button
         onClick={onToggle}
         className="flex w-full items-center justify-between px-4 py-3 text-left"
@@ -440,9 +441,9 @@ function DineInOrderCard({
             {label} · {time}
           </p>
           <p className="mt-0.5 text-xxsmall text-text-secondary">
-            {paymentInfo.icon} {paymentInfo.label}
+            {paymentInfo.icon ? `${paymentInfo.icon} ` : ""}{paymentInfo.label}
             {" · "}
-            <span className={paymentInfo.paid ? "font-semibold text-green-600" : "text-orange-500"}>
+            <span className={paymentInfo.paid ? "font-semibold text-success" : "text-warning"}>
               {paymentInfo.paid ? "Đã thanh toán" : "Chưa thanh toán"}
             </span>
           </p>
@@ -467,13 +468,13 @@ function getTakeawayStatus(order: TakeawayOrder): {
   showReceive: boolean;
 } {
   if (order.completedAt) {
-    return { label: "Đã hoàn thành", cls: "bg-[#E1F5EE] text-[#0F6E56]", showReceive: false };
+    return { label: "Đã hoàn thành", cls: "bg-success-bg text-success", showReceive: false };
   }
   if (order.status === "ready") {
-    return { label: "Món xong — chờ nhận", cls: "bg-[#FAEEDA] text-[#854F0B]", showReceive: true };
+    return { label: "Món xong — chờ nhận", cls: "bg-warning-bg text-warning", showReceive: true };
   }
   if (order.status === "cooking") {
-    return { label: "Đang làm", cls: "bg-[#E6F1FB] text-[#185FA5]", showReceive: false };
+    return { label: "Đang làm", cls: "bg-info-bg text-info", showReceive: false };
   }
   return { label: "Đang xử lý", cls: "bg-neutral100 text-text-secondary", showReceive: false };
 }
@@ -501,12 +502,12 @@ function TakeawayOrderCard({
     day: "2-digit",
     month: "2-digit",
   });
-  const typeLabel = order.orderType === "delivery" ? "🛵 Ship" : "🚶 Tự lấy";
+  const typeLabel = order.orderType === "delivery" ? "Ship" : "Tự lấy";
   const { label, cls, showReceive } = getTakeawayStatus(order);
   const isDone = !!order.completedAt;
 
   return (
-    <div className="rounded-xl bg-white">
+    <div className="rounded-xl bg-surface">
       <button
         onClick={onToggle}
         className="flex w-full items-center justify-between px-4 py-3 text-left"
@@ -533,7 +534,7 @@ function TakeawayOrderCard({
           <button
             onClick={onReceive}
             disabled={isConfirming}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1D9E75] py-2.5 text-small-m font-semibold text-white active:opacity-80 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-success-dot py-2.5 text-small-m font-semibold text-white active:opacity-80 disabled:opacity-50"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />

@@ -105,7 +105,7 @@ export default function UnpaidOrderPrompt() {
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/40" />
       <div
-        className="relative rounded-t-2xl bg-white px-4 pt-5"
+        className="relative rounded-t-2xl bg-surface px-4 pt-5"
         style={{ paddingBottom: "calc(var(--zaui-safe-area-inset-bottom, 0px) + 20px)" }}
       >
         <p className="text-medium-m font-bold text-text-primary">
@@ -125,7 +125,7 @@ export default function UnpaidOrderPrompt() {
         <button
           onClick={handleCancel}
           disabled={isCancelling}
-          className="mt-2 w-full rounded-xl border-2 border-neutral100 bg-white py-3 text-small font-semibold text-text-secondary active:opacity-70 disabled:opacity-50"
+          className="mt-2 w-full rounded-xl border-2 border-neutral100 bg-surface py-3 text-small font-semibold text-text-secondary active:opacity-70 disabled:opacity-50"
         >
           {isCancelling ? "Đang huỷ..." : "Huỷ món"}
         </button>

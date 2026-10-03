@@ -19,8 +19,8 @@ function deepMerge(target, source) {
 
 const base = {
   fontSize: {
-    fs000: "10px",
-    fs100: "11px",
+    fs000: "12px", // chữ nhỏ nhất 12px (chốt 2026-10-02) — trước là 10px
+    fs100: "12px", // trước là 11px
     fs200: "12px",
     fs300: "13px",
     fs400: "14px",
@@ -40,7 +40,8 @@ const base = {
     lh600: "22px",
     lh800: "24px",
     lh1400: "30px",
-    lh_full: "100%",
+    // Trước là 100%: dấu tiếng Việt chồng hai tầng (Ể, Ỗ) dính dòng trên, hai dòng chữ nhỏ đè nhau.
+    lh_full: "140%",
   },
   letterSpacing: {
     ls000: "0px",
@@ -61,17 +62,21 @@ const base = {
     black: "900",
   },
   fontFamily: {
-    system: "Roboto, sans-serif",
+    // Font chung toàn hệ MEVO (chốt 2026-10-02). Roboto làm dự phòng khi mạng chậm chưa tải xong.
+    system: '"Be Vietnam Pro", Roboto, system-ui, sans-serif',
   },
   colors: {
     black: "#000000",
     white: "#FFFFFF",
 
-    neutral100: "#EBEDEF",
-    neutral300: "#909498",
-    neutral900: "#0D0D0D",
-    neutral500: "#EBEDEF",
-    neutral400: "#F7F7F8",
+    // Họ xám slate — cùng bảng với admin-web (app/globals.css). Chốt 2026-10-02.
+    neutral50: "#F8FAFC",
+    neutral100: "#E2E8F0",
+    neutral200: "#E2E8F0",
+    neutral300: "#64748B",
+    neutral900: "#0F172A",
+    neutral500: "#E2E8F0",
+    neutral400: "#F8FAFC",
     peach100: "#FFECE2",
 
     yellow100: "#FFF8E0",
@@ -123,25 +128,33 @@ const semantic = {
   colors: {
     // Theme runtime theo store_id — set ở app.tsx (document.documentElement.style.setProperty).
     // Fallback #A0673D khi CSS var chưa set (trước khi app.tsx chạy, hoặc ngoài Mini App).
-    primary: "var(--color-primary, #A0673D)",
-    background: "#F7F7F7",
+    // Dạng rgb(... / <alpha-value>) để `bg-primary/10` ra được màu nhạt theo quán.
+    // Biến đặt ở utils/theme-color.ts (applyPrimaryColor); mặc định #A0673D = 160 103 61.
+    primary: "rgb(var(--color-primary-rgb, 160 103 61) / <alpha-value>)",
+    background: "#F1F5F9",
+    surface: "#FFFFFF",
     text: {
       primary: base.colors.neutral900,
-      secondary: "#767A7F",
-      tertiary: "#6F7071",
-      disabled: "#A9ADB2",
-      title: base.colors.gray600,
+      secondary: "#475569",
+      tertiary: "#64748B",
+      disabled: "#94A3B8",
+      title: base.colors.neutral900,
     },
     border: {
-      primary: "#E6E6E6",
+      primary: "#E2E8F0",
+      strong: "#CBD5E1",
     },
     icon: {
-      tertiary: "#6F7071",
+      tertiary: "#64748B",
     },
+    // Năm tông trạng thái — CÙNG bảng với admin-web (components/ui/status.ts).
+    // Không có tông cam: màu chính của quán chỉ dành cho nút / mục đang chọn. Luôn kèm chữ.
+    success: { DEFAULT: "#047857", bg: "#ECFDF5", border: "#A7F3D0", dot: "#10B981" },
+    info: { DEFAULT: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE", dot: "#3B82F6" },
+    warning: { DEFAULT: "#B45309", bg: "#FFFBEB", border: "#FDE68A", dot: "#F59E0B" },
+    critical: { DEFAULT: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", dot: "#EF4444" },
     accent: base.colors.blue500,
-    info: base.colors.blue600,
-    warning: base.colors.yellow600,
-    danger: base.colors.red700,
+    danger: "#B91C1C",
     components: {
       list: {
         title: base.colors.neutral900,

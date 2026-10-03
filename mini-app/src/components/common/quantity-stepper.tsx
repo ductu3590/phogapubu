@@ -29,15 +29,15 @@ export default function QuantityStepper({
 
   const sizeClasses = {
     small: {
-      button: "w-6 h-6 text-lg",
+      button: "w-8 h-8 text-lg", // vùng chạm tối thiểu 32px
       display: "w-8 text-center text-sm",
     },
     medium: {
-      button: "w-7 h-7 text-base",
+      button: "w-9 h-9 text-base",
       display: "text-center text-base font-normal",
     },
     large: {
-      button: "w-8 h-8 text-lg",
+      button: "w-10 h-10 text-lg",
       display: "w-8 text-center text-base",
     },
   };
@@ -57,6 +57,8 @@ export default function QuantityStepper({
       className={`flex items-center ${variantClasses[variant]} ${className}`}
     >
       <button
+        type="button"
+        aria-label="Bớt một"
         onClick={onDecrease}
         disabled={isDecreaseDisabled}
         className={`${buttonBaseClasses} ${sizeClasses[size].button}`}
@@ -64,12 +66,14 @@ export default function QuantityStepper({
         <span>-</span>
       </button>
       <span
-        className={`${sizeClasses[size].display} text-normal text-text-secondary`}
+        className={`${sizeClasses[size].display} text-normal text-text-primary tabular`}
       >
         {value}
         {displaySuffix}
       </span>
       <button
+        type="button"
+        aria-label="Thêm một"
         onClick={onIncrease}
         disabled={isIncreaseDisabled}
         className={`${buttonBaseClasses} ${sizeClasses[size].button}`}

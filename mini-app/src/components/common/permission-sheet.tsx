@@ -2,6 +2,7 @@
 // Cả hai SDK calls trong cùng handler — lỗi bỏ qua, không block UX.
 import { useState } from "react";
 import { followOA, authorize } from "zmp-sdk";
+import { BellIcon, UserIcon } from "@/components/common/icons";
 
 interface PermissionSheetProps {
   oaId: string;
@@ -40,7 +41,7 @@ export default function PermissionSheet({
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative rounded-t-2xl bg-white">
+      <div className="relative rounded-t-2xl bg-surface">
         <div className="flex justify-center pt-3 pb-1">
           <div className="h-1 w-10 rounded-full bg-neutral100" />
         </div>
@@ -55,8 +56,8 @@ export default function PermissionSheet({
           </div>
           <div className="flex flex-col gap-3">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-50 text-xl">
-                🔔
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-warning-bg text-warning">
+                <BellIcon className="size-5" />
               </div>
               <div>
                 <p className="text-small-m font-semibold text-text-primary">
@@ -68,8 +69,8 @@ export default function PermissionSheet({
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-purple-50 text-xl">
-                👤
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-neutral50 text-text-secondary">
+                <UserIcon className="size-5" />
               </div>
               <div>
                 <p className="text-small-m font-semibold text-text-primary">

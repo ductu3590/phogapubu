@@ -21,6 +21,7 @@ import { estimateDiscount, MyVoucher } from "@/services/voucher/voucher.api";
 import { clearTableOrderRequest, tableOrderRequestId } from "@/services/table-order-request";
 import { useTableSessionBill } from "@/services/order/order.queries";
 import { findOrderDuplicates } from "@/utils/order-duplicates";
+import { ArmchairIcon, FootprintsIcon, BikeIcon, UtensilsIcon, CreditCardIcon, BanknoteIcon } from "@/components/common/icons";
 
 function isPhoneValid(phone: string): boolean {
   return /^0\d{9}$/.test(phone.replace(/\s/g, ""));
@@ -438,13 +439,13 @@ export default function CheckoutPage() {
   const isLoading = isPending || isProcessing;
 
   return (
-    <div className="flex h-full flex-col bg-[#F7F8FA]">
+    <div className="flex h-full flex-col bg-background">
       <div className="no-scrollbar flex-1 overflow-y-auto pb-32">
 
         {/* Thông tin bàn — chỉ hiện khi ăn tại quán */}
         {!isTakeaway && (
-          <div className="mx-3.5 mt-4 flex items-center gap-3 rounded-xl bg-white px-4 py-3">
-            <span className="text-2xl">🪑</span>
+          <div className="mx-3.5 mt-4 flex items-center gap-3 rounded-xl bg-surface px-4 py-3">
+            <ArmchairIcon className="size-6 shrink-0 text-text-secondary" />
             <div>
               <p className="text-xxsmall text-text-secondary">Đang ngồi tại</p>
               <p className="text-normal-sb font-semibold text-text-primary">
@@ -456,7 +457,7 @@ export default function CheckoutPage() {
 
         {/* Form mang về */}
         {isTakeaway && (
-          <div className={`mx-3.5 mt-4 rounded-xl bg-white p-4 ${lockedClass}`}>
+          <div className={`mx-3.5 mt-4 rounded-xl bg-surface p-4 ${lockedClass}`}>
             {/* Toggle */}
             <div className="mb-4 flex gap-1 rounded-xl bg-neutral100 p-1">
               {pickupEnabled && (
@@ -468,7 +469,7 @@ export default function CheckoutPage() {
                     : "text-text-secondary"
                 }`}
               >
-                🚶 Tự qua lấy
+                <span className="inline-flex items-center justify-center gap-1.5"><FootprintsIcon className="size-4" />Tự qua lấy</span>
                 </button>
               )}
               {deliveryEnabled && (
@@ -480,7 +481,7 @@ export default function CheckoutPage() {
                     : "text-text-secondary"
                 }`}
               >
-                🛵 Ship tận nhà
+                <span className="inline-flex items-center justify-center gap-1.5"><BikeIcon className="size-4" />Ship tận nhà</span>
                 </button>
               )}
             </div>
@@ -496,10 +497,10 @@ export default function CheckoutPage() {
                 onBlur={() => { if (!customerName.trim()) setNameError("Vui lòng nhập tên"); }}
                 placeholder="Nhập tên"
                 className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
-                  nameError ? "border-red-400" : "border-neutral100 focus:border-primary"
+                  nameError ? "border-critical-border" : "border-neutral100 focus:border-primary"
                 }`}
               />
-              {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
+              {nameError && <p className="mt-1 text-xs text-critical">{nameError}</p>}
             </div>
 
             {/* SĐT — chỉ ship tận nhà */}
@@ -513,10 +514,10 @@ export default function CheckoutPage() {
                   placeholder="0901 234 567"
                   inputMode="tel"
                   className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
-                    phoneError ? "border-red-400" : "border-neutral100 focus:border-primary"
+                    phoneError ? "border-critical-border" : "border-neutral100 focus:border-primary"
                   }`}
                 />
-                {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
+                {phoneError && <p className="mt-1 text-xs text-critical">{phoneError}</p>}
               </div>
             )}
 
@@ -530,12 +531,12 @@ export default function CheckoutPage() {
                   onBlur={() => { if (!deliveryAddress.trim()) setAddressError("Vui lòng nhập địa chỉ"); }}
                   placeholder="Số nhà, đường, phường/xã, TP"
                   className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
-                    addressError ? "border-red-400" : "border-neutral100 focus:border-primary"
+                    addressError ? "border-critical-border" : "border-neutral100 focus:border-primary"
                   }`}
                 />
-                {addressError && <p className="mt-1 text-xs text-red-500">{addressError}</p>}
-                <p className="mt-1.5 rounded-lg bg-[#FBF4EF] px-3 py-2 text-xs text-[#92400E]">
-                  ⚠️ Phí ship do đơn vị giao hàng thu trực tiếp khi giao. Không tính trong đơn này.
+                {addressError && <p className="mt-1 text-xs text-critical">{addressError}</p>}
+                <p className="mt-1.5 rounded-lg border border-warning-border bg-warning-bg px-3 py-2 text-xs text-warning">
+                  Phí ship do đơn vị giao hàng thu trực tiếp khi giao. Không tính trong đơn này.
                 </p>
               </div>
             )}
@@ -543,7 +544,7 @@ export default function CheckoutPage() {
         )}
 
         {/* Danh sách món */}
-        <div className="mx-3.5 mt-3 rounded-xl bg-white p-4">
+        <div className="mx-3.5 mt-3 rounded-xl bg-surface p-4">
           <p className="mb-3 text-large-m font-semibold">Món đã chọn</p>
           <div className="flex flex-col gap-4">
             {cartItems.map((item) => (
@@ -556,8 +557,8 @@ export default function CheckoutPage() {
                     draggable={false}
                   />
                 ) : (
-                  <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-neutral100 text-2xl">
-                    🍽️
+                  <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-neutral100 text-text-disabled" aria-label="Chưa có ảnh">
+                    <UtensilsIcon className="size-6" />
                   </div>
                 )}
                 <div className="flex flex-1 items-center justify-between gap-2">
@@ -595,7 +596,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* Ghi chú */}
-        <div className={`mx-3.5 mt-3 rounded-xl bg-white px-4 py-3 ${lockedClass}`}>
+        <div className={`mx-3.5 mt-3 rounded-xl bg-surface px-4 py-3 ${lockedClass}`}>
           <NoteInput
             label="Ghi chú cho bếp"
             placeholder="VD: Ít đường, không hành, ít cay..."
@@ -607,7 +608,7 @@ export default function CheckoutPage() {
 
         {/* Hình thức thanh toán — ẩn khi chỉ có 1 phương thức hoặc đang mang về */}
         {!singleMethod && !isTakeaway && !isPostpayDineIn && (
-          <div className={`mx-3.5 mt-3 rounded-xl bg-white px-4 py-4 ${lockedClass}`}>
+          <div className={`mx-3.5 mt-3 rounded-xl bg-surface px-4 py-4 ${lockedClass}`}>
             <p className="mb-3 text-large-m font-semibold">Thanh toán</p>
             <div className="flex flex-col gap-2">
               {paymentMethods.includes("zalo_checkout") && (
@@ -615,7 +616,7 @@ export default function CheckoutPage() {
                   id="zalo_checkout"
                   label="ZaloPay"
                   sublabel="Thanh toán trong Zalo, nhanh 1 chạm"
-                  emoji="💳"
+                  icon={<CreditCardIcon className="size-6" />}
                   selected={paymentMethod === "zalo_checkout"}
                   onSelect={() => setPaymentMethod("zalo_checkout")}
                 />
@@ -625,7 +626,7 @@ export default function CheckoutPage() {
                   id="cash"
                   label="Tiền mặt"
                   sublabel="Thanh toán với nhân viên khi ra về"
-                  emoji="💵"
+                  icon={<BanknoteIcon className="size-6" />}
                   selected={paymentMethod === "cash"}
                   onSelect={() => setPaymentMethod("cash")}
                 />
@@ -646,7 +647,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* Tóm tắt tiền */}
-        <div className="mx-3.5 mt-3 rounded-xl bg-white px-4 py-4">
+        <div className="mx-3.5 mt-3 rounded-xl bg-surface px-4 py-4">
           <div className="flex justify-between">
             <span className="text-small text-text-secondary">Tổng tiền món</span>
             <span className="text-small font-semibold">{formatCurrency(totalAmount)}đ</span>
@@ -654,7 +655,7 @@ export default function CheckoutPage() {
           {discount > 0 && (
             <div className="mt-1.5 flex justify-between">
               <span className="text-small text-text-secondary">Giảm giá</span>
-              <span className="text-small font-semibold text-green-600">
+              <span className="text-small font-semibold text-success">
                 −{formatCurrency(discount)}đ
               </span>
             </div>
@@ -665,14 +666,14 @@ export default function CheckoutPage() {
 
 
       {/* Nút đặt món / banner chưa thanh toán — fixed bottom */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-divider01 bg-white px-4 py-4 pb-5">
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-divider01 bg-surface px-4 py-4 pb-5">
         {isLocked ? (
           <>
-            <div className="mb-3 rounded-xl bg-[#FCEBEB] px-3 py-2.5">
-              <p className="text-small font-semibold text-[#501313]">
+            <div className="mb-3 rounded-xl bg-critical-bg px-3 py-2.5">
+              <p className="text-small font-semibold text-critical">
                 Thanh toán chưa thành công
               </p>
-              <p className="mt-0.5 text-xxsmall leading-relaxed text-[#A32D2D]">
+              <p className="mt-0.5 text-xxsmall leading-relaxed text-critical">
                 {cartItems.length === 0
                   ? 'Đơn cũ chưa thanh toán xong. Bấm "Thanh toán lại" để trả tiền cho đơn đó, hoặc "Sửa món" để bỏ đơn và chọn lại.'
                   : "Bếp chưa bắt đầu làm đơn này. Bạn có thể thanh toán lại hoặc sửa món."}
@@ -689,7 +690,7 @@ export default function CheckoutPage() {
               <Button
                 onClick={handleEditItems}
                 disabled={isProcessing || isCancelling}
-                className="flex-1 rounded-xl border-2 border-primary bg-white py-3 font-semibold text-primary disabled:opacity-50"
+                className="flex-1 rounded-xl border-2 border-primary bg-surface py-3 font-semibold text-primary disabled:opacity-50"
               >
                 {isCancelling ? "Đang huỷ..." : "Sửa món"}
               </Button>
@@ -704,7 +705,7 @@ export default function CheckoutPage() {
               </span>
             </div>
             {!storeOpen && (
-              <p className="mb-2 text-center text-xxsmall font-medium text-[#C0341A]">
+              <p className="mb-2 text-center text-xxsmall font-medium text-primary">
                 {isAcceptingOrders
                   ? "Quán đang ngoài giờ phục vụ, chưa nhận đơn."
                   : "Quán đang tạm nghỉ, chưa nhận đơn."}
@@ -733,7 +734,7 @@ export default function CheckoutPage() {
       </div>
       {confirmingDuplicates && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/40 px-3 pb-4">
-          <div className="w-full rounded-2xl bg-white p-4 shadow-xl">
+          <div className="w-full rounded-2xl bg-surface p-4 shadow-xl">
             <p className="text-large-m font-bold text-text-primary">Món này đã có trong bill</p>
             <p className="mt-1 text-small text-text-secondary">Bạn đang chọn món trùng với món đã đặt trước hoặc đã gọi. Vui lòng kiểm tra để tránh trùng món.</p>
             <div className="mt-4 flex gap-2">
@@ -751,14 +752,14 @@ function PaymentOption({
   id,
   label,
   sublabel,
-  emoji,
+  icon,
   selected,
   onSelect,
 }: {
   id: string;
   label: string;
   sublabel: string;
-  emoji: string;
+  icon: React.ReactNode;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -768,10 +769,10 @@ function PaymentOption({
       className={`flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-colors ${
         selected
           ? "border-primary bg-primary/5"
-          : "border-neutral100 bg-white"
+          : "border-neutral100 bg-surface"
       }`}
     >
-      <span className="text-2xl">{emoji}</span>
+      <span className={selected ? "text-primary" : "text-text-secondary"}>{icon}</span>
       <div className="flex-1">
         <p className="text-small-m font-semibold text-text-primary">{label}</p>
         <p className="text-xxsmall text-text-secondary">{sublabel}</p>
@@ -783,7 +784,7 @@ function PaymentOption({
       >
         {selected && (
           <div className="flex h-full w-full items-center justify-center">
-            <div className="h-2 w-2 rounded-full bg-white" />
+            <div className="h-2 w-2 rounded-full bg-surface" />
           </div>
         )}
       </div>

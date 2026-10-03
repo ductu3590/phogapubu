@@ -93,19 +93,19 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
   };
 
   if (configQuery.isLoading) return <p className="p-4 text-small text-text-secondary">Đang tải thời gian đặt bàn…</p>;
-  if (configQuery.error) return <p className="p-4 text-small text-[#C0341A]">Không tải được cấu hình đặt bàn. Vui lòng thử lại.</p>;
-  if (mode === "create" && !canCreate) return <p className="m-4 rounded-xl bg-[#FDEDE9] p-3 text-small text-[#9A4634]">Quán hiện chưa nhận đặt bàn trước.</p>;
+  if (configQuery.error) return <p className="p-4 text-small text-primary">Không tải được cấu hình đặt bàn. Vui lòng thử lại.</p>;
+  if (mode === "create" && !canCreate) return <p className="m-4 rounded-xl bg-primary/10 p-3 text-small text-primary">Quán hiện chưa nhận đặt bàn trước.</p>;
 
   return (
     <div className="space-y-4 p-4 pb-8">
-      {existingDraft && <p className="rounded-xl bg-amber-50 p-3 text-small text-amber-800">Có một yêu cầu đang gửi dở. Bấm gửi lại để tránh tạo trùng đặt bàn.</p>}
+      {existingDraft && <p className="rounded-xl bg-warning-bg p-3 text-small text-warning">Có một yêu cầu đang gửi dở. Bấm gửi lại để tránh tạo trùng đặt bàn.</p>}
       <label className="block text-small font-medium">Họ và tên<input value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={100} className="mt-1.5 w-full rounded-xl border border-neutral200 px-3 py-2.5" placeholder="Tên người đặt" /></label>
       <label className="block text-small font-medium">Số điện thoại<input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} inputMode="tel" maxLength={20} className="mt-1.5 w-full rounded-xl border border-neutral200 px-3 py-2.5" placeholder="Số để quán liên hệ" /></label>
       <label className="block text-small font-medium">Số khách<input value={partySize} onChange={(e) => setPartySize(e.target.value)} inputMode="numeric" type="number" min={1} max={100} className="mt-1.5 w-full rounded-xl border border-neutral200 px-3 py-2.5" /></label>
       <label className="block text-small font-medium">Ngày đến<input type="date" value={localDate} min={configQuery.data?.minimumDate} max={configQuery.data?.maximumDate} onChange={(e) => setLocalDate(e.target.value)} className="mt-1.5 w-full rounded-xl border border-neutral200 px-3 py-2.5" /></label>
-      <div><p className="text-small font-medium">Giờ đến</p><div className="mt-2 flex flex-wrap gap-2">{slotsQuery.isLoading && <span className="text-small text-text-secondary">Đang tải giờ trống…</span>}{slotsQuery.data?.map((slot) => <button type="button" key={slot.arrivalAt} onClick={() => setArrivalAt(slot.arrivalAt)} className={`rounded-lg border px-3 py-2 text-small ${arrivalAt === slot.arrivalAt ? "border-primary bg-primary text-white" : "border-neutral200 bg-white"}`}>{slot.localTime}</button>)}{!slotsQuery.isLoading && localDate && slotsQuery.data?.length === 0 && <span className="text-small text-text-secondary">Không còn giờ phù hợp trong ngày này.</span>}</div></div>
+      <div><p className="text-small font-medium">Giờ đến</p><div className="mt-2 flex flex-wrap gap-2">{slotsQuery.isLoading && <span className="text-small text-text-secondary">Đang tải giờ trống…</span>}{slotsQuery.data?.map((slot) => <button type="button" key={slot.arrivalAt} onClick={() => setArrivalAt(slot.arrivalAt)} className={`rounded-lg border px-3 py-2 text-small ${arrivalAt === slot.arrivalAt ? "border-primary bg-primary text-white" : "border-neutral200 bg-surface"}`}>{slot.localTime}</button>)}{!slotsQuery.isLoading && localDate && slotsQuery.data?.length === 0 && <span className="text-small text-text-secondary">Không còn giờ phù hợp trong ngày này.</span>}</div></div>
       <label className="block text-small font-medium">Ghi chú cho quán (không bắt buộc)<textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} maxLength={1000} className="mt-1.5 min-h-20 w-full rounded-xl border border-neutral200 px-3 py-2.5" placeholder="Ví dụ: có trẻ nhỏ, cần ghế em bé" /></label>
-      {error && <p className="rounded-xl bg-[#FDEDE9] p-3 text-small text-[#C0341A]">{error}</p>}
+      {error && <p className="rounded-xl bg-primary/10 p-3 text-small text-primary">{error}</p>}
       <button type="button" onClick={submit} disabled={submitting || slotsQuery.isLoading} className="w-full rounded-xl bg-primary py-3 text-small-m font-bold text-white disabled:opacity-50">{submitting ? "Đang gửi…" : mode === "change" ? "Gửi yêu cầu đổi lịch" : existingDraft ? "Gửi lại yêu cầu đặt bàn" : "Gửi yêu cầu đặt bàn"}</button>
     </div>
   );
