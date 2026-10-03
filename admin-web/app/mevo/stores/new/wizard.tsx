@@ -1,5 +1,6 @@
 // admin-web/app/mevo/stores/new/wizard.tsx
 'use client'
+import { StatusDot } from '@/components/ui/badge'
 
 import {
   assignStoreOwner, createStore, updateAppConfig, updateCheckoutConfig,
@@ -52,11 +53,11 @@ export default function StoreWizard() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">Tạo quán mới</h1>
+    <div className="flex-1 overflow-y-auto bg-background p-4 md:p-6">
+      <h1 className="mb-2 text-2xl font-bold text-foreground">Tạo quán mới</h1>
       <StepBar current={step} />
-      <div className="max-w-xl rounded-xl border border-gray-200 bg-white p-6">
-        {error && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</p>}
+      <div className="max-w-xl rounded-xl border border-border bg-surface p-6">
+        {error && <p className="mb-4 rounded-lg bg-critical-bg p-3 text-sm text-danger">{error}</p>}
         {step === 1 && <Step1 pending={pending} onSubmit={wrap(async (fd) => {
           const s = (fd.get('slug') as string).trim()
           if (!SLUG_RE.test(s)) throw new Error('Slug chỉ gồm chữ thường/số, nối bằng dấu gạch (vd: pho-ga-pubu)')
@@ -102,7 +103,7 @@ function StepBar({ current }: { current: number }) {
     <ol className="mb-6 flex flex-wrap gap-2">
       {STEP_LABELS.map((label, i) => {
         const n = i + 1
-        const state = n < current ? 'bg-green-100 text-green-700' : n === current ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'
+        const state = n < current ? 'bg-success-bg text-success' : n === current ? 'bg-primary text-white' : 'bg-secondary text-muted'
         return (
           <li key={label} className={`rounded-full px-3 py-1 text-xs font-medium ${state}`}>
             {n}. {label}
@@ -117,12 +118,12 @@ function Buttons({ pending, onSkip }: { pending: boolean; onSkip?: () => void })
   return (
     <div className="flex items-center gap-3 pt-2">
       <button type="submit" disabled={pending}
-        className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60">
+        className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60">
         {pending ? 'Đang lưu...' : 'Lưu & tiếp tục'}
       </button>
       {onSkip && (
         <button type="button" onClick={onSkip} disabled={pending}
-          className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60">
+          className="rounded-xl border border-border-strong px-4 py-2 text-sm font-medium text-muted hover:bg-item-hover disabled:opacity-60">
           Bỏ qua, điền sau
         </button>
       )}
@@ -136,10 +137,10 @@ function Field({ label, name, defaultValue, required, type, placeholder, onChang
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
+      <span className="mb-1 block text-sm font-medium text-foreground/80">{label}</span>
       <input name={name} type={type ?? 'text'} required={required} placeholder={placeholder}
         {...(onChange ? { value: value ?? '', onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value) } : { defaultValue })}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+        className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm" />
     </label>
   )
 }
@@ -166,10 +167,10 @@ function Step1({ pending, onSubmit }: { pending: boolean; onSubmit: (fd: FormDat
 function Step2({ pending, onSubmit, onSkip }: { pending: boolean; onSubmit: (fd: FormData) => void; onSkip: () => void }) {
   return (
     <form action={onSubmit} className="space-y-4">
-      <p className="text-sm text-gray-500">Màu chủ đạo áp cho thanh menu/nút bấm trên Mini App của quán này.</p>
+      <p className="text-sm text-muted">Màu chủ đạo áp cho thanh menu/nút bấm trên Mini App của quán này.</p>
       <label className="block">
-        <span className="mb-1 block text-sm font-medium text-gray-700">Màu chủ đạo</span>
-        <input type="color" name="primary_color" defaultValue="#A0673D" className="h-10 w-16 rounded-lg border border-gray-300" />
+        <span className="mb-1 block text-sm font-medium text-foreground/80">Màu chủ đạo</span>
+        <input type="color" name="primary_color" defaultValue="#A0673D" className="h-10 w-16 rounded-lg border border-border-strong" />
       </label>
       <Buttons pending={pending} onSkip={onSkip} />
     </form>
@@ -179,7 +180,7 @@ function Step2({ pending, onSubmit, onSkip }: { pending: boolean; onSubmit: (fd:
 function Step3({ pending, onSubmit, onSkip }: { pending: boolean; onSubmit: (fd: FormData) => void; onSkip: () => void }) {
   return (
     <form action={onSubmit} className="space-y-4">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-muted">
         Chưa có app Zalo (đang chờ duyệt)? Bấm &quot;Bỏ qua, điền sau&quot; — điền tiếp ở trang chi tiết quán.
       </p>
       {/* updateAppConfig đọc 2 select này ở trang chi tiết; wizard ghim giá trị khởi điểm qua hidden */}
@@ -203,8 +204,8 @@ function Step4({ pending, storeId, onSubmit, onSkip }: {
       <Field label="OA API App ID — app cha nhận webhook (không phải Mini App ID)" name="zalo_oa_app_id" />
       <Field label="OA Access Token" name="zalo_oa_access_token" type="password" />
       <Field label="OA API App Secret Key — webhook" name="zalo_app_secret_key" type="password" />
-      <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
-        <p className="mb-1 font-medium text-gray-700">Cấu hình ở Zalo OA API app cha, không phải Open APIs của Mini App:</p>
+      <div className="rounded-lg bg-background p-3 text-sm text-muted">
+        <p className="mb-1 font-medium text-foreground/80">Cấu hình ở Zalo OA API app cha, không phải Open APIs của Mini App:</p>
         <p className="mb-2">Webhook URL: <CopyInline text={webhookUrl} /></p>
         <p>Nhớ set cả <strong>Notify Url</strong> của phương thức Chuyển khoản ngân hàng (Checkout SDK) — bỏ trống là đơn kẹt pending.</p>
       </div>
@@ -237,9 +238,9 @@ function Step5({ pending, storeId, onSkip, onAssigned, onNext }: {
   // Không tự nhảy bước sau khi gán — chờ user copy mật khẩu tạm (chỉ hiện 1 LẦN) rồi mới bấm tiếp.
   return (
     <div className="space-y-4">
-      {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="rounded-lg bg-critical-bg p-3 text-sm text-danger">{error}</p>}
       {result && (
-        <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
+        <div className="rounded-lg bg-success-bg p-3 text-sm text-success">
           Đã gán <strong>{result.email}</strong> làm chủ quán.
           {result.tempPassword ? (
             <> Mật khẩu tạm (chỉ hiện 1 lần, copy ngay): <CopyInline text={result.tempPassword} /></>
@@ -250,15 +251,15 @@ function Step5({ pending, storeId, onSkip, onAssigned, onNext }: {
         <Field label="Email chủ quán" name="email" type="email" required />
         <div className="flex items-center gap-3 pt-2">
           <button type="submit" disabled={busy || pending}
-            className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60">
+            className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60">
             {busy ? 'Đang xử lý...' : 'Gán / tạo tài khoản'}
           </button>
           {result ? (
-            <button type="button" onClick={onNext} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+            <button type="button" onClick={onNext} className="rounded-xl border border-border-strong px-4 py-2 text-sm font-medium text-muted hover:bg-item-hover">
               Tiếp tục
             </button>
           ) : (
-            <button type="button" onClick={onSkip} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+            <button type="button" onClick={onSkip} className="rounded-xl border border-border-strong px-4 py-2 text-sm font-medium text-muted hover:bg-item-hover">
               Bỏ qua, điền sau
             </button>
           )}
@@ -280,18 +281,18 @@ function StepDone({ storeId, slug, done }: { storeId: string; slug: string; done
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="mb-2 text-lg font-semibold text-gray-800">Đã tạo quán 🎉</h2>
+        <h2 className="mb-2 text-lg font-semibold text-foreground">Đã tạo quán</h2>
         <ul className="space-y-1 text-sm">
           {items.map(([label, ok]) => (
-            <li key={label}>{ok ? '✅' : '⏳'} {label}{!ok && ' — điền sau ở trang chi tiết'}</li>
+            <li key={label} className="flex items-center gap-2"><StatusDot tone={ok ? 'success' : 'warning'} />{label}{!ok && ' — điền sau ở trang chi tiết'}</li>
           ))}
         </ul>
-        <a href={`/mevo/stores/${storeId}`} className="mt-2 inline-block text-sm font-medium text-orange-600 hover:underline">
+        <a href={`/mevo/stores/${storeId}`} className="mt-2 inline-block text-sm font-medium text-primary hover:underline">
           Mở trang chi tiết quán →
         </a>
       </div>
-      <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">
-        <p className="mb-2 font-medium text-gray-700">Sinh mini-app cho quán (chạy trên máy dev, không phải trên web):</p>
+      <div className="rounded-lg bg-background p-4 text-sm text-muted">
+        <p className="mb-2 font-medium text-foreground/80">Sinh mini-app cho quán (chạy trên máy dev, không phải trên web):</p>
         <p className="mb-2">Mở Claude Code tại thư mục repo MEVO và gõ:</p>
         <CopyInline text={command} />
         <p className="mt-2">Claude sẽ tạo thư mục <code>mini-app-instances/{slug}/</code>, tự điền .env và npm install. Còn lại: zmp login, zmp deploy.</p>
@@ -305,8 +306,8 @@ function CopyInline({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
   return (
     <span className="inline-flex items-center gap-2">
-      <code className="rounded bg-white px-2 py-0.5 font-mono text-xs">{text}</code>
-      <button type="button" className="text-xs font-medium text-orange-600 hover:underline"
+      <code className="rounded bg-surface px-2 py-0.5 font-mono text-xs">{text}</code>
+      <button type="button" className="text-xs font-medium text-primary hover:underline"
         onClick={async () => {
           // clipboard API chỉ có ở secure context (https/localhost); ghi lỗi thì không báo copy giả.
           try {

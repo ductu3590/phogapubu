@@ -74,10 +74,10 @@ export default function ZaloOwnerNotifications({
   const canCreate = state.hasOaId && state.hasOaAppId && state.hasAppSecret && state.configEnabled
 
   return (
-    <div className="mt-5 space-y-4 border-t border-gray-100 pt-5">
+    <div className="mt-5 space-y-4 border-t border-border pt-5">
       <div>
-        <h3 className="font-semibold text-gray-800">Người nhận thông báo đặt bàn</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <h3 className="font-semibold text-foreground">Người nhận thông báo đặt bàn</h3>
+        <p className="mt-1 text-sm text-muted">
           Chủ quán phải nhắn mã kết nối vào đúng OA. Hệ thống lấy UID trực tiếp từ webhook đã ký,
           không cho nhập UID bằng tay.
         </p>
@@ -91,25 +91,25 @@ export default function ZaloOwnerNotifications({
         <Credential label="App Secret" ready={state.hasAppSecret} />
       </div>
 
-      <div className="rounded-lg bg-gray-50 p-3 text-sm">
-        <div className="font-medium text-gray-700">Webhook URL</div>
-        <code className="mt-1 block break-all text-xs text-gray-600">{state.webhookPath}</code>
+      <div className="rounded-lg bg-background p-3 text-sm">
+        <div className="font-medium text-foreground/80">Webhook URL</div>
+        <code className="mt-1 block break-all text-xs text-muted">{state.webhookPath}</code>
         <button
           type="button"
           onClick={copyWebhookUrl}
-          className="mt-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700"
+          className="mt-2 rounded-md border border-border-strong bg-surface px-3 py-1.5 text-xs font-medium text-foreground/80"
         >
           {copied ? 'Đã sao chép' : 'Sao chép URL đầy đủ'}
         </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="text-gray-500">Trạng thái:</span>
-        <span className={state.recipientStatus === 'verified' ? 'font-medium text-green-600' : 'font-medium text-gray-700'}>
+        <span className="text-muted">Trạng thái:</span>
+        <span className={state.recipientStatus === 'verified' ? 'font-medium text-success' : 'font-medium text-foreground/80'}>
           {state.recipientStatus ? recipientLabels[state.recipientStatus] : 'Chưa kết nối'}
         </span>
         {state.verifiedAt && (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-muted">
             {new Date(state.verifiedAt).toLocaleString('vi-VN')}
           </span>
         )}
@@ -120,7 +120,7 @@ export default function ZaloOwnerNotifications({
           type="button"
           disabled={!canCreate || pending}
           onClick={createChallenge}
-          className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-border-strong"
         >
           {pending ? 'Đang xử lý…' : 'Tạo mã kết nối'}
         </button>
@@ -129,7 +129,7 @@ export default function ZaloOwnerNotifications({
             type="button"
             disabled={pending}
             onClick={disableRecipient}
-            className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 disabled:opacity-50"
+            className="rounded-lg border border-critical-border px-4 py-2 text-sm font-medium text-danger disabled:opacity-50"
           >
             Tắt người nhận
           </button>
@@ -139,7 +139,7 @@ export default function ZaloOwnerNotifications({
             type="button"
             disabled={pending}
             onClick={sendTest}
-            className="rounded-lg border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 disabled:opacity-50"
+            className="rounded-lg border border-info-border px-4 py-2 text-sm font-medium text-info disabled:opacity-50"
           >
             {pending ? 'Đang gửi…' : 'Gửi tin thử'}
           </button>
@@ -147,44 +147,44 @@ export default function ZaloOwnerNotifications({
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+          className="rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground/80"
         >
           Tải lại trạng thái
         </button>
       </div>
 
       {state.lastTestedAt && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted">
           Gửi thử gần nhất: {new Date(state.lastTestedAt).toLocaleString('vi-VN')} — {state.lastTestStatus === 'sent' ? 'Đã gửi' : 'Thất bại'}
         </p>
       )}
 
       {!canCreate && (
-        <p className="text-sm text-amber-700">
+        <p className="text-sm text-warning">
           Cần đủ OA ID, OA API App ID và App Secret đang bật trước khi tạo mã.
         </p>
       )}
 
       {challenge && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+        <div className="rounded-lg border border-info-border bg-info-bg p-4 text-sm text-info">
           <p className="font-medium">Chủ quán mở Zalo, vào đúng OA rồi gửi nguyên văn:</p>
-          <code className="my-3 block select-all break-all rounded bg-white px-3 py-2 text-base font-bold">
+          <code className="my-3 block select-all break-all rounded bg-surface px-3 py-2 text-base font-bold">
             {challenge.message}
           </code>
           <p>Mã hết hạn lúc {new Date(challenge.expiresAt).toLocaleTimeString('vi-VN')} và chỉ dùng một lần.</p>
         </div>
       )}
 
-      {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+      {error && <p className="text-sm font-medium text-danger">{error}</p>}
     </div>
   )
 }
 
 function Credential({ label, ready }: { label: string; ready: boolean }) {
   return (
-    <div className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
-      <div className="text-gray-500">{label}</div>
-      <div className={ready ? 'font-medium text-green-600' : 'font-medium text-amber-600'}>
+    <div className="rounded-lg border border-border px-3 py-2 text-sm">
+      <div className="text-muted">{label}</div>
+      <div className={ready ? 'font-medium text-success' : 'font-medium text-warning'}>
         {ready ? 'Đã có' : 'Còn thiếu'}
       </div>
     </div>

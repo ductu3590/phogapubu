@@ -1,3 +1,9 @@
+import { ChevronRight, Plus } from 'lucide-react'
+import { Badge as StatusBadge } from '@/components/ui/badge'
+import { getButtonClasses } from '@/components/ui/button-classes'
+import { PageHeader } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/feedback'
+import type { StatusTone } from '@/components/ui/status'
 import { createAdminClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
@@ -16,61 +22,100 @@ export default async function MevoStoresPage() {
   const checkoutMap = new Map((checkoutConfigs ?? []).map((c) => [c.store_id, c]))
   const zaloMap = new Map((zaloConfigs ?? []).map((c) => [c.store_id, c]))
 
+  const rows = (stores ?? []).map((store) => ({
+    store,
+    checkout: checkoutMap.get(store.id),
+    zalo: zaloMap.get(store.id),
+    deploy: appMap.get(store.id)?.deployment_status ?? 'not_deployed',
+  }))
+
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Danh sách quán</h1>
-        <Link href="/mevo/stores/new" className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600">
-          + Tạo quán mới
-        </Link>
-      </div>
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
-            <tr>
-              <th className="px-4 py-3">Tên quán</th>
-              <th className="px-4 py-3">Slug</th>
-              <th className="px-4 py-3">Mini App ID</th>
-              <th className="px-4 py-3">Checkout</th>
-              <th className="px-4 py-3">OA</th>
-              <th className="px-4 py-3">Deploy</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(stores ?? []).map((store) => {
-              const checkout = checkoutMap.get(store.id)
-              const zalo = zaloMap.get(store.id)
-              const app = appMap.get(store.id)
-              return (
-                <tr key={store.id} className="border-t border-gray-100">
-                  <td className="px-4 py-3 font-medium text-gray-800">{store.name}</td>
-                  <td className="px-4 py-3 text-gray-500">{store.slug}</td>
-                  <td className="px-4 py-3 text-gray-500">{checkout?.zalo_mini_app_id ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <Badge ok={!!checkout?.is_enabled} okLabel="Đã cấu hình" noLabel="Chưa cấu hình" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge ok={!!zalo?.is_enabled} okLabel="Đã cấu hình" noLabel="Chưa cấu hình" />
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{app?.deployment_status ?? 'not_deployed'}</td>
-                  <td className="px-4 py-3">
-                    <Link href={`/mevo/stores/${store.id}`} className="text-orange-500 hover:underline">Chi tiết →</Link>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+    <div className="flex-1 overflow-y-auto bg-background p-4 md:p-6">
+      <div className="mx-auto w-full max-w-6xl space-y-4">
+        <PageHeader
+          title="Danh sách quán"
+          actions={<Link href="/mevo/stores/new" className={getButtonClasses('primary')}><Plus className="size-4" aria-hidden />Tạo quán mới</Link>}
+        />
+
+        {rows.length === 0 ? (
+          <div className="rounded-xl border border-border bg-surface">
+            <EmptyState>Chưa có quán nào. Bấm Tạo quán mới để bắt đầu.</EmptyState>
+          </div>
+        ) : (
+          <>
+            {/* Từ md: bảng đủ cột */}
+            <div className="hidden overflow-hidden rounded-xl border border-border bg-surface md:block">
+              <table className="w-full text-sm">
+                <thead className="bg-background text-left text-xs font-medium tracking-wide text-muted uppercase">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Tên quán</th>
+                    <th className="px-4 py-3 font-medium">Slug</th>
+                    <th className="px-4 py-3 font-medium">Mini App ID</th>
+                    <th className="px-4 py-3 font-medium">Checkout</th>
+                    <th className="px-4 py-3 font-medium">OA</th>
+                    <th className="px-4 py-3 font-medium">Deploy</th>
+                    <th className="px-4 py-3"><span className="sr-only">Thao tác</span></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {rows.map(({ store, checkout, zalo, deploy }) => (
+                    <tr key={store.id} className="hover:bg-surface-hover">
+                      <td className="px-4 py-3 font-medium text-foreground">{store.name}</td>
+                      <td className="px-4 py-3 font-mono text-[13px] text-muted">{store.slug}</td>
+                      <td className="px-4 py-3 font-mono text-[13px] text-muted">{checkout?.zalo_mini_app_id ?? '—'}</td>
+                      <td className="px-4 py-3"><ConfigBadge ok={!!checkout?.is_enabled} /></td>
+                      <td className="px-4 py-3"><ConfigBadge ok={!!zalo?.is_enabled} /></td>
+                      <td className="px-4 py-3"><DeployBadge status={deploy} /></td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/mevo/stores/${store.id}`} className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline">
+                          Chi tiết<ChevronRight className="size-4" aria-hidden />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Điện thoại: mỗi quán một dòng bấm được, không bảng cuộn ngang */}
+            <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface md:hidden">
+              {rows.map(({ store, checkout, zalo, deploy }) => (
+                <li key={store.id}>
+                  <Link href={`/mevo/stores/${store.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-item-hover">
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <p className="font-medium text-foreground">{store.name}</p>
+                      <p className="truncate font-mono text-[13px] text-muted">{store.slug}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        <ConfigBadge ok={!!checkout?.is_enabled} label="Checkout" />
+                        <ConfigBadge ok={!!zalo?.is_enabled} label="OA" />
+                        <DeployBadge status={deploy} />
+                      </div>
+                    </div>
+                    <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
     </div>
   )
 }
 
-function Badge({ ok, okLabel, noLabel }: { ok: boolean; okLabel: string; noLabel: string }) {
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ok ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-      {ok ? okLabel : noLabel}
-    </span>
-  )
+const DEPLOY_LABEL: Record<string, { label: string; tone: StatusTone }> = {
+  published: { label: 'Đã publish', tone: 'success' },
+  deployed: { label: 'Đã deploy', tone: 'info' },
+  not_deployed: { label: 'Chưa deploy', tone: 'neutral' },
+  failed: { label: 'Lỗi deploy', tone: 'critical' },
+}
+
+function DeployBadge({ status }: { status: string }) {
+  const item = DEPLOY_LABEL[status] ?? { label: status, tone: 'neutral' as StatusTone }
+  return <StatusBadge tone={item.tone}>{item.label}</StatusBadge>
+}
+
+function ConfigBadge({ ok, label }: { ok: boolean; label?: string }) {
+  const text = ok ? 'Đã cấu hình' : 'Chưa cấu hình'
+  return <StatusBadge tone={ok ? 'success' : 'neutral'}>{label ? `${label}: ${text.toLowerCase()}` : text}</StatusBadge>
 }

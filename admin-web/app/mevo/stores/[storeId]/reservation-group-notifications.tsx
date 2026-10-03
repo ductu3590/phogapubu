@@ -71,39 +71,39 @@ export default function ReservationGroupNotifications({ storeId, initialState, i
   }
 
   return (
-    <div className="mt-5 space-y-4 border-t border-gray-100 pt-5">
+    <div className="mt-5 space-y-4 border-t border-border pt-5">
       <div>
-        <h3 className="font-semibold text-gray-800">Thông báo nội bộ (best-effort)</h3>
-        <p className="mt-1 text-sm text-gray-500">Dùng bot nội bộ để báo booking mới cho nhóm vận hành. POS vẫn là nguồn xử lý chính; khi relay lỗi, chủ quán xem POS hoặc gọi điện.</p>
+        <h3 className="font-semibold text-foreground">Thông báo nội bộ (best-effort)</h3>
+        <p className="mt-1 text-sm text-muted">Dùng bot nội bộ để báo booking mới cho nhóm vận hành. POS vẫn là nguồn xử lý chính; khi relay lỗi, chủ quán xem POS hoặc gọi điện.</p>
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
         <Status label="Kênh" value={state.enabled ? 'Đang bật' : 'Đang tắt'} ok={state.enabled} />
         <Status label="Group ID" value={state.hasDestination ? 'Đã lưu (ẩn)' : 'Chưa lưu'} ok={state.hasDestination} />
         <Status label="Gửi gần nhất" value={state.lastDeliveryStatus ? statusLabel[state.lastDeliveryStatus] : 'Chưa có'} ok={state.lastDeliveryStatus === 'sent'} />
       </div>
-      <p className="text-xs text-gray-500">Gửi lại: {state.retryContractVerified ? 'Đã xác minh relay khử trùng theo mã delivery' : 'Đang khóa đến khi MEVO xác minh relay không gửi trùng'}</p>
-      {state.lastDeliveryAt && <p className="text-xs text-gray-500">Cập nhật gần nhất: {new Date(state.lastDeliveryAt).toLocaleString('vi-VN')}{state.lastProviderCode ? ` · ${state.lastProviderCode}` : ''}</p>}
-      <label className="block text-sm font-medium text-gray-700">
+      <p className="text-xs text-muted">Gửi lại: {state.retryContractVerified ? 'Đã xác minh relay khử trùng theo mã delivery' : 'Đang khóa đến khi MEVO xác minh relay không gửi trùng'}</p>
+      {state.lastDeliveryAt && <p className="text-xs text-muted">Cập nhật gần nhất: {new Date(state.lastDeliveryAt).toLocaleString('vi-VN')}{state.lastProviderCode ? ` · ${state.lastProviderCode}` : ''}</p>}
+      <label className="block text-sm font-medium text-foreground/80">
         Zalo Group ID mới
-        <input value={groupId} onChange={(event) => setGroupId(event.target.value)} placeholder="Nhập để lưu hoặc thay nhóm; giá trị cũ luôn ẩn" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+        <input value={groupId} onChange={(event) => setGroupId(event.target.value)} placeholder="Nhập để lưu hoặc thay nhóm; giá trị cũ luôn ẩn" className="mt-1 w-full rounded-lg border border-border-strong px-3 py-2 text-sm" />
       </label>
-      <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /> Bật cảnh báo nhóm sau khi lưu</label>
+      <label className="flex items-center gap-2 text-sm text-foreground/80"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /> Bật cảnh báo nhóm sau khi lưu</label>
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={pending} onClick={save} className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white disabled:bg-gray-300">{pending ? 'Đang lưu…' : 'Lưu cấu hình'}</button>
-        <button type="button" disabled={pending || !state.enabled} onClick={sendTest} className="rounded-lg border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 disabled:opacity-50">Gửi tin thử</button>
-        {state.enabled && <button type="button" disabled={pending} onClick={disable} className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 disabled:opacity-50">Tắt cảnh báo</button>}
+        <button type="button" disabled={pending} onClick={save} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:bg-border-strong">{pending ? 'Đang lưu…' : 'Lưu cấu hình'}</button>
+        <button type="button" disabled={pending || !state.enabled} onClick={sendTest} className="rounded-lg border border-info-border px-4 py-2 text-sm font-medium text-info disabled:opacity-50">Gửi tin thử</button>
+        {state.enabled && <button type="button" disabled={pending} onClick={disable} className="rounded-lg border border-critical-border px-4 py-2 text-sm font-medium text-danger disabled:opacity-50">Tắt cảnh báo</button>}
       </div>
-      {(initialDeliveries?.length ?? 0) > 0 && <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full text-left text-xs"><thead className="bg-gray-50 text-gray-500"><tr><th className="px-3 py-2">Trạng thái</th><th className="px-3 py-2">Lần gửi</th><th className="px-3 py-2">Cập nhật</th><th className="px-3 py-2">Thao tác</th></tr></thead>
-          <tbody>{initialDeliveries!.map((delivery) => <tr key={delivery.id} className="border-t border-gray-100"><td className="px-3 py-2">{deliveryStatusLabel(delivery.status, delivery.stale)}{delivery.providerCode ? ` · ${delivery.providerCode}` : ''}</td><td className="px-3 py-2">{delivery.attemptCount}</td><td className="px-3 py-2">{new Date(delivery.updatedAt).toLocaleString('vi-VN')}</td><td className="px-3 py-2">{delivery.canRetry ? <button type="button" disabled={pending} onClick={() => retry(delivery)} className="text-blue-700 disabled:opacity-50">Gửi lại</button> : <span title={delivery.retryBlockedReason ?? undefined}>—</span>}</td></tr>)}</tbody>
+      {(initialDeliveries?.length ?? 0) > 0 && <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="min-w-full text-left text-xs"><thead className="bg-background text-muted"><tr><th className="px-3 py-2">Trạng thái</th><th className="px-3 py-2">Lần gửi</th><th className="px-3 py-2">Cập nhật</th><th className="px-3 py-2">Thao tác</th></tr></thead>
+          <tbody>{initialDeliveries!.map((delivery) => <tr key={delivery.id} className="border-t border-border"><td className="px-3 py-2">{deliveryStatusLabel(delivery.status, delivery.stale)}{delivery.providerCode ? ` · ${delivery.providerCode}` : ''}</td><td className="px-3 py-2">{delivery.attemptCount}</td><td className="px-3 py-2">{new Date(delivery.updatedAt).toLocaleString('vi-VN')}</td><td className="px-3 py-2">{delivery.canRetry ? <button type="button" disabled={pending} onClick={() => retry(delivery)} className="text-info disabled:opacity-50">Gửi lại</button> : <span title={delivery.retryBlockedReason ?? undefined}>—</span>}</td></tr>)}</tbody>
         </table>
       </div>}
-      {notice && <p className="text-sm font-medium text-green-700">{notice}</p>}
-      {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+      {notice && <p className="text-sm font-medium text-success">{notice}</p>}
+      {error && <p className="text-sm font-medium text-danger">{error}</p>}
     </div>
   )
 }
 
 function Status({ label, value, ok }: { label: string; value: string; ok: boolean }) {
-  return <div className="rounded-lg border border-gray-200 px-3 py-2 text-sm"><div className="text-gray-500">{label}</div><div className={ok ? 'font-medium text-green-600' : 'font-medium text-gray-600'}>{value}</div></div>
+  return <div className="rounded-lg border border-border px-3 py-2 text-sm"><div className="text-muted">{label}</div><div className={ok ? 'font-medium text-success' : 'font-medium text-muted'}>{value}</div></div>
 }

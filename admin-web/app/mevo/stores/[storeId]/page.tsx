@@ -46,8 +46,8 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
   const saveWorkflow = saveMevoWorkflowSettings.bind(null, storeId)
 
   return (
-    <div className="flex-1 space-y-6 overflow-y-auto p-6">
-      <h1 className="text-2xl font-bold text-gray-900">{store.name}</h1>
+    <div className="flex-1 space-y-6 overflow-y-auto bg-background p-4 md:p-6">
+      <h1 className="text-2xl font-bold text-foreground">{store.name}</h1>
 
       <Section title="Thông tin quán">
         <SaveForm action={updateInfo}>
@@ -62,7 +62,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
       </Section>
 
       <Section title="Giao diện Mini App">
-        <p className="mb-3 text-sm text-gray-500">
+        <p className="mb-3 text-sm text-muted">
           Màu chủ đạo áp cho thanh menu/nút bấm trên Mini App của quán này. Không ảnh hưởng quán khác.
         </p>
         <SaveForm action={updateColor}>
@@ -79,8 +79,8 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
         />
       </Section>
 
-      <div className="rounded-xl border border-blue-200 bg-blue-50/30 p-4">
-      <h2 className="mb-4 text-lg font-semibold text-gray-800">Zalo — cấu hình tích hợp</h2>
+      <div className="rounded-xl border border-info-border bg-info-bg p-4">
+      <h2 className="mb-4 text-lg font-semibold text-foreground">Zalo — cấu hình tích hợp</h2>
       <div className="space-y-4">
       <Section title="Mini App / Onboarding checklist">
         <SaveForm action={updateApp}>
@@ -95,11 +95,11 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
       </Section>
 
       <Section title="ZaloPay Checkout">
-        <p className="mb-3 text-sm text-gray-500">
+        <p className="mb-3 text-sm text-muted">
           Chỉ dành cho quán <b>trả trước</b> (khách thanh toán trong app). Quán <b>trả sau</b> thu
           tiền tại quầy nên bỏ trống cả mục này — App ID đã nhập ở mục Mini App phía trên.
         </p>
-        <p className="mb-3 text-sm text-gray-500">
+        <p className="mb-3 text-sm text-muted">
           Trạng thái: <StatusText ok={!!checkoutConfig?.is_enabled} />
           {checkoutConfig?.updated_at && ` — cập nhật lúc ${new Date(checkoutConfig.updated_at).toLocaleString('vi-VN')}`}
         </p>
@@ -110,10 +110,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
       </Section>
 
       <Section title="Official Account / Webhook">
-        <p className="mb-3 text-sm text-gray-500">
+        <p className="mb-3 text-sm text-muted">
           OA ID hiện tại: {store.zalo_oa_id ?? '—'} (sửa ở mục &quot;Thông tin quán&quot; phía trên — không phải secret)
         </p>
-        <p className="mb-3 text-sm text-gray-500">Trạng thái secret: <StatusText ok={!!zaloConfig?.is_enabled} /></p>
+        <p className="mb-3 text-sm text-muted">Trạng thái secret: <StatusText ok={!!zaloConfig?.is_enabled} /></p>
         <SaveForm action={updateZalo}>
           <Field label="OA API App ID — app cha nhận webhook (không phải Mini App ID)" name="zalo_oa_app_id" defaultValue={zaloConfig?.zalo_oa_app_id ?? ''} />
           <SecretField label="OA Access Token (bỏ trống nếu không đổi)" name="zalo_oa_access_token" value={zaloConfig?.zalo_oa_access_token ?? ''} />
@@ -129,24 +129,24 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
           <ul className="mb-3 space-y-1.5">
             {operators.map((op) => (
               <li key={op.user_id} className="flex flex-wrap items-center gap-2 text-sm">
-                <span className={op.is_active === false ? 'text-gray-400 line-through' : 'text-gray-800'}>
+                <span className={op.is_active === false ? 'text-muted line-through' : 'text-foreground'}>
                   {emailById.get(op.user_id) ?? '(không rõ email)'}
                 </span>
-                <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-600">
+                <span className="rounded-full bg-primary-light px-2 py-0.5 text-xs font-medium text-primary">
                   {op.role === 'store_owner' ? 'Chủ quán' : op.role === 'store_staff' ? 'Nhân viên' : op.role}
                 </span>
                 {op.is_active === false && (
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">Đã khoá</span>
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted">Đã khoá</span>
                 )}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mb-3 text-sm text-gray-500">Chưa gán tài khoản nào</p>
+          <p className="mb-3 text-sm text-muted">Chưa gán tài khoản nào</p>
         )}
-        <p className="mb-3 text-sm text-gray-500">
+        <p className="mb-3 text-sm text-muted">
           Quên mật khẩu?{' '}
-          <Link href="/mevo/accounts" className="text-orange-500 hover:underline">
+          <Link href="/mevo/accounts" className="text-primary hover:underline">
             Đặt lại ở trang Tài khoản →
           </Link>
         </p>
@@ -158,8 +158,8 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6">
-      <h2 className="mb-4 text-lg font-semibold text-gray-800">{title}</h2>
+    <div className="rounded-xl border border-border bg-surface p-6">
+      <h2 className="mb-4 text-lg font-semibold text-foreground">{title}</h2>
       {children}
     </div>
   )
@@ -168,8 +168,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ label, name, defaultValue, required, type }: { label: string; name: string; defaultValue?: string; required?: boolean; type?: string }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
-      <input name={name} type={type ?? 'text'} defaultValue={defaultValue} required={required} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+      <span className="mb-1 block text-sm font-medium text-foreground/80">{label}</span>
+      <input name={name} type={type ?? 'text'} defaultValue={defaultValue} required={required} className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm" />
     </label>
   )
 }
@@ -177,8 +177,8 @@ function Field({ label, name, defaultValue, required, type }: { label: string; n
 function TextArea({ label, name, defaultValue }: { label: string; name: string; defaultValue?: string }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
-      <textarea name={name} defaultValue={defaultValue} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" rows={3} />
+      <span className="mb-1 block text-sm font-medium text-foreground/80">{label}</span>
+      <textarea name={name} defaultValue={defaultValue} className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm" rows={3} />
     </label>
   )
 }
@@ -186,8 +186,8 @@ function TextArea({ label, name, defaultValue }: { label: string; name: string; 
 function SelectField({ label, name, defaultValue, options }: { label: string; name: string; defaultValue: string; options: string[] }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
-      <select name={name} defaultValue={defaultValue} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+      <span className="mb-1 block text-sm font-medium text-foreground/80">{label}</span>
+      <select name={name} defaultValue={defaultValue} className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm">
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </label>
@@ -197,15 +197,15 @@ function SelectField({ label, name, defaultValue, options }: { label: string; na
 function ColorField({ label, name, defaultValue }: { label: string; name: string; defaultValue: string }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
+      <span className="mb-1 block text-sm font-medium text-foreground/80">{label}</span>
       <div className="flex items-center gap-3">
-        <input type="color" name={name} defaultValue={defaultValue} className="h-10 w-16 rounded-lg border border-gray-300" />
-        <span className="text-sm text-gray-500">{defaultValue}</span>
+        <input type="color" name={name} defaultValue={defaultValue} className="h-10 w-16 rounded-lg border border-border-strong" />
+        <span className="text-sm text-muted">{defaultValue}</span>
       </div>
     </label>
   )
 }
 
 function StatusText({ ok }: { ok: boolean }) {
-  return <span className={ok ? 'font-medium text-green-600' : 'font-medium text-gray-400'}>{ok ? 'Đã cấu hình' : 'Chưa cấu hình'}</span>
+  return <span className={ok ? 'font-medium text-success' : 'font-medium text-muted'}>{ok ? 'Đã cấu hình' : 'Chưa cấu hình'}</span>
 }

@@ -38,12 +38,12 @@ export default function SaveForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+          className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
         >
           {pending ? 'Đang lưu...' : submitLabel}
         </button>
-        {saved && <span className="text-sm font-medium text-green-600">✓ Đã lưu</span>}
-        {error && <span className="text-sm font-medium text-red-600">{error}</span>}
+        {saved && <span className="text-sm font-medium text-success">✓ Đã lưu</span>}
+        {error && <span className="text-sm font-medium text-danger">{error}</span>}
       </div>
     </form>
   )
