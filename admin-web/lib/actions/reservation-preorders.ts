@@ -3,6 +3,7 @@
 import { randomUUID } from 'crypto'
 import { requireOperator } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
+import { toPreorderRow, type PreorderRpcRow } from '@/lib/reservation-rows'
 
 export type PreorderPrintKind = 'original' | 'adjustment' | 'reprint'
 export type PreorderSnapshot = {
@@ -24,13 +25,6 @@ export type ReservationPreorderRow = {
   releasedSnapshot: PreorderSnapshot | null; tableNumbers: string[]; createdAt: string
 }
 
-type RpcRow = {
-  order_id: string; reservation_id: string; customer_name: string; customer_phone: string
-  party_size: number; arrival_at: string; reservation_status: string; order_status: string
-  revision: number; released_revision: number; needs_print: boolean; needs_review: boolean
-  waste_review_required: boolean; total_amount: number; current_snapshot: PreorderSnapshot
-  released_snapshot: PreorderSnapshot | null; table_numbers: string[]; created_at: string
-}
 
 export type PreorderActionResult =
   | { ok: true; already: boolean; releasedRevision?: number; printJobId?: string; snapshot?: PreorderSnapshot }
@@ -51,16 +45,7 @@ export async function listReservationPreorderQueue(): Promise<{ ok: true; rows: 
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền xử lý món đặt trước' }
   const { data, error: rpcError } = await supabase.rpc('list_reservation_preorder_queue', { p_store_id: operator.storeId })
   if (rpcError || !Array.isArray(data)) return { ok: false, error: rpcError?.message ?? 'Dữ liệu món đặt trước không hợp lệ' }
-  return { ok: true, rows: data.map((row) => {
-    const r = row as RpcRow
-    return {
-      orderId: r.order_id, reservationId: r.reservation_id, customerName: r.customer_name, customerPhone: r.customer_phone,
-      partySize: r.party_size, arrivalAt: r.arrival_at, reservationStatus: r.reservation_status, orderStatus: r.order_status,
-      revision: r.revision, releasedRevision: r.released_revision, needsPrint: r.needs_print, needsReview: r.needs_review,
-      wasteReviewRequired: r.waste_review_required, totalAmount: r.total_amount, currentSnapshot: r.current_snapshot,
-      releasedSnapshot: r.released_snapshot, tableNumbers: r.table_numbers ?? [], createdAt: r.created_at,
-    }
-  }) }
+  return { ok: true, rows: data.map((row) => toPreorderRow(row as PreorderRpcRow)) }
 }
 
 export async function releaseReservationPreorder(orderId: string, revision: number, requestId = randomUUID()): Promise<PreorderActionResult> {

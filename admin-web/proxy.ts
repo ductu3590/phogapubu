@@ -31,6 +31,13 @@ export async function proxy(request: NextRequest) {
   const isStaffRoute = request.nextUrl.pathname.startsWith('/staff')
   const isLoginPage = request.nextUrl.pathname === '/login'
 
+  // Server action (header Next-Action) và request RSC của điều hướng mềm / prefetch (header RSC) KHÔNG
+  // cần cổng redirect theo role: layout /admin, /mevo, /staff tự kiểm quyền (requireOperatorOrRedirect…)
+  // và RLS là lớp khoá thật. Bỏ bước tra mevo_operators cho chúng → mỗi request bớt 1 chặng tới Supabase
+  // (2026-10-04: proxy tốn 300–1700ms MỖI request khi mở hộp thoại cấu hình). Vẫn getUser ở trên để
+  // làm mới phiên đăng nhập.
+  if (request.headers.has('next-action') || request.headers.get('rsc') === '1') return supabaseResponse
+
   // Role-aware routing (Onboarding Cockpit + Staff Assisted Ordering): mevo_operators.role
   // quyết định /admin, /mevo hay /staff. RLS mới là lớp khoá thật — đây chỉ là cổng UX redirect sớm.
   let role: 'mevo_superadmin' | 'store_owner' | 'store_staff' | null = null

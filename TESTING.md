@@ -17,7 +17,8 @@
 - ✅ [POS-4 — Tiếp nhận khách đặt bàn + đặt bàn từ Timeline](docs/testing/pos-stitch/POS-4.md) — POS-4 PASS (2026-10-03, sau vá vòng 2)
 - ✅ [Dọn POS cũ — xoá /admin/cashier](docs/testing/pos-stitch/POS-CLEANUP.md) — CLEANUP PASS (2026-10-03), commit e5c47ff
 - ✅ [ST-1 — Màu trạng thái Stitch + khung POS P01 + thanh icon](docs/testing/stitch-fidelity/ST-1.md) — ST-1 PASS (2026-10-03, sau vá 3 vòng; kèm mig 084 + 085)
-- [ST-2 — Cột phải POS theo Stitch (bill · thanh toán · hàng đợi)](docs/testing/stitch-fidelity/ST-2.md) — Pha 4, nhánh `feat/pos-timeline`, chờ test
+- ✅ [ST-2 — Cột phải POS theo Stitch (bill · thanh toán · hàng đợi)](docs/testing/stitch-fidelity/ST-2.md) — ST-2 PASS (2026-10-03, commit 2e86ee8; kèm mig 086)
+- [ST-3 — Trang cấu hình thành hộp thoại đè lên POS](docs/testing/stitch-fidelity/ST-3.md) — Pha 4, nhánh `feat/pos-timeline`, chờ test
 
 - ✅ [UI Reform — review bản POS đã chọn](docs/testing/ui-reform/REVIEW-CHOSEN-POS-2026-10-02.md) — PASS, Codex tự rà theo ủy quyền 02/10; thiết kế chốt, chưa code
 

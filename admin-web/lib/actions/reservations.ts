@@ -2,6 +2,7 @@
 
 import { requireOperator } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
+import { toReservationRow, type ReservationRpcRow } from '@/lib/reservation-rows'
 
 export type ReservationStatus =
   | 'pending'
@@ -70,55 +71,6 @@ export type SnoozeReservationResult =
   | { ok: true; updatedCount: number; reminderSnoozedUntil: string }
   | { ok: false; error: string }
 
-type ReservationRpcRow = {
-  reservation_id: string
-  store_id: string
-  status: ReservationStatus
-  customer_name: string
-  customer_phone: string
-  party_size: number
-  arrival_at: string
-  note: string | null
-  requested_arrival_at: string | null
-  requested_party_size: number | null
-  change_note: string | null
-  created_at: string
-  updated_at: string
-  table_ids?: string[]
-  table_numbers?: string[]
-  suggested_table_count?: number
-  planning_hold_minutes?: number
-  session_id?: string | null
-  already?: boolean
-  reminder_snoozed_until?: string | null
-  reminder_snoozed_by?: string | null
-}
-
-function toReservationRow(row: ReservationRpcRow): ReservationRow {
-  return {
-    reservationId: row.reservation_id,
-    storeId: row.store_id,
-    status: row.status,
-    customerName: row.customer_name,
-    customerPhone: row.customer_phone,
-    partySize: row.party_size,
-    arrivalAt: row.arrival_at,
-    note: row.note,
-    requestedArrivalAt: row.requested_arrival_at,
-    requestedPartySize: row.requested_party_size,
-    changeNote: row.change_note,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    tableIds: row.table_ids ?? [],
-    tableNumbers: row.table_numbers ?? [],
-    suggestedTableCount: row.suggested_table_count ?? 0,
-    planningHoldMinutes: row.planning_hold_minutes ?? 0,
-    sessionId: row.session_id ?? null,
-    already: row.already ?? false,
-    reminderSnoozedUntil: row.reminder_snoozed_until ?? null,
-    reminderSnoozedBy: row.reminder_snoozed_by ?? null,
-  }
-}
 
 async function ownerClient() {
   try {

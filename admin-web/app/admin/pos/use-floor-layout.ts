@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { loadFloorLayout, saveFloorLayout } from '@/lib/actions/floor-layout'
+import { saveFloorLayout } from '@/lib/actions/floor-layout'
+import { readFloorLayout } from '@/lib/pos-browser-reads'
 import { layoutByArea, moveInArea, transferToArea, type FloorDraft, type FloorSnapshot } from '@/lib/area-layout'
 
 const toDraft = (snapshot: FloorSnapshot): FloorDraft => ({ ...snapshot, tables: layoutByArea(snapshot.tables) })
@@ -20,6 +21,7 @@ export function useFloorLayout(storeId: string, initial: FloorSnapshot | null, i
   const editing = useRef(false)
   const locked = useRef(false)
   const request = useRef(0)
+  const browser = useRef(createClient())
 
   const accept = useCallback((snapshot: FloorSnapshot) => {
     saved.current = snapshot
@@ -31,7 +33,9 @@ export function useFloorLayout(storeId: string, initial: FloorSnapshot | null, i
 
   const refresh = useCallback(async () => {
     const ticket = ++request.current
-    const result = await loadFloorLayout()
+    // Đọc thẳng từ trình duyệt, không qua server action: server action chặn hàng đợi điều hướng
+    // của Next (mở hộp thoại cấu hình trên POS bị chờ). RPC tự xác định quán theo người đăng nhập.
+    const result = await readFloorLayout(browser.current)
     if (ticket !== request.current || locked.current) return
     if (!result.ok) { setError(result.error); return }
     if (editing.current) {
@@ -76,7 +80,7 @@ export function useFloorLayout(storeId: string, initial: FloorSnapshot | null, i
     ++request.current
     setSaving(true)
     try {
-      const result = await loadFloorLayout()
+      const result = await readFloorLayout(browser.current)
       if (!result.ok) { setError(result.error); return }
       accept(result.snapshot)
       editing.current = true

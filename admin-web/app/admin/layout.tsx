@@ -8,7 +8,8 @@ import { getButtonClasses } from '@/components/ui/button-classes'
 import { cn } from '@/lib/utils'
 import { adminMoreItems, adminRailItems } from './admin-nav'
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+// `modal` = slot @modal: trang cấu hình mở thành hộp thoại đè lên trang đang mở (Pha 4 ST-3).
+export default async function AdminLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
   const operator = await requireOperatorOrRedirect()
   if (operator.role !== 'store_owner') {
     // Superadmin lỡ vào /admin — đưa về đúng khu, không fallback vào "quán đầu tiên".
@@ -23,15 +24,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     supabase.rpc('get_public_store_workflow', { p_store_id: operator.storeId }),
   ])
   const storeName = storeResult.data?.name ?? 'Quán của tôi'
-  const reservationsEnabled = (workflowResult.data as { reservations_enabled?: unknown } | null)
-    ?.reservations_enabled === true
+  const workflow = workflowResult.data as { reservations_enabled?: unknown; kitchen_release_policy?: unknown } | null
+  const reservationsEnabled = workflow?.reservations_enabled === true
+  // Quán thu ngân xác nhận rồi in phiếu (Bảo Lương) không dùng màn bếp → ẩn mục Bếp.
+  const kitchenEnabled = workflow?.kitchen_release_policy !== 'pos_confirmation'
 
   // Khung Stitch P01: rail icon từ 768px, dưới đó thanh trên + ngăn kéo menu.
   return (
     <IconRailShell
       brand={{ initial: 'M', title: storeName, subtitle: 'MEVO · Chủ quán' }}
-      items={adminRailItems(reservationsEnabled)}
-      moreItems={adminMoreItems()}
+      items={adminRailItems(kitchenEnabled)}
+      moreItems={adminMoreItems(reservationsEnabled)}
       footer={
         <div className="space-y-1">
           {user?.email ? <p className="truncate px-3 text-[13px] text-muted">{user.email}</p> : null}
@@ -45,6 +48,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       }
     >
       <div className="flex h-full min-h-0 flex-col">{children}</div>
+      {modal}
     </IconRailShell>
   )
 }

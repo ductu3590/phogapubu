@@ -16,7 +16,6 @@ import {
   closeTableSession,
   closeTableSessionsBulk,
   createTraySession,
-  listOpenTableSessions,
   mergeSessionIntoTray,
   releaseTableSessionHost,
   type OpenTableSession,
@@ -43,7 +42,6 @@ import {
   cancelStoreReservation,
   confirmReservation,
   createManualReservation,
-  listReservationQueue,
   markReservationNoShow,
   snoozeReservationReminders,
   type ReservationRow,
@@ -51,9 +49,9 @@ import {
 import type { ReservationFormSubmit } from '../reservations/reservation-form'
 import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
 import { createReservationReminderCoordinator, type ReminderStorage } from '@/lib/reservation-reminders'
-import { listReservationCustomerCalls, resolveReservationCustomerCall, type ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
+import { resolveReservationCustomerCall, type ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
+import { readCustomerCalls, readOpenSessions, readPreorderQueue, readReservationQueue } from '@/lib/pos-browser-reads'
 import {
-  listReservationPreorderQueue,
   releaseReservationPreorder,
   requestReservationPreorderPrint,
   resolvePreorderWaste,
@@ -159,6 +157,8 @@ export default function PosClient({
   initialPreorderError: string | null
   initialCustomerCalls: ReservationCustomerCallTask[]
 }) {
+  // Một client Supabase trình duyệt cho cả trang: realtime + đọc định kỳ (lib/pos-browser-reads.ts).
+  const supabase = useMemo(() => createClient(), [])
   const floor = useFloorLayout(storeId, initialFloor, initialFloorError)
   const placed = floor.draft.tables
   const arrange = floor.arrange
@@ -206,41 +206,41 @@ export default function PosClient({
 
   // ─── Tải dữ liệu ─────────────────────────────────────────────────────────
   const reload = useCallback(async () => {
-    const res = await listOpenTableSessions()
+    const res = await readOpenSessions(supabase, storeId)
     if (res.ok) {
       setSessions(res.sessions)
       setError((current) => applyReloadError(current, null))
     } else {
       setError((current) => applyReloadError(current, res.error))
     }
-  }, [])
+  }, [supabase, storeId])
 
   const reloadReservations = useCallback(async () => {
     if (!reservationsEnabled) return
-    const result = await listReservationQueue(queueRange())
+    const result = await readReservationQueue(supabase, storeId, queueRange())
     if (result.ok) {
       setReservations(result.reservations)
       setError((current) => applyReloadError(current, null))
     } else {
       setError((current) => applyReloadError(current, result.error))
     }
-  }, [reservationsEnabled])
+  }, [reservationsEnabled, supabase, storeId])
 
   const reloadPreorders = useCallback(async () => {
     if (!reservationsEnabled) return
-    const result = await listReservationPreorderQueue()
+    const result = await readPreorderQueue(supabase, storeId)
     if (result.ok) {
       setPreorders(result.rows)
       setError((current) => applyReloadError(current, null))
     } else setError((current) => applyReloadError(current, result.error))
-  }, [reservationsEnabled])
+  }, [reservationsEnabled, supabase, storeId])
 
   const reloadCustomerCalls = useCallback(async () => {
     if (!reservationsEnabled) return
-    const result = await listReservationCustomerCalls()
+    const result = await readCustomerCalls(supabase, storeId)
     if (result.ok) setCustomerCalls(result.value)
     else setError((current) => applyReloadError(current, result.error))
-  }, [reservationsEnabled])
+  }, [reservationsEnabled, supabase, storeId])
 
   useEffect(() => {
     if (!reservationsEnabled) return
@@ -257,22 +257,22 @@ export default function PosClient({
   }
 
   useEffect(() => {
-    const watcher = watchCashierSessions({ client: createClient(), storeId, reload, onConnected: setConnected })
+    const watcher = watchCashierSessions({ client: supabase, storeId, reload, onConnected: setConnected })
     return () => watcher.dispose()
-  }, [storeId, reload])
+  }, [storeId, reload, supabase])
 
   useEffect(() => {
     if (!reservationsEnabled) return
     const watcher = watchReservationQueue({
-      client: createClient(),
+      client: supabase,
       storeId,
-      load: async () => listReservationQueue(queueRange()),
+      load: async () => readReservationQueue(supabase, storeId, queueRange()),
       onRows: setReservations,
       onError: (message) => setError((current) => applyReloadError(current, message)),
       onConnected: () => undefined,
     })
     return () => watcher.dispose()
-  }, [reservationsEnabled, storeId])
+  }, [reservationsEnabled, storeId, supabase])
 
   useEffect(() => {
     if (!reservationsEnabled) return
@@ -528,7 +528,7 @@ export default function PosClient({
       const released = await onReleasePreorder(row)
       if (!released.ok) return released
     }
-    const latest = await listReservationPreorderQueue()
+    const latest = await readPreorderQueue(supabase, storeId)
     const fresh = latest.ok ? latest.rows.find((item) => item.orderId === row.orderId) ?? row : row
     const printKind: PreorderPrintKind = kind === 'original' && fresh.releasedRevision > 0 && !fresh.needsPrint
       ? (fresh.revision > 1 ? 'adjustment' : 'reprint') : kind

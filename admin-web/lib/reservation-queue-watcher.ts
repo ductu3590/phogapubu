@@ -12,6 +12,8 @@ export type ReservationQueueEventTarget = {
   removeEventListener: (type: string, listener: () => void) => void
 }
 
+let watcherSeq = 0
+
 export function watchReservationQueue({
   client,
   storeId,
@@ -69,8 +71,11 @@ export function watchReservationQueue({
     timer = setTimeout(() => void drain(), 100)
   }
 
+  // Tên kênh RIÊNG cho mỗi lần theo dõi: client Supabase trình duyệt dùng chung một bản, gọi
+  // channel() trùng tên trả lại kênh ĐANG chạy → gắn thêm .on() sau subscribe() là lỗi. POS (phía sau)
+  // và trang Đặt bàn (hộp thoại đè lên POS) cùng theo dõi một quán → trước đây hộp thoại sập (2026-10-04).
   const channel = client
-    .channel(`reservation-queue-${storeId}`)
+    .channel(`reservation-queue-${storeId}-${++watcherSeq}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'reservations', filter: `store_id=eq.${storeId}` },

@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
@@ -6,7 +7,10 @@ export type Operator =
   | { userId: string; role: 'store_owner'; storeId: string }
   | { userId: string; role: 'store_staff'; storeId: string }
 
-async function loadOperator(): Promise<
+// cache(): MỘT lần hỏi phiên + quyền cho mỗi request. Layout, page, vỏ hộp thoại cấu hình và các
+// hàm con đều gọi requireOperator… — trước đây mỗi lần là 2 chặng mạng tới Supabase (getUser + bảng
+// mevo_operators), cộng dồn thành ~1 giây mỗi lần mở trang cấu hình (2026-10-04).
+const loadOperator = cache(async function loadOperator(): Promise<
   { user: { id: string }; op: { role: string; store_id: string | null } } | null
 > {
   const supabase = await createClient()
@@ -22,7 +26,7 @@ async function loadOperator(): Promise<
   if (!op || op.is_active === false) return null
 
   return { user: { id: user.id }, op }
-}
+})
 
 function toOperator(userId: string, op: { role: string; store_id: string | null }): Operator | null {
   if (op.role === 'mevo_superadmin' && op.store_id === null) {

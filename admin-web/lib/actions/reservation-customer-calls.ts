@@ -2,6 +2,7 @@
 
 import { requireOperator } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
+import { toCustomerCallTask } from '@/lib/reservation-rows'
 
 export type ReservationCustomerCallTask = {
   taskId: string
@@ -31,17 +32,7 @@ export async function listReservationCustomerCalls(): Promise<Result<Reservation
   if (!client.ok) return client
   const { data, error } = await client.value.supabase.rpc('list_reservation_customer_calls', { p_store_id: client.value.storeId })
   if (error || !Array.isArray(data)) return { ok: false, error: error?.message ?? 'Dữ liệu việc gọi nhắc khách không hợp lệ' }
-  return {
-    ok: true,
-    value: data.map((item) => {
-      const row = item as Record<string, unknown>
-      return {
-        taskId: String(row.task_id), reservationId: String(row.reservation_id), customerName: String(row.customer_name),
-        customerPhone: String(row.customer_phone), partySize: Number(row.party_size), arrivalAt: String(row.arrival_at),
-        dueAt: String(row.due_at), createdAt: String(row.created_at),
-      }
-    }),
-  }
+  return { ok: true, value: data.map((item) => toCustomerCallTask(item as Record<string, unknown>)) }
 }
 
 export async function resolveReservationCustomerCall(

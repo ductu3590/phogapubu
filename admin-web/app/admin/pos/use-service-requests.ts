@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { listOpenServiceRequests, resolveServiceRequest, type ServiceRequestRow } from '@/lib/actions/service-requests'
+import { resolveServiceRequest, type ServiceRequestRow } from '@/lib/actions/service-requests'
+import { readServiceRequests } from '@/lib/pos-browser-reads'
 import { createClient } from '@/lib/supabase/client'
 import { playBell } from '@/lib/bell'
 import { watchServiceRequests } from '@/lib/service-request-queue'
@@ -16,8 +17,10 @@ export function useServiceRequests(storeId: string, initialRequests: ServiceRequ
   const busy = useRef(false)
 
   useEffect(() => {
+    // Đọc định kỳ thẳng từ trình duyệt, không qua server action (xem lib/pos-browser-reads.ts).
+    const client = createClient()
     const watcher = watchServiceRequests({
-      client: createClient(), storeId, load: listOpenServiceRequests,
+      client, storeId, load: () => readServiceRequests(client, storeId),
       initial: initialError ? null : initialRequests,
       onRows: setRequests, onError: setError, onNew: () => playBell(), onConnected: () => undefined,
     })
