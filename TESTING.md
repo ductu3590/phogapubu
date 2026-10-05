@@ -20,7 +20,7 @@
 - ✅ [ST-2 — Cột phải POS theo Stitch (bill · thanh toán · hàng đợi)](docs/testing/stitch-fidelity/ST-2.md) — ST-2 PASS (2026-10-03, commit 2e86ee8; kèm mig 086)
 - [ST-3 — Trang cấu hình thành hộp thoại đè lên POS](docs/testing/stitch-fidelity/ST-3.md) — Pha 4, nhánh `feat/pos-timeline`, PASS 2026-10-04
 - [ST-4 — Khu /mevo theo bản Stitch A06–A11](docs/testing/stitch-fidelity/ST-4.md) — Pha 4, nhánh `feat/pos-timeline`, PASS 2026-10-05
-- [MA-1 — Khung Mini App + Thực đơn tại bàn + Giỏ hàng](docs/testing/mini-app-stitch/MA-1.md) — Mini App Stitch, nhánh `feat/mini-app-stitch`, chờ test
+- [MA-1 — Khung Mini App + Thực đơn tại bàn + Giỏ hàng](docs/testing/mini-app-stitch/MA-1.md) — Mini App Stitch, nhánh `feat/mini-app-stitch`, PASS 2026-10-05
 
 - ✅ [UI Reform — review bản POS đã chọn](docs/testing/ui-reform/REVIEW-CHOSEN-POS-2026-10-02.md) — PASS, Codex tự rà theo ủy quyền 02/10; thiết kế chốt, chưa code
 
