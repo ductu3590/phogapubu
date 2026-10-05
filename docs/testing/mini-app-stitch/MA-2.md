@@ -33,4 +33,13 @@ Nhánh `feat/mini-app-stitch`. Chỉ test trên **Bia lẩu Bảo Lương**. Cá
 9. Bấm logo **BL** → trang **Thông tin nhà hàng** giao diện mới (thẻ quán, khối Liên hệ, điều khoản, kết nối OA), có nút quay lại.
 10. Khổ 360: không cuộn ngang; tên món dài xuống dòng 2 nhưng **×SL · giá** vẫn một dòng; nút Gọi thêm món không đè thanh tab.
 
+## Vá vòng 2 (2026-10-05) — Lịch sử POS + số lượt thống nhất
+
+- **POS → bill → tab Lịch sử** hiện cả lượt bị từ chối (mig 089, đã áp prod): nền đỏ nhạt, "Đã từ chối lúc HH:MM · <lý do> · không tính tiền", không có nút in lại. **Tab Hoá đơn không đổi** (không có lượt bị từ chối, tổng không đổi).
+- **Số "Lượt #NN" giống nhau ở POS và Mini App**: chỉ đánh số lượt khách / nhân viên gọi, tính cả lượt bị từ chối. Món thu ngân ghi tay hiện "**Ghi tay**", món đặt trước hiện "**Món đặt trước**" (không mang số) ở cả hai nơi.
+- Lý do từ chối dùng chung một danh sách chữ cho hộp chọn lý do (POS), tab Lịch sử và Mini App.
+
+11. Từ chối một lượt trên POS → mở bill bàn đó → tab **Lịch sử** có lượt đó (đỏ nhạt, giờ + lý do); tab **Hoá đơn** không có, tổng không đổi.
+12. So số lượt: cùng một bàn, số "Lượt #NN" trên tab Lịch sử POS khớp số trên tab Đơn gọi của Mini App, kể cả khi có lượt bị từ chối và món ghi tay.
+
 **→ Báo:** `MA-2 PASS`
