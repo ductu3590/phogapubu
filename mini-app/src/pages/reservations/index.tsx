@@ -109,7 +109,7 @@ function ActiveBookingCard({ booking, directions }: { booking: CustomerReservati
           <button
             type="button"
             onClick={() => navigate(`/reservations/${booking.reservationId}/preorder`)}
-            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary text-small-m font-bold text-white active:opacity-90"
+            className="flex h-11 flex-[1.7] items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-primary px-2 text-small-m font-bold text-white active:opacity-90"
           >
             <UtensilsIcon className="size-4" />
             Chọn món đặt trước
@@ -117,7 +117,7 @@ function ActiveBookingCard({ booking, directions }: { booking: CustomerReservati
           <button
             type="button"
             onClick={() => { postponePreorder(booking.storeId, booking.reservationId); setPostponed(true); }}
-            className="flex h-11 flex-1 items-center justify-center rounded-xl bg-primary/10 text-small-m font-semibold text-primary active:opacity-80"
+            className="flex h-11 flex-1 items-center justify-center whitespace-nowrap rounded-xl bg-primary/10 px-2 text-small-m font-semibold text-primary active:opacity-80"
           >
             Để sau
           </button>
