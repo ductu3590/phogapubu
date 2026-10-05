@@ -40,7 +40,7 @@ export default function AppToolbar({ title, back, mode, cartCount }: { title?: s
         </button>
         {mode.callStaff && tableId && <CallStaffButton tableId={tableId} />}
         {mode.tableChip && tableNumber && (
-          <span className="inline-flex h-8 min-w-0 items-center truncate rounded-full bg-neutral100 px-3 text-small-m font-semibold text-text-primary">{tableNumber}</span>
+          <span className="inline-flex h-8 max-w-[96px] shrink-0 items-center truncate whitespace-nowrap rounded-full bg-neutral100 px-3 text-small-m font-semibold text-text-primary">{tableNumber}</span>
         )}
         <span className="flex-1" />
         {oa.available && (
@@ -49,10 +49,15 @@ export default function AppToolbar({ title, back, mode, cartCount }: { title?: s
             aria-label={oa.connected ? "Đã quan tâm quán" : "Quan tâm quán trên Zalo"}
             onClick={() => void oa.follow()}
             disabled={oa.connected || oa.pending}
-            className={cn("inline-flex h-9 items-center gap-1 rounded-full px-2.5 text-xxsmall font-semibold", oa.connected ? "bg-primary/10 text-primary" : "border border-primary/40 text-primary active:bg-primary/10")}
+            className={cn(
+              "inline-flex h-9 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full text-xxsmall font-semibold",
+              // Ở bàn hàng 2 đã có Gọi NV + chip bàn → chỉ còn chỗ cho icon tim; vào thường thì có chữ.
+              mode.callStaff ? "w-9" : "px-3",
+              oa.connected ? "bg-primary/10 text-primary" : "border border-primary/40 text-primary active:bg-primary/10",
+            )}
           >
             <HeartIcon className={cn("size-4", oa.connected && "fill-current")} />
-            {oa.connected ? "Đã quan tâm" : "Quan tâm"}
+            {!mode.callStaff && (oa.connected ? "Đã quan tâm" : "Quan tâm")}
           </button>
         )}
         {mode.cart && (

@@ -15,7 +15,7 @@ export default function StickyCartBar({ count, total, tableLabel, aboveTabBar }:
           <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-critical px-1 text-xxxsmall font-bold">{count > 99 ? "99+" : count}</span>
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-small-m font-semibold">{count} món đã chọn{tableLabel ? ` · ${tableLabel}` : ""}</span>
+          <span className="block truncate text-small-m font-semibold">{tableLabel ? `${count} món · ${tableLabel}` : `${count} món đã chọn`}</span>
           <span className="block text-normal-sb font-bold">{formatCurrency(total)}đ</span>
         </span>
         <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-primary px-3.5 py-2 text-small-m font-bold">Xem đơn<ArrowRightIcon className="size-4" /></span>
