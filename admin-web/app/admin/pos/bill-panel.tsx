@@ -72,7 +72,7 @@ export type PosBillPanelProps = {
 /** Ai gọi lượt này — tab Lịch sử. */
 function sourceTag(order: SessionOrderRow): { label: string; className: string } {
   if (order.order_source === 'pos') return { label: 'POS', className: 'bg-slate-700' }
-  if (order.order_source === 'staff') return { label: 'Nhân viên', className: 'bg-blue-600' }
+  if (order.order_source === 'staff') return { label: 'NV', className: 'bg-blue-600' }
   if (order.order_source === 'reservation_preorder') return { label: 'Đặt trước', className: 'bg-purple-600' }
   return { label: 'QR', className: 'bg-orange-600' }
 }
