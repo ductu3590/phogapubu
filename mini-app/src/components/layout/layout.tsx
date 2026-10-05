@@ -27,11 +27,14 @@ export default function Layout() {
   const showTabs = !hideBottomTabs && tabs.length > 1;
 
   // Chấm báo tab Đơn gọi: chỉ trả sau tại bàn. Cùng queryKey với trang Đơn gọi nên không gọi trùng.
-  const watchBill = entryContext.kind === "table" && paymentTiming === "postpay";
+  const watchBill = entryContext.kind === "table" && paymentTiming === "postpay" && hasVerifiedTable;
   const { data: bill } = useTableSessionBill(tableId, zaloUserId, deviceId, watchBill);
   const sessionPending =
     watchBill && !!bill && bill.found &&
-    hasPendingRound(bill.orders, { paymentTiming: "postpay", kitchenPolicy: workflow?.kitchenReleasePolicy ?? "automatic" });
+    hasPendingRound(
+      bill.orders.map((o) => ({ status: o.status, source: o.order_source })),
+      { paymentTiming: "postpay", kitchenPolicy: workflow?.kitchenReleasePolicy ?? "automatic" },
+    );
 
   return (
     <div className="relative flex h-screen w-screen flex-col bg-background">

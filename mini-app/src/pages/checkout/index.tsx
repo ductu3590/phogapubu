@@ -13,7 +13,7 @@ import { formatCurrency } from "@/utils/format";
 import { calculateCartTotal, calculateCartItemPrice } from "@/utils/cart";
 import QuantityStepper from "@/components/common/quantity-stepper";
 import NoteInput from "@/components/common/note-input";
-import { GET_SESSION_ORDERS_KEY } from "@/constants/api";
+import { GET_SESSION_ORDERS_KEY, GET_TABLE_SESSION_BILL_KEY } from "@/constants/api";
 import { isStoreOpen } from "@/utils/store-hours";
 import { canOrderInEntry } from "@/utils/entry-context";
 import VoucherSection from "@/components/checkout/voucher-section";
@@ -333,6 +333,9 @@ export default function CheckoutPage() {
           applyUnpaidOrder(null);
           // Invalidate tab "Đã gọi" để hiện đơn mới ngay lập tức
           void queryClient.invalidateQueries({ queryKey: [GET_SESSION_ORDERS_KEY] });
+          // Trả sau: chờ bill tải lại xong rồi mới chuyển trang, kẻo Đơn gọi hiện bill cũ
+          // ("Bàn chưa gọi món nào") tới lần hỏi lại 30 giây sau.
+          if (isPostpayDineIn) await queryClient.invalidateQueries({ queryKey: [GET_TABLE_SESSION_BILL_KEY] });
           if (!isPostpayDineIn && (isTakeaway || paymentMethod === "zalo_checkout")) {
             if (isTakeaway) {
               localStorage.setItem("mevo_last_takeaway_order", order.id);

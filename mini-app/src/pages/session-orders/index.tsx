@@ -9,13 +9,14 @@ import { orderService } from "@/services/order/order.api";
 import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/utils/format";
 import { cn } from "@/utils/cn";
-import { lineLabel, reconcileRounds, roundSourceLabel, roundStatus, type RoundContext, type RoundTone } from "@/utils/round-status";
+import { lineLabel, reconcileRounds, roundDiscount, roundSourceLabel, roundStatus, type RoundContext, type RoundTone } from "@/utils/round-status";
+import { canOrderInEntry } from "@/utils/entry-context";
 import SectionCard from "@/components/ui/section-card";
 import StatusPill, { type PillTone } from "@/components/ui/status-pill";
 import StickyActionBar from "@/components/ui/sticky-action-bar";
 import { GET_SESSION_ORDERS_KEY, GET_TABLE_SESSION_BILL_KEY } from "@/constants/api";
 import type { SessionOrder, TakeawayOrder, OrderItem, TableSessionBillItem } from "@/types/order.types";
-import { ScanLineIcon, PackageIcon, ClipboardListIcon, CircleAlertIcon, PlusIcon } from "@/components/common/icons";
+import { ScanLineIcon, PackageIcon, ClipboardListIcon, CircleAlertIcon, PlusIcon, RotateCwIcon } from "@/components/common/icons";
 
 // Hook dùng chung: mở/đóng card + fetch món lần đầu
 function useExpandableItems() {
@@ -75,7 +76,7 @@ const hhmm = (iso: string) =>
 
 function DineInOrdersView() {
   const navigate = useNavigate();
-  const { zaloUserId, deviceId, tableId, tableNumber, paymentTiming, workflow, sessionState } = useAppStore();
+  const { zaloUserId, deviceId, tableId, tableNumber, paymentTiming, workflow, sessionState, entryContext } = useAppStore();
   const queryClient = useQueryClient();
   const isPostpay = paymentTiming === "postpay";
   const ctx: RoundContext = {
@@ -87,8 +88,11 @@ function DineInOrdersView() {
   // Trả trước: đơn của CHÍNH máy này (get_session_orders lọc theo zalo_user_id).
   // Trả sau: bill CẢ PHIÊN — phải gồm cả đơn nhân viên đặt hộ, nếu không khách nhìn tab này
   // trống trơn trong khi đang nợ cả mâm.
-  const { data: personalOrders, isLoading: loadingPersonal } = useSessionOrders(zaloUserId, tableId, !isPostpay);
-  const { data: bill, isLoading: loadingBill } = useTableSessionBill(tableId, zaloUserId, deviceId, isPostpay);
+  const personalQuery = useSessionOrders(zaloUserId, tableId, !isPostpay);
+  const billQuery = useTableSessionBill(tableId, zaloUserId, deviceId, isPostpay);
+  const personalOrders = personalQuery.data;
+  const bill = billQuery.data;
+  const activeQuery = isPostpay ? billQuery : personalQuery;
 
   const rounds: Round[] = isPostpay
     ? (bill && bill.found ? bill.orders : []).map((o) => ({
@@ -107,7 +111,11 @@ function DineInOrdersView() {
         source: "customer_zalo",
         items: null,
       }));
-  const isLoading = isPostpay ? loadingBill : loadingPersonal;
+  const isLoading = activeQuery.isLoading;
+  const loadFailed = activeQuery.isError && !activeQuery.data;
+  // Important #5 — chỉ mời "Gọi thêm món" khi lối vào này thật sự gọi được món
+  const canOrderHere =
+    !!workflow && entryContext.kind === "table" && entryContext.tableId === tableId && canOrderInEntry(workflow, entryContext);
 
   // Realtime: tự cập nhật khi thu ngân xác nhận / nhân viên thêm món
   useEffect(() => {
@@ -140,7 +148,7 @@ function DineInOrdersView() {
     (sessionState?.mode === "postpay" && sessionState.state === "owner" && sessionState.is_open_ordering && sessionState.table_names) ||
     tableNumber ||
     "Bàn của bạn";
-  const sums = reconcileRounds(rounds.map((r) => ({ status: r.status, total_amount: r.total })), ctx);
+  const sums = reconcileRounds(rounds.map((r) => ({ status: r.status, total_amount: r.total, source: r.source })), ctx);
   // Trả sau: tổng lấy thẳng từ phiên (server tính) để không lệch với số thu ngân thu.
   const grandTotal = isPostpay && bill && bill.found ? bill.total : sums.total;
 
@@ -149,6 +157,13 @@ function DineInOrdersView() {
       <div className="no-scrollbar flex-1 overflow-y-auto pb-4">
         {isLoading ? (
           <ListSkeleton />
+        ) : loadFailed ? (
+          <CenterState
+            icon={<RotateCwIcon className="size-10" />}
+            title="Chưa tải được các món đã gọi"
+            subtitle="Kiểm tra mạng rồi thử lại. Món đã gọi vẫn được quán ghi nhận."
+            action={{ label: activeQuery.isFetching ? "Đang tải…" : "Thử lại", onClick: () => void activeQuery.refetch() }}
+          />
         ) : rounds.length === 0 ? (
           <CenterState
             icon={<ClipboardListIcon className="size-10" />}
@@ -158,7 +173,8 @@ function DineInOrdersView() {
           />
         ) : (
           <>
-            {/* Thẻ đầu: bàn / mâm + tổng tạm tính */}
+            {/* Thẻ đầu: bàn / mâm + tổng tạm tính (trả sau). Trả trước mỗi đơn đã tự thanh toán. */}
+            {isPostpay && (
             <SectionCard>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -175,6 +191,7 @@ function DineInOrdersView() {
               <p className="mt-3 text-xxsmall font-semibold uppercase tracking-wide text-text-secondary">Tổng tạm tính</p>
               <p className="mt-0.5 text-2xl font-extrabold text-primary">{formatCurrency(grandTotal)}đ</p>
             </SectionCard>
+            )}
 
             <div className="flex items-baseline justify-between px-4 pb-1 pt-5">
               <h2 className="text-small-m font-bold uppercase tracking-wide text-text-primary">
@@ -200,7 +217,8 @@ function DineInOrdersView() {
               ))}
             </div>
 
-            {/* Đối soát tạm tính */}
+            {/* Đối soát tạm tính — chỉ trả sau */}
+            {isPostpay && (
             <SectionCard title="Đối soát tạm tính" className="mt-4">
               <div className="space-y-1.5 text-small">
                 <div className="flex justify-between">
@@ -225,11 +243,13 @@ function DineInOrdersView() {
                 </p>
               )}
             </SectionCard>
+            )}
           </>
         )}
       </div>
 
       {/* Gọi thêm món — việc tiếp theo hiển nhiên của quán nhậu gọi nhiều lượt */}
+      {canOrderHere && rounds.length > 0 && (
       <StickyActionBar variant="primary" aboveTabBar>
         <button
           type="button"
@@ -240,6 +260,7 @@ function DineInOrdersView() {
           Gọi thêm món
         </button>
       </StickyActionBar>
+      )}
     </div>
   );
 }
@@ -255,7 +276,13 @@ function RoundCard({
   ctx: RoundContext;
   lazy: { expanded: boolean; loading: boolean; items: OrderItem[] | null; onToggle: () => void } | null;
 }) {
-  const status = roundStatus(round.status, ctx);
+  const status = roundStatus(round.status, ctx, round.source);
+  const lines = (round.items ?? []).map((item) => {
+    const toppings = item.toppings ?? [];
+    const unit = item.price + toppings.reduce((s, t) => s + (t.price ?? 0), 0);
+    return { item, toppings, line: lineLabel({ quantity: item.quantity, price: unit, void_type: item.void_type }) };
+  });
+  const discount = round.items ? roundDiscount(lines.reduce((s, l) => s + l.line.amount, 0), round.total) : 0;
   const source = roundSourceLabel(round.source);
   const header = (
     <div className="flex items-start justify-between gap-2">
@@ -279,12 +306,9 @@ function RoundCard({
         header
       )}
 
-      {round.items && round.items.length > 0 && (
+      {lines.length > 0 && (
         <ul className="mt-3 space-y-2">
-          {round.items.map((item) => {
-            const toppings = item.toppings ?? [];
-            const unit = item.price + toppings.reduce((s, t) => s + (t.price ?? 0), 0);
-            const line = lineLabel({ quantity: item.quantity, price: unit, void_type: item.void_type });
+          {lines.map(({ item, toppings, line }) => {
             return (
               <li key={item.id} className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -307,6 +331,12 @@ function RoundCard({
 
       {lazy?.expanded && <ItemsList isLoadingItems={lazy.loading} items={lazy.items} />}
 
+      {discount > 0 && (
+        <div className="mt-2 flex justify-between text-small">
+          <span className="text-text-secondary">Giảm giá</span>
+          <span className="font-semibold text-success">−{formatCurrency(discount)}đ</span>
+        </div>
+      )}
       <div className="mt-3 flex justify-between border-t border-dashed border-neutral200 pt-2.5 text-small">
         <span className="text-text-secondary">Tiểu kế lượt gọi</span>
         <span className="font-bold text-text-primary">{formatCurrency(round.total)}đ</span>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPendingRound, lineLabel, orderSteps, reconcileRounds, roundSourceLabel, roundStatus, stepIndex } from "./round-status";
+import { hasPendingRound, lineLabel, orderSteps, reconcileRounds, roundDiscount, roundSourceLabel, roundStatus, stepIndex } from "./round-status";
 
 const BL = { paymentTiming: "postpay", kitchenPolicy: "pos_confirmation" } as const;
 const PUBU = { paymentTiming: "prepay", kitchenPolicy: "automatic" } as const;
@@ -71,5 +71,32 @@ describe("orderSteps / stepIndex — thanh tiến trình trang Trạng thái đ�
   });
   it("trạng thái không có trong thanh → -1", () => {
     expect(stepIndex("cancelled", orderSteps("automatic"))).toBe(-1);
+  });
+});
+
+describe("đơn không bao giờ được xác nhận (khớp admin-web isReviewableOrder)", () => {
+  it("món thu ngân thêm tay ở POS (pending mãi) → không phải Chờ xác nhận", () => {
+    expect(roundStatus("pending", BL, "pos")).toEqual({ label: "Đã ghi vào bill", tone: "neutral" });
+  });
+  it("món đặt trước chưa phát hành → không phải Chờ xác nhận", () => {
+    expect(roundStatus("pending", BL, "reservation_preorder")).toEqual({ label: "Đã đặt trước", tone: "neutral" });
+  });
+  it("lượt khách / nhân viên gọi vẫn chờ xác nhận như thường", () => {
+    expect(roundStatus("pending", BL, "customer_zalo").label).toBe("Chờ xác nhận");
+    expect(roundStatus("pending", BL, "staff").label).toBe("Chờ xác nhận");
+  });
+  it("chấm đỏ + đối soát không tính lượt POS / đặt trước là đang chờ", () => {
+    expect(hasPendingRound([{ status: "pending", source: "pos" }, { status: "confirmed", source: "customer_zalo" }], BL)).toBe(false);
+    expect(reconcileRounds([{ status: "pending", total_amount: 200000, source: "pos" }], BL)).toEqual({ inKitchen: 200000, pending: 0, total: 200000 });
+  });
+});
+
+describe("roundDiscount — lượt có mã giảm giá", () => {
+  it("tổng dòng lớn hơn tiểu kế server → phần chênh là giảm giá", () => {
+    expect(roundDiscount(250000, 225000)).toBe(25000);
+  });
+  it("khớp hoặc nhỏ hơn → 0", () => {
+    expect(roundDiscount(250000, 250000)).toBe(0);
+    expect(roundDiscount(200000, 250000)).toBe(0);
   });
 });

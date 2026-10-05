@@ -41,10 +41,23 @@ function tableFor(ctx: RoundContext): Record<OrderState, Label> {
   return ctx.kitchenPolicy === "pos_confirmation" ? POS_CONFIRM : POSTPAY_AUTO;
 }
 
-export function roundStatus(status: OrderState, ctx: RoundContext): Label {
+// Đơn KHÔNG BAO GIỜ được thu ngân xác nhận dù nằm ở 'pending' — khớp admin-web
+// isReviewableOrder (lib/pos-work-queue.ts): món thu ngân ghi tay ở POS (đã phục vụ, không vào
+// bếp) và món đặt trước chưa phát hành. Hiện "Chờ xác nhận" cho chúng thì nhãn vàng + chấm đỏ
+// đứng mãi tới lúc đóng bàn.
+const NEVER_REVIEWED: Record<string, Label> = {
+  pos: { label: "Đã ghi vào bill", tone: "neutral" },
+  reservation_preorder: { label: "Đã đặt trước", tone: "neutral" },
+};
+
+export function roundStatus(status: OrderState, ctx: RoundContext, source?: string): Label {
+  if (status === "pending" && source && NEVER_REVIEWED[source]) return NEVER_REVIEWED[source];
   const table = tableFor(ctx);
   return table[status] ?? table.pending;
 }
+
+const isWaiting = (status: OrderState, ctx: RoundContext, source?: string) =>
+  roundStatus(status, ctx, source).tone === "warning";
 
 const SOURCE: Record<string, string> = {
   staff: "Nhân viên gọi hộ",
@@ -62,19 +75,19 @@ export function lineLabel(item: { quantity: number; price: number; void_type?: s
   return { gift: false, amount: item.price * item.quantity };
 }
 
-export function hasPendingRound(orders: Array<{ status: OrderState }>, ctx: RoundContext): boolean {
-  return orders.some((o) => roundStatus(o.status, ctx).label === "Chờ xác nhận");
+export function hasPendingRound(orders: Array<{ status: OrderState; source?: string }>, ctx: RoundContext): boolean {
+  return orders.some((o) => isWaiting(o.status, ctx, o.source));
 }
 
 /** Khối "Đối soát tạm tính": lượt còn CHỜ (nhãn vàng) tách khỏi lượt đã vào bếp. */
 export function reconcileRounds(
-  orders: Array<{ status: OrderState; total_amount: number }>,
+  orders: Array<{ status: OrderState; total_amount: number; source?: string }>,
   ctx: RoundContext,
 ): { inKitchen: number; pending: number; total: number } {
   let inKitchen = 0;
   let pending = 0;
   for (const o of orders) {
-    if (roundStatus(o.status, ctx).tone === "warning") pending += o.total_amount;
+    if (isWaiting(o.status, ctx, o.source)) pending += o.total_amount;
     else inKitchen += o.total_amount;
   }
   return { inKitchen, pending, total: inKitchen + pending };
@@ -91,4 +104,10 @@ export function stepIndex(status: OrderState, steps: OrderState[]): number {
   if (direct !== -1) return direct;
   if ((status === "cooking" || status === "ready") && !steps.includes("cooking")) return steps.indexOf("confirmed");
   return -1;
+}
+
+/** Lượt dùng mã giảm giá: create_order trừ thẳng vào total_amount, nên tổng các dòng món lớn
+ *  hơn tiểu kế server — phần chênh hiện thành dòng "Giảm giá" cho khỏi lệch số. */
+export function roundDiscount(linesSum: number, roundTotal: number): number {
+  return linesSum > roundTotal ? linesSum - roundTotal : 0;
 }
