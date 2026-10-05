@@ -221,8 +221,11 @@ export default function MenuPage() {
     const box = contentRef.current;
     const el = document.getElementById(id);
     if (!box || !el) return;
-    const stickyBottom = stickyRef.current?.getBoundingClientRect().bottom ?? box.getBoundingClientRect().top;
-    box.scrollTo({ top: box.scrollTop + el.getBoundingClientRect().top - stickyBottom, behavior: "smooth" });
+    // Tính theo vị trí trong vùng cuộn trừ CHIỀU CAO khối chip (không theo vị trí khối chip lúc bấm:
+    // ở Trang chủ khối chip chưa dính lên đỉnh cho tới khi cuộn qua phần đầu).
+    const stickyHeight = stickyRef.current?.offsetHeight ?? 0;
+    const headingInBox = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+    box.scrollTo({ top: Math.max(0, headingInBox - stickyHeight), behavior: "smooth" });
   };
 
   const handleAdd = (product: Product) => {
