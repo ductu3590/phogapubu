@@ -10,7 +10,7 @@ import OptionSheet from "@/components/menu/option-sheet";
 import UnpaidOrderPrompt from "@/components/common/unpaid-order-prompt";
 import { SelectedVariant } from "@/types/cart.types";
 import { formatCurrency } from "@/utils/format";
-import { scrollToId } from "@/utils/scroll-to";
+import HomeHero from "@/components/home/home-hero";
 import { useSnackbar } from "zmp-ui";
 import { isStoreOpen, formatServingHours } from "@/utils/store-hours";
 import { canOrderInEntry } from "@/utils/entry-context";
@@ -123,20 +123,6 @@ function ClosedBanner({
   );
 }
 
-function TakeawayBannerCard({ url }: { url: string }) {
-  return (
-    <div className="mx-3.5 mt-2 overflow-hidden rounded-xl">
-      <img
-        src={url}
-        alt="Banner quán"
-        className="w-full object-cover"
-        style={{ aspectRatio: "4/1" }}
-        draggable={false}
-      />
-    </div>
-  );
-}
-
 function OrderingUnavailableBanner({
   entryKind,
   loading,
@@ -178,7 +164,7 @@ function OrderingUnavailableBanner({
 
 export default function MenuPage() {
   const navigate = useNavigate();
-  const { storeId, tableId, tableNumber, orderMode, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState, entryContext, workflow, workflowError } = useAppStore();
+  const { storeId, storeName, storeLogoUrl, storeAddress, googleMapsUrl, storePhone, tableId, tableNumber, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState, entryContext, workflow, workflowError } = useAppStore();
   const { data: menu, isLoading, error, refetch, isRefetching } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
   const { openSnackbar } = useSnackbar();
@@ -195,6 +181,7 @@ export default function MenuPage() {
     sessionState?.mode === "postpay" && sessionState.state === "owner"
       ? sessionState
       : null;
+  const isRoot = entryContext.kind === "root";
   const hasVerifiedTable = entryContext.kind === "root" || tableId === entryContext.tableId;
   const workflowAllowsOrdering = workflow
     ? canOrderInEntry(workflow, entryContext) && hasVerifiedTable
@@ -215,6 +202,8 @@ export default function MenuPage() {
   const [query, setQuery] = useState("");
   const [optionProduct, setOptionProduct] = useState<Product | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  // Khối ô tìm + chip DÍNH trong vùng cuộn: danh mục "đang xem" đo theo đáy khối này.
+  const stickyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (menu && menu.length > 0 && !activeCategoryId) {
@@ -226,6 +215,15 @@ export default function MenuPage() {
     cartItems
       .filter((i) => i.productId === productId)
       .reduce((s, i) => s + i.quantity, 0);
+
+  // Bấm chip → cuộn vùng danh sách sao cho tiêu đề danh mục nằm ngay dưới khối chip dính.
+  const scrollToCategory = (id: string) => {
+    const box = contentRef.current;
+    const el = document.getElementById(id);
+    if (!box || !el) return;
+    const stickyBottom = stickyRef.current?.getBoundingClientRect().bottom ?? box.getBoundingClientRect().top;
+    box.scrollTo({ top: box.scrollTop + el.getBoundingClientRect().top - stickyBottom, behavior: "smooth" });
+  };
 
   const handleAdd = (product: Product) => {
     if (!workflowAllowsOrdering) {
@@ -348,15 +346,17 @@ export default function MenuPage() {
 
   return (
     <div className="flex h-full flex-col bg-background">
-      {/* Banner quán đóng cửa / ngoài giờ — chặn đặt món */}
-      {!storeOpen && (
+      {/* Banner quán đóng cửa / ngoài giờ — chặn đặt món. Lối thường chỉ xem menu thì Trang chủ
+          đã có nhãn "Đã đóng cửa", không lặp thêm banner. */}
+      {!storeOpen && !(isRoot && !workflowAllowsOrdering) && (
         <ClosedBanner
           isAcceptingOrders={isAcceptingOrders}
           servingHours={formatServingHours(servingHours)}
         />
       )}
 
-      {!workflowAllowsOrdering && (
+      {/* Lối thường: Trang chủ đã nói rõ "Quét QR tại bàn để gọi món" → chỉ còn khi đang tải / lỗi */}
+      {!workflowAllowsOrdering && (!isRoot || !workflow || !!workflowError) && (
         <OrderingUnavailableBanner
           entryKind={entryContext.kind}
           loading={(!workflow || !hasVerifiedTable) && !workflowError}
@@ -386,28 +386,6 @@ export default function MenuPage() {
         />
       )}
 
-      {/* Ô tìm + chip danh mục — đứng yên trên đầu, chỉ danh sách món bên dưới cuộn (Stitch m06) */}
-      <div className="shrink-0 bg-background">
-        <label className="mx-3 mt-2.5 flex h-10 items-center gap-2 rounded-full border border-neutral200 bg-surface px-3.5">
-          <SearchIcon className="size-4 shrink-0 text-text-secondary" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tìm món…"
-            enterKeyHint="search"
-            className="min-w-0 flex-1 bg-transparent text-small text-text-primary outline-none placeholder:text-text-secondary"
-          />
-        </label>
-        <CategoryChips
-          items={visibleMenu.map((c) => ({ id: c.id, name: c.name }))}
-          activeId={activeCategoryId}
-          onSelect={(id) => {
-            setActiveCategoryId(id);
-            scrollToId(id);
-          }}
-        />
-      </div>
-
       {/* Danh sách món */}
       <div
         ref={contentRef}
@@ -419,14 +397,58 @@ export default function MenuPage() {
             const el = document.getElementById(cat.id);
             if (el) headings.push({ id: cat.id, top: el.getBoundingClientRect().top });
           }
-          const next = activeCategoryAt(headings, contentRef.current.getBoundingClientRect().top);
+          const ref = stickyRef.current?.getBoundingClientRect().bottom ?? contentRef.current.getBoundingClientRect().top;
+          const next = activeCategoryAt(headings, ref);
           if (next) setActiveCategoryId(next);
         }}
       >
-        {/* Banner 4:1 trong takeaway mode */}
-        {orderMode === "takeaway" && takeawayBannerUrl && (
-          <TakeawayBannerCard url={takeawayBannerUrl} />
+        {/* Lối thường: phần đầu Trang chủ (Stitch m01) — ảnh bìa, địa chỉ + Chỉ đường, giờ mở cửa, đặt bàn */}
+        {isRoot && (
+          <>
+            <HomeHero
+              storeName={storeName}
+              logoUrl={storeLogoUrl}
+              bannerUrl={takeawayBannerUrl}
+              address={storeAddress}
+              mapsUrl={googleMapsUrl}
+              phone={storePhone}
+              servingHours={servingHours}
+              isAcceptingOrders={isAcceptingOrders}
+              canReserve={workflow?.reservationsEnabled === true}
+              onReserve={() => navigate("/reservations/new")}
+              showScanHint={workflow?.tableOrderingEnabled === true}
+            />
+            <div className="px-4 pb-1 pt-5">
+              <h2 className="text-large-m font-bold text-text-primary">{workflowAllowsOrdering ? "Thực đơn" : "Thực đơn tham khảo"}</h2>
+              {!workflowAllowsOrdering && (
+                <p className="mt-0.5 text-xxsmall text-text-secondary">Xem trước món ngon — gọi món bằng cách quét QR tại bàn.</p>
+              )}
+            </div>
+          </>
         )}
+
+        {/* Ô tìm + chip danh mục — DÍNH trên đầu vùng cuộn (Stitch m06); lối thường thì cuộn qua phần đầu Trang chủ rồi mới dính */}
+        <div ref={stickyRef} className="sticky top-0 z-10 bg-background/95 pb-0.5 backdrop-blur">
+          <label className="mx-3 mt-2.5 flex h-10 items-center gap-2 rounded-full border border-neutral200 bg-surface px-3.5">
+            <SearchIcon className="size-4 shrink-0 text-text-secondary" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Tìm món…"
+              enterKeyHint="search"
+              className="min-w-0 flex-1 bg-transparent text-small text-text-primary outline-none placeholder:text-text-secondary"
+            />
+          </label>
+          <CategoryChips
+            items={visibleMenu.map((c) => ({ id: c.id, name: c.name }))}
+            activeId={activeCategoryId}
+            onSelect={(id) => {
+              setActiveCategoryId(id);
+              scrollToCategory(id);
+            }}
+          />
+        </div>
+
 
         {visibleMenu.length === 0 ? (
           <p className="px-6 py-10 text-center text-small text-text-secondary">
