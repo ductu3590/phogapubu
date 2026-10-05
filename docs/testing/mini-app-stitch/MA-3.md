@@ -28,4 +28,13 @@ Nhánh `feat/mini-app-stitch`. Chỉ test trên **Bia lẩu Bảo Lương**, m�
 9. Trang **Thông tin nhà hàng** (bấm logo) có nút **Chỉ đường** cạnh địa chỉ.
 10. Khổ 360: không cuộn ngang, chip HÔM NAY không xuống dòng, thanh nút đáy không đè thanh tab.
 
+## Vá vòng 1 (2026-10-05) — SĐT sai báo lỗi mù mờ + kẹt bản nháp
+
+Nguyên nhân: (1) câu lỗi tiếng Việt của server bị app che thành "Không thể gửi yêu cầu đặt bàn"; (2) lần gửi lỗi để lại bản nháp, các lần sau app gửi lại NGUYÊN bản nháp cũ (SĐT cũ) nên sửa số xong vẫn lỗi.
+Đã sửa: kiểm SĐT ngay trên app (10 số bắt đầu bằng 0, nhận +84 / dấu cách) và báo đỏ dưới ô; gửi lại dùng thông tin MỚI trên form nhưng giữ mã yêu cầu cũ (không tạo trùng); nháp quá hạn thì tự tạo yêu cầu mới; luôn hiện đúng câu lỗi server.
+
+11. Gõ SĐT `0962` → bấm Xác nhận → chữ đỏ ngay dưới ô "Số điện thoại cần đủ 10 số…", không gửi đi. Rời ô SĐT khi đang sai cũng báo ngay.
+12. Máy anh đang có bản nháp kẹt (dòng vàng "Lần gửi trước chưa thành công…"): sửa SĐT đúng 10 số, chọn lại giờ → gửi → **tạo đặt bàn thành công** (sang chi tiết, Chờ quán xác nhận), dòng vàng biến mất. Danh sách Đơn của tôi chỉ có MỘT lượt mới.
+13. Nhập `+84 962 345 678` → gửi được; chi tiết đặt bàn hiện `0962345678`.
+
 **→ Báo:** `MA-3 PASS`
