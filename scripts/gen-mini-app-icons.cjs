@@ -14,7 +14,7 @@ const NAMES = {
   ClipboardList: 'clipboard-list', Package: 'package', ScanLine: 'scan-line', Phone: 'phone', Wifi: 'wifi',
   FileText: 'file-text', MessageCircle: 'message-circle',
   ShoppingCart: 'shopping-cart', Heart: 'heart', Search: 'search', ChevronLeft: 'chevron-left',
-  Plus: 'plus', Minus: 'minus', ArrowRight: 'arrow-right', CalendarDays: 'calendar-days',
+  Plus: 'plus', Minus: 'minus', ArrowRight: 'arrow-right', CalendarDays: 'calendar-days', Users: 'users',
 }
 const out = []
 out.push(`// Icon dùng trong Mini App — đường vẽ lấy từ lucide (ISC license, https://lucide.dev), CÙNG bộ icon với admin-web.

@@ -5,6 +5,11 @@ import { getBookingDraft, getReservationProfile } from "@/services/reservation/r
 import { useReservationConfig, useReservationSlots } from "@/services/reservation/reservation.queries";
 import { formatReservationDate } from "@/utils/reservation-display";
 import { useAppStore } from "@/stores/app.store";
+import { dateChips } from "@/utils/date-chips";
+import { cn } from "@/utils/cn";
+import SectionCard from "@/components/ui/section-card";
+import StickyActionBar from "@/components/ui/sticky-action-bar";
+import { CalendarDaysIcon, ClockIcon, FileTextIcon, MinusIcon, PlusIcon, UserIcon, UsersIcon } from "@/components/common/icons";
 
 type Props = {
   mode: "create" | "change";
@@ -96,17 +101,157 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
   if (configQuery.error) return <p className="p-4 text-small text-primary">Không tải được cấu hình đặt bàn. Vui lòng thử lại.</p>;
   if (mode === "create" && !canCreate) return <p className="m-4 rounded-xl bg-primary/10 p-3 text-small text-primary">Quán hiện chưa nhận đặt bàn trước.</p>;
 
-  return (
-    <div className="space-y-4 p-4 pb-8">
-      {existingDraft && <p className="rounded-xl bg-warning-bg p-3 text-small text-warning">Có một yêu cầu đang gửi dở. Bấm gửi lại để tránh tạo trùng đặt bàn.</p>}
-      <label className="block text-small font-medium">Họ và tên<input value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={100} className="mt-1.5 w-full rounded-xl border border-neutral200 px-3 py-2.5" placeholder="Tên người đặt" /></label>
-      <label className="block text-small font-medium">Số điện thoại<input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} inputMode="tel" maxLength={20} className="mt-1.5 w-full rounded-xl border border-neutral200 px-3 py-2.5" placeholder="Số để quán liên hệ" /></label>
-      <label className="block text-small font-medium">Số khách<input value={partySize} onChange={(e) => setPartySize(e.target.value)} inputMode="numeric" type="number" min={1} max={100} className="mt-1.5 w-full rounded-xl border border-neutral200 px-3 py-2.5" /></label>
-      <label className="block text-small font-medium">Ngày đến<input type="date" value={localDate} min={configQuery.data?.minimumDate} max={configQuery.data?.maximumDate} onChange={(e) => setLocalDate(e.target.value)} className="mt-1.5 w-full rounded-xl border border-neutral200 px-3 py-2.5" /></label>
-      <div><p className="text-small font-medium">Giờ đến</p><div className="mt-2 flex flex-wrap gap-2">{slotsQuery.isLoading && <span className="text-small text-text-secondary">Đang tải giờ trống…</span>}{slotsQuery.data?.map((slot) => <button type="button" key={slot.arrivalAt} onClick={() => setArrivalAt(slot.arrivalAt)} className={`rounded-lg border px-3 py-2 text-small ${arrivalAt === slot.arrivalAt ? "border-primary bg-primary text-white" : "border-neutral200 bg-surface"}`}>{slot.localTime}</button>)}{!slotsQuery.isLoading && localDate && slotsQuery.data?.length === 0 && <span className="text-small text-text-secondary">Không còn giờ phù hợp trong ngày này.</span>}</div></div>
-      <label className="block text-small font-medium">Ghi chú cho quán (không bắt buộc)<textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} maxLength={1000} className="mt-1.5 min-h-20 w-full rounded-xl border border-neutral200 px-3 py-2.5" placeholder="Ví dụ: có trẻ nhỏ, cần ghế em bé" /></label>
-      {error && <p className="rounded-xl bg-primary/10 p-3 text-small text-primary">{error}</p>}
-      <button type="button" onClick={submit} disabled={submitting || slotsQuery.isLoading} className="w-full rounded-xl bg-primary py-3 text-small-m font-bold text-white disabled:opacity-50">{submitting ? "Đang gửi…" : mode === "change" ? "Gửi yêu cầu đổi lịch" : existingDraft ? "Gửi lại yêu cầu đặt bàn" : "Gửi yêu cầu đặt bàn"}</button>
+  const config = configQuery.data;
+  const chips = config ? dateChips(config.minimumDate, config.maximumDate, config.localToday) : [];
+  const size = Number(partySize) || 0;
+  const setSize = (n: number) => setPartySize(String(Math.min(100, Math.max(1, n))));
+  const submitLabel = submitting ? "Đang gửi…" : mode === "change" ? "Gửi yêu cầu đổi lịch" : existingDraft ? "Gửi lại yêu cầu đặt bàn" : "Xác nhận đặt bàn";
+  const submitButton = (
+    <button
+      type="button"
+      onClick={submit}
+      disabled={submitting || slotsQuery.isLoading}
+      className="flex h-12 w-full items-center justify-center rounded-2xl bg-primary text-normal-sb font-bold text-white shadow active:opacity-90 disabled:opacity-50"
+    >
+      {submitLabel}
+    </button>
+  );
+
+  const body = (
+    <div className="pb-4">
+      {existingDraft && <p className="mx-3 mt-3 rounded-xl bg-warning-bg p-3 text-small text-warning">Có một yêu cầu đang gửi dở. Bấm gửi lại để tránh tạo trùng đặt bàn.</p>}
+
+      {/* 1. Người đặt */}
+      <SectionCard title="Thông tin người đặt" subtitle="Quán dùng để liên hệ xác nhận chỗ" icon={<UserIcon />}>
+        <div className="space-y-3">
+          <Field label="Họ và tên" required>
+            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={100} placeholder="Tên người đặt" className={INPUT} />
+          </Field>
+          <Field label="Số điện thoại" required>
+            <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} inputMode="tel" maxLength={20} placeholder="Số để quán liên hệ" className={INPUT} />
+          </Field>
+        </div>
+      </SectionCard>
+
+      {/* 2. Thời gian */}
+      <SectionCard
+        title="Thời gian đến quán"
+        subtitle={config ? `Đặt trước tối thiểu ${config.minimumAdvanceMinutes} phút, trong ${config.bookingHorizonDays} ngày tới` : undefined}
+        icon={<CalendarDaysIcon />}
+      >
+        <p className="text-xxsmall font-semibold text-text-secondary">Chọn ngày</p>
+        <div className="no-scrollbar -mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1">
+          {chips.map((c) => {
+            const active = c.value === localDate;
+            return (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => setLocalDate(c.value)}
+                className={cn(
+                  "flex w-16 shrink-0 flex-col items-center rounded-xl border py-2",
+                  active ? "border-primary bg-primary text-white shadow-sm" : "border-neutral200 bg-surface text-text-primary",
+                )}
+              >
+                <span className={cn("text-xxxsmall font-bold", active ? "text-white/90" : c.top === "CN" ? "text-critical" : "text-text-secondary")}>{c.top}</span>
+                <span className="text-large-m font-bold leading-tight">{c.day}</span>
+                <span className={cn("text-xxxsmall", active ? "text-white/80" : "text-text-secondary")}>{c.month}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 flex items-center justify-between">
+          <p className="text-xxsmall font-semibold text-text-secondary">Khung giờ</p>
+          {config && <p className="flex items-center gap-1 text-xxsmall text-text-secondary"><ClockIcon className="size-3.5" />Mỗi {config.slotIntervalMinutes} phút</p>}
+        </div>
+        <div className="mt-2 grid grid-cols-4 gap-2">
+          {slotsQuery.data?.map((slot) => (
+            <button
+              type="button"
+              key={slot.arrivalAt}
+              onClick={() => setArrivalAt(slot.arrivalAt)}
+              className={cn(
+                "rounded-lg border py-2 text-small font-semibold tabular-nums",
+                arrivalAt === slot.arrivalAt ? "border-primary bg-primary text-white" : "border-neutral200 bg-neutral50 text-text-primary",
+              )}
+            >
+              {slot.localTime}
+            </button>
+          ))}
+        </div>
+        {slotsQuery.isLoading && <p className="mt-2 text-small text-text-secondary">Đang tải giờ trống…</p>}
+        {!slotsQuery.isLoading && localDate && slotsQuery.data?.length === 0 && (
+          <p className="mt-2 text-small text-text-secondary">Ngày này không còn giờ phù hợp — chọn ngày khác nhé.</p>
+        )}
+      </SectionCard>
+
+      {/* 3. Số khách */}
+      <SectionCard title="Số lượng khách" icon={<UsersIcon />}>
+        <div className="flex items-center justify-between">
+          <span className="text-small text-text-secondary">Số người</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-neutral100 p-1">
+            <button type="button" aria-label="Bớt 1 khách" onClick={() => setSize(size - 1)} className="grid size-9 place-items-center rounded-full bg-surface text-text-primary active:scale-95"><MinusIcon className="size-4" /></button>
+            <input
+              value={partySize}
+              onChange={(e) => setPartySize(e.target.value.replace(/\D/g, "").slice(0, 3))}
+              inputMode="numeric"
+              aria-label="Số khách"
+              className="w-12 bg-transparent text-center text-large-m font-bold text-text-primary outline-none"
+            />
+            <button type="button" aria-label="Thêm 1 khách" onClick={() => setSize(size + 1)} className="grid size-9 place-items-center rounded-full bg-primary text-white active:scale-95"><PlusIcon className="size-4" /></button>
+          </span>
+        </div>
+        <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4">
+          {[2, 4, 6, 10, 15, 20].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setSize(n)}
+              className={cn("shrink-0 rounded-full border px-3.5 py-1.5 text-small", size === n ? "border-primary bg-primary/10 font-bold text-primary" : "border-neutral200 text-text-secondary")}
+            >
+              {n} người
+            </button>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* 4. Ghi chú */}
+      <SectionCard title="Ghi chú cho quán" subtitle="Không bắt buộc" icon={<FileTextIcon />}>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value.slice(0, 1000))}
+          maxLength={1000}
+          placeholder="Ví dụ: có trẻ nhỏ, cần ghế em bé, tổ chức sinh nhật…"
+          className="min-h-24 w-full rounded-xl border border-neutral200 bg-neutral50 px-3 py-2.5 text-small outline-none focus:border-primary"
+        />
+      </SectionCard>
+
+      {error && <p className="mx-3 mt-3 rounded-xl bg-critical-bg p-3 text-small text-critical">{error}</p>}
+      {mode === "change" && <div className="mx-3 mt-3">{submitButton}</div>}
     </div>
+  );
+
+  // Đặt bàn mới: trang riêng có thanh nút dính đáy. Đổi lịch: nằm trong trang chi tiết, nút ngay dưới form.
+  if (mode === "change") return body;
+  return (
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
+      <StickyActionBar variant="primary" aboveTabBar>{submitButton}</StickyActionBar>
+    </div>
+  );
+}
+
+const INPUT = "w-full rounded-xl border border-neutral200 bg-neutral50 px-3 py-3 text-small outline-none focus:border-primary";
+
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 flex items-center justify-between text-xxsmall font-semibold text-text-secondary">
+        {label}
+        {required && <span className="font-medium text-critical">Bắt buộc</span>}
+      </span>
+      {children}
+    </label>
   );
 }
