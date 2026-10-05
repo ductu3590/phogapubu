@@ -8,6 +8,13 @@ import TermsSheet from "@/components/common/terms-sheet";
 import { DEFAULT_TERMS } from "@/constants/terms";
 import { ScanLineIcon, UtensilsIcon, MapPinIcon, BikeIcon, PhoneIcon, WifiIcon, FileTextIcon, MessageCircleIcon, BellIcon } from "@/components/common/icons";
 
+// "Bia lẩu Bảo Lương" → "BL" (giống chữ viết tắt trên thanh công cụ).
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const picked = words.length >= 2 ? [words[0], words[words.length - 1]] : words;
+  return picked.map((w) => w[0]).join("").toUpperCase();
+}
+
 function InfoRow({
   icon,
   label,
@@ -25,7 +32,7 @@ function InfoRow({
       disabled={!onPress}
       className="flex w-full items-start gap-3 border-b border-neutral100 px-4 py-3 last:border-0 text-left disabled:cursor-default"
     >
-      <span className="mt-0.5 shrink-0 text-text-secondary">{icon}</span>
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary [&>svg]:size-4">{icon}</span>
       <div>
         <p className="text-xxsmall text-text-secondary">{label}</p>
         <p className="text-small text-text-primary">{value}</p>
@@ -119,32 +126,36 @@ export default function StoreInfoPage() {
 
   return (
     <div
-      className="flex h-full flex-col overflow-y-auto bg-background"
-      style={{ paddingTop: 16 }}
+      className="flex h-full flex-col overflow-y-auto bg-background pb-6"
     >
       {/* Card thông tin quán */}
-      <div className="mx-3.5 rounded-xl bg-surface px-4 py-4">
+      <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)] p-4">
         <div className="flex items-center gap-4">
           {storeLogoUrl ? (
             <img
               src={storeLogoUrl}
               alt={storeName}
-              className="h-20 w-20 rounded-2xl object-cover"
+              className="size-16 shrink-0 rounded-2xl object-cover"
             />
           ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <UtensilsIcon className="size-8" />
+            <div className="grid size-16 shrink-0 place-items-center rounded-2xl bg-primary text-large-m font-bold text-white">
+              {initials(storeName) || <UtensilsIcon className="size-7" />}
             </div>
           )}
-          <div>
-            <h1 className="text-medium-m font-bold text-text-primary">{storeName}</h1>
+          <div className="min-w-0">
+            <h1 className="text-large-m font-bold text-text-primary">{storeName}</h1>
+            <p className="mt-0.5 text-xxsmall text-text-secondary">Thông tin nhà hàng</p>
           </div>
         </div>
+        {aboutText && (
+          <p className="mt-3 whitespace-pre-line border-t border-neutral100 pt-3 text-small text-text-secondary">{aboutText}</p>
+        )}
       </div>
 
       {/* Card liên hệ */}
       {(storeAddress || storePhone || wifiName || deliveryAreaNote) && (
-        <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-surface">
+        <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+          <p className="px-4 pb-1 pt-3 text-xxsmall font-bold uppercase tracking-wide text-text-secondary">Liên hệ</p>
           {storeAddress && <InfoRow icon={<MapPinIcon />} label="Địa chỉ" value={storeAddress} />}
           {deliveryAreaNote && <InfoRow icon={<BikeIcon />} label="Phạm vi ship" value={deliveryAreaNote} />}
           {storePhone && (
@@ -180,7 +191,7 @@ export default function StoreInfoPage() {
       )}
 
       {/* Card: Điều khoản sử dụng (luôn hiện) + Trang Zalo chính thức (nếu có) */}
-      <div className="mx-3.5 mt-3 overflow-hidden rounded-xl bg-surface">
+      <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         {/* Điều khoản sử dụng — luôn hiện; rỗng thì dùng DEFAULT_TERMS */}
         <button
           onClick={() => setShowTerms(true)}
@@ -227,26 +238,20 @@ export default function StoreInfoPage() {
 
       {/* CTA card xin quyền — hiện mỗi lần vào tab cho đến khi thực sự kết nối */}
       {zaloOaId && !isConnected && (
-        <div className="mx-3.5 mt-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
+        <div className="mx-3 mt-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3">
           <p className="flex items-center gap-1.5 text-small-m font-semibold text-text-primary"><BellIcon className="size-4 text-primary" />Kết nối để nhận ưu đãi</p>
           <p className="mt-0.5 text-xxsmall text-text-secondary">
             Thông báo khi món xong + điền form nhanh hơn.
           </p>
           <button
             onClick={() => setShowPermSheet(true)}
-            className="mt-2.5 w-full rounded-xl bg-primary py-2.5 text-small font-semibold text-white active:opacity-80"
+            className="mt-2.5 h-11 w-full rounded-xl bg-primary text-small-m font-bold text-white active:opacity-80"
           >
             Kết nối với {storeName}
           </button>
         </div>
       )}
 
-      {/* Ghi chú / Lời nhắn từ quán */}
-      {aboutText && (
-        <div className="mx-3.5 mt-3 rounded-xl bg-surface px-4 py-3">
-          <p className="whitespace-pre-line text-small text-text-secondary">{aboutText}</p>
-        </div>
-      )}
 
       {/* Sheet điều khoản sử dụng */}
       <TermsSheet

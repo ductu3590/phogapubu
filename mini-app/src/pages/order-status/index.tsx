@@ -11,6 +11,8 @@ import { Button } from "zmp-ui";
 import { cn } from "@/utils/cn";
 import { useAppStore } from "@/stores/app.store";
 import SpinSection from "@/components/spin/spin-section";
+import SectionCard from "@/components/ui/section-card";
+import { orderSteps, stepIndex } from "@/utils/round-status";
 import { HourglassIcon, CircleCheckIcon, ChefHatIcon, PartyPopperIcon, CircleXIcon, FootprintsIcon, MapPinIcon, BikeIcon } from "@/components/common/icons";
 
 const STATUS_CONFIG: Record<
@@ -55,7 +57,14 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const STATUS_STEPS: OrderState[] = ["pending", "confirmed", "cooking", "ready"];
+// Quán "thu ngân duyệt + in phiếu" (Bảo Lương) không có màn bếp → đổi chữ cho đúng việc thật.
+// Bình thường quán này không vào trang này nữa (gọi xong sang thẳng Đơn gọi), chỉ còn link cũ.
+const POS_CONFIRM_COPY: Partial<Record<OrderState, { label: string; sublabel: string }>> = {
+  pending: { label: "Đã gửi đơn", sublabel: "Đang chờ thu ngân xác nhận…" },
+  confirmed: { label: "Đã vào bếp", sublabel: "Quán đã nhận đơn, món sẽ được mang ra bàn" },
+  cooking: { label: "Đã vào bếp", sublabel: "Quán đã nhận đơn, món sẽ được mang ra bàn" },
+  ready: { label: "Đã vào bếp", sublabel: "Quán đã nhận đơn, món sẽ được mang ra bàn" },
+};
 
 function TakeawayInfoCard({ order }: { order: Order }) {
   const { storeName, storeAddress } = useAppStore();
@@ -97,7 +106,7 @@ function TakeawayInfoCard({ order }: { order: Order }) {
 export default function OrderStatusPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { zaloUserId } = useAppStore();
+  const { zaloUserId, workflow } = useAppStore();
   const { openSnackbar } = useSnackbar();
   const { data: initialOrder, isLoading } = useOrderWithItems(orderId ?? "");
   const { mutate: confirmReceived, isPending: isConfirming } = useConfirmReceived();
@@ -177,10 +186,14 @@ export default function OrderStatusPage() {
     icon: <CircleCheckIcon className="size-14" />,
     color: "text-success",
   };
-  const config = isCompleted
-    ? COMPLETED_CONFIG
-    : STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
-  const currentStepIdx = STATUS_STEPS.indexOf(order.status);
+  const kitchenPolicy = workflow?.kitchenReleasePolicy ?? "automatic";
+  const steps = orderSteps(kitchenPolicy);
+  const baseConfig = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
+  const posCopy = kitchenPolicy === "pos_confirmation" ? POS_CONFIRM_COPY[order.status] : undefined;
+  const config = isCompleted ? COMPLETED_CONFIG : posCopy ? { ...baseConfig, ...posCopy } : baseConfig;
+  const currentStepIdx = stepIndex(order.status, steps);
+  const stepLabel = (step: OrderState) =>
+    (kitchenPolicy === "pos_confirmation" ? POS_CONFIRM_COPY[step]?.label : undefined) ?? STATUS_CONFIG[step].label;
 
   const handleReceive = () => {
     if (!orderId) return;
@@ -200,7 +213,7 @@ export default function OrderStatusPage() {
       <div className="no-scrollbar flex-1 overflow-y-auto pb-8">
 
         {/* Status hero */}
-        <div className="flex flex-col items-center bg-surface px-6 pb-8 pt-10 shadow-sm">
+        <div className="mx-3 mt-3 flex flex-col items-center rounded-2xl bg-surface px-6 pb-7 pt-8 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
           <div className={cn("mb-3", config.color)}>{config.icon}</div>
           <h1 className={cn("text-2xl font-bold", config.color)}>
             {config.label}
@@ -212,13 +225,9 @@ export default function OrderStatusPage() {
 
         {/* Progress steps */}
         {order.status !== "cancelled" && order.status !== "paid" && !isCompleted && (
-          <div className="mx-4 mt-4 rounded-xl bg-surface p-4">
-            <p className="mb-4 text-small-m font-semibold text-text-secondary">
-              Tiến trình đơn hàng
-            </p>
+          <SectionCard title="Tiến trình đơn hàng">
             <div className="flex items-start">
-              {STATUS_STEPS.map((step, idx) => {
-                const stepConfig = STATUS_CONFIG[step];
+              {steps.map((step, idx) => {
                 const isDone = idx <= currentStepIdx;
                 const isActive = idx === currentStepIdx;
                 return (
@@ -243,7 +252,7 @@ export default function OrderStatusPage() {
                       >
                         {isDone ? "✓" : idx + 1}
                       </div>
-                      {idx < STATUS_STEPS.length - 1 && (
+                      {idx < steps.length - 1 && (
                         <div
                           className={cn(
                             "h-0.5 flex-1 transition-colors",
@@ -258,13 +267,13 @@ export default function OrderStatusPage() {
                         isDone ? "font-medium text-primary" : "text-text-disabled",
                       )}
                     >
-                      {stepConfig.label}
+                      {stepLabel(step)}
                     </p>
                   </div>
                 );
               })}
             </div>
-          </div>
+          </SectionCard>
         )}
 
         {/* Thông tin giao/lấy đơn mang về */}
@@ -278,13 +287,10 @@ export default function OrderStatusPage() {
           )}
 
         {/* Chi tiết đơn */}
-        <div className="mx-4 mt-4 rounded-xl bg-surface p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-small-m font-semibold">Chi tiết đơn hàng</p>
-            <p className="text-xxsmall text-text-secondary">
-              #{orderId?.slice(-6).toUpperCase()}
-            </p>
-          </div>
+        <SectionCard
+          title="Chi tiết đơn hàng"
+          action={<span className="text-xxsmall text-text-secondary">#{orderId?.slice(-6).toUpperCase()}</span>}
+        >
           <div className="flex flex-col gap-3">
             {(order.items ?? []).map((item) => (
               <div key={item.id} className="flex justify-between gap-2">
@@ -313,14 +319,13 @@ export default function OrderStatusPage() {
               </div>
             </div>
           </div>
-        </div>
+        </SectionCard>
 
         {/* Ghi chú */}
         {order.note && (
-          <div className="mx-4 mt-3 rounded-xl bg-surface p-4">
-            <p className="mb-1 text-xxsmall text-text-secondary">Ghi chú</p>
+          <SectionCard title="Ghi chú">
             <p className="text-small text-text-primary">{order.note}</p>
-          </div>
+          </SectionCard>
         )}
 
         {/* Nút gọi thêm — chỉ hiện khi ăn tại quán */}

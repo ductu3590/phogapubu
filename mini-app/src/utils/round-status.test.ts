@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPendingRound, lineLabel, reconcileRounds, roundSourceLabel, roundStatus } from "./round-status";
+import { hasPendingRound, lineLabel, orderSteps, reconcileRounds, roundSourceLabel, roundStatus, stepIndex } from "./round-status";
 
 const BL = { paymentTiming: "postpay", kitchenPolicy: "pos_confirmation" } as const;
 const PUBU = { paymentTiming: "prepay", kitchenPolicy: "automatic" } as const;
@@ -54,4 +54,22 @@ describe("reconcileRounds — khối Đối soát tạm tính", () => {
     expect(reconcileRounds([{ status: "pending", total_amount: 50000 }], PUBU)).toEqual({ inKitchen: 0, pending: 50000, total: 50000 });
   });
   it("rỗng", () => expect(reconcileRounds([], BL)).toEqual({ inKitchen: 0, pending: 0, total: 0 }));
+});
+
+describe("orderSteps / stepIndex — thanh tiến trình trang Trạng thái đơn", () => {
+  it("quán thu ngân duyệt: 3 bước, không có bước bếp", () => {
+    expect(orderSteps("pos_confirmation")).toEqual(["pending", "confirmed", "paid"]);
+  });
+  it("quán có màn bếp: 4 bước như cũ", () => {
+    expect(orderSteps("automatic")).toEqual(["pending", "confirmed", "cooking", "ready"]);
+  });
+  it("đang nấu / xong ở quán thu ngân duyệt vẫn đứng ở bước Đã vào bếp", () => {
+    const steps = orderSteps("pos_confirmation");
+    expect(stepIndex("cooking", steps)).toBe(1);
+    expect(stepIndex("ready", steps)).toBe(1);
+    expect(stepIndex("paid", steps)).toBe(2);
+  });
+  it("trạng thái không có trong thanh → -1", () => {
+    expect(stepIndex("cancelled", orderSteps("automatic"))).toBe(-1);
+  });
 });

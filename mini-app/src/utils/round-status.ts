@@ -79,3 +79,16 @@ export function reconcileRounds(
   }
   return { inKitchen, pending, total: inKitchen + pending };
 }
+
+/** Các bước thanh tiến trình theo mô hình bếp. Quán in phiếu không có bước "đang làm / xong". */
+export function orderSteps(kitchenPolicy: RoundContext["kitchenPolicy"]): OrderState[] {
+  return kitchenPolicy === "pos_confirmation" ? ["pending", "confirmed", "paid"] : ["pending", "confirmed", "cooking", "ready"];
+}
+
+/** Vị trí trạng thái trên thanh; quán không có bước bếp thì cooking/ready đứng ở "Đã vào bếp". */
+export function stepIndex(status: OrderState, steps: OrderState[]): number {
+  const direct = steps.indexOf(status);
+  if (direct !== -1) return direct;
+  if ((status === "cooking" || status === "ready") && !steps.includes("cooking")) return steps.indexOf("confirmed");
+  return -1;
+}
