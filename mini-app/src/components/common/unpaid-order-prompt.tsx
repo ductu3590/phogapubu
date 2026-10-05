@@ -2,7 +2,7 @@
 //
 // Vì sao cần: banner "Thanh toán chưa thành công" chỉ sống trong trang giỏ hàng, mà giỏ hàng
 // KHÔNG được lưu qua lần mở app. Khách thoát hẳn mini-app rồi quét QR lại sẽ rơi vào menu với
-// giỏ trống → nút giỏ nổi tự ẩn (cart-float-button: itemCount === 0 thì return null) → không có
+// giỏ trống → thanh giỏ tự ẩn (sticky-cart-bar: count === 0 thì return null) → không có
 // đường nào vào /checkout → banner không bao giờ dựng được. Đơn vẫn sống nhưng không ai thấy.
 //
 // Hộp thoại này chỉ là ĐƯỜNG DẪN vào màn banner sẵn có, cố ý KHÔNG tự huỷ/tự nạp giỏ:

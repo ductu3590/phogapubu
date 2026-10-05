@@ -1,37 +1,39 @@
 import { Outlet, useMatches } from "react-router-dom";
-import Header from "./header";
-import BottomTabs from "./bottom-tabs";
-import CartFloatButton from "../common/cart-float-button";
+import AppToolbar from "@/components/ui/app-toolbar";
+import TabBar from "@/components/ui/tab-bar";
+import StickyCartBar from "@/components/ui/sticky-cart-bar";
 import { useCartStore } from "@/stores/cart.store";
 import { useAppStore } from "@/stores/app.store";
-import { canOrderInEntry } from "@/utils/entry-context";
+import { canOrderInEntry, rootCapabilities } from "@/utils/entry-context";
+import { tabsFor, toolbarModeFor } from "@/utils/nav-sets";
+import { calculateCartTotal } from "@/utils/cart";
+import { getBookingAccesses } from "@/services/reservation/reservation-storage";
 import type { RouteHandle } from "@/types/router.types";
 
 export default function Layout() {
   const matches = useMatches();
-  const current = matches[matches.length - 1];
-  const handle = current.handle as RouteHandle | undefined;
+  const handle = matches[matches.length - 1].handle as RouteHandle | undefined;
+  const { hideBottomTabs, hideCart, hideHeader } = handle ?? {};
+  const { items, totalItems } = useCartStore();
+  const { workflow, entryContext, tableId, tableNumber, storeId } = useAppStore();
 
-  const { hideBottomTabs, hideCart, hideHeader, headerPosition } = handle ?? {};
-  const { totalItems } = useCartStore();
-  const { workflow, entryContext, tableId } = useAppStore();
   const hasVerifiedTable = entryContext.kind === "root" || tableId === entryContext.tableId;
-  const canShowCart = workflow !== null && hasVerifiedTable && canOrderInEntry(workflow, entryContext);
+  const canOrder = workflow !== null && hasVerifiedTable && canOrderInEntry(workflow, entryContext);
+  const readOnlyMenu = entryContext.kind === "root" && (!workflow || rootCapabilities(workflow).readOnlyMenu);
+  const showReservations = entryContext.kind === "root" && (workflow?.reservationsEnabled === true || getBookingAccesses(storeId).length > 0);
+  const tabs = tabsFor({ entryKind: entryContext.kind, readOnlyMenu, showReservations });
+  const showTabs = !hideBottomTabs && tabs.length > 1;
 
   return (
     <div className="relative flex h-screen w-screen flex-col bg-background">
       {!hideHeader && (
-        <Header
-          title={handle?.title}
-          back={handle?.back}
-          position={headerPosition}
-        />
+        <AppToolbar title={handle?.title} back={handle?.back} mode={toolbarModeFor({ entryKind: entryContext.kind, canOrder })} cartCount={totalItems} />
       )}
-      <div className="relative min-h-0 flex-1 overflow-y-auto">
-        <Outlet />
-        {!hideCart && canShowCart && totalItems > 0 && <CartFloatButton itemCount={totalItems} />}
-      </div>
-      {!hideBottomTabs && <BottomTabs />}
+      <main className="relative min-h-0 flex-1 overflow-y-auto"><Outlet /></main>
+      {!hideCart && canOrder && (
+        <StickyCartBar count={totalItems} total={calculateCartTotal(items)} tableLabel={entryContext.kind === "table" ? tableNumber : undefined} aboveTabBar={showTabs} />
+      )}
+      {showTabs && <TabBar tabs={tabs} />}
     </div>
   );
 }

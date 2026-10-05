@@ -21,8 +21,8 @@ const router = createBrowserRouter(
       element: <Layout />,
       children: [
         // Trang chính: menu (header ẩn — menu tự có header riêng)
-        { path: "/", element: <MenuPage />, handle: { hideHeader: true } },
-        { path: "/menu", element: <MenuPage />, handle: { hideHeader: true } },
+        { path: "/", element: <MenuPage /> },
+        { path: "/menu", element: <MenuPage /> },
 
         // Tab: Đơn đã gọi trong phiên (placeholder, Task 6)
         { path: "/session-orders", element: <SessionOrdersPage />, handle: { hideHeader: true } },
