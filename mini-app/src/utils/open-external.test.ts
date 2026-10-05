@@ -1,39 +1,37 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { openExternal } from "./open-external";
+import { describe, expect, it, vi } from "vitest";
+import { isZaloWebview, openExternal } from "./open-external";
 
+describe("isZaloWebview", () => {
+  it("user agent trình duyệt trong Zalo có chữ Zalo", () => {
+    expect(isZaloWebview("Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36 Zalo android/12100634 ZaloTheme/light")).toBe(true);
+    expect(isZaloWebview("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) AppleWebKit/605.1.15 Mobile/15E148 Zalo iOS/641")).toBe(true);
+  });
+  it("Chrome / Safari thường → không phải Zalo", () => {
+    expect(isZaloWebview("Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/141 Safari/537.36")).toBe(false);
+  });
+});
+
+// Ngoài Zalo, openOutApp / openWebview của zmp-sdk BÁO XONG NGAY mà không mở gì (đã đo 2026-10-05)
+// → không thể dựa vào kết quả lệnh; phải phân nhánh theo môi trường.
 describe("openExternal — nút Chỉ đường", () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
-
-  it("trong Zalo: openOutApp xong nhanh → KHÔNG mở thêm tab", async () => {
+  it("trong Zalo → openOutApp (mở ứng dụng Google Maps), không mở tab", () => {
+    const openOutApp = vi.fn(() => Promise.resolve());
     const fallback = vi.fn();
-    openExternal("https://maps.app.goo.gl/x", { openOutApp: () => Promise.resolve(), fallback, timeoutMs: 1500 });
-    await vi.advanceTimersByTimeAsync(2000);
+    openExternal("https://maps.app.goo.gl/x", { inZalo: true, openOutApp, fallback });
+    expect(openOutApp).toHaveBeenCalledWith({ url: "https://maps.app.goo.gl/x" });
     expect(fallback).not.toHaveBeenCalled();
   });
-
-  it("ngoài Zalo: openOutApp treo im (không xong, không lỗi) → sau 1,5s mở tab trình duyệt", async () => {
+  it("ngoài Zalo → mở tab NGAY (đồng bộ trong lúc bấm, trình duyệt không chặn), không gọi SDK", () => {
+    const openOutApp = vi.fn(() => Promise.resolve());
     const fallback = vi.fn();
-    openExternal("https://maps.app.goo.gl/x", { openOutApp: () => new Promise<void>(() => {}), fallback, timeoutMs: 1500 });
-    await vi.advanceTimersByTimeAsync(1499);
-    expect(fallback).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(2);
+    openExternal("https://maps.app.goo.gl/x", { inZalo: false, openOutApp, fallback });
     expect(fallback).toHaveBeenCalledWith("https://maps.app.goo.gl/x");
+    expect(openOutApp).not.toHaveBeenCalled();
   });
-
-  it("openOutApp báo lỗi → mở tab ngay, chỉ một lần", async () => {
+  it("trong Zalo mà openOutApp lỗi → vẫn thử mở bằng trình duyệt", async () => {
     const fallback = vi.fn();
-    openExternal("https://x", { openOutApp: () => Promise.reject(new Error("no bridge")), fallback, timeoutMs: 1500 });
-    await vi.advanceTimersByTimeAsync(0);
-    expect(fallback).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(2000);
-    expect(fallback).toHaveBeenCalledTimes(1);
-  });
-
-  it("openOutApp ném lỗi đồng bộ → vẫn mở tab", async () => {
-    const fallback = vi.fn();
-    openExternal("https://x", { openOutApp: () => { throw new Error("sync"); }, fallback, timeoutMs: 1500 });
-    await vi.advanceTimersByTimeAsync(0);
-    expect(fallback).toHaveBeenCalledTimes(1);
+    openExternal("https://x", { inZalo: true, openOutApp: () => Promise.reject(new Error("deny")), fallback });
+    await Promise.resolve(); await Promise.resolve();
+    expect(fallback).toHaveBeenCalledWith("https://x");
   });
 });
