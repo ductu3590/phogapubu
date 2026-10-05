@@ -19,6 +19,8 @@ interface AppStore {
   storeName: string;
   storeLogoUrl: string;
   storeAddress: string;
+  /** mig 090 — link Google Maps cho nút Chỉ đường; rỗng = tìm theo địa chỉ. */
+  googleMapsUrl: string;
   storePhone: string;
   zaloOaId: string;
   zaloOaUrl: string;
@@ -48,6 +50,7 @@ interface AppStore {
     storeName: string;
     storeLogoUrl: string;
     storeAddress: string;
+    googleMapsUrl: string;
     storePhone: string;
     zaloOaId: string;
     zaloOaUrl: string;
@@ -78,6 +81,7 @@ export const useAppStore = create<AppStore>((set) => ({
   storeName: "",
   storeLogoUrl: "",
   storeAddress: "",
+  googleMapsUrl: "",
   storePhone: "",
   zaloOaId: "",
   zaloOaUrl: "",

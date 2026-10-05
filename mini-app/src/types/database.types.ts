@@ -29,6 +29,7 @@ export interface Database {
           is_accepting_orders: boolean
           serving_hours: Json
           delivery_area_note: string | null
+          google_maps_url: string | null
           terms_of_use: string | null
           is_active: boolean
           created_at: string

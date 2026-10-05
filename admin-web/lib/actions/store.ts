@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
+import { normalizeMapsUrl } from '@/lib/maps-url'
 
 // Dùng chung bucket ảnh với menu (public read, service-role ghi)
 const ASSET_BUCKET = 'menu-images'
@@ -18,6 +19,14 @@ export async function updateStoreSettings(formData: FormData) {
   const admin = createAdminClient()
 
   const patch: Record<string, unknown> = { name: formData.get('name') as string }
+
+  // google_maps_url (mig 090) — kiểm TRƯỚC khi tải ảnh lên để link sai không để lại ảnh mồ côi.
+  // Form không gửi ô này (form cũ) thì giữ nguyên link đang có, không xoá.
+  if (formData.has('google_maps_url')) {
+    const maps = normalizeMapsUrl(formData.get('google_maps_url') as string | null)
+    if (!maps.ok) throw new Error(maps.error)
+    patch.google_maps_url = maps.value
+  }
 
   const logo = formData.get('logo') as File | null
   if (logo && logo.size > 0) {

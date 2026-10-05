@@ -42,7 +42,7 @@ function AppInit() {
 
     const storeQuery = supabase
       .from("stores")
-      .select("id, name, slug, logo_url, address, phone, zalo_oa_id, zalo_oa_url, payment_methods, payment_timing, takeaway_banner_url, about_text, wifi_name, wifi_password, primary_color, is_accepting_orders, serving_hours, delivery_area_note, terms_of_use")
+      .select("id, name, slug, logo_url, address, google_maps_url, phone, zalo_oa_id, zalo_oa_url, payment_methods, payment_timing, takeaway_banner_url, about_text, wifi_name, wifi_password, primary_color, is_accepting_orders, serving_hours, delivery_area_note, terms_of_use")
       .eq("slug", storeSlug)
       .eq("is_active", true)
       .single();
@@ -71,6 +71,7 @@ function AppInit() {
           storeName: storeRes.data.name,
           storeLogoUrl: storeRes.data.logo_url ?? "",
           storeAddress: storeRes.data.address ?? "",
+          googleMapsUrl: (storeRes.data as { google_maps_url?: string | null }).google_maps_url ?? "",
           storePhone: storeRes.data.phone ?? "",
           zaloOaId: storeRes.data.zalo_oa_id ?? "",
           zaloOaUrl: storeRes.data.zalo_oa_url ?? "",

@@ -18,7 +18,7 @@ export default async function SettingsPage() {
   const [{ data: store }, workflowSettings] = await Promise.all([
     supabase
       .from('stores')
-      .select('name, logo_url, zalo_oa_url, address, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, delivery_area_note, terms_of_use')
+      .select('name, logo_url, zalo_oa_url, address, google_maps_url, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, delivery_area_note, terms_of_use')
       .eq('id', storeId)
       .single(),
     loadOwnerWorkflowSettings(),
@@ -39,6 +39,7 @@ export default async function SettingsPage() {
               logoUrl={store?.logo_url ?? null}
               zaloOaUrl={(store?.zalo_oa_url as string | null) ?? ''}
               address={(store?.address as string | null) ?? ''}
+              googleMapsUrl={(store?.google_maps_url as string | null) ?? ''}
               phone={(store?.phone as string | null) ?? ''}
               aboutText={(store?.about_text as string | null) ?? ''}
               takeawayBannerUrl={(store?.takeaway_banner_url as string | null) ?? null}

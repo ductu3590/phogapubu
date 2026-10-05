@@ -10,6 +10,7 @@ interface Props {
   logoUrl: string | null
   zaloOaUrl: string
   address: string
+  googleMapsUrl: string
   phone: string
   aboutText: string
   takeawayBannerUrl: string | null
@@ -53,7 +54,7 @@ async function compressBanner(file: File): Promise<File> {
   }
 }
 
-export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword, deliveryAreaNote, termsOfUse }: Props) {
+export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, googleMapsUrl, phone, aboutText, takeawayBannerUrl, wifiName, wifiPassword, deliveryAreaNote, termsOfUse }: Props) {
   const router = useRouter()
   const [logo, setLogo] = useState<File | null>(null)
   const [banner, setBanner] = useState<File | null>(null)
@@ -114,6 +115,21 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, phon
           placeholder="VD: 12 Phố Núi, TP. Lào Cai"
           className="input"
         />
+      </div>
+
+      {/* Link Google Maps — nút "Chỉ đường" trên Mini App (mig 090) */}
+      <div>
+        <label className="label">Link Google Maps (nút Chỉ đường)</label>
+        <input
+          name="google_maps_url"
+          defaultValue={googleMapsUrl}
+          inputMode="url"
+          placeholder="https://maps.app.goo.gl/…"
+          className="input"
+        />
+        <p className="mt-1 text-[13px] text-muted">
+          Mở Google Maps → tìm quán → Chia sẻ → Sao chép đường liên kết, rồi dán vào đây. Để trống thì khách được chỉ đường theo địa chỉ ở trên.
+        </p>
       </div>
 
       {/* Số điện thoại */}

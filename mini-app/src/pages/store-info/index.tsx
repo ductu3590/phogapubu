@@ -4,6 +4,8 @@ import { useSnackbar } from "zmp-ui";
 import { useAppStore } from "@/stores/app.store";
 import PermissionSheet from "@/components/common/permission-sheet";
 import { useOaFollow } from "@/hooks/use-oa-follow";
+import { directionsUrl } from "@/utils/directions";
+import DirectionsButton from "@/components/ui/directions-button";
 import TermsSheet from "@/components/common/terms-sheet";
 import { DEFAULT_TERMS } from "@/constants/terms";
 import { ScanLineIcon, UtensilsIcon, MapPinIcon, BikeIcon, PhoneIcon, WifiIcon, FileTextIcon, MessageCircleIcon, BellIcon } from "@/components/common/icons";
@@ -42,9 +44,10 @@ function InfoRow({
 }
 
 export default function StoreInfoPage() {
-  const { storeId, storeName, storeLogoUrl, storeAddress, storePhone, zaloOaId, zaloOaUrl, aboutText, wifiName, wifiPassword, deliveryAreaNote, termsOfUse } =
+  const { storeId, storeName, storeLogoUrl, storeAddress, googleMapsUrl, storePhone, zaloOaId, zaloOaUrl, aboutText, wifiName, wifiPassword, deliveryAreaNote, termsOfUse } =
     useAppStore();
   const { openSnackbar } = useSnackbar();
+  const directions = directionsUrl(googleMapsUrl, storeAddress);
 
   // Sao chép mật khẩu wifi: ưu tiên Clipboard API, nếu bị chặn thì fallback textarea + execCommand
   const handleCopyWifi = async () => {
@@ -156,7 +159,16 @@ export default function StoreInfoPage() {
       {(storeAddress || storePhone || wifiName || deliveryAreaNote) && (
         <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
           <p className="px-4 pb-1 pt-3 text-xxsmall font-bold uppercase tracking-wide text-text-secondary">Liên hệ</p>
-          {storeAddress && <InfoRow icon={<MapPinIcon />} label="Địa chỉ" value={storeAddress} />}
+          {storeAddress && (
+            <div className="flex items-start gap-3 border-b border-neutral100 px-4 py-3 last:border-0">
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary [&>svg]:size-4"><MapPinIcon /></span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xxsmall text-text-secondary">Địa chỉ</p>
+                <p className="text-small text-text-primary">{storeAddress}</p>
+              </div>
+              {directions && <DirectionsButton url={directions} />}
+            </div>
+          )}
           {deliveryAreaNote && <InfoRow icon={<BikeIcon />} label="Phạm vi ship" value={deliveryAreaNote} />}
           {storePhone && (
             <InfoRow

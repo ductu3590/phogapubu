@@ -54,4 +54,26 @@ describe('updateStoreSettings', () => {
     expect(mocks.patch.value).not.toHaveProperty('serving_hours')
     expect(mocks.patch.value).toMatchObject({ name: 'Phở Gà Pubu' })
   })
+
+  it('lưu link Google Maps (mig 090), bỏ khoảng trắng; rỗng = xoá', async () => {
+    const formData = new FormData()
+    formData.set('name', 'Bia lẩu Bảo Lương')
+    formData.set('google_maps_url', '  https://maps.app.goo.gl/abc  ')
+    await updateStoreSettings(formData)
+    expect(mocks.patch.value).toMatchObject({ google_maps_url: 'https://maps.app.goo.gl/abc' })
+
+    const empty = new FormData()
+    empty.set('name', 'Bia lẩu Bảo Lương')
+    empty.set('google_maps_url', '')
+    await updateStoreSettings(empty)
+    expect(mocks.patch.value).toMatchObject({ google_maps_url: null })
+  })
+
+  it('link không phải https → báo lỗi, KHÔNG ghi gì', async () => {
+    const formData = new FormData()
+    formData.set('name', 'Bia lẩu Bảo Lương')
+    formData.set('google_maps_url', 'javascript:alert(1)')
+    await expect(updateStoreSettings(formData)).rejects.toThrow('Link Google Maps phải bắt đầu bằng https://')
+    expect(mocks.update).not.toHaveBeenCalled()
+  })
 })
