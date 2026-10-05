@@ -24,4 +24,12 @@ Chuẩn bị: một lượt đặt bàn **đã được POS xác nhận** trên 
 9. Đặt bàn chưa xác nhận (Chờ quán xác nhận) → không có nút chọn món; mở thẳng link /preorder → báo "chưa thể chọn món trước" + nút Về chi tiết đặt bàn.
 10. Rà nhanh cả app ở khổ 360: Trang chủ, Đặt bàn, Đơn của tôi, Thực đơn tại bàn, Giỏ hàng, Đơn gọi, Thông tin nhà hàng, Tài khoản — không cuộn ngang, không chữ bị cắt, thanh nút đáy không đè thanh tab.
 
+## Vá sau review (2026-10-05)
+
+- Gửi món đặt trước khi mạng chập chờn: nếu lần gửi trước **đã tới quán** nhưng app không nhận được trả lời, rồi khách sửa giỏ và gửi lại → trước đây kẹt với mã lỗi kỹ thuật, gửi mãi không được. Giờ app **tự kiểm lại**: món đã gửi → báo "Món đặt trước đã được gửi trước đó" và về chi tiết đặt bàn; chưa rõ → báo tiếng Việt, nhắc mở lại chi tiết để kiểm tra.
+- Bấm gửi 2 lần cực nhanh không còn lọt 2 lệnh.
+- Trang xác nhận chặn khi đặt bàn không còn chọn món được; trang chọn món rớt mạng báo đúng "Không tải được…".
+
+11. (Khó tạo tay — chỉ cần nếu tiện) Bật chế độ máy bay ngay sau khi bấm **Khoá & gửi**, tắt đi, đổi số lượng một món rồi gửi lại → app báo **đã được gửi trước đó** và về chi tiết đặt bàn (không hiện chữ tiếng Anh/mã lỗi).
+
 **→ Báo:** `MA-4 PASS`
