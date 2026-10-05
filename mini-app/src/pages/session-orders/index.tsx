@@ -11,6 +11,7 @@ import { formatCurrency } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import { lineLabel, reconcileRounds, rejectionReasonLabel, roundDiscount, roundNumbers, roundSourceLabel, roundStatus, type RoundContext, type RoundTone } from "@/utils/round-status";
 import { canOrderInEntry } from "@/utils/entry-context";
+import { getBookingAccesses } from "@/services/reservation/reservation-storage";
 import SectionCard from "@/components/ui/section-card";
 import StatusPill, { type PillTone } from "@/components/ui/status-pill";
 import StickyActionBar from "@/components/ui/sticky-action-bar";
@@ -392,6 +393,8 @@ function TakeawayOrdersView() {
   const { openSnackbar } = useSnackbar();
   const { expandedId, loadingItemsId, cachedItems, toggle } = useExpandableItems();
   const { data: orders, isLoading } = useTakeawayOrders(zaloUserId, storeId);
+  const navigate = useNavigate();
+  const hasBookings = getBookingAccesses(storeId).length > 0;
   const { mutate: confirmReceived, isPending: isConfirming } = useConfirmReceived();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
@@ -425,6 +428,13 @@ function TakeawayOrdersView() {
   return (
     <div className="flex h-full flex-col bg-background">
       <div className="no-scrollbar flex-1 overflow-y-auto pb-6">
+        {/* Quán vừa mang về vừa đặt bàn: tab "Đơn của tôi" là đơn mang về → chừa lối sang đặt bàn */}
+        {hasBookings && (
+          <button type="button" onClick={() => navigate("/reservations")} className="mx-3 mt-3 flex w-[calc(100%-1.5rem)] items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-left">
+            <span className="text-small-m font-semibold text-text-primary">Xem đặt bàn của tôi</span>
+            <span className="text-small font-bold text-primary">›</span>
+          </button>
+        )}
         {isLoading ? (
           <ListSkeleton />
         ) : !orders || orders.length === 0 ? (

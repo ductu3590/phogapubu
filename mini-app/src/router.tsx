@@ -31,9 +31,9 @@ const router = createBrowserRouter(
         { path: "/store-info", element: <StoreInfoPage />, handle: { title: "Thông tin nhà hàng", back: true, hideBottomTabs: true, hideCart: true } satisfies RouteHandle },
         { path: "/account", element: <AccountPage />, handle: { title: "Tài khoản", back: true, hideBottomTabs: true, hideCart: true } satisfies RouteHandle },
 
-        { path: "/reservations", element: <ReservationsPage />, handle: { title: "Đặt bàn của tôi", back: false, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
+        { path: "/reservations", element: <ReservationsPage />, handle: { title: "Đơn của tôi", hideCart: true } satisfies RouteHandle },
         { path: "/reservations/new", element: <NewReservationPage />, handle: { title: "Đặt bàn", hideCart: true } satisfies RouteHandle },
-        { path: "/reservations/:reservationId", element: <ReservationDetailPage />, handle: { title: "Chi tiết đặt bàn", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
+        { path: "/reservations/:reservationId", element: <ReservationDetailPage />, handle: { title: "Chi tiết đặt bàn", back: true, hideCart: true } satisfies RouteHandle },
         { path: "/reservations/:reservationId/preorder", element: <ReservationPreorderPage />, handle: { title: "Chọn món trước", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
         { path: "/reservations/:reservationId/preorder/checkout", element: <ReservationPreorderCheckoutPage />, handle: { title: "Xác nhận món trước", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
 

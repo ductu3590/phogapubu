@@ -25,6 +25,8 @@ export default function Layout() {
   const showReservations = entryContext.kind === "root" && (workflow?.reservationsEnabled === true || getBookingAccesses(storeId).length > 0);
   const tabs = tabsFor({ entryKind: entryContext.kind, readOnlyMenu, showReservations });
   const showTabs = !hideBottomTabs && tabs.length > 1;
+  // Cùng route /session-orders: ở bàn là "Đơn gọi", lối vào thường (đơn mang về) là "Đơn của tôi" — khớp nhãn tab.
+  const toolbarTitle = handle?.title === "Đơn gọi" && entryContext.kind === "root" ? "Đơn của tôi" : handle?.title;
 
   // Chấm báo tab Đơn gọi: chỉ trả sau tại bàn. Cùng queryKey với trang Đơn gọi nên không gọi trùng.
   const watchBill = entryContext.kind === "table" && paymentTiming === "postpay" && hasVerifiedTable;
@@ -39,7 +41,7 @@ export default function Layout() {
   return (
     <div className="relative flex h-screen w-screen flex-col bg-background">
       {!hideHeader && (
-        <AppToolbar title={handle?.title} back={handle?.back} mode={toolbarModeFor({ entryKind: entryContext.kind, canOrder })} cartCount={totalItems} />
+        <AppToolbar title={toolbarTitle} back={handle?.back} mode={toolbarModeFor({ entryKind: entryContext.kind, canOrder })} cartCount={totalItems} />
       )}
       <main className="relative min-h-0 flex-1 overflow-y-auto"><Outlet /></main>
       {!hideCart && canOrder && (
