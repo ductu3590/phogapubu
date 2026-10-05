@@ -1079,7 +1079,7 @@ git commit -m "feat: gio hang mini app theo ngon ngu Stitch"
 - [ ] **Step 1: Đưa nhánh vào worktree Bảo Lương** — `cd mini-app-instances/bia-lau-bao-luong && git merge feat/mini-app-stitch` (nhánh local, chưa push). Không đụng `.env`/`app-config.json`.
 - [ ] **Step 2: Chạy dev** — `cd mini-app-instances/bia-lau-bao-luong/mini-app && npm run dev` (nền), mở `http://localhost:5173/?table=<id bàn Bảo Lương>` và `http://localhost:5173/` (lối thường). Lấy id bàn bằng SQL `select id, table_number from tables where store_id = (select id from stores where slug='bia-lau-bao-luong') order by table_number limit 1`.
 - [ ] **Step 3: Chụp khổ 360 và 390** (Playwright, `deviceScaleFactor: 2`): thực đơn ở bàn (chưa có món / có 2 món), giỏ hàng, lối thường, trang Tài khoản; bấm Gọi NV 2 lần liên tiếp → lần 2 thấy thông báo "Bạn vừa gọi lúc…". Kiểm: không cuộn ngang (`scrollWidth <= innerWidth`), thanh giỏ không đè TabBar, góc phải hàng 1 trống, tên món dài cắt 2 dòng (Review Focus #4 — thêm tạm 1 món tên 80 ký tự giá 1.250.000đ vào dữ liệu trả về bằng `page.route` chặn request menu, không sửa DB).
-- [ ] **Step 4: Lặp Step 2–3 với Pubu** (`mini-app-instances/pho-ga-pubu`) — thực đơn phải ra **lưới 2 cột** (Pubu 16/17 món có ảnh).
+- [ ] **Step 4: Lưới 2 cột** — chỉ kiểm trên Bảo Lương (anh Tú: Pubu là mô hình riêng, không cần kiểm). Bảo Lương 0 ảnh nên thử lưới bằng `page.route` gắn ảnh giả cho một danh mục.
 - [ ] **Step 5: Viết `docs/testing/mini-app-stitch/MA-1.md`** gồm: Đã làm · Cố ý chưa làm (Đơn gọi/Thông tin nhà hàng giữ header cũ tới MA-2; chấm báo "còn lượt chờ duyệt" trên tab Đơn gọi làm ở MA-2 vì cần dữ liệu lượt gọi; Trang chủ/Đặt bàn tới MA-3) · cách chạy `npm run dev` · bài test đánh số:
   1. QR bàn Bảo Lương: thanh công cụ 2 hàng, hàng 1 góc phải trống; hàng 2 có logo/chữ viết tắt, Gọi NV đỏ chuông lắc, chip bàn, Quan tâm, giỏ, tài khoản.
   2. Bấm Gọi NV → "Đã gọi nhân viên…"; POS hiện thẻ gọi. Bấm lại ngay → "Bạn vừa gọi lúc HH:MM, có thể gọi lại sau HH:MM". Thu ngân bấm xử lý xong rồi khách gọi lại trong 3 phút → vẫn bị chặn. Sau 3 phút gọi được.
@@ -1090,7 +1090,6 @@ git commit -m "feat: gio hang mini app theo ngon ngu Stitch"
   7. Thanh giỏ tối: "N món đã chọn · Bàn 09 · tổng" + Xem đơn, nằm trên thanh tab, không đè.
   8. Thanh tab ở bàn chỉ còn Thực đơn · Đơn gọi. Mở thường: Trang chủ · Đặt bàn (Bảo Lương), không có Gọi NV/chip bàn/giỏ/nút +.
   9. Giỏ hàng: các khối thẻ mới; sửa số lượng, ghi chú, gửi món chạy như cũ; quán đóng cửa thì nút khoá + dòng báo.
-  10. Pubu: thực đơn lưới 2 cột ảnh; đặt mang về + thanh toán chạy như cũ.
-  11. Đổi Màu chủ đạo trong `/admin` settings → mở lại app thấy nút, chip, giá, vạch đổi theo (Gọi NV vẫn đỏ).
+  10. Đổi Màu chủ đạo trong `/admin` settings → mở lại app thấy nút, chip, giá, vạch đổi theo (Gọi NV vẫn đỏ).
 - [ ] **Step 6: Commit** — `git add docs/testing/mini-app-stitch/MA-1.md TESTING.md && git commit -m "docs: checklist MA-1 mini app Stitch"`
 - [ ] **Step 7: DỪNG** — báo anh Tú test theo `docs/testing/mini-app-stitch/MA-1.md`, chờ `MA-1 PASS` (quy tắc CLAUDE.md). Không `zmp deploy` ở bước này.
