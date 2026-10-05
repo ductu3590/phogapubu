@@ -1,12 +1,12 @@
-import { useNavigate } from "react-router-dom";
 import { ReservationForm } from "@/components/reservations/reservation-form";
+import { useAfterBooking } from "@/hooks/use-after-booking";
 
-// Tab "Đặt bàn" (Stitch m02) — tiêu đề nằm trên thanh công cụ, form tự có thanh nút dính đáy.
+// "Đặt thêm bàn khác" — form riêng; gửi xong quay về tab Đặt bàn (lịch hẹn mới hiện ở đầu trang).
 export default function NewReservationPage() {
-  const navigate = useNavigate();
+  const afterBooking = useAfterBooking();
   return (
     <div className="h-full bg-background">
-      <ReservationForm mode="create" onSuccess={(booking) => navigate(`/reservations/${booking.reservationId}`, { replace: true })} />
+      <ReservationForm mode="create" onSuccess={afterBooking} />
     </div>
   );
 }

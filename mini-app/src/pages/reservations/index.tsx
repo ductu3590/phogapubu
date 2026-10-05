@@ -4,6 +4,7 @@ import { useAppStore } from "@/stores/app.store";
 import { getBookingAccesses } from "@/services/reservation/reservation-storage";
 import { useCustomerReservations } from "@/services/reservation/reservation.queries";
 import { ReservationForm } from "@/components/reservations/reservation-form";
+import { useAfterBooking } from "@/hooks/use-after-booking";
 import StatusPill from "@/components/ui/status-pill";
 import DirectionsButton from "@/components/ui/directions-button";
 import { CalendarDaysIcon, UsersIcon, UtensilsIcon } from "@/components/common/icons";
@@ -20,6 +21,7 @@ import { cn } from "@/utils/cn";
 // Mục tiêu: khách đã đặt không gặp form trống (đặt trùng / tưởng lần trước chưa đặt được).
 export default function ReservationsPage() {
   const navigate = useNavigate();
+  const afterBooking = useAfterBooking();
   const { storeId, workflow, storeAddress, googleMapsUrl } = useAppStore();
   const accesses = getBookingAccesses(storeId);
   const queries = useCustomerReservations(accesses);
@@ -43,7 +45,7 @@ export default function ReservationsPage() {
         <ReservationForm
           mode="create"
           header={historyBlock && <div className="pt-3">{historyBlock}</div>}
-          onSuccess={(booking) => navigate(`/reservations/${booking.reservationId}`, { replace: true })}
+          onSuccess={afterBooking}
         />
       </div>
     );
