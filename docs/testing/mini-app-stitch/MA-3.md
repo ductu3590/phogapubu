@@ -37,4 +37,12 @@ Nguyên nhân: (1) câu lỗi tiếng Việt của server bị app che thành "K
 12. Máy anh đang có bản nháp kẹt (dòng vàng "Lần gửi trước chưa thành công…"): sửa SĐT đúng 10 số, chọn lại giờ → gửi → **tạo đặt bàn thành công** (sang chi tiết, Chờ quán xác nhận), dòng vàng biến mất. Danh sách Đơn của tôi chỉ có MỘT lượt mới.
 13. Nhập `+84 962 345 678` → gửi được; chi tiết đặt bàn hiện `0962345678`.
 
+## Vá vòng 2 (2026-10-05) — nút Chỉ đường không phản hồi
+
+Nguyên nhân: nút dùng `openWebview` của Zalo SDK; NGOÀI Zalo (npm run dev) lệnh này báo xong ngay mà không mở gì nên bấm không thấy gì. Trong Zalo nó cũng chỉ mở Google Maps trong khung web của Zalo, không dẫn đường được.
+Đã sửa: trong Zalo dùng `openOutApp` → điện thoại mở thẳng **ứng dụng Google Maps**; ngoài Zalo mở tab trình duyệt ngay khi bấm.
+
+14. `npm run dev`: bấm **Chỉ đường** ở Trang chủ / Thông tin nhà hàng / Chi tiết đặt bàn → mở tab Google Maps đúng quán.
+15. **Trên điện thoại thật trong Zalo** (sau `zmp deploy` Development): bấm Chỉ đường → mở ứng dụng Google Maps (hoặc trình duyệt nếu máy không có Google Maps) tại quán, dẫn đường được.
+
 **→ Báo:** `MA-3 PASS`
