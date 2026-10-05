@@ -9,7 +9,7 @@ import { orderService } from "@/services/order/order.api";
 import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/utils/format";
 import { cn } from "@/utils/cn";
-import { lineLabel, reconcileRounds, roundDiscount, roundSourceLabel, roundStatus, type RoundContext, type RoundTone } from "@/utils/round-status";
+import { lineLabel, reconcileRounds, rejectionReasonLabel, roundDiscount, roundSourceLabel, roundStatus, type RoundContext, type RoundTone } from "@/utils/round-status";
 import { canOrderInEntry } from "@/utils/entry-context";
 import SectionCard from "@/components/ui/section-card";
 import StatusPill, { type PillTone } from "@/components/ui/status-pill";
@@ -61,6 +61,8 @@ type Round = {
   total: number;
   source: string;
   items: TableSessionBillItem[] | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
 };
 
 const TONE_BAR: Record<RoundTone, string> = {
@@ -102,6 +104,8 @@ function DineInOrdersView() {
         total: o.total_amount,
         source: o.order_source,
         items: o.items,
+        rejectedAt: o.rejected_at ?? null,
+        rejectionReason: rejectionReasonLabel(o.rejection_reason_code, o.rejection_reason_note),
       }))
     : (personalOrders ?? []).map((o) => ({
         id: o.id,
@@ -110,6 +114,8 @@ function DineInOrdersView() {
         total: o.totalAmount,
         source: "customer_zalo",
         items: null,
+        rejectedAt: null,
+        rejectionReason: null,
       }));
   const isLoading = activeQuery.isLoading;
   const loadFailed = activeQuery.isError && !activeQuery.data;
@@ -282,7 +288,8 @@ function RoundCard({
     const unit = item.price + toppings.reduce((s, t) => s + (t.price ?? 0), 0);
     return { item, toppings, line: lineLabel({ quantity: item.quantity, price: unit, void_type: item.void_type }) };
   });
-  const discount = round.items ? roundDiscount(lines.reduce((s, l) => s + l.line.amount, 0), round.total) : 0;
+  const rejected = round.status === "cancelled";
+  const discount = round.items && !rejected ? roundDiscount(lines.reduce((s, l) => s + l.line.amount, 0), round.total) : 0;
   const source = roundSourceLabel(round.source);
   const header = (
     <div className="flex items-start justify-between gap-2">
@@ -297,7 +304,7 @@ function RoundCard({
   );
 
   return (
-    <section className={cn("mx-3 rounded-2xl border-l-4 bg-surface p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)]", TONE_BAR[status.tone])}>
+    <section className={cn("mx-3 rounded-2xl border-l-4 bg-surface p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)]", TONE_BAR[status.tone], rejected && "bg-critical-bg/40")}>
       {lazy ? (
         <button type="button" onClick={lazy.onToggle} className="block w-full text-left">
           {header}
@@ -307,40 +314,43 @@ function RoundCard({
       )}
 
       {lines.length > 0 && (
-        <ul className="mt-3 space-y-2">
-          {lines.map(({ item, toppings, line }) => {
-            return (
-              <li key={item.id} className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="line-clamp-2 text-small font-medium text-text-primary">{item.name}</p>
-                  {toppings.length > 0 && (
-                    <p className="line-clamp-1 text-xxsmall text-text-secondary">{toppings.map((t) => `+ ${t.name}`).join(", ")}</p>
-                  )}
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-xxsmall text-text-secondary">×{item.quantity}</p>
-                  <p className={cn("whitespace-nowrap text-small font-semibold", line.gift ? "text-success" : "text-text-primary")}>
-                    {line.gift ? "Đã tặng · 0đ" : `${formatCurrency(line.amount)}đ`}
-                  </p>
-                </div>
-              </li>
-            );
-          })}
+        <ul className={cn("mt-2.5 space-y-1.5", rejected && "opacity-70")}>
+          {lines.map(({ item, toppings, line }) => (
+            // Tên co giãn (tối đa 2 dòng); "×SL · giá" luôn nằm trọn một dòng bên phải.
+            <li key={item.id} className="flex items-baseline justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className={cn("line-clamp-2 text-xsmall text-text-primary", rejected && "line-through")}>{item.name}</p>
+                {toppings.length > 0 && (
+                  <p className="line-clamp-1 text-xxsmall text-text-secondary">{toppings.map((t) => `+ ${t.name}`).join(", ")}</p>
+                )}
+              </div>
+              <p className="shrink-0 whitespace-nowrap text-xsmall">
+                <span className="text-text-secondary">×{item.quantity}</span>
+                <span className="mx-1 text-text-disabled">·</span>
+                <span className={cn("font-semibold", line.gift ? "text-success" : rejected ? "text-text-secondary line-through" : "text-text-primary")}>
+                  {line.gift ? "Đã tặng 0đ" : `${formatCurrency(line.amount)}đ`}
+                </span>
+              </p>
+            </li>
+          ))}
         </ul>
       )}
 
       {lazy?.expanded && <ItemsList isLoadingItems={lazy.loading} items={lazy.items} />}
 
       {discount > 0 && (
-        <div className="mt-2 flex justify-between text-small">
+        <div className="mt-1.5 flex justify-between text-xsmall">
           <span className="text-text-secondary">Giảm giá</span>
           <span className="font-semibold text-success">−{formatCurrency(discount)}đ</span>
         </div>
       )}
-      <div className="mt-3 flex justify-between border-t border-dashed border-neutral200 pt-2.5 text-small">
-        <span className="text-text-secondary">Tiểu kế lượt gọi</span>
-        <span className="font-bold text-text-primary">{formatCurrency(round.total)}đ</span>
-      </div>
+      {rejected && (
+        // Giữ lượt bị từ chối để đối chứng khi có xung đột ("tôi gọi rồi mà không thấy món").
+        <p className="mt-2.5 rounded-lg bg-critical-bg px-3 py-2 text-xxsmall text-critical">
+          Quán không nhận lượt này{round.rejectionReason ? ` · Lý do: ${round.rejectionReason}` : ""}
+          {round.rejectedAt ? ` · lúc ${hhmm(round.rejectedAt)}` : ""}. Không tính tiền.
+        </p>
+      )}
     </section>
   );
 }

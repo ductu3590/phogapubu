@@ -87,6 +87,8 @@ export function reconcileRounds(
   let inKitchen = 0;
   let pending = 0;
   for (const o of orders) {
+    // Lượt bị thu ngân từ chối chỉ hiện để đối chứng, không có tiền.
+    if (o.status === "cancelled") continue;
     if (isWaiting(o.status, ctx, o.source)) pending += o.total_amount;
     else inKitchen += o.total_amount;
   }
@@ -110,4 +112,18 @@ export function stepIndex(status: OrderState, steps: OrderState[]): number {
  *  hơn tiểu kế server — phần chênh hiện thành dòng "Giảm giá" cho khỏi lệch số. */
 export function roundDiscount(linesSum: number, roundTotal: number): number {
   return linesSum > roundTotal ? linesSum - roundTotal : 0;
+}
+
+// Cùng chữ với POS (admin-web reject-order-sheet.tsx) để khách và thu ngân đối chứng một câu.
+const REJECT_REASON: Record<string, string> = {
+  out_of_stock: "Hết đồ",
+  kitchen_overloaded: "Bếp quá tải",
+  duplicate: "Đơn trùng",
+  customer_requested: "Khách yêu cầu huỷ",
+};
+
+export function rejectionReasonLabel(code: string | null | undefined, note: string | null | undefined): string | null {
+  if (!code) return null;
+  if (code === "other") return note?.trim() || "Lý do khác";
+  return REJECT_REASON[code] ?? "Lý do khác";
 }

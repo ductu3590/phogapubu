@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPendingRound, lineLabel, orderSteps, reconcileRounds, roundDiscount, roundSourceLabel, roundStatus, stepIndex } from "./round-status";
+import { hasPendingRound, lineLabel, orderSteps, reconcileRounds, rejectionReasonLabel, roundDiscount, roundSourceLabel, roundStatus, stepIndex } from "./round-status";
 
 const BL = { paymentTiming: "postpay", kitchenPolicy: "pos_confirmation" } as const;
 const PUBU = { paymentTiming: "prepay", kitchenPolicy: "automatic" } as const;
@@ -98,5 +98,24 @@ describe("roundDiscount — lượt có mã giảm giá", () => {
   it("khớp hoặc nhỏ hơn → 0", () => {
     expect(roundDiscount(250000, 250000)).toBe(0);
     expect(roundDiscount(200000, 250000)).toBe(0);
+  });
+});
+
+describe("lượt bị thu ngân từ chối (mig 088 trả về để đối chứng)", () => {
+  it("không cộng vào đối soát, không phải đang chờ", () => {
+    expect(reconcileRounds([
+      { status: "cancelled", total_amount: 99000 },
+      { status: "confirmed", total_amount: 100000 },
+    ], BL)).toEqual({ inKitchen: 100000, pending: 0, total: 100000 });
+    expect(hasPendingRound([{ status: "cancelled" }], BL)).toBe(false);
+  });
+  it("câu lý do giống hệt chữ trên POS (reject-order-sheet) để đối chứng", () => {
+    expect(rejectionReasonLabel("out_of_stock", null)).toBe("Hết đồ");
+    expect(rejectionReasonLabel("kitchen_overloaded", null)).toBe("Bếp quá tải");
+    expect(rejectionReasonLabel("duplicate", null)).toBe("Đơn trùng");
+    expect(rejectionReasonLabel("customer_requested", null)).toBe("Khách yêu cầu huỷ");
+    expect(rejectionReasonLabel("other", "  Bàn đổi ý  ")).toBe("Bàn đổi ý");
+    expect(rejectionReasonLabel("other", null)).toBe("Lý do khác");
+    expect(rejectionReasonLabel(null, null)).toBeNull();
   });
 });

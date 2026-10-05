@@ -86,6 +86,10 @@ export interface TableSessionBillOrder {
   total_amount: number;
   order_source: string;
   payment_received_at: string | null;
+  /** mig 088: lượt bị thu ngân từ chối vẫn trả về (status 'cancelled') để đối chứng, không có tiền. */
+  rejected_at?: string | null;
+  rejection_reason_code?: string | null;
+  rejection_reason_note?: string | null;
   items: TableSessionBillItem[];
 }
 
