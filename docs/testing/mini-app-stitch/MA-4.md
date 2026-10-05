@@ -43,8 +43,8 @@ Lối vào thường của quán chỉ xem menu (Bảo Lương) còn **2 tab: Tr
 Nút **Đặt bàn trước** ở Trang chủ cũng vào tab này.
 
 12. Máy chưa đặt lượt nào: tab Đặt bàn mở thẳng form; thanh tab chỉ có **Trang chủ · Đặt bàn**.
-13. Đặt một bàn → sang chi tiết; bấm lại tab **Đặt bàn** → thấy thẻ lịch hẹn vừa đặt (KHÔNG phải form trống) + nút **Đặt thêm bàn khác**.
-14. Bấm **Đặt thêm bàn khác** → form "Đặt thêm bàn" có nút quay lại; đặt xong có 2 thẻ lịch hẹn, sớm nhất ở trên.
+13. Đặt một bàn → **quay về ngay tab Đặt bàn** (`/reservations`, không sang trang chi tiết), có thông báo "Đã gửi yêu cầu đặt bàn", thẻ lịch hẹn vừa đặt ở đầu trang + nút **Đặt thêm bàn khác**. Bấm Quay lại không về form đã gửi.
+14. Bấm **Đặt thêm bàn khác** → form "Đặt thêm bàn" có nút quay lại; đặt xong cũng quay về tab Đặt bàn với 2 thẻ lịch hẹn, sớm nhất ở trên.
 15. POS đánh dấu khách đã đến (hoặc khách huỷ) → lượt đó rời khỏi "Lịch hẹn của bạn", vào **Lịch sử đặt bàn**; còn mỗi lượt cũ thì tab mở form, mục lịch sử ở đầu form.
 16. Trang chủ → **Đặt bàn trước**: có lịch hẹn → thấy thẻ lịch hẹn; không có → form.
 
