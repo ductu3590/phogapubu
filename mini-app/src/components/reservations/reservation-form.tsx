@@ -149,11 +149,11 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
                 type="button"
                 onClick={() => setLocalDate(c.value)}
                 className={cn(
-                  "flex w-16 shrink-0 flex-col items-center rounded-xl border py-2",
+                  "flex min-w-16 shrink-0 flex-col items-center rounded-xl border px-2 py-2",
                   active ? "border-primary bg-primary text-white shadow-sm" : "border-neutral200 bg-surface text-text-primary",
                 )}
               >
-                <span className={cn("text-xxxsmall font-bold", active ? "text-white/90" : c.top === "CN" ? "text-critical" : "text-text-secondary")}>{c.top}</span>
+                <span className={cn("whitespace-nowrap text-xxxsmall font-bold", active ? "text-white/90" : c.top === "CN" ? "text-critical" : "text-text-secondary")}>{c.top}</span>
                 <span className="text-large-m font-bold leading-tight">{c.day}</span>
                 <span className={cn("text-xxxsmall", active ? "text-white/80" : "text-text-secondary")}>{c.month}</span>
               </button>
