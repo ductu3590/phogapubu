@@ -46,3 +46,13 @@
 .zaui-bottom-navigation-item-active .zaui-bottom-navigation-item-label {
   color: var(--color-primary);
 }
+
+// Chuông nút Gọi NV lắc nhẹ mỗi 3 giây; tắt hẳn khi người dùng bật giảm chuyển động.
+@keyframes mevo-bell-ring {
+  0%, 84%, 100% { transform: rotate(0); }
+  88% { transform: rotate(14deg); }
+  92% { transform: rotate(-12deg); }
+  96% { transform: rotate(8deg); }
+}
+.mevo-bell { transform-origin: 50% 10%; animation: mevo-bell-ring 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .mevo-bell { animation: none; } }

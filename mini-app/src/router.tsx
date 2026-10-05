@@ -6,6 +6,7 @@ import CheckoutPage from "./pages/checkout";
 import OrderStatusPage from "./pages/order-status";
 import SessionOrdersPage from "./pages/session-orders";
 import StoreInfoPage from "./pages/store-info";
+import AccountPage from "./pages/account";
 import ReservationsPage from "./pages/reservations";
 import NewReservationPage from "./pages/reservations/new";
 import ReservationDetailPage from "./pages/reservations/detail";
@@ -28,6 +29,7 @@ const router = createBrowserRouter(
 
         // Tab: Thông tin nhà hàng
         { path: "/store-info", element: <StoreInfoPage />, handle: { hideHeader: true } },
+        { path: "/account", element: <AccountPage />, handle: { title: "Tài khoản", back: true, hideBottomTabs: true, hideCart: true } satisfies RouteHandle },
 
         { path: "/reservations", element: <ReservationsPage />, handle: { title: "Đặt bàn của tôi", back: false, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
         { path: "/reservations/new", element: <NewReservationPage />, handle: { title: "Đặt bàn trước", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },

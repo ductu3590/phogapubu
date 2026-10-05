@@ -3,6 +3,7 @@ import { openWebview } from "zmp-sdk";
 import { useSnackbar } from "zmp-ui";
 import { useAppStore } from "@/stores/app.store";
 import PermissionSheet from "@/components/common/permission-sheet";
+import { useOaFollow } from "@/hooks/use-oa-follow";
 import TermsSheet from "@/components/common/terms-sheet";
 import { DEFAULT_TERMS } from "@/constants/terms";
 import { ScanLineIcon, UtensilsIcon, MapPinIcon, BikeIcon, PhoneIcon, WifiIcon, FileTextIcon, MessageCircleIcon, BellIcon } from "@/components/common/icons";
@@ -78,15 +79,14 @@ export default function StoreInfoPage() {
 
   // Key mới (v2) — bỏ qua cờ "granted" cũ vốn set cả khi user từ chối, khiến prompt
   // biến mất vĩnh viễn. "connected" chỉ true khi user thực sự quan tâm OA thành công.
-  const CONNECTED_KEY = storeId ? `mevo_oa_connected_v2_${storeId}` : "";
+  // Trạng thái quan tâm dùng chung với nút "Quan tâm" trên thanh công cụ (hooks/use-oa-follow).
+  const oa = useOaFollow();
+  const isConnected = oa.connected;
   const SHEET_SESSION_KEY = storeId ? `mevo_oa_sheet_${storeId}` : "";
 
   const [showPermSheet, setShowPermSheet] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const termsContent = termsOfUse.trim() || DEFAULT_TERMS;
-  const [isConnected, setIsConnected] = useState(
-    () => !!storeId && !!localStorage.getItem(`mevo_oa_connected_v2_${storeId}`),
-  );
 
   // Tự bật sheet 1 lần MỖI PHIÊN (khi chưa kết nối) — dùng sessionStorage để mỗi lần
   // mở lại app sẽ mời lại, nhưng không phiền trong cùng phiên.
@@ -99,10 +99,7 @@ export default function StoreInfoPage() {
   }, [storeId, zaloOaId, isConnected]);
 
   const handleGranted = (followed: boolean) => {
-    if (followed && CONNECTED_KEY) {
-      localStorage.setItem(CONNECTED_KEY, "1");
-      setIsConnected(true);
-    }
+    if (followed) oa.markConnected();
     setShowPermSheet(false);
   };
 
