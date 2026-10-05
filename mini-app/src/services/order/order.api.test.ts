@@ -8,6 +8,7 @@ const { rpc, getOrCreateDeviceId } = vi.hoisted(() => ({
 vi.mock('../supabase', () => ({ supabase: { rpc } }))
 vi.mock('../device-id', () => ({ getOrCreateDeviceId }))
 
+import { CallStaffCooldownError } from '../service-request'
 import { orderService, sessionOrderService } from './order.api'
 
 describe('sessionOrderService.callStaff', () => {
@@ -32,7 +33,8 @@ describe('sessionOrderService.callStaff', () => {
     const error = new Error('Vui lòng chờ trước khi gọi nhân viên lần nữa')
     rpc.mockResolvedValue({ data: null, error })
 
-    await expect(sessionOrderService.callStaff({ tableId: 'table-1' })).rejects.toBe(error)
+    // Từ mig 087 lỗi chặn được đổi thành CallStaffCooldownError để UI hiện giờ gọi lại.
+    await expect(sessionOrderService.callStaff({ tableId: 'table-1' })).rejects.toBeInstanceOf(CallStaffCooldownError)
   })
 })
 
