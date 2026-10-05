@@ -7,7 +7,8 @@ Nhánh `feat/mini-app-stitch`. Chỉ test trên **Bia lẩu Bảo Lương**. Cá
 - **Gọi món xong sang thẳng tab Đơn gọi** (quán trả sau tại bàn), kèm thông báo "Đã gửi món, chờ thu ngân xác nhận". Không còn màn Trạng thái đơn ở luồng này; bấm Quay lại không về giỏ đã gửi.
 - **Trang Đơn gọi theo m07**: thẻ đầu (bàn/mâm, giờ vào, Đang phục vụ, **Tổng tạm tính**) → **Các lượt gọi món · mới nhất ở trên**, mỗi lượt có vạch màu + nhãn trạng thái + món + tiểu kế → **Đối soát tạm tính** → nút đáy **Gọi thêm món**.
 - **Nhãn trạng thái đúng mô hình Bảo Lương** (theo cài đặt "Đơn khách xuống bếp = thu ngân xác nhận", không gắn tên quán): **Chờ xác nhận** (vàng) → **Đã vào bếp** (xanh dương). Không còn bước "Đang làm / Món xong".
-- Nhãn nguồn lượt: **Nhân viên gọi hộ**, **Quán thêm** (POS), **Món đặt trước**. Món tặng: **Đã tặng · 0đ**.
+- Nhãn nguồn lượt: **Nhân viên gọi hộ**, **Quán thêm** (POS), **Món đặt trước**. Món thu ngân ghi tay ở POS hiện **Đã ghi vào bill** (xám) — loại đơn này không bao giờ cần xác nhận nên không tính là đang chờ. Món tặng: **Đã tặng · 0đ**. Lượt có mã giảm giá có dòng **Giảm giá**.
+- Tải danh sách lỗi → báo **Chưa tải được** + nút **Thử lại** (không báo nhầm "chưa gọi món").
 - **Chấm đỏ trên tab Đơn gọi** khi còn lượt chờ xác nhận.
 - **Trạng thái đơn** (chỉ còn cho quán trả trước / mang về) và **Thông tin nhà hàng** theo giao diện mới. Quán thu ngân duyệt mà vào bằng link cũ → thanh 3 bước Đã gửi đơn · Đã vào bếp · Đã thanh toán.
 
@@ -19,11 +20,11 @@ Nhánh `feat/mini-app-stitch`. Chỉ test trên **Bia lẩu Bảo Lương**. Cá
 
 ## Bài test
 
-1. QR Bàn 9 → chọn món → **Gọi món** → sang ngay tab **Đơn gọi**, thông báo "Đã gửi món, chờ thu ngân xác nhận"; lượt mới ở trên cùng với nhãn **Chờ xác nhận** (vàng); tab Đơn gọi có **chấm đỏ**.
+1. QR Bàn 9 → chọn món → **Gọi món** → sang ngay tab **Đơn gọi**, thông báo "Đã gửi món, chờ thu ngân xác nhận"; lượt mới **có ngay** ở trên cùng (không được hiện "Bàn chưa gọi món nào" rồi mới hiện) với nhãn **Chờ xác nhận** (vàng); tab Đơn gọi có **chấm đỏ**.
 2. Bấm **Quay lại** (nút trên thanh công cụ không có ở tab; thử nút back của điện thoại/trình duyệt) → không quay về giỏ đã gửi.
 3. Thu ngân bấm **Xác nhận** lượt đó trên POS → trên app (không cần tải lại) nhãn thành **Đã vào bếp** (xanh dương), chấm đỏ trên tab biến mất.
 4. Gọi thêm 1 lượt nữa → danh sách có 2 lượt, Lượt #02 ở trên; **Đối soát tạm tính** tách đúng "Đã vào bếp" và "Đang chờ xác nhận"; **Tổng tạm tính** khớp số tiền trên POS.
-5. Nhân viên gọi hộ ở `/staff/order` cho Bàn 9 → lượt mới hiện nhãn **Nhân viên gọi hộ**. Thu ngân thêm món tay ở POS → lượt **Quán thêm**. Thu ngân **tặng** một món → dòng đó **Đã tặng · 0đ**, tổng giảm tương ứng.
+5. Nhân viên gọi hộ ở `/staff/order` cho Bàn 9 → lượt mới hiện nhãn **Nhân viên gọi hộ**. Thu ngân thêm món tay ở POS → lượt **Quán thêm** · **Đã ghi vào bill** (xám), không làm chấm đỏ bật lên. Thu ngân **tặng** một món → dòng đó **Đã tặng · 0đ**, tổng giảm tương ứng.
 6. Bấm **Gọi thêm món** → về Thực đơn, nút nằm trên thanh tab không che.
 7. Thu ngân từ chối một lượt đang chờ → lượt đó biến khỏi danh sách (giới hạn đã biết, xác nhận đúng như mô tả).
 8. Thu tiền + đóng bàn trên POS → trang Đơn gọi về "Bàn chưa gọi món nào" + nút **Xem thực đơn**.
