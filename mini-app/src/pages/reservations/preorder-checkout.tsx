@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSnackbar } from "zmp-ui";
 import { getBookingAccess } from "@/services/reservation/reservation-storage";
 import { useCustomerReservation } from "@/services/reservation/reservation.queries";
-import { submitPreorder } from "@/services/reservation/preorder.api";
+import { getPreorders, submitPreorder } from "@/services/reservation/preorder.api";
 import { useAppStore } from "@/stores/app.store";
 import { usePreorderCartStore } from "@/stores/preorder-cart.store";
 import SectionCard from "@/components/ui/section-card";
@@ -14,7 +14,7 @@ import { CalendarDaysIcon, FileTextIcon, LockIcon, UsersIcon, UtensilsIcon } fro
 import { formatCurrency } from "@/utils/format";
 import { formatReservationTime } from "@/utils/reservation-display";
 import { preorderTotals } from "@/utils/preorder-totals";
-import { errorMessage } from "@/utils/booking-validation";
+import { preorderSubmitError } from "@/utils/preorder-errors";
 
 const NOTE_MAX = 1000; // khớp write_preorder_revision (server từ chối > 1000)
 
@@ -36,8 +36,21 @@ export default function ReservationPreorderCheckoutPage() {
   const [sending, setSending] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
+  // Cờ chặn bấm đúp: ghi NGAY lúc bấm (state `sending` chỉ đổi sau lần vẽ lại → 2 lần bấm trong
+  // cùng khung hình vẫn lọt 2 lệnh gửi).
+  const inFlight = useRef(false);
 
   if (!access) return <p className="p-4 text-small text-text-secondary">Không tìm thấy quyền đặt món trước trên thiết bị này.</p>;
+  // Giỏ lưu trên máy không hết hạn → vào lại bằng Back / link cũ khi đặt bàn không còn cho chọn món.
+  if (booking.data && (booking.data.status !== "confirmed" || !booking.data.canPreorder)) {
+    return (
+      <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+        <span className="grid size-16 place-items-center rounded-full bg-primary/10 text-primary"><UtensilsIcon className="size-8" /></span>
+        <p className="text-small text-text-secondary">Đặt bàn này không còn chọn món trước được (quán chưa xác nhận hoặc đã quá hạn). Bạn vẫn gọi món khi đến quán.</p>
+        <button type="button" onClick={() => navigate(`/reservations/${reservationId}`, { replace: true })} className="rounded-full bg-primary px-5 py-2.5 text-small-m font-bold text-white">Về chi tiết đặt bàn</button>
+      </div>
+    );
+  }
   const totals = preorderTotals(items);
   const backToMenu = () => navigate(`/reservations/${reservationId}/preorder`, { replace: true });
 
@@ -52,7 +65,8 @@ export default function ReservationPreorderCheckoutPage() {
   }
 
   const send = async () => {
-    if (sending) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setSending(true);
     setError("");
     try {
@@ -69,8 +83,27 @@ export default function ReservationPreorderCheckoutPage() {
       navigate(`/reservations/${reservationId}`, { replace: true });
     } catch (cause) {
       setConfirming(false);
-      setError(errorMessage(cause, "Không thể gửi món, vui lòng thử lại."));
+      const failure = preorderSubmitError(cause);
+      if (failure.maybeSent) {
+        // Lần gửi trước có thể đã tới server (rớt mạng lúc chờ trả lời) → hỏi lại món đã gửi
+        // thay vì để khách kẹt với lỗi "nội dung khác lần trước".
+        try {
+          const sent = await getPreorders(access);
+          if (sent.length > 0) {
+            clear(storeId, reservationId);
+            openSnackbar({ text: "Món đặt trước đã được gửi trước đó. Quán sẽ chuẩn bị theo giờ hẹn.", type: "success" });
+            navigate(`/reservations/${reservationId}`, { replace: true });
+            return;
+          }
+        } catch {
+          /* không kiểm được — rơi xuống báo lỗi */
+        }
+        setError("Chưa xác nhận được món đã gửi hay chưa. Vui lòng mở lại Chi tiết đặt bàn để kiểm tra trước khi gửi lại.");
+      } else {
+        setError(failure.text);
+      }
     } finally {
+      inFlight.current = false;
       setSending(false);
     }
   };

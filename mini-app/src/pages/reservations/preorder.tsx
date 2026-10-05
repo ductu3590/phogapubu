@@ -41,6 +41,7 @@ export default function ReservationPreorderPage() {
 
   const back = () => navigate(`/reservations/${reservationId}`, { replace: true });
   if (!access) return <Notice text="Không tìm thấy quyền xem đặt bàn này trên thiết bị. Vui lòng liên hệ quán." onBack={back} />;
+  if (booking.isError) return <Notice text="Không tải được thông tin đặt bàn. Kiểm tra mạng rồi mở lại trang." onBack={back} />;
   if (booking.isLoading || !menu) return <div className="space-y-3 p-3">{[1, 2, 3].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-surface" />)}</div>;
   if (!booking.data || booking.data.status !== "confirmed" || !booking.data.canPreorder) {
     return <Notice text="Đặt bàn này chưa thể chọn món trước (quán chưa xác nhận hoặc đã quá hạn chọn món). Bạn vẫn gọi món khi đến quán." onBack={back} />;
@@ -58,6 +59,8 @@ export default function ReservationPreorderPage() {
 
   const addProduct = (product: Product) => {
     if (!product.isAvailable) return;
+    // Món có nhóm loại mà tắt bán hết loại → không được thêm ở giá cũ (bẫy mig 042).
+    if (product.hasVariantGroup && product.variants.length === 0) return;
     if (product.variants.length || product.toppings.length) return setOption(product);
     const line = plainLine(product.id);
     if (line) return updateQuantity(storeId, reservationId, line.id, line.quantity + 1);
