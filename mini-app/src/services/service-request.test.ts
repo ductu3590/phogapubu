@@ -9,7 +9,7 @@ const { rpc, from, getOrCreateDeviceId } = vi.hoisted(() => ({
 vi.mock("./supabase", () => ({ supabase: { rpc, from } }));
 vi.mock("./device-id", () => ({ getOrCreateDeviceId }));
 
-import { pingCallStaff } from "./service-request";
+import { CallStaffCooldownError, pingCallStaff } from "./service-request";
 
 describe("pingCallStaff", () => {
   beforeEach(() => {
@@ -31,10 +31,26 @@ describe("pingCallStaff", () => {
     expect(from).not.toHaveBeenCalled();
   });
 
-  it("trả lỗi server để UI hiển thị đúng trạng thái gọi thất bại", async () => {
-    const error = new Error("Vui lòng chờ trước khi gọi nhân viên lần nữa");
-    rpc.mockResolvedValue({ data: null, error });
+  it("server chặn kèm giờ gọi lại → CallStaffCooldownError có retryAt", async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: { message: "Vui lòng chờ trước khi gọi nhân viên lần nữa", details: "2026-10-05T12:28:00Z", code: "P0001" },
+    });
+    const err = await pingCallStaff("table-1").catch((e) => e);
+    expect(err).toBeInstanceOf(CallStaffCooldownError);
+    expect((err as CallStaffCooldownError).retryAt?.toISOString()).toBe("2026-10-05T12:28:00.000Z");
+  });
 
+  it("server chặn nhưng details hỏng/thiếu → vẫn là lỗi chặn, retryAt null", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "Vui lòng chờ trước khi gọi nhân viên lần nữa", details: null } });
+    const err = await pingCallStaff("table-1").catch((e) => e);
+    expect(err).toBeInstanceOf(CallStaffCooldownError);
+    expect((err as CallStaffCooldownError).retryAt).toBeNull();
+  });
+
+  it("lỗi khác (bàn không hoạt động) → ném nguyên lỗi server", async () => {
+    const error = { message: "Bàn không thuộc quán hoặc không hoạt động", details: null };
+    rpc.mockResolvedValue({ data: null, error });
     await expect(pingCallStaff("table-1")).rejects.toBe(error);
   });
 });
