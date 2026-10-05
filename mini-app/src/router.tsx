@@ -20,7 +20,7 @@ const router = createBrowserRouter(
       path: "/",
       element: <Layout />,
       children: [
-        // Trang chính: menu (header ẩn — menu tự có header riêng)
+        // Trang chính: menu (dùng thanh công cụ chung của Layout)
         { path: "/", element: <MenuPage /> },
         { path: "/menu", element: <MenuPage /> },
 
@@ -28,7 +28,7 @@ const router = createBrowserRouter(
         { path: "/session-orders", element: <SessionOrdersPage />, handle: { hideHeader: true } },
 
         // Tab: Thông tin nhà hàng
-        { path: "/store-info", element: <StoreInfoPage />, handle: { hideHeader: true } },
+        { path: "/store-info", element: <StoreInfoPage />, handle: { title: "Thông tin nhà hàng", back: true, hideBottomTabs: true, hideCart: true } satisfies RouteHandle },
         { path: "/account", element: <AccountPage />, handle: { title: "Tài khoản", back: true, hideBottomTabs: true, hideCart: true } satisfies RouteHandle },
 
         { path: "/reservations", element: <ReservationsPage />, handle: { title: "Đặt bàn của tôi", back: false, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },

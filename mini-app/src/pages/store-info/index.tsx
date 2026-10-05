@@ -120,7 +120,7 @@ export default function StoreInfoPage() {
   return (
     <div
       className="flex h-full flex-col overflow-y-auto bg-background"
-      style={{ paddingTop: "calc(var(--zaui-safe-area-inset-top, 0px) + 16px)" }}
+      style={{ paddingTop: 16 }}
     >
       {/* Card thông tin quán */}
       <div className="mx-3.5 rounded-xl bg-surface px-4 py-4">

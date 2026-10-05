@@ -20,6 +20,8 @@ import CategoryChips from "@/components/ui/category-chips";
 import SectionHeading from "@/components/ui/section-heading";
 import { pickProductLayout } from "@/utils/product-layout";
 import { matchesQuery } from "@/utils/search-fold";
+import { activeCategoryAt } from "@/utils/active-category";
+import { callStaffMessage } from "@/utils/call-staff-message";
 import { LockIcon, ArmchairIcon, BellIcon, MoonIcon, CircleAlertIcon, RotateCwIcon, SearchIcon } from "@/components/common/icons";
 
 // Bàn đang có khách KHÁC gọi món (quán trả sau). Vẫn cho xem menu, chỉ chặn thêm món.
@@ -204,9 +206,8 @@ export default function MenuPage() {
     callStaff(
       { tableId },
       {
-        onSuccess: () =>
-          openSnackbar({ text: "Đã gọi nhân viên! Vui lòng chờ.", type: "success" }),
-        onError: () => openSnackbar({ text: "Gọi thất bại, thử lại sau.", type: "error" }),
+        onSuccess: () => openSnackbar(callStaffMessage({ ok: true })),
+        onError: (error) => openSnackbar(callStaffMessage({ ok: false, error })),
       },
     );
   };
@@ -413,13 +414,13 @@ export default function MenuPage() {
         className="no-scrollbar flex-1 overflow-y-auto"
         onScroll={() => {
           if (!contentRef.current) return;
-          for (const cat of [...visibleMenu].reverse()) {
+          const headings: Array<{ id: string; top: number }> = [];
+          for (const cat of visibleMenu) {
             const el = document.getElementById(cat.id);
-            if (el && el.getBoundingClientRect().top <= 200) {
-              setActiveCategoryId(cat.id);
-              break;
-            }
+            if (el) headings.push({ id: cat.id, top: el.getBoundingClientRect().top });
           }
+          const next = activeCategoryAt(headings, contentRef.current.getBoundingClientRect().top);
+          if (next) setActiveCategoryId(next);
         }}
       >
         {/* Banner 4:1 trong takeaway mode */}

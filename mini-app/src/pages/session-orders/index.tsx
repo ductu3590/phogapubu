@@ -7,6 +7,7 @@ import { useCallStaff, useConfirmReceived } from "@/services/order/order.mutatio
 import { orderService } from "@/services/order/order.api";
 import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/utils/format";
+import { callStaffMessage } from "@/utils/call-staff-message";
 import { GET_SESSION_ORDERS_KEY, GET_TABLE_SESSION_BILL_KEY } from "@/constants/api";
 import type { SessionOrder, TakeawayOrder, OrderItem } from "@/types/order.types";
 import { ScanLineIcon, PackageIcon, ClipboardListIcon } from "@/components/common/icons";
@@ -73,7 +74,6 @@ function DineInOrdersView() {
   const { zaloUserId, deviceId, tableId, tableNumber, storeId, paymentTiming } = useAppStore();
   const { openSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
-  const [calledAt, setCalledAt] = useState<number | null>(null);
   const isPostpay = paymentTiming === "postpay";
 
   const { expandedId, loadingItemsId, cachedItems, toggle } = useExpandableItems();
@@ -140,22 +140,13 @@ function DineInOrdersView() {
     ? billOrders.some((o) => o.payment_received_at === null)
     : orders.some((o) => UNPAID_STATUSES.has(o.status));
 
-  // Gọi nhân viên — throttle ở máy khách, server còn chống spam theo bàn/mâm.
+  // Gọi nhân viên — server chặn 3 phút/bàn (mig 087) và trả giờ gọi lại; client chỉ hiện câu đó.
   const handleCallStaff = () => {
-    if (calledAt && Date.now() - calledAt < 60_000) {
-      openSnackbar({ text: "Đã gọi rồi, nhân viên đang đến!", type: "warning" });
-      return;
-    }
     callStaff(
       { tableId },
       {
-        onSuccess: () => {
-          setCalledAt(Date.now());
-          openSnackbar({ text: "Đã gọi nhân viên! Vui lòng chờ.", type: "success" });
-        },
-        onError: () => {
-          openSnackbar({ text: "Gọi thất bại, thử lại sau.", type: "error" });
-        },
+        onSuccess: () => openSnackbar(callStaffMessage({ ok: true })),
+        onError: (error) => openSnackbar(callStaffMessage({ ok: false, error })),
       },
     );
   };

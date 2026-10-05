@@ -8,7 +8,9 @@ export function callStaffMessage(result: { ok: true } | { ok: false; error: unkn
   if (result.error instanceof CallStaffCooldownError) {
     const retry = result.error.retryAt;
     if (!retry) return { text: "Bạn vừa gọi nhân viên, vui lòng chờ ít phút", type: "warning" };
-    return { text: `Bạn vừa gọi lúc ${hhmm(new Date(retry.getTime() - COOLDOWN_MS))}, có thể gọi lại sau ${hhmm(retry)}`, type: "warning" };
+    // Làm tròn LÊN phút: retry 19:28:20 mà báo "sau 19:28" thì khách bấm lúc 19:28:10 vẫn bị chặn.
+    const retryMinute = new Date(Math.ceil(retry.getTime() / 60_000) * 60_000);
+    return { text: `Bạn vừa gọi lúc ${hhmm(new Date(retry.getTime() - COOLDOWN_MS))}, có thể gọi lại sau ${hhmm(retryMinute)}`, type: "warning" };
   }
   return { text: "Chưa gọi được, kiểm tra mạng rồi thử lại", type: "error" };
 }

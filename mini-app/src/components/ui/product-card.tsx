@@ -40,10 +40,8 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
         </div>
         <div className="flex flex-1 flex-col gap-1 p-2.5">
           <p className="line-clamp-2 text-small-m font-semibold text-text-primary">{product.name}</p>
-          <div className="mt-auto flex items-center justify-between gap-2">
-            <span className="whitespace-nowrap text-small-m font-bold text-primary">{price}</span>
-            {control}
-          </div>
+          <span className="mt-auto whitespace-nowrap text-small-m font-bold text-primary">{price}</span>
+          {control && <div className="flex justify-end">{control}</div>}
         </div>
       </div>
     );
