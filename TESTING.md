@@ -6,6 +6,8 @@
 
 ## Checklist mới tách riêng
 
+- [Bảo Lương — Ảnh Món ngon tuần này](docs/testing/bao-luong/MENU-IMAGES-WEEKLY.md) — chờ Test 1 (2026-10-05)
+
 - ✅ [UI-1 — Nền móng design system](docs/testing/ui-system/UI-1.md) — UI-1 PASS (2026-10-02), nhánh `feat/ui-system`
 - ✅ [UI-2 — POS thu ngân + màn nhân viên](docs/testing/ui-system/UI-2.md) — UI-2 PASS (2026-10-02), nhánh `feat/ui-system`
 - ✅ [UI-3 — Khu quản trị chủ quán /admin](docs/testing/ui-system/UI-3.md) — UI-3 PASS (2026-10-03), nhánh `feat/ui-system`
@@ -22,7 +24,7 @@
 - [ST-4 — Khu /mevo theo bản Stitch A06–A11](docs/testing/stitch-fidelity/ST-4.md) — Pha 4, nhánh `feat/pos-timeline`, PASS 2026-10-05
 - [MA-1 — Khung Mini App + Thực đơn tại bàn + Giỏ hàng](docs/testing/mini-app-stitch/MA-1.md) — Mini App Stitch, nhánh `feat/mini-app-stitch`, PASS 2026-10-05
 - [MA-2 — Đơn gọi m07 + gọi xong sang Đơn gọi + Trạng thái đơn + Thông tin nhà hàng](docs/testing/mini-app-stitch/MA-2.md) — Mini App Stitch, nhánh `feat/mini-app-stitch`, PASS 2026-10-05
-- [MA-3 — Trang chủ m01 + Đặt bàn m02 + Đơn của tôi m03 + Chỉ đường](docs/testing/mini-app-stitch/MA-3.md) — Mini App Stitch, nhánh `feat/mini-app-stitch`, chờ test
+- [MA-3 — Trang chủ m01 + Đặt bàn m02 + Đơn của tôi m03 + Chỉ đường](docs/testing/mini-app-stitch/MA-3.md) — Mini App Stitch, nhánh `feat/mini-app-stitch`, PASS 2026-10-05
 
 - ✅ [UI Reform — review bản POS đã chọn](docs/testing/ui-reform/REVIEW-CHOSEN-POS-2026-10-02.md) — PASS, Codex tự rà theo ủy quyền 02/10; thiết kế chốt, chưa code
 
