@@ -74,6 +74,32 @@ export async function prepareAndPersistBooking(
   return persisted;
 }
 
+/** Gửi lại bản nháp đang kẹt (lần trước lỗi, ví dụ sai SĐT) với thông tin MỚI trên form.
+ *  Giữ nguyên requestId + token để server vẫn chống tạo trùng; lưu bản nháp mới XUỐNG MÁY TRƯỚC
+ *  khi gửi (cùng nguyên tắc prepareAndPersistBooking). Trước đây gửi lại nguyên bản nháp cũ nên
+ *  sửa số điện thoại xong vẫn lỗi y như cũ. */
+export async function resubmitDraftWithEdits(
+  draft: BookingDraft,
+  edits: Pick<BookingDraft, "customerName" | "customerPhone" | "partySize" | "arrivalAt" | "note">,
+  newRequestId?: () => string,
+) {
+  const updated: BookingDraft = { ...draft, ...edits };
+  if (!saveBookingDraft(updated)) {
+    throw new Error("Không thể lưu an toàn yêu cầu đặt bàn. Vui lòng gọi quán để được hỗ trợ.");
+  }
+  try {
+    return await submitPersistedBooking(updated);
+  } catch (cause) {
+    // Server kiểm "yêu cầu này đã tạo đặt bàn chưa" TRƯỚC "hết hạn" (create_customer_reservation) →
+    // báo hết hạn nghĩa là chắc chắn chưa có đặt bàn nào: bỏ nháp cũ, chuẩn bị yêu cầu mới.
+    const message = cause && typeof cause === "object" && "message" in cause ? String((cause as { message: unknown }).message) : "";
+    if (!newRequestId || !message.includes("đã hết hạn")) throw cause;
+    clearBookingDraft(draft.storeId);
+    const fresh = await prepareAndPersistBooking({ ...updated, requestId: newRequestId(), token: undefined });
+    return submitPersistedBooking(fresh);
+  }
+}
+
 export async function submitPersistedBooking(draft: BookingDraft) {
   const result = await submitBooking(draft);
   const access: ReservationAccess = {

@@ -13,6 +13,7 @@ import {
   prepareAndPersistBooking,
   submitBooking,
   submitPersistedBooking,
+  resubmitDraftWithEdits,
 } from "./reservation.api";
 import * as reservationStorage from "./reservation-storage";
 
@@ -111,6 +112,45 @@ describe("reservation API", () => {
     rpc.mockResolvedValue({ data: null, error: new Error("mất mạng") });
     await expect(submitPersistedBooking(draft)).rejects.toThrow("mất mạng");
     expect(saveDraft).not.toHaveBeenCalled();
+  });
+
+  it("gửi lại bản nháp kẹt: dùng thông tin MỚI trên form, giữ mã yêu cầu + token cũ, lưu nháp mới trước khi gửi", async () => {
+    const saveDraft = vi.spyOn(reservationStorage, "saveBookingDraft").mockReturnValue(true);
+    vi.spyOn(reservationStorage, "saveBookingAccess").mockReturnValue(true);
+    vi.spyOn(reservationStorage, "clearBookingDraft").mockImplementation(() => undefined);
+    vi.spyOn(reservationStorage, "saveReservationProfile").mockReturnValue(true);
+    rpc.mockResolvedValueOnce({ data: { created: true, reservation }, error: null });
+
+    const stuck = { ...draft, customerPhone: "0962" };
+    await resubmitDraftWithEdits(stuck, { customerName: draft.customerName, customerPhone: "0962345678", partySize: 4, arrivalAt: draft.arrivalAt, note: "Bàn ngoài trời" });
+
+    expect(saveDraft).toHaveBeenCalledWith(expect.objectContaining({ customerPhone: "0962345678", partySize: 4, requestId: draft.requestId, token: draft.token }));
+    expect(saveDraft).toHaveBeenCalledBefore(rpc);
+    expect(rpc).toHaveBeenCalledWith("create_customer_reservation", expect.objectContaining({
+      p_client_request_id: draft.requestId,
+      p_customer_token: draft.token,
+      p_customer_phone: "0962345678",
+      p_party_size: 4,
+      p_note: "Bàn ngoài trời",
+    }));
+  });
+
+  it("bản nháp kẹt đã HẾT HẠN ở server → bỏ nháp, chuẩn bị yêu cầu mới rồi gửi (server kiểm 'đã tạo chưa' trước 'hết hạn' nên không thể trùng)", async () => {
+    vi.spyOn(reservationStorage, "saveBookingDraft").mockReturnValue(true);
+    vi.spyOn(reservationStorage, "saveBookingAccess").mockReturnValue(true);
+    const clearDraft = vi.spyOn(reservationStorage, "clearBookingDraft").mockImplementation(() => undefined);
+    vi.spyOn(reservationStorage, "saveReservationProfile").mockReturnValue(true);
+    rpc
+      .mockResolvedValueOnce({ data: null, error: { message: "Yêu cầu chuẩn bị đã hết hạn; hãy tạo yêu cầu mới" } })
+      .mockResolvedValueOnce({ data: { customer_token: "c".repeat(64), expires_at: "2026-10-06T00:00:00.000Z" }, error: null })
+      .mockResolvedValueOnce({ data: { created: true, reservation }, error: null });
+
+    const edits = { customerName: draft.customerName, customerPhone: "0962345678", partySize: 2, arrivalAt: draft.arrivalAt, note: "" };
+    await expect(resubmitDraftWithEdits(draft, edits, () => "request-new")).resolves.toEqual(expect.objectContaining({ created: true }));
+
+    expect(clearDraft).toHaveBeenCalled();
+    expect(rpc).toHaveBeenNthCalledWith(2, "prepare_reservation_request", { p_store_id: draft.storeId, p_client_request_id: "request-new" });
+    expect(rpc).toHaveBeenNthCalledWith(3, "create_customer_reservation", expect.objectContaining({ p_client_request_id: "request-new", p_customer_token: "c".repeat(64), p_customer_phone: "0962345678" }));
   });
 
   it("đọc/đổi/hủy chỉ gọi RPC capability, không đọc bảng reservation", async () => {

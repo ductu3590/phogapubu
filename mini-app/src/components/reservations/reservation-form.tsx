@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BookingDraft, CustomerReservation, ReservationAccess } from "@/types/reservation.types";
-import { getReservationConfig, getReservationSlots, prepareAndPersistBooking, requestBookingChange, submitPersistedBooking } from "@/services/reservation/reservation.api";
+import { getReservationConfig, getReservationSlots, prepareAndPersistBooking, requestBookingChange, resubmitDraftWithEdits, submitPersistedBooking } from "@/services/reservation/reservation.api";
 import { getBookingDraft, getReservationProfile } from "@/services/reservation/reservation-storage";
+import { errorMessage, normalizeVnPhone } from "@/utils/booking-validation";
 import { useReservationConfig, useReservationSlots } from "@/services/reservation/reservation.queries";
 import { formatReservationDate } from "@/utils/reservation-display";
 import { useAppStore } from "@/stores/app.store";
@@ -38,6 +39,8 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
   const [arrivalAt, setArrivalAt] = useState(booking?.arrivalAt ?? savedDraft?.arrivalAt ?? "");
   const [note, setNote] = useState(booking?.note ?? savedDraft?.note ?? "");
   const [error, setError] = useState("");
+  // Lỗi từng ô — hiện ngay dưới ô sai thay vì một câu chung ở cuối form.
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; phone?: string; time?: string; size?: string }>({});
   const [submitting, setSubmitting] = useState(false);
   const slotsQuery = useReservationSlots(storeId, localDate, !!localDate && (mode === "change" || configQuery.data?.reservationsEnabled === true));
 
@@ -59,8 +62,17 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
   const submit = async () => {
     setError("");
     const size = Number(partySize);
-    if (!customerName.trim() || !customerPhone.trim() || !Number.isInteger(size) || size < 1 || size > 100 || !arrivalAt) {
-      setError("Vui lòng điền đủ họ tên, số điện thoại, số khách và giờ đến.");
+    // Đổi lịch chỉ đổi giờ / số khách / ghi chú — tên + SĐT không gửi lên nên không kiểm lại.
+    const phone = mode === "create" ? normalizeVnPhone(customerPhone) : ({ ok: true, value: customerPhone.trim() } as const);
+    const errors = {
+      name: mode === "create" && !customerName.trim() ? "Vui lòng nhập họ tên người đặt." : undefined,
+      phone: phone.ok ? undefined : phone.error,
+      size: !Number.isInteger(size) || size < 1 || size > 100 ? "Số khách từ 1 đến 100." : undefined,
+      time: !arrivalAt ? "Vui lòng chọn giờ đến." : undefined,
+    };
+    setFieldErrors(errors);
+    if (errors.name || errors.phone || errors.size || errors.time || !phone.ok) {
+      setError("Vui lòng kiểm tra lại các ô được đánh dấu đỏ.");
       return;
     }
     setSubmitting(true);
@@ -71,27 +83,29 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
         onSuccess(changed);
         return;
       }
-      if (existingDraft) {
-        const result = await submitPersistedBooking(existingDraft);
-        onSuccess(result.reservation);
-        return;
-      }
       // Làm mới config/slot trước gửi: giờ mở hiện tại không ảnh hưởng booking, server là chốt cuối.
       const freshConfig = await getReservationConfig(storeId);
       if (!freshConfig.reservationsEnabled) throw new Error("Quán hiện chưa nhận đặt bàn trước.");
       const freshSlots = await getReservationSlots(storeId, localDate);
       if (!freshSlots.some((slot) => slot.arrivalAt === arrivalAt)) {
         setArrivalAt("");
+        setFieldErrors((prev) => ({ ...prev, time: "Khung giờ này vừa hết chỗ hoặc đã qua. Vui lòng chọn giờ khác." }));
         throw new Error("Khung giờ này vừa hết chỗ hoặc không còn hợp lệ. Vui lòng chọn lại.");
       }
-      const draft: BookingDraft = await prepareAndPersistBooking({
-        requestId: makeRequestId(), storeId, customerName: customerName.trim(), customerPhone: customerPhone.trim(),
-        partySize: size, arrivalAt, note: note.trim(),
-      });
+      const edits = { customerName: customerName.trim(), customerPhone: phone.value, partySize: size, arrivalAt, note: note.trim() };
+      // Đọc lại bản nháp LÚC BẤM GỬI (lần gửi trước trong cùng phiên có thể vừa tạo nháp rồi lỗi).
+      // Có nháp → gửi lại với thông tin MỚI, giữ mã yêu cầu cũ để server không tạo trùng.
+      const pending = getBookingDraft(storeId);
+      if (pending) {
+        const result = await resubmitDraftWithEdits(pending, edits, makeRequestId);
+        onSuccess(result.reservation);
+        return;
+      }
+      const draft: BookingDraft = await prepareAndPersistBooking({ requestId: makeRequestId(), storeId, ...edits });
       const result = await submitPersistedBooking(draft);
       onSuccess(result.reservation);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể gửi yêu cầu đặt bàn. Vui lòng thử lại.");
+      setError(errorMessage(cause, "Không thể gửi yêu cầu đặt bàn. Vui lòng thử lại."));
     } finally {
       setSubmitting(false);
     }
@@ -119,16 +133,24 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
 
   const body = (
     <div className="pb-4">
-      {existingDraft && <p className="mx-3 mt-3 rounded-xl bg-warning-bg p-3 text-small text-warning">Có một yêu cầu đang gửi dở. Bấm gửi lại để tránh tạo trùng đặt bàn.</p>}
+      {existingDraft && <p className="mx-3 mt-3 rounded-xl bg-warning-bg p-3 text-small text-warning">Lần gửi trước chưa thành công. Kiểm tra lại thông tin bên dưới rồi bấm gửi lại — quán sẽ không nhận trùng.</p>}
 
       {/* 1. Người đặt */}
       <SectionCard title="Thông tin người đặt" subtitle="Quán dùng để liên hệ xác nhận chỗ" icon={<UserIcon />}>
         <div className="space-y-3">
-          <Field label="Họ và tên" required>
-            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={100} placeholder="Tên người đặt" className={INPUT} />
+          <Field label="Họ và tên" required error={fieldErrors.name}>
+            <input value={customerName} onChange={(e) => { setCustomerName(e.target.value); setFieldErrors((p) => ({ ...p, name: undefined })); }} maxLength={100} placeholder="Tên người đặt" className={cn(INPUT, fieldErrors.name && "border-critical")} />
           </Field>
-          <Field label="Số điện thoại" required>
-            <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} inputMode="tel" maxLength={20} placeholder="Số để quán liên hệ" className={INPUT} />
+          <Field label="Số điện thoại" required error={fieldErrors.phone}>
+            <input
+              value={customerPhone}
+              onChange={(e) => { setCustomerPhone(e.target.value); setFieldErrors((p) => ({ ...p, phone: undefined })); }}
+              onBlur={() => { if (customerPhone.trim() && mode === "create") { const r = normalizeVnPhone(customerPhone); setFieldErrors((p) => ({ ...p, phone: r.ok ? undefined : r.error })); } }}
+              inputMode="tel"
+              maxLength={20}
+              placeholder="Ví dụ 0962 345 678"
+              className={cn(INPUT, fieldErrors.phone && "border-critical")}
+            />
           </Field>
         </div>
       </SectionCard>
@@ -170,7 +192,7 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
             <button
               type="button"
               key={slot.arrivalAt}
-              onClick={() => setArrivalAt(slot.arrivalAt)}
+              onClick={() => { setArrivalAt(slot.arrivalAt); setFieldErrors((p) => ({ ...p, time: undefined })); }}
               className={cn(
                 "rounded-lg border py-2 text-small font-semibold tabular-nums",
                 arrivalAt === slot.arrivalAt ? "border-primary bg-primary text-white" : "border-neutral200 bg-neutral50 text-text-primary",
@@ -180,6 +202,7 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
             </button>
           ))}
         </div>
+        {fieldErrors.time && <p className="mt-2 text-xxsmall font-medium text-critical">{fieldErrors.time}</p>}
         {slotsQuery.isLoading && <p className="mt-2 text-small text-text-secondary">Đang tải giờ trống…</p>}
         {!slotsQuery.isLoading && localDate && slotsQuery.data?.length === 0 && (
           <p className="mt-2 text-small text-text-secondary">Ngày này không còn giờ phù hợp — chọn ngày khác nhé.</p>
@@ -244,7 +267,7 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
 
 const INPUT = "w-full rounded-xl border border-neutral200 bg-neutral50 px-3 py-3 text-small outline-none focus:border-primary";
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1.5 flex items-center justify-between text-xxsmall font-semibold text-text-secondary">
@@ -252,6 +275,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
         {required && <span className="font-medium text-critical">Bắt buộc</span>}
       </span>
       {children}
+      {error && <span className="mt-1 block text-xxsmall font-medium text-critical">{error}</span>}
     </label>
   );
 }
