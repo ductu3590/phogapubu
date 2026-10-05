@@ -75,6 +75,8 @@ export interface TableSessionBillItem {
   quantity: number;
   price: number;
   toppings: { id: string; name: string; price: number }[] | null;
+  /** 'gift' = quán tặng (giá đã về 0 ở server); món 'cancelled' server đã loại khỏi bill. */
+  void_type?: string | null;
 }
 
 export interface TableSessionBillOrder {

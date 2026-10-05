@@ -25,7 +25,7 @@ const router = createBrowserRouter(
         { path: "/menu", element: <MenuPage /> },
 
         // Tab: Đơn đã gọi trong phiên (placeholder, Task 6)
-        { path: "/session-orders", element: <SessionOrdersPage />, handle: { hideHeader: true } },
+        { path: "/session-orders", element: <SessionOrdersPage />, handle: { title: "Đơn gọi", hideCart: true } satisfies RouteHandle },
 
         // Tab: Thông tin nhà hàng
         { path: "/store-info", element: <StoreInfoPage />, handle: { title: "Thông tin nhà hàng", back: true, hideBottomTabs: true, hideCart: true } satisfies RouteHandle },

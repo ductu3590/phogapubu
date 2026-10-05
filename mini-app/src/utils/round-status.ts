@@ -65,3 +65,17 @@ export function lineLabel(item: { quantity: number; price: number; void_type?: s
 export function hasPendingRound(orders: Array<{ status: OrderState }>, ctx: RoundContext): boolean {
   return orders.some((o) => roundStatus(o.status, ctx).label === "Chờ xác nhận");
 }
+
+/** Khối "Đối soát tạm tính": lượt còn CHỜ (nhãn vàng) tách khỏi lượt đã vào bếp. */
+export function reconcileRounds(
+  orders: Array<{ status: OrderState; total_amount: number }>,
+  ctx: RoundContext,
+): { inKitchen: number; pending: number; total: number } {
+  let inKitchen = 0;
+  let pending = 0;
+  for (const o of orders) {
+    if (roundStatus(o.status, ctx).tone === "warning") pending += o.total_amount;
+    else inKitchen += o.total_amount;
+  }
+  return { inKitchen, pending, total: inKitchen + pending };
+}

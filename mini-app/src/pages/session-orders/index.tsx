@@ -1,41 +1,21 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSnackbar } from "zmp-ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/stores/app.store";
 import { useSessionOrders, useTableSessionBill, useTakeawayOrders } from "@/services/order/order.queries";
-import { useCallStaff, useConfirmReceived } from "@/services/order/order.mutations";
+import { useConfirmReceived } from "@/services/order/order.mutations";
 import { orderService } from "@/services/order/order.api";
 import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/utils/format";
-import { callStaffMessage } from "@/utils/call-staff-message";
+import { cn } from "@/utils/cn";
+import { lineLabel, reconcileRounds, roundSourceLabel, roundStatus, type RoundContext, type RoundTone } from "@/utils/round-status";
+import SectionCard from "@/components/ui/section-card";
+import StatusPill, { type PillTone } from "@/components/ui/status-pill";
+import StickyActionBar from "@/components/ui/sticky-action-bar";
 import { GET_SESSION_ORDERS_KEY, GET_TABLE_SESSION_BILL_KEY } from "@/constants/api";
-import type { SessionOrder, TakeawayOrder, OrderItem } from "@/types/order.types";
-import { ScanLineIcon, PackageIcon, ClipboardListIcon } from "@/components/common/icons";
-
-const UNPAID_STATUSES = new Set(["pending", "confirmed", "cooking", "ready"]);
-
-// Hình thức thanh toán + trạng thái thanh toán (dine-in)
-function getPaymentInfo(
-  paymentMethod: "zalo_checkout" | "cash",
-  status: string,
-): { icon: string; label: string; paid: boolean } {
-  if (paymentMethod === "zalo_checkout") {
-    return { icon: "", label: "ZaloPay", paid: status !== "pending" };
-  }
-  return { icon: "", label: "Tiền mặt", paid: status === "paid" };
-}
-
-// Ở quán TRẢ SAU, suy "đã trả tiền" từ status là sai: đơn confirmed/cooking/ready đều chưa thu
-// tiền, tiền chỉ về khi nhân viên chốt bill. Nguồn sự thật là payment_received_at.
-function getPostpayPaymentInfo(paymentReceivedAt: string | null): {
-  icon: string;
-  label: string;
-  paid: boolean;
-} {
-  return paymentReceivedAt
-    ? { icon: "✓", label: "Đã thanh toán", paid: true }
-    : { icon: "", label: "Trả sau", paid: false };
-}
+import type { SessionOrder, TakeawayOrder, OrderItem, TableSessionBillItem } from "@/types/order.types";
+import { ScanLineIcon, PackageIcon, ClipboardListIcon, CircleAlertIcon, PlusIcon } from "@/components/common/icons";
 
 // Hook dùng chung: mở/đóng card + fetch món lần đầu
 function useExpandableItems() {
@@ -68,52 +48,70 @@ export default function SessionOrdersPage() {
 }
 
 // ============================================================
-// Chế độ tại quán (giữ nguyên hành vi cũ — chỉ đổi tên tab "Đơn hàng")
+// Chế độ tại quán — trang "Đơn gọi" theo Stitch m07
 // ============================================================
+
+// Một lượt gọi món ở dạng chung cho cả trả sau (bill cả phiên, đã có món) và trả trước
+// (đơn của máy này, món tải khi mở thẻ).
+type Round = {
+  id: string;
+  status: SessionOrder["status"];
+  createdAt: string;
+  total: number;
+  source: string;
+  items: TableSessionBillItem[] | null;
+};
+
+const TONE_BAR: Record<RoundTone, string> = {
+  warning: "border-l-warning-dot",
+  info: "border-l-info-dot",
+  success: "border-l-success-dot",
+  critical: "border-l-critical-dot",
+  neutral: "border-l-neutral200",
+};
+
+const hhmm = (iso: string) =>
+  new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
 function DineInOrdersView() {
-  const { zaloUserId, deviceId, tableId, tableNumber, storeId, paymentTiming } = useAppStore();
-  const { openSnackbar } = useSnackbar();
+  const navigate = useNavigate();
+  const { zaloUserId, deviceId, tableId, tableNumber, paymentTiming, workflow, sessionState } = useAppStore();
   const queryClient = useQueryClient();
   const isPostpay = paymentTiming === "postpay";
+  const ctx: RoundContext = {
+    paymentTiming: isPostpay ? "postpay" : "prepay",
+    kitchenPolicy: workflow?.kitchenReleasePolicy ?? "automatic",
+  };
 
   const { expandedId, loadingItemsId, cachedItems, toggle } = useExpandableItems();
   // Trả trước: đơn của CHÍNH máy này (get_session_orders lọc theo zalo_user_id).
   // Trả sau: bill CẢ PHIÊN — phải gồm cả đơn nhân viên đặt hộ, nếu không khách nhìn tab này
   // trống trơn trong khi đang nợ cả mâm.
-  const { data: personalOrders, isLoading: loadingPersonal } = useSessionOrders(
-    zaloUserId,
-    tableId,
-    !isPostpay,
-  );
-  const { data: bill, isLoading: loadingBill } = useTableSessionBill(
-    tableId,
-    zaloUserId,
-    deviceId,
-    isPostpay,
-  );
-  const { mutate: callStaff, isPending: isCalling } = useCallStaff();
+  const { data: personalOrders, isLoading: loadingPersonal } = useSessionOrders(zaloUserId, tableId, !isPostpay);
+  const { data: bill, isLoading: loadingBill } = useTableSessionBill(tableId, zaloUserId, deviceId, isPostpay);
 
-  const billOrders = bill && bill.found ? bill.orders : [];
-  const orders: SessionOrder[] = isPostpay
-    ? billOrders.map((o) => ({
+  const rounds: Round[] = isPostpay
+    ? (bill && bill.found ? bill.orders : []).map((o) => ({
         id: o.id,
-        storeId,
-        tableId,
         status: o.status,
-        totalAmount: o.total_amount,
-        paymentMethod: "cash" as const,
-        note: null,
         createdAt: o.created_at,
-        updatedAt: o.created_at,
+        total: o.total_amount,
+        source: o.order_source,
+        items: o.items,
       }))
-    : (personalOrders ?? []);
+    : (personalOrders ?? []).map((o) => ({
+        id: o.id,
+        status: o.status,
+        createdAt: o.createdAt,
+        total: o.totalAmount,
+        source: "customer_zalo",
+        items: null,
+      }));
   const isLoading = isPostpay ? loadingBill : loadingPersonal;
-  const paidAtById = new Map(billOrders.map((o) => [o.id, o.payment_received_at]));
 
-  // Realtime: tự cập nhật khi admin web thay đổi trạng thái đơn
+  // Realtime: tự cập nhật khi thu ngân xác nhận / nhân viên thêm món
   useEffect(() => {
     if (!tableId) return;
-
     const channel = supabase
       .channel(`session-orders-${tableId}`)
       .on(
@@ -127,116 +125,217 @@ function DineInOrdersView() {
         },
       )
       .subscribe();
-
     return () => { void supabase.removeChannel(channel); };
   }, [tableId, queryClient]);
-
-  // Trả sau: tổng lấy thẳng từ phiên (server tính) để không lệch với số nhân viên thu.
-  const grandTotal =
-    isPostpay && bill && bill.found
-      ? bill.total
-      : orders.reduce((sum, o) => sum + o.totalAmount, 0);
-  const hasUnpaid = isPostpay
-    ? billOrders.some((o) => o.payment_received_at === null)
-    : orders.some((o) => UNPAID_STATUSES.has(o.status));
-
-  // Gọi nhân viên — server chặn 3 phút/bàn (mig 087) và trả giờ gọi lại; client chỉ hiện câu đó.
-  const handleCallStaff = () => {
-    callStaff(
-      { tableId },
-      {
-        onSuccess: () => openSnackbar(callStaffMessage({ ok: true })),
-        onError: (error) => openSnackbar(callStaffMessage({ ok: false, error })),
-      },
-    );
-  };
 
   // Chưa quét QR. Ở trả sau chỉ cần MỘT trong hai chân định danh (PB5): khách không lấy được
   // Zalo UID vẫn phải xem được bill của bàn mình.
   if (!tableId || (!zaloUserId && !(isPostpay && deviceId))) {
     return (
-      <div className="flex h-full flex-col bg-background">
-        <Header title="Đơn hàng" />
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-          <ScanLineIcon className="size-10 text-text-disabled" />
-          <p className="font-medium text-text-primary">Quét QR tại bàn trước</p>
-          <p className="text-small text-text-secondary">
-            Vui lòng dùng Zalo quét mã QR trên bàn để xem lịch sử gọi món.
-          </p>
-        </div>
-      </div>
+      <CenterState icon={<ScanLineIcon className="size-10" />} title="Quét QR tại bàn trước" subtitle="Vui lòng dùng Zalo quét mã QR trên bàn để xem các món đã gọi." />
     );
   }
 
+  const tableLabel =
+    (sessionState?.mode === "postpay" && sessionState.state === "owner" && sessionState.is_open_ordering && sessionState.table_names) ||
+    tableNumber ||
+    "Bàn của bạn";
+  const sums = reconcileRounds(rounds.map((r) => ({ status: r.status, total_amount: r.total })), ctx);
+  // Trả sau: tổng lấy thẳng từ phiên (server tính) để không lệch với số thu ngân thu.
+  const grandTotal = isPostpay && bill && bill.found ? bill.total : sums.total;
+
   return (
     <div className="flex h-full flex-col bg-background">
-      <Header title="Đơn hàng" subtitle={tableNumber || undefined} />
-
-      <div className="no-scrollbar flex-1 overflow-y-auto pb-6">
-        {/* Nút "Gọi nhân viên" — trong content, tránh đè Zalo overlay */}
-        {hasUnpaid && (
-          <div className="mx-3.5 mt-3">
-            <button
-              onClick={handleCallStaff}
-              disabled={isCalling}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-warning-bg py-3 text-warning active:opacity-70 disabled:opacity-50"
-            >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              <span className="text-small-m font-semibold">Gọi nhân viên</span>
-            </button>
-          </div>
-        )}
-
+      <div className="no-scrollbar flex-1 overflow-y-auto pb-4">
         {isLoading ? (
           <ListSkeleton />
-        ) : !orders || orders.length === 0 ? (
-          <EmptyState
-            title="Chưa gọi món nào"
-            subtitle="Vào tab Menu để chọn món nhé!"
+        ) : rounds.length === 0 ? (
+          <CenterState
+            icon={<ClipboardListIcon className="size-10" />}
+            title="Bàn chưa gọi món nào"
+            subtitle="Chọn món ở Thực đơn rồi bấm Gọi món, các lượt gọi sẽ hiện ở đây."
+            action={{ label: "Xem thực đơn", onClick: () => navigate("/") }}
           />
         ) : (
           <>
-            <div className="mx-3.5 mt-3 space-y-3">
-              {orders.map((order, idx) => (
-                <DineInOrderCard
-                  key={order.id}
-                  order={order}
-                  label={`Lần ${orders.length - idx}`}
-                  isExpanded={expandedId === order.id}
-                  isLoadingItems={loadingItemsId === order.id}
-                  items={cachedItems[order.id] ?? null}
-                  paymentInfo={
-                    isPostpay
-                      ? getPostpayPaymentInfo(paidAtById.get(order.id) ?? null)
-                      : getPaymentInfo(order.paymentMethod, order.status)
+            {/* Thẻ đầu: bàn / mâm + tổng tạm tính */}
+            <SectionCard>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 text-normal-sb font-bold text-text-primary">
+                    <span className="size-2 shrink-0 rounded-full bg-success-dot" aria-hidden />
+                    <span className="truncate">{tableLabel}</span>
+                  </p>
+                  <p className="mt-0.5 text-xxsmall text-text-secondary">
+                    {isPostpay && bill && bill.found ? `Giờ vào ${hhmm(bill.opened_at)} · ` : ""}
+                    <span className="font-semibold text-success">Đang phục vụ</span>
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-xxsmall font-semibold uppercase tracking-wide text-text-secondary">Tổng tạm tính</p>
+              <p className="mt-0.5 text-2xl font-extrabold text-primary">{formatCurrency(grandTotal)}đ</p>
+            </SectionCard>
+
+            <div className="flex items-baseline justify-between px-4 pb-1 pt-5">
+              <h2 className="text-small-m font-bold uppercase tracking-wide text-text-primary">
+                Các lượt gọi món ({rounds.length} lượt)
+              </h2>
+              <span className="text-xxsmall text-text-secondary">Mới nhất ở trên</span>
+            </div>
+
+            <div className="space-y-3">
+              {rounds.map((round, idx) => (
+                <RoundCard
+                  key={round.id}
+                  round={round}
+                  number={rounds.length - idx}
+                  ctx={ctx}
+                  // Trả trước: món tải khi mở thẻ (get_session_orders không kèm món)
+                  lazy={
+                    round.items === null
+                      ? { expanded: expandedId === round.id, loading: loadingItemsId === round.id, items: cachedItems[round.id] ?? null, onToggle: () => void toggle(round.id) }
+                      : null
                   }
-                  onToggle={() => void toggle(order.id)}
                 />
               ))}
             </div>
 
-            <div className="mx-3.5 mt-3 rounded-xl bg-surface px-4 py-3">
-              <div className="flex justify-between">
-                <p className="text-small text-text-secondary">
-                  {isPostpay ? "Cả bàn" : "Tổng cộng"} {orders.length} lần gọi
-                </p>
-                <p className="text-large-m font-bold text-primary">
-                  {formatCurrency(grandTotal)}đ
-                </p>
+            {/* Đối soát tạm tính */}
+            <SectionCard title="Đối soát tạm tính" className="mt-4">
+              <div className="space-y-1.5 text-small">
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Đã vào bếp</span>
+                  <span className="font-semibold text-text-primary">{formatCurrency(sums.inKitchen)}đ</span>
+                </div>
+                {sums.pending > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">{isPostpay ? "Đang chờ xác nhận" : "Chờ thanh toán"}</span>
+                    <span className="font-semibold text-warning">{formatCurrency(sums.pending)}đ</span>
+                  </div>
+                )}
               </div>
-              {hasUnpaid && (
-                <p className="mt-1.5 text-xxsmall text-text-secondary">
-                  {isPostpay
-                    ? 'Đây là tổng của cả bàn, gồm cả món nhân viên đặt hộ. Nhấn "Gọi nhân viên" khi cần hỗ trợ hoặc thanh toán.'
-                    : 'Nhấn "Gọi nhân viên" bên trên khi cần hỗ trợ hoặc thanh toán.'}
+              <div className="mt-3 flex items-baseline justify-between border-t border-neutral100 pt-3">
+                <span className="text-normal-sb font-bold text-text-primary">Tổng cộng tạm tính</span>
+                <span className="text-large-m font-extrabold text-primary">{formatCurrency(grandTotal)}đ</span>
+              </div>
+              {isPostpay && (
+                <p className="mt-2 flex items-start gap-1.5 text-xxsmall text-text-secondary">
+                  <CircleAlertIcon className="mt-px size-3.5 shrink-0" />
+                  Quý khách thanh toán tại quầy thu ngân khi kết thúc bữa.
                 </p>
               )}
-            </div>
+            </SectionCard>
           </>
         )}
       </div>
+
+      {/* Gọi thêm món — việc tiếp theo hiển nhiên của quán nhậu gọi nhiều lượt */}
+      <StickyActionBar variant="primary" aboveTabBar>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-normal-sb font-bold text-white shadow active:opacity-90"
+        >
+          <PlusIcon className="size-5" />
+          Gọi thêm món
+        </button>
+      </StickyActionBar>
+    </div>
+  );
+}
+
+function RoundCard({
+  round,
+  number,
+  ctx,
+  lazy,
+}: {
+  round: Round;
+  number: number;
+  ctx: RoundContext;
+  lazy: { expanded: boolean; loading: boolean; items: OrderItem[] | null; onToggle: () => void } | null;
+}) {
+  const status = roundStatus(round.status, ctx);
+  const source = roundSourceLabel(round.source);
+  const header = (
+    <div className="flex items-start justify-between gap-2">
+      <div className="min-w-0">
+        <p className="text-small-m font-bold text-text-primary">
+          Lượt #{String(number).padStart(2, "0")} <span className="font-normal text-text-secondary">· {hhmm(round.createdAt)}</span>
+        </p>
+        {source && <p className="mt-0.5 text-xxsmall text-text-secondary">{source}</p>}
+      </div>
+      <StatusPill tone={status.tone}>{status.label}</StatusPill>
+    </div>
+  );
+
+  return (
+    <section className={cn("mx-3 rounded-2xl border-l-4 bg-surface p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)]", TONE_BAR[status.tone])}>
+      {lazy ? (
+        <button type="button" onClick={lazy.onToggle} className="block w-full text-left">
+          {header}
+        </button>
+      ) : (
+        header
+      )}
+
+      {round.items && round.items.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {round.items.map((item) => {
+            const toppings = item.toppings ?? [];
+            const unit = item.price + toppings.reduce((s, t) => s + (t.price ?? 0), 0);
+            const line = lineLabel({ quantity: item.quantity, price: unit, void_type: item.void_type });
+            return (
+              <li key={item.id} className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="line-clamp-2 text-small font-medium text-text-primary">{item.name}</p>
+                  {toppings.length > 0 && (
+                    <p className="line-clamp-1 text-xxsmall text-text-secondary">{toppings.map((t) => `+ ${t.name}`).join(", ")}</p>
+                  )}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-xxsmall text-text-secondary">×{item.quantity}</p>
+                  <p className={cn("whitespace-nowrap text-small font-semibold", line.gift ? "text-success" : "text-text-primary")}>
+                    {line.gift ? "Đã tặng · 0đ" : `${formatCurrency(line.amount)}đ`}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {lazy?.expanded && <ItemsList isLoadingItems={lazy.loading} items={lazy.items} />}
+
+      <div className="mt-3 flex justify-between border-t border-dashed border-neutral200 pt-2.5 text-small">
+        <span className="text-text-secondary">Tiểu kế lượt gọi</span>
+        <span className="font-bold text-text-primary">{formatCurrency(round.total)}đ</span>
+      </div>
+    </section>
+  );
+}
+
+function CenterState({
+  icon,
+  title,
+  subtitle,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+      <span className="grid size-16 place-items-center rounded-full bg-primary/10 text-primary">{icon}</span>
+      <p className="text-normal-sb font-bold text-text-primary">{title}</p>
+      <p className="text-small text-text-secondary">{subtitle}</p>
+      {action && (
+        <button type="button" onClick={action.onClick} className="mt-1 rounded-full bg-primary px-5 py-2.5 text-small-m font-bold text-white">
+          {action.label}
+        </button>
+      )}
     </div>
   );
 }
@@ -271,34 +370,28 @@ function TakeawayOrdersView() {
   // Chưa lấy được Zalo user id (chưa mở từ Zalo / chưa cấp quyền)
   if (!zaloUserId) {
     return (
-      <div className="flex h-full flex-col bg-background">
-        <Header title="Đơn hàng" subtitle="Mang về / Ship" />
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-          <PackageIcon className="size-10 text-text-disabled" />
-          <p className="font-medium text-text-primary">Chưa có thông tin đơn</p>
-          <p className="text-small text-text-secondary">
-            Vui lòng mở Mini App trong Zalo để xem đơn mang về của bạn.
-          </p>
-        </div>
-      </div>
+      <CenterState
+        icon={<PackageIcon className="size-10" />}
+        title="Chưa có thông tin đơn"
+        subtitle="Vui lòng mở Mini App trong Zalo để xem đơn mang về của bạn."
+      />
     );
   }
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <Header title="Đơn hàng" subtitle="Mang về / Ship" />
-
       <div className="no-scrollbar flex-1 overflow-y-auto pb-6">
         {isLoading ? (
           <ListSkeleton />
         ) : !orders || orders.length === 0 ? (
-          <EmptyState
+          <CenterState
+            icon={<ClipboardListIcon className="size-10" />}
             title="Chưa có đơn mang về nào"
-            subtitle="Vào tab Menu để đặt món mang về nhé!"
+            subtitle="Vào Trang chủ để đặt món mang về nhé!"
           />
         ) : (
           <>
-            <div className="mx-3.5 mt-3 space-y-3">
+            <div className="mx-3 mt-3 space-y-3">
               {orders.map((order) => (
                 <TakeawayOrderCard
                   key={order.id}
@@ -326,32 +419,10 @@ function TakeawayOrdersView() {
 // Sub-components dùng chung
 // ============================================================
 
-function Header({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <div
-      className="flex-shrink-0 bg-surface px-4 pb-2 shadow-sm"
-      style={{ paddingTop: "calc(var(--zaui-safe-area-inset-top, 0px) + 16px)" }}
-    >
-      <p className="text-xlarge-sb font-bold text-text-primary">{title}</p>
-      {subtitle && <p className="text-small text-text-secondary">{subtitle}</p>}
-    </div>
-  );
-}
-
 function ListSkeleton() {
   return (
-    <div className="mx-3.5 mt-3 space-y-3">
-      {[1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-xl bg-surface" />)}
-    </div>
-  );
-}
-
-function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-      <ClipboardListIcon className="size-10 text-text-disabled" />
-      <p className="font-medium text-text-primary">{title}</p>
-      <p className="text-small text-text-secondary">{subtitle}</p>
+    <div className="mx-3 mt-3 space-y-3">
+      {[1, 2, 3].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface" />)}
     </div>
   );
 }
@@ -399,75 +470,16 @@ function Chevron({ isExpanded }: { isExpanded: boolean }) {
   );
 }
 
-function DineInOrderCard({
-  order,
-  label,
-  isExpanded,
-  isLoadingItems,
-  items,
-  paymentInfo,
-  onToggle,
-}: {
-  order: SessionOrder;
-  label: string;
-  isExpanded: boolean;
-  isLoadingItems: boolean;
-  items: OrderItem[] | null;
-  paymentInfo: { icon: string; label: string; paid: boolean };
-  onToggle: () => void;
-}) {
-  const time = new Date(order.createdAt).toLocaleTimeString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  return (
-    <div className="rounded-xl bg-surface">
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
-      >
-        <div>
-          <p className="text-small-m font-semibold text-text-primary">
-            {label} · {time}
-          </p>
-          <p className="mt-0.5 text-xxsmall text-text-secondary">
-            {paymentInfo.icon ? `${paymentInfo.icon} ` : ""}{paymentInfo.label}
-            {" · "}
-            <span className={paymentInfo.paid ? "font-semibold text-success" : "text-warning"}>
-              {paymentInfo.paid ? "Đã thanh toán" : "Chưa thanh toán"}
-            </span>
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <p className="text-small font-semibold text-primary">
-            {formatCurrency(order.totalAmount)}đ
-          </p>
-          <Chevron isExpanded={isExpanded} />
-        </div>
-      </button>
-
-      {isExpanded && <ItemsList isLoadingItems={isLoadingItems} items={items} />}
-    </div>
-  );
-}
-
 // Suy ra badge trạng thái cho đơn mang về (mục 5.6 spec)
 function getTakeawayStatus(order: TakeawayOrder): {
   label: string;
-  cls: string;
+  tone: PillTone;
   showReceive: boolean;
 } {
-  if (order.completedAt) {
-    return { label: "Đã hoàn thành", cls: "bg-success-bg text-success", showReceive: false };
-  }
-  if (order.status === "ready") {
-    return { label: "Món xong — chờ nhận", cls: "bg-warning-bg text-warning", showReceive: true };
-  }
-  if (order.status === "cooking") {
-    return { label: "Đang làm", cls: "bg-info-bg text-info", showReceive: false };
-  }
-  return { label: "Đang xử lý", cls: "bg-neutral100 text-text-secondary", showReceive: false };
+  if (order.completedAt) return { label: "Đã hoàn thành", tone: "success", showReceive: false };
+  if (order.status === "ready") return { label: "Món xong — chờ nhận", tone: "warning", showReceive: true };
+  if (order.status === "cooking") return { label: "Đang làm", tone: "info", showReceive: false };
+  return { label: "Đang xử lý", tone: "neutral", showReceive: false };
 }
 
 function TakeawayOrderCard({
@@ -494,11 +506,11 @@ function TakeawayOrderCard({
     month: "2-digit",
   });
   const typeLabel = order.orderType === "delivery" ? "Ship" : "Tự lấy";
-  const { label, cls, showReceive } = getTakeawayStatus(order);
+  const { label, tone, showReceive } = getTakeawayStatus(order);
   const isDone = !!order.completedAt;
 
   return (
-    <div className="rounded-xl bg-surface">
+    <div className="rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
       <button
         onClick={onToggle}
         className="flex w-full items-center justify-between px-4 py-3 text-left"
@@ -507,9 +519,7 @@ function TakeawayOrderCard({
           <p className="text-small-m font-semibold text-text-primary">
             {typeLabel} · {time}
           </p>
-          <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xxsmall font-medium ${cls}`}>
-            {label}
-          </span>
+          <div className="mt-1"><StatusPill tone={tone}>{label}</StatusPill></div>
         </div>
         <div className="flex items-center gap-2">
           <p className={`text-small font-semibold ${isDone ? "text-text-secondary" : "text-primary"}`}>

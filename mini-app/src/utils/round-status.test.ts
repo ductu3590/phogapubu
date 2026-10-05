@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPendingRound, lineLabel, roundSourceLabel, roundStatus } from "./round-status";
+import { hasPendingRound, lineLabel, reconcileRounds, roundSourceLabel, roundStatus } from "./round-status";
 
 const BL = { paymentTiming: "postpay", kitchenPolicy: "pos_confirmation" } as const;
 const PUBU = { paymentTiming: "prepay", kitchenPolicy: "automatic" } as const;
@@ -40,4 +40,18 @@ describe("phụ trợ", () => {
     expect(hasPendingRound([{ status: "confirmed" }], BL)).toBe(false);
     expect(hasPendingRound([], BL)).toBe(false);
   });
+});
+
+describe("reconcileRounds — khối Đối soát tạm tính", () => {
+  it("tách tổng đã vào bếp và đang chờ xác nhận", () => {
+    expect(reconcileRounds([
+      { status: "pending", total_amount: 670000 },
+      { status: "confirmed", total_amount: 100000 },
+      { status: "ready", total_amount: 710000 },
+    ], BL)).toEqual({ inKitchen: 810000, pending: 670000, total: 1480000 });
+  });
+  it("trả trước: không có khái niệm chờ thu ngân → pending (chờ thanh toán) vẫn tách riêng", () => {
+    expect(reconcileRounds([{ status: "pending", total_amount: 50000 }], PUBU)).toEqual({ inKitchen: 0, pending: 50000, total: 50000 });
+  });
+  it("rỗng", () => expect(reconcileRounds([], BL)).toEqual({ inKitchen: 0, pending: 0, total: 0 }));
 });
