@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPendingRound, lineLabel, orderSteps, reconcileRounds, rejectionReasonLabel, roundDiscount, roundSourceLabel, roundStatus, stepIndex } from "./round-status";
+import { hasPendingRound, lineLabel, orderSteps, reconcileRounds, rejectionReasonLabel, roundDiscount, roundNumbers, roundSourceLabel, roundStatus, stepIndex } from "./round-status";
 
 const BL = { paymentTiming: "postpay", kitchenPolicy: "pos_confirmation" } as const;
 const PUBU = { paymentTiming: "prepay", kitchenPolicy: "automatic" } as const;
@@ -117,5 +117,22 @@ describe("lượt bị thu ngân từ chối (mig 088 trả về để đối ch
     expect(rejectionReasonLabel("other", "  Bàn đổi ý  ")).toBe("Bàn đổi ý");
     expect(rejectionReasonLabel("other", null)).toBe("Lý do khác");
     expect(rejectionReasonLabel(null, null)).toBeNull();
+  });
+});
+
+describe("roundNumbers — CÙNG quy tắc với POS (admin-web orderRound) để đối chứng", () => {
+  it("đánh số lượt khách/nhân viên theo giờ, tính cả lượt bị từ chối; ghi tay/đặt trước không có số", () => {
+    const n = roundNumbers([
+      { id: "c", createdAt: "2026-10-05T12:40:00Z", source: "customer_zalo", status: "pending" },
+      { id: "p", createdAt: "2026-10-05T12:30:00Z", source: "pos", status: "pending" },
+      { id: "r", createdAt: "2026-10-05T12:20:00Z", source: "customer_zalo", status: "cancelled" },
+      { id: "s", createdAt: "2026-10-05T12:10:00Z", source: "staff", status: "confirmed" },
+      { id: "pre", createdAt: "2026-10-05T12:00:00Z", source: "reservation_preorder", status: "confirmed" },
+    ]);
+    expect(n.get("s")).toBe(1);
+    expect(n.get("r")).toBe(2);
+    expect(n.get("c")).toBe(3);
+    expect(n.get("p")).toBeNull();
+    expect(n.get("pre")).toBeNull();
   });
 });

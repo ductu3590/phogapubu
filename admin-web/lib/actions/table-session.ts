@@ -28,6 +28,10 @@ export type SessionOrderRow = {
   order_source: string
   confirmed_at: string | null
   payment_received_at: string | null
+  // Chỉ có ở rejected_orders (mig 089)
+  rejected_at?: string | null
+  rejection_reason_code?: string | null
+  rejection_reason_note?: string | null
   items: SessionOrderItem[]
 }
 
@@ -57,6 +61,9 @@ export type OpenTableSession = {
   // Nguồn từ store_workflow_settings; null chỉ khi server cũ chưa trả cấu hình hợp lệ.
   idle_timeout_minutes: number | null
   orders: SessionOrderRow[]
+  // mig 089: lượt thu ngân TỪ CHỐI — chỉ tab Lịch sử đọc; không có trong orders/total/order_count.
+  // Optional: server trước 089 không trả.
+  rejected_orders?: SessionOrderRow[]
 }
 
 export type ListSessionsResult =

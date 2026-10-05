@@ -6,14 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/field'
 import { cn } from '@/lib/utils'
+import { REJECT_REASONS } from '@/lib/pos-bill-history'
 
-const REASONS: { code: OrderRejectReason; label: string }[] = [
-  { code: 'out_of_stock', label: 'Hết đồ' },
-  { code: 'kitchen_overloaded', label: 'Bếp quá tải' },
-  { code: 'duplicate', label: 'Đơn trùng' },
-  { code: 'customer_requested', label: 'Khách yêu cầu huỷ' },
-  { code: 'other', label: 'Lý do khác' },
-]
+const REASONS = REJECT_REASONS
 
 export default function RejectOrderSheet({
   orderId,

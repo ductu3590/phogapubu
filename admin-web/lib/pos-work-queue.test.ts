@@ -32,6 +32,19 @@ describe('orderRound', () => {
     expect(orderRound(s, 'a')).toBe(1)
     expect(orderRound(s, 'b')).toBe(2)
   })
+
+  it('lượt bị từ chối (rejected_orders, mig 089) vẫn giữ số — khớp số lượt trên Mini App để đối chứng', () => {
+    const s = {
+      ...session([
+        { id: 'a', status: 'confirmed', created_at: ago(30) },
+        { id: 'c', status: 'pending', created_at: ago(2) },
+      ]),
+      rejected_orders: [{ id: 'r', status: 'cancelled', created_at: ago(10), order_source: 'customer' }],
+    }
+    expect(orderRound(s, 'a')).toBe(1)
+    expect(orderRound(s, 'r')).toBe(2)
+    expect(orderRound(s, 'c')).toBe(3)
+  })
 })
 
 describe('buildWorkQueue', () => {

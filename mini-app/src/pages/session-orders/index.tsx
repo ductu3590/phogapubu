@@ -9,7 +9,7 @@ import { orderService } from "@/services/order/order.api";
 import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/utils/format";
 import { cn } from "@/utils/cn";
-import { lineLabel, reconcileRounds, rejectionReasonLabel, roundDiscount, roundSourceLabel, roundStatus, type RoundContext, type RoundTone } from "@/utils/round-status";
+import { lineLabel, reconcileRounds, rejectionReasonLabel, roundDiscount, roundNumbers, roundSourceLabel, roundStatus, type RoundContext, type RoundTone } from "@/utils/round-status";
 import { canOrderInEntry } from "@/utils/entry-context";
 import SectionCard from "@/components/ui/section-card";
 import StatusPill, { type PillTone } from "@/components/ui/status-pill";
@@ -154,6 +154,7 @@ function DineInOrdersView() {
     (sessionState?.mode === "postpay" && sessionState.state === "owner" && sessionState.is_open_ordering && sessionState.table_names) ||
     tableNumber ||
     "Bàn của bạn";
+  const numbers = roundNumbers(rounds);
   const sums = reconcileRounds(rounds.map((r) => ({ status: r.status, total_amount: r.total, source: r.source })), ctx);
   // Trả sau: tổng lấy thẳng từ phiên (server tính) để không lệch với số thu ngân thu.
   const grandTotal = isPostpay && bill && bill.found ? bill.total : sums.total;
@@ -207,11 +208,11 @@ function DineInOrdersView() {
             </div>
 
             <div className="space-y-3">
-              {rounds.map((round, idx) => (
+              {rounds.map((round) => (
                 <RoundCard
                   key={round.id}
                   round={round}
-                  number={rounds.length - idx}
+                  number={numbers.get(round.id) ?? null}
                   ctx={ctx}
                   // Trả trước: món tải khi mở thẻ (get_session_orders không kèm món)
                   lazy={
@@ -278,7 +279,7 @@ function RoundCard({
   lazy,
 }: {
   round: Round;
-  number: number;
+  number: number | null;
   ctx: RoundContext;
   lazy: { expanded: boolean; loading: boolean; items: OrderItem[] | null; onToggle: () => void } | null;
 }) {
@@ -290,12 +291,15 @@ function RoundCard({
   });
   const rejected = round.status === "cancelled";
   const discount = round.items && !rejected ? roundDiscount(lines.reduce((s, l) => s + l.line.amount, 0), round.total) : 0;
-  const source = roundSourceLabel(round.source);
+  // Cùng tiêu đề với tab Lịch sử trên POS (orderLabel) để khách và thu ngân đối chứng một chữ.
+  const title =
+    number !== null ? `Lượt #${String(number).padStart(2, "0")}` : round.source === "pos" ? "Ghi tay" : "Món đặt trước";
+  const source = number !== null ? roundSourceLabel(round.source) : null;
   const header = (
     <div className="flex items-start justify-between gap-2">
       <div className="min-w-0">
         <p className="text-small-m font-bold text-text-primary">
-          Lượt #{String(number).padStart(2, "0")} <span className="font-normal text-text-secondary">· {hhmm(round.createdAt)}</span>
+          {title} <span className="font-normal text-text-secondary">· {hhmm(round.createdAt)}</span>
         </p>
         {source && <p className="mt-0.5 text-xxsmall text-text-secondary">{source}</p>}
       </div>

@@ -127,3 +127,18 @@ export function rejectionReasonLabel(code: string | null | undefined, note: stri
   if (code === "other") return note?.trim() || "Lý do khác";
   return REJECT_REASON[code] ?? "Lý do khác";
 }
+
+/** Số lượt "Lượt #NN" — CÙNG quy tắc với POS (admin-web lib/pos-work-queue.ts orderRound):
+ *  chỉ lượt khách / nhân viên gọi, theo giờ tạo, TÍNH CẢ lượt bị từ chối. Ghi tay (POS) và món đặt
+ *  trước không mang số (null). Hai bên gọi một lượt bằng cùng một số khi đối chứng. */
+export function roundNumbers(
+  rounds: Array<{ id: string; createdAt: string; source: string; status: OrderState }>,
+): Map<string, number | null> {
+  const numbered = rounds
+    .filter((r) => r.source !== "pos" && r.source !== "reservation_preorder")
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const result = new Map<string, number | null>();
+  for (const r of rounds) result.set(r.id, null);
+  numbered.forEach((r, i) => result.set(r.id, i + 1));
+  return result;
+}

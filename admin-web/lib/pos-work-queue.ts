@@ -11,6 +11,8 @@ type SessionLike = {
   status: string
   table_number: string
   orders: { id: string; status: string; created_at: string; order_source: string }[]
+  /** mig 089: lượt bị thu ngân từ chối — vẫn giữ số lượt (khớp Mini App), không vào hàng việc. */
+  rejected_orders?: { id: string; status: string; created_at: string; order_source: string }[]
 }
 type RequestLike = { id: string; table_id: string; session_id: string | null; table_number: string; created_at: string; last_ping_at: string; ping_count: number }
 type ReservationLike = { reservationId: string; status: string; arrivalAt: string; sessionId: string | null }
@@ -36,8 +38,11 @@ export function isReviewableOrder(order: { status: string; order_source: string 
  * "lượt 2 của Mâm 1" khớp với phiếu in. Món ghi tay và món đặt trước không phải lượt khách gọi.
  */
 export function orderRound(session: SessionLike, orderId: string): number {
-  const rounds = session.orders
-    .filter((o) => o.order_source !== 'pos' && o.order_source !== 'reservation_preorder' && o.status !== 'cancelled')
+  // Đánh số lượt khách / nhân viên gọi, TÍNH CẢ lượt bị từ chối (khách đã thật sự gửi lượt đó) —
+  // cùng quy tắc với Mini App (mini-app/src/utils/round-status.ts roundNumbers) để hai bên gọi
+  // một lượt bằng cùng một số khi đối chứng. Ghi tay / món đặt trước không mang số.
+  const rounds = [...session.orders, ...(session.rejected_orders ?? [])]
+    .filter((o) => o.order_source !== 'pos' && o.order_source !== 'reservation_preorder')
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
   const index = rounds.findIndex((o) => o.id === orderId)
   return index === -1 ? rounds.length + 1 : index + 1

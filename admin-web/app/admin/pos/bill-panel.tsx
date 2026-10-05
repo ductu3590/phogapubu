@@ -18,6 +18,7 @@ import { Banner, EmptyState } from '@/components/ui/feedback'
 import { Input, Select } from '@/components/ui/field'
 import { STATUS_TONE_CLASSES, TABLE_STATE, type TableVisualState } from '@/components/ui/status'
 import { cn } from '@/lib/utils'
+import { billHistory, rejectReasonLabel } from '@/lib/pos-bill-history'
 
 // Bill của /admin/pos theo bản Stitch P01 (bill dạng tab) + P03 (lượt gọi mới) + P04 (thanh toán một nút).
 // Mọi con số tiền là của server (OpenTableSession.total, order.total_amount); bill KHÔNG tự cộng tổng.
@@ -178,8 +179,8 @@ export default function PosBillPanel(props: PosBillPanelProps) {
   // list_open_table_sessions KHÔNG trả confirmed_at (kiểu SessionOrderRow khai thừa) → không lọc theo nó.
   // Lượt khách / nhân viên gọi đã qua bước duyệt (không còn 'pending') = đã in 2 liên lúc duyệt.
   // Tab Lịch sử = MỌI lượt gọi của bàn (mới nhất trên cùng), ghi rõ ai gọi.
-  const history = list.flatMap((s) => s.orders.map((o) => ({ s, o })))
-    .sort((a, b) => b.o.created_at.localeCompare(a.o.created_at))
+  // Gồm cả lượt bị từ chối (mig 089) — Lịch sử phải đầy đủ để đối chứng; tab Hoá đơn không có chúng.
+  const history = billHistory(list)
   const itemCount = settled.reduce((n, { o }) => n + o.items.length, 0)
 
   return (
@@ -357,23 +358,30 @@ export default function PosBillPanel(props: PosBillPanelProps) {
         ) : (
           <>
             <ul className="space-y-2">
-              {history.map(({ s, o }) => {
+              {history.map(({ s, o, rejected }) => {
                 const tag = sourceTag(o)
-                const waiting = isReviewableOrder(o)
+                const waiting = !rejected && isReviewableOrder(o)
+                const reason = rejected ? rejectReasonLabel(o.rejection_reason_code, o.rejection_reason_note) : null
                 return (
-                  <li key={o.id} className={cn('flex items-center justify-between gap-3 rounded-lg border bg-white px-3 py-2.5 text-sm', waiting ? 'border-amber-300' : 'border-slate-200', o.status === 'cancelled' && 'opacity-60')}>
+                  <li key={o.id} className={cn('flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm', rejected ? 'border-red-200 bg-red-50/60' : waiting ? 'border-amber-300 bg-white' : 'border-slate-200 bg-white')}>
                     <span className="flex min-w-0 items-center gap-2">
                       <span className={cn('shrink-0 rounded px-1.5 text-[11px] leading-5 font-bold text-white', tag.className)}>{tag.label}</span>
                       <span className="min-w-0">
                         <b className="font-semibold text-slate-900">{orderLabel(s, o)}</b>
                         <span className="text-slate-500"> · {gio(o.created_at)} · {o.items.length} món{list.length > 1 ? ` · ${name(s)}` : ''}</span>
                         {waiting && <span className="ml-1 text-[12px] font-semibold text-amber-700">· chờ duyệt</span>}
-                        {o.status === 'cancelled' && <span className="ml-1 text-[12px] font-semibold text-red-700">· đã từ chối</span>}
+                        {rejected && (
+                          <span className="block text-[13px] text-red-700">
+                            <b className="font-semibold">Đã từ chối</b>
+                            {o.rejected_at ? ` lúc ${gio(o.rejected_at)}` : ''}
+                            {reason ? ` · ${reason}` : ''} · không tính tiền
+                          </span>
+                        )}
                       </span>
                     </span>
                     {o.order_source === 'reservation_preorder'
                       ? preorderButton(o.id, true)
-                      : !waiting && o.status !== 'cancelled' && (
+                      : !waiting && !rejected && (
                         <IconButton icon={<Printer />} label={`In lại ${orderLabel(s, o)}`} onClick={() => props.onPrintOrder(o.id)} className="size-8 shrink-0 md:size-8" />
                       )}
                   </li>
