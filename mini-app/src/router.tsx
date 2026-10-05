@@ -34,8 +34,8 @@ const router = createBrowserRouter(
         { path: "/reservations", element: <ReservationsPage />, handle: { title: "Đơn của tôi", hideCart: true } satisfies RouteHandle },
         { path: "/reservations/new", element: <NewReservationPage />, handle: { title: "Đặt bàn", hideCart: true } satisfies RouteHandle },
         { path: "/reservations/:reservationId", element: <ReservationDetailPage />, handle: { title: "Chi tiết đặt bàn", back: true, hideCart: true } satisfies RouteHandle },
-        { path: "/reservations/:reservationId/preorder", element: <ReservationPreorderPage />, handle: { title: "Chọn món trước", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
-        { path: "/reservations/:reservationId/preorder/checkout", element: <ReservationPreorderCheckoutPage />, handle: { title: "Xác nhận món trước", back: true, hideBottomTabs: true, hideCart: true, headerPosition: "sticky" } satisfies RouteHandle },
+        { path: "/reservations/:reservationId/preorder", element: <ReservationPreorderPage />, handle: { title: "Chọn món đặt trước", back: true, hideBottomTabs: true, hideCart: true } satisfies RouteHandle },
+        { path: "/reservations/:reservationId/preorder/checkout", element: <ReservationPreorderCheckoutPage />, handle: { title: "Xác nhận món đặt trước", back: true, hideBottomTabs: true, hideCart: true } satisfies RouteHandle },
 
         // Checkout: đặt món + chọn thanh toán
         {
