@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { CalendarDaysIcon, ClipboardListIcon, UtensilsIcon } from "@/components/common/icons";
-import type { TabDef, TabKey } from "@/utils/nav-sets";
+import { activeTabKey, type TabDef, type TabKey } from "@/utils/nav-sets";
 import { cn } from "@/utils/cn";
 
 const ICON: Record<TabKey, (p: { className: string }) => JSX.Element> = {
@@ -15,10 +15,11 @@ const ICON: Record<TabKey, (p: { className: string }) => JSX.Element> = {
 export default function TabBar({ tabs, badges = {} }: { tabs: TabDef[]; badges?: Partial<Record<TabKey, boolean>> }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const activeKey = activeTabKey(tabs, pathname);
   return (
     <nav className="flex shrink-0 border-t border-neutral100 bg-surface" style={{ paddingBottom: "var(--zaui-safe-area-inset-bottom, 0px)" }}>
       {tabs.map((tab) => {
-        const active = tab.matchPaths.includes(pathname);
+        const active = tab.key === activeKey;
         return (
           <button key={tab.key} type="button" onClick={() => navigate(tab.path)} aria-current={active ? "page" : undefined}
             className="relative flex flex-1 flex-col items-center gap-0.5 pb-1.5 pt-2">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CustomerReservation } from "@/types/reservation.types";
-import { formatReservationTime, reservationActions } from "./reservation-display";
+import { formatReservationTime, reservationActions, reservationTone } from "./reservation-display";
 
 const base: CustomerReservation = {
   reservationId: "r-1", storeId: "store-1", status: "pending", customerName: "Anh Tú",
@@ -25,5 +25,18 @@ describe("reservation display", () => {
     const actions = reservationActions({ ...base, status: "confirmed", canRequestChange: true, canCancel: true }, new Date());
     expect(actions.canRequestChange).toBe(true);
     expect(actions.canCancel).toBe(true);
+  });
+});
+
+describe("reservationTone — nhãn trạng thái đặt bàn", () => {
+  it("chờ / đã xác nhận / quán từ chối / khách huỷ", () => {
+    expect(reservationTone("pending")).toEqual({ label: "Chờ quán xác nhận", tone: "warning" });
+    expect(reservationTone("confirmed")).toEqual({ label: "Đã xác nhận", tone: "success" });
+    expect(reservationTone("rejected")).toEqual({ label: "Quán chưa nhận", tone: "critical" });
+    expect(reservationTone("cancelled_by_customer")).toEqual({ label: "Đã huỷ", tone: "neutral" });
+    expect(reservationTone("arrived")).toEqual({ label: "Bạn đã đến quán", tone: "info" });
+  });
+  it("trạng thái lạ → trung tính, giữ nguyên chữ", () => {
+    expect(reservationTone("weird")).toEqual({ label: "weird", tone: "neutral" });
   });
 });

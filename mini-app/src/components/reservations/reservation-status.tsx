@@ -1,19 +1,9 @@
 import type { CustomerReservation } from "@/types/reservation.types";
-import { formatReservationTime, reservationActions } from "@/utils/reservation-display";
-
-const STATUS: Record<string, { label: string; className: string }> = {
-  pending: { label: "Chờ quán xác nhận", className: "bg-warning-bg text-warning" },
-  confirmed: { label: "Đã xác nhận", className: "bg-success-bg text-success" },
-  rejected: { label: "Quán chưa nhận", className: "bg-critical-bg text-critical" },
-  cancelled_by_customer: { label: "Đã hủy", className: "bg-neutral100 text-text-secondary" },
-  cancelled_by_store: { label: "Quán đã hủy", className: "bg-critical-bg text-critical" },
-  arrived: { label: "Bạn đã đến quán", className: "bg-info-bg text-info" },
-  no_show: { label: "Không đến", className: "bg-neutral100 text-text-secondary" },
-  completed: { label: "Đã hoàn tất", className: "bg-neutral100 text-text-secondary" },
-};
+import { formatReservationTime, reservationActions, reservationTone } from "@/utils/reservation-display";
+import StatusPill from "@/components/ui/status-pill";
 
 export function ReservationStatus({ booking, compact = false }: { booking: CustomerReservation; compact?: boolean }) {
-  const status = STATUS[booking.status] ?? { label: booking.status, className: "bg-neutral100 text-text-secondary" };
+  const status = reservationTone(booking.status);
   const actions = reservationActions(booking);
   return (
     <div className={compact ? "" : "rounded-2xl bg-surface p-4 shadow-sm"}>
@@ -22,7 +12,7 @@ export function ReservationStatus({ booking, compact = false }: { booking: Custo
           <p className="font-semibold text-text-primary">{formatReservationTime(booking.arrivalAt)}</p>
           <p className="mt-1 text-small text-text-secondary">{booking.partySize} khách · {booking.customerName}</p>
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-xxsmall font-semibold ${status.className}`}>{status.label}</span>
+        <StatusPill tone={status.tone}>{status.label}</StatusPill>
       </div>
       {!compact && <p className="mt-3 text-small text-text-secondary">{actions.message}</p>}
       {booking.hasChangeRequest && (

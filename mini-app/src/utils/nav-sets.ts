@@ -12,9 +12,28 @@ export function tabsFor(input: { entryKind: "root" | "table"; readOnlyMenu: bool
     ];
   }
   const tabs: TabDef[] = [{ key: "home", path: "/", matchPaths: ["/", "/menu"], label: "Trang chủ" }];
-  if (input.showReservations) tabs.push({ key: "reserve", path: "/reservations", matchPaths: ["/reservations"], label: "Đặt bàn" });
-  if (!input.readOnlyMenu) tabs.push({ key: "my-orders", path: "/session-orders", matchPaths: ["/session-orders"], label: "Đơn của tôi" });
+  if (input.showReservations) tabs.push({ key: "reserve", path: "/reservations/new", matchPaths: ["/reservations/new"], label: "Đặt bàn" });
+  // "Đơn của tôi": quán chỉ xem menu thì là danh sách đặt bàn; quán có mang về thì là đơn mang về
+  // (trang đó có lối sang danh sách đặt bàn nếu thiết bị có lượt đặt).
+  if (input.readOnlyMenu && input.showReservations) {
+    tabs.push({ key: "my-orders", path: "/reservations", matchPaths: ["/reservations"], label: "Đơn của tôi" });
+  } else if (!input.readOnlyMenu) {
+    tabs.push({ key: "my-orders", path: "/session-orders", matchPaths: ["/session-orders"], label: "Đơn của tôi" });
+  }
   return tabs;
+}
+
+/** Tab đang sáng: so khớp đúng hoặc theo tiền tố, ưu tiên đường dẫn DÀI nhất
+ *  (/reservations/new → Đặt bàn, /reservations/<id> → Đơn của tôi). */
+export function activeTabKey(tabs: TabDef[], pathname: string): TabKey | null {
+  let best: { key: TabKey; len: number } | null = null;
+  for (const tab of tabs) {
+    for (const m of tab.matchPaths) {
+      const hit = pathname === m || (m !== "/" && pathname.startsWith(`${m}/`));
+      if (hit && (!best || m.length > best.len)) best = { key: tab.key, len: m.length };
+    }
+  }
+  return best?.key ?? null;
 }
 
 export type ToolbarMode = { callStaff: boolean; tableChip: boolean; cart: boolean };

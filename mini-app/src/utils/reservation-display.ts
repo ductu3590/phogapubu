@@ -45,3 +45,19 @@ export function reservationActions(booking: CustomerReservation, _now = new Date
     canPreorder: false,
   };
 }
+
+// Nhãn + tông trạng thái đặt bàn (dời từ components/reservations/reservation-status.tsx để test).
+const RESERVATION_STATUS: Record<string, { label: string; tone: "success" | "info" | "warning" | "critical" | "neutral" }> = {
+  pending: { label: "Chờ quán xác nhận", tone: "warning" },
+  confirmed: { label: "Đã xác nhận", tone: "success" },
+  rejected: { label: "Quán chưa nhận", tone: "critical" },
+  cancelled_by_customer: { label: "Đã huỷ", tone: "neutral" },
+  cancelled_by_store: { label: "Quán đã huỷ", tone: "critical" },
+  arrived: { label: "Bạn đã đến quán", tone: "info" },
+  no_show: { label: "Không đến", tone: "neutral" },
+  completed: { label: "Đã hoàn tất", tone: "neutral" },
+};
+
+export function reservationTone(status: string): { label: string; tone: "success" | "info" | "warning" | "critical" | "neutral" } {
+  return RESERVATION_STATUS[status] ?? { label: status, tone: "neutral" };
+}
