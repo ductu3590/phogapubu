@@ -5,7 +5,8 @@
 //   gì (đo 2026-10-05) nên không dựa được vào kết quả → mở tab trình duyệt NGAY trong lúc bấm
 //   (đồng bộ, để trình duyệt không chặn cửa sổ bật lên).
 export function isZaloWebview(userAgent: string): boolean {
-  return /\bZalo\b/i.test(userAgent);
+  // Không dùng ranh giới từ: UA thật có thể là "ZaloTheme/light", "Zalo android/…", "Zalo iOS/…".
+  return /zalo/i.test(userAgent);
 }
 
 export function openExternal(
