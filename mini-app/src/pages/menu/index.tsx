@@ -10,25 +10,17 @@ import OptionSheet from "@/components/menu/option-sheet";
 import UnpaidOrderPrompt from "@/components/common/unpaid-order-prompt";
 import { SelectedVariant } from "@/types/cart.types";
 import { formatCurrency } from "@/utils/format";
-import { PlusIcon, MinusIcon } from "@/components/common/vectors";
 import { scrollToId } from "@/utils/scroll-to";
-import { cn } from "@/utils/cn";
 import { useSnackbar } from "zmp-ui";
 import { isStoreOpen, formatServingHours } from "@/utils/store-hours";
 import { canOrderInEntry } from "@/utils/entry-context";
 import mevoLogo from "@/static/mevo-logo.png";
-import { BikeIcon, LockIcon, ArmchairIcon, BellIcon, MoonIcon, CircleAlertIcon, UtensilsIcon, RotateCwIcon } from "@/components/common/icons";
-
-function TakeawayBanner({ storeName }: { storeName: string }) {
-  return (
-    <div className="flex items-center gap-2 border-b border-primary/30 bg-primary/5 px-4 py-2">
-      <BikeIcon className="size-4 shrink-0 text-primary" />
-      <span className="text-xs font-medium text-primary">
-        Mang về / Ship · {storeName}
-      </span>
-    </div>
-  );
-}
+import ProductCard from "@/components/ui/product-card";
+import CategoryChips from "@/components/ui/category-chips";
+import SectionHeading from "@/components/ui/section-heading";
+import { pickProductLayout } from "@/utils/product-layout";
+import { matchesQuery } from "@/utils/search-fold";
+import { LockIcon, ArmchairIcon, BellIcon, MoonIcon, CircleAlertIcon, RotateCwIcon, SearchIcon } from "@/components/common/icons";
 
 // Bàn đang có khách KHÁC gọi món (quán trả sau). Vẫn cho xem menu, chỉ chặn thêm món.
 function TableLockedBanner({ openedAt, onCallStaff, calling }: {
@@ -184,7 +176,7 @@ function OrderingUnavailableBanner({
 
 export default function MenuPage() {
   const navigate = useNavigate();
-  const { storeId, storeName, storeLogoUrl, tableId, tableNumber, orderMode, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState, entryContext, workflow, workflowError } = useAppStore();
+  const { storeId, tableId, tableNumber, orderMode, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState, entryContext, workflow, workflowError } = useAppStore();
   const { data: menu, isLoading, error, refetch, isRefetching } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
   const { openSnackbar } = useSnackbar();
@@ -219,6 +211,7 @@ export default function MenuPage() {
     );
   };
   const [activeCategoryId, setActiveCategoryId] = useState<string>("");
+  const [query, setQuery] = useState("");
   const [optionProduct, setOptionProduct] = useState<Product | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -345,34 +338,15 @@ export default function MenuPage() {
     );
   }
 
+  // Lọc theo ô tìm (không dấu); danh mục không còn món nào thì ẩn luôn chip + nhóm.
+  const visibleMenu = query.trim()
+    ? menu
+        .map((c) => ({ ...c, products: c.products.filter((p) => matchesQuery(p.name, query)) }))
+        .filter((c) => c.products.length > 0)
+    : menu;
+
   return (
     <div className="flex h-full flex-col bg-background">
-      {orderMode === "takeaway" && <TakeawayBanner storeName={storeName} />}
-      {/* Header quán + bàn — chừa safe-area trên (Dynamic Island/notch iPhone) */}
-      <div
-        className="flex-shrink-0 bg-surface px-4 pb-3 shadow-sm"
-        style={{ paddingTop: "calc(var(--zaui-safe-area-inset-top, 0px) + 16px)" }}
-      >
-        <div className="flex items-center gap-2.5">
-          {storeLogoUrl && (
-            <img
-              src={storeLogoUrl}
-              alt={storeName}
-              className="h-9 w-9 flex-shrink-0 rounded-full object-cover"
-              draggable={false}
-            />
-          )}
-          <div className="min-w-0">
-            <p className="text-xlarge-sb font-bold text-text-primary">
-              {storeName || "MEVO"}
-            </p>
-            {tableNumber && (
-              <p className="text-small text-text-secondary">{tableNumber}</p>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Banner quán đóng cửa / ngoài giờ — chặn đặt món */}
       {!storeOpen && (
         <ClosedBanner
@@ -411,60 +385,65 @@ export default function MenuPage() {
         />
       )}
 
-      {/* Banner 4:1 trong takeaway mode */}
-      {orderMode === "takeaway" && takeawayBannerUrl && (
-        <TakeawayBannerCard url={takeawayBannerUrl} />
-      )}
-
-      {/* Category tabs — cuộn ngang */}
-      <div className="flex-shrink-0 bg-surface border-b border-neutral100">
-        <div className="no-scrollbar flex gap-1 overflow-x-auto px-3 py-2">
-          {menu.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => {
-                setActiveCategoryId(cat.id);
-                scrollToId(cat.id);
-              }}
-              className={cn(
-                "flex-shrink-0 rounded-full px-4 py-1.5 text-small font-medium transition-colors",
-                activeCategoryId === cat.id
-                  ? "bg-primary text-white"
-                  : "bg-neutral100 text-text-secondary",
-              )}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
+      {/* Ô tìm + chip danh mục — đứng yên trên đầu, chỉ danh sách món bên dưới cuộn (Stitch m06) */}
+      <div className="shrink-0 bg-background">
+        <label className="mx-3 mt-2.5 flex h-10 items-center gap-2 rounded-full border border-neutral200 bg-surface px-3.5">
+          <SearchIcon className="size-4 shrink-0 text-text-secondary" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Tìm món…"
+            enterKeyHint="search"
+            className="min-w-0 flex-1 bg-transparent text-small text-text-primary outline-none placeholder:text-text-secondary"
+          />
+        </label>
+        <CategoryChips
+          items={visibleMenu.map((c) => ({ id: c.id, name: c.name }))}
+          activeId={activeCategoryId}
+          onSelect={(id) => {
+            setActiveCategoryId(id);
+            scrollToId(id);
+          }}
+        />
       </div>
 
-      {/* Danh sách sản phẩm */}
+      {/* Danh sách món */}
       <div
         ref={contentRef}
         className="no-scrollbar flex-1 overflow-y-auto"
         onScroll={() => {
-          if (!menu || !contentRef.current) return;
-          for (const cat of [...menu].reverse()) {
+          if (!contentRef.current) return;
+          for (const cat of [...visibleMenu].reverse()) {
             const el = document.getElementById(cat.id);
-            if (el && el.getBoundingClientRect().top <= 120) {
+            if (el && el.getBoundingClientRect().top <= 200) {
               setActiveCategoryId(cat.id);
               break;
             }
           }
         }}
       >
-        {menu.map((cat) => (
-          <CategorySection
-            key={cat.id}
-            category={cat}
-            canOrder={canOrder}
-            getCount={getItemCount}
-            onAdd={handleAdd}
-            onDecrease={handleDecrease}
-          />
-        ))}
-        <div className="h-4" />
+        {/* Banner 4:1 trong takeaway mode */}
+        {orderMode === "takeaway" && takeawayBannerUrl && (
+          <TakeawayBannerCard url={takeawayBannerUrl} />
+        )}
+
+        {visibleMenu.length === 0 ? (
+          <p className="px-6 py-10 text-center text-small text-text-secondary">
+            Không tìm thấy món &ldquo;{query.trim()}&rdquo;
+          </p>
+        ) : (
+          visibleMenu.map((cat) => (
+            <CategorySection
+              key={cat.id}
+              category={cat}
+              canOrder={canOrder}
+              getCount={getItemCount}
+              onAdd={handleAdd}
+              onDecrease={handleDecrease}
+            />
+          ))
+        )}
+        <div className="h-6" />
       </div>
 
       <OptionSheet
@@ -493,166 +472,50 @@ function CategorySection({
   onAdd: (product: Product) => void;
   onDecrease: (product: Product) => void;
 }) {
-  return (
-    <div id={category.id} className="mt-3 bg-surface">
-      <div className="border-b border-neutral100 px-4 pb-2 pt-4">
-        <p className="text-large-m font-semibold text-text-primary">
-          {category.name}
-        </p>
-      </div>
-      <div className="divide-y divide-neutral100">
-        {category.products.map((product) => (
-          <MenuItemRow
-            key={product.id}
-            product={product}
-            canOrder={canOrder}
-            count={getCount(product.id)}
-            onAdd={() => onAdd(product)}
-            onDecrease={() => onDecrease(product)}
-          />
-        ))}
-        {category.products.length === 0 && (
-          <p className="px-4 py-6 text-center text-small text-text-secondary">
-            Chưa có món trong danh mục này
-          </p>
-        )}
-      </div>
-    </div>
+  // Danh mục nhiều ảnh → lưới 2 cột; ít/không ảnh → danh sách gọn (spec Q4).
+  const layout = pickProductLayout(category.products);
+  const card = (product: Product) => (
+    <ProductCard
+      key={product.id}
+      product={product}
+      layout={layout}
+      canOrder={canOrder}
+      count={getCount(product.id)}
+      onAdd={() => onAdd(product)}
+      onDecrease={() => onDecrease(product)}
+    />
   );
-}
-
-function MenuItemRow({
-  product,
-  canOrder,
-  count,
-  onAdd,
-  onDecrease,
-}: {
-  product: Product;
-  canOrder: boolean;
-  count: number;
-  onAdd: () => void;
-  onDecrease: () => void;
-}) {
-  const hasVariants = product.variants.length > 0;
-  // Món có nhóm biến thể nhưng tắt bán hết mọi lựa chọn → coi như tạm hết.
-  // Dùng hasVariantGroup (đếm thô) chứ KHÔNG dùng variantGroupName: món có biến
-  // thể mà admin chưa đặt tên nhóm vẫn phải bị coi là món có biến thể.
-  const soldOutByVariants = product.hasVariantGroup && !hasVariants;
-  const available = product.isAvailable && !soldOutByVariants;
-  // Có tuỳ chọn → không cho bấm +/- ngay trên card, phải mở sheet
-  const hasOptions = hasVariants || product.toppings.length > 0;
   return (
-    <div
-      className={cn(
-        "flex gap-3 px-4 py-3 transition-opacity",
-        !available && "opacity-50",
-      )}
-    >
-      {/* Ảnh */}
-      <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-neutral100">
-        {product.image ? (
-          <img
-            src={product.image}
-            alt={product.name}
-            className="h-full w-full object-cover"
-            draggable={false}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-text-disabled" aria-label="Chưa có ảnh">
-            <UtensilsIcon className="size-7" />
-          </div>
-        )}
-        {!available && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40">
-            <span className="rounded-full bg-surface/90 px-2 py-0.5 text-xxxsmall font-medium text-text-primary">
-              Tạm hết
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Thông tin + nút */}
-      <div className="flex flex-1 flex-col justify-between gap-1">
-        <p className="text-normal-sb font-medium text-text-primary line-clamp-2">
-          {product.name}
-        </p>
-        {product.description && (
-          <p className="text-xxsmall text-text-secondary line-clamp-2">
-            {product.description}
-          </p>
-        )}
-
-        <div className="flex items-center justify-between">
-          <span className="font-semibold text-primary">
-            {/* Tắt hết biến thể vẫn giữ "Từ ": trigger mig 042 để nguyên giá biến
-                thể cuối, hiện phẳng "200.000đ" sẽ bị đọc thành giá của cả món */}
-            {(hasVariants || soldOutByVariants) ? "Từ " : ""}{formatCurrency(product.price)}đ
-          </span>
-
-          {available && canOrder && (
-            <div className="flex items-center gap-2">
-              {!hasOptions && count > 0 && (
-                <>
-                  <button
-                    onClick={onDecrease}
-                    className="flex h-7 w-7 items-center justify-center rounded-full border border-primary text-primary transition-all active:scale-90"
-                    aria-label="Giảm"
-                  >
-                    <MinusIcon className="h-3.5 w-3.5" />
-                  </button>
-                  <span className="min-w-[20px] text-center text-small-m font-bold text-text-primary">
-                    {count}
-                  </span>
-                </>
-              )}
-              {hasOptions && count > 0 && (
-                <span className="min-w-[20px] text-center text-small-m font-bold text-primary">
-                  {count}
-                </span>
-              )}
-              <button
-                onClick={onAdd}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-white transition-all active:scale-90"
-                aria-label="Thêm vào giỏ"
-              >
-                <PlusIcon className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
+    <section>
+      <SectionHeading id={category.id} title={category.name} count={category.products.length} />
+      {category.products.length === 0 ? (
+        <p className="px-4 py-6 text-center text-small text-text-secondary">Chưa có món trong danh mục này</p>
+      ) : layout === "grid" ? (
+        <div className="grid grid-cols-2 gap-3 px-3">{category.products.map(card)}</div>
+      ) : (
+        <div className="mx-3 divide-y divide-neutral100 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+          {category.products.map(card)}
         </div>
-      </div>
-    </div>
+      )}
+    </section>
   );
 }
 
 function MenuSkeleton() {
   return (
     <div className="flex h-full flex-col bg-background">
-      <div className="bg-surface px-4 pb-3 pt-4">
-        <div className="h-6 w-40 animate-pulse rounded bg-neutral100" />
-        <div className="mt-1 h-4 w-20 animate-pulse rounded bg-neutral100" />
-      </div>
-      <div className="flex gap-2 bg-surface px-3 py-2">
+      <div className="mx-3 mt-2.5 h-10 animate-pulse rounded-full bg-neutral100" />
+      <div className="flex gap-2 px-3 py-2">
         {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="h-8 w-20 animate-pulse rounded-full bg-neutral100"
-          />
+          <div key={i} className="h-8 w-24 animate-pulse rounded-full bg-neutral100" />
         ))}
       </div>
-      <div className="mt-3 bg-surface">
+      <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface">
         {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="flex gap-3 border-b border-neutral100 px-4 py-3"
-          >
-            <div className="h-20 w-20 animate-pulse rounded-xl bg-neutral100" />
-            <div className="flex flex-1 flex-col gap-2 py-1">
-              <div className="h-4 w-3/4 animate-pulse rounded bg-neutral100" />
-              <div className="h-3 w-full animate-pulse rounded bg-neutral100" />
-              <div className="h-4 w-1/3 animate-pulse rounded bg-neutral100" />
-            </div>
+          <div key={i} className="flex flex-col gap-2 border-b border-neutral100 px-4 py-3">
+            <div className="h-4 w-3/4 animate-pulse rounded bg-neutral100" />
+            <div className="h-3 w-full animate-pulse rounded bg-neutral100" />
+            <div className="h-4 w-1/3 animate-pulse rounded bg-neutral100" />
           </div>
         ))}
       </div>
