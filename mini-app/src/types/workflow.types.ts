@@ -3,6 +3,8 @@ export interface PublicWorkflow {
   takeawayEnabled: boolean;
   shippingEnabled: boolean;
   reservationsEnabled: boolean;
+  /** pos_confirmation = thu ngân duyệt rồi in phiếu bếp, không có màn bếp (mô hình Bảo Lương). */
+  kitchenReleasePolicy: "automatic" | "pos_confirmation";
 }
 
 export type RootCapabilities = {

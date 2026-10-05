@@ -6,6 +6,7 @@ type PublicWorkflowPayload = {
   takeaway_enabled: boolean;
   shipping_enabled: boolean;
   reservations_enabled: boolean;
+  kitchen_release_policy?: string;
 };
 
 export async function getPublicWorkflow(storeId: string): Promise<PublicWorkflow> {
@@ -22,5 +23,7 @@ export async function getPublicWorkflow(storeId: string): Promise<PublicWorkflow
     takeawayEnabled: workflow.takeaway_enabled,
     shippingEnabled: workflow.shipping_enabled,
     reservationsEnabled: workflow.reservations_enabled,
+    // Thiếu/lạ → coi như bếp tự nhận đơn (hành vi cũ), không suy ra mô hình in phiếu.
+    kitchenReleasePolicy: workflow.kitchen_release_policy === "pos_confirmation" ? "pos_confirmation" : "automatic",
   };
 }

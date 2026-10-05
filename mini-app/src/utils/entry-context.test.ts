@@ -6,6 +6,7 @@ const PUBU_PUBLIC_WORKFLOW = {
   takeawayEnabled: true,
   shippingEnabled: true,
   reservationsEnabled: false,
+  kitchenReleasePolicy: "automatic" as const,
 };
 
 const BAO_LUONG_PUBLIC_WORKFLOW = {
@@ -13,6 +14,7 @@ const BAO_LUONG_PUBLIC_WORKFLOW = {
   takeawayEnabled: false,
   shippingEnabled: false,
   reservationsEnabled: true,
+  kitchenReleasePolicy: "pos_confirmation" as const,
 };
 
 describe("entry context", () => {

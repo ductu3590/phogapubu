@@ -1,0 +1,43 @@
+import { describe, expect, it } from "vitest";
+import { hasPendingRound, lineLabel, roundSourceLabel, roundStatus } from "./round-status";
+
+const BL = { paymentTiming: "postpay", kitchenPolicy: "pos_confirmation" } as const;
+const PUBU = { paymentTiming: "prepay", kitchenPolicy: "automatic" } as const;
+
+describe("roundStatus — quán thu ngân duyệt + in phiếu (Bảo Lương)", () => {
+  it("chờ thu ngân → Chờ xác nhận (vàng)", () => expect(roundStatus("pending", BL)).toEqual({ label: "Chờ xác nhận", tone: "warning" }));
+  it("đã xác nhận / đang nấu / xong đều là Đã vào bếp — không bao giờ hiện bước bếp giả", () => {
+    for (const s of ["confirmed", "cooking", "ready"] as const) expect(roundStatus(s, BL)).toEqual({ label: "Đã vào bếp", tone: "info" });
+  });
+  it("đã thu tiền → Đã thanh toán; huỷ → Bị từ chối", () => {
+    expect(roundStatus("paid", BL)).toEqual({ label: "Đã thanh toán", tone: "success" });
+    expect(roundStatus("cancelled", BL)).toEqual({ label: "Bị từ chối", tone: "critical" });
+  });
+});
+
+describe("roundStatus — quán trả trước có màn bếp (Pubu)", () => {
+  it("pending là chờ thanh toán, đủ các bước bếp", () => {
+    expect(roundStatus("pending", PUBU).label).toBe("Chờ thanh toán");
+    expect(roundStatus("cooking", PUBU).label).toBe("Đang làm");
+    expect(roundStatus("ready", PUBU)).toEqual({ label: "Món xong", tone: "success" });
+    expect(roundStatus("paid", PUBU).label).toBe("Hoàn tất");
+  });
+});
+
+describe("phụ trợ", () => {
+  it("nhãn nguồn lượt gọi", () => {
+    expect(roundSourceLabel("staff")).toBe("Nhân viên gọi hộ");
+    expect(roundSourceLabel("pos")).toBe("Quán thêm");
+    expect(roundSourceLabel("reservation_preorder")).toBe("Món đặt trước");
+    expect(roundSourceLabel("customer_zalo")).toBeNull();
+  });
+  it("món tặng → 0đ", () => {
+    expect(lineLabel({ quantity: 2, price: 50000, void_type: "gift" })).toEqual({ gift: true, amount: 0 });
+    expect(lineLabel({ quantity: 2, price: 50000, void_type: null })).toEqual({ gift: false, amount: 100000 });
+  });
+  it("còn lượt chờ xác nhận", () => {
+    expect(hasPendingRound([{ status: "confirmed" }, { status: "pending" }], BL)).toBe(true);
+    expect(hasPendingRound([{ status: "confirmed" }], BL)).toBe(false);
+    expect(hasPendingRound([], BL)).toBe(false);
+  });
+});
