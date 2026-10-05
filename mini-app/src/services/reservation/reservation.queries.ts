@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { getBooking, getReservationConfig, getReservationSlots } from "./reservation.api";
 import type { ReservationAccess } from "@/types/reservation.types";
 
@@ -27,5 +27,19 @@ export function useCustomerReservation(access: ReservationAccess | null, accessG
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     retry: 2,
+  });
+}
+
+/** Mọi lượt đặt bàn trên máy (tab "Đặt bàn" gộp). Cùng queryKey với useCustomerReservation
+ *  (generation = reservationId như các trang đang dùng) nên chi tiết đặt bàn dùng lại cache. */
+export function useCustomerReservations(accesses: ReservationAccess[]) {
+  return useQueries({
+    queries: accesses.map((access) => ({
+      queryKey: reservationKeys.booking(access.storeId, access.reservationId, access.reservationId),
+      queryFn: () => getBooking(access),
+      refetchInterval: () => (typeof document === "undefined" || document.visibilityState === "visible" ? 10_000 : false),
+      refetchOnWindowFocus: true,
+      retry: 2,
+    })),
   });
 }

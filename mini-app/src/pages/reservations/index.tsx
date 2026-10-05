@@ -1,62 +1,154 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppStore } from "@/stores/app.store";
 import { getBookingAccesses } from "@/services/reservation/reservation-storage";
-import { useCustomerReservation } from "@/services/reservation/reservation.queries";
-import { formatReservationTime, reservationTone } from "@/utils/reservation-display";
+import { useCustomerReservations } from "@/services/reservation/reservation.queries";
+import { ReservationForm } from "@/components/reservations/reservation-form";
 import StatusPill from "@/components/ui/status-pill";
-import { CalendarDaysIcon, UsersIcon } from "@/components/common/icons";
+import DirectionsButton from "@/components/ui/directions-button";
+import { CalendarDaysIcon, UsersIcon, UtensilsIcon } from "@/components/common/icons";
+import type { CustomerReservation } from "@/types/reservation.types";
+import { formatReservationTime, reservationActions, reservationTone } from "@/utils/reservation-display";
+import { splitBookings } from "@/utils/booking-groups";
+import { directionsUrl } from "@/utils/directions";
+import { cn } from "@/utils/cn";
 
-function BookingRow({ storeId, reservationId }: { storeId: string; reservationId: string }) {
-  const access = getBookingAccesses(storeId).find((item) => item.reservationId === reservationId) ?? null;
-  const query = useCustomerReservation(access, reservationId);
-  if (!access || query.isError) return null;
-  if (query.isLoading || !query.data) return <div className="h-20 animate-pulse rounded-2xl bg-surface" />;
-  const booking = query.data;
-  const status = reservationTone(booking.status);
-  return (
-    <Link
-      to={`/reservations/${reservationId}`}
-      className="flex items-start justify-between gap-3 rounded-2xl bg-surface p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] active:opacity-90"
-    >
-      <div className="min-w-0">
-        <p className="text-normal-sb font-bold text-text-primary">{formatReservationTime(booking.arrivalAt)}</p>
-        <p className="mt-1 flex items-center gap-1.5 text-small text-text-secondary">
-          <UsersIcon className="size-4" />
-          {booking.partySize} khách · {booking.customerName}
-        </p>
-        {booking.hasChangeRequest && <p className="mt-1 text-xxsmall text-warning">Đang chờ quán duyệt yêu cầu đổi lịch</p>}
-      </div>
-      <StatusPill tone={status.tone}>{status.label}</StatusPill>
-    </Link>
-  );
-}
-
-// Tab "Đơn của tôi" ở lối vào thường của quán đặt bàn (Stitch m03) — các lượt đặt bàn trên máy này.
+// Tab "Đặt bàn" GỘP (quyết định 2026-10-05, thay hai tab Đặt bàn + Đơn của tôi):
+// - đang có lịch hẹn (chờ xác nhận / đã xác nhận) → thẻ lịch hẹn ở đầu + nút phụ "Đặt thêm bàn khác";
+// - chưa có → form đặt bàn ngay;
+// - lượt đã xong → "Lịch sử đặt bàn" thu gọn.
+// Mục tiêu: khách đã đặt không gặp form trống (đặt trùng / tưởng lần trước chưa đặt được).
 export default function ReservationsPage() {
   const navigate = useNavigate();
-  const { storeId, workflow } = useAppStore();
+  const { storeId, workflow, storeAddress, googleMapsUrl } = useAppStore();
   const accesses = getBookingAccesses(storeId);
+  const queries = useCustomerReservations(accesses);
   const canCreate = workflow?.reservationsEnabled === true;
+  const loading = queries.some((q) => q.isLoading);
+  const bookings: CustomerReservation[] = [];
+  for (const q of queries) if (q.data) bookings.push(q.data); // không dùng flatMap: nhắm Android 5
+  const { active, history } = splitBookings(bookings);
+  const directions = directionsUrl(googleMapsUrl, storeAddress);
 
-  if (accesses.length === 0) {
+  if (loading && bookings.length === 0) {
+    return <div className="space-y-3 p-3">{[1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface" />)}</div>;
+  }
+
+  const historyBlock = history.length > 0 ? <HistorySection bookings={history} /> : null;
+
+  // Chưa có lịch hẹn nào đang chờ → form ngay (lối vào lịch sử nằm ở đầu form).
+  if (active.length === 0 && canCreate) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-        <span className="grid size-16 place-items-center rounded-full bg-primary/10 text-primary"><CalendarDaysIcon className="size-8" /></span>
-        <p className="text-normal-sb font-bold text-text-primary">Chưa có đặt bàn nào</p>
-        <p className="text-small text-text-secondary">Các lượt đặt bàn bạn gửi từ máy này sẽ hiện ở đây.</p>
-        {canCreate && (
-          <button type="button" onClick={() => navigate("/reservations/new")} className="mt-1 rounded-full bg-primary px-5 py-2.5 text-small-m font-bold text-white">
-            Đặt bàn trước
-          </button>
-        )}
+      <div className="h-full bg-background">
+        <ReservationForm
+          mode="create"
+          header={historyBlock && <div className="pt-3">{historyBlock}</div>}
+          onSuccess={(booking) => navigate(`/reservations/${booking.reservationId}`, { replace: true })}
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 p-3">
-      <p className="px-1 text-xxsmall text-text-secondary">Theo dõi các lượt đặt bàn trên thiết bị này.</p>
-      {accesses.map((access) => <BookingRow key={access.reservationId} storeId={storeId} reservationId={access.reservationId} />)}
+    <div className="pb-6">
+      {active.length > 0 && (
+        <>
+          <p className="px-4 pb-1 pt-4 text-xxsmall font-bold uppercase tracking-wide text-text-secondary">
+            Lịch hẹn của bạn
+          </p>
+          <div className="space-y-3">
+            {active.map((b) => <ActiveBookingCard key={b.reservationId} booking={b} directions={directions} />)}
+          </div>
+        </>
+      )}
+
+      {canCreate ? (
+        <button
+          type="button"
+          onClick={() => navigate("/reservations/new")}
+          className="mx-3 mt-4 flex h-12 w-[calc(100%-1.5rem)] items-center justify-center gap-2 rounded-2xl border border-primary bg-surface text-small-m font-bold text-primary"
+        >
+          <CalendarDaysIcon className="size-5" />
+          Đặt thêm bàn khác
+        </button>
+      ) : (
+        <p className="mx-3 mt-4 rounded-xl bg-neutral100 px-3 py-2.5 text-center text-small text-text-secondary">Quán tạm ngừng nhận đặt bàn trước.</p>
+      )}
+
+      {historyBlock && <div className="mt-4">{historyBlock}</div>}
     </div>
+  );
+}
+
+function ActiveBookingCard({ booking, directions }: { booking: CustomerReservation; directions: string | null }) {
+  const navigate = useNavigate();
+  const status = reservationTone(booking.status);
+  const actions = reservationActions(booking);
+  return (
+    <section className="mx-3 rounded-2xl bg-surface p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-large-m font-bold text-text-primary">{formatReservationTime(booking.arrivalAt)}</p>
+        <StatusPill tone={status.tone}>{status.label}</StatusPill>
+      </div>
+      <p className="mt-1 flex items-center gap-1.5 text-small text-text-secondary">
+        <UsersIcon className="size-4" />
+        {booking.partySize} khách · {booking.customerName}
+      </p>
+      <p className="mt-2 text-small text-text-secondary">{actions.message}</p>
+      {booking.hasChangeRequest && (
+        <p className="mt-2 rounded-lg bg-warning-bg px-3 py-2 text-xxsmall text-warning">Yêu cầu đổi lịch đang chờ quán xác nhận.</p>
+      )}
+
+      {booking.status === "confirmed" && booking.canPreorder && (
+        <button
+          type="button"
+          onClick={() => navigate(`/reservations/${booking.reservationId}/preorder`)}
+          className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-small-m font-bold text-white"
+        >
+          <UtensilsIcon className="size-4" />
+          Chọn món đặt trước
+        </button>
+      )}
+
+      <div className="mt-3 flex items-center gap-2">
+        <Link
+          to={`/reservations/${booking.reservationId}`}
+          className="flex h-9 flex-1 items-center justify-center rounded-full border border-neutral200 text-xxsmall font-bold text-text-primary"
+        >
+          Xem chi tiết · Sửa / Huỷ
+        </Link>
+        {directions && <DirectionsButton url={directions} />}
+      </div>
+    </section>
+  );
+}
+
+function HistorySection({ bookings }: { bookings: CustomerReservation[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="mx-3 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+      <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between px-4 py-3 text-left">
+        <span className="text-small-m font-semibold text-text-primary">Lịch sử đặt bàn ({bookings.length})</span>
+        <span className={cn("text-text-secondary transition-transform", open && "rotate-90")} aria-hidden>›</span>
+      </button>
+      {open && (
+        <ul className="divide-y divide-neutral100 border-t border-neutral100">
+          {bookings.map((b) => {
+            const status = reservationTone(b.status);
+            return (
+              <li key={b.reservationId}>
+                <Link to={`/reservations/${b.reservationId}`} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="min-w-0">
+                    <span className="block text-small font-semibold text-text-primary">{formatReservationTime(b.arrivalAt)}</span>
+                    <span className="block text-xxsmall text-text-secondary">{b.partySize} khách · {b.customerName}</span>
+                  </span>
+                  <StatusPill tone={status.tone}>{status.label}</StatusPill>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

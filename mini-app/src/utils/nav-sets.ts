@@ -19,13 +19,15 @@ export function tabsFor(input: {
     ];
   }
   const tabs: TabDef[] = [{ key: "home", path: "/", matchPaths: ["/", "/menu"], label: "Trang chủ" }];
-  if (input.reservationsEnabled) tabs.push({ key: "reserve", path: "/reservations/new", matchPaths: ["/reservations/new"], label: "Đặt bàn" });
-  // "Đơn của tôi": quán chỉ xem menu thì là danh sách đặt bàn; quán có mang về thì là đơn mang về
-  // (trang đó có lối sang danh sách đặt bàn nếu thiết bị có lượt đặt).
+  // MỘT tab "Đặt bàn" (quyết định 2026-10-05): trang /reservations tự hiện lịch hẹn đang có + nút
+  // "Đặt thêm bàn khác", chưa có thì hiện form ngay; lượt đã xong vào "Lịch sử đặt bàn". Bỏ tab
+  // "Đơn của tôi" riêng cho đặt bàn (trước đây trùng chức năng, khách đặt lặp / tưởng chưa đặt được).
+  if (input.reservationsEnabled || input.hasBookings) {
+    tabs.push({ key: "reserve", path: "/reservations", matchPaths: ["/reservations"], label: "Đặt bàn" });
+  }
+  // Quán có mang về: "Đơn của tôi" là đơn mang về.
   if (!input.readOnlyMenu) {
     tabs.push({ key: "my-orders", path: "/session-orders", matchPaths: ["/session-orders"], label: "Đơn của tôi" });
-  } else if (input.reservationsEnabled || input.hasBookings) {
-    tabs.push({ key: "my-orders", path: "/reservations", matchPaths: ["/reservations"], label: "Đơn của tôi" });
   }
   return tabs;
 }

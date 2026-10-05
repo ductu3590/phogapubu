@@ -365,7 +365,7 @@ export default function MenuPage() {
           loading={(!workflow || !hasVerifiedTable) && !workflowError}
           error={workflowError}
           showReservation={entryContext.kind === "root" && workflow?.reservationsEnabled === true}
-          onReserve={() => navigate("/reservations/new")}
+          onReserve={() => navigate("/reservations")}
         />
       )}
 
@@ -418,7 +418,7 @@ export default function MenuPage() {
               servingHours={servingHours}
               isAcceptingOrders={isAcceptingOrders}
               canReserve={workflow?.reservationsEnabled === true}
-              onReserve={() => navigate("/reservations/new")}
+              onReserve={() => navigate("/reservations")}
               showScanHint={workflow?.tableOrderingEnabled === true}
             />
             <div className="px-4 pb-1 pt-5">

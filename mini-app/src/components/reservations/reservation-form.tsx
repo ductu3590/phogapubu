@@ -17,6 +17,8 @@ type Props = {
   booking?: CustomerReservation;
   access?: ReservationAccess;
   onSuccess: (booking: CustomerReservation) => void;
+  /** Khối hiện ở đầu form (vd lối vào "Lịch sử đặt bàn" của tab Đặt bàn). */
+  header?: React.ReactNode;
 };
 
 function makeRequestId() {
@@ -27,7 +29,7 @@ function makeRequestId() {
   });
 }
 
-export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
+export function ReservationForm({ mode, booking, access, onSuccess, header }: Props) {
   const { storeId } = useAppStore();
   const configQuery = useReservationConfig(storeId);
   const savedDraft = mode === "create" ? getBookingDraft(storeId) : null;
@@ -133,6 +135,7 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
 
   const body = (
     <div className="pb-4">
+      {header}
       {existingDraft && <p className="mx-3 mt-3 rounded-xl bg-warning-bg p-3 text-small text-warning">Lần gửi trước chưa thành công. Kiểm tra lại thông tin bên dưới rồi bấm gửi lại — quán sẽ không nhận trùng.</p>}
 
       {/* 1. Người đặt */}
