@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateStoreSettings } from '@/lib/actions/store'
+import { normalizeMapsUrl } from '@/lib/maps-url'
 import SquareCropper from '../menu/square-cropper'
 
 interface Props {
@@ -71,6 +72,10 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, goog
     <form
       action={async (fd) => {
         setError('')
+        // Kiểm link ngay trên trình duyệt: lỗi ném từ server action bị Next thay bằng câu tiếng Anh
+        // chung chung ở bản production, chủ quán sẽ không biết sửa gì. Server vẫn kiểm lại (chốt chặn).
+        const maps = normalizeMapsUrl(fd.get('google_maps_url') as string | null)
+        if (!maps.ok) { setError(maps.error); return }
         if (logo) fd.set('logo', logo)
         if (banner) fd.set('banner', banner)
         if (removeBanner) fd.set('remove_banner', '1')

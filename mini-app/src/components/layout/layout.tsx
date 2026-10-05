@@ -22,8 +22,12 @@ export default function Layout() {
   const hasVerifiedTable = entryContext.kind === "root" || tableId === entryContext.tableId;
   const canOrder = workflow !== null && hasVerifiedTable && canOrderInEntry(workflow, entryContext);
   const readOnlyMenu = entryContext.kind === "root" && (!workflow || rootCapabilities(workflow).readOnlyMenu);
-  const showReservations = entryContext.kind === "root" && (workflow?.reservationsEnabled === true || getBookingAccesses(storeId).length > 0);
-  const tabs = tabsFor({ entryKind: entryContext.kind, readOnlyMenu, showReservations });
+  const tabs = tabsFor({
+    entryKind: entryContext.kind,
+    readOnlyMenu,
+    reservationsEnabled: workflow?.reservationsEnabled === true,
+    hasBookings: getBookingAccesses(storeId).length > 0,
+  });
   const showTabs = !hideBottomTabs && tabs.length > 1;
   // Cùng route /session-orders: ở bàn là "Đơn gọi", lối vào thường (đơn mang về) là "Đơn của tôi" — khớp nhãn tab.
   const toolbarTitle = handle?.title === "Đơn gọi" && entryContext.kind === "root" ? "Đơn của tôi" : handle?.title;

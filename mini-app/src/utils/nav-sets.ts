@@ -4,7 +4,14 @@
 export type TabKey = "home" | "reserve" | "my-orders" | "menu" | "session";
 export type TabDef = { key: TabKey; path: string; matchPaths: string[]; label: string };
 
-export function tabsFor(input: { entryKind: "root" | "table"; readOnlyMenu: boolean; showReservations: boolean }): TabDef[] {
+export function tabsFor(input: {
+  entryKind: "root" | "table";
+  readOnlyMenu: boolean;
+  /** Quán đang nhận đặt bàn → có tab "Đặt bàn" (form). */
+  reservationsEnabled: boolean;
+  /** Máy này có lượt đặt bàn cũ → vẫn xem được dù quán đã tắt đặt bàn. */
+  hasBookings: boolean;
+}): TabDef[] {
   if (input.entryKind === "table") {
     return [
       { key: "menu", path: "/", matchPaths: ["/", "/menu"], label: "Thực đơn" },
@@ -12,13 +19,13 @@ export function tabsFor(input: { entryKind: "root" | "table"; readOnlyMenu: bool
     ];
   }
   const tabs: TabDef[] = [{ key: "home", path: "/", matchPaths: ["/", "/menu"], label: "Trang chủ" }];
-  if (input.showReservations) tabs.push({ key: "reserve", path: "/reservations/new", matchPaths: ["/reservations/new"], label: "Đặt bàn" });
+  if (input.reservationsEnabled) tabs.push({ key: "reserve", path: "/reservations/new", matchPaths: ["/reservations/new"], label: "Đặt bàn" });
   // "Đơn của tôi": quán chỉ xem menu thì là danh sách đặt bàn; quán có mang về thì là đơn mang về
   // (trang đó có lối sang danh sách đặt bàn nếu thiết bị có lượt đặt).
-  if (input.readOnlyMenu && input.showReservations) {
-    tabs.push({ key: "my-orders", path: "/reservations", matchPaths: ["/reservations"], label: "Đơn của tôi" });
-  } else if (!input.readOnlyMenu) {
+  if (!input.readOnlyMenu) {
     tabs.push({ key: "my-orders", path: "/session-orders", matchPaths: ["/session-orders"], label: "Đơn của tôi" });
+  } else if (input.reservationsEnabled || input.hasBookings) {
+    tabs.push({ key: "my-orders", path: "/reservations", matchPaths: ["/reservations"], label: "Đơn của tôi" });
   }
   return tabs;
 }

@@ -14,8 +14,12 @@ describe("dateChips — chip chọn ngày đặt bàn (m02)", () => {
     const chips = dateChips("2026-12-31", "2027-01-03", "2026-12-30");
     expect(chips.map((c) => `${c.top} ${c.day}/${c.month}`)).toEqual(["T5 31/Th12", "T6 01/Th1", "T7 02/Th1", "CN 03/Th1"]);
   });
-  it("tối đa 14 chip", () => {
-    expect(dateChips("2026-10-01", "2026-12-31", "2026-10-01")).toHaveLength(14);
+  it("phủ HẾT khoảng quán cho đặt (vd 30 ngày), không cắt ở 14", () => {
+    expect(dateChips("2026-10-01", "2026-10-30", "2026-10-01")).toHaveLength(30);
+  });
+  it("ngày đang chọn nằm ngoài khoảng (đổi lịch một lượt đặt xa) → vẫn có chip của ngày đó", () => {
+    const chips = dateChips("2026-10-05", "2026-10-07", "2026-10-05", "2026-10-20");
+    expect(chips.map((c) => c.value)).toEqual(["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-20"]);
   });
   it("dữ liệu hỏng / min > max → rỗng", () => {
     expect(dateChips("", "2026-10-05", "2026-10-05")).toEqual([]);

@@ -102,7 +102,7 @@ export function ReservationForm({ mode, booking, access, onSuccess }: Props) {
   if (mode === "create" && !canCreate) return <p className="m-4 rounded-xl bg-primary/10 p-3 text-small text-primary">Quán hiện chưa nhận đặt bàn trước.</p>;
 
   const config = configQuery.data;
-  const chips = config ? dateChips(config.minimumDate, config.maximumDate, config.localToday) : [];
+  const chips = config ? dateChips(config.minimumDate, config.maximumDate, config.localToday, localDate) : [];
   const size = Number(partySize) || 0;
   const setSize = (n: number) => setPartySize(String(Math.min(100, Math.max(1, n))));
   const submitLabel = submitting ? "Đang gửi…" : mode === "change" ? "Gửi yêu cầu đổi lịch" : existingDraft ? "Gửi lại yêu cầu đặt bàn" : "Xác nhận đặt bàn";
