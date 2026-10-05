@@ -41,7 +41,7 @@ function NavList({ groups, activeHref, onNavigate }: { groups: AppNavGroup[]; ac
     <nav className="flex flex-col gap-5" aria-label="Điều hướng chính">
       {groups.map((group, groupIndex) => (
         <div key={group.label ?? groupIndex}>
-          {group.label ? <p className="mb-1.5 px-3 text-xs font-medium tracking-wide text-muted uppercase">{group.label}</p> : null}
+          {group.label ? <p className="mb-1.5 px-3 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">{group.label}</p> : null}
           <ul className="flex flex-col gap-0.5">
             {group.items.map((item) => {
               const isActive = item.href === activeHref
@@ -52,16 +52,17 @@ function NavList({ groups, activeHref, onNavigate }: { groups: AppNavGroup[]; ac
                     onClick={onNavigate}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      'relative flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors md:min-h-10',
+                      'relative flex min-h-11 items-center gap-3 rounded-lg px-3 text-[15px] transition-colors',
+                      // Stitch A07/A10: mục đang mở tô đặc cam, chữ trắng.
                       isActive
-                        ? 'bg-primary-light font-medium text-primary before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-brand'
-                        : 'text-foreground/75 hover:bg-item-hover hover:text-foreground',
+                        ? 'bg-brand font-semibold text-white shadow-sm'
+                        : 'font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900',
                     )}
                   >
                     {item.icon ? <span className="inline-flex shrink-0 [&>svg]:size-[18px]" aria-hidden>{item.icon}</span> : null}
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
                     {item.count ? (
-                      <span className="min-w-6 rounded-full bg-primary px-1.5 text-center text-xs leading-5 font-semibold text-primary-foreground tabular-nums">
+                      <span className={cn('min-w-6 rounded-full px-1.5 text-center text-xs leading-5 font-semibold tabular-nums', isActive ? 'bg-white text-brand' : 'bg-brand text-white')}>
                         {item.count > 99 ? '99+' : item.count}
                       </span>
                     ) : null}
@@ -77,8 +78,9 @@ function NavList({ groups, activeHref, onNavigate }: { groups: AppNavGroup[]; ac
 }
 
 /**
- * Khung app dùng chung cho /admin, /staff, /mevo.
- * - Từ `lg` (1024px): sidebar 240px bên trái, thu gọn được để màn POS rộng hơn.
+ * Khung sidebar rộng — hiện dùng cho /mevo (bản Stitch A06–A11). /admin dùng thanh icon
+ * (icon-rail-shell.tsx), /staff có header riêng.
+ * - Từ `lg` (1024px): sidebar 272px bên trái, thu gọn được.
  * - Dưới `lg`: thanh trên cùng + nút menu mở ngăn kéo toàn chiều cao.
  * Vùng nội dung tự cuộn; sidebar và thanh trên đứng yên.
  */
@@ -112,12 +114,12 @@ export function AppShell({
 
   const brandBlock = (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand text-sm font-bold text-white" aria-hidden>
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand text-base font-bold text-white shadow-sm" aria-hidden>
         M
       </span>
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-foreground">{brand.title}</p>
-        {brand.subtitle ? <p className="truncate text-[13px] text-muted">{brand.subtitle}</p> : null}
+        <p className="truncate text-base leading-tight font-bold text-slate-900">{brand.title}</p>
+        {brand.subtitle ? <p className="truncate text-[13px] text-slate-500">{brand.subtitle}</p> : null}
       </div>
     </div>
   )
@@ -126,15 +128,15 @@ export function AppShell({
     <div className={cn('flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-background lg:flex-row', className)}>
       {/* Desktop sidebar */}
       {!isCollapsed ? (
-        <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-surface lg:flex">
-          <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border pr-2 pl-4">
+        <aside className="hidden w-68 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
+          <div className="flex h-18 shrink-0 items-center justify-between gap-2 pr-2 pl-4">
             {brandBlock}
             <IconButton icon={<PanelLeftClose />} label="Thu gọn menu" onClick={() => setIsCollapsed(true)} className="md:size-9" />
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
             <NavList groups={groups} activeHref={activeHref} />
           </div>
-          {footer ? <div className="shrink-0 border-t border-border px-3 py-3">{footer}</div> : null}
+          {footer ? <div className="shrink-0 bg-slate-50 px-3 py-3">{footer}</div> : null}
         </aside>
       ) : null}
 

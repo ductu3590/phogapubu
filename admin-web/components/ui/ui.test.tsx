@@ -101,7 +101,7 @@ describe('AppShell (thay khung /admin cũ)', () => {
         <p>Nội dung</p>
       </AppShell>,
     )
-    expect(html).toContain('hidden w-60')
+    expect(html).toContain('hidden w-68')
     expect(html).toContain('lg:flex')
     expect(html).toContain('aria-label="Mở menu"')
     expect(html).toContain('lg:hidden')
