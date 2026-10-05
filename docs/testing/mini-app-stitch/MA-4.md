@@ -33,3 +33,19 @@ Chuẩn bị: một lượt đặt bàn **đã được POS xác nhận** trên 
 11. (Khó tạo tay — chỉ cần nếu tiện) Bật chế độ máy bay ngay sau khi bấm **Khoá & gửi**, tắt đi, đổi số lượng một món rồi gửi lại → app báo **đã được gửi trước đó** và về chi tiết đặt bàn (không hiện chữ tiếng Anh/mã lỗi).
 
 **→ Báo:** `MA-4 PASS`
+
+## Bổ sung sau MA-4 PASS (2026-10-05) — gộp tab Đặt bàn + Đơn của tôi
+
+Lối vào thường của quán chỉ xem menu (Bảo Lương) còn **2 tab: Trang chủ · Đặt bàn**. Tab Đặt bàn tự biết:
+- đang có lịch hẹn (chờ xác nhận / đã xác nhận) → thẻ **Lịch hẹn của bạn** (trạng thái, Chọn món đặt trước, Xem chi tiết · Sửa / Huỷ, Chỉ đường) + nút phụ **Đặt thêm bàn khác**;
+- chưa có lịch hẹn nào đang chờ → form đặt bàn ngay;
+- lượt đã đến / đã huỷ / không đến → mục **Lịch sử đặt bàn (N)** thu gọn.
+Nút **Đặt bàn trước** ở Trang chủ cũng vào tab này.
+
+12. Máy chưa đặt lượt nào: tab Đặt bàn mở thẳng form; thanh tab chỉ có **Trang chủ · Đặt bàn**.
+13. Đặt một bàn → sang chi tiết; bấm lại tab **Đặt bàn** → thấy thẻ lịch hẹn vừa đặt (KHÔNG phải form trống) + nút **Đặt thêm bàn khác**.
+14. Bấm **Đặt thêm bàn khác** → form "Đặt thêm bàn" có nút quay lại; đặt xong có 2 thẻ lịch hẹn, sớm nhất ở trên.
+15. POS đánh dấu khách đã đến (hoặc khách huỷ) → lượt đó rời khỏi "Lịch hẹn của bạn", vào **Lịch sử đặt bàn**; còn mỗi lượt cũ thì tab mở form, mục lịch sử ở đầu form.
+16. Trang chủ → **Đặt bàn trước**: có lịch hẹn → thấy thẻ lịch hẹn; không có → form.
+
+**→ Báo:** `MA-4 PASS`
