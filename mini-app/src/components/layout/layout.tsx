@@ -9,13 +9,15 @@ import { tabsFor, toolbarModeFor } from "@/utils/nav-sets";
 import { calculateCartTotal } from "@/utils/cart";
 import { getBookingAccesses } from "@/services/reservation/reservation-storage";
 import type { RouteHandle } from "@/types/router.types";
+import { useTableSessionBill } from "@/services/order/order.queries";
+import { hasPendingRound } from "@/utils/round-status";
 
 export default function Layout() {
   const matches = useMatches();
   const handle = matches[matches.length - 1].handle as RouteHandle | undefined;
   const { hideBottomTabs, hideCart, hideHeader } = handle ?? {};
   const { items, totalItems } = useCartStore();
-  const { workflow, entryContext, tableId, tableNumber, storeId } = useAppStore();
+  const { workflow, entryContext, tableId, tableNumber, storeId, paymentTiming, zaloUserId, deviceId } = useAppStore();
 
   const hasVerifiedTable = entryContext.kind === "root" || tableId === entryContext.tableId;
   const canOrder = workflow !== null && hasVerifiedTable && canOrderInEntry(workflow, entryContext);
@@ -23,6 +25,13 @@ export default function Layout() {
   const showReservations = entryContext.kind === "root" && (workflow?.reservationsEnabled === true || getBookingAccesses(storeId).length > 0);
   const tabs = tabsFor({ entryKind: entryContext.kind, readOnlyMenu, showReservations });
   const showTabs = !hideBottomTabs && tabs.length > 1;
+
+  // Chấm báo tab Đơn gọi: chỉ trả sau tại bàn. Cùng queryKey với trang Đơn gọi nên không gọi trùng.
+  const watchBill = entryContext.kind === "table" && paymentTiming === "postpay";
+  const { data: bill } = useTableSessionBill(tableId, zaloUserId, deviceId, watchBill);
+  const sessionPending =
+    watchBill && !!bill && bill.found &&
+    hasPendingRound(bill.orders, { paymentTiming: "postpay", kitchenPolicy: workflow?.kitchenReleasePolicy ?? "automatic" });
 
   return (
     <div className="relative flex h-screen w-screen flex-col bg-background">
@@ -33,7 +42,7 @@ export default function Layout() {
       {!hideCart && canOrder && (
         <StickyCartBar count={totalItems} total={calculateCartTotal(items)} tableLabel={entryContext.kind === "table" ? tableNumber : undefined} aboveTabBar={showTabs} />
       )}
-      {showTabs && <TabBar tabs={tabs} />}
+      {showTabs && <TabBar tabs={tabs} badges={{ session: sessionPending }} />}
     </div>
   );
 }
