@@ -22,6 +22,8 @@ import { clearTableOrderRequest, tableOrderRequestId } from "@/services/table-or
 import { useTableSessionBill } from "@/services/order/order.queries";
 import { findOrderDuplicates } from "@/utils/order-duplicates";
 import { ArmchairIcon, FootprintsIcon, BikeIcon, UtensilsIcon, CreditCardIcon, BanknoteIcon } from "@/components/common/icons";
+import SectionCard from "@/components/ui/section-card";
+import StickyActionBar from "@/components/ui/sticky-action-bar";
 
 function isPhoneValid(phone: string): boolean {
   return /^0\d{9}$/.test(phone.replace(/\s/g, ""));
@@ -440,24 +442,24 @@ export default function CheckoutPage() {
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <div className="no-scrollbar flex-1 overflow-y-auto pb-32">
+      <div className="no-scrollbar flex-1 overflow-y-auto pb-4">
 
         {/* Thông tin bàn — chỉ hiện khi ăn tại quán */}
         {!isTakeaway && (
-          <div className="mx-3.5 mt-4 flex items-center gap-3 rounded-xl bg-surface px-4 py-3">
-            <ArmchairIcon className="size-6 shrink-0 text-text-secondary" />
-            <div>
-              <p className="text-xxsmall text-text-secondary">Đang ngồi tại</p>
-              <p className="text-normal-sb font-semibold text-text-primary">
-                {tableNumber || "Bàn không xác định"}
-              </p>
-            </div>
-          </div>
+          <SectionCard
+            icon={<ArmchairIcon />}
+            title={tableNumber || "Bàn không xác định"}
+            subtitle="Món sẽ được gửi cho bàn này"
+          />
         )}
 
         {/* Form mang về */}
         {isTakeaway && (
-          <div className={`mx-3.5 mt-4 rounded-xl bg-surface p-4 ${lockedClass}`}>
+          <SectionCard
+            title="Thông tin nhận món"
+            icon={takeawayType === "pickup" ? <FootprintsIcon /> : <BikeIcon />}
+            className={lockedClass}
+          >
             {/* Toggle */}
             <div className="mb-4 flex gap-1 rounded-xl bg-neutral100 p-1">
               {pickupEnabled && (
@@ -496,8 +498,8 @@ export default function CheckoutPage() {
                 onChange={(e) => { setCustomerName(e.target.value); setNameError(""); }}
                 onBlur={() => { if (!customerName.trim()) setNameError("Vui lòng nhập tên"); }}
                 placeholder="Nhập tên"
-                className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
-                  nameError ? "border-critical-border" : "border-neutral100 focus:border-primary"
+                className={`w-full rounded-xl border bg-neutral50 px-3 py-3 text-sm outline-none ${
+                  nameError ? "border-critical-border" : "border-neutral200 focus:border-primary"
                 }`}
               />
               {nameError && <p className="mt-1 text-xs text-critical">{nameError}</p>}
@@ -513,8 +515,8 @@ export default function CheckoutPage() {
                   onBlur={() => { if (!isPhoneValid(customerPhone)) setPhoneError("Số điện thoại không hợp lệ"); }}
                   placeholder="0901 234 567"
                   inputMode="tel"
-                  className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
-                    phoneError ? "border-critical-border" : "border-neutral100 focus:border-primary"
+                  className={`w-full rounded-xl border bg-neutral50 px-3 py-3 text-sm outline-none ${
+                    phoneError ? "border-critical-border" : "border-neutral200 focus:border-primary"
                   }`}
                 />
                 {phoneError && <p className="mt-1 text-xs text-critical">{phoneError}</p>}
@@ -530,8 +532,8 @@ export default function CheckoutPage() {
                   onChange={(e) => { setDeliveryAddress(e.target.value); setAddressError(""); }}
                   onBlur={() => { if (!deliveryAddress.trim()) setAddressError("Vui lòng nhập địa chỉ"); }}
                   placeholder="Số nhà, đường, phường/xã, TP"
-                  className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
-                    addressError ? "border-critical-border" : "border-neutral100 focus:border-primary"
+                  className={`w-full rounded-xl border bg-neutral50 px-3 py-3 text-sm outline-none ${
+                    addressError ? "border-critical-border" : "border-neutral200 focus:border-primary"
                   }`}
                 />
                 {addressError && <p className="mt-1 text-xs text-critical">{addressError}</p>}
@@ -540,26 +542,25 @@ export default function CheckoutPage() {
                 </p>
               </div>
             )}
-          </div>
+          </SectionCard>
         )}
 
         {/* Danh sách món */}
-        <div className="mx-3.5 mt-3 rounded-xl bg-surface p-4">
-          <p className="mb-3 text-large-m font-semibold">Món đã chọn</p>
-          <div className="flex flex-col gap-4">
+        <SectionCard
+          icon={<UtensilsIcon />}
+          title={`Món đã chọn (${cartItems.reduce((n, i) => n + i.quantity, 0)})`}
+        >
+          <div className="flex flex-col divide-y divide-neutral100">
             {cartItems.map((item) => (
-              <div key={item.id} className="flex items-center gap-3">
-                {item.productImage ? (
+              <div key={item.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                {/* Chỉ hiện ảnh khi món có ảnh — không vẽ ô xám trống (spec Q4) */}
+                {item.productImage && (
                   <img
                     src={item.productImage}
                     alt={item.productName}
-                    className="h-14 w-14 rounded-lg object-cover"
+                    className="size-14 shrink-0 rounded-xl object-cover"
                     draggable={false}
                   />
-                ) : (
-                  <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-neutral100 text-text-disabled" aria-label="Chưa có ảnh">
-                    <UtensilsIcon className="size-6" />
-                  </div>
                 )}
                 <div className="flex flex-1 items-center justify-between gap-2">
                   <div className="flex-1">
@@ -576,7 +577,7 @@ export default function CheckoutPage() {
                         {item.selectedVariants.map((v) => `+ ${v.optionName}`).join(", ")}
                       </p>
                     )}
-                    <p className="text-xxsmall text-text-secondary">
+                    <p className="mt-0.5 whitespace-nowrap text-small-m font-bold text-primary">
                       {formatCurrency(calculateCartItemPrice(item))}đ
                     </p>
                   </div>
@@ -593,10 +594,10 @@ export default function CheckoutPage() {
               </div>
             ))}
           </div>
-        </div>
+        </SectionCard>
 
         {/* Ghi chú */}
-        <div className={`mx-3.5 mt-3 rounded-xl bg-surface px-4 py-3 ${lockedClass}`}>
+        <SectionCard className={lockedClass}>
           <NoteInput
             label="Ghi chú cho bếp"
             placeholder="VD: Ít đường, không hành, ít cay..."
@@ -604,12 +605,11 @@ export default function CheckoutPage() {
             value={note}
             onChange={(val) => setNote(val)}
           />
-        </div>
+        </SectionCard>
 
         {/* Hình thức thanh toán — ẩn khi chỉ có 1 phương thức hoặc đang mang về */}
         {!singleMethod && !isTakeaway && !isPostpayDineIn && (
-          <div className={`mx-3.5 mt-3 rounded-xl bg-surface px-4 py-4 ${lockedClass}`}>
-            <p className="mb-3 text-large-m font-semibold">Thanh toán</p>
+          <SectionCard title="Thanh toán" icon={<CreditCardIcon />} className={lockedClass}>
             <div className="flex flex-col gap-2">
               {paymentMethods.includes("zalo_checkout") && (
                 <PaymentOption
@@ -632,7 +632,7 @@ export default function CheckoutPage() {
                 />
               )}
             </div>
-          </div>
+          </SectionCard>
         )}
 
         {/* Mã giảm giá */}
@@ -647,9 +647,9 @@ export default function CheckoutPage() {
         </div>
 
         {/* Tóm tắt tiền */}
-        <div className="mx-3.5 mt-3 rounded-xl bg-surface px-4 py-4">
+        <SectionCard>
           <div className="flex justify-between">
-            <span className="text-small text-text-secondary">Tổng tiền món</span>
+            <span className="text-small text-text-secondary">Tạm tính món</span>
             <span className="text-small font-semibold">{formatCurrency(totalAmount)}đ</span>
           </div>
           {discount > 0 && (
@@ -660,13 +660,13 @@ export default function CheckoutPage() {
               </span>
             </div>
           )}
-        </div>
+        </SectionCard>
       </div>
 
 
 
       {/* Nút đặt món / banner chưa thanh toán — fixed bottom */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-divider01 bg-surface px-4 py-4 pb-5">
+      <StickyActionBar variant="primary" aboveTabBar={false}>
         {isLocked ? (
           <>
             <div className="mb-3 rounded-xl bg-critical-bg px-3 py-2.5">
@@ -714,7 +714,7 @@ export default function CheckoutPage() {
             <Button
               onClick={() => handleOrder()}
               disabled={isLoading || cartItems.length === 0 || !isTakeawayFormValid || !storeOpen}
-              className="w-full rounded-xl bg-primary py-3 font-semibold text-white active:bg-primary disabled:opacity-50"
+              className="h-12 w-full rounded-2xl bg-primary text-normal-sb font-bold text-white shadow active:bg-primary disabled:opacity-50"
               fullWidth
             >
               {isLoading
@@ -731,10 +731,10 @@ export default function CheckoutPage() {
             </Button>
           </>
         )}
-      </div>
+      </StickyActionBar>
       {confirmingDuplicates && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/40 px-3 pb-4">
-          <div className="w-full rounded-2xl bg-surface p-4 shadow-xl">
+          <div className="w-full rounded-3xl bg-surface p-5 shadow-xl">
             <p className="text-large-m font-bold text-text-primary">Món này đã có trong bill</p>
             <p className="mt-1 text-small text-text-secondary">Bạn đang chọn món trùng với món đã đặt trước hoặc đã gọi. Vui lòng kiểm tra để tránh trùng món.</p>
             <div className="mt-4 flex gap-2">
