@@ -11,6 +11,7 @@ import { CalendarDaysIcon, UsersIcon, UtensilsIcon } from "@/components/common/i
 import type { CustomerReservation } from "@/types/reservation.types";
 import { formatReservationTime, reservationActions, reservationTone } from "@/utils/reservation-display";
 import { splitBookings } from "@/utils/booking-groups";
+import { isPreorderPostponed, postponePreorder } from "@/utils/preorder-later";
 import { directionsUrl } from "@/utils/directions";
 import { cn } from "@/utils/cn";
 
@@ -84,6 +85,8 @@ export default function ReservationsPage() {
 
 function ActiveBookingCard({ booking, directions }: { booking: CustomerReservation; directions: string | null }) {
   const navigate = useNavigate();
+  // "Để sau" → ẩn hàng nút chọn món của lượt này (nhớ trên máy); vẫn chọn được trong Chi tiết.
+  const [postponed, setPostponed] = useState(() => isPreorderPostponed(booking.storeId, booking.reservationId));
   const status = reservationTone(booking.status);
   const actions = reservationActions(booking);
   return (
@@ -101,15 +104,24 @@ function ActiveBookingCard({ booking, directions }: { booking: CustomerReservati
         <p className="mt-2 rounded-lg bg-warning-bg px-3 py-2 text-xxsmall text-warning">Yêu cầu đổi lịch đang chờ quán xác nhận.</p>
       )}
 
-      {booking.status === "confirmed" && booking.canPreorder && (
-        <button
-          type="button"
-          onClick={() => navigate(`/reservations/${booking.reservationId}/preorder`)}
-          className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-small-m font-bold text-white"
-        >
-          <UtensilsIcon className="size-4" />
-          Chọn món đặt trước
-        </button>
+      {booking.status === "confirmed" && booking.canPreorder && !postponed && (
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            onClick={() => navigate(`/reservations/${booking.reservationId}/preorder`)}
+            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary text-small-m font-bold text-white active:opacity-90"
+          >
+            <UtensilsIcon className="size-4" />
+            Chọn món đặt trước
+          </button>
+          <button
+            type="button"
+            onClick={() => { postponePreorder(booking.storeId, booking.reservationId); setPostponed(true); }}
+            className="flex h-11 flex-1 items-center justify-center rounded-xl bg-primary/10 text-small-m font-semibold text-primary active:opacity-80"
+          >
+            Để sau
+          </button>
+        </div>
       )}
 
       <div className="mt-3 flex items-center gap-2">
