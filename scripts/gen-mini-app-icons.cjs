@@ -13,6 +13,8 @@ const NAMES = {
   RotateCw: 'rotate-cw', PartyPopper: 'party-popper', Clock: 'clock', Landmark: 'landmark',
   ClipboardList: 'clipboard-list', Package: 'package', ScanLine: 'scan-line', Phone: 'phone', Wifi: 'wifi',
   FileText: 'file-text', MessageCircle: 'message-circle',
+  ShoppingCart: 'shopping-cart', Heart: 'heart', Search: 'search', ChevronLeft: 'chevron-left',
+  Plus: 'plus', Minus: 'minus', ArrowRight: 'arrow-right', CalendarDays: 'calendar-days',
 }
 const out = []
 out.push(`// Icon dùng trong Mini App — đường vẽ lấy từ lucide (ISC license, https://lucide.dev), CÙNG bộ icon với admin-web.
@@ -50,7 +52,8 @@ function createIcon(displayName: string, node: IconNode) {
 `)
 for (const [Comp, file] of Object.entries(NAMES)) {
   const src = fs.readFileSync(path.join(ICON_DIR, file + '.mjs'), 'utf8')
-  const m = src.match(/const __iconNode = (\[[\s\S]*?\n\]);/)
+  // Icon nhỏ lucide viết mảng trên MỘT dòng, icon lớn nhiều dòng — bắt tới "];" ngay trước "const" kế tiếp.
+  const m = src.match(/const __iconNode = (\[[\s\S]*?\]);\s*\nconst /)
   if (!m) throw new Error('no node ' + file)
   // bỏ thuộc tính key của lucide
   const node = m[1].replace(/,\s*key:\s*"[^"]*"/g, '')

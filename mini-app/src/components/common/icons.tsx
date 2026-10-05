@@ -339,3 +339,55 @@ export const MessageCircleIcon = createIcon("MessageCircleIcon", [
     }
   ]
 ] as IconNode);
+
+export const ShoppingCartIcon = createIcon("ShoppingCartIcon", [
+  ["circle", { cx: "8", cy: "21", r: "1" }],
+  ["circle", { cx: "19", cy: "21", r: "1" }],
+  [
+    "path",
+    {
+      d: "M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"
+    }
+  ]
+] as IconNode);
+
+export const HeartIcon = createIcon("HeartIcon", [
+  [
+    "path",
+    {
+      d: "M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"
+    }
+  ]
+] as IconNode);
+
+export const SearchIcon = createIcon("SearchIcon", [
+  ["path", { d: "m21 21-4.34-4.34" }],
+  ["circle", { cx: "11", cy: "11", r: "8" }]
+] as IconNode);
+
+export const ChevronLeftIcon = createIcon("ChevronLeftIcon", [["path", { d: "m15 18-6-6 6-6" }]] as IconNode);
+
+export const PlusIcon = createIcon("PlusIcon", [
+  ["path", { d: "M5 12h14" }],
+  ["path", { d: "M12 5v14" }]
+] as IconNode);
+
+export const MinusIcon = createIcon("MinusIcon", [["path", { d: "M5 12h14" }]] as IconNode);
+
+export const ArrowRightIcon = createIcon("ArrowRightIcon", [
+  ["path", { d: "M5 12h14" }],
+  ["path", { d: "m12 5 7 7-7 7" }]
+] as IconNode);
+
+export const CalendarDaysIcon = createIcon("CalendarDaysIcon", [
+  ["path", { d: "M8 2v4" }],
+  ["path", { d: "M16 2v4" }],
+  ["rect", { width: "18", height: "18", x: "3", y: "4", rx: "2" }],
+  ["path", { d: "M3 10h18" }],
+  ["path", { d: "M8 14h.01" }],
+  ["path", { d: "M12 14h.01" }],
+  ["path", { d: "M16 14h.01" }],
+  ["path", { d: "M8 18h.01" }],
+  ["path", { d: "M12 18h.01" }],
+  ["path", { d: "M16 18h.01" }]
+] as IconNode);
