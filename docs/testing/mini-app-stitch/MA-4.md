@@ -48,4 +48,6 @@ Nút **Đặt bàn trước** ở Trang chủ cũng vào tab này.
 15. POS đánh dấu khách đã đến (hoặc khách huỷ) → lượt đó rời khỏi "Lịch hẹn của bạn", vào **Lịch sử đặt bàn**; còn mỗi lượt cũ thì tab mở form, mục lịch sử ở đầu form.
 16. Trang chủ → **Đặt bàn trước**: có lịch hẹn → thấy thẻ lịch hẹn; không có → form.
 
+17. Lịch hẹn **đã xác nhận** trên tab Đặt bàn: hàng nút chia đôi **Chọn món đặt trước** | **Để sau** (nhạt). Bấm **Để sau** → hàng nút biến mất, thẻ chỉ còn thông tin + Xem chi tiết / Chỉ đường; tải lại trang vẫn ẩn. Lượt đặt khác vẫn hiện nút. (Đổi ý thì vào Xem chi tiết để chọn món.)
+
 **→ Báo:** `MA-4 PASS`
