@@ -25,7 +25,7 @@
 - [MA-1 — Khung Mini App + Thực đơn tại bàn + Giỏ hàng](docs/testing/mini-app-stitch/MA-1.md) — Mini App Stitch, nhánh `feat/mini-app-stitch`, PASS 2026-10-05
 - [MA-2 — Đơn gọi m07 + gọi xong sang Đơn gọi + Trạng thái đơn + Thông tin nhà hàng](docs/testing/mini-app-stitch/MA-2.md) — Mini App Stitch, nhánh `feat/mini-app-stitch`, PASS 2026-10-05
 - [MA-3 — Trang chủ m01 + Đặt bàn m02 + Đơn của tôi m03 + Chỉ đường](docs/testing/mini-app-stitch/MA-3.md) — Mini App Stitch, nhánh `feat/mini-app-stitch`, PASS 2026-10-05
-- [MA-4 — Chọn món đặt trước m04 + Xác nhận m05 + rà soát cuối](docs/testing/mini-app-stitch/MA-4.md) — Mini App Stitch, nhánh `feat/mini-app-stitch`, chờ test
+- [MA-4 — Chọn món đặt trước m04 + Xác nhận m05 + rà soát cuối](docs/testing/mini-app-stitch/MA-4.md) — Mini App Stitch, nhánh `feat/mini-app-stitch`, PASS 2026-10-05
 
 - ✅ [UI Reform — review bản POS đã chọn](docs/testing/ui-reform/REVIEW-CHOSEN-POS-2026-10-02.md) — PASS, Codex tự rà theo ủy quyền 02/10; thiết kế chốt, chưa code
 
