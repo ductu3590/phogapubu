@@ -21,6 +21,7 @@ import { estimateDiscount, MyVoucher } from "@/services/voucher/voucher.api";
 import { clearTableOrderRequest, tableOrderRequestId } from "@/services/table-order-request";
 import { useTableSessionBill } from "@/services/order/order.queries";
 import { findOrderDuplicates } from "@/utils/order-duplicates";
+import { afterOrderRoute } from "@/utils/after-order-route";
 import { ArmchairIcon, FootprintsIcon, BikeIcon, UtensilsIcon, CreditCardIcon, BanknoteIcon } from "@/components/common/icons";
 import SectionCard from "@/components/ui/section-card";
 import StickyActionBar from "@/components/ui/sticky-action-bar";
@@ -338,10 +339,16 @@ export default function CheckoutPage() {
             }
             await handleZaloPayPayment(order.id, order.capabilityToken);
           } else {
-            // Tiền mặt: navigate thẳng đến trang trạng thái
+            // Tiền mặt / trả sau: trả sau tại bàn sang thẳng Đơn gọi, còn lại vào Trạng thái đơn.
+            const next = afterOrderRoute({
+              isPostpayDineIn,
+              kitchenPolicy: workflow?.kitchenReleasePolicy ?? "automatic",
+              orderId: order.id,
+            });
             clearCart();
             setIsProcessing(false);
-            navigate(`/order-status/${order.id}`);
+            if (next.toast) openSnackbar({ text: next.toast, type: "success" });
+            navigate(next.path, { replace: next.replace });
           }
         },
         onError: (err) => {
