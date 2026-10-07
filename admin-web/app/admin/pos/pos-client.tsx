@@ -29,7 +29,7 @@ import {
   type PosManualItem,
   voidOrderItem,
 } from '@/lib/actions/pos-order'
-import { playBell, stopBell, unlockBell } from '@/lib/bell'
+import { playBell, ringBellOnce, stopBell, unlockBell } from '@/lib/bell'
 import BellVolumeControl from '@/components/bell-volume-control'
 import type { FloorSnapshot } from '@/lib/area-layout'
 import { assignTrayColors } from '@/lib/tray-colors'
@@ -200,7 +200,7 @@ export default function PosClient({
   const [customerCalls, setCustomerCalls] = useState(initialCustomerCalls)
   const [customerCallBusy, setCustomerCallBusy] = useState(false)
   const reminders = useMemo(() => createReservationReminderCoordinator({
-    storeId, storage: browserStorage(), now: Date.now, playBell,
+    storeId, storage: browserStorage(), now: Date.now, playBell: ringBellOnce,
   }), [storeId])
   const reportActionError = useCallback((message: string | null) => {
     setError(message ? actionError(message) : null)

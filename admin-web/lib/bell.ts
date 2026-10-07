@@ -69,10 +69,7 @@ function tone(c: AudioContext, freq: number, at: number, peak: number, length: n
   osc.stop(at + length)
 }
 
-/** Phát MỘT lần theo kiểu cho trước (không lặp). */
-function ring(s: BellStyle): void {
-  const c = getCtx()
-  if (!c || c.state !== 'running') return
+function sound(c: AudioContext, s: BellStyle): void {
   const peak = peakGain(s, readVolume(localStore()))
   if (peak <= 0) return
   const now = c.currentTime
@@ -83,6 +80,20 @@ function ring(s: BellStyle): void {
   // double + repeat: hai tiếng "ting" ngắn — đủ nghe giữa quán ồn, không chói như còi báo động.
   tone(c, 880, now, peak, 0.18)
   tone(c, 1320, now + 0.18, peak, 0.18)
+}
+
+/** Phát MỘT lần theo kiểu cho trước (không lặp). */
+function ring(s: BellStyle): void {
+  const c = getCtx()
+  if (!c) return
+  if (c.state === 'running') {
+    sound(c, s)
+    return
+  }
+  // Tablet vừa ngủ dậy / tab vừa quay lại: trình duyệt treo context (suspended, iOS 'interrupted').
+  // Trang đã từng được chạm nên resume() thường được phép → thử đánh thức rồi mới kêu, không câm luôn.
+  if (c.state === 'closed') return
+  c.resume().then(() => { if (c.state === 'running') sound(c, s) }, () => { /* chưa có cú chạm: lần sau thử lại */ })
 }
 
 // Kiểu "Báo liên tục": lặp 3 giây/lần, tự dừng khi có người chạm/gõ trên trang hoặc sau 5 phút.
@@ -120,6 +131,12 @@ export function playBell(): void {
     window.addEventListener('pointerdown', onPresence, true)
     window.addEventListener('keydown', onPresence, true)
   }
+}
+
+/** Kêu MỘT lần theo kiểu của quán, kể cả khi quán chọn "Báo liên tục" — cho nhắc đặt bàn: không có
+ *  hàng việc nào để "xử lý xong" nên không được lặp (lặp thì chỉ dừng khi có người chạm màn hình). */
+export function ringBellOnce(): void {
+  ring(style === 'repeat' ? 'double' : style)
 }
 
 /** Nút "Nghe thử": luôn phát MỘT lần, kể cả kiểu repeat. */

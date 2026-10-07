@@ -15,7 +15,7 @@ import type { KitchenOrder, OrderStatus, Store } from '@/types/database.types'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { watchServiceRequests } from '@/lib/service-request-queue'
 import { sessionTableLabel } from '@/lib/session-table-label'
-import { playBell, setBellStyle, unlockBell } from '@/lib/bell'
+import { playBell, setBellStyle, stopBell, unlockBell } from '@/lib/bell'
 import { parseBellStyle } from '@/lib/bell-settings'
 
 type KitchenDisplayOrder = KitchenOrder & { confirmedAt: string | null }
@@ -667,6 +667,10 @@ export default function KitchenDisplay({ storeSlug }: Props) {
       o.paymentMethod === 'zalo_checkout' &&
       o.paymentInstrument !== 'wallet',
   )
+  // Kiểu chuông "Báo liên tục": bếp hết đơn chờ làm, hết gọi nhân viên, hết quà chờ đưa → im ngay,
+  // kể cả khi việc được xử lý ở máy khác (POS, màn nhân viên).
+  const kitchenWorkCount = waitingOrders.length + callAlerts.length + giftAlerts.length
+  useEffect(() => { if (kitchenWorkCount === 0) stopBell() }, [kitchenWorkCount])
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (tokenMissing) {
