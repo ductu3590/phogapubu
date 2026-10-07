@@ -6,7 +6,7 @@ import { signOut } from '@/app/(auth)/login/actions'
 import { IconRailShell } from '@/components/ui/icon-rail-shell'
 import { getButtonClasses } from '@/components/ui/button-classes'
 import { cn } from '@/lib/utils'
-import { adminMoreItems, adminRailItems } from './admin-nav'
+import { adminBottomItems, adminMoreItems, adminRailItems } from './admin-nav'
 
 // `modal` = slot @modal: trang cấu hình mở thành hộp thoại đè lên trang đang mở (Pha 4 ST-3).
 export default async function AdminLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
@@ -34,6 +34,7 @@ export default async function AdminLayout({ children, modal }: { children: React
     <IconRailShell
       brand={{ initial: 'M', title: storeName, subtitle: 'MEVO · Chủ quán' }}
       items={adminRailItems(kitchenEnabled)}
+      bottomItems={adminBottomItems()}
       moreItems={adminMoreItems(reservationsEnabled)}
       footer={
         <div className="space-y-1">

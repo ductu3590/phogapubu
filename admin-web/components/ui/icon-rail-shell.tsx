@@ -15,6 +15,7 @@ import { IconButton } from './button'
 export function IconRailShell({
   brand,
   items,
+  bottomItems = [],
   moreItems,
   footer,
   children,
@@ -22,6 +23,8 @@ export function IconRailShell({
   brand: { initial: string; title: string; subtitle?: string }
   /** Mục hằng ngày, hiện thẳng trên rail. */
   items: AppNavItem[]
+  /** Mục cố định ngay trên ô "Thêm" (⚙ Cài đặt). */
+  bottomItems?: AppNavItem[]
   /** Mục ít dùng (cấu hình…), trong ô "Thêm" ở chân rail. */
   moreItems: AppNavItem[]
   /** Email + nút đăng xuất — trong ô "Thêm" và ngăn kéo màn hẹp. */
@@ -29,7 +32,7 @@ export function IconRailShell({
   children: ReactNode
 }) {
   const pathname = usePathname()
-  const activeHref = findActiveHref(pathname, [{ items: [...items, ...moreItems] }])
+  const activeHref = findActiveHref(pathname, [{ items: [...items, ...bottomItems, ...moreItems] }])
   const moreActive = moreItems.some((i) => i.href === activeHref)
   const [moreOpen, setMoreOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -104,6 +107,9 @@ export function IconRailShell({
         <nav className="min-h-0 flex-1 overflow-y-auto">
           <ul className="flex flex-col items-center gap-1.5">{items.map(railLink)}</ul>
         </nav>
+        {bottomItems.length > 0 && (
+          <ul className="mt-2 flex flex-col items-center gap-1.5">{bottomItems.map(railLink)}</ul>
+        )}
         <div ref={moreRef} className="relative mt-2">
           <button
             type="button"
@@ -155,7 +161,7 @@ export function IconRailShell({
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
           <ul className="flex flex-col gap-0.5">{items.map((i) => listLink(i, () => setDrawerOpen(false)))}</ul>
           <p className="mt-4 mb-1.5 px-3 text-xs font-medium tracking-wide text-slate-500 uppercase">Thiết lập</p>
-          <ul className="flex flex-col gap-0.5">{moreItems.map((i) => listLink(i, () => setDrawerOpen(false)))}</ul>
+          <ul className="flex flex-col gap-0.5">{[...bottomItems, ...moreItems].map((i) => listLink(i, () => setDrawerOpen(false)))}</ul>
         </div>
         {footer ? <div className="shrink-0 border-t border-slate-200 px-3 py-3">{footer}</div> : null}
       </dialog>

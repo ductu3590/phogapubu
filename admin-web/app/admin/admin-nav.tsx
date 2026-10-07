@@ -35,7 +35,6 @@ export function adminRailItems(kitchenEnabled = true): AppNavItem[] {
 export function adminMoreItems(reservationsEnabled = false): AppNavItem[] {
   return [
     ...(reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []),
-    { href: '/admin/settings', label: 'Cài đặt quán', icon: <Settings /> },
     { href: '/admin/tables', label: 'Bàn & QR', icon: <QrCode /> },
     { href: '/admin/staff', label: 'Nhân viên', icon: <Users /> },
     { href: '/admin/vouchers', label: 'Ưu đãi', icon: <Ticket /> },
@@ -44,7 +43,17 @@ export function adminMoreItems(reservationsEnabled = false): AppNavItem[] {
   ]
 }
 
+// Nút ⚙ Cài đặt (PA-1, 2026-10-07): nằm riêng ngay trên ô "Thêm" — chủ quán mở cấu hình
+// thường xuyên hơn các mục trong Thêm, không bắt bấm 2 lần.
+export function adminBottomItems(): AppNavItem[] {
+  return [{ href: '/admin/settings', label: 'Cài đặt', icon: <Settings /> }]
+}
+
 /** Toàn bộ mục (cho dò mục đang chọn và test). */
 export function adminNavGroups(reservationsEnabled = false, kitchenEnabled = true): AppNavGroup[] {
-  return [{ items: adminRailItems(kitchenEnabled) }, { items: adminMoreItems(reservationsEnabled) }]
+  return [
+    { items: adminRailItems(kitchenEnabled) },
+    { items: adminBottomItems() },
+    { items: adminMoreItems(reservationsEnabled) },
+  ]
 }

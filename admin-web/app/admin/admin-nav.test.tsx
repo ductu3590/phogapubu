@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { findActiveHref } from '@/components/ui/app-shell'
-import { adminMoreItems, adminNavGroups, adminRailItems } from './admin-nav'
+import { adminBottomItems, adminMoreItems, adminNavGroups, adminRailItems } from './admin-nav'
 
 const hrefs = (reservations: boolean, kitchen = true) => adminNavGroups(reservations, kitchen).flatMap((group) => group.items.map((item) => item.href))
 
@@ -19,7 +19,7 @@ describe('menu khu chủ quán (rail icon Stitch)', () => {
     expect(adminMoreItems(true).map((item) => item.href)[0]).toBe('/admin/reservations')
     expect(adminMoreItems(false).map((item) => item.href)).not.toContain('/admin/reservations')
     expect(adminMoreItems(false).map((item) => item.href)).toEqual([
-      '/admin/settings', '/admin/tables', '/admin/staff', '/admin/vouchers', '/admin/spin', '/admin/account',
+      '/admin/tables', '/admin/staff', '/admin/vouchers', '/admin/spin', '/admin/account',
     ])
   })
 
@@ -34,5 +34,14 @@ describe('menu khu chủ quán (rail icon Stitch)', () => {
   it('trang con vẫn sáng đúng mục cha', () => {
     expect(findActiveHref('/admin/pos/print-order', adminNavGroups(false))).toBe('/admin/pos')
     expect(findActiveHref('/admin/reservations', adminNavGroups(true))).toBe('/admin/reservations')
+  })
+
+  it('Cài đặt quán là nút ⚙ riêng ngay trên ô Thêm, không còn trong Thêm', () => {
+    expect(adminBottomItems().map((item) => item.href)).toEqual(['/admin/settings'])
+    expect(adminMoreItems(true).map((item) => item.href)).not.toContain('/admin/settings')
+  })
+
+  it('đang ở trang cài đặt thì sáng nút ⚙', () => {
+    expect(findActiveHref('/admin/settings', adminNavGroups(false))).toBe('/admin/settings')
   })
 })
