@@ -5,7 +5,7 @@
 // Logic dữ liệu / thao tác giữ nguyên của POS cũ: cùng server action, cùng watcher realtime, cùng chuông.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ArrowLeftRight, Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, Layers, ListTodo, TriangleAlert, X, Zap } from 'lucide-react'
+import { ArrowLeftRight, Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, Layers, ListTodo, TriangleAlert, Volume2, X, Zap } from 'lucide-react'
 import { TableStateLegend } from '@/components/ui/badge'
 import { Button, IconButton } from '@/components/ui/button'
 import { Banner, EmptyState, SkeletonList } from '@/components/ui/feedback'
@@ -29,7 +29,8 @@ import {
   type PosManualItem,
   voidOrderItem,
 } from '@/lib/actions/pos-order'
-import { playBell, unlockBell } from '@/lib/bell'
+import { playBell, stopBell, unlockBell } from '@/lib/bell'
+import BellVolumeControl from '@/components/bell-volume-control'
 import type { FloorSnapshot } from '@/lib/area-layout'
 import { assignTrayColors } from '@/lib/tray-colors'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
@@ -165,6 +166,7 @@ export default function PosClient({
   const [view, setView] = useState<View>('timeline')
   const [areaFilter, setAreaFilter] = useState<string>(ALL)
   const [workOpen, setWorkOpen] = useState(false)
+  const [volumeOpen, setVolumeOpen] = useState(false)
   const [workFilter, setWorkFilter] = useState<WorkFilter>('all')
   const serviceRequests = useServiceRequests(storeId, initialRequests, initialRequestError)
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null)
@@ -770,6 +772,8 @@ export default function PosClient({
     ] : []),
   ]
   const workTotal = workItems.length
+  // Kiểu chuông "Báo liên tục": hết việc chờ thì im ngay, không đợi người chạm màn hình.
+  useEffect(() => { if (workTotal === 0) stopBell() }, [workTotal])
 
   const areaItems = [
     { value: ALL, label: 'Tất cả', count: placed.length },
@@ -810,6 +814,16 @@ export default function PosClient({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <IconButton icon={<Volume2 />} label="Âm lượng chuông" aria-expanded={volumeOpen} onClick={() => setVolumeOpen((v) => !v)} />
+              {volumeOpen && (
+                <div className="absolute right-0 top-full z-40 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-modal">
+                  <p className="mb-2 text-sm font-semibold text-slate-900">Âm lượng chuông trên máy này</p>
+                  <BellVolumeControl />
+                  <div className="mt-2 flex justify-end"><Button type="button" variant="ghost" onClick={() => setVolumeOpen(false)}>Đóng</Button></div>
+                </div>
+              )}
+            </div>
             {reservationsEnabled && !arrange && !reservationPick && (
               <Button variant="primary" icon={<CalendarPlus />} onClick={() => {
                 setBookingError(null)

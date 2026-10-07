@@ -15,7 +15,8 @@ import type { KitchenOrder, OrderStatus, Store } from '@/types/database.types'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { watchServiceRequests } from '@/lib/service-request-queue'
 import { sessionTableLabel } from '@/lib/session-table-label'
-import { playBell, unlockBell } from '@/lib/bell'
+import { playBell, setBellStyle, unlockBell } from '@/lib/bell'
+import { parseBellStyle } from '@/lib/bell-settings'
 
 type KitchenDisplayOrder = KitchenOrder & { confirmedAt: string | null }
 type KitchenWorkflow = {
@@ -321,7 +322,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
       // 1. Lấy store theo slug
       const { data: storeData, error: storeErr } = await supabase!
         .from('stores')
-        .select('id, name, slug')
+        .select('id, name, slug, bell_style')
         .eq('slug', storeSlug)
         .eq('is_active', true)
         .single()
@@ -331,6 +332,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         setLoading(false)
         return
       }
+      setBellStyle(parseBellStyle((storeData as { bell_style?: string }).bell_style))
 
       // RPC public-safe là nguồn hợp nhất cho thời điểm thanh toán và policy xuống bếp.
       // Dùng client anon/authenticated riêng vì token bếp chạy Postgres role `kitchen`.

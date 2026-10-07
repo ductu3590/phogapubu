@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { listOpenServiceRequests, resolveServiceRequest, type ServiceRequestRow } from '@/lib/actions/service-requests'
 import type { OpenTableSession } from '@/lib/actions/table-session'
 import { createClient } from '@/lib/supabase/client'
-import { playBell, unlockBell } from '@/lib/bell'
+import { playBell, stopBell, unlockBell } from '@/lib/bell'
 import { serviceRequestSession, watchServiceRequests } from '@/lib/service-request-queue'
 
 export default function ServiceRequestQueue({ storeId, initialRequests, initialError, sessions, onSelect }: {
@@ -18,6 +18,8 @@ export default function ServiceRequestQueue({ storeId, initialRequests, initialE
   onSelect?: (request: ServiceRequestRow) => void
 }) {
   const [requests, setRequests] = useState(initialRequests)
+  // Kiểu chuông "Báo liên tục": không còn ai gọi thì im.
+  useEffect(() => { if (requests.length === 0) stopBell() }, [requests.length])
   const [error, setError] = useState(initialError)
   const [actionError, setActionError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
@@ -57,7 +59,8 @@ export default function ServiceRequestQueue({ storeId, initialRequests, initialE
     }
   }
 
-  const loi = actionError ?? error
+
+  const loi = actionError ?? error
 
   return (
     <section aria-label="Gọi nhân viên" className={cn('border-b border-border px-4 py-3 md:px-5', requests.length > 0 ? 'bg-warning-bg' : 'bg-surface')} onClickCapture={() => unlockBell()}>

@@ -6,6 +6,7 @@ import { signOut } from '@/app/(auth)/login/actions'
 import { IconRailShell } from '@/components/ui/icon-rail-shell'
 import { getButtonClasses } from '@/components/ui/button-classes'
 import { cn } from '@/lib/utils'
+import BellStyleSync from '@/components/bell-style-sync'
 import { adminBottomItems, adminMoreItems, adminRailItems } from './admin-nav'
 
 // `modal` = slot @modal: trang cấu hình mở thành hộp thoại đè lên trang đang mở (Pha 4 ST-3).
@@ -20,7 +21,7 @@ export default async function AdminLayout({ children, modal }: { children: React
   const { data: { user } } = await supabase.auth.getUser()
 
   const [storeResult, workflowResult] = await Promise.all([
-    supabase.from('stores').select('name').eq('id', operator.storeId).single(),
+    supabase.from('stores').select('name, bell_style').eq('id', operator.storeId).single(),
     supabase.rpc('get_public_store_workflow', { p_store_id: operator.storeId }),
   ])
   const storeName = storeResult.data?.name ?? 'Quán của tôi'
@@ -49,6 +50,7 @@ export default async function AdminLayout({ children, modal }: { children: React
       }
     >
       <div className="flex h-full min-h-0 flex-col">{children}</div>
+      <BellStyleSync style={storeResult.data?.bell_style as string | undefined} />
       {modal}
     </IconRailShell>
   )

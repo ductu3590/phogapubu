@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import SettingsClient from './settings-client'
 import WorkflowSettingsForm from './workflow-settings-form'
+import BellSettingsSection from './bell-settings-section'
+import { parseBellStyle } from '@/lib/bell-settings'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import {
   loadOwnerWorkflowSettings,
@@ -18,7 +20,7 @@ export default async function SettingsPage() {
   const [{ data: store }, workflowSettings] = await Promise.all([
     supabase
       .from('stores')
-      .select('name, logo_url, zalo_oa_url, address, google_maps_url, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, delivery_area_note, terms_of_use')
+      .select('name, logo_url, zalo_oa_url, address, google_maps_url, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, delivery_area_note, terms_of_use, bell_style')
       .eq('id', storeId)
       .single(),
     loadOwnerWorkflowSettings(),
@@ -48,6 +50,11 @@ export default async function SettingsPage() {
               deliveryAreaNote={(store?.delivery_area_note as string | null) ?? ''}
               termsOfUse={(store?.terms_of_use as string | null) ?? ''}
             />
+          </section>
+
+          <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Âm thanh thông báo</h2>
+            <BellSettingsSection initial={parseBellStyle(store?.bell_style)} />
           </section>
 
           <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
