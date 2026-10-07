@@ -1,11 +1,14 @@
-// Chuông báo đơn mới cho màn POS (Web Audio API — không cần file âm thanh ngoài).
+// Chuông báo việc mới cho POS, đặt bàn, màn nhân viên và màn bếp (Web Audio API — không cần file âm thanh ngoài).
 //
 // Trình duyệt tạo AudioContext ở trạng thái 'suspended' cho tới khi có tương tác người dùng,
 // nên phải giữ MỘT context dùng chung rồi resume() trong một cú bấm; tạo context mới mỗi lần
-// kêu là lần nào cũng bị chặn. (Cùng cách làm với màn bếp, tách riêng ở đây để POS không phải
-// import từ file 1000 dòng của Kitchen Display.)
+// kêu là lần nào cũng bị chặn.
+// Kiểu chuông theo QUÁN (setBellStyle, do BellStyleSync bơm vào), âm lượng theo MÁY (bell-settings.ts).
+
+import { createRepeater, parseBellStyle, peakGain, readVolume, type BellStyle } from './bell-settings'
 
 let ctx: AudioContext | null = null
+let style: BellStyle = 'double'
 
 function isRunning(context: AudioContext): boolean {
   return context.state === 'running'
@@ -19,6 +22,10 @@ function getCtx(): AudioContext | null {
   if (!AC) return null
   if (!ctx) ctx = new AC()
   return ctx
+}
+
+function localStore() {
+  try { return typeof window === 'undefined' ? null : window.localStorage } catch { return null }
 }
 
 /** Gọi trong một sự kiện bấm/chạm để mở khoá tiếng. Gọi nhiều lần vô hại. */
@@ -36,25 +43,86 @@ export async function unlockBell(): Promise<boolean> {
   return isRunning(c)
 }
 
-/** Hai tiếng "ting" ngắn — đủ nghe giữa quán ồn, không chói như còi báo động. */
-export function playBell(): void {
+/** Gọi khi biết kiểu chuông của quán (BellStyleSync). Đổi kiểu thì dừng chuông lặp đang chạy. */
+export function setBellStyle(s: BellStyle): void {
+  const next = parseBellStyle(s)
+  if (next !== style) stopBell()
+  style = next
+}
+
+export function getBellStyle(): BellStyle {
+  return style
+}
+
+function tone(c: AudioContext, freq: number, at: number, peak: number, length: number) {
+  const osc = c.createOscillator()
+  const gain = c.createGain()
+  osc.type = 'sine'
+  osc.frequency.value = freq
+  // Vào/ra êm: bật tắt gain đột ngột sẽ nghe "tạch" ở loa rẻ tiền.
+  gain.gain.setValueAtTime(0.0001, at)
+  gain.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), at + 0.02)
+  gain.gain.exponentialRampToValueAtTime(0.0001, at + length - 0.02)
+  osc.connect(gain)
+  gain.connect(c.destination)
+  osc.start(at)
+  osc.stop(at + length)
+}
+
+/** Phát MỘT lần theo kiểu cho trước (không lặp). */
+function ring(s: BellStyle): void {
   const c = getCtx()
   if (!c || c.state !== 'running') return
-
+  const peak = peakGain(s, readVolume(localStore()))
+  if (peak <= 0) return
   const now = c.currentTime
-  for (const [i, freq] of [880, 1320].entries()) {
-    const osc = c.createOscillator()
-    const gain = c.createGain()
-    osc.type = 'sine'
-    osc.frequency.value = freq
-    // Vào/ra êm: bật tắt gain đột ngột sẽ nghe "tạch" ở loa rẻ tiền.
-    const t0 = now + i * 0.18
-    gain.gain.setValueAtTime(0.0001, t0)
-    gain.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02)
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16)
-    osc.connect(gain)
-    gain.connect(c.destination)
-    osc.start(t0)
-    osc.stop(t0 + 0.18)
+  if (s === 'soft') {
+    tone(c, 1046, now, peak, 0.22)
+    return
   }
+  // double + repeat: hai tiếng "ting" ngắn — đủ nghe giữa quán ồn, không chói như còi báo động.
+  tone(c, 880, now, peak, 0.18)
+  tone(c, 1320, now + 0.18, peak, 0.18)
+}
+
+// Kiểu "Báo liên tục": lặp 3 giây/lần, tự dừng khi có người chạm/gõ trên trang hoặc sau 5 phút.
+const repeater = createRepeater({
+  play: () => ring('double'),
+  intervalMs: 3000,
+  maxMs: 5 * 60_000,
+  now: () => Date.now(),
+  setTimer: (fn, ms) => setTimeout(fn, ms),
+  clearTimer: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+})
+
+function onPresence() {
+  stopBell()
+}
+
+/** Dừng chuông lặp (gọi khi hàng việc rỗng). Không làm gì nếu không có chuông nào đang lặp. */
+export function stopBell(): void {
+  repeater.stop()
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('pointerdown', onPresence, true)
+    window.removeEventListener('keydown', onPresence, true)
+  }
+}
+
+/** Có việc mới → kêu theo kiểu của quán. Chữ ký giữ nguyên để mọi chỗ gọi cũ chạy như trước. */
+export function playBell(): void {
+  if (style !== 'repeat') {
+    ring(style)
+    return
+  }
+  if (repeater.running()) return
+  repeater.start()
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pointerdown', onPresence, true)
+    window.addEventListener('keydown', onPresence, true)
+  }
+}
+
+/** Nút "Nghe thử": luôn phát MỘT lần, kể cả kiểu repeat. */
+export function previewBell(s: BellStyle = style): void {
+  void unlockBell().then(() => ring(s === 'repeat' ? 'double' : s))
 }
