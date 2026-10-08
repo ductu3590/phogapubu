@@ -1,6 +1,6 @@
 import { layoutTables, moveTable, type LayoutTable, type PlacedTable } from './table-layout'
 
-export type TableArea = { id: string; name: string }
+export type TableArea = { id: string; name: string; color?: string }
 export type AreaTable = LayoutTable & { area_id: string | null }
 export type AreaPlacedTable = PlacedTable & { area_id: string | null }
 export type FloorSnapshot = { version: number; areas: TableArea[]; tables: AreaTable[] }
