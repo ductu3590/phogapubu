@@ -1,11 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
-import { redirect } from 'next/navigation'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import VouchersClient from './vouchers-client'
 
 export default async function VouchersPage() {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('owner')
   const storeId = operator.storeId
 
   const supabase = await createClient()

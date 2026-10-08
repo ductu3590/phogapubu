@@ -1,6 +1,5 @@
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import PrintOrder, { type OrderSlip } from './print-order'
 
 // Hai liên cho MỘT đơn khách vừa gọi: phiếu bếp (không giá) + phiếu bàn (có giá, có ô tick).
@@ -11,8 +10,7 @@ export default async function PrintOrderPage({
 }: {
   searchParams: Promise<{ id?: string; job?: string }>
 }) {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('pos')
 
   const { id, job } = await searchParams
   if (!id && !job) return <p className="p-6 text-sm text-red-600">Thiếu mã đơn.</p>

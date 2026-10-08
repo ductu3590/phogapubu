@@ -3,16 +3,14 @@ import SettingsClient from './settings-client'
 import WorkflowSettingsForm from './workflow-settings-form'
 import BellSettingsSection from './bell-settings-section'
 import { parseBellStyle } from '@/lib/bell-settings'
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import {
   loadOwnerWorkflowSettings,
   saveOwnerWorkflowSettings,
 } from '@/lib/actions/workflow-settings'
-import { redirect } from 'next/navigation'
 
 export default async function SettingsPage() {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('owner')
   const storeId = operator.storeId
 
   const supabase = await createClient()

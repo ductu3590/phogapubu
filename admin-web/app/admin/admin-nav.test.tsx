@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { findActiveHref } from '@/components/ui/app-shell'
+import { adminPathAllowed } from '@/lib/auth/roles'
 import { adminBottomItems, adminMoreItems, adminNavGroups, adminRailItems } from './admin-nav'
 
 const hrefs = (reservations: boolean, kitchen = true) => adminNavGroups(reservations, kitchen).flatMap((group) => group.items.map((item) => item.href))
@@ -43,5 +44,20 @@ describe('menu khu chủ quán (rail icon Stitch)', () => {
 
   it('đang ở trang cài đặt thì sáng nút ⚙', () => {
     expect(findActiveHref('/admin/settings', adminNavGroups(false))).toBe('/admin/settings')
+  })
+})
+
+describe('thu ngân (PA-2)', () => {
+  it('rail chỉ POS · Báo cáo; không có ⚙', () => {
+    expect(adminRailItems(true, 'store_cashier').map((i) => i.href)).toEqual(['/admin/pos', '/admin/dashboard'])
+    expect(adminBottomItems('store_cashier')).toEqual([])
+  })
+  it('ô Thêm: Đặt bàn (nếu bật) · Thực đơn (Tạm hết) · Tài khoản', () => {
+    expect(adminMoreItems(true, 'store_cashier').map((i) => i.href)).toEqual(['/admin/reservations', '/admin/menu', '/admin/account'])
+    expect(adminMoreItems(false, 'store_cashier').map((i) => i.href)).toEqual(['/admin/menu', '/admin/account'])
+  })
+  it('mọi mục của thu ngân đều là trang thu ngân được mở', () => {
+    const all = adminNavGroups(true, true, 'store_cashier').flatMap((g) => g.items.map((i) => i.href))
+    expect(all.every((h) => adminPathAllowed('store_cashier', h))).toBe(true)
   })
 })

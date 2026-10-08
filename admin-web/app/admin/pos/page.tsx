@@ -1,6 +1,5 @@
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { listOpenTableSessions } from '@/lib/actions/table-session'
 import { loadFloorLayout } from '@/lib/actions/floor-layout'
 import type { PosMenuCategory } from './manual-order-sheet'
@@ -22,8 +21,7 @@ function queueRange() {
 // Màn POS thu ngân (Timeline) — chỉ chủ quán. Kèm giờ phục vụ + bước giờ / khoảng giữ bàn của
 // đặt bàn để dựng trục giờ. AdminLayout đã chặn, kiểm lại ở đây cho fail-closed theo tầng.
 export default async function PosPage() {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('pos')
 
   const supabase = await createClient()
 
@@ -119,6 +117,7 @@ export default async function PosPage() {
       initialFloorError={floor.ok ? null : floor.error}
       categories={categories}
       initialSessions={res.ok ? res.sessions : []}
+      canArrange={operator.role === 'store_owner'}
       initialError={res.ok ? null : res.error}
     />
   )

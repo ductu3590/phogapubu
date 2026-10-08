@@ -1,12 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import KitchenLinkClient from './kitchen-link-client'
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
-import { redirect } from 'next/navigation'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 
 // Trang quản lý link bếp: sinh / thu hồi token bếp theo quán (Plan 2 — 2b).
 export default async function AdminKitchenPage() {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('owner')
   const storeId = operator.storeId
 
   const supabase = await createClient()

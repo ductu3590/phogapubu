@@ -1,12 +1,10 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import TablesClient from './tables-client'
 import { generateTableQR } from '@/lib/qr'
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
-import { redirect } from 'next/navigation'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 
 export default async function TablesPage() {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('owner')
   const storeId = operator.storeId
 
   const supabase = await createClient()

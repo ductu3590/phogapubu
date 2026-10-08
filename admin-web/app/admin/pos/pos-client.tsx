@@ -126,6 +126,7 @@ export default function PosClient({
   initialFloorError,
   categories,
   initialSessions,
+  canArrange,
   initialError,
   initialRequests,
   initialRequestError,
@@ -148,6 +149,8 @@ export default function PosClient({
   initialFloorError: string | null
   categories: PosMenuCategory[]
   initialSessions: OpenTableSession[]
+  /** Thu ngân (PA-2) không sắp xếp sơ đồ — việc cấu hình của chủ quán; server cũng chặn lưu. */
+  canArrange: boolean
   initialError: string | null
   initialRequests: ServiceRequestRow[]
   initialRequestError: string | null
@@ -943,7 +946,7 @@ export default function PosClient({
             </label>
           )}
           {view !== 'floor' && <TableStateLegend className="ml-auto hidden 2xl:flex" />}
-          {view === 'floor' && (
+          {view === 'floor' && canArrange && (
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {arrange && <Button disabled={floor.saving} onClick={floor.cancel}>Hủy chỉnh sửa</Button>}
               <Button
@@ -1014,7 +1017,7 @@ export default function PosClient({
               <AreaControls floor={floor} />
               <div className="overflow-auto p-4 md:p-5">
                 {floor.ready && !placed.some((t) => t.area_id === floor.areaId) && (
-                  <EmptyState className="py-4 text-left">Khu vực này chưa có bàn. Vào Sắp xếp bàn để phân bàn vào khu vực.</EmptyState>
+                  <EmptyState className="py-4 text-left">{canArrange ? 'Khu vực này chưa có bàn. Vào Sắp xếp bàn để phân bàn vào khu vực.' : 'Khu vực này chưa có bàn.'}</EmptyState>
                 )}
                 <FloorMap
                   placed={placed.filter((t) => t.area_id === floor.areaId)}

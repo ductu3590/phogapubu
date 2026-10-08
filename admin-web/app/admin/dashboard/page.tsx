@@ -1,6 +1,5 @@
 import { Banknote, Gift, Landmark, Printer, Receipt, Undo2, Users, Wallet } from 'lucide-react'
-import { redirect } from 'next/navigation'
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { loadDailyReport } from '@/lib/actions/daily-report'
 import { clampReportDate, instrumentLabel, isViewingToday, vnToday, type DailyReportBill } from '@/lib/daily-report'
 import { formatVND, cn } from '@/lib/utils'
@@ -13,8 +12,7 @@ import ReportDatePicker from './report-date-picker'
 // Báo cáo NGÀY theo bill (PA-1, 2026-10-07) — thay dashboard cũ. Chưa có khái niệm "ca".
 // Mọi con số lấy nguyên từ RPC get_daily_report; trang này chỉ hiển thị.
 export default async function DailyReportPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('pos')
 
   const now = new Date()
   const { date: rawDate } = await searchParams

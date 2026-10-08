@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { BarChart3, CalendarDays, ClipboardList, Gift, QrCode, Settings, Ticket, User, Users, UtensilsCrossed, X } from 'lucide-react'
 import { IconButton } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import type { OperatorRole } from '@/lib/auth/roles'
 
 // Hộp thoại quản trị đè lên POS — bản Stitch A01–A05 (Pha 4 ST-3, 2026-10-03).
 // Mở bằng intercepting route (app/admin/@modal/(.)<trang>): bấm link trong ứng dụng thì trang cấu hình
@@ -13,17 +14,24 @@ import { cn } from '@/lib/utils'
 // Mở thẳng URL / F5 thì ra trang đầy đủ như cũ (Next không chặn khi tải cứng).
 
 export const CONFIG_TABS = [
-  { href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays />, needsReservations: true },
+  { href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays />, needsReservations: true, cashier: true },
   { href: '/admin/settings', label: 'Cấu hình quán', icon: <Settings /> },
-  { href: '/admin/menu', label: 'Thực đơn & Giá', icon: <UtensilsCrossed /> },
+  { href: '/admin/menu', label: 'Thực đơn & Giá', icon: <UtensilsCrossed />, cashier: true },
   { href: '/admin/tables', label: 'Sơ đồ bàn & QR', icon: <QrCode /> },
   { href: '/admin/orders', label: 'Hoá đơn', icon: <ClipboardList /> },
-  { href: '/admin/dashboard', label: 'Báo cáo', icon: <BarChart3 /> },
+  { href: '/admin/dashboard', label: 'Báo cáo', icon: <BarChart3 />, cashier: true },
   { href: '/admin/staff', label: 'Nhân viên', icon: <Users /> },
   { href: '/admin/vouchers', label: 'Ưu đãi', icon: <Ticket /> },
   { href: '/admin/spin', label: 'Vòng quay', icon: <Gift /> },
-  { href: '/admin/account', label: 'Tài khoản', icon: <User /> },
-] as const satisfies ReadonlyArray<{ href: string; label: string; icon: ReactNode; needsReservations?: boolean }>
+  { href: '/admin/account', label: 'Tài khoản', icon: <User />, cashier: true },
+] as const satisfies ReadonlyArray<{ href: string; label: string; icon: ReactNode; needsReservations?: boolean; cashier?: boolean }>
+
+// Tab hiện theo quán (có bật đặt bàn) và vai trò: thu ngân chỉ thấy tab gắn cờ `cashier` (PA-2).
+export function visibleConfigTabs({ reservationsEnabled, role }: { reservationsEnabled: boolean; role: OperatorRole }) {
+  return CONFIG_TABS.filter((t) =>
+    (!('needsReservations' in t) || reservationsEnabled) &&
+    (role !== 'store_cashier' || ('cashier' in t && t.cashier)))
+}
 
 // Độ dài lịch sử trình duyệt lúc hộp thoại MỞ — đóng là quay về đúng trang nền dù bên trong đã bấm
 // lọc (Đơn hàng đổi ngày tạo thêm mục lịch sử). Đổi tab dùng replace nên không cộng thêm.
@@ -46,7 +54,7 @@ export function ModalBaseReset() {
   return null
 }
 
-export default function ConfigDialog({ storeName, reservationsEnabled, children }: { storeName: string; reservationsEnabled: boolean; children: ReactNode }) {
+export default function ConfigDialog({ storeName, reservationsEnabled, role, children }: { storeName: string; reservationsEnabled: boolean; role: OperatorRole; children: ReactNode }) {
   const pathname = usePathname()
   const panel = useRef<HTMLDivElement>(null)
   const tabs = useRef<HTMLElement>(null)
@@ -107,7 +115,7 @@ export default function ConfigDialog({ storeName, reservationsEnabled, children 
           <IconButton icon={<X />} label="Đóng (Esc)" onClick={close} className="shrink-0" />
         </header>
         <nav ref={tabs} aria-label="Mục cấu hình" className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 px-2 [scrollbar-width:none] md:px-4 [&::-webkit-scrollbar]:hidden">
-          {CONFIG_TABS.filter((t) => !('needsReservations' in t) || reservationsEnabled).map((t) => {
+          {visibleConfigTabs({ reservationsEnabled, role }).map((t) => {
             const isActive = t.href === active
             return (
               <Link

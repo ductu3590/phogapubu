@@ -1,11 +1,9 @@
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
-import { redirect } from 'next/navigation'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { listStoreStaff } from '@/lib/actions/staff'
 import StaffClient from './staff-client'
 
 export default async function AdminStaffPage() {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('owner')
 
   const staff = await listStoreStaff()
 

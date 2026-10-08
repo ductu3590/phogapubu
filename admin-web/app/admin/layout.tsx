@@ -1,7 +1,6 @@
 import { LogOut } from 'lucide-react'
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { signOut } from '@/app/(auth)/login/actions'
 import { IconRailShell } from '@/components/ui/icon-rail-shell'
 import { getButtonClasses } from '@/components/ui/button-classes'
@@ -11,11 +10,8 @@ import { adminBottomItems, adminMoreItems, adminRailItems } from './admin-nav'
 
 // `modal` = slot @modal: trang cấu hình mở thành hộp thoại đè lên trang đang mở (Pha 4 ST-3).
 export default async function AdminLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') {
-    // Superadmin lỡ vào /admin — đưa về đúng khu, không fallback vào "quán đầu tiên".
-    redirect('/mevo')
-  }
+  // Chủ quán + thu ngân (PA-2). Superadmin / nhân viên phục vụ lỡ vào → đưa về đúng khu của họ.
+  const operator = await requireAdminPageOrRedirect('pos')
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -33,10 +29,10 @@ export default async function AdminLayout({ children, modal }: { children: React
   // Khung Stitch P01: rail icon từ 768px, dưới đó thanh trên + ngăn kéo menu.
   return (
     <IconRailShell
-      brand={{ initial: 'M', title: storeName, subtitle: 'MEVO · Chủ quán' }}
-      items={adminRailItems(kitchenEnabled)}
-      bottomItems={adminBottomItems()}
-      moreItems={adminMoreItems(reservationsEnabled)}
+      brand={{ initial: 'M', title: storeName, subtitle: operator.role === 'store_cashier' ? 'MEVO · Thu ngân' : 'MEVO · Chủ quán' }}
+      items={adminRailItems(kitchenEnabled, operator.role)}
+      bottomItems={adminBottomItems(operator.role)}
+      moreItems={adminMoreItems(reservationsEnabled, operator.role)}
       footer={
         <div className="space-y-1">
           {user?.email ? <p className="truncate px-3 text-[13px] text-muted">{user.email}</p> : null}
