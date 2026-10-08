@@ -77,7 +77,7 @@ export default async function DailyReportPage({ searchParams }: { searchParams: 
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge tone={a.type === 'gift' ? 'info' : 'critical'}>{a.type === 'gift' ? 'Tặng' : 'Khách bỏ'}</Badge>
+                        <Badge tone={a.type === 'gift' ? 'info' : 'critical'}>{a.type === 'gift' ? 'Tặng' : 'Bỏ'}</Badge>
                         <span className="text-sm font-medium tabular">{formatVND(a.amount)}</span>
                       </div>
                     </li>
