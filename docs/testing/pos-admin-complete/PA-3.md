@@ -10,10 +10,11 @@ Migration đã áp prod: 094 (`table_areas.color`, `pos_get_floor_layout` trả 
 4. **Tuỳ chỉnh khu** ở "Tầng 2": đổi tên "Sân thượng", đổi màu → lưu → đổi ngay.
 5. Ở một bàn bất kỳ chọn **Khu → Sân thượng** → bàn chuyển nhóm. **Tuỳ chỉnh khu** "Sân thượng" → nút Xoá bị khoá, ghi "Khu còn 1 bàn…".
 6. Chuyển bàn đó về khu cũ → Tuỳ chỉnh "Sân thượng" → **Xoá khu** (bấm 2 lần) → khu biến mất.
-7. **+ Thêm bàn** có ô Khu → thêm "Bàn test" vào Ngoài trời → hiện đúng nhóm. (Xoá bàn test sau khi xong.)
+7. **+ Thêm bàn** có ô Khu → thêm "Bàn test" vào Ngoài trời → bàn mới hiện NGAY trong đúng nhóm (không cần tải lại trang). (Xoá bàn test sau khi xong.)
 
 ## In QR
 8. **In QR cả quán** → tab mới: lưới 3 cột, 20 mã, mỗi mã có tên bàn to + chấm màu + tên khu + tên quán. Bấm **In** → bản xem trước A4 12 mã/trang, KHÔNG thấy thanh bên admin. Chọn "Lưu dưới dạng PDF" → ra file.
+8b. Bản xem trước in phải có **2 trang** (12 + 8 mã) — không được chỉ trang đầu. Địa chỉ tab in là `/print/table-qr?...` (không có thanh bên admin).
 9. **In QR khu này** ở Trong nhà → chỉ 7 mã.
 10. **In QR** ở một thẻ bàn → đúng 1 mã.
 11. Quét thử 1 mã in ra bằng Zalo → mở Mini App đúng bàn.

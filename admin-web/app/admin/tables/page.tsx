@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import TablesClient from './tables-client'
+import { tablesVersion } from '@/lib/table-groups'
 import { generateTableQR } from '@/lib/qr'
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 
@@ -50,6 +51,7 @@ export default async function TablesPage() {
         <p className="text-sm text-muted">Nhóm bàn theo khu, in mã QR dán bàn. Vị trí bàn trên sơ đồ chỉnh ở POS → Sắp xếp bàn.</p>
       </div>
       <TablesClient
+        key={tablesVersion(tablesWithQr)}
         tables={tablesWithQr}
         areas={(areaRows ?? []) as Array<{ id: string; name: string; color: string; sort_order: number }>}
         storeId={storeId}

@@ -44,3 +44,9 @@ export function pickPrintTables<T extends GroupTable>(
   if (groups.length === 0) return { ok: false, error: 'Không có bàn đang mở để in' }
   return { ok: true, title, groups }
 }
+
+/** Khoá đổi khi bàn được thêm / xoá / đổi khu / bật tắt — trang Bàn & QR dùng làm `key` để danh sách
+ *  (giữ trong state cho cập nhật lạc quan) dựng lại sau router.refresh(). Không phụ thuộc thứ tự. */
+export function tablesVersion(tables: GroupTable[]): string {
+  return tables.map((t) => `${t.id}:${t.area_id ?? '-'}:${t.is_active ? 1 : 0}`).sort().join('|')
+}

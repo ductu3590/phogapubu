@@ -8,16 +8,15 @@ import { cn } from '@/lib/utils'
 export type QrCard = { id: string; tableNumber: string; areaName: string | null; areaColor: string | null; qr: string }
 
 // Tờ in QR A4 dọc, lưới 3×4 = 12 mã/trang (PA-3). In bằng hộp in của trình duyệt — chọn
-// "Lưu dưới dạng PDF" để lấy file. Lớp phủ trắng che giao diện admin; khi in chỉ còn tờ QR.
+// "Lưu dưới dạng PDF" để lấy file. Trang nằm NGOÀI khung admin (/print/table-qr): khung admin có vùng
+// cuộn overflow nên Chrome không chia sang trang 2 — quán > 12 bàn chỉ in được trang đầu (vá review PA-3).
 export default function QrSheet({ storeName, title, cards }: { storeName: string; title: string; cards: QrCard[] }) {
   return (
-    <div className="qr-root fixed inset-0 z-[100] overflow-auto bg-white">
+    <div className="qr-root min-h-dvh bg-white">
       <style>{`
         @page { size: A4 portrait; margin: 10mm; }
         @media print {
-          body * { visibility: hidden !important; }
-          .qr-root, .qr-root * { visibility: visible !important; }
-          .qr-root { position: absolute; inset: 0; overflow: visible; }
+          html, body { background: #fff; overflow: visible !important; height: auto !important; }
           .no-print { display: none !important; }
           .qr-grid { gap: 0 !important; }
           .qr-card { break-inside: avoid; }

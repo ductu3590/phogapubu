@@ -5,6 +5,7 @@ import { pickPrintTables, type GroupArea, type GroupTable } from '@/lib/table-gr
 import QrSheet, { type QrCard } from './qr-sheet'
 
 // Trang in QR hàng loạt (PA-3): ?area=all | <id khu> | none, hoặc ?table=<id bàn>. Chỉ chủ quán.
+// Cố ý nằm ngoài /admin (không có thanh bên / vùng cuộn) để in được nhiều trang A4.
 // QR sinh ở server bằng thư viện qrcode sẵn có — cùng URL với nút "Tải QR PNG" (lib/qr.ts).
 export default async function PrintQrPage({ searchParams }: { searchParams: Promise<{ area?: string; table?: string }> }) {
   const operator = await requireAdminPageOrRedirect('owner')
