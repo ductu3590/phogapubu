@@ -11,6 +11,7 @@ import type { AreaPlacedTable, TableArea } from '@/lib/area-layout'
 import { clock, hourTicks, nextBookableSlot, percentOf, type TimelineBar, type TimelineWindow } from '@/lib/pos-timeline'
 import type { TrayAssignment } from '@/lib/tray-colors'
 import { cn } from '@/lib/utils'
+import { areaColorClasses } from '@/lib/area-colors'
 
 const HOUR_PX = 132
 const NAME_COL = 'w-28 md:w-48'
@@ -21,13 +22,6 @@ const NOW_AT = 0.2
 
 // Dải tiêu đề khu vực có màu như bản Stitch P01 (Sân vườn xanh lá, Tầng 1 xanh dương, VIP tím…).
 // Chỉ để phân khu bằng mắt — KHÔNG phải màu trạng thái; xoay vòng theo thứ tự khu.
-const AREA_TINTS = [
-  'bg-emerald-50 text-emerald-800 border-emerald-100',
-  'bg-sky-50 text-sky-800 border-sky-100',
-  'bg-purple-50 text-purple-800 border-purple-100',
-  'bg-amber-50 text-amber-800 border-amber-100',
-  'bg-teal-50 text-teal-800 border-teal-100',
-]
 
 // Thanh đặt bàn chờ duyệt: viền đứt + sọc chéo nhạt ("Dự kiến" trong bản Stitch).
 const HATCH = 'bg-[repeating-linear-gradient(135deg,rgb(255_247_237)_0,rgb(255_247_237)_8px,rgb(255_237_213)_8px,rgb(255_237_213)_16px)]'
@@ -43,7 +37,7 @@ const SHORT_STATE: Record<TableVisualState, string> = {
   free: 'Trống',
 }
 
-type Group = { id: string | null; name: string; tables: AreaPlacedTable[] }
+type Group = { id: string | null; name: string; color?: string; tables: AreaPlacedTable[] }
 
 export default function TimelineView({
   tables,
@@ -111,7 +105,7 @@ export default function TimelineView({
 
   const groups = useMemo<Group[]>(() => {
     const out: Group[] = areas
-      .map((a) => ({ id: a.id, name: a.name, tables: tables.filter((t) => t.area_id === a.id) }))
+      .map((a) => ({ id: a.id, name: a.name, color: a.color, tables: tables.filter((t) => t.area_id === a.id) }))
       .filter((g) => g.tables.length > 0)
     const loose = tables.filter((t) => !t.area_id || !areas.some((a) => a.id === t.area_id))
     if (loose.length > 0) out.unshift({ id: null, name: areas.length > 0 ? 'Chưa phân khu' : 'Tất cả bàn', tables: loose })
@@ -318,11 +312,13 @@ export default function TimelineView({
               </div>
             )}
 
-            {groups.map((g, index) => (
+            {groups.map((g) => (
               <section key={g.id ?? 'none'} aria-label={g.name}>
-                <div className={cn('border-y', AREA_TINTS[index % AREA_TINTS.length])}>
+                {/* Màu KHU (PA-3, pastel) — nhận diện khu, không phải trạng thái. Chưa phân khu: xám nhạt trung tính. */}
+                <div className={cn('border-y', g.id ? areaColorClasses(g.color).header : 'bg-slate-50 text-slate-700 border-slate-100')}>
                   {/* Dải rộng bằng cả thước; chỉ chữ dính trái để còn thấy tên khu khi cuộn ngang. */}
                   <span className="sticky left-0 z-10 inline-block px-3 py-1.5 text-[13px] font-bold tracking-wide uppercase">
+                    {g.id && <span className={cn('mr-1.5 inline-block size-2 rounded-full align-middle', areaColorClasses(g.color).dot)} aria-hidden />}
                     {g.name} <span className="font-semibold opacity-80">({g.tables.length} bàn)</span>
                   </span>
                 </div>
