@@ -5,6 +5,7 @@ import { buildSortUpdates } from '@/lib/menu/reorder'
 import { parseVnd } from '@/lib/money'
 import { revalidatePath } from 'next/cache'
 import { requirePosOperatorStoreId, requireStoreOwnerStoreId } from '@/lib/auth/operator'
+import { parseBadge, parseManualSku, parsePrefix } from '@/lib/menu/sku'
 
 // Bucket Storage chứa ảnh món (public read, chỉ service-role ghi)
 const MENU_BUCKET = 'menu-images'
@@ -212,6 +213,29 @@ const MAX_ITEM_PRICE = 100_000_000
 // Ô giá ở admin hiện số kiểu Việt Nam ("15.000") nên FormData gửi lên kèm dấu chấm.
 // parseInt('15.000', 10) trả về 15 — giá món âm thầm còn 15 đồng. Bắt buộc đi qua
 // parseVnd và ném lỗi rõ ràng thay vì để NaN/số sai chạm tới DB.
+// Lỗi UNIQUE (23505) của mã món / tiền tố → câu báo dễ hiểu kèm tên đang dùng mã đó (PA-4).
+async function friendlyUniqueError(admin: ReturnType<typeof createAdminClient>, storeId: string, kind: 'sku' | 'prefix', value: string): Promise<Error> {
+  if (kind === 'sku') {
+    const { data } = await admin.from('menu_items').select('name').eq('store_id', storeId).eq('sku', value).maybeSingle()
+    return new Error(`Mã món đã dùng cho «${(data?.name as string | undefined) ?? value}»`)
+  }
+  const { data } = await admin.from('menu_categories').select('name').eq('store_id', storeId).eq('sku_prefix', value).maybeSingle()
+  return new Error(`Tiền tố đã dùng cho danh mục «${(data?.name as string | undefined) ?? value}»`)
+}
+
+// Mã món (trống = DB tự sinh khi thêm / giữ mã cũ khi sửa) + nhãn món (PA-4).
+function readSkuAndBadge(formData: FormData): { sku: string | null; badge: string | null } {
+  const sku = parseManualSku((formData.get('sku') as string | null) ?? '')
+  if (!sku.ok) throw new Error(sku.error)
+  return { sku: sku.sku, badge: parseBadge(formData.get('badge')) }
+}
+
+function readPrefix(formData: FormData): string | null {
+  const prefix = parsePrefix((formData.get('sku_prefix') as string | null) ?? '')
+  if (!prefix.ok) throw new Error(prefix.error)
+  return prefix.prefix
+}
+
 function readPrice(formData: FormData): number {
   const price = parseVnd(String(formData.get('price') ?? ''))
   if (price === null || price > MAX_ITEM_PRICE) {
@@ -226,6 +250,7 @@ export async function addMenuItem(formData: FormData) {
   const admin = createAdminClient()
   const categoryId = formData.get('category_id') as string
   await assertCategoryInStore(categoryId, storeId)
+  const { sku, badge } = readSkuAndBadge(formData)
   const { data: maxRow } = await admin
     .from('menu_items')
     .select('sort_order')
@@ -245,7 +270,10 @@ export async function addMenuItem(formData: FormData) {
     image_url: imageUrl,
     is_available: true,
     sort_order: nextSort,
+    badge,
+    ...(sku ? { sku } : {}),
   }).select('id').single()
+  if (error?.code === '23505' && sku) throw await friendlyUniqueError(admin, storeId, 'sku', sku)
   if (error) throw new Error(`addMenuItem: ${error.message}`)
   revalidatePath('/admin/menu')
   return data.id as string
@@ -255,24 +283,32 @@ export async function addMenuItem(formData: FormData) {
 export async function updateMenuItem(itemId: string, formData: FormData) {
   const storeId = await getStoreId() // xác thực user
   const admin = createAdminClient()
+  const categoryId = formData.get('category_id') as string
+  // Danh mục đích phải thuộc quán mình (vá 2026-10-08: trước đây chuyển được món sang danh mục quán khác).
+  await assertCategoryInStore(categoryId, storeId)
+  const { sku, badge } = readSkuAndBadge(formData)
   const imageUrl = await uploadMenuImage(admin, storeId, formData.get('image') as File | null)
   const patch: Record<string, unknown> = {
     name: formData.get('name') as string,
     description: (formData.get('description') as string) || null,
     price: readPrice(formData),
-    category_id: formData.get('category_id') as string,
+    category_id: categoryId,
+    badge,
   }
+  if (sku) patch.sku = sku // để trống thì GIỮ mã cũ (đổi danh mục không đổi mã)
   if (imageUrl) patch.image_url = imageUrl // không gửi ảnh mới thì giữ ảnh cũ
-  const { error } = await admin.from('menu_items').update(patch).eq('id', itemId)
+  // Lọc store_id (vá 2026-10-08): service key bỏ qua RLS, trước đây biết id là sửa được món quán khác.
+  const { error } = await admin.from('menu_items').update(patch).eq('id', itemId).eq('store_id', storeId)
+  if (error?.code === '23505' && sku) throw await friendlyUniqueError(admin, storeId, 'sku', sku)
   if (error) throw new Error(`updateMenuItem: ${error.message}`)
   revalidatePath('/admin/menu')
 }
 
 // Xoá món
 export async function deleteMenuItem(itemId: string) {
-  await getStoreId() // xác thực user
+  const storeId = await getStoreId()
   const admin = createAdminClient()
-  const { error } = await admin.from('menu_items').delete().eq('id', itemId)
+  const { error } = await admin.from('menu_items').delete().eq('id', itemId).eq('store_id', storeId)
   if (error) throw new Error(`deleteMenuItem: ${error.message}`)
   revalidatePath('/admin/menu')
 }
@@ -281,6 +317,7 @@ export async function deleteMenuItem(itemId: string) {
 export async function addCategory(formData: FormData) {
   const storeId = await getStoreId()
   const admin = createAdminClient()
+  const prefix = readPrefix(formData) // trống → DB tự sinh từ tên (trigger mig 095)
   const { data: maxRow } = await admin
     .from('menu_categories')
     .select('sort_order')
@@ -294,36 +331,42 @@ export async function addCategory(formData: FormData) {
     name: formData.get('name') as string,
     sort_order: nextSort,
     is_active: true,
+    ...(prefix ? { sku_prefix: prefix } : {}),
   })
+  if (error?.code === '23505' && prefix) throw await friendlyUniqueError(admin, storeId, 'prefix', prefix)
   if (error) throw new Error(`addCategory: ${error.message}`)
   revalidatePath('/admin/menu')
 }
 
 // Sửa tên danh mục
 export async function updateCategory(categoryId: string, formData: FormData) {
-  await getStoreId() // xác thực user
+  const storeId = await getStoreId()
   const admin = createAdminClient()
+  const prefix = readPrefix(formData) // trống → giữ tiền tố cũ; đổi tiền tố KHÔNG đổi mã các món cũ
   const { error } = await admin
     .from('menu_categories')
-    .update({ name: formData.get('name') as string })
+    .update({ name: formData.get('name') as string, ...(prefix ? { sku_prefix: prefix } : {}) })
     .eq('id', categoryId)
+    .eq('store_id', storeId)
+  if (error?.code === '23505' && prefix) throw await friendlyUniqueError(admin, storeId, 'prefix', prefix)
   if (error) throw new Error(`updateCategory: ${error.message}`)
   revalidatePath('/admin/menu')
 }
 
 // Xoá danh mục — chặn nếu còn món để tránh mất dữ liệu ngoài ý muốn
 export async function deleteCategory(categoryId: string) {
-  await getStoreId() // xác thực user
+  const storeId = await getStoreId()
   const admin = createAdminClient()
   const { count, error: countErr } = await admin
     .from('menu_items')
     .select('id', { count: 'exact', head: true })
     .eq('category_id', categoryId)
+    .eq('store_id', storeId)
   if (countErr) throw new Error(`deleteCategory(count): ${countErr.message}`)
   if ((count ?? 0) > 0) {
     throw new Error('Danh mục còn món — hãy xoá hoặc chuyển hết món sang danh mục khác trước.')
   }
-  const { error } = await admin.from('menu_categories').delete().eq('id', categoryId)
+  const { error } = await admin.from('menu_categories').delete().eq('id', categoryId).eq('store_id', storeId)
   if (error) throw new Error(`deleteCategory: ${error.message}`)
   revalidatePath('/admin/menu')
 }
