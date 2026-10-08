@@ -466,13 +466,13 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
       {showAddCat && (
         <Modal title="Thêm danh mục" onClose={() => setShowAddCat(false)}>
           <form
-            action={async (fd) => {
+            onSubmit={submitKeepingForm(async (fd) => {
               setFormError(null)
               const res = await addCategory(fd)
               if (!res.ok) { setFormError(res.error); return }
               setShowAddCat(false)
               router.refresh()
-            }}
+            })}
             className="flex flex-col gap-3"
           >
             <div>
@@ -493,13 +493,13 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
       {editCat && (
         <Modal title="Sửa danh mục" onClose={() => setEditCat(null)}>
           <form
-            action={async (fd) => {
+            onSubmit={submitKeepingForm(async (fd) => {
               setFormError(null)
               const res = await updateCategory(editCat.id, fd)
               if (!res.ok) { setFormError(res.error); return }
               setEditCat(null)
               router.refresh()
-            }}
+            })}
             className="flex flex-col gap-3"
           >
             <div>
@@ -573,7 +573,7 @@ function ItemForm({
 }) {
   const hasVariants = (item?.menu_item_variants?.length ?? 0) > 0
   return (
-    <form action={onSubmit} className="flex flex-col gap-3">
+    <form onSubmit={submitKeepingForm(onSubmit)} className="flex flex-col gap-3">
       <div>
         <label className="label">Danh mục</label>
         <select name="category_id" required defaultValue={defaultCategoryId} className="input">
@@ -640,6 +640,15 @@ function ItemForm({
       </div>
     </form>
   )
+}
+
+// React 19 TỰ RESET <form action={…}> khi action xong, kể cả khi action TRẢ lỗi → chữ đã gõ mất hết
+// (vá review PA-4). Submit bằng onSubmit + preventDefault để form giữ nguyên khi báo "Mã món đã dùng…".
+function submitKeepingForm(handler: (fd: FormData) => Promise<void>) {
+  return (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    void handler(new FormData(e.currentTarget))
+  }
 }
 
 // Ô tiền tố mã món của danh mục (PA-4). Trống: tự sinh từ tên (khi thêm) / giữ nguyên (khi sửa).

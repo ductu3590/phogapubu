@@ -12,7 +12,7 @@ Migration đã áp prod: 095 (`sku_prefix`, `sku`, `badge`, trigger tự sinh m�
 
 ## Mã món + nhãn
 6. Sửa một món → ô **Mã món** có mã hiện tại, ô **Nhãn** = Không có. Chọn nhãn **Best seller** → Lưu → dòng món có nhãn cam "Best seller".
-7. Sửa món khác, gõ mã trùng với món đã có (VD DU-001) → báo ngay trong hộp "Mã món đã dùng cho «…»" (KHÔNG chuyển sang trang lỗi), không lưu.
+7. Sửa món khác, gõ mã trùng với món đã có (VD DU-001) → báo ngay trong hộp "Mã món đã dùng cho «…»" (KHÔNG chuyển sang trang lỗi), không lưu — và chữ đã gõ trong form (tên, giá, mô tả, mã) VẪN CÒN, không bị xoá trắng.
 8. Gõ mã sai ("bia tháp") → báo lỗi định dạng.
 9. **Thêm món** vào "Đồ uống", để trống mã → lưu xong món có mã DU-0xx kế tiếp.
 10. Sửa danh mục → có ô **Tiền tố mã món** (DU). Đổi thành "BIA" → thêm món mới vào danh mục → mã BIA-001; các món cũ giữ mã DU-…
@@ -24,5 +24,7 @@ Migration đã áp prod: 095 (`sku_prefix`, `sku`, `badge`, trigger tự sinh m�
 ## Mini App (sau khi merge vào worktree Bảo Lương + zmp deploy)
 13. Món gắn **Best seller** / **Món của quán** hiện nhãn nhỏ màu chủ đạo của quán trên thẻ món (cả dạng lưới lẫn danh sách) và trong bảng chọn tuỳ chọn món.
 14. Món không có nhãn không hiện gì; khách KHÔNG thấy mã món.
+
+Migration bổ sung: 096 (mã tay số quá lớn như DU-99999999999 không còn làm hỏng việc tự sinh mã).
 
 **→ Báo:** `PA-4 PASS` hoặc số bài FAIL kèm ảnh.
