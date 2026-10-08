@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto'
 import { requireOperator } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { toPreorderRow, type PreorderRpcRow } from '@/lib/reservation-rows'
+import { isPosRole } from '@/lib/auth/roles'
 
 export type PreorderPrintKind = 'original' | 'adjustment' | 'reprint'
 export type PreorderSnapshot = {
@@ -33,7 +34,7 @@ export type PreorderActionResult =
 async function ownerClient() {
   try {
     const operator = await requireOperator()
-    if (operator.role !== 'store_owner') return { operator: null, supabase: null, error: 'Chỉ chủ quán được xử lý món đặt trước' }
+    if (!isPosRole(operator.role)) return { operator: null, supabase: null, error: 'Chỉ chủ quán hoặc thu ngân được xử lý món đặt trước' }
     return { operator, supabase: await createClient(), error: null }
   } catch (error) {
     return { operator: null, supabase: null, error: error instanceof Error ? error.message : 'Không có quyền xử lý món đặt trước' }

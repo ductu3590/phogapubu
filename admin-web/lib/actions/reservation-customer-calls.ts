@@ -3,6 +3,7 @@
 import { requireOperator } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { toCustomerCallTask } from '@/lib/reservation-rows'
+import { isPosRole } from '@/lib/auth/roles'
 
 export type ReservationCustomerCallTask = {
   taskId: string
@@ -20,8 +21,8 @@ type Result<T> = { ok: true; value: T } | { ok: false; error: string }
 async function ownerClient(): Promise<Result<{ storeId: string; supabase: Awaited<ReturnType<typeof createClient>> }>> {
   try {
     const operator = await requireOperator()
-    if (operator.role !== 'store_owner') return { ok: false, error: 'Chỉ chủ quán được xử lý việc gọi nhắc khách' }
-    return { ok: true, value: { storeId: operator.storeId, supabase: await createClient() } }
+    if (!isPosRole(operator.role)) return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được xử lý việc gọi nhắc khách' }
+    return { ok: true, value: { storeId: operator.storeId as string, supabase: await createClient() } }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Không có quyền xử lý việc gọi nhắc khách' }
   }

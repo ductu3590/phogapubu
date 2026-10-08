@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => {
   const operator = {
     value: { userId: 'owner-1', role: 'store_owner', storeId: 'store-1' } as {
       userId: string
-      role: 'store_owner' | 'store_staff'
+      role: 'store_owner' | 'store_staff' | 'store_cashier'
       storeId: string
     },
   }
@@ -64,7 +64,7 @@ describe('quyền đóng phiên bàn', () => {
 
     await expect(closeTableSession('session-1', 'paid', 'cash')).resolves.toEqual({
       ok: false,
-      error: 'Chỉ chủ quán được thu tiền hoặc bỏ bàn',
+      error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn',
     })
     expect(mocks.rpc).not.toHaveBeenCalledWith('close_table_session', expect.anything())
   })
@@ -76,7 +76,7 @@ describe('quyền đóng phiên bàn', () => {
       closeTableSessionsBulk(['session-1', 'session-2'], 'staff_reset', null),
     ).resolves.toEqual({
       ok: false,
-      error: 'Chỉ chủ quán được thu tiền hoặc bỏ bàn',
+      error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn',
     })
     expect(mocks.rpc).not.toHaveBeenCalledWith('close_table_sessions_bulk', expect.anything())
   })
@@ -181,5 +181,24 @@ describe('timeout phiên từ server', () => {
     mocks.rpc.mockResolvedValueOnce({ data: [{ session_id: 'expired', unpaid_total: 20000, needs_review: true }], error: null })
     mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'workflow unavailable' } })
     expect(await listOpenTableSessions()).toEqual({ ok: true, sessions: [{ session_id: 'expired', unpaid_total: 20000, needs_review: true, idle_timeout_minutes: null }] })
+  })
+})
+
+describe('thu ngân ở quầy (PA-2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.operator.value = { userId: 'cashier-1', role: 'store_cashier', storeId: 'store-1' }
+    mocks.rpc.mockResolvedValue({ data: { ok: true, already: false, orders_settled: 1, orders_cancelled: 0, orders_left_in_kitchen: 0, total: 100000, sessions: 1 }, error: null })
+  })
+
+  it('thu tiền một bill và gộp bill qua RPC', async () => {
+    expect((await closeTableSession('session-1', 'paid', 'bank')).ok).toBe(true)
+    expect(mocks.rpc).toHaveBeenCalledWith('close_table_session', { p_session_id: 'session-1', p_reason: 'paid', p_instrument: 'bank' })
+    expect((await closeTableSessionsBulk(['session-1', 'session-2'], 'paid', 'cash')).ok).toBe(true)
+  })
+
+  it('xem và xử lý gọi nhân viên', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: [], error: null })
+    await expect(listOpenServiceRequests()).resolves.toMatchObject({ ok: true })
   })
 })

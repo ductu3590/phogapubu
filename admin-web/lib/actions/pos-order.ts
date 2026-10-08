@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
+import { requirePosOperatorStoreId } from '@/lib/auth/operator'
 
 export type ConfirmOrderResult =
   | { ok: true; already: boolean; status: string }
@@ -32,12 +32,12 @@ export type PosManualItem = {
  *
  * Dùng createClient() — phiên đăng nhập thật — vì RPC cần auth.uid() để ghi confirmed_by;
  * createAdminClient() là mất sạch dấu vết "ai cho đơn này vào bếp".
- * requireStoreOwnerStoreId() chỉ để chặn sớm cho đẹp UI; chốt chặn thật nằm trong RPC
- * (is_store_owner_of), client không lách được.
+ * requirePosOperatorStoreId() chỉ để chặn sớm cho đẹp UI; chốt chặn thật nằm trong RPC
+ * (is_store_pos_operator — chủ quán hoặc thu ngân), client không lách được.
  */
 export async function confirmOrder(orderId: string): Promise<ConfirmOrderResult> {
   try {
-    await requireStoreOwnerStoreId()
+    await requirePosOperatorStoreId()
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Không có quyền' }
   }
@@ -59,7 +59,7 @@ export async function rejectOrder(
     return { ok: false, error: 'Vui lòng nhập lý do khác' }
   }
   try {
-    await requireStoreOwnerStoreId()
+    await requirePosOperatorStoreId()
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Không có quyền' }
   }
@@ -80,7 +80,7 @@ export async function rejectOrder(
 // bridge của phiên đăng nhập thật, không được phép tự tính lại giá/tổng tiền ở Next.js.
 async function ownerClient() {
   try {
-    await requireStoreOwnerStoreId()
+    await requirePosOperatorStoreId()
   } catch (e) {
     return { supabase: null, error: e instanceof Error ? e.message : 'Không có quyền' }
   }

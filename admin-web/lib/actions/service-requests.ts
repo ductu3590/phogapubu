@@ -22,7 +22,7 @@ export async function listOpenServiceRequests(): Promise<
   | { ok: false; error: string }
 > {
   const operator = await requireOperator()
-  if (operator.role !== 'store_owner' && operator.role !== 'store_staff') {
+  if (operator.role !== 'store_owner' && operator.role !== 'store_staff' && operator.role !== 'store_cashier') {
     return { ok: false, error: 'Không có quyền' }
   }
 
@@ -39,7 +39,7 @@ export async function resolveServiceRequest(
   requestId: string,
 ): Promise<{ ok: true; already: boolean } | { ok: false; error: string }> {
   const operator = await requireOperator()
-  if (operator.role !== 'store_owner' && operator.role !== 'store_staff') {
+  if (operator.role !== 'store_owner' && operator.role !== 'store_staff' && operator.role !== 'store_cashier') {
     return { ok: false, error: 'Không có quyền' }
   }
 

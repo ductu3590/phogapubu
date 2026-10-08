@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireOperator } from '@/lib/auth/operator'
+import { isPosRole } from '@/lib/auth/roles'
 
 // Bọc 3 RPC phiên bàn (mig 039). Luôn dùng createClient() — phiên đăng nhập của nhân viên —
 // chứ KHÔNG createAdminClient(): RPC cần auth.uid() để ghi payment_received_by, đó là dấu vết
@@ -83,7 +84,7 @@ export type CloseSessionResult =
 
 async function staffClient() {
   const operator = await requireOperator()
-  if (operator.role !== 'store_staff' && operator.role !== 'store_owner') {
+  if (operator.role !== 'store_staff' && operator.role !== 'store_owner' && operator.role !== 'store_cashier') {
     return { operator: null, supabase: null, error: 'Không có quyền' as const }
   }
   return { operator, supabase: await createClient(), error: null }
@@ -120,8 +121,8 @@ export async function closeTableSession(
 ): Promise<CloseSessionResult> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
-  if (operator.role !== 'store_owner') {
-    return { ok: false, error: 'Chỉ chủ quán được thu tiền hoặc bỏ bàn' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' }
   }
 
   const { data, error: rpcErr } = await supabase.rpc('close_table_session', {
@@ -221,8 +222,8 @@ export async function closeTableSessionsBulk(
 ): Promise<CloseSessionResult> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
-  if (operator.role !== 'store_owner') {
-    return { ok: false, error: 'Chỉ chủ quán được thu tiền hoặc bỏ bàn' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' }
   }
   if (sessionIds.length === 0) return { ok: false, error: 'Chưa chọn mâm nào' }
 

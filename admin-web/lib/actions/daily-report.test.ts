@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  requireStoreOwnerStoreId: vi.fn(async () => 'store-1'),
+  requirePosOperatorStoreId: vi.fn(async () => 'store-1'),
   rpc: vi.fn(),
 }))
 
-vi.mock('@/lib/auth/operator', () => ({ requireStoreOwnerStoreId: mocks.requireStoreOwnerStoreId }))
+vi.mock('@/lib/auth/operator', () => ({ requirePosOperatorStoreId: mocks.requirePosOperatorStoreId }))
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn(async () => ({ rpc: mocks.rpc })) }))
 
 const { loadDailyReport } = await import('./daily-report')

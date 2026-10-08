@@ -1,10 +1,10 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { buildSortUpdates } from '@/lib/menu/reorder'
 import { parseVnd } from '@/lib/money'
 import { revalidatePath } from 'next/cache'
-import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
+import { requirePosOperatorStoreId, requireStoreOwnerStoreId } from '@/lib/auth/operator'
 
 // Bucket Storage chứa ảnh món (public read, chỉ service-role ghi)
 const MENU_BUCKET = 'menu-images'
@@ -413,4 +413,19 @@ export async function setVariantGroupName(menuItemId: string, groupName: string)
     .eq('store_id', storeId)
   if (error) throw new Error(`setVariantGroupName: ${error.message}`)
   revalidatePath('/admin/menu')
+}
+
+// Bật/tắt "Tạm hết" cho chủ quán VÀ thu ngân (PA-2). Đi qua RPC bằng phiên đăng nhập — KHÔNG dùng
+// service key: RPC chỉ đổi is_available, thu ngân không có đường nào sửa giá/tên món.
+export async function setMenuItemAvailable(itemId: string, isAvailable: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await requirePosOperatorStoreId()
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Không có quyền' }
+  }
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('set_menu_item_available', { p_item_id: itemId, p_available: isAvailable })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/admin/menu')
+  return { ok: true }
 }

@@ -25,11 +25,21 @@ describe('reservation customer call actions', () => {
 
   it('staff bị chặn trước khi gọi RPC; resolve chỉ nhận outcome hợp lệ theo type', async () => {
     mocks.operator.value = { role: 'store_staff', storeId: 'store-1' }
-    await expect(listReservationCustomerCalls()).resolves.toEqual({ ok: false, error: 'Chỉ chủ quán được xử lý việc gọi nhắc khách' })
+    await expect(listReservationCustomerCalls()).resolves.toEqual({ ok: false, error: 'Chỉ chủ quán hoặc thu ngân được xử lý việc gọi nhắc khách' })
     expect(mocks.rpc).not.toHaveBeenCalled()
     mocks.operator.value = { role: 'store_owner', storeId: 'store-1' }
     mocks.rpc.mockResolvedValueOnce({ data: { already: false }, error: null })
     await expect(resolveReservationCustomerCall('task-1', 'called')).resolves.toEqual({ ok: true, value: { already: false } })
     expect(mocks.rpc).toHaveBeenLastCalledWith('resolve_reservation_customer_call', { p_task_id: 'task-1', p_outcome: 'called' })
+  })
+})
+
+describe('thu ngân xử lý gọi nhắc khách (PA-2)', () => {
+  it('đọc được danh sách theo quán của mình', async () => {
+    vi.clearAllMocks()
+    mocks.operator.value = { role: 'store_cashier', storeId: 'store-1' }
+    mocks.rpc.mockResolvedValueOnce({ data: [], error: null })
+    await expect(listReservationCustomerCalls()).resolves.toEqual({ ok: true, value: [] })
+    expect(mocks.rpc).toHaveBeenCalledWith('list_reservation_customer_calls', { p_store_id: 'store-1' })
   })
 })

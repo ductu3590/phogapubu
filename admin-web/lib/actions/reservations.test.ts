@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => {
   const operator = {
     value: { userId: 'owner-1', role: 'store_owner', storeId: 'store-1' } as
-      | { userId: string; role: 'store_owner' | 'store_staff'; storeId: string }
+      | { userId: string; role: 'store_owner' | 'store_staff' | 'store_cashier'; storeId: string }
       | { userId: string; role: 'mevo_superadmin'; storeId: null },
   }
   const rpc = vi.fn()
@@ -122,7 +122,7 @@ describe('reservation actions', () => {
 
     await expect(invoke()).resolves.toEqual({
       ok: false,
-      error: 'Chỉ chủ quán được xử lý đặt bàn',
+      error: 'Chỉ chủ quán hoặc thu ngân được xử lý đặt bàn',
     })
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
@@ -250,5 +250,23 @@ describe('reservation actions', () => {
       p_reservation_id: 'reservation-1',
       p_reason: 'Quán đóng đột xuất',
     })
+  })
+})
+
+describe('thu ngân xử lý đặt bàn (PA-2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.operator.value = { userId: 'cashier-1', role: 'store_cashier', storeId: 'store-1' }
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'lỗi nghiệp vụ giả' } })
+  })
+
+  it('nhận khách: gọi RPC (không bị chặn ở Next)', async () => {
+    await arriveReservation('reservation-1')
+    expect(mocks.rpc).toHaveBeenCalledWith('arrive_reservation', { p_reservation_id: 'reservation-1' })
+  })
+
+  it('khách không đến: gọi RPC', async () => {
+    await markReservationNoShow('reservation-1', null)
+    expect(mocks.rpc).toHaveBeenCalledWith('mark_reservation_no_show', expect.objectContaining({ p_reservation_id: 'reservation-1' }))
   })
 })
