@@ -105,7 +105,7 @@ export default function StaffClient({ staff }: { staff: Staff[] }) {
       </div>
 
       {/* Danh sách nhân viên */}
-      <div className="max-w-lg">
+      <div className="max-w-2xl">
         <p className="mb-2 text-sm text-muted">{staff.length} người</p>
         {staff.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted">
