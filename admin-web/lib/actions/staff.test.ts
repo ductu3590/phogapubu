@@ -35,6 +35,10 @@ const mocks = vi.hoisted(() => {
         eqCalls.value.push([col, val])
         return builder
       })
+      builder.in = vi.fn((col: string, val: unknown) => {
+        eqCalls.value.push([`in:${col}`, val])
+        return builder
+      })
       builder.maybeSingle = vi.fn(() => Promise.resolve({ data: operatorsRow.value, error: null }))
       // update/delete chain là thenable để `await` ra { error }
       builder.then = (resolve: (v: { error: null }) => void) => resolve({ error: null })
@@ -57,7 +61,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
-const { createStoreStaff, setStaffActive } = await import('./staff')
+const { createStoreStaff, setStaffActive, setStaffRole } = await import('./staff')
 
 function emailForm(email: string) {
   const fd = new FormData()
@@ -102,6 +106,34 @@ describe('createStoreStaff', () => {
     expect(res.tempPassword).toBeTruthy()
   })
 
+  it('thêm thu ngân: ghi role store_cashier', async () => {
+    const fd = emailForm('thungan@quan.vn'); fd.set('role', 'store_cashier')
+    await createStoreStaff(fd)
+    expect(mocks.admin._upsertArgs.value).toMatchObject({ role: 'store_cashier', store_id: 'store-1', is_active: true })
+  })
+
+  it('role lạ trong form → về store_staff (không bao giờ thành store_owner)', async () => {
+    const fd = emailForm('x@quan.vn'); fd.set('role', 'store_owner')
+    await createStoreStaff(fd)
+    expect(mocks.admin._upsertArgs.value).toMatchObject({ role: 'store_staff' })
+  })
+
+  it('email đang là thu ngân CÙNG quán → thêm lại được, vai trò theo form', async () => {
+    mocks.admin.auth.admin.listUsers.mockResolvedValue({ data: { users: [{ id: 'u-c', email: 'thungan@quan.vn' }] }, error: null })
+    mocks.admin._operatorsRow.value = { user_id: 'u-c', store_id: 'store-1', role: 'store_cashier' }
+    const fd = emailForm('thungan@quan.vn'); fd.set('role', 'store_staff')
+    await expect(createStoreStaff(fd)).resolves.toMatchObject({ email: 'thungan@quan.vn', tempPassword: null })
+    expect(mocks.admin._upsertArgs.value).toMatchObject({ user_id: 'u-c', role: 'store_staff' })
+  })
+
+  it('email là chủ quán CÙNG quán → từ chối, không ghi gì', async () => {
+    mocks.admin.auth.admin.listUsers.mockResolvedValue({ data: { users: [{ id: 'u-o', email: 'chu@quan.vn' }] }, error: null })
+    mocks.admin._operatorsRow.value = { user_id: 'u-o', store_id: 'store-1', role: 'store_owner' }
+    const fd = emailForm('chu@quan.vn'); fd.set('role', 'store_cashier')
+    await expect(createStoreStaff(fd)).rejects.toThrow('đã gắn với một tài khoản khác')
+    expect(mocks.admin._upsertArgs.value).toBeNull()
+  })
+
   it('KHÔNG chiếm quyền tài khoản đang là operator của quán/role khác', async () => {
     // Email này đã là chủ quán khác → tuyệt đối không được upsert đè thành staff quán mình
     mocks.admin.auth.admin.listUsers.mockResolvedValue({
@@ -133,11 +165,39 @@ describe('setStaffActive', () => {
     const calls = mocks.admin._eqCalls.value
     expect(calls).toContainEqual(['user_id', 'staff-user'])
     expect(calls).toContainEqual(['store_id', 'store-1'])
-    expect(calls).toContainEqual(['role', 'store_staff'])
+    expect(calls).toContainEqual(['in:role', ['store_staff', 'store_cashier']])
   })
 
   it('bật lại nhân viên đã tắt (is_active=true)', async () => {
     await setStaffActive('staff-user', true)
     expect(mocks.admin._updateArgs.value).toEqual({ is_active: true })
+  })
+})
+
+describe('setStaffRole (PA-2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.admin._updateArgs.value = null
+    mocks.admin._eqCalls.value = []
+    mocks.requireStoreOwnerStoreId.mockResolvedValue('store-1')
+  })
+
+  it('chỉ đổi người staff/cashier của đúng quán', async () => {
+    await setStaffRole('u1', 'store_cashier')
+    expect(mocks.admin._updateArgs.value).toEqual({ role: 'store_cashier' })
+    expect(mocks.admin._eqCalls.value).toEqual(expect.arrayContaining([
+      ['user_id', 'u1'], ['store_id', 'store-1'], ['in:role', ['store_staff', 'store_cashier']],
+    ]))
+  })
+
+  it('giá trị lạ → store_staff', async () => {
+    await setStaffRole('u1', 'store_owner' as never)
+    expect(mocks.admin._updateArgs.value).toEqual({ role: 'store_staff' })
+  })
+
+  it('không phải chủ quán → từ chối', async () => {
+    mocks.requireStoreOwnerStoreId.mockRejectedValue(new Error('Chỉ chủ quán mới thao tác được ở đây'))
+    await expect(setStaffRole('u1', 'store_cashier')).rejects.toThrow('Chỉ chủ quán')
+    expect(mocks.admin._updateArgs.value).toBeNull()
   })
 })
