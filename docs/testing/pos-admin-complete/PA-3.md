@@ -25,4 +25,7 @@ Migration đã áp prod: 094 (`table_areas.color`, `pos_get_floor_layout` trả 
 14. Tab Sơ đồ bàn trên POS: nút chọn khu có chấm màu đúng khu.
 15. Đang bấm **Sắp xếp bàn** trên POS (chưa lưu), máy khác đổi khu một bàn ở tab Bàn & QR → bấm Lưu sơ đồ ở POS → báo sơ đồ đã bị máy khác thay đổi, tải lại (không ghi đè). Lưu sơ đồ xong màu khu vẫn giữ nguyên.
 
+## Bổ sung sau PASS (2026-10-08)
+16. POS → **Sơ đồ bàn**: thanh chọn khu chỉ còn **Trong nhà · Ngoài trời** — không còn tab "Chưa phân khu". (Tab đó chỉ tự hiện lại nếu có bàn chưa được gán khu, để bàn không bị mất khỏi sơ đồ.)
+
 **→ Báo:** `PA-3 PASS` hoặc số bài FAIL kèm ảnh.

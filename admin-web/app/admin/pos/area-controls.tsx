@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/field'
 import { cn } from '@/lib/utils'
 import { areaColorClasses } from '@/lib/area-colors'
+import { areaTabs } from '@/lib/area-layout'
 import type { FloorController } from './use-floor-layout'
 
 export default function AreaControls({ floor }: { floor: FloorController }) {
@@ -13,7 +14,7 @@ export default function AreaControls({ floor }: { floor: FloorController }) {
   return (
     <div className="space-y-3 border-b border-border bg-surface px-4 py-3 md:px-5">
       <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Khu vực">
-        {[{ id: null, name: 'Chưa phân khu', color: undefined as string | undefined }, ...floor.draft.areas].map(area => {
+        {areaTabs(floor.draft.areas, floor.draft.tables).map(area => {
           const isActive = floor.areaId === area.id
           return (
             <button

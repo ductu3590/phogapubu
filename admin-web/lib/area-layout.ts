@@ -32,3 +32,18 @@ export function transferToArea(tables: AreaPlacedTable[], id: string, areaId: st
   ]).find(t => t.id === id)!
   return tables.map(t => t.id === id ? { ...destination, area_id: areaId } : t)
 }
+
+/** Tab khu trên sơ đồ POS (2026-10-08, anh Tú: bỏ tab "Chưa phân khu"). Tab đó CHỈ hiện khi còn bàn
+ *  chưa có khu — ẩn hẳn thì những bàn ấy không còn chỗ nào hiện trên sơ đồ. */
+export function areaTabs(areas: TableArea[], tables: Array<{ area_id: string | null }>): Array<TableArea | { id: null; name: string; color?: undefined }> {
+  const hasLoose = tables.some(t => !t.area_id)
+  return [...(hasLoose ? [{ id: null, name: 'Chưa phân khu' } as const] : []), ...areas]
+}
+
+/** Khu đang chọn còn hợp lệ không; không thì về "Chưa phân khu" (nếu còn bàn chưa có khu) hoặc khu đầu tiên. */
+export function pickAreaId(current: string | null, snapshot: { areas: TableArea[]; tables: Array<{ area_id: string | null }> }): string | null {
+  const hasLoose = snapshot.tables.some(t => !t.area_id)
+  if (current === null) return hasLoose ? null : snapshot.areas[0]?.id ?? null
+  if (snapshot.areas.some(a => a.id === current)) return current
+  return hasLoose ? null : snapshot.areas[0]?.id ?? null
+}
