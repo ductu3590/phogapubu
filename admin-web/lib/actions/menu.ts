@@ -245,7 +245,7 @@ function readPrice(formData: FormData): number {
 }
 
 // Thêm món mới
-export async function addMenuItem(formData: FormData) {
+async function addMenuItemImpl(formData: FormData): Promise<string> {
   const storeId = await getStoreId()
   const admin = createAdminClient()
   const categoryId = formData.get('category_id') as string
@@ -280,7 +280,7 @@ export async function addMenuItem(formData: FormData) {
 }
 
 // Sửa món — chỉ đổi ảnh khi có file mới gửi lên
-export async function updateMenuItem(itemId: string, formData: FormData) {
+async function updateMenuItemImpl(itemId: string, formData: FormData): Promise<void> {
   const storeId = await getStoreId() // xác thực user
   const admin = createAdminClient()
   const categoryId = formData.get('category_id') as string
@@ -314,7 +314,7 @@ export async function deleteMenuItem(itemId: string) {
 }
 
 // Thêm danh mục
-export async function addCategory(formData: FormData) {
+async function addCategoryImpl(formData: FormData): Promise<void> {
   const storeId = await getStoreId()
   const admin = createAdminClient()
   const prefix = readPrefix(formData) // trống → DB tự sinh từ tên (trigger mig 095)
@@ -339,7 +339,7 @@ export async function addCategory(formData: FormData) {
 }
 
 // Sửa tên danh mục
-export async function updateCategory(categoryId: string, formData: FormData) {
+async function updateCategoryImpl(categoryId: string, formData: FormData): Promise<void> {
   const storeId = await getStoreId()
   const admin = createAdminClient()
   const prefix = readPrefix(formData) // trống → giữ tiền tố cũ; đổi tiền tố KHÔNG đổi mã các món cũ
@@ -471,4 +471,37 @@ export async function setMenuItemAvailable(itemId: string, isAvailable: boolean)
   if (error) return { ok: false, error: error.message }
   revalidatePath('/admin/menu')
   return { ok: true }
+}
+
+// ── Thêm/sửa món + danh mục: TRẢ kết quả thay vì ném (PA-4) ─────────────────────────────────────
+// Lỗi người dùng (mã món trùng, sai định dạng, giá sai, danh mục quán khác) phải tới được form:
+// Next ở production GIẤU nội dung lỗi ném từ server action → chủ quán chỉ thấy "Không tải được trang này".
+export type MenuSaveResult = { ok: true } | { ok: false; error: string }
+
+async function asResult<T>(fn: () => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; error: string }> {
+  try {
+    return { ok: true, value: await fn() }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Không lưu được' }
+  }
+}
+
+export async function addMenuItem(formData: FormData): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const r = await asResult(() => addMenuItemImpl(formData))
+  return r.ok ? { ok: true, id: r.value } : r
+}
+
+export async function updateMenuItem(itemId: string, formData: FormData): Promise<MenuSaveResult> {
+  const r = await asResult(() => updateMenuItemImpl(itemId, formData))
+  return r.ok ? { ok: true } : r
+}
+
+export async function addCategory(formData: FormData): Promise<MenuSaveResult> {
+  const r = await asResult(() => addCategoryImpl(formData))
+  return r.ok ? { ok: true } : r
+}
+
+export async function updateCategory(categoryId: string, formData: FormData): Promise<MenuSaveResult> {
+  const r = await asResult(() => updateCategoryImpl(categoryId, formData))
+  return r.ok ? { ok: true } : r
 }

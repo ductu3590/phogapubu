@@ -85,6 +85,8 @@ describe('setMenuItemAvailable (PA-2)', () => {
   })
 })
 
+// Lỗi người dùng (mã trùng, sai định dạng, danh mục quán khác) phải TRẢ VỀ, không ném: Next ở production
+// giấu nội dung lỗi ném từ server action → chủ quán chỉ thấy trang "Không tải được trang này".
 describe('mã món + nhãn + tiền tố (PA-4)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -94,7 +96,7 @@ describe('mã món + nhãn + tiền tố (PA-4)', () => {
   })
 
   it('thêm món: mã gõ tay in hoa + nhãn; mã trống để DB tự sinh', async () => {
-    await addMenuItem(form({ category_id: 'c1', name: 'Bia', price: '20000', sku: ' bia-01 ', badge: 'best_seller' }))
+    await expect(addMenuItem(form({ category_id: 'c1', name: 'Bia', price: '20000', sku: ' bia-01 ', badge: 'best_seller' }))).resolves.toEqual({ ok: true, id: 'new-1' })
     expect(lastWrite('menu_items').payload).toMatchObject({ sku: 'BIA-01', badge: 'best_seller', store_id: 'store-1' })
     await addMenuItem(form({ category_id: 'c1', name: 'Bia 2', price: '20000', sku: '', badge: '' }))
     expect(lastWrite('menu_items').payload).not.toHaveProperty('sku')
@@ -102,18 +104,18 @@ describe('mã món + nhãn + tiền tố (PA-4)', () => {
   })
 
   it('mã sai định dạng → lỗi, không ghi', async () => {
-    await expect(addMenuItem(form({ category_id: 'c1', name: 'X', price: '1000', sku: 'bia tháp' }))).rejects.toThrow('Mã món chỉ gồm')
+    await expect(addMenuItem(form({ category_id: 'c1', name: 'X', price: '1000', sku: 'bia tháp' }))).resolves.toEqual({ ok: false, error: expect.stringContaining('Mã món chỉ gồm') })
     expect(mocks.state.writes).toEqual([])
   })
 
   it('mã trùng → báo tên món đang dùng', async () => {
     mocks.state.uniqueError = true
     mocks.state.conflict = { name: 'Bia hơi' }
-    await expect(addMenuItem(form({ category_id: 'c1', name: 'X', price: '1000', sku: 'DU-001' }))).rejects.toThrow('Mã món đã dùng cho «Bia hơi»')
+    await expect(addMenuItem(form({ category_id: 'c1', name: 'X', price: '1000', sku: 'DU-001' }))).resolves.toEqual({ ok: false, error: 'Mã món đã dùng cho «Bia hơi»' })
   })
 
   it('sửa món: mã trống giữ mã cũ; lọc đúng quán', async () => {
-    await updateMenuItem('i1', form({ category_id: 'c1', name: 'Bia', price: '20000', sku: '', badge: 'signature' }))
+    await expect(updateMenuItem('i1', form({ category_id: 'c1', name: 'Bia', price: '20000', sku: '', badge: 'signature' }))).resolves.toEqual({ ok: true })
     const w = lastWrite('menu_items')
     expect(w.payload).not.toHaveProperty('sku')
     expect(w.payload).toMatchObject({ badge: 'signature' })
@@ -122,7 +124,7 @@ describe('mã món + nhãn + tiền tố (PA-4)', () => {
 
   it('sửa món sang danh mục của quán khác → từ chối', async () => {
     mocks.state.rows.menu_categories = { id: 'cx', store_id: 'store-2' }
-    await expect(updateMenuItem('i1', form({ category_id: 'cx', name: 'Bia', price: '20000' }))).rejects.toThrow('Danh mục không thuộc quán của bạn')
+    await expect(updateMenuItem('i1', form({ category_id: 'cx', name: 'Bia', price: '20000' }))).resolves.toEqual({ ok: false, error: 'Danh mục không thuộc quán của bạn' })
     mocks.state.rows.menu_categories = { id: 'c1', store_id: 'store-1' }
   })
 
@@ -139,12 +141,12 @@ describe('mã món + nhãn + tiền tố (PA-4)', () => {
   it('tiền tố trống khi sửa → giữ tiền tố cũ; tiền tố sai → lỗi', async () => {
     await updateCategory('c1', form({ name: 'Bia', sku_prefix: '' }))
     expect(lastWrite('menu_categories').payload).not.toHaveProperty('sku_prefix')
-    await expect(addCategory(form({ name: 'Lẩu', sku_prefix: 'LAU-1' }))).rejects.toThrow('Tiền tố chỉ gồm')
+    await expect(addCategory(form({ name: 'Lẩu', sku_prefix: 'LAU-1' }))).resolves.toEqual({ ok: false, error: expect.stringContaining('Tiền tố chỉ gồm') })
   })
 
   it('tiền tố trùng → báo danh mục đang dùng', async () => {
     mocks.state.uniqueError = true
     mocks.state.conflict = { name: 'Đồ uống' }
-    await expect(addCategory(form({ name: 'Bia', sku_prefix: 'DU' }))).rejects.toThrow('Tiền tố đã dùng cho danh mục «Đồ uống»')
+    await expect(addCategory(form({ name: 'Bia', sku_prefix: 'DU' }))).resolves.toEqual({ ok: false, error: 'Tiền tố đã dùng cho danh mục «Đồ uống»' })
   })
 })

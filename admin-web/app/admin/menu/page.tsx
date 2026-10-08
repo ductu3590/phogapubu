@@ -13,7 +13,7 @@ export default async function MenuPage() {
   if (operator.role === 'store_cashier') {
     const { data: cashierCategories } = await supabase
       .from('menu_categories')
-      .select('id, name, sort_order, menu_items(id, name, price, is_available, sort_order)')
+      .select('id, name, sort_order, menu_items(id, name, price, is_available, sort_order, sku)')
       .eq('store_id', storeId)
       .eq('is_active', true)
       .order('sort_order')
