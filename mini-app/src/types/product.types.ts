@@ -1,3 +1,5 @@
+import type { MenuBadgeKey } from "@/utils/menu-badge";
+
 // Topping (add-on) tuỳ chọn của món — chỉ chứa topping còn bán (is_available)
 export interface Topping {
   id: string;
@@ -26,4 +28,5 @@ export interface Product {
   variants: Variant[];             // CHỈ chứa biến thể còn bán; [] nếu món không có
   hasVariantGroup: boolean;        // món CÓ nhóm biến thể hay không, KHÔNG lọc còn-bán
   variantGroupName: string | null; // nhãn hiện cho khách; null → 'Chọn loại'
+  badge: MenuBadgeKey | null;      // nhãn món (PA-4): best_seller | signature; null = không nhãn
 }
