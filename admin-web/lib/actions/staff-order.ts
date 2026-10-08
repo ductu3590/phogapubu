@@ -30,7 +30,7 @@ export type CreateStaffOrderResult =
 // idempotent theo client_request_id → không tin gì từ client. Trả { ok } thay vì throw để UI xử lý mượt.
 export async function createStaffOrder(input: CreateStaffOrderInput): Promise<CreateStaffOrderResult> {
   const operator = await requireOperator()
-  if (operator.role !== 'store_staff' && operator.role !== 'store_owner') {
+  if (operator.role !== 'store_staff' && operator.role !== 'store_owner' && operator.role !== 'store_cashier') {
     return { ok: false, error: 'Không có quyền đặt món hộ' }
   }
   if (!input.tableId) return { ok: false, error: 'Chưa chọn bàn' }

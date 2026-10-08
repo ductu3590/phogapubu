@@ -2,6 +2,7 @@ import { requireStaffAreaOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { listOpenTableSessions } from '@/lib/actions/table-session'
 import TablesClient from './tables-client'
+import { isPosRole } from '@/lib/auth/roles'
 import { listOpenServiceRequests } from '@/lib/actions/service-requests'
 
 export default async function StaffTablesPage() {
@@ -34,7 +35,7 @@ export default async function StaffTablesPage() {
   return (
     <TablesClient
       storeId={operator.storeId}
-      canClose={operator.role === 'store_owner'}
+      canClose={isPosRole(operator.role)}
       initialRequests={requests.ok ? requests.requests : []}
       initialRequestError={requests.ok ? null : requests.error}
       paymentTiming={(store?.payment_timing as 'prepay' | 'postpay' | null) ?? 'prepay'}

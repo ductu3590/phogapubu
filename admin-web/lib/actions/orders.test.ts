@@ -5,11 +5,12 @@ const mocks = vi.hoisted(() => {
   const rpc = vi.fn()
   const orderRow = { value: null as null | Record<string, unknown> }
   const updateArgs = { value: null as unknown }
+  const eqCalls: Array<[string, unknown]> = []
   const from = vi.fn(() => {
     const b: Record<string, unknown> = {}
     b.select = vi.fn(() => b)
     b.update = vi.fn((arg: unknown) => { updateArgs.value = arg; return b })
-    b.eq = vi.fn(() => b)
+    b.eq = vi.fn((col: string, val: unknown) => { eqCalls.push([col, val]); return b })
     b.single = vi.fn(async () => ({ data: orderRow.value, error: null }))
     // update().eq() được await → thenable trả { error: null }
     b.then = (resolve: (v: { error: null }) => void) => resolve({ error: null })
@@ -17,7 +18,7 @@ const mocks = vi.hoisted(() => {
   })
   const supabase = { rpc, from }
   const revalidatePath = vi.fn()
-  return { requireStoreOwnerStoreId, rpc, from, supabase, orderRow, updateArgs, revalidatePath }
+  return { requireStoreOwnerStoreId, rpc, from, supabase, orderRow, updateArgs, eqCalls, revalidatePath }
 })
 
 vi.mock('@/lib/auth/operator', () => ({ requireStoreOwnerStoreId: mocks.requireStoreOwnerStoreId }))
@@ -27,7 +28,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
-const { confirmManualPayment, completeOrder } = await import('./orders')
+const { cancelOrder, confirmManualPayment, completeOrder } = await import('./orders')
 
 describe('confirmManualPayment', () => {
   beforeEach(() => {
@@ -98,5 +99,26 @@ describe('completeOrder', () => {
     mocks.orderRow.value = { payment_method: 'cash', payment_received_at: null, status: 'cancelled' }
     await expect(completeOrder('o1')).rejects.toThrow('đã huỷ')
     expect(mocks.updateArgs.value).toBeNull()
+  })
+})
+
+describe('cancelOrder (vá review PA-2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.eqCalls.length = 0
+    mocks.updateArgs.value = null
+    mocks.requireStoreOwnerStoreId.mockResolvedValue('store-1')
+  })
+
+  it('không phải chủ quán → từ chối, KHÔNG huỷ gì', async () => {
+    mocks.requireStoreOwnerStoreId.mockRejectedValue(new Error('Chỉ chủ quán mới thao tác được ở đây'))
+    await expect(cancelOrder('o1')).rejects.toThrow('Chỉ chủ quán')
+    expect(mocks.updateArgs.value).toBeNull()
+  })
+
+  it('chỉ huỷ đơn thuộc quán của chủ quán đang đăng nhập', async () => {
+    await cancelOrder('o1')
+    expect(mocks.updateArgs.value).toEqual({ status: 'cancelled' })
+    expect(mocks.eqCalls).toEqual(expect.arrayContaining([['id', 'o1'], ['store_id', 'store-1']]))
   })
 })

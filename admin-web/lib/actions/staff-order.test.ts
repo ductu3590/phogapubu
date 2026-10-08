@@ -67,3 +67,12 @@ describe('createStaffOrder', () => {
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 })
+
+describe('thu ngân đặt hộ (vá review PA-2)', () => {
+  it('gọi RPC staff_create_order (DB đã cho thu ngân từ mig 093)', async () => {
+    vi.clearAllMocks()
+    mocks.requireOperator.mockResolvedValue({ userId: 'c1', role: 'store_cashier', storeId: 'store-1' })
+    mocks.rpc.mockResolvedValue({ data: { order_id: 'o1', total: 100000 }, error: null })
+    await expect(createStaffOrder(baseInput)).resolves.toMatchObject({ ok: true, orderId: 'o1' })
+  })
+})

@@ -52,13 +52,16 @@ export async function completeOrder(orderId: string) {
   revalidatePath('/admin/dashboard')
 }
 
-// Huỷ đơn
+// Huỷ đơn — chỉ chủ quán, chỉ đơn của quán mình. Trước 2026-10-08 action này KHÔNG kiểm quyền: ai đăng
+// nhập và có mã action (nằm trong trang Đơn của mọi chủ quán) cũng huỷ được đơn quán bất kỳ bằng service key.
 export async function cancelOrder(orderId: string) {
+  const storeId = await requireStoreOwnerStoreId()
   const admin = createAdminClient()
   const { error } = await admin
     .from('orders')
     .update({ status: 'cancelled' })
     .eq('id', orderId)
+    .eq('store_id', storeId)
   if (error) throw new Error(`cancelOrder: ${error.message}`)
   revalidatePath('/admin/orders')
   revalidatePath('/admin/dashboard')
