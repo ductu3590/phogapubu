@@ -21,6 +21,13 @@ Chuẩn bị: đăng nhập chủ quán → **Thêm → Nhân viên** → thêm 
 12. Gõ thẳng các địa chỉ: `/admin/settings`, `/admin/tables`, `/admin/staff`, `/admin/vouchers`, `/admin/spin`, `/admin/orders` → đều về **POS**.
 13. Bấm **Xem / In lại** ở Báo cáo hoặc **In tạm tính** ở bill → mở được hoá đơn 80mm.
 
+13a. Thu ngân **Thêm → Tài khoản** → đổi họ tên và đổi mật khẩu → lưu được (đăng xuất, đăng nhập lại bằng mật khẩu mới).
+13b. Thu ngân mở `/staff/order` trên điện thoại → đặt hộ một món cho một bàn → được; mở `/staff/tables` → thấy nút thu tiền / chốt bill.
+
+## Vá thêm sau review (có từ trước PA-2)
+13c. Chủ quán Pubu (hoặc quán khác) KHÔNG lấy/thu hồi được link màn bếp của Bảo Lương — phần này em đã test tự động; anh chỉ cần kiểm chủ quán Bảo Lương vẫn mở **Thêm → Bếp**/link bếp như cũ (nếu quán bật màn bếp).
+13d. Trang **Đơn** (chủ quán): nút **Huỷ** đơn vẫn chạy bình thường.
+
 ## Thu hồi quyền
 14. Chủ quán đổi người đó về **Nhân viên phục vụ** → bên thu ngân bấm F5: bị chuyển sang màn đặt hộ `/staff/order`; mọi thao tác POS đang mở báo lỗi quyền.
 15. Chủ quán **Vô hiệu hoá** người đó → F5 → về trang đăng nhập.
