@@ -59,9 +59,13 @@ export async function updateStoreSettings(formData: FormData) {
   const termsOfUse = (formData.get('terms_of_use') as string | null)?.trim()
   patch.terms_of_use = termsOfUse || null
 
-  // wifi_name, wifi_password — optional; tên rỗng thì coi như tắt hiển thị wifi
+  // wifi_name, wifi_password — công tắc wifi tắt thì form không gửi 2 ô này → ghi null (không hiện).
+  // Bật thì phải đủ cả hai (client đã kiểm, đây là chốt chặn).
   const wifiName = (formData.get('wifi_name') as string | null)?.trim()
   const wifiPassword = (formData.get('wifi_password') as string | null)?.trim()
+  if (Boolean(wifiName) !== Boolean(wifiPassword)) {
+    throw new Error('Đã bật wifi thì phải nhập đủ tên và mật khẩu wifi')
+  }
   patch.wifi_name = wifiName || null
   patch.wifi_password = wifiPassword || null
 

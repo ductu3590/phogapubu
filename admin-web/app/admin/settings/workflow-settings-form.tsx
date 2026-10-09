@@ -10,6 +10,7 @@ import {
   type StoreWorkflowSettings,
   type WorkflowSettingChange,
 } from '@/lib/workflow-settings'
+import { Switch } from '@/components/ui/switch'
 
 type Props = {
   initial: StoreWorkflowSettings
@@ -152,274 +153,277 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
 
       <ChangePreview changes={changes} />
 
-      <WorkflowSection
-        title="Kênh nhận đơn"
-        description="Chọn lúc quán nhận đơn và những cách khách có thể sử dụng MEVO."
-      >
-        <Toggle
-          name="isAcceptingOrders"
-          label="Đang nhận đơn"
-          description="Tắt để tạm ngừng nhận đơn mới; đặt bàn tương lai vẫn theo công tắc riêng."
-          checked={draft.isAcceptingOrders}
-          onChange={(checked) => update('isAcceptingOrders', checked)}
-        />
-        <div className="rounded-xl border border-border p-3">
-          <p className="text-sm font-semibold">Giờ phục vụ</p>
-          <p className="mb-3 text-xs text-muted">
-            Không có ca = mở cả ngày. Có thể thêm nhiều ca nếu quán nghỉ giữa ngày.
-          </p>
-          <div className="space-y-2">
-            {draft.servingHours.length === 0 && (
-              <p className="text-xs text-muted">Chưa có ca — quán mở cả ngày.</p>
-            )}
-            {draft.servingHours.map((shift, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <input
-                  aria-label={`Giờ mở ca ${index + 1}`}
-                  type="time"
-                  required
-                  value={shift.open}
-                  onChange={(event) => updateShift(index, 'open', event.target.value)}
-                  className="input min-w-0 flex-1"
-                />
-                <span className="text-muted">–</span>
-                <input
-                  aria-label={`Giờ đóng ca ${index + 1}`}
-                  type="time"
-                  required
-                  value={shift.close}
-                  onChange={(event) => updateShift(index, 'close', event.target.value)}
-                  className="input min-w-0 flex-1"
-                />
-                <button
-                  type="button"
-                  aria-label={`Xóa ca ${index + 1}`}
-                  onClick={() =>
-                    update(
-                      'servingHours',
-                      draft.servingHours.filter((_, currentIndex) => currentIndex !== index),
-                    )
-                  }
-                  className="rounded-lg px-2 py-1 text-sm text-danger hover:bg-danger-bg"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() =>
-              update('servingHours', [
-                ...draft.servingHours,
-                { open: '08:00', close: '22:00' },
-              ])
-            }
-            className="mt-3 rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light"
-          >
-            + Thêm ca phục vụ
-          </button>
-        </div>
-        <Toggle
-          name="tableOrderingEnabled"
-          label="Gọi món tại bàn"
-          description="Khách quét QR bàn để gọi món."
-          checked={draft.tableOrderingEnabled}
-          onChange={(checked) => update('tableOrderingEnabled', checked)}
-        />
-        <Toggle
-          name="takeawayEnabled"
-          label="Mang về"
-          description="Khách tự đến quán nhận món."
-          checked={draft.takeawayEnabled}
-          onChange={(checked) => update('takeawayEnabled', checked)}
-        />
-        <Toggle
-          name="shippingEnabled"
-          label="Ship"
-          description="Quán nhận yêu cầu giao món."
-          checked={draft.shippingEnabled}
-          onChange={(checked) => update('shippingEnabled', checked)}
-        />
-        <Toggle
-          name="reservationsEnabled"
-          label="Đặt bàn trước"
-          description="Khách gửi yêu cầu đặt bàn cho ngày và giờ tương lai."
-          checked={draft.reservationsEnabled}
-          onChange={(checked) => update('reservationsEnabled', checked)}
-        />
-        <Toggle
-          name="reservationPreorderEnabled"
-          label="Đặt món trước theo booking"
-          description={
-            reservationsDisabled
-              ? 'Bật Đặt bàn trước để sử dụng chức năng này.'
-              : 'Khách chọn món trước sau khi đặt bàn được xác nhận.'
-          }
-          checked={draft.reservationsEnabled && draft.reservationPreorderEnabled}
-          disabled={reservationsDisabled}
-          onChange={(checked) => update('reservationPreorderEnabled', checked)}
-        />
-      </WorkflowSection>
-
-      <WorkflowSection
-        title="Duyệt đơn và bếp"
-        description="Quyết định thời điểm thu tiền và khi nào từng nguồn đơn được chuyển cho bếp."
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <SelectInput
-            label="Thời điểm thanh toán"
-            value={draft.paymentTiming}
-            onChange={(value) =>
-              update('paymentTiming', value as StoreWorkflowSettings['paymentTiming'])
-            }
-            options={[
-              ['prepay', 'Trả trước'],
-              ['postpay', 'Trả sau'],
-            ]}
+      {/* PC: các nhóm cấu hình xếp 2 cột cho đỡ cuộn; mobile 1 cột */}
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <WorkflowSection
+          title="Kênh nhận đơn"
+          description="Chọn lúc quán nhận đơn và những cách khách có thể sử dụng MEVO."
+        >
+          <Toggle
+            name="isAcceptingOrders"
+            label="Đang nhận đơn"
+            description="Tắt để tạm ngừng nhận đơn mới; đặt bàn tương lai vẫn theo công tắc riêng."
+            checked={draft.isAcceptingOrders}
+            onChange={(checked) => update('isAcceptingOrders', checked)}
           />
-          <div>
-            <p className="mb-1 text-sm font-medium text-foreground/80">Phương thức thanh toán</p>
+          <div className="rounded-xl border border-border p-3">
+            <p className="text-sm font-semibold">Giờ phục vụ</p>
+            <p className="mb-3 text-xs text-muted">
+              Không có ca = mở cả ngày. Có thể thêm nhiều ca nếu quán nghỉ giữa ngày.
+            </p>
             <div className="space-y-2">
-              <Toggle
-                name="paymentMethodZalo"
-                label="ZaloPay"
-                checked={draft.paymentMethods.includes('zalo_checkout')}
-                disabled={
-                  draft.paymentMethods.length === 1 &&
-                  draft.paymentMethods.includes('zalo_checkout')
-                }
-                onChange={() => togglePaymentMethod('zalo_checkout')}
-              />
-              <Toggle
-                name="paymentMethodCash"
-                label="Tiền mặt"
-                checked={draft.paymentMethods.includes('cash')}
-                disabled={
-                  draft.paymentMethods.length === 1 && draft.paymentMethods.includes('cash')
-                }
-                onChange={() => togglePaymentMethod('cash')}
-              />
+              {draft.servingHours.length === 0 && (
+                <p className="text-xs text-muted">Chưa có ca — quán mở cả ngày.</p>
+              )}
+              {draft.servingHours.map((shift, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    aria-label={`Giờ mở ca ${index + 1}`}
+                    type="time"
+                    required
+                    value={shift.open}
+                    onChange={(event) => updateShift(index, 'open', event.target.value)}
+                    className="input min-w-0 flex-1"
+                  />
+                  <span className="text-muted">–</span>
+                  <input
+                    aria-label={`Giờ đóng ca ${index + 1}`}
+                    type="time"
+                    required
+                    value={shift.close}
+                    onChange={(event) => updateShift(index, 'close', event.target.value)}
+                    className="input min-w-0 flex-1"
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Xóa ca ${index + 1}`}
+                    onClick={() =>
+                      update(
+                        'servingHours',
+                        draft.servingHours.filter((_, currentIndex) => currentIndex !== index),
+                      )
+                    }
+                    className="rounded-lg px-2 py-1 text-sm text-danger hover:bg-danger-bg"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                update('servingHours', [
+                  ...draft.servingHours,
+                  { open: '08:00', close: '22:00' },
+                ])
+              }
+              className="mt-3 rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light"
+            >
+              + Thêm ca phục vụ
+            </button>
+          </div>
+          <Toggle
+            name="tableOrderingEnabled"
+            label="Gọi món tại bàn"
+            description="Khách quét QR bàn để gọi món."
+            checked={draft.tableOrderingEnabled}
+            onChange={(checked) => update('tableOrderingEnabled', checked)}
+          />
+          <Toggle
+            name="takeawayEnabled"
+            label="Mang về"
+            description="Khách tự đến quán nhận món."
+            checked={draft.takeawayEnabled}
+            onChange={(checked) => update('takeawayEnabled', checked)}
+          />
+          <Toggle
+            name="shippingEnabled"
+            label="Ship"
+            description="Quán nhận yêu cầu giao món."
+            checked={draft.shippingEnabled}
+            onChange={(checked) => update('shippingEnabled', checked)}
+          />
+          <Toggle
+            name="reservationsEnabled"
+            label="Đặt bàn trước"
+            description="Khách gửi yêu cầu đặt bàn cho ngày và giờ tương lai."
+            checked={draft.reservationsEnabled}
+            onChange={(checked) => update('reservationsEnabled', checked)}
+          />
+          <Toggle
+            name="reservationPreorderEnabled"
+            label="Đặt món trước theo booking"
+            description={
+              reservationsDisabled
+                ? 'Bật Đặt bàn trước để sử dụng chức năng này.'
+                : 'Khách chọn món trước sau khi đặt bàn được xác nhận.'
+            }
+            checked={draft.reservationsEnabled && draft.reservationPreorderEnabled}
+            disabled={reservationsDisabled}
+            onChange={(checked) => update('reservationPreorderEnabled', checked)}
+          />
+        </WorkflowSection>
+
+        <WorkflowSection
+          title="Duyệt đơn và bếp"
+          description="Quyết định thời điểm thu tiền và khi nào từng nguồn đơn được chuyển cho bếp."
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SelectInput
+              label="Thời điểm thanh toán"
+              value={draft.paymentTiming}
+              onChange={(value) =>
+                update('paymentTiming', value as StoreWorkflowSettings['paymentTiming'])
+              }
+              options={[
+                ['prepay', 'Trả trước'],
+                ['postpay', 'Trả sau'],
+              ]}
+            />
+            <div>
+              <p className="mb-1 text-sm font-medium text-foreground/80">Phương thức thanh toán</p>
+              <div className="space-y-2">
+                <Toggle
+                  name="paymentMethodZalo"
+                  label="ZaloPay"
+                  checked={draft.paymentMethods.includes('zalo_checkout')}
+                  disabled={
+                    draft.paymentMethods.length === 1 &&
+                    draft.paymentMethods.includes('zalo_checkout')
+                  }
+                  onChange={() => togglePaymentMethod('zalo_checkout')}
+                />
+                <Toggle
+                  name="paymentMethodCash"
+                  label="Tiền mặt"
+                  checked={draft.paymentMethods.includes('cash')}
+                  disabled={
+                    draft.paymentMethods.length === 1 && draft.paymentMethods.includes('cash')
+                  }
+                  onChange={() => togglePaymentMethod('cash')}
+                />
+              </div>
             </div>
           </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <PolicySelect
-            label="Đơn khách xuống bếp"
-            value={draft.kitchenReleasePolicy}
-            onChange={(value) => update('kitchenReleasePolicy', value)}
-          />
-          <PolicySelect
-            label="Đơn nhân viên xuống bếp"
-            value={draft.staffOrderReleasePolicy}
-            onChange={(value) => update('staffOrderReleasePolicy', value)}
-          />
-        </div>
-      </WorkflowSection>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <PolicySelect
+              label="Đơn khách xuống bếp"
+              value={draft.kitchenReleasePolicy}
+              onChange={(value) => update('kitchenReleasePolicy', value)}
+            />
+            <PolicySelect
+              label="Đơn nhân viên xuống bếp"
+              value={draft.staffOrderReleasePolicy}
+              onChange={(value) => update('staffOrderReleasePolicy', value)}
+            />
+          </div>
+        </WorkflowSection>
 
-      <WorkflowSection
-        title="Đặt bàn"
-        description={
-          reservationsDisabled
-            ? 'Đang khóa vì Đặt bàn trước đã tắt. Giá trị cũ vẫn được giữ để dùng lại.'
-            : 'Các giới hạn khách thấy khi chọn ngày, giờ và số người.'
-        }
-        disabled={reservationsDisabled}
-      >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <WorkflowSection
+          title="Đặt bàn"
+          description={
+            reservationsDisabled
+              ? 'Đang khóa vì Đặt bàn trước đã tắt. Giá trị cũ vẫn được giữ để dùng lại.'
+              : 'Các giới hạn khách thấy khi chọn ngày, giờ và số người.'
+          }
+          disabled={reservationsDisabled}
+        >
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <NumberInput
+              name="minimumAdvanceMinutes"
+              label="Đặt trước tối thiểu (phút)"
+              value={draft.minimumAdvanceMinutes}
+              min={0}
+              max={1440}
+              disabled={reservationsDisabled}
+              onChange={(value) => update('minimumAdvanceMinutes', value)}
+            />
+            <NumberInput
+              name="bookingHorizonDays"
+              label="Số ngày được chọn"
+              value={draft.bookingHorizonDays}
+              min={1}
+              max={90}
+              disabled={reservationsDisabled}
+              onChange={(value) => update('bookingHorizonDays', value)}
+            />
+            <SelectInput
+              label="Bước chọn giờ"
+              value={String(draft.slotIntervalMinutes)}
+              disabled={reservationsDisabled}
+              onChange={(value) => update('slotIntervalMinutes', Number(value))}
+              options={[
+                ['5', '5 phút'],
+                ['10', '10 phút'],
+                ['15', '15 phút'],
+                ['30', '30 phút'],
+                ['60', '60 phút'],
+              ]}
+            />
+            <NumberInput
+              name="defaultTableCapacity"
+              label="Sức chứa gợi ý (người/bàn)"
+              value={draft.defaultTableCapacity}
+              min={1}
+              max={100}
+              disabled={reservationsDisabled}
+              onChange={(value) => update('defaultTableCapacity', value)}
+            />
+            <NumberInput
+              name="planningHoldMinutes"
+              label="Khoảng giữ bàn kiểm tra trùng (phút)"
+              value={draft.planningHoldMinutes}
+              min={15}
+              max={720}
+              disabled={reservationsDisabled}
+              onChange={(value) => update('planningHoldMinutes', value)}
+            />
+          </div>
+        </WorkflowSection>
+
+        <WorkflowSection
+          title="Phiên bàn/mâm"
+          description="Thiết lập quyền gọi thêm và thời gian dọn phiên bị quên."
+        >
+          <Toggle
+            name="openOrderingOnArrival"
+            label="Cho mọi khách trong phiên gọi thêm"
+            description="Sau khi nhận khách, mọi QR thuộc bàn/mâm có thể tạo lượt gọi món mới."
+            checked={draft.openOrderingOnArrival}
+            onChange={(checked) => update('openOrderingOnArrival', checked)}
+          />
           <NumberInput
-            name="minimumAdvanceMinutes"
-            label="Đặt trước tối thiểu (phút)"
-            value={draft.minimumAdvanceMinutes}
+            name="tableSessionIdleTimeoutMinutes"
+            label="Hết hạn sau khi không hoạt động (phút)"
+            description="Tối thiểu 60 phút; đây là lưới an toàn, không phải giới hạn thời gian ăn."
+            value={draft.tableSessionIdleTimeoutMinutes}
+            min={60}
+            max={1440}
+            onChange={(value) => update('tableSessionIdleTimeoutMinutes', value)}
+          />
+        </WorkflowSection>
+
+        <WorkflowSection
+          title="Món đặt trước"
+          description={
+            preorderDisabled
+              ? 'Bật Đặt bàn trước và Đặt món trước theo booking để chỉnh mục này.'
+              : 'Khóa khách sửa hoặc hủy món khi gần tới giờ đến.'
+          }
+          disabled={preorderDisabled}
+        >
+          <NumberInput
+            name="reservationPreorderEditCutoffMinutes"
+            label="Khóa trước giờ đến (phút)"
+            value={draft.reservationPreorderEditCutoffMinutes}
             min={0}
             max={1440}
-            disabled={reservationsDisabled}
-            onChange={(value) => update('minimumAdvanceMinutes', value)}
+            disabled={preorderDisabled}
+            onChange={(value) => update('reservationPreorderEditCutoffMinutes', value)}
           />
-          <NumberInput
-            name="bookingHorizonDays"
-            label="Số ngày được chọn"
-            value={draft.bookingHorizonDays}
-            min={1}
-            max={90}
-            disabled={reservationsDisabled}
-            onChange={(value) => update('bookingHorizonDays', value)}
-          />
-          <SelectInput
-            label="Bước chọn giờ"
-            value={String(draft.slotIntervalMinutes)}
-            disabled={reservationsDisabled}
-            onChange={(value) => update('slotIntervalMinutes', Number(value))}
-            options={[
-              ['5', '5 phút'],
-              ['10', '10 phút'],
-              ['15', '15 phút'],
-              ['30', '30 phút'],
-              ['60', '60 phút'],
-            ]}
-          />
-          <NumberInput
-            name="defaultTableCapacity"
-            label="Sức chứa gợi ý (người/bàn)"
-            value={draft.defaultTableCapacity}
-            min={1}
-            max={100}
-            disabled={reservationsDisabled}
-            onChange={(value) => update('defaultTableCapacity', value)}
-          />
-          <NumberInput
-            name="planningHoldMinutes"
-            label="Khoảng giữ bàn kiểm tra trùng (phút)"
-            value={draft.planningHoldMinutes}
-            min={15}
-            max={720}
-            disabled={reservationsDisabled}
-            onChange={(value) => update('planningHoldMinutes', value)}
-          />
-        </div>
-      </WorkflowSection>
-
-      <WorkflowSection
-        title="Phiên bàn/mâm"
-        description="Thiết lập quyền gọi thêm và thời gian dọn phiên bị quên."
-      >
-        <Toggle
-          name="openOrderingOnArrival"
-          label="Cho mọi khách trong phiên gọi thêm"
-          description="Sau khi nhận khách, mọi QR thuộc bàn/mâm có thể tạo lượt gọi món mới."
-          checked={draft.openOrderingOnArrival}
-          onChange={(checked) => update('openOrderingOnArrival', checked)}
-        />
-        <NumberInput
-          name="tableSessionIdleTimeoutMinutes"
-          label="Hết hạn sau khi không hoạt động (phút)"
-          description="Tối thiểu 60 phút; đây là lưới an toàn, không phải giới hạn thời gian ăn."
-          value={draft.tableSessionIdleTimeoutMinutes}
-          min={60}
-          max={1440}
-          onChange={(value) => update('tableSessionIdleTimeoutMinutes', value)}
-        />
-      </WorkflowSection>
-
-      <WorkflowSection
-        title="Món đặt trước"
-        description={
-          preorderDisabled
-            ? 'Bật Đặt bàn trước và Đặt món trước theo booking để chỉnh mục này.'
-            : 'Khóa khách sửa hoặc hủy món khi gần tới giờ đến.'
-        }
-        disabled={preorderDisabled}
-      >
-        <NumberInput
-          name="reservationPreorderEditCutoffMinutes"
-          label="Khóa trước giờ đến (phút)"
-          value={draft.reservationPreorderEditCutoffMinutes}
-          min={0}
-          max={1440}
-          disabled={preorderDisabled}
-          onChange={(value) => update('reservationPreorderEditCutoffMinutes', value)}
-        />
-      </WorkflowSection>
+        </WorkflowSection>
+      </div>
 
       {error && (
         <p role="alert" className="rounded-lg bg-critical-bg p-3 text-sm text-danger">
@@ -562,13 +566,11 @@ function Toggle({
         <span className="block text-sm font-medium text-foreground">{label}</span>
         {description && <span className="mt-0.5 block text-xs text-muted">{description}</span>}
       </span>
-      <input
+      <Switch
         name={name}
-        type="checkbox"
         checked={checked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-5 w-5 flex-shrink-0 accent-orange-500"
       />
     </label>
   )
