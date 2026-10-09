@@ -114,6 +114,36 @@ export async function voidOrderItem(
   }
 }
 
+/** Mig 098: thu ngân sửa số lượng (tăng/giảm, ≥1), lý do BẮT BUỘC — server ghi lịch sử + tính lại tổng. */
+export async function setOrderItemQuantity(
+  orderItemId: string,
+  quantity: number,
+  reason: string,
+): Promise<PosBillResult> {
+  const { supabase, error } = await ownerClient()
+  if (!supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (!Number.isInteger(quantity) || quantity < 1) return { ok: false, error: 'Số lượng phải từ 1 trở lên' }
+  if (!reason.trim()) return { ok: false, error: 'Cần ghi lý do sửa số lượng' }
+
+  const { data, error: rpcError } = await supabase.rpc('pos_set_order_item_quantity', {
+    p_order_item_id: orderItemId,
+    p_quantity: quantity,
+    p_reason: reason.trim(),
+  })
+  if (rpcError) return { ok: false, error: rpcError.message }
+
+  const row = data as { order_id?: string; total_amount?: number; already_applied?: boolean } | null
+  if (!row?.order_id || typeof row.total_amount !== 'number') {
+    return { ok: false, error: 'Dữ liệu phản hồi không hợp lệ' }
+  }
+  return {
+    ok: true,
+    orderId: row.order_id,
+    totalAmount: row.total_amount,
+    alreadyApplied: !!row.already_applied,
+  }
+}
+
 export async function restoreOrderItem(orderItemId: string): Promise<PosBillResult> {
   const { supabase, error } = await ownerClient()
   if (!supabase) return { ok: false, error: error ?? 'Không có quyền' }
@@ -133,6 +163,31 @@ export async function restoreOrderItem(orderItemId: string): Promise<PosBillResu
     totalAmount: row.total_amount,
     alreadyApplied: !!row.already_applied,
   }
+}
+
+/** Mig 099 — "Khách lẻ": mở phiên ở một bàn TRỐNG + ghi món tay trong MỘT giao dịch (không để phiên rỗng).
+ *  Idempotent theo clientRequestId. Món không vào bếp, như "Thêm món tay". */
+export async function walkInOrder(
+  tableId: string,
+  items: PosManualItem[],
+  clientRequestId: string,
+): Promise<{ ok: true; sessionId: string; orderId: string; totalAmount: number } | { ok: false; error: string }> {
+  const { supabase, error } = await ownerClient()
+  if (!supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (items.length === 0) return { ok: false, error: 'Chưa chọn món' }
+
+  const { data, error: rpcError } = await supabase.rpc('pos_walk_in_order', {
+    p_table_id: tableId,
+    p_items: items,
+    p_client_request_id: clientRequestId,
+  })
+  if (rpcError) return { ok: false, error: rpcError.message }
+
+  const row = data as { order_id?: string; session_id?: string; total_amount?: number } | null
+  if (!row?.order_id || !row.session_id || typeof row.total_amount !== 'number') {
+    return { ok: false, error: 'Dữ liệu phản hồi không hợp lệ' }
+  }
+  return { ok: true, sessionId: row.session_id, orderId: row.order_id, totalAmount: row.total_amount }
 }
 
 export async function addManualItems(

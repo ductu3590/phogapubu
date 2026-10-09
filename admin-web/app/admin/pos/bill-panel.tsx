@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react'
 import {
-  ArrowLeft, Banknote, BellRing, Clock3, EllipsisVertical, Gift, Landmark, Layers, Link2, Lock, Plus, Printer, Receipt,
+  ArrowLeft, Banknote, BellRing, Clock3, EllipsisVertical, Gift, Hash, Landmark, Layers, Link2, Lock, Minus, Plus, Printer, Receipt,
   RotateCcw, Smartphone, Trash2, UserRound, X,
 } from 'lucide-react'
 import type { OpenTableSession, SessionOrderItem, SessionOrderRow } from '@/lib/actions/table-session'
@@ -16,6 +16,7 @@ import type { TrayAssignment } from '@/lib/tray-colors'
 import { Button, IconButton } from '@/components/ui/button'
 import { Banner, EmptyState } from '@/components/ui/feedback'
 import { Input, Select } from '@/components/ui/field'
+import { Dialog } from '@/components/ui/dialog'
 import { STATUS_TONE_CLASSES, TABLE_STATE, type TableVisualState } from '@/components/ui/status'
 import { cn } from '@/lib/utils'
 import { billHistory, rejectReasonLabel } from '@/lib/pos-bill-history'
@@ -61,6 +62,8 @@ export type PosBillPanelProps = {
   onPrintOrder: (orderId: string) => void
   onOpenManualOrder: (sessionId: string) => void
   onVoidOrderItem: (orderItemId: string, type: 'cancelled' | 'gift', reason?: string) => void
+  /** Mig 098: sửa số lượng có lý do. Trả true khi lưu xong để hộp thoại tự đóng. */
+  onSetItemQuantity: (orderItemId: string, quantity: number, reason: string) => Promise<boolean>
   onRestoreOrderItem: (orderItemId: string) => void
   onClearPick: () => void
   onDismiss: () => void
@@ -87,6 +90,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
   const { selected, picked, pickedFreeTables, trayColors, busy } = props
   const [tab, setTab] = useState<Tab>('bill')
   const [paying, setPaying] = useState(false)
+  const [qtyItem, setQtyItem] = useState<SessionOrderItem | null>(null)
 
   const list = picked.length > 0 ? picked : selected ? [selected] : []
   const name = (s: OpenTableSession) => {
@@ -145,6 +149,17 @@ export default function PosBillPanel(props: PosBillPanelProps) {
     )
   }
 
+  const suaSoLuong = (it: SessionOrderItem) => setQtyItem(it)
+  const qtyDialog = qtyItem && (
+    <QtyDialog
+      key={qtyItem.id}
+      item={qtyItem}
+      busy={busy}
+      onClose={() => setQtyItem(null)}
+      onSubmit={async (qty, reason) => { if (await props.onSetItemQuantity(qtyItem.id, qty, reason)) setQtyItem(null) }}
+    />
+  )
+
   const dieuChinh = (itemId: string, type: 'cancelled' | 'gift') => {
     const label = type === 'cancelled' ? 'bỏ món này' : 'tặng món này'
     if (!confirm(`Xác nhận ${label}? Tổng bill sẽ được tính lại.`)) return
@@ -154,18 +169,22 @@ export default function PosBillPanel(props: PosBillPanelProps) {
 
   if (paying) {
     return (
+      <>
+      {qtyDialog}
       <PaymentView
         title={title}
         list={list}
         total={tong}
         busy={busy}
         onAdjust={dieuChinh}
+        onQty={suaSoLuong}
         onRestore={props.onRestoreOrderItem}
         onBack={() => setPaying(false)}
         onDismiss={props.onDismiss}
         onPay={(instrument) => props.onPay(list, instrument)}
         onPrint={() => props.onPrint(list)}
       />
+      </>
     )
   }
 
@@ -184,6 +203,8 @@ export default function PosBillPanel(props: PosBillPanelProps) {
   const itemCount = settled.reduce((n, { o }) => n + o.items.length, 0)
 
   return (
+    <>
+    {qtyDialog}
     <Khung
       icon={isTray ? <Link2 /> : <Receipt />}
       tieuDe={title}
@@ -294,7 +315,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
                     </span>
                   </p>
                   <ul className="divide-y divide-slate-100">
-                    {o.items.map((it) => <ItemRow key={it.id} item={it} busy={busy} onAdjust={dieuChinh} onRestore={props.onRestoreOrderItem} />)}
+                    {o.items.map((it) => <ItemRow key={it.id} item={it} busy={busy} onAdjust={dieuChinh} onQty={suaSoLuong} onRestore={props.onRestoreOrderItem} />)}
                     {o.items.length === 0 && <li className="py-2 text-sm text-slate-500">Không có món</li>}
                   </ul>
                 </section>
@@ -393,14 +414,16 @@ export default function PosBillPanel(props: PosBillPanelProps) {
         )
       )}
     </Khung>
+    </>
   )
 }
 
 /** Một dòng món dạng bảng (P01): tên · SL · thành tiền · menu ⋮ (Tặng / Bỏ / Khôi phục). */
-function ItemRow({ item: it, busy, onAdjust, onRestore }: {
+function ItemRow({ item: it, busy, onAdjust, onQty, onRestore }: {
   item: SessionOrderItem
   busy: boolean
   onAdjust: (itemId: string, type: 'cancelled' | 'gift') => void
+  onQty: (item: SessionOrderItem) => void
   onRestore: (itemId: string) => void
 }) {
   const [menu, setMenu] = useState(false)
@@ -424,6 +447,12 @@ function ItemRow({ item: it, busy, onAdjust, onRestore }: {
             {it.void_reason && <span className="text-slate-600">Lý do: {it.void_reason}</span>}
           </span>
         )}
+        {it.qty_changes?.map((c, i) => (
+          <span key={i} className="mt-0.5 flex flex-wrap items-center gap-1 text-[12px]">
+            <span className="rounded bg-indigo-100 px-1 font-bold text-indigo-800 tabular">SL {c.old_quantity}→{c.new_quantity}</span>
+            <span className="text-slate-600">{c.reason}</span>
+          </span>
+        ))}
       </span>
       <span className="text-center font-semibold text-slate-700 tabular">x{it.quantity}</span>
       <span className={cn('text-right font-bold tabular', it.void_type ? 'text-slate-400' : 'text-slate-900')}>{dong(lineAmount(it))}</span>
@@ -446,6 +475,9 @@ function ItemRow({ item: it, busy, onAdjust, onRestore }: {
               </button>
             ) : (
               <>
+                <button type="button" role="menuitem" onClick={() => { setMenu(false); onQty(it) }} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-slate-100">
+                  <Hash className="size-4 text-indigo-600" aria-hidden />Số lượng
+                </button>
                 <button type="button" role="menuitem" onClick={() => { setMenu(false); onAdjust(it.id, 'gift') }} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-slate-100">
                   <Gift className="size-4 text-amber-600" aria-hidden />Tặng món
                 </button>
@@ -460,6 +492,73 @@ function ItemRow({ item: it, busy, onAdjust, onRestore }: {
     </li>
   )
 }
+
+/** Mig 098: sửa nhanh số lượng khi khách / nhân viên gọi sai. Lý do bắt buộc — in lên bill cho khách đối chiếu.
+ *  Bớt về 0 thì dùng "Bỏ món" (có audit riêng), nên số lượng tối thiểu là 1. */
+function QtyDialog({ item, busy, onClose, onSubmit }: {
+  item: SessionOrderItem
+  busy: boolean
+  onClose: () => void
+  onSubmit: (qty: number, reason: string) => void
+}) {
+  const [qty, setQty] = useState(item.quantity)
+  const [reason, setReason] = useState('')
+  const changed = qty !== item.quantity
+  const ok = changed && qty >= 1 && reason.trim().length > 0
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      dismissible={!busy}
+      title={`Sửa số lượng · ${item.name}`}
+      description="Bớt hẳn món thì dùng Bỏ món. Lý do được ghi lại và in lên tạm tính / hoá đơn."
+      footer={
+        <>
+          <Button onClick={onClose} disabled={busy}>Huỷ</Button>
+          <Button variant="primary" isLoading={busy} disabled={!ok} onClick={() => onSubmit(qty, reason.trim())}>Lưu số lượng</Button>
+        </>
+      }
+    >
+      <div className="flex items-center justify-center gap-3">
+        <IconButton icon={<Minus />} label="Bớt 1" onClick={() => setQty((q) => Math.max(1, q - 1))} disabled={busy || qty <= 1} className="size-11 border border-slate-300" />
+        <Input
+          aria-label="Số lượng mới"
+          inputMode="numeric"
+          value={String(qty)}
+          onChange={(e) => {
+            const n = parseInt(e.target.value.replace(/\D/g, ''), 10)
+            setQty(Number.isFinite(n) ? Math.min(999, Math.max(1, n)) : 1)
+          }}
+          className="w-20 text-center text-2xl font-bold tabular"
+        />
+        <IconButton icon={<Plus />} label="Thêm 1" onClick={() => setQty((q) => Math.min(999, q + 1))} disabled={busy} className="size-11 border border-slate-300" />
+      </div>
+      <p className="mt-2 text-center text-[13px] text-slate-500 tabular">
+        Đang là {item.quantity}{changed ? ` → ${qty}` : ''}
+      </p>
+      <label className="mt-3 block text-[13px] font-semibold text-slate-700" htmlFor="pos-qty-reason">
+        Lý do (bắt buộc)
+        <Input
+          id="pos-qty-reason"
+          value={reason}
+          maxLength={200}
+          placeholder="VD: khách gọi nhầm, nhân viên bấm thừa"
+          onChange={(e) => setReason(e.target.value)}
+          className="mt-1"
+        />
+      </label>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {QTY_REASONS.map((r) => (
+          <button key={r} type="button" onClick={() => setReason(r)} className="cursor-pointer rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[12px] text-slate-700 hover:bg-slate-50">
+            {r}
+          </button>
+        ))}
+      </div>
+    </Dialog>
+  )
+}
+
+const QTY_REASONS = ['Khách gọi nhầm', 'Nhân viên bấm nhầm', 'Khách gọi thêm', 'Bếp báo hết bớt phần']
 
 function OtherActions({ list, freeTables, otherSessions, busy, onReset, onAddTable, onMergeInto, onReleaseHost, onClearPick, picked }: PosBillPanelProps & { list: OpenTableSession[] }) {
   if (list.length > 1) {
@@ -494,12 +593,13 @@ function OtherActions({ list, freeTables, otherSessions, busy, onReset, onAddTab
 }
 
 /** Màn Thanh toán & đóng mâm — bản Stitch P04. */
-function PaymentView({ title, list, total, busy, onAdjust, onRestore, onBack, onDismiss, onPay, onPrint }: {
+function PaymentView({ title, list, total, busy, onAdjust, onQty, onRestore, onBack, onDismiss, onPay, onPrint }: {
   title: string
   list: OpenTableSession[]
   total: number
   busy: boolean
   onAdjust: (itemId: string, type: 'cancelled' | 'gift') => void
+  onQty: (item: SessionOrderItem) => void
   onRestore: (itemId: string) => void
   onBack: () => void
   onDismiss: () => void
@@ -543,7 +643,7 @@ function PaymentView({ title, list, total, busy, onAdjust, onRestore, onBack, on
           <span className="font-semibold text-slate-400 normal-case">{items.length} món</span>
         </h3>
         <ul className="mt-2 divide-y divide-slate-100">
-          {items.map((it) => <ItemRow key={it.id} item={it} busy={busy} onAdjust={onAdjust} onRestore={onRestore} />)}
+          {items.map((it) => <ItemRow key={it.id} item={it} busy={busy} onAdjust={onAdjust} onQty={onQty} onRestore={onRestore} />)}
         </ul>
       </section>
 

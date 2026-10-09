@@ -39,6 +39,8 @@ export default async function PosPage() {
   } | null
   const reservationsEnabled = workflowSettings?.reservations_enabled === true
   const floorPromise = loadFloorLayout()
+  // Email người đang đăng nhập — hiện cạnh nhãn vai trò trên thanh trên (máy quầy dùng chung, cần biết ai đang trực).
+  const userPromise = supabase.auth.getUser()
   const sessionsPromise = listOpenTableSessions()
   const requestsPromise = listOpenServiceRequests()
   const reservationsPromise = reservationsEnabled
@@ -90,8 +92,8 @@ export default async function PosPage() {
       })),
   }))
 
-  const [floor, res, requests, reservationQueue, preorderQueue, customerCalls] = await Promise.all([
-    floorPromise, sessionsPromise, requestsPromise, reservationsPromise, preordersPromise, customerCallsPromise,
+  const [floor, res, requests, reservationQueue, preorderQueue, customerCalls, userRes] = await Promise.all([
+    floorPromise, sessionsPromise, requestsPromise, reservationsPromise, preordersPromise, customerCallsPromise, userPromise,
   ])
 
   return (
@@ -118,6 +120,7 @@ export default async function PosPage() {
       categories={categories}
       initialSessions={res.ok ? res.sessions : []}
       canArrange={operator.role === 'store_owner'}
+      operatorEmail={userRes.data.user?.email ?? null}
       initialError={res.ok ? null : res.error}
     />
   )

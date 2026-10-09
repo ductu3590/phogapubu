@@ -19,6 +19,8 @@ export type SessionOrderItem = {
   void_reason: string | null
   voided_at: string | null
   is_gift: boolean
+  /** Mig 098: lịch sử thu ngân sửa số lượng (cũ → mới, lý do). */
+  qty_changes?: { old_quantity: number; new_quantity: number; reason: string; changed_at: string }[]
 }
 
 export type SessionOrderRow = {
@@ -256,7 +258,17 @@ export type BillLine = {
   quantity: number
   price: number
   line_total: number
-  is_gift?: boolean
+  is_gift?: boolean | null
+  /** Mig 098: dòng Bỏ/Tặng vẫn in (0đ) kèm lý do để khách biết vì sao tổng thấp hơn. */
+  void_type?: 'cancelled' | 'gift' | null
+  void_reason?: string | null
+}
+export type BillQtyChange = {
+  name: string
+  old_quantity: number
+  new_quantity: number
+  reason: string
+  changed_at: string
 }
 export type BillSession = {
   session_id: string
@@ -265,6 +277,8 @@ export type BillSession = {
   tables: string
   subtotal: number
   items: BillLine[]
+  /** Mig 098: lịch sử thu ngân sửa số lượng — in ra cho khách đối chiếu. */
+  qty_changes?: BillQtyChange[]
 }
 export type SessionsBill = {
   store: { name: string; address: string | null; phone: string | null }

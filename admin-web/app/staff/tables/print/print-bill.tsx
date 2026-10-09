@@ -93,13 +93,27 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
                     <span className="num">{dong(it.line_total)}</span>
                   </div>
                   <div style={{ fontSize: 11, paddingLeft: 8 }}>
-                    {it.quantity} × {dong(it.price)}
-                    {it.is_gift && ' · Tặng'}
+                    {it.void_type ? (
+                      // Dòng 0đ: ghi rõ Tặng hay Bỏ + lý do (mig 098) — khách hiểu vì sao không tính tiền.
+                      <>{it.quantity} × {it.void_type === 'gift' ? 'TẶNG' : 'BỎ'}{it.void_reason?.trim() ? ` — ${it.void_reason.trim()}` : ''}</>
+                    ) : (
+                      <>{it.quantity} × {dong(it.price)}{it.is_gift && ' · Tặng'}</>
+                    )}
                   </div>
                 </div>
               ))}
               {s.items.length === 0 && <div style={{ fontSize: 11 }}>(chưa gọi món)</div>}
             </div>
+            {(s.qty_changes?.length ?? 0) > 0 && (
+              <div style={{ marginTop: 4, fontSize: 11 }}>
+                <div style={{ fontWeight: 700 }}>Điều chỉnh số lượng:</div>
+                {s.qty_changes!.map((c, i) => (
+                  <div key={i} style={{ paddingLeft: 8 }}>
+                    {c.name}: {c.old_quantity} → {c.new_quantity} — {c.reason}
+                  </div>
+                ))}
+              </div>
+            )}
             {nhieuMam && (
               <div className="row" style={{ marginTop: 3 }}>
                 <span className="name">Cộng {s.tables}</span>
