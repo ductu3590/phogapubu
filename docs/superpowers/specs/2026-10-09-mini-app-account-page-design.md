@@ -93,8 +93,8 @@ Danh sách key cần xoá gom vào **một** hàm `clearPersonalData(storeId)` (
 
 ## 7. Việc ngoài code (chỉ anh Tú làm được) — CHẶN test bài lấy số Zalo
 
-1. Console Zalo app Bảo Lương: xin quyền **Số điện thoại** (nêu mục đích: điền sẵn form đặt bàn).
-2. Điền `zalo_app_secret_key` của app Bảo Lương vào `store_zalo_configs` (em chạy SQL qua MCP khi anh đưa key — không commit key).
+1. Console Zalo Mini App Bảo Lương → Quản lý quyền → quyền #100 "Thông báo xin người dùng cấp quyền truy cập số điện thoại": **ĐÃ NỘP 2026-10-09**, chờ Zalo duyệt (kèm mock `before/popup/after.png`).
+2. `store_zalo_configs.zalo_app_secret_key` của Bảo Lương: **ĐÃ CÓ SẴN** trên prod (kiểm 2026-10-09, 20 ký tự, `is_enabled=true`). Quán khác: chủ tự dán qua Supabase SQL Editor, KHÔNG gửi key vào chat.
 
 Chưa xong 2 việc này: trang vẫn chạy, nút Zalo báo lỗi và rơi về nhập tay (§3.2) — đây cũng là một bài test.
 
