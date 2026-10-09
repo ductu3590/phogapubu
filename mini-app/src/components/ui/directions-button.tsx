@@ -1,15 +1,15 @@
-import { openOutApp } from "zmp-sdk";
+import { openWebview } from "zmp-sdk";
 import { MapPinIcon } from "@/components/common/icons";
 import { isZaloWebview, openExternal } from "@/utils/open-external";
 import { cn } from "@/utils/cn";
 
-// Nút "Chỉ đường" (spec Q9). Trong Zalo mở thẳng ứng dụng Google Maps (openOutApp) để khách được
-// dẫn đường; ngoài Zalo (npm run dev) SDK không mở gì nên mở tab trình duyệt (xem utils/open-external).
+// Nút "Chỉ đường" (spec Q9). Trong Zalo mở trang Google Maps bằng openWebview (API chính thức — openOutApp
+// không được Zalo hỗ trợ, bấm không có tác dụng); ngoài Zalo (npm run dev) mở tab trình duyệt (utils/open-external).
 export default function DirectionsButton({ url, className }: { url: string; className?: string }) {
   const open = () =>
     openExternal(url, {
       inZalo: isZaloWebview(navigator.userAgent),
-      openOutApp,
+      openInZalo: openWebview,
       fallback: (link) => window.open(link, "_blank", "noopener"),
     });
   return (

@@ -2,6 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { ChevronLeftIcon, HeartIcon, ShoppingCartIcon, UserIcon, UtensilsIcon } from "@/components/common/icons";
 import { useAppStore } from "@/stores/app.store";
 import { useOaFollow } from "@/hooks/use-oa-follow";
+import { useSnackbar } from "zmp-ui";
+import { oaFollowMessage } from "@/utils/oa-follow-message";
 import type { ToolbarMode } from "@/utils/nav-sets";
 import { cn } from "@/utils/cn";
 import CallStaffButton from "./call-staff-button";
@@ -15,6 +17,12 @@ export default function AppToolbar({ title, back, mode, cartCount }: { title?: s
   const navigate = useNavigate();
   const { storeName, storeLogoUrl, tableId, tableNumber } = useAppStore();
   const oa = useOaFollow();
+  const { openSnackbar } = useSnackbar();
+  const onHeart = async () => {
+    const outcome = await oa.follow();
+    const text = outcome && oaFollowMessage(outcome, storeName);
+    if (text) openSnackbar({ text, type: outcome.kind === "error" ? "error" : "success", duration: 3000 });
+  };
   const initials = (storeName || "M").trim().split(/\s+/).filter(Boolean);
   const mark = (initials.length >= 2 ? initials[0][0] + initials[initials.length - 1][0] : initials[0]?.[0] ?? "M").toUpperCase();
 
@@ -26,8 +34,9 @@ export default function AppToolbar({ title, back, mode, cartCount }: { title?: s
         <button
           type="button"
           aria-label={oa.connected ? "Đã quan tâm quán" : "Quan tâm quán trên Zalo"}
-          onClick={() => void oa.follow()}
-          disabled={oa.connected || oa.pending}
+          // KHÔNG khoá khi đã quan tâm: bấm vẫn phải có phản hồi ("Bạn đã quan tâm…").
+          onClick={() => void onHeart()}
+          disabled={oa.pending}
           className={cn(
             "grid size-9 shrink-0 place-items-center rounded-full",
             oa.connected ? "bg-primary/10 text-primary" : "border border-primary/40 text-primary active:bg-primary/10",

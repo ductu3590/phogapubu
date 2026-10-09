@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { followOA } from "zmp-sdk";
 import { useAppStore } from "@/stores/app.store";
+import type { OaFollowOutcome } from "@/utils/oa-follow-message";
 
 // Sự kiện để MỌI chỗ dùng hook (thanh công cụ, trang Thông tin nhà hàng) cùng đổi sang
 // "Đã quan tâm" ngay khi khách quan tâm ở một chỗ.
@@ -47,14 +48,20 @@ export function useOaFollow() {
     window.dispatchEvent(new Event(EVENT));
   };
 
-  const follow = async () => {
-    if (!zaloOaId || !key || pending) return;
+  /** Kết quả để nơi gọi báo cho khách — trước đây nuốt lỗi nên bấm "không có tác dụng gì" (2026-10-09). */
+  const follow = async (): Promise<OaFollowOutcome | null> => {
+    if (!zaloOaId || !key || pending) return null;
+    if (connected) return { kind: "already" };
     setPending(true);
     try {
       await followOA({ id: zaloOaId });
       markConnected();
-    } catch {
-      /* khách từ chối / ngoài Zalo — giữ nút để bấm lại */
+      return { kind: "followed" };
+    } catch (error) {
+      const code = (error as { code?: number | string } | null)?.code;
+      // -201: khách bấm từ chối — giữ nút để bấm lại, không báo lỗi.
+      if (code === -201) return { kind: "denied" };
+      return { kind: "error", code };
     } finally {
       setPending(false);
     }
