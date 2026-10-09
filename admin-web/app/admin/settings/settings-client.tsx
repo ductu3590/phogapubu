@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { updateStoreSettings } from '@/lib/actions/store'
 import { normalizeMapsUrl } from '@/lib/maps-url'
 import SquareCropper from '../menu/square-cropper'
+import { Switch } from '@/components/ui/switch'
 
 interface Props {
   name: string
@@ -60,6 +61,8 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, goog
   const [logo, setLogo] = useState<File | null>(null)
   const [banner, setBanner] = useState<File | null>(null)
   const [removeBanner, setRemoveBanner] = useState(false)
+  // Chưa có tên wifi = mặc định tắt
+  const [wifiOn, setWifiOn] = useState(Boolean(wifiName.trim()))
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -76,6 +79,11 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, goog
         // chung chung ở bản production, chủ quán sẽ không biết sửa gì. Server vẫn kiểm lại (chốt chặn).
         const maps = normalizeMapsUrl(fd.get('google_maps_url') as string | null)
         if (!maps.ok) { setError(maps.error); return }
+        // `required` của trình duyệt vẫn cho qua ô chỉ toàn dấu cách → kiểm thêm ở đây
+        if (wifiOn && (!(fd.get('wifi_name') as string | null)?.trim() || !(fd.get('wifi_password') as string | null)?.trim())) {
+          setError('Đã bật wifi thì phải nhập đủ tên và mật khẩu wifi')
+          return
+        }
         if (logo) fd.set('logo', logo)
         if (banner) fd.set('banner', banner)
         if (removeBanner) fd.set('remove_banner', '1')
@@ -90,215 +98,250 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, goog
           setError(e instanceof Error ? e.message : 'Lỗi khi lưu')
         }
       }}
-      className="flex max-w-md flex-col gap-4 text-foreground"
+      className="text-foreground"
     >
-      <div>
-        <label className="label">Tên quán *</label>
-        <input
-          name="name"
-          required
-          defaultValue={name}
-          placeholder="VD: Phở Gà Pubu"
-          className="input"
-        />
-      </div>
+      {/* PC: 2 cột — trái là thông tin liên hệ/wifi, phải là hình ảnh + nội dung hiển thị cho khách.
+          Mobile tự xếp lại 1 cột. */}
+      <div className="grid gap-x-8 gap-y-6 lg:grid-cols-2">
+        <div className="flex flex-col gap-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">Liên hệ</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label">Tên quán *</label>
+              <input
+                name="name"
+                required
+                defaultValue={name}
+                placeholder="VD: Phở Gà Pubu"
+                className="input"
+              />
+            </div>
 
-      <div>
-        <label className="label">Logo quán (vuông 1:1)</label>
-        <SquareCropper initialUrl={logoUrl} onChange={setLogo} />
-        <p className="mt-1 text-xs text-muted">
-          Hiện ở đầu trang menu + header trên mini-app của khách.
-        </p>
-      </div>
-
-      {/* Banner Trang chủ Mini App — thay khối nền đỏ mặc định, chỉ hiện khi khách mở app (không quét QR bàn) */}
-      <div>
-        <label className="label">Banner Trang chủ Mini App (tỉ lệ 16:9)</label>
-        {takeawayBannerUrl && !banner && !removeBanner && (
-          <div className="relative mb-2">
-            <img
-              src={takeawayBannerUrl}
-              alt="Banner hiện tại"
-              className="w-full rounded-lg object-cover"
-              style={{ aspectRatio: '16/9' }}
-            />
-            <button
-              type="button"
-              onClick={() => setRemoveBanner(true)}
-              className="absolute right-2 top-2 rounded-lg bg-black/60 px-2.5 py-1 text-xs font-medium text-white hover:bg-black/75"
-            >
-              Xoá banner
-            </button>
+            {/* Số điện thoại */}
+            <div>
+              <label className="label">Số điện thoại</label>
+              <input
+                name="phone"
+                type="tel"
+                defaultValue={phone}
+                placeholder="VD: 0901 234 567"
+                className="input"
+              />
+            </div>
           </div>
-        )}
-        {banner && (
-          <img
-            src={URL.createObjectURL(banner)}
-            alt="Preview banner mới"
-            className="mb-2 w-full rounded-lg object-cover"
-            style={{ aspectRatio: '16/9' }}
-          />
-        )}
-        {removeBanner && !banner && (
-          <p className="mb-2 text-xs text-primary">
-            Banner sẽ bị xoá khi bấm Lưu.{' '}
-            <button type="button" onClick={() => setRemoveBanner(false)} className="underline">
-              Hoàn tác
-            </button>
-          </p>
-        )}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={async (e) => {
-            const f = e.target.files?.[0]
-            if (f) {
-              setRemoveBanner(false)
-              setBanner(await compressBanner(f))
-            } else {
-              setBanner(null)
-            }
-          }}
-          className="block text-sm text-muted"
-        />
-        <p className="mt-1 text-xs text-muted">
-          Hiện đầu Trang chủ khi khách mở Mini App (không quét QR). Tỉ lệ 16:9 (VD: 1280×720px). Để trống = khối màu thương hiệu.
-        </p>
+
+          {/* Địa chỉ quán */}
+          <div>
+            <label className="label">Địa chỉ quán</label>
+            <input
+              name="address"
+              defaultValue={address}
+              placeholder="VD: 12 Phố Núi, TP. Lào Cai"
+              className="input"
+            />
+          </div>
+
+          {/* Link Google Maps — nút "Chỉ đường" trên Mini App (mig 090) */}
+          <div>
+            <label className="label">Link Google Maps (nút Chỉ đường)</label>
+            <input
+              name="google_maps_url"
+              defaultValue={googleMapsUrl}
+              inputMode="url"
+              placeholder="https://maps.app.goo.gl/…"
+              className="input"
+            />
+            <p className="mt-1 text-[13px] text-muted">
+              Mở Google Maps → tìm quán → Chia sẻ → Sao chép đường liên kết, rồi dán vào đây. Để trống thì khách được chỉ đường theo địa chỉ ở trên.
+            </p>
+          </div>
+
+          <div>
+            <label className="label">Link trang Zalo OA</label>
+            <input
+              name="zalo_oa_url"
+              type="url"
+              defaultValue={zaloOaUrl}
+              placeholder="https://zalo.me/phogapubu"
+              className="input"
+            />
+            <p className="mt-1 text-xs text-muted">
+              Link trang Zalo OA của quán. Khách bấm vào tab &quot;Nhà hàng&quot; sẽ thấy nút mở trang này.
+              Lấy tại Zalo OA Manager → Thông tin cơ bản → Link chia sẻ.
+            </p>
+          </div>
+
+
+          <h3 className="mt-2 text-sm font-semibold uppercase tracking-wide text-muted">Wifi &amp; giao hàng</h3>
+          {/* Wifi — hiện ở tab "Nhà hàng" trên mini-app. Tắt = không gửi 2 ô wifi lên server → server
+              ghi null → mini-app không hiện. Bật thì bắt buộc nhập đủ tên + mật khẩu. */}
+          <div className="rounded-xl border border-border p-3">
+            <label className="flex cursor-pointer items-center justify-between gap-3">
+              <span>
+                <span className="block text-sm font-medium text-foreground">Hiện wifi cho khách</span>
+                <span className="mt-0.5 block text-xs text-muted">
+                  Hiện ở tab &quot;Nhà hàng&quot; trên mini-app, khách bấm là sao chép mật khẩu.
+                </span>
+              </span>
+              <Switch checked={wifiOn} onChange={(e) => setWifiOn(e.target.checked)} />
+            </label>
+            {wifiOn && (
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label">Tên wifi *</label>
+                  <input
+                    name="wifi_name"
+                    required
+                    defaultValue={wifiName}
+                    placeholder="VD: PhoGaPubu_Free"
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="label">Mật khẩu wifi *</label>
+                  <input
+                    name="wifi_password"
+                    required
+                    defaultValue={wifiPassword}
+                    placeholder="VD: pubu2024"
+                    className="input"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Phạm vi ship (chỉ hiển thị cho khách) */}
+          <div>
+            <label className="label">Phạm vi ship (hiển thị cho khách)</label>
+            <input
+              name="delivery_area_note"
+              defaultValue={deliveryAreaNote}
+              placeholder="VD: Ship trong bán kính ~3km khu vực TP. Lào Cai"
+              className="input"
+            />
+            <p className="mt-1 text-xs text-muted">
+              Chỉ hiển thị ở tab &quot;Nhà hàng&quot; trên mini-app để khách tham khảo. Không tự động chặn đơn ngoài vùng.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">Hình ảnh</h3>
+          <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)]">
+            <div>
+              <label className="label">Logo quán (vuông 1:1)</label>
+              <SquareCropper initialUrl={logoUrl} onChange={setLogo} />
+              <p className="mt-1 text-xs text-muted">
+                Hiện ở đầu trang menu + header trên mini-app của khách.
+              </p>
+            </div>
+
+            {/* Banner Trang chủ Mini App — thay khối nền đỏ mặc định, chỉ hiện khi khách mở app (không quét QR bàn) */}
+            <div>
+              <label className="label">Banner Trang chủ Mini App (tỉ lệ 16:9)</label>
+              {takeawayBannerUrl && !banner && !removeBanner && (
+                <div className="relative mb-2">
+                  <img
+                    src={takeawayBannerUrl}
+                    alt="Banner hiện tại"
+                    className="w-full rounded-lg object-cover"
+                    style={{ aspectRatio: '16/9' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRemoveBanner(true)}
+                    className="absolute right-2 top-2 rounded-lg bg-black/60 px-2.5 py-1 text-xs font-medium text-white hover:bg-black/75"
+                  >
+                    Xoá banner
+                  </button>
+                </div>
+              )}
+              {banner && (
+                <img
+                  src={URL.createObjectURL(banner)}
+                  alt="Preview banner mới"
+                  className="mb-2 w-full rounded-lg object-cover"
+                  style={{ aspectRatio: '16/9' }}
+                />
+              )}
+              {removeBanner && !banner && (
+                <p className="mb-2 text-xs text-primary">
+                  Banner sẽ bị xoá khi bấm Lưu.{' '}
+                  <button type="button" onClick={() => setRemoveBanner(false)} className="underline">
+                    Hoàn tác
+                  </button>
+                </p>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0]
+                  if (f) {
+                    setRemoveBanner(false)
+                    setBanner(await compressBanner(f))
+                  } else {
+                    setBanner(null)
+                  }
+                }}
+                className="block text-sm text-muted"
+              />
+              <p className="mt-1 text-xs text-muted">
+                Hiện đầu Trang chủ khi khách mở Mini App (không quét QR). Tỉ lệ 16:9 (VD: 1280×720px). Để trống = khối màu thương hiệu.
+              </p>
+            </div>
+
+          </div>
+
+          <h3 className="mt-2 text-sm font-semibold uppercase tracking-wide text-muted">Nội dung trên Mini App</h3>
+          {/* Ghi chú / Lời nhắn */}
+          <div>
+            <label className="label">Ghi chú / Lời nhắn</label>
+            <textarea
+              name="about_text"
+              defaultValue={aboutText}
+              placeholder="VD: Cảm ơn bạn đã ghé Phở Gà Pubu! Hotline: 0901234567"
+              rows={3}
+              className="input resize-none"
+            />
+            <p className="mt-1 text-xs text-muted">
+              Hiện ở tab &quot;Nhà hàng&quot; trên mini-app. Có thể ghi lời cảm ơn, hotline, chính sách...
+            </p>
+          </div>
+
+          {/* Điều khoản sử dụng — Markdown nhẹ, hiện ở tab "Nhà hàng" khi khách bấm */}
+          <div>
+            <label className="label">Điều khoản sử dụng</label>
+            <textarea
+              name="terms_of_use"
+              defaultValue={termsOfUse}
+              placeholder={"# Điều khoản sử dụng\n\n## Đặt món\n- Khách chọn món và thanh toán ngay trên Zalo\n\n## Liên hệ\n- Hotline: 0901 234 567"}
+              rows={8}
+              className="input resize-none font-mono text-sm"
+            />
+            <p className="mt-1 text-xs text-muted">
+              Hiện ở tab &quot;Nhà hàng&quot; trên mini-app khi khách bấm &quot;Điều khoản sử dụng&quot;.
+              Hỗ trợ Markdown nhẹ: <code># Tiêu đề</code>, <code>## Tiêu đề nhỏ</code>,{' '}
+              <code>- gạch đầu dòng</code>, <code>**in đậm**</code>, <code>[chữ](link)</code>.
+              Để trống = dùng mẫu điều khoản mặc định của MEVO.
+            </p>
+          </div>
+
+        </div>
       </div>
 
-      {/* Địa chỉ quán */}
-      <div>
-        <label className="label">Địa chỉ quán</label>
-        <input
-          name="address"
-          defaultValue={address}
-          placeholder="VD: 12 Phố Núi, TP. Lào Cai"
-          className="input"
-        />
-      </div>
-
-      {/* Link Google Maps — nút "Chỉ đường" trên Mini App (mig 090) */}
-      <div>
-        <label className="label">Link Google Maps (nút Chỉ đường)</label>
-        <input
-          name="google_maps_url"
-          defaultValue={googleMapsUrl}
-          inputMode="url"
-          placeholder="https://maps.app.goo.gl/…"
-          className="input"
-        />
-        <p className="mt-1 text-[13px] text-muted">
-          Mở Google Maps → tìm quán → Chia sẻ → Sao chép đường liên kết, rồi dán vào đây. Để trống thì khách được chỉ đường theo địa chỉ ở trên.
-        </p>
-      </div>
-
-      {/* Số điện thoại */}
-      <div>
-        <label className="label">Số điện thoại</label>
-        <input
-          name="phone"
-          type="tel"
-          defaultValue={phone}
-          placeholder="VD: 0901 234 567"
-          className="input"
-        />
-      </div>
-
-      {/* Cấu hình Wifi — hiện ở tab "Nhà hàng" trên mini-app, để trống = không hiện */}
-      <div>
-        <label className="label">Tên wifi</label>
-        <input
-          name="wifi_name"
-          defaultValue={wifiName}
-          placeholder="VD: PhoGaPubu_Free"
-          className="input"
-        />
-      </div>
-      <div>
-        <label className="label">Mật khẩu wifi</label>
-        <input
-          name="wifi_password"
-          defaultValue={wifiPassword}
-          placeholder="VD: pubu2024"
-          className="input"
-        />
-        <p className="mt-1 text-xs text-muted">
-          Hiện ở tab &quot;Nhà hàng&quot; trên mini-app, khách bấm là sao chép mật khẩu. Để trống tên wifi = không hiện.
-        </p>
-      </div>
-
-      {/* Ghi chú / Lời nhắn */}
-      <div>
-        <label className="label">Ghi chú / Lời nhắn</label>
-        <textarea
-          name="about_text"
-          defaultValue={aboutText}
-          placeholder="VD: Cảm ơn bạn đã ghé Phở Gà Pubu! Hotline: 0901234567"
-          rows={3}
-          className="input resize-none"
-        />
-        <p className="mt-1 text-xs text-muted">
-          Hiện ở tab &quot;Nhà hàng&quot; trên mini-app. Có thể ghi lời cảm ơn, hotline, chính sách...
-        </p>
-      </div>
-
-      {/* Điều khoản sử dụng — Markdown nhẹ, hiện ở tab "Nhà hàng" khi khách bấm */}
-      <div>
-        <label className="label">Điều khoản sử dụng</label>
-        <textarea
-          name="terms_of_use"
-          defaultValue={termsOfUse}
-          placeholder={"# Điều khoản sử dụng\n\n## Đặt món\n- Khách chọn món và thanh toán ngay trên Zalo\n\n## Liên hệ\n- Hotline: 0901 234 567"}
-          rows={10}
-          className="input resize-none font-mono text-sm"
-        />
-        <p className="mt-1 text-xs text-muted">
-          Hiện ở tab &quot;Nhà hàng&quot; trên mini-app khi khách bấm &quot;Điều khoản sử dụng&quot;.
-          Hỗ trợ Markdown nhẹ: <code># Tiêu đề</code>, <code>## Tiêu đề nhỏ</code>,{' '}
-          <code>- gạch đầu dòng</code>, <code>**in đậm**</code>, <code>[chữ](link)</code>.
-          Để trống = dùng mẫu điều khoản mặc định của MEVO.
-        </p>
-      </div>
-
-      {/* Phạm vi ship (chỉ hiển thị cho khách) */}
-      <div>
-        <label className="label">Phạm vi ship (hiển thị cho khách)</label>
-        <input
-          name="delivery_area_note"
-          defaultValue={deliveryAreaNote}
-          placeholder="VD: Ship trong bán kính ~3km khu vực TP. Lào Cai"
-          className="input"
-        />
-        <p className="mt-1 text-xs text-muted">
-          Chỉ hiển thị ở tab &quot;Nhà hàng&quot; trên mini-app để khách tham khảo. Không tự động chặn đơn ngoài vùng.
-        </p>
-      </div>
-
-      <div>
-        <label className="label">Link trang Zalo OA</label>
-        <input
-          name="zalo_oa_url"
-          type="url"
-          defaultValue={zaloOaUrl}
-          placeholder="https://zalo.me/phogapubu"
-          className="input"
-        />
-        <p className="mt-1 text-xs text-muted">
-          Link trang Zalo OA của quán. Khách bấm vào tab &quot;Nhà hàng&quot; sẽ thấy nút mở trang này.
-          Lấy tại Zalo OA Manager → Thông tin cơ bản → Link chia sẻ.
-        </p>
-      </div>
-
-      {error && <p className="text-sm text-danger">{error}</p>}
-
-      <div className="flex items-center gap-3 pt-1">
+      {/* Thanh Lưu dính đáy vùng cuộn — form dài, không bắt kéo xuống cuối mới lưu được */}
+      <div className="sticky bottom-0 z-10 -mx-5 mt-6 flex items-center gap-3 border-t border-border bg-surface/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <button
           type="submit"
           className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
         >
-          Lưu
+          Lưu thông tin quán
         </button>
         {saved && <span className="text-sm text-success">✓ Đã lưu</span>}
+        {error && <span className="text-sm text-danger">{error}</span>}
       </div>
     </form>
   )
