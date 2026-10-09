@@ -58,7 +58,10 @@ export default function TimelineView({
   slotMinutes,
   holdMinutes,
   bookUntil,
+  toolbarExtra,
 }: {
+  /** Nút đặt cạnh "Về Bây giờ" (vd. Gộp bill) — cùng một hàng thao tác của Timeline. */
+  toolbarExtra?: ReactNode
   tables: AreaPlacedTable[]
   areas: TableArea[]
   rows: Map<string, TimelineBar[]>
@@ -264,9 +267,12 @@ export default function TimelineView({
         <p className="min-w-0 truncate text-[13px] text-slate-500 tabular">
           Bấm thanh để mở bill{onPickSlot ? ' · "+ Đặt lúc" để đặt bàn' : ''}
         </p>
-        <Button icon={<Crosshair className="text-orange-600" />} onClick={() => scrollToNow()} className="min-h-9 shrink-0 font-semibold md:min-h-9">
-          <span className="tabular">Về &quot;Bây giờ&quot; ({clock(now)})</span>
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {toolbarExtra}
+          <Button icon={<Crosshair className="text-orange-600" />} onClick={() => scrollToNow()} className="min-h-9 shrink-0 font-semibold md:min-h-9">
+            <span className="tabular">Về &quot;Bây giờ&quot; ({clock(now)})</span>
+          </Button>
+        </div>
       </div>
       <div ref={scroller} className="relative min-h-0 flex-1 overflow-auto overscroll-contain border-t border-slate-200 bg-white">
         <div className="relative w-max min-w-full">

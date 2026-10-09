@@ -198,6 +198,12 @@ function DineInOrdersView() {
               </div>
               <p className="mt-3 text-xxsmall font-semibold uppercase tracking-wide text-text-secondary">Tổng tạm tính</p>
               <p className="mt-0.5 text-2xl font-extrabold text-primary">{formatCurrency(grandTotal)}đ</p>
+              {/* Tổng tạm tính CHỈ hiện ở đây (anh Tú 2026-10-09): khối "Đối soát tạm tính" cuối trang đã bỏ —
+                  một con số lặp 3 lần là thừa. */}
+              <p className="mt-2 flex items-start gap-1.5 text-xxsmall text-text-secondary">
+                <CircleAlertIcon className="mt-px size-3.5 shrink-0" />
+                Quý khách thanh toán tại quầy thu ngân khi kết thúc bữa.
+              </p>
             </SectionCard>
             )}
 
@@ -225,33 +231,6 @@ function DineInOrdersView() {
               ))}
             </div>
 
-            {/* Đối soát tạm tính — chỉ trả sau */}
-            {isPostpay && (
-            <SectionCard title="Đối soát tạm tính" className="mt-4">
-              <div className="space-y-1.5 text-small">
-                <div className="flex justify-between">
-                  <span className="text-text-secondary">Đã vào bếp</span>
-                  <span className="font-semibold text-text-primary">{formatCurrency(sums.inKitchen)}đ</span>
-                </div>
-                {sums.pending > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-text-secondary">{isPostpay ? "Đang chờ xác nhận" : "Chờ thanh toán"}</span>
-                    <span className="font-semibold text-warning">{formatCurrency(sums.pending)}đ</span>
-                  </div>
-                )}
-              </div>
-              <div className="mt-3 flex items-baseline justify-between border-t border-neutral100 pt-3">
-                <span className="text-normal-sb font-bold text-text-primary">Tổng cộng tạm tính</span>
-                <span className="text-large-m font-extrabold text-primary">{formatCurrency(grandTotal)}đ</span>
-              </div>
-              {isPostpay && (
-                <p className="mt-2 flex items-start gap-1.5 text-xxsmall text-text-secondary">
-                  <CircleAlertIcon className="mt-px size-3.5 shrink-0" />
-                  Quý khách thanh toán tại quầy thu ngân khi kết thúc bữa.
-                </p>
-              )}
-            </SectionCard>
-            )}
           </>
         )}
       </div>

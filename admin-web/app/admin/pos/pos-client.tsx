@@ -773,6 +773,10 @@ export default function PosClient({
     setMergeMode(true)
   }
 
+  const mergeButton = openSessions.length > 1 && !arrange && !reservationPick && !mergeMode ? (
+    <Button icon={<Layers />} onClick={beginMerge} className="min-h-9 border-slate-900 bg-slate-900 text-white hover:bg-slate-800 hover:text-white md:min-h-9">Gộp bill</Button>
+  ) : null
+
   const openWork = (filter: WorkFilter = 'all') => {
     dongBill()
     setSelectedReservationId(null)
@@ -897,9 +901,8 @@ export default function PosClient({
                 Khách lẻ
               </Button>
             )}
-            {openSessions.length > 1 && !arrange && !reservationPick && !mergeMode && (
-              <Button icon={<Layers />} onClick={beginMerge} className="border-slate-900 bg-slate-900 text-white hover:bg-slate-800 hover:text-white">Gộp bill</Button>
-            )}
+            {/* Timeline: nút Gộp bill nằm ở hàng "Về Bây giờ" (anh Tú 2026-10-09); sơ đồ / danh sách giữ ở đây. */}
+            {view !== 'timeline' && mergeButton}
             <Button icon={<ListTodo />} onClick={() => openWork()} className="xl:hidden">
               Việc cần xử lý{workTotal > 0 ? ` · ${workTotal}` : ''}
             </Button>
@@ -1050,6 +1053,7 @@ export default function PosClient({
               slotMinutes={slotIntervalMinutes}
               holdMinutes={planningHoldMinutes}
               bookUntil={servingShiftEnd(servingHours, now)}
+              toolbarExtra={mergeButton}
               onPickSlot={reservationsEnabled && !mergeMode && !arrange && !reservationPick ? (tableId, at) => {
                 const table = placed.find((t) => t.id === tableId)
                 if (!table || arrange || reservationPick) return
