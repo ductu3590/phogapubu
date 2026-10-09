@@ -56,6 +56,22 @@ export default async function SettingsPage() {
           </section>
 
           <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
+            <h2 className="mb-1 text-lg font-semibold text-foreground">In ấn</h2>
+            <p className="mb-4 text-sm text-muted">
+              In một phiếu mẫu 80mm có tên, địa chỉ, SĐT quán để canh máy in. Không tạo đơn.
+            </p>
+            {/* Thẻ a thường (không Link): mở tab mới, trang in tự gọi hộp thoại in. */}
+            <a
+              href="/print/test-slip"
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
+            >
+              In thử
+            </a>
+          </section>
+
+          <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
             <h2 className="mb-4 text-lg font-semibold text-foreground">Quy trình vận hành</h2>
             <WorkflowSettingsForm
               key={storeId}
