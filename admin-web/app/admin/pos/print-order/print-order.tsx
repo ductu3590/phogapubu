@@ -14,6 +14,7 @@ export type SlipItem = {
 export type OrderSlip = {
   storeName: string
   storePhone: string | null
+  storeAddress?: string | null
   tableLabel: string
   createdAt: string
   orderNote: string | null
@@ -65,6 +66,7 @@ export default function PrintOrder({ slip }: { slip: OrderSlip }) {
         .ban { text-align: center; font-weight: 700; font-size: 20px; margin: 4px 0; }
         .to { font-size: 15px; font-weight: 700; }
         .ghichu { font-style: italic; }
+        .diachi { text-align: center; overflow-wrap: anywhere; }
       `}</style>
 
       <div className="no-print" style={{ padding: 12, textAlign: 'center' }}>
@@ -123,6 +125,7 @@ export default function PrintOrder({ slip }: { slip: OrderSlip }) {
       {/* ── LIÊN 2: PHIẾU BÀN — đặt ở bàn khách, có ô tick để nhân viên gạch khi bưng ra ── */}
       <div className="lien">
         <p className="tieude">{slip.storeName}{slip.preorderPrintKind === 'reprint' ? ' · IN LẠI' : ''}</p>
+        {slip.storeAddress && <p className="diachi">{slip.storeAddress}</p>}
         {slip.storePhone && <p style={{ textAlign: 'center' }}>ĐT: {slip.storePhone}</p>}
         <p className="ban">{slip.tableLabel}</p>
         <div className="row">
