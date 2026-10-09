@@ -25,12 +25,14 @@ import { afterOrderRoute } from "@/utils/after-order-route";
 import { ArmchairIcon, FootprintsIcon, BikeIcon, UtensilsIcon, CreditCardIcon, BanknoteIcon } from "@/components/common/icons";
 import SectionCard from "@/components/ui/section-card";
 import StickyActionBar from "@/components/ui/sticky-action-bar";
+import { TAKEAWAY_FORM_KEY } from "@/constants/storage-keys";
+import { prefillContact } from "@/utils/account-profile";
+import { getReservationProfile } from "@/services/reservation/reservation-storage";
 
 function isPhoneValid(phone: string): boolean {
   return /^0\d{9}$/.test(phone.replace(/\s/g, ""));
 }
 
-const TAKEAWAY_FORM_KEY = "mevo_takeaway_form";
 
 interface TakeawayFormData {
   takeawayType: "pickup" | "delivery";
@@ -84,7 +86,10 @@ export default function CheckoutPage() {
   const lockedClass = isLocked ? "pointer-events-none opacity-50" : "";
 
   // Takeaway form state
-  const initialForm = useRef(loadTakeawayForm()).current;
+  // Ô tên/SĐT còn trống thì điền từ hồ sơ trang Tài khoản (spec 2026-10-09 §5) — không đè chữ khách đã gõ.
+  const initialForm = useRef(
+    prefillContact(loadTakeawayForm(), getReservationProfile(useAppStore.getState().storeId)),
+  ).current;
   const [takeawayType, setTakeawayType] = useState<"pickup" | "delivery">(initialForm.takeawayType);
   const [customerName, setCustomerName] = useState(initialForm.customerName);
   const [customerPhone, setCustomerPhone] = useState(initialForm.customerPhone);
