@@ -5,6 +5,8 @@ import { createStaffOrder, type StaffOrderItem } from '@/lib/actions/staff-order
 import { listOpenTableSessions, type OpenTableSession } from '@/lib/actions/table-session'
 import { createClient } from '@/lib/supabase/client'
 import { assignTrayColors } from '@/lib/tray-colors'
+import { areaColorClasses } from '@/lib/area-colors'
+import { groupTablesByArea, type StaffArea } from '@/lib/staff-area-groups'
 import { tableVisualState } from '@/lib/table-status'
 import { listStaffUpcomingReservedTables, type StaffReservedTable } from '@/lib/actions/staff-reservations'
 import { reservationsByTable, type TableReservation } from '@/lib/staff-reserved-tables'
@@ -21,7 +23,7 @@ type Topping = { id: string; name: string; price: number }
 type Variant = { id: string; name: string; price: number }
 type Item = { id: string; name: string; price: number; imageUrl: string | null; toppings: Topping[]; variants: Variant[]; hasVariantGroup: boolean; variantGroupName: string | null }
 type Category = { id: string; name: string; items: Item[] }
-type Table = { id: string; tableNumber: string }
+type Table = { id: string; tableNumber: string; area_id: string | null }
 
 type CartLine = {
   lineId: string
@@ -42,6 +44,7 @@ const lineTotal = (l: CartLine) => lineUnit(l) * l.quantity
 export default function StaffOrderClient({
   storeId,
   tables,
+  areas,
   categories,
   paymentTiming,
   initialSessions,
@@ -49,6 +52,7 @@ export default function StaffOrderClient({
 }: {
   storeId: string
   tables: Table[]
+  areas: StaffArea[]
   categories: Category[]
   paymentTiming: 'prepay' | 'postpay'
   initialSessions: OpenTableSession[]
@@ -178,6 +182,9 @@ export default function StaffOrderClient({
     if (r?.held && !sessionByTable.get(t.id)) { setReservedWarn({ table: t, booking: r.next }); return }
     setTableId(t.id)
   }
+
+  // Bàn lẻ (không thuộc mâm) chia theo khu — quán 20 bàn mà dồn một lưới thì nhân viên phải dò số.
+  const looseByArea = useMemo(() => groupTablesByArea(looseTables, areas), [looseTables, areas])
 
   const phienBanNay = tableId ? sessionByTable.get(tableId) : undefined
 
@@ -348,17 +355,28 @@ export default function StaffOrderClient({
               </section>
             ))}
 
-            {/* Không có mâm nào thì màn hình y hệt trước đây — không thừa chữ "Bàn khác". */}
-            {trayGroups.length > 0 && looseTables.length > 0 && (
-              <p className="mt-4 mb-2 text-sm font-medium text-muted">Bàn khác</p>
-            )}
-            {looseTables.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {looseTables.map((t) => (
-                  <BanNut key={t.id} label={t.tableNumber} session={sessionByTable.get(t.id)} reservation={reservedByTable.get(t.id)} onClick={() => pickTable(t)} />
-                ))}
-              </div>
-            )}
+            {/* Bàn lẻ theo khu. Quán chưa chia khu → một nhóm không tiêu đề, y hệt trước đây
+                (chỉ thêm chữ "Bàn khác" khi phía trên đã có mâm). Màu khu chỉ để nhận diện. */}
+            {looseByArea.map((g) => {
+              const c = g.area ? areaColorClasses(g.area.color) : null
+              const title = g.area ? g.area.name : looseByArea.length > 1 ? 'Chưa phân khu' : trayGroups.length > 0 ? 'Bàn khác' : null
+              return (
+                <section key={g.area?.id ?? 'loose'} aria-label={title ?? 'Bàn'} className="mb-4">
+                  {title && (
+                    <p className={cn('mb-2 flex items-center gap-2 text-sm font-semibold', c ? c.text : 'text-muted')}>
+                      {c && <span className={cn('size-2.5 rounded-full', c.dot)} aria-hidden />}
+                      {title}
+                      <span className="font-normal text-muted tabular">· {g.tables.length} bàn</span>
+                    </p>
+                  )}
+                  <div className="grid grid-cols-3 gap-2">
+                    {g.tables.map((t) => (
+                      <BanNut key={t.id} label={t.tableNumber} session={sessionByTable.get(t.id)} reservation={reservedByTable.get(t.id)} onClick={() => pickTable(t)} />
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
           </>
         )}
         {reservedWarnDialog}
@@ -373,7 +391,7 @@ export default function StaffOrderClient({
       <div className="shrink-0 space-y-2 border-b border-border bg-surface px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <span className="truncate text-base font-semibold text-foreground">{tableNumber}</span>
-          <Button icon={<ArrowLeftRight />} onClick={() => setTableId(null)}>
+          <Button variant="primary" icon={<ArrowLeftRight />} onClick={() => setTableId(null)} className="shrink-0">
             Đổi bàn
           </Button>
         </div>
@@ -510,18 +528,25 @@ export default function StaffOrderClient({
       {showCart && (
         <Sheet
           title="Giỏ hàng"
-          onClose={() => setShowCart(false)}
+          onClose={() => !submitting && setShowCart(false)}
           footer={cart.length > 0 ? (
             <Button
               variant="primary"
               size="touch"
-              onClick={() => { setShowCart(false); setCheckout(true) }}
+              isLoading={submitting}
+              // Trả sau: không hỏi tiền mặt/chuyển khoản — thu ngân chọn lúc thu tiền (payment_instrument),
+              // báo cáo đọc trường đó. 'cash' chỉ là giá trị giữ chỗ cho đơn gọi hộ.
+              onClick={() => {
+                if (paymentTiming === 'postpay') void submit('cash')
+                else { setShowCart(false); setCheckout(true) }
+              }}
               className="w-full"
             >
-              Đặt món · <span className="tabular">{dong(cartTotal)}</span>
+              {paymentTiming === 'postpay' ? 'Gửi đơn' : 'Đặt món'} · <span className="tabular">{dong(cartTotal)}</span>
             </Button>
           ) : undefined}
         >
+          {error && <Banner tone="error" title={error} className="mb-3" />}
           {cart.length === 0 ? (
             <EmptyState>Giỏ trống.</EmptyState>
           ) : (

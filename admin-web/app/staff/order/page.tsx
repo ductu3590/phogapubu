@@ -11,9 +11,11 @@ export default async function StaffOrderPage() {
   const storeId = operator.storeId
   const supabase = await createClient()
 
-  const [storeRes, tablesRes, categoriesRes, toppingsRes, sessionsRes, reservedRes] = await Promise.all([
+  const [storeRes, tablesRes, areasRes, categoriesRes, toppingsRes, sessionsRes, reservedRes] = await Promise.all([
     supabase.from('stores').select('payment_timing').eq('id', storeId).single(),
-    supabase.from('tables').select('id, table_number').eq('store_id', storeId).eq('is_active', true),
+    supabase.from('tables').select('id, table_number, area_id').eq('store_id', storeId).eq('is_active', true),
+    // Khu (mig 097 cho nhân viên đọc). Lỗi / rỗng → màn chọn bàn hiện một lưới như trước.
+    supabase.from('table_areas').select('id, name, color').eq('store_id', storeId).order('sort_order'),
     supabase
       .from('menu_categories')
       .select('id, name, sort_order, menu_items(id, name, price, image_url, is_available, sort_order, variant_group_name, menu_item_toppings(topping_id), menu_item_variants(id, name, price, is_available, sort_order))')
@@ -30,7 +32,7 @@ export default async function StaffOrderPage() {
 
   // Bàn: sắp xếp tự nhiên (Bàn 2 trước Bàn 10)
   const tables = (tablesRes.data ?? [])
-    .map((t) => ({ id: t.id as string, tableNumber: t.table_number as string }))
+    .map((t) => ({ id: t.id as string, tableNumber: t.table_number as string, area_id: (t.area_id as string | null) ?? null }))
     .sort((a, b) => a.tableNumber.localeCompare(b.tableNumber, 'vi', { numeric: true, sensitivity: 'base' }))
 
   // Chỉ topping đang bán
@@ -75,6 +77,7 @@ export default async function StaffOrderPage() {
     <StaffOrderClient
       storeId={storeId}
       tables={tables}
+      areas={(areasRes.data ?? []).map((a) => ({ id: a.id as string, name: a.name as string, color: (a.color as string | null) ?? null }))}
       categories={categories}
       paymentTiming={paymentTiming}
       initialSessions={sessionsRes.ok ? sessionsRes.sessions : []}

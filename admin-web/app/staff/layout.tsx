@@ -5,6 +5,8 @@ import { signOut } from '@/app/(auth)/login/actions'
 import { getButtonClasses } from '@/components/ui/button-classes'
 import StaffNav from './staff-nav'
 import BellStyleSync from '@/components/bell-style-sync'
+import ServiceCallBar from './service-call-bar'
+import { listOpenServiceRequests } from '@/lib/actions/service-requests'
 
 // Khu nhân viên đặt hộ — mobile-first. Cho store_staff và store_owner (owner vào để hỗ trợ/test).
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {
@@ -12,7 +14,10 @@ export default async function StaffLayout({ children }: { children: React.ReactN
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: store } = await supabase.from('stores').select('name, bell_style').eq('id', operator.storeId).single()
+  const [{ data: store }, requests] = await Promise.all([
+    supabase.from('stores').select('name, bell_style').eq('id', operator.storeId).single(),
+    listOpenServiceRequests(),
+  ])
 
   return (
     // App-shell: cao đúng viewport (dvh chuẩn cho mobile), chỉ vùng nội dung cuộn — không để
@@ -38,6 +43,12 @@ export default async function StaffLayout({ children }: { children: React.ReactN
         </div>
       </header>
       <StaffNav />
+      {/* Khách bấm "Gọi nhân viên" → hiện ở mọi tab, không chỉ tab Bàn. */}
+      <ServiceCallBar
+        storeId={operator.storeId}
+        initialRequests={requests.ok ? requests.requests : []}
+        initialError={requests.ok ? null : requests.error}
+      />
       <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
     </div>
   )

@@ -17,7 +17,7 @@ const session: OpenTableSession = {
 const render = (canClose: boolean, minutes: number | null = 420) => renderToStaticMarkup(React.createElement(TablesClient, {
   storeId: 's1', canClose, paymentTiming: 'postpay', allTables: [],
   initialSessions: [{ ...session, idle_timeout_minutes: minutes }], initialError: null,
-  initialRequests: [], initialRequestError: null,
+  areas: [],
 }))
 
 describe('staff tables permissions and timeout UI', () => {
@@ -25,7 +25,8 @@ describe('staff tables permissions and timeout UI', () => {
     const html = render(false)
     expect(html).toContain('20.000đ')
     expect(html).toContain('Ghép mâm')
-    expect(html).toContain('Gọi nhân viên')
+    // Phiên hết hạn còn nợ gom xuống mục riêng cuối danh sách (2026-10-09).
+    expect(html).toContain('Phiên hết hạn chưa thu (1)')
     expect(html).not.toContain('Thu tiền')
     expect(html).not.toContain('Bỏ bàn')
     expect(html).not.toContain('type="checkbox"')
