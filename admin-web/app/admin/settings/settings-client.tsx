@@ -111,6 +111,61 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, goog
         </p>
       </div>
 
+      {/* Banner Trang chủ Mini App — thay khối nền đỏ mặc định, chỉ hiện khi khách mở app (không quét QR bàn) */}
+      <div>
+        <label className="label">Banner Trang chủ Mini App (tỉ lệ 16:9)</label>
+        {takeawayBannerUrl && !banner && !removeBanner && (
+          <div className="relative mb-2">
+            <img
+              src={takeawayBannerUrl}
+              alt="Banner hiện tại"
+              className="w-full rounded-lg object-cover"
+              style={{ aspectRatio: '16/9' }}
+            />
+            <button
+              type="button"
+              onClick={() => setRemoveBanner(true)}
+              className="absolute right-2 top-2 rounded-lg bg-black/60 px-2.5 py-1 text-xs font-medium text-white hover:bg-black/75"
+            >
+              Xoá banner
+            </button>
+          </div>
+        )}
+        {banner && (
+          <img
+            src={URL.createObjectURL(banner)}
+            alt="Preview banner mới"
+            className="mb-2 w-full rounded-lg object-cover"
+            style={{ aspectRatio: '16/9' }}
+          />
+        )}
+        {removeBanner && !banner && (
+          <p className="mb-2 text-xs text-primary">
+            Banner sẽ bị xoá khi bấm Lưu.{' '}
+            <button type="button" onClick={() => setRemoveBanner(false)} className="underline">
+              Hoàn tác
+            </button>
+          </p>
+        )}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={async (e) => {
+            const f = e.target.files?.[0]
+            if (f) {
+              setRemoveBanner(false)
+              setBanner(await compressBanner(f))
+            } else {
+              setBanner(null)
+            }
+          }}
+          className="block text-sm text-muted"
+        />
+        <p className="mt-1 text-xs text-muted">
+          Hiện đầu Trang chủ khi khách mở Mini App (không quét QR). Tỉ lệ 16:9 (VD: 1280×720px). Để trống = khối màu thương hiệu.
+        </p>
+      </div>
+
       {/* Địa chỉ quán */}
       <div>
         <label className="label">Địa chỉ quán</label>
@@ -216,61 +271,6 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, goog
         />
         <p className="mt-1 text-xs text-muted">
           Chỉ hiển thị ở tab &quot;Nhà hàng&quot; trên mini-app để khách tham khảo. Không tự động chặn đơn ngoài vùng.
-        </p>
-      </div>
-
-      {/* Banner Mang về */}
-      <div>
-        <label className="label">Banner Mang về / Ship (tỉ lệ 4:1)</label>
-        {takeawayBannerUrl && !banner && !removeBanner && (
-          <div className="relative mb-2">
-            <img
-              src={takeawayBannerUrl}
-              alt="Banner hiện tại"
-              className="w-full rounded-lg object-cover"
-              style={{ aspectRatio: '4/1' }}
-            />
-            <button
-              type="button"
-              onClick={() => setRemoveBanner(true)}
-              className="absolute right-2 top-2 rounded-lg bg-black/60 px-2.5 py-1 text-xs font-medium text-white hover:bg-black/75"
-            >
-              Xoá banner
-            </button>
-          </div>
-        )}
-        {banner && (
-          <img
-            src={URL.createObjectURL(banner)}
-            alt="Preview banner mới"
-            className="mb-2 w-full rounded-lg object-cover"
-            style={{ aspectRatio: '4/1' }}
-          />
-        )}
-        {removeBanner && !banner && (
-          <p className="mb-2 text-xs text-primary">
-            Banner sẽ bị xoá khi bấm Lưu.{' '}
-            <button type="button" onClick={() => setRemoveBanner(false)} className="underline">
-              Hoàn tác
-            </button>
-          </p>
-        )}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={async (e) => {
-            const f = e.target.files?.[0]
-            if (f) {
-              setRemoveBanner(false)
-              setBanner(await compressBanner(f))
-            } else {
-              setBanner(null)
-            }
-          }}
-          className="block text-sm text-muted"
-        />
-        <p className="mt-1 text-xs text-muted">
-          Hiện ở menu khi khách mở app không quét QR. Tỉ lệ 4:1 (VD: 1200×300px). Để trống = không hiện.
         </p>
       </div>
 
