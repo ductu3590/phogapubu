@@ -28,6 +28,8 @@ serve(async (req) => {
     body = null
   }
 
+  const proxyUrl = Deno.env.get('MEVO_PHONE_PROXY_URL')?.trim()
+  const proxySecret = Deno.env.get('MEVO_HMAC_SECRET')?.trim()
   const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   const result = await handleZaloPhone(body, {
     loadConfig: async (storeId) => {
@@ -39,7 +41,9 @@ serve(async (req) => {
       if (error || !data) return null
       return { secret: data.zalo_app_secret_key as string | null, enabled: data.is_enabled as boolean }
     },
-    fetch: (url, init) => fetch(url, init),
+    // Timeout 12s: Zalo/proxy treo thì trả lỗi thay vì để khách nhìn "Đang lấy…" mãi.
+    fetch: (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(12_000) }),
+    proxy: proxyUrl && proxySecret ? { url: proxyUrl, hmacSecret: proxySecret } : undefined,
     log: (message) => console.warn(message),
   })
   return json(result.body, result.status)

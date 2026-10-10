@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
 import { handleZaloPhone, ZALO_PHONE_URL } from './handler'
 
@@ -99,5 +100,36 @@ describe('zalo-phone handler', () => {
     expect(line).toContain('Invalid secret')
     for (const secretish of ['84912345678', 'tok-1', 'acc-1', SECRET]) expect(line).not.toContain(secretish)
     expect(line.length).toBeLessThan(260)
+  })
+})
+
+describe('zalo-phone qua bộ chuyển tiếp VN (Zalo chặn IP ngoài Việt Nam)', () => {
+  const PROXY = { url: 'https://zalo.soccernow.net/mevo/phone', hmacSecret: 'hmac-secret', now: () => 1_800_000_000_000 }
+
+  it('POST có chữ ký tới proxy, body mang token/access_token/secret_key; KHÔNG gọi thẳng Zalo', async () => {
+    const { d } = deps()
+    const r = await handleZaloPhone(body, { ...d, proxy: PROXY })
+    expect(r).toEqual({ status: 200, body: { phone: '84912345678' } })
+    expect(d.fetch).toHaveBeenCalledTimes(1)
+    const [url, init] = (d.fetch as any).mock.calls[0]
+    expect(url).toBe(PROXY.url)
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual({ version: 1, token: 'tok-1', access_token: 'acc-1', secret_key: SECRET })
+    const ts = '1800000000'
+    expect(init.headers['X-Mevo-Timestamp']).toBe(ts)
+    expect(init.headers['X-Mevo-Signature']).toBe('sha256=' + createHmac('sha256', 'hmac-secret').update(`${ts}.${init.body}`).digest('hex'))
+  })
+
+  it('proxy trả lỗi Zalo → 502 zalo_error, log có message nhưng không lộ secret', async () => {
+    const { d, logs } = deps({ fetch: vi.fn(async () => zaloResponse({ error: -501, message: `bad ${SECRET}` })) })
+    expect(await handleZaloPhone(body, { ...d, proxy: PROXY })).toEqual({ status: 502, body: { error: 'zalo_error' } })
+    const line = logs.join(' | ')
+    expect(line).toContain('error=-501')
+    for (const s of [SECRET, 'tok-1', 'acc-1', 'hmac-secret']) expect(line).not.toContain(s)
+  })
+
+  it('proxy 401/không đọc được (sai HMAC, máy tắt) → 502 zalo_error', async () => {
+    const { d } = deps({ fetch: vi.fn(async () => zaloResponse({ error: 'unauthorized' }, 401)) })
+    expect(await handleZaloPhone(body, { ...d, proxy: PROXY })).toEqual({ status: 502, body: { error: 'zalo_error' } })
   })
 })
