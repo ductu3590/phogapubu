@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSetting, getUserInfo } from "zmp-sdk";
+import { authorize, getSetting, getUserInfo } from "zmp-sdk";
 import { useSnackbar } from "zmp-ui";
 import SectionCard from "@/components/ui/section-card";
 import ConfirmSheet from "@/components/ui/confirm-sheet";
@@ -12,6 +12,7 @@ import { clearPersonalData } from "@/services/account-storage";
 import { fetchZaloPhone, zaloPhoneErrorMessage } from "@/services/zalo-phone";
 import { formatPhoneDisplay, mergeProfile, type ProfilePatch } from "@/utils/account-profile";
 import { normalizeVnPhone } from "@/utils/booking-validation";
+import { missingScopes } from "@/utils/account-permissions";
 import type { ReservationProfile } from "@/types/reservation.types";
 
 // Trang Tài khoản (spec 2026-10-09): hồ sơ + quyền riêng tư. Mọi thông tin chỉ nằm trên máy khách.
@@ -48,24 +49,7 @@ export default function AccountPage() {
     setNameDraft(next.customerName);
   }, [update]);
 
-  // Chỉ đọc tên/ảnh khi khách ĐÃ cho quyền — mở trang không tự bật hộp xin quyền.
-  useEffect(() => {
-    let alive = true;
-    getSetting()
-      .then(({ authSetting }) => (authSetting?.["scope.userInfo"] ? getUserInfo({ avatarType: "normal" }) : null))
-      .then((res) => { if (alive && res?.userInfo?.name) applyZaloUser(res.userInfo); })
-      .catch(() => { /* không đọc được thì giữ "Khách" */ });
-    return () => { alive = false; };
-  }, [applyZaloUser]);
-
-  const connectZalo = async () => {
-    try {
-      const { userInfo } = await getUserInfo({ autoRequestPermission: true, avatarType: "normal" });
-      if (userInfo?.name) applyZaloUser(userInfo);
-    } catch { /* khách từ chối — giữ "Khách", không báo lỗi to */ }
-  };
-
-  const getPhoneFromZalo = async () => {
+  const getPhoneFromZalo = useCallback(async () => {
     setFetchingPhone(true);
     setPhoneError("");
     const result = await fetchZaloPhone(storeId);
@@ -78,6 +62,43 @@ export default function AccountPage() {
     }
     setPhoneError(zaloPhoneErrorMessage(result.error));
     setManualOpen(true);
+  }, [storeId, update]);
+
+  // Mở trang là xin luôn quyền tên/ảnh/ID + SĐT (hộp xin quyền của Zalo), cấp xong tự đọc tên và lấy số.
+  // Chỉ xin 1 lần mỗi phiên mở app: khách đã từ chối thì không hỏi lại mỗi lần vào trang
+  // (còn nút "Kết nối Zalo" / "Lấy số từ Zalo" để tự bấm). Chờ có storeId — chưa có thì không có secret quán để đổi số.
+  useEffect(() => {
+    if (!storeId) return;
+    let alive = true;
+    (async () => {
+      try {
+        let { authSetting } = await getSetting();
+        const missing = missingScopes(authSetting);
+        const askedKey = `mevo_account_perm_asked_${storeId}`;
+        let alreadyAsked = false;
+        try { alreadyAsked = sessionStorage.getItem(askedKey) === "1"; } catch { /* không có sessionStorage */ }
+        if (missing.length > 0 && !alreadyAsked) {
+          try { sessionStorage.setItem(askedKey, "1"); } catch { /* bỏ qua */ }
+          try { await authorize({ scopes: missing }); } catch { /* khách từ chối — vẫn dùng nhập tay */ }
+          ({ authSetting } = await getSetting());
+        }
+        if (authSetting?.["scope.userInfo"]) {
+          const { userInfo } = await getUserInfo({ avatarType: "normal" });
+          if (alive && userInfo?.name) applyZaloUser(userInfo);
+        }
+        if (alive && authSetting?.["scope.userPhonenumber"] && !getReservationProfile(storeId)?.customerPhone) {
+          await getPhoneFromZalo();
+        }
+      } catch { /* không đọc được thì giữ "Khách" */ }
+    })();
+    return () => { alive = false; };
+  }, [storeId, applyZaloUser, getPhoneFromZalo]);
+
+  const connectZalo = async () => {
+    try {
+      const { userInfo } = await getUserInfo({ autoRequestPermission: true, avatarType: "normal" });
+      if (userInfo?.name) applyZaloUser(userInfo);
+    } catch { /* khách từ chối — giữ "Khách", không báo lỗi to */ }
   };
 
   const saveManualPhone = () => {
