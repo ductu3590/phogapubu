@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireOperator } from '@/lib/auth/operator'
+import { isPosRole } from '@/lib/auth/roles'
 
 // Bọc 3 RPC phiên bàn (mig 039). Luôn dùng createClient() — phiên đăng nhập của nhân viên —
 // chứ KHÔNG createAdminClient(): RPC cần auth.uid() để ghi payment_received_by, đó là dấu vết
@@ -18,6 +19,8 @@ export type SessionOrderItem = {
   void_reason: string | null
   voided_at: string | null
   is_gift: boolean
+  /** Mig 098: lịch sử thu ngân sửa số lượng (cũ → mới, lý do). */
+  qty_changes?: { old_quantity: number; new_quantity: number; reason: string; changed_at: string }[]
 }
 
 export type SessionOrderRow = {
@@ -83,7 +86,7 @@ export type CloseSessionResult =
 
 async function staffClient() {
   const operator = await requireOperator()
-  if (operator.role !== 'store_staff' && operator.role !== 'store_owner') {
+  if (operator.role !== 'store_staff' && operator.role !== 'store_owner' && operator.role !== 'store_cashier') {
     return { operator: null, supabase: null, error: 'Không có quyền' as const }
   }
   return { operator, supabase: await createClient(), error: null }
@@ -120,8 +123,8 @@ export async function closeTableSession(
 ): Promise<CloseSessionResult> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
-  if (operator.role !== 'store_owner') {
-    return { ok: false, error: 'Chỉ chủ quán được thu tiền hoặc bỏ bàn' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' }
   }
 
   const { data, error: rpcErr } = await supabase.rpc('close_table_session', {
@@ -221,8 +224,8 @@ export async function closeTableSessionsBulk(
 ): Promise<CloseSessionResult> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
-  if (operator.role !== 'store_owner') {
-    return { ok: false, error: 'Chỉ chủ quán được thu tiền hoặc bỏ bàn' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' }
   }
   if (sessionIds.length === 0) return { ok: false, error: 'Chưa chọn mâm nào' }
 
@@ -255,7 +258,17 @@ export type BillLine = {
   quantity: number
   price: number
   line_total: number
-  is_gift?: boolean
+  is_gift?: boolean | null
+  /** Mig 098: dòng Bỏ/Tặng vẫn in (0đ) kèm lý do để khách biết vì sao tổng thấp hơn. */
+  void_type?: 'cancelled' | 'gift' | null
+  void_reason?: string | null
+}
+export type BillQtyChange = {
+  name: string
+  old_quantity: number
+  new_quantity: number
+  reason: string
+  changed_at: string
 }
 export type BillSession = {
   session_id: string
@@ -264,6 +277,8 @@ export type BillSession = {
   tables: string
   subtotal: number
   items: BillLine[]
+  /** Mig 098: lịch sử thu ngân sửa số lượng — in ra cho khách đối chiếu. */
+  qty_changes?: BillQtyChange[]
 }
 export type SessionsBill = {
   store: { name: string; address: string | null; phone: string | null }

@@ -5,6 +5,7 @@ import { SelectedVariant } from "@/types/cart.types";
 import { formatCurrency } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import { UtensilsIcon } from "@/components/common/icons";
+import BadgePill from "@/components/ui/badge-pill";
 
 interface OptionSheetProps {
   product: Product | null;
@@ -78,6 +79,7 @@ export default function OptionSheet({ product, visible, onClose, onConfirm }: Op
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-neutral100 text-text-disabled" aria-label="Chưa có ảnh"><UtensilsIcon className="size-5" /></div>
           )}
           <div className="min-w-0">
+            <BadgePill badge={product.badge} className="mb-0.5" />
             <p className="text-normal-sb font-semibold text-text-primary line-clamp-1">{product.name}</p>
             <p className="text-small text-text-secondary">
               {hasVariants ? "Từ " : ""}{formatCurrency(product.price)}đ

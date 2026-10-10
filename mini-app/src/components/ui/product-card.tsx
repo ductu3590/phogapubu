@@ -3,6 +3,7 @@ import { MinusIcon, PlusIcon, UtensilsIcon } from "@/components/common/icons";
 import type { Product } from "@/types/product.types";
 import { formatCurrency } from "@/utils/format";
 import { cn } from "@/utils/cn";
+import BadgePill from "@/components/ui/badge-pill";
 
 export default function ProductCard({ product, layout, canOrder, count, onAdd, onDecrease }: {
   product: Product; layout: "grid" | "list"; canOrder: boolean; count: number; onAdd: () => void; onDecrease: () => void;
@@ -39,6 +40,7 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
             : <div className="grid h-full place-items-center text-primary/40"><UtensilsIcon className="size-8" /></div>}
         </div>
         <div className="flex flex-1 flex-col gap-1 p-2.5">
+          <BadgePill badge={product.badge} />
           <p className="line-clamp-2 text-small-m font-semibold text-text-primary">{product.name}</p>
           <span className="mt-auto whitespace-nowrap text-small-m font-bold text-primary">{price}</span>
           {control && <div className="flex justify-end">{control}</div>}
@@ -51,6 +53,7 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
     <div className={cn("flex items-center gap-3 px-4 py-3", !available && "opacity-60")}>
       {image && <img src={image} alt={product.name} onError={() => setImageFailed(true)} className="size-16 shrink-0 rounded-xl object-cover" draggable={false} />}
       <div className="min-w-0 flex-1">
+        <BadgePill badge={product.badge} className="mb-0.5" />
         <p className="line-clamp-2 text-normal-sb font-semibold text-text-primary">{product.name}</p>
         {product.description && <p className="mt-0.5 line-clamp-2 text-xxsmall text-text-secondary">{product.description}</p>}
         <p className="mt-1 whitespace-nowrap text-small-m font-bold text-primary">{price}</p>

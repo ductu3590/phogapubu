@@ -133,7 +133,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
                   {emailById.get(op.user_id) ?? '(không rõ email)'}
                 </span>
                 <span className="rounded-full bg-primary-light px-2 py-0.5 text-xs font-medium text-primary">
-                  {op.role === 'store_owner' ? 'Chủ quán' : op.role === 'store_staff' ? 'Nhân viên' : op.role}
+                  {op.role === 'store_owner' ? 'Chủ quán' : op.role === 'store_staff' ? 'Nhân viên' : op.role === 'store_cashier' ? 'Thu ngân' : op.role}
                 </span>
                 {op.is_active === false && (
                   <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted">Đã khoá</span>

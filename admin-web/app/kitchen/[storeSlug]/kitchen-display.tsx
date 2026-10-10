@@ -15,52 +15,14 @@ import type { KitchenOrder, OrderStatus, Store } from '@/types/database.types'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { watchServiceRequests } from '@/lib/service-request-queue'
 import { sessionTableLabel } from '@/lib/session-table-label'
+import { playBell, setBellStyle, stopBell, unlockBell } from '@/lib/bell'
+import { parseBellStyle } from '@/lib/bell-settings'
 
 type KitchenDisplayOrder = KitchenOrder & { confirmedAt: string | null }
 type KitchenWorkflow = {
   paymentTiming: StorePaymentTiming
   kitchenReleasePolicy: KitchenReleasePolicy
   staffOrderReleasePolicy: KitchenReleasePolicy
-}
-
-// ─── Âm thanh thông báo đơn mới (Web Audio API, không cần file ngoài) ───────
-// Dùng CHUNG 1 AudioContext (thay vì tạo mới mỗi lần) để có thể resume() sau
-// gesture. Trình duyệt tạo AudioContext ở trạng thái 'suspended' cho tới khi
-// người dùng chạm trang — nếu không sẽ câm dù toggle đang bật.
-let sharedAudioCtx: AudioContext | null = null
-function getAudioCtx(): AudioContext | null {
-  if (typeof window === 'undefined') return null
-  const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-  if (!AC) return null
-  if (!sharedAudioCtx) sharedAudioCtx = new AC()
-  return sharedAudioCtx
-}
-
-// Mở khoá audio chuông trong 1 gesture (resume context đang suspended)
-function unlockBellAudio() {
-  const ctx = getAudioCtx()
-  if (ctx && ctx.state === 'suspended') void ctx.resume()
-}
-
-function playBell() {
-  try {
-    const ctx = getAudioCtx()
-    if (!ctx) return
-    if (ctx.state === 'suspended') void ctx.resume()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(880, ctx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.4)
-    gain.gain.setValueAtTime(0.35, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1)
-    osc.start(ctx.currentTime)
-    osc.stop(ctx.currentTime + 1)
-  } catch {
-    // Bỏ qua lỗi audio (user chưa tương tác trang)
-  }
 }
 
 // ─── Gọi ZNS edge function (không chặn UI, fail silently) ───────────────────
@@ -289,7 +251,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
   // nhân viên chạm màn hình. Sau 1 chạm bất kỳ, chuông + đọc đơn hoạt động.
   useEffect(() => {
     const onGesture = () => {
-      unlockBellAudio()
+      void unlockBell()
       if (ttsEnabledRef.current) unlockTts()
       // chạm 1 lần là đủ mở khoá cho cả phiên → gỡ listener
       window.removeEventListener('pointerdown', onGesture)
@@ -312,7 +274,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
     if (next) {
       initTts()
       // Cú chạm này là gesture → mở khoá cả chuông lẫn TTS cho phiên
-      unlockBellAudio()
+      void unlockBell()
       // Đọc thử để xác nhận có tiếng + unlock audio trong cùng cú chạm
       speak('Đã bật đọc đơn')
     }
@@ -360,7 +322,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
       // 1. Lấy store theo slug
       const { data: storeData, error: storeErr } = await supabase!
         .from('stores')
-        .select('id, name, slug')
+        .select('id, name, slug, bell_style')
         .eq('slug', storeSlug)
         .eq('is_active', true)
         .single()
@@ -370,6 +332,7 @@ export default function KitchenDisplay({ storeSlug }: Props) {
         setLoading(false)
         return
       }
+      setBellStyle(parseBellStyle((storeData as { bell_style?: string }).bell_style))
 
       // RPC public-safe là nguồn hợp nhất cho thời điểm thanh toán và policy xuống bếp.
       // Dùng client anon/authenticated riêng vì token bếp chạy Postgres role `kitchen`.
@@ -704,6 +667,10 @@ export default function KitchenDisplay({ storeSlug }: Props) {
       o.paymentMethod === 'zalo_checkout' &&
       o.paymentInstrument !== 'wallet',
   )
+  // Kiểu chuông "Báo liên tục": bếp hết đơn chờ làm, hết gọi nhân viên, hết quà chờ đưa → im ngay,
+  // kể cả khi việc được xử lý ở máy khác (POS, màn nhân viên).
+  const kitchenWorkCount = waitingOrders.length + callAlerts.length + giftAlerts.length
+  useEffect(() => { if (kitchenWorkCount === 0) stopBell() }, [kitchenWorkCount])
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (tokenMissing) {

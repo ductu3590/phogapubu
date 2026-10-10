@@ -24,7 +24,7 @@ vi.mock('@/lib/account/validation', () => ({
   parseAccountProfile: mocks.parseAccountProfile,
 }))
 vi.mock('@/lib/auth/operator', () => ({
-  requireStoreOwnerStoreId: mocks.requireStoreOwnerStoreId,
+  requireOperator: mocks.requireStoreOwnerStoreId,
 }))
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => mocks.supabase),
@@ -123,5 +123,15 @@ describe('account actions', () => {
 
     expect(mocks.supabase.auth.signInWithPassword).not.toHaveBeenCalled()
     expect(mocks.supabase.auth.updateUser).not.toHaveBeenCalled()
+  })
+})
+
+describe('thu ngân sửa tài khoản của mình (vá review PA-2)', () => {
+  it('cập nhật họ tên được', async () => {
+    vi.clearAllMocks()
+    mocks.requireStoreOwnerStoreId.mockResolvedValue({ userId: 'c1', role: 'store_cashier', storeId: 'store-1' })
+    mocks.supabase.auth.updateUser.mockResolvedValue({ error: null })
+    await expect(updateAccountProfile(profileFormData())).resolves.toBeUndefined()
+    expect(mocks.supabase.auth.updateUser).toHaveBeenCalled()
   })
 })

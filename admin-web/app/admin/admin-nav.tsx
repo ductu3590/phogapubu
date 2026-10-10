@@ -13,6 +13,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react'
 import type { AppNavGroup, AppNavItem } from '@/components/ui/app-shell'
+import type { OperatorRole } from '@/lib/auth/roles'
 
 // Menu khu chủ quán (Pha 4, theo bản Stitch P01): rail icon chỉ giữ mục dùng hằng ngày,
 // mục cấu hình nằm trong ô "Thêm" và mở thành hộp thoại đè lên POS (ST-3).
@@ -22,7 +23,14 @@ import type { AppNavGroup, AppNavItem } from '@/components/ui/app-shell'
 //   phần còn lại (lịch các ngày tới, đổi giờ / đổi bàn, duyệt yêu cầu đổi) mở trong hộp thoại.
 // - Bếp chỉ hiện với quán dùng màn hình bếp. Quán "thu ngân xác nhận rồi in phiếu"
 //   (kitchen_release_policy = pos_confirmation, mô hình Bảo Lương) không có màn bếp nào để mở.
-export function adminRailItems(kitchenEnabled = true): AppNavItem[] {
+export function adminRailItems(kitchenEnabled = true, role: OperatorRole = 'store_owner'): AppNavItem[] {
+  // Thu ngân (PA-2): chỉ việc ở quầy — POS + Báo cáo ngày.
+  if (role === 'store_cashier') {
+    return [
+      { href: '/admin/pos', label: 'POS', icon: <LayoutGrid /> },
+      { href: '/admin/dashboard', label: 'Báo cáo', icon: <BarChart3 /> },
+    ]
+  }
   return [
     { href: '/admin/pos', label: 'POS', icon: <LayoutGrid /> },
     ...(kitchenEnabled ? [{ href: '/admin/kitchen', label: 'Bếp', icon: <ChefHat /> }] : []),
@@ -32,10 +40,18 @@ export function adminRailItems(kitchenEnabled = true): AppNavItem[] {
   ]
 }
 
-export function adminMoreItems(reservationsEnabled = false): AppNavItem[] {
+export function adminMoreItems(reservationsEnabled = false, role: OperatorRole = 'store_owner'): AppNavItem[] {
+  const booking = reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []
+  // Thu ngân: Đặt bàn · Thực đơn (chỉ bật/tắt Tạm hết) · Tài khoản của mình.
+  if (role === 'store_cashier') {
+    return [
+      ...booking,
+      { href: '/admin/menu', label: 'Thực đơn (Tạm hết)', icon: <UtensilsCrossed /> },
+      { href: '/admin/account', label: 'Tài khoản', icon: <User /> },
+    ]
+  }
   return [
-    ...(reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []),
-    { href: '/admin/settings', label: 'Cài đặt quán', icon: <Settings /> },
+    ...booking,
     { href: '/admin/tables', label: 'Bàn & QR', icon: <QrCode /> },
     { href: '/admin/staff', label: 'Nhân viên', icon: <Users /> },
     { href: '/admin/vouchers', label: 'Ưu đãi', icon: <Ticket /> },
@@ -44,7 +60,18 @@ export function adminMoreItems(reservationsEnabled = false): AppNavItem[] {
   ]
 }
 
+// Nút ⚙ Cài đặt (PA-1, 2026-10-07): nằm riêng ngay trên ô "Thêm" — chủ quán mở cấu hình
+// thường xuyên hơn các mục trong Thêm, không bắt bấm 2 lần.
+export function adminBottomItems(role: OperatorRole = 'store_owner'): AppNavItem[] {
+  if (role === 'store_cashier') return []
+  return [{ href: '/admin/settings', label: 'Cài đặt', icon: <Settings /> }]
+}
+
 /** Toàn bộ mục (cho dò mục đang chọn và test). */
-export function adminNavGroups(reservationsEnabled = false, kitchenEnabled = true): AppNavGroup[] {
-  return [{ items: adminRailItems(kitchenEnabled) }, { items: adminMoreItems(reservationsEnabled) }]
+export function adminNavGroups(reservationsEnabled = false, kitchenEnabled = true, role: OperatorRole = 'store_owner'): AppNavGroup[] {
+  return [
+    { items: adminRailItems(kitchenEnabled, role) },
+    { items: adminBottomItems(role) },
+    { items: adminMoreItems(reservationsEnabled, role) },
+  ]
 }

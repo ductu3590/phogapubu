@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache'
 export type OperatorAccount = {
   userId: string
   email: string
-  role: 'mevo_superadmin' | 'store_owner' | 'store_staff'
+  role: 'mevo_superadmin' | 'store_owner' | 'store_staff' | 'store_cashier'
   isActive: boolean
   lastSignInText: string
   isSelf: boolean

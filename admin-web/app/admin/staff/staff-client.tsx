@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createStoreStaff, setStaffActive } from '@/lib/actions/staff'
+import { createStoreStaff, setStaffActive, setStaffRole } from '@/lib/actions/staff'
+import { ROLE_LABEL } from '@/lib/auth/roles'
 
-type Staff = { userId: string; email: string; isActive: boolean }
+type Staff = { userId: string; email: string; isActive: boolean; role: 'store_staff' | 'store_cashier' }
 
 export default function StaffClient({ staff }: { staff: Staff[] }) {
   const router = useRouter()
@@ -40,6 +41,23 @@ export default function StaffClient({ staff }: { staff: Staff[] }) {
     })
   }
 
+  // Đổi vai trò Phục vụ ↔ Thu ngân (PA-2). Thu ngân thu được tiền + xem doanh thu nên hỏi lại trước.
+  function handleRole(userId: string, email: string, role: Staff['role']) {
+    const next = role === 'store_cashier' ? 'store_staff' : 'store_cashier'
+    const msg = next === 'store_cashier'
+      ? `Đổi "${email}" thành Thu ngân? Người này sẽ thu tiền, bỏ/tặng món và xem doanh thu.`
+      : `Đổi "${email}" thành Nhân viên phục vụ? Người này sẽ không thu tiền được nữa.`
+    if (!confirm(msg)) return
+    startTransition(async () => {
+      try {
+        await setStaffRole(userId, next)
+        router.refresh()
+      } catch (e) {
+        alert(e instanceof Error ? e.message : 'Không đổi được vai trò')
+      }
+    })
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* Form thêm nhân viên */}
@@ -70,6 +88,13 @@ export default function StaffClient({ staff }: { staff: Staff[] }) {
               className="w-full rounded-xl border border-border px-4 py-2.5 text-sm text-foreground outline-none focus:border-focus"
             />
           </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-foreground/80">Vai trò</span>
+            <select name="role" defaultValue="store_staff" className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-focus">
+              <option value="store_staff">Nhân viên phục vụ</option>
+              <option value="store_cashier">Thu ngân</option>
+            </select>
+          </label>
           <button
             type="submit"
             className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
@@ -80,8 +105,8 @@ export default function StaffClient({ staff }: { staff: Staff[] }) {
       </div>
 
       {/* Danh sách nhân viên */}
-      <div className="max-w-lg">
-        <p className="mb-2 text-sm text-muted">{staff.length} nhân viên</p>
+      <div className="max-w-2xl">
+        <p className="mb-2 text-sm text-muted">{staff.length} người</p>
         {staff.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted">
             Chưa có nhân viên nào.
@@ -94,12 +119,23 @@ export default function StaffClient({ staff }: { staff: Staff[] }) {
                   <span className={`truncate text-sm ${s.isActive ? 'text-foreground' : 'text-muted line-through'}`}>
                     {s.email}
                   </span>
+                  <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${s.role === 'store_cashier' ? 'bg-orange-50 text-orange-700' : 'bg-secondary text-muted'}`}>
+                    {ROLE_LABEL[s.role]}
+                  </span>
                   {!s.isActive && (
                     <span className="flex-shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted">
                       Đã tắt
                     </span>
                   )}
                 </div>
+                <div className="flex flex-shrink-0 items-center gap-1">
+                <button
+                  onClick={() => handleRole(s.userId, s.email, s.role)}
+                  disabled={isPending}
+                  className="flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-foreground/70 hover:bg-secondary disabled:opacity-50"
+                >
+                  {s.role === 'store_cashier' ? 'Đổi thành Phục vụ' : 'Đổi thành Thu ngân'}
+                </button>
                 <button
                   onClick={() => handleToggle(s.userId, s.email, s.isActive)}
                   disabled={isPending}
@@ -111,6 +147,7 @@ export default function StaffClient({ staff }: { staff: Staff[] }) {
                 >
                   {s.isActive ? 'Vô hiệu hoá' : 'Bật lại'}
                 </button>
+                </div>
               </li>
             ))}
           </ul>

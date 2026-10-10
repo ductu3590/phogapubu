@@ -1,12 +1,11 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import TablesClient from './tables-client'
+import { tablesVersion } from '@/lib/table-groups'
 import { generateTableQR } from '@/lib/qr'
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
-import { redirect } from 'next/navigation'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 
 export default async function TablesPage() {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('owner')
   const storeId = operator.storeId
 
   const supabase = await createClient()
@@ -24,10 +23,11 @@ export default async function TablesPage() {
   ])
   const zaloAppId = appConfig?.zalo_mini_app_id ?? checkoutConfig?.zalo_mini_app_id ?? ''
 
-  const { data: tables } = await supabase
-    .from('tables')
-    .select('*')
-    .eq('store_id', storeId)
+  const [{ data: tables }, { data: areaRows }] = await Promise.all([
+    supabase.from('tables').select('*').eq('store_id', storeId),
+    // Khu (PA-3): chủ quán đọc qua RLS pos_read_table_areas.
+    supabase.from('table_areas').select('id, name, color, sort_order').eq('store_id', storeId).order('sort_order'),
+  ])
 
   // Sắp xếp tự nhiên A→Z: số hiểu theo giá trị nên "Bàn 2" đứng trước "Bàn 10"
   // (order theo chuỗi thô của Postgres sẽ ra 1, 10, 2, 3... — không đúng ý người dùng)
@@ -47,11 +47,13 @@ export default async function TablesPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
-        <h1 className="text-xl font-bold text-foreground">Quản lý bàn & QR</h1>
-        <p className="text-sm text-muted">Tạo bàn, tải QR về in dán lên bàn</p>
+        <h1 className="text-xl font-bold text-foreground">Sơ đồ bàn &amp; QR</h1>
+        <p className="text-sm text-muted">Nhóm bàn theo khu, in mã QR dán bàn. Vị trí bàn trên sơ đồ chỉnh ở POS → Sắp xếp bàn.</p>
       </div>
       <TablesClient
+        key={tablesVersion(tablesWithQr)}
         tables={tablesWithQr}
+        areas={(areaRows ?? []) as Array<{ id: string; name: string; color: string; sort_order: number }>}
         storeId={storeId}
         storeSlug={storeSlug}
         zaloAppId={zaloAppId}

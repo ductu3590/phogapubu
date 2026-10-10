@@ -18,7 +18,7 @@ export async function listStaffUpcomingReservedTables(): Promise<
   { ok: true; rows: StaffReservedTable[] } | { ok: false; error: string }
 > {
   const operator = await requireOperator()
-  if (operator.role !== 'store_owner' && operator.role !== 'store_staff') return { ok: false, error: 'Không có quyền' }
+  if (operator.role !== 'store_owner' && operator.role !== 'store_staff' && operator.role !== 'store_cashier') return { ok: false, error: 'Không có quyền' }
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('list_staff_upcoming_reserved_tables', { p_store_id: operator.storeId })
   if (error) return { ok: false, error: error.message }

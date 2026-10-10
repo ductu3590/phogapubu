@@ -1,12 +1,13 @@
 'use server'
 
 import { parseAccountPassword, parseAccountProfile } from '@/lib/account/validation'
-import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
+import { requireOperator } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+// Chủ quán + thu ngân (PA-2) tự sửa tài khoản CỦA MÌNH — mọi lệnh dưới đây chỉ chạm user đang đăng nhập.
 export async function updateAccountProfile(formData: FormData) {
-  await requireStoreOwnerStoreId()
+  await requireOperator()
   const { fullName, phone } = parseAccountProfile(formData)
   const supabase = await createClient()
 
@@ -22,7 +23,7 @@ export async function updateAccountProfile(formData: FormData) {
 }
 
 export async function updateAccountPassword(formData: FormData) {
-  await requireStoreOwnerStoreId()
+  await requireOperator()
   const { currentPassword, password } = parseAccountPassword(formData)
   const supabase = await createClient()
 

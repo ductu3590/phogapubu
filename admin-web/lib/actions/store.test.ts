@@ -30,7 +30,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
-const { updateStoreSettings } = await import('./store')
+const { saveBellStyle, updateStoreSettings } = await import('./store')
 
 describe('updateStoreSettings', () => {
   beforeEach(() => {
@@ -74,6 +74,23 @@ describe('updateStoreSettings', () => {
     formData.set('name', 'Bia lẩu Bảo Lương')
     formData.set('google_maps_url', 'javascript:alert(1)')
     await expect(updateStoreSettings(formData)).rejects.toThrow('Link Google Maps phải bắt đầu bằng https://')
+    expect(mocks.update).not.toHaveBeenCalled()
+  })
+})
+
+describe('saveBellStyle (PA-1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.patch.value = null
+  })
+
+  it('ghi đúng kiểu chuông vào quán của chủ quán', async () => {
+    await expect(saveBellStyle('soft')).resolves.toEqual({ ok: true })
+    expect(mocks.patch.value).toEqual({ bell_style: 'soft' })
+  })
+
+  it('kiểu lạ → báo lỗi, KHÔNG ghi gì', async () => {
+    await expect(saveBellStyle('loud' as never)).resolves.toEqual({ ok: false, error: 'Kiểu chuông không hợp lệ' })
     expect(mocks.update).not.toHaveBeenCalled()
   })
 })

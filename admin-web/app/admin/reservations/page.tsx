@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { listReservationQueue } from '@/lib/actions/reservations'
 import { loadFloorLayout } from '@/lib/actions/floor-layout'
 import { listOpenTableSessions } from '@/lib/actions/table-session'
@@ -18,8 +18,7 @@ function queueRange() {
 // Hàng đợi đặt bàn chỉ dành cho chủ quán. Kiểm capability lại ở route để URL trực tiếp
 // không mở chức năng cho quán chưa chọn mô hình reservation.
 export default async function ReservationsPage() {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('pos')
 
   const supabase = await createClient()
   const [workflowResult, queueResult, floorResult, sessionsResult, customerCallsResult] = await Promise.all([
@@ -31,7 +30,7 @@ export default async function ReservationsPage() {
   ])
   const reservationsEnabled = (workflowResult.data as { reservations_enabled?: unknown } | null)
     ?.reservations_enabled === true
-  if (!reservationsEnabled) redirect('/admin/dashboard')
+  if (!reservationsEnabled) redirect('/admin/pos')
 
   return (
     <ReservationsClient

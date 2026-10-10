@@ -5,6 +5,8 @@ import { Plus, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/field'
 import { cn } from '@/lib/utils'
+import { areaColorClasses } from '@/lib/area-colors'
+import { areaTabs } from '@/lib/area-layout'
 import type { FloorController } from './use-floor-layout'
 
 export default function AreaControls({ floor }: { floor: FloorController }) {
@@ -12,7 +14,7 @@ export default function AreaControls({ floor }: { floor: FloorController }) {
   return (
     <div className="space-y-3 border-b border-border bg-surface px-4 py-3 md:px-5">
       <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Khu vực">
-        {[{ id: null, name: 'Chưa phân khu' }, ...floor.draft.areas].map(area => {
+        {areaTabs(floor.draft.areas, floor.draft.tables).map(area => {
           const isActive = floor.areaId === area.id
           return (
             <button
@@ -25,6 +27,7 @@ export default function AreaControls({ floor }: { floor: FloorController }) {
                 isActive ? 'bg-primary-light text-primary' : 'text-foreground/70 hover:bg-foreground/5 hover:text-foreground',
               )}
             >
+              {area.id && <span className={cn('size-2 shrink-0 rounded-full', areaColorClasses(area.color).dot)} aria-hidden />}
               {area.name}
               <span className={cn('text-[13px] font-normal tabular', isActive ? 'text-primary' : 'text-muted')}>
                 {floor.draft.tables.filter(t => t.area_id === area.id).length}

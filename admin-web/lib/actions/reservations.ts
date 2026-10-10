@@ -3,6 +3,7 @@
 import { requireOperator } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { toReservationRow, type ReservationRpcRow } from '@/lib/reservation-rows'
+import { isPosRole } from '@/lib/auth/roles'
 
 export type ReservationStatus =
   | 'pending'
@@ -75,10 +76,10 @@ export type SnoozeReservationResult =
 async function ownerClient() {
   try {
     const operator = await requireOperator()
-    if (operator.role !== 'store_owner') {
-      return { supabase: null, storeId: null, error: 'Chỉ chủ quán được xử lý đặt bàn' }
+    if (!isPosRole(operator.role)) {
+      return { supabase: null, storeId: null, error: 'Chỉ chủ quán hoặc thu ngân được xử lý đặt bàn' }
     }
-    return { supabase: await createClient(), storeId: operator.storeId, error: null }
+    return { supabase: await createClient(), storeId: operator.storeId as string, error: null }
   } catch (error) {
     return {
       supabase: null,

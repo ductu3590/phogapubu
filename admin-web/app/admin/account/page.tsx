@@ -1,4 +1,4 @@
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AccountClient from './account-client'
@@ -14,8 +14,7 @@ function readMetadataString(metadata: UserMetadata, key: keyof UserMetadata): st
 }
 
 export default async function AccountPage() {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('pos')
 
   const supabase = await createClient()
   const {

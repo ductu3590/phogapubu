@@ -20,7 +20,7 @@ import type { FloorSnapshot } from '@/lib/area-layout'
 import { reservationQueueState, sortReservationQueue } from '@/lib/reservation-queue'
 import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
 import { createClient } from '@/lib/supabase/client'
-import { playBell, unlockBell } from '@/lib/bell'
+import { ringBellOnce, unlockBell } from '@/lib/bell'
 import { createReservationReminderCoordinator, type ReminderStorage } from '@/lib/reservation-reminders'
 import ReservationCard from './reservation-card'
 import ReservationReminderBanner from './reservation-reminder-banner'
@@ -98,7 +98,7 @@ export default function ReservationsClient({
   const [customerCalls, setCustomerCalls] = useState(initialCustomerCalls)
   const [customerCallBusy, setCustomerCallBusy] = useState(false)
   const reminders = useMemo(() => createReservationReminderCoordinator({
-    storeId, storage: browserStorage(), now: Date.now, playBell,
+    storeId, storage: browserStorage(), now: Date.now, playBell: ringBellOnce,
   }), [storeId])
 
   const load = useCallback(

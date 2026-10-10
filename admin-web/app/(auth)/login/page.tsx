@@ -1,11 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { signIn } from './actions'
 
 export default function LoginPage() {
-  const router = useRouter()
   // Lỗi (sai mật khẩu / không có quyền operator) trả về từ server action signIn — không đọc
   // window ở init để tránh hydration mismatch giữa server và client.
   const [error, setError] = useState('')
@@ -23,10 +21,12 @@ export default function LoginPage() {
       setError(result.error)
       setLoading(false)
     } else {
-      // Login thành công — navigate từ client để tránh NEXT_REDIRECT throw.
+      // Login thành công — điều hướng từ client để tránh NEXT_REDIRECT throw.
       // redirectTo theo role: mevo_superadmin → /mevo, store_owner → /admin.
-      router.push(result?.redirectTo ?? '/admin')
-      router.refresh()
+      // ⚠️ TẢI CỨNG, không router.push (2026-10-09): chuyển mềm sang /admin → /admin/dashboard bị route chặn
+      // @modal/(.)dashboard bắt → hộp thoại Báo cáo không có trang nền, không đóng/đổi tab được. Tải cứng
+      // còn nạp lại toàn bộ trạng thái server theo cookie đăng nhập mới.
+      window.location.assign(result?.redirectTo ?? '/admin')
     }
   }
 

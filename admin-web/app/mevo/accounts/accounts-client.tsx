@@ -8,6 +8,7 @@ const ROLE_LABEL: Record<OperatorAccount['role'], string> = {
   mevo_superadmin: 'MEVO superadmin',
   store_owner: 'Chủ quán',
   store_staff: 'Nhân viên',
+  store_cashier: 'Thu ngân',
 }
 
 export default function AccountsClient({ groups }: { groups: AccountGroup[] }) {

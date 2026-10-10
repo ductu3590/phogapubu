@@ -4,10 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { saveFloorLayout } from '@/lib/actions/floor-layout'
 import { readFloorLayout } from '@/lib/pos-browser-reads'
-import { layoutByArea, moveInArea, transferToArea, type FloorDraft, type FloorSnapshot } from '@/lib/area-layout'
+import { layoutByArea, moveInArea, pickAreaId, transferToArea, type FloorDraft, type FloorSnapshot } from '@/lib/area-layout'
 
 const toDraft = (snapshot: FloorSnapshot): FloorDraft => ({ ...snapshot, tables: layoutByArea(snapshot.tables) })
-const firstArea = (snapshot: FloorSnapshot | null) => snapshot?.tables.some(t => !t.area_id) ? null : snapshot?.areas[0]?.id ?? null
+const firstArea = (snapshot: FloorSnapshot | null) => snapshot ? pickAreaId(null, snapshot) : null
 
 export function useFloorLayout(storeId: string, initial: FloorSnapshot | null, initialError: string | null) {
   const [draft, setDraft] = useState<FloorDraft>(() => initial ? toDraft(initial) : { version: 0, areas: [], tables: [] })
@@ -27,7 +27,7 @@ export function useFloorLayout(storeId: string, initial: FloorSnapshot | null, i
     saved.current = snapshot
     setDraft(toDraft(snapshot))
     setReady(true)
-    setAreaId(id => id === null || snapshot.areas.some(a => a.id === id) ? id : firstArea(snapshot))
+    setAreaId(id => pickAreaId(id, snapshot))
     setError(null)
   }, [])
 

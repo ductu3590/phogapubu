@@ -7,8 +7,7 @@ import { formatVND } from '@/lib/utils'
 import { confirmManualPayment, completeOrder, cancelOrder } from '@/lib/actions/orders'
 import { redeemSpin } from '@/lib/actions/spin'
 import { DatePicker } from './date-picker'
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
-import { redirect } from 'next/navigation'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { hasRealMoney, isAwaitingPayment } from '@/lib/revenue'
 import { paymentBadge } from '@/lib/order-payment-badge'
 import { orderTags } from '@/lib/order-tags'
@@ -30,8 +29,7 @@ export default async function OrdersPage({
 }) {
   const { date, unpaid } = await searchParams
   const showUnpaidOnly = unpaid === '1'
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('owner')
   const storeId = operator.storeId
 
   const supabase = await createClient()

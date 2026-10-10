@@ -1,6 +1,6 @@
 'use client'
 
-import { ImageOff, Pencil, Trash2 } from 'lucide-react'
+import { ImageOff, Pencil, Search, Trash2, X } from 'lucide-react'
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { GripVertical } from 'lucide-react'
@@ -28,6 +28,8 @@ import { parseVariantInput, displayPriceLabel } from '@/lib/menu/variant'
 import { formatVND } from '@/lib/utils'
 import { formatVndTyping, parseVnd } from '@/lib/money'
 import SquareCropper from './square-cropper'
+import { visibleMenuItems, type StatusFilter } from '@/lib/menu/menu-filter'
+import { badgeLabel, MENU_BADGES } from '@/lib/menu/sku'
 
 // Topping trong kho dùng chung của quán
 type Topping = {
@@ -46,6 +48,9 @@ type MenuItem = {
   image_url: string | null
   sort_order: number
   category_id: string
+  // Mã món (PA-4): tự sinh theo tiền tố danh mục, sửa tay được. Nhãn: best_seller | signature | null
+  sku?: string | null
+  badge?: string | null
   // Danh sách link tới topping trong kho (chỉ chứa topping_id)
   menu_item_toppings?: { topping_id: string }[]
   // Tên nhóm lựa chọn hiện trên mini-app (VD: "Chọn cỡ"); null = dùng nhãn mặc định
@@ -53,7 +58,7 @@ type MenuItem = {
   // Lựa chọn quyết định giá — giá TUYỆT ĐỐI, thay giá món (khác topping: cộng thêm)
   menu_item_variants?: { id: string; name: string; price: number; is_available: boolean; sort_order: number }[]
 }
-type Category = { id: string; name: string; sort_order: number; menu_items: MenuItem[] }
+type Category = { id: string; name: string; sort_order: number; sku_prefix?: string | null; menu_items: MenuItem[] }
 
 function moveArrayItem<T>(items: T[], oldIndex: number, newIndex: number): T[] {
   const next = [...items]
@@ -78,6 +83,11 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
   const [overrides, setOverrides] = useState<Record<string, boolean>>({})
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null)
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null)
+  // Tìm + lọc (PA-4). Đang tìm hoặc lọc thì tắt kéo-sắp-xếp (visibleMenuItems.canReorder).
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState<StatusFilter>('all')
+  // Lỗi lưu (mã trùng, sai định dạng…) hiện ngay trong hộp — action TRẢ lỗi, không ném.
+  const [formError, setFormError] = useState<string | null>(null)
 
   // Đồng bộ state local với dữ liệu server mới mỗi khi router.refresh() trả về
   // (state local của drag-sort không tự cập nhật theo prop → badge topping/món bị cũ tới khi F5)
@@ -124,6 +134,13 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
 
   const selectedCat = categories.find((c) => c.id === selectedCatId)
   const selectedItems = selectedCat?.menu_items?.slice().sort((a, b) => a.sort_order - b.sort_order) ?? []
+  const view = visibleMenuItems({
+    categories: categories.map((c) => ({ ...c, menu_items: (c.menu_items ?? []).map((i) => ({ ...i, sku: i.sku ?? null })).sort((a, b) => a.sort_order - b.sort_order) })),
+    selectedCatId,
+    query,
+    status,
+    isAvailable: (i) => (overrides[i.id] !== undefined ? overrides[i.id] : i.is_available),
+  })
 
   const handleCategoryDrop = (targetCategoryId: string) => {
     if (!draggedCategoryId || draggedCategoryId === targetCategoryId) return
@@ -220,10 +237,13 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
       /* Danh sách món bên phải */
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 md:px-5">
-          <p className="min-w-0 truncate font-semibold text-foreground">{selectedCat?.name}</p>
+          <p className="min-w-0 truncate font-semibold text-foreground">
+            {view.searching ? `Kết quả tìm «${query.trim()}» (${view.items.length})` : selectedCat?.name}
+          </p>
           <button
             onClick={() => {
               setAddImage(null)
+              setFormError(null)
               setShowAddItem(true)
             }}
             className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-semibold whitespace-nowrap text-white hover:bg-primary-hover"
@@ -232,14 +252,53 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
           </button>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 md:px-5">
+          <label className="flex min-w-48 flex-1 items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5">
+            <Search className="size-4 shrink-0 text-muted" aria-hidden />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Tìm theo tên hoặc mã món…"
+              aria-label="Tìm món"
+              className="w-full bg-transparent text-sm outline-none"
+            />
+            {query && (
+              <button type="button" onClick={() => setQuery('')} aria-label="Xoá ô tìm" className="text-muted hover:text-foreground">
+                <X className="size-4" aria-hidden />
+              </button>
+            )}
+          </label>
+          <div className="flex gap-1" role="group" aria-label="Lọc trạng thái bán">
+            {([['all', 'Tất cả', view.counts.all], ['on', 'Đang bán', view.counts.on], ['off', 'Tạm hết', view.counts.off]] as const).map(([value, label, n]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={status === value}
+                onClick={() => setStatus(value)}
+                className={`rounded-full px-3 py-1.5 text-[13px] font-medium ${status === value ? 'bg-primary text-white' : 'bg-secondary text-muted hover:text-foreground'}`}
+              >
+                {label} ({n})
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto p-4">
+          {!view.canReorder && view.items.length > 0 && (
+            <p className="mb-2 text-xs text-muted">Đang tìm / lọc — tạm tắt kéo để sắp xếp. Xoá ô tìm và chọn &quot;Tất cả&quot; để sắp xếp lại.</p>
+          )}
+          {view.items.length === 0 && (
+            <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted">
+              {view.searching || status !== 'all' ? 'Không có món nào khớp' : 'Danh mục chưa có món'}
+            </p>
+          )}
           <div className="space-y-2">
-            {selectedItems.map((item) => {
+            {view.items.map((item) => {
                 const isAvailable = overrides[item.id] !== undefined ? overrides[item.id] : item.is_available
                 return (
                   <div
                     key={item.id}
-                    draggable
+                    draggable={view.canReorder}
                     onDragStart={() => setDraggedItemId(item.id)}
                     onDragEnd={() => setDraggedItemId(null)}
                     onDragOver={(event) => event.preventDefault()}
@@ -248,9 +307,11 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
                       draggedItemId === item.id ? 'opacity-60' : ''
                     }`}
                   >
-                    <span className="flex-shrink-0 rounded p-1 text-muted/60 hover:bg-item-hover hover:text-foreground" title="Kéo để sắp xếp món">
-                      <GripVertical className="h-5 w-5" />
-                    </span>
+                    {view.canReorder ? (
+                      <span className="flex-shrink-0 rounded p-1 text-muted/60 hover:bg-item-hover hover:text-foreground" title="Kéo để sắp xếp món">
+                        <GripVertical className="h-5 w-5" />
+                      </span>
+                    ) : <span className="w-7 flex-shrink-0" aria-hidden />}
                     {/* Toggle on/off */}
                     <button
                       onClick={() => handleToggle(item.id, isAvailable)}
@@ -283,6 +344,15 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
                         {item.name}
                       </p>
                       {item.description && <p className="truncate text-xs text-muted">{item.description}</p>}
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                        {item.sku && <span className="font-mono text-xs text-muted">{item.sku}</span>}
+                        {badgeLabel(item.badge) && (
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${item.badge === 'best_seller' ? 'bg-orange-50 text-orange-700 ring-orange-200' : 'bg-violet-50 text-violet-700 ring-violet-200'}`}>
+                            {badgeLabel(item.badge)}
+                          </span>
+                        )}
+                        {view.searching && <span className="text-xs text-muted">· {item.categoryName}</span>}
+                      </div>
                       {(item.menu_item_toppings?.length ?? 0) > 0 && (
                         <span className="mt-0.5 inline-block rounded-full border border-border bg-secondary px-2 py-0.5 text-xs font-medium text-muted">
                           {item.menu_item_toppings!.length} topping
@@ -300,6 +370,7 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
                     <button
                       onClick={() => {
                         setEditImage(null)
+                        setFormError(null)
                         setEditItem(item)
                       }}
                       disabled={isPending}
@@ -334,10 +405,14 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
             categories={categories}
             defaultCategoryId={selectedCatId}
             onImage={setAddImage}
+            error={formError}
             submitLabel="Thêm"
             onSubmit={async (fd) => {
               if (addImage) fd.set('image', addImage)
-              const newId = await addMenuItem(fd)
+              setFormError(null)
+              const res = await addMenuItem(fd)
+              if (!res.ok) { setFormError(res.error); return }
+              const newId = res.id
               setShowAddItem(false)
               setAddImage(null)
               router.refresh()
@@ -369,10 +444,13 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
             item={liveEditItem}
             defaultCategoryId={liveEditItem.category_id}
             onImage={setEditImage}
+            error={formError}
             submitLabel="Lưu"
             onSubmit={async (fd) => {
               if (editImage) fd.set('image', editImage)
-              await updateMenuItem(liveEditItem.id, fd)
+              setFormError(null)
+              const res = await updateMenuItem(liveEditItem.id, fd)
+              if (!res.ok) { setFormError(res.error); return }
               setEditItem(null)
               setEditImage(null)
               router.refresh()
@@ -388,17 +466,21 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
       {showAddCat && (
         <Modal title="Thêm danh mục" onClose={() => setShowAddCat(false)}>
           <form
-            action={async (fd) => {
-              await addCategory(fd)
+            onSubmit={submitKeepingForm(async (fd) => {
+              setFormError(null)
+              const res = await addCategory(fd)
+              if (!res.ok) { setFormError(res.error); return }
               setShowAddCat(false)
               router.refresh()
-            }}
+            })}
             className="flex flex-col gap-3"
           >
             <div>
               <label className="label">Tên danh mục *</label>
               <input name="name" required placeholder="VD: Đồ uống, Tráng miệng..." className="input" />
             </div>
+            <PrefixField />
+            {formError && <p role="alert" className="text-sm text-danger">{formError}</p>}
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setShowAddCat(false)} className="flex-1 rounded-lg border border-border-strong py-2.5 text-sm font-medium text-foreground hover:bg-button-hover">Huỷ</button>
               <button type="submit" className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-hover">Thêm</button>
@@ -411,17 +493,21 @@ export default function MenuClient({ categories: initialCategories, toppings }: 
       {editCat && (
         <Modal title="Sửa danh mục" onClose={() => setEditCat(null)}>
           <form
-            action={async (fd) => {
-              await updateCategory(editCat.id, fd)
+            onSubmit={submitKeepingForm(async (fd) => {
+              setFormError(null)
+              const res = await updateCategory(editCat.id, fd)
+              if (!res.ok) { setFormError(res.error); return }
               setEditCat(null)
               router.refresh()
-            }}
+            })}
             className="flex flex-col gap-3"
           >
             <div>
               <label className="label">Tên danh mục *</label>
               <input name="name" required defaultValue={editCat.name} className="input" />
             </div>
+            <PrefixField current={editCat.sku_prefix ?? null} />
+            {formError && <p role="alert" className="text-sm text-danger">{formError}</p>}
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
@@ -474,6 +560,7 @@ function ItemForm({
   onSubmit,
   onCancel,
   submitLabel,
+  error,
 }: {
   categories: Category[]
   item?: MenuItem
@@ -482,10 +569,11 @@ function ItemForm({
   onSubmit: (fd: FormData) => Promise<void>
   onCancel: () => void
   submitLabel: string
+  error?: string | null
 }) {
   const hasVariants = (item?.menu_item_variants?.length ?? 0) > 0
   return (
-    <form action={onSubmit} className="flex flex-col gap-3">
+    <form onSubmit={submitKeepingForm(onSubmit)} className="flex flex-col gap-3">
       <div>
         <label className="label">Danh mục</label>
         <select name="category_id" required defaultValue={defaultCategoryId} className="input">
@@ -497,6 +585,22 @@ function ItemForm({
       <div>
         <label className="label">Tên món *</label>
         <input name="name" required defaultValue={item?.name} placeholder="VD: Phở gà đặc biệt" className="input" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label">Mã món</label>
+          <input name="sku" defaultValue={item?.sku ?? ''} maxLength={20} placeholder="Để trống: tự sinh" className="input font-mono uppercase" />
+        </div>
+        <div>
+          <label className="label">Nhãn</label>
+          <select name="badge" defaultValue={item?.badge ?? ''} className="input">
+            <option value="">Không có</option>
+            {MENU_BADGES.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+          </select>
+        </div>
+        <p className="col-span-2 -mt-1 text-xs text-muted">
+          Mã món để trống khi thêm: hệ thống tự sinh theo danh mục. Để trống khi sửa: giữ mã cũ. Khách không thấy mã món.
+        </p>
       </div>
       <div>
         <label className="label">Mô tả</label>
@@ -529,11 +633,34 @@ function ItemForm({
         <label className="label">Ảnh món (1:1)</label>
         <SquareCropper initialUrl={item?.image_url ?? null} onChange={onImage} />
       </div>
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       <div className="flex gap-2 pt-1">
         <button type="button" onClick={onCancel} className="flex-1 rounded-lg border border-border-strong py-2.5 text-sm font-medium text-foreground hover:bg-button-hover">Huỷ</button>
         <button type="submit" className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-hover">{submitLabel}</button>
       </div>
     </form>
+  )
+}
+
+// React 19 TỰ RESET <form action={…}> khi action xong, kể cả khi action TRẢ lỗi → chữ đã gõ mất hết
+// (vá review PA-4). Submit bằng onSubmit + preventDefault để form giữ nguyên khi báo "Mã món đã dùng…".
+function submitKeepingForm(handler: (fd: FormData) => Promise<void>) {
+  return (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    void handler(new FormData(e.currentTarget))
+  }
+}
+
+// Ô tiền tố mã món của danh mục (PA-4). Trống: tự sinh từ tên (khi thêm) / giữ nguyên (khi sửa).
+function PrefixField({ current = null }: { current?: string | null }) {
+  return (
+    <div>
+      <label className="label">Tiền tố mã món</label>
+      <input name="sku_prefix" defaultValue={current ?? ''} maxLength={6} placeholder="Để trống: tự sinh từ tên" className="input font-mono uppercase" />
+      <p className="mt-1 text-xs text-muted">
+        Món mới trong danh mục sẽ có mã dạng {current ?? 'TIỀNTỐ'}-001. Đổi tiền tố không đổi mã các món cũ.
+      </p>
+    </div>
   )
 }
 

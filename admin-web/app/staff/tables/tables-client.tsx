@@ -23,9 +23,8 @@ import {
 } from '@/lib/actions/table-session'
 import { assignTrayColors } from '@/lib/tray-colors'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
-import ServiceRequestQueue from './service-request-queue'
-import type { ServiceRequestRow } from '@/lib/actions/service-requests'
-import { serviceRequestSession } from '@/lib/service-request-queue'
+import { areaColorClasses } from '@/lib/area-colors'
+import { groupTablesByArea, type StaffArea } from '@/lib/staff-area-groups'
 
 const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 
@@ -56,17 +55,15 @@ export default function TablesClient({
   initialSessions,
   initialError,
   canClose,
-  initialRequests,
-  initialRequestError,
+  areas,
 }: {
   storeId: string
   paymentTiming: 'prepay' | 'postpay'
-  allTables: SessionTable[]
+  allTables: Array<SessionTable & { area_id: string | null }>
   initialSessions: OpenTableSession[]
   initialError: string | null
   canClose: boolean
-  initialRequests: ServiceRequestRow[]
-  initialRequestError: string | null
+  areas: StaffArea[]
 }) {
   const [sessions, setSessions] = useState(initialSessions)
   const [error, setError] = useState(initialError)
@@ -141,11 +138,14 @@ export default function TablesClient({
     }
     return allTables.filter((t) => !busyIds.has(t.id))
   }, [sessions, allTables])
+  const freeByArea = useMemo(() => groupTablesByArea(freeTables, areas), [freeTables, areas])
 
   // Cùng hàm với màn Chọn bàn (/staff/order) → một mâm chỉ có đúng một màu trên cả hai màn.
   const trayColors = useMemo(() => assignTrayColors(sessions), [sessions])
 
   const openSessions = sessions.filter((s) => s.status === 'open')
+  const liveSessions = sessions.filter((s) => !s.needs_review)
+  const reviewSessions = sessions.filter((s) => s.needs_review)
   const pickedSessions = sessions.filter((s) => picked.has(s.session_id))
   const pickedTotal = pickedSessions.reduce((n, s) => n + s.total, 0)
 
@@ -231,6 +231,80 @@ export default function TablesClient({
                 ? `Thêm bàn vào ${sheet.session.table_number}`
                 : ''
 
+  const renderSession = (s: OpenTableSession) => {
+        const tray = trayColors.get(s.session_id)
+        const state = TABLE_STATE[tableVisualState(s)]
+        return (
+        <li
+          key={s.session_id}
+          id={`session-${s.session_id}`}
+          className={cn(
+            'rounded-xl border bg-surface p-3',
+            picked.has(s.session_id) ? 'border-primary ring-2 ring-primary/20' : s.needs_review ? 'border-critical-border' : 'border-border',
+            tray?.color.bar,
+          )}
+        >
+          {s.needs_review && (
+            <Banner tone="error" title={`${sessionTimeoutMessage(s.idle_timeout_minutes)} nên bàn được mở khoá`} className="mb-3 p-3">
+              Vẫn còn <b className="font-semibold tabular">{dong(s.unpaid_total)} chưa thu</b>. {canClose ? 'Xử lý nốt rồi đóng.' : 'Báo chủ quán xử lý bill.'}
+            </Banner>
+          )}
+
+          <div className="mb-2 flex items-start gap-3">
+            {canClose && <input
+              type="checkbox"
+              checked={picked.has(s.session_id)}
+              onChange={() => togglePick(s.session_id)}
+              className="mt-1 size-5 shrink-0 accent-[var(--primary)]"
+              aria-label={`Chọn ${s.table_number} để gộp bill`}
+            />}
+            <div className="min-w-0 flex-1">
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-semibold text-foreground">
+                {s.table_number}
+                {tray && <span className={`text-[13px] font-medium ${tray.color.label}`}>Mâm {tray.index}</span>}
+                {s.is_open_ordering && s.tables.length > 1 && (
+                  <span className="text-[13px] font-normal text-muted">· mâm {s.tables.length} bàn</span>
+                )}
+              </p>
+              <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted">
+                <StatusDot tone={state.tone} />
+                {state.label} · mở lúc {gio(s.opened_at)} · {s.order_count} đơn
+                {s.opened_by === 'staff' && ' · nhân viên mở'}
+                {!s.is_open_ordering && !s.has_host && ' · chưa có máy giữ bàn'}
+              </p>
+            </div>
+            <span className="shrink-0 font-semibold text-foreground tabular">{dong(s.total)}</span>
+          </div>
+
+          {s.orders.length > 0 && (
+            <ul className="mb-3 space-y-1 border-t border-border pt-2">
+              {s.orders.map((o) => (
+                <li key={o.id} className="flex items-start justify-between gap-2 text-[13px]">
+                  <span className="min-w-0 text-foreground/80">
+                    {o.items.map((it) => it.name + ' ×' + it.quantity).join(', ') || 'Không có món'}
+                  </span>
+                  <span className="shrink-0 text-muted tabular">
+                    {gio(o.created_at)} {STATUS_LABEL[o.status] ?? o.status}
+                    {o.payment_received_at && ' ✓'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex gap-2">
+            {canClose && (
+              <Button variant="primary" onClick={() => setSheet({ kind: 'pay', sessions: [s] })} disabled={busy} className="flex-1">
+                Thu tiền &amp; đóng bàn
+              </Button>
+            )}
+            <IconButton icon={<Printer />} label="In bill" onClick={() => printBill([s])} disabled={busy} className="border border-border-strong bg-surface" />
+            <IconButton icon={<Ellipsis />} label="Thao tác khác" onClick={() => setSheet({ kind: 'more', session: s })} disabled={busy} className="border border-border-strong bg-surface" />
+          </div>
+        </li>
+        )
+  }
+
   return (
     <div className="relative mx-auto flex h-full max-w-md flex-col bg-background">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-surface px-4 py-2.5">
@@ -250,17 +324,6 @@ export default function TablesClient({
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-28">
-        <ServiceRequestQueue
-          storeId={storeId}
-          initialRequests={initialRequests}
-          initialError={initialRequestError}
-          sessions={sessions}
-          onSelect={(request) => {
-            const session = serviceRequestSession(request, sessions)
-            if (session) document.getElementById(`session-${session.session_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            else setError(`${request.table_number}: không còn phiên tương ứng. Yêu cầu vẫn chờ xử lý.`)
-          }}
-        />
         <div className="px-4 py-3">
         {sessions.length === 0 ? (
           <div className="py-8">
@@ -272,81 +335,20 @@ export default function TablesClient({
             )}
           </div>
         ) : (
-          <ul className="space-y-3">
-            {sessions.map((s) => {
-              const tray = trayColors.get(s.session_id)
-              const state = TABLE_STATE[tableVisualState(s)]
-              return (
-              <li
-                key={s.session_id}
-                id={`session-${s.session_id}`}
-                className={cn(
-                  'rounded-xl border bg-surface p-3',
-                  picked.has(s.session_id) ? 'border-primary ring-2 ring-primary/20' : s.needs_review ? 'border-critical-border' : 'border-border',
-                  tray?.color.bar,
-                )}
-              >
-                {s.needs_review && (
-                  <Banner tone="error" title={`${sessionTimeoutMessage(s.idle_timeout_minutes)} nên bàn được mở khoá`} className="mb-3 p-3">
-                    Vẫn còn <b className="font-semibold tabular">{dong(s.unpaid_total)} chưa thu</b>. {canClose ? 'Xử lý nốt rồi đóng.' : 'Báo chủ quán xử lý bill.'}
-                  </Banner>
-                )}
-
-                <div className="mb-2 flex items-start gap-3">
-                  {canClose && <input
-                    type="checkbox"
-                    checked={picked.has(s.session_id)}
-                    onChange={() => togglePick(s.session_id)}
-                    className="mt-1 size-5 shrink-0 accent-[var(--primary)]"
-                    aria-label={`Chọn ${s.table_number} để gộp bill`}
-                  />}
-                  <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-semibold text-foreground">
-                      {s.table_number}
-                      {tray && <span className={`text-[13px] font-medium ${tray.color.label}`}>Mâm {tray.index}</span>}
-                      {s.is_open_ordering && s.tables.length > 1 && (
-                        <span className="text-[13px] font-normal text-muted">· mâm {s.tables.length} bàn</span>
-                      )}
-                    </p>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted">
-                      <StatusDot tone={state.tone} />
-                      {state.label} · mở lúc {gio(s.opened_at)} · {s.order_count} đơn
-                      {s.opened_by === 'staff' && ' · nhân viên mở'}
-                      {!s.is_open_ordering && !s.has_host && ' · chưa có máy giữ bàn'}
-                    </p>
-                  </div>
-                  <span className="shrink-0 font-semibold text-foreground tabular">{dong(s.total)}</span>
-                </div>
-
-                {s.orders.length > 0 && (
-                  <ul className="mb-3 space-y-1 border-t border-border pt-2">
-                    {s.orders.map((o) => (
-                      <li key={o.id} className="flex items-start justify-between gap-2 text-[13px]">
-                        <span className="min-w-0 text-foreground/80">
-                          {o.items.map((it) => it.name + ' ×' + it.quantity).join(', ') || 'Không có món'}
-                        </span>
-                        <span className="shrink-0 text-muted tabular">
-                          {gio(o.created_at)} {STATUS_LABEL[o.status] ?? o.status}
-                          {o.payment_received_at && ' ✓'}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                <div className="flex gap-2">
-                  {canClose && (
-                    <Button variant="primary" onClick={() => setSheet({ kind: 'pay', sessions: [s] })} disabled={busy} className="flex-1">
-                      Thu tiền &amp; đóng bàn
-                    </Button>
-                  )}
-                  <IconButton icon={<Printer />} label="In bill" onClick={() => printBill([s])} disabled={busy} className="border border-border-strong bg-surface" />
-                  <IconButton icon={<Ellipsis />} label="Thao tác khác" onClick={() => setSheet({ kind: 'more', session: s })} disabled={busy} className="border border-border-strong bg-surface" />
-                </div>
-              </li>
-              )
-            })}
-          </ul>
+          <>
+          {liveSessions.length > 0 && <ul className="space-y-3">{liveSessions.map(renderSession)}</ul>}
+          {/* Phiên tự đóng sau thời gian không hoạt động mà còn tiền chưa thu: vẫn phải hiện (không nuốt
+              tiền), nhưng gom xuống cuối, gập lại — không chen lên trên các bàn đang có khách thật. */}
+          {reviewSessions.length > 0 && (
+            <details className="mt-4 rounded-xl border border-critical-border bg-surface p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-error-text">
+                Phiên hết hạn chưa thu ({reviewSessions.length}) · <span className="tabular">{dong(reviewSessions.reduce((n, s) => n + s.unpaid_total, 0))}</span>
+              </summary>
+              <p className="mt-1 text-[13px] text-muted">{canClose ? 'Thu nốt tiền hoặc bỏ bàn để dọn khỏi danh sách.' : 'Báo thu ngân / chủ quán xử lý trên máy POS.'}</p>
+              <ul className="mt-3 space-y-3">{reviewSessions.map(renderSession)}</ul>
+            </details>
+          )}
+          </>
         )}
         </div>
       </div>
@@ -451,8 +453,7 @@ export default function TablesClient({
                   Chọn các bàn đoàn đang ngồi. QR của bàn nào trong mâm cũng dẫn về đúng mâm này,
                   và cả nhóm gọi thêm được — không khoá theo một máy.
                 </p>
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {freeTables.map((t) => (
+                <AreaTableGroups groups={freeByArea} className="mt-3" render={(t) => (
                     <button
                       key={t.id}
                       type="button"
@@ -465,8 +466,7 @@ export default function TablesClient({
                     >
                       {t.table_number}
                     </button>
-                  ))}
-                </div>
+                )} />
                 {freeTables.length === 0 && <EmptyState>Không còn bàn trống nào.</EmptyState>}
                 <Button
                   variant="primary"
@@ -512,8 +512,7 @@ export default function TablesClient({
 
             {sheet.kind === 'addTable' && (
               <>
-                <div className="grid grid-cols-3 gap-2">
-                  {freeTables.map((t) => (
+                <AreaTableGroups groups={freeByArea} render={(t) => (
                     <button
                       key={t.id}
                       type="button"
@@ -525,13 +524,39 @@ export default function TablesClient({
                     >
                       {t.table_number}
                     </button>
-                  ))}
-                </div>
+                )} />
                 {freeTables.length === 0 && <EmptyState>Không còn bàn trống nào.</EmptyState>}
               </>
             )}
         </Dialog>
       )}
+    </div>
+  )
+}
+
+/** Lưới bàn chia theo khu (tiêu đề + chấm màu khu). Quán chưa chia khu → một lưới không tiêu đề. */
+function AreaTableGroups<T extends { id: string; area_id: string | null }>({ groups, render, className }: {
+  groups: { area: StaffArea | null; tables: T[] }[]
+  render: (t: T) => React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn('space-y-3', className)}>
+      {groups.map((g) => {
+        const c = g.area ? areaColorClasses(g.area.color) : null
+        const title = g.area ? g.area.name : groups.length > 1 ? 'Chưa phân khu' : null
+        return (
+          <section key={g.area?.id ?? 'loose'} aria-label={title ?? 'Bàn trống'}>
+            {title && (
+              <p className={cn('mb-1.5 flex items-center gap-2 text-[13px] font-semibold', c ? c.text : 'text-muted')}>
+                {c && <span className={cn('size-2.5 rounded-full', c.dot)} aria-hidden />}
+                {title}
+              </p>
+            )}
+            <div className="grid grid-cols-3 gap-2">{g.tables.map(render)}</div>
+          </section>
+        )
+      })}
     </div>
   )
 }

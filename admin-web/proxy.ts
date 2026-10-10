@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { adminPathAllowed, canEnterAdmin, canEnterStaffArea, homeForRole, parseOperatorRow, type OperatorRole } from '@/lib/auth/roles'
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -40,7 +41,7 @@ export async function proxy(request: NextRequest) {
 
   // Role-aware routing (Onboarding Cockpit + Staff Assisted Ordering): mevo_operators.role
   // quyết định /admin, /mevo hay /staff. RLS mới là lớp khoá thật — đây chỉ là cổng UX redirect sớm.
-  let role: 'mevo_superadmin' | 'store_owner' | 'store_staff' | null = null
+  let role: OperatorRole | null = null
   if (user && (isAdminRoute || isMevoRoute || isStaffRoute || isLoginPage)) {
     const { data: op } = await supabase
       .from('mevo_operators')
@@ -48,15 +49,11 @@ export async function proxy(request: NextRequest) {
       .eq('user_id', user.id)
       .maybeSingle()
     // Nhân viên bị vô hiệu hoá (is_active=false) coi như không có role → bị đẩy về /login.
-    if (op?.is_active === false) role = null
-    else if (op?.role === 'mevo_superadmin' && op.store_id === null) role = 'mevo_superadmin'
-    else if (op?.role === 'store_owner' && op.store_id) role = 'store_owner'
-    else if (op?.role === 'store_staff' && op.store_id) role = 'store_staff'
+    role = parseOperatorRow(op)?.role ?? null
   }
 
-  // Đích đúng theo role — dùng cho cả redirect khỏi khu sai lẫn khỏi /login.
-  const homeFor = (r: typeof role): string | null =>
-    r === 'mevo_superadmin' ? '/mevo' : r === 'store_owner' ? '/admin' : r === 'store_staff' ? '/staff/order' : null
+  // Đích đúng theo role — dùng cho cả redirect khỏi khu sai lẫn khỏi /login (luật ở lib/auth/roles.ts).
+  const homeFor = (r: OperatorRole | null): string | null => (r ? homeForRole(r) : null)
 
   // Không phải operator (đã đăng nhập nhưng không có role) → /login kèm cờ báo lỗi.
   const toLogin = () => {
@@ -65,8 +62,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // /admin — chỉ store_owner. Staff/superadmin đã đăng nhập → đẩy về đúng khu (không dead-end ở /login).
-  if (isAdminRoute && role !== 'store_owner') {
+  // /admin — chủ quán + thu ngân (PA-2). Thu ngân chỉ vào POS / Báo cáo / Đặt bàn / Thực đơn (Tạm hết) /
+  // Tài khoản; trang khác → về POS. Staff/superadmin → đúng khu của họ (không dead-end ở /login).
+  if (isAdminRoute && (!canEnterAdmin(role) || !adminPathAllowed(role as OperatorRole, request.nextUrl.pathname))) {
     const home = homeFor(role)
     return home ? NextResponse.redirect(new URL(home, request.url)) : toLogin()
   }
@@ -77,8 +75,8 @@ export async function proxy(request: NextRequest) {
     return home ? NextResponse.redirect(new URL(home, request.url)) : toLogin()
   }
 
-  // /staff — store_staff và store_owner (owner vào để hỗ trợ/test). Superadmin → /mevo.
-  if (isStaffRoute && role !== 'store_staff' && role !== 'store_owner') {
+  // /staff — nhân viên, chủ quán (hỗ trợ/test), thu ngân (in hoá đơn 80mm ở /staff/tables/print). Superadmin → /mevo.
+  if (isStaffRoute && !canEnterStaffArea(role)) {
     const home = homeFor(role)
     return home ? NextResponse.redirect(new URL(home, request.url)) : toLogin()
   }

@@ -1,14 +1,33 @@
 import { createClient } from '@/lib/supabase/server'
 import MenuClient from './menu-client'
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
-import { redirect } from 'next/navigation'
+import MenuAvailabilityClient from './menu-availability-client'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 
 export default async function MenuPage() {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('pos')
   const storeId = operator.storeId
 
   const supabase = await createClient()
+
+  // Thu ngân (PA-2): chỉ bật/tắt "Tạm hết" — không tải kho topping, không có màn sửa món.
+  if (operator.role === 'store_cashier') {
+    const { data: cashierCategories } = await supabase
+      .from('menu_categories')
+      .select('id, name, sort_order, menu_items(id, name, price, is_available, sort_order, sku)')
+      .eq('store_id', storeId)
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('sort_order', { referencedTable: 'menu_items' })
+    return (
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
+          <h1 className="text-xl font-bold text-foreground">Thực đơn — bật/tắt Tạm hết</h1>
+          <p className="text-sm text-muted">Món tắt sẽ hiện &quot;Tạm hết&quot; trên Mini App ngay. Sửa tên, giá món do chủ quán làm.</p>
+        </div>
+        <MenuAvailabilityClient categories={cashierCategories ?? []} />
+      </div>
+    )
+  }
 
   // Lấy categories + items (mỗi món kèm topping_id đã gán + danh sách lựa chọn quyết định giá)
   const { data: categories } = await supabase

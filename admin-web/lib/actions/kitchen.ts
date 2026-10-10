@@ -1,31 +1,24 @@
 'use server'
 
-// Server actions sinh / thu hồi token bếp. Gated bởi operator.
+// Server actions sinh / thu hồi token bếp. Chỉ chủ quán của đúng quán.
 // Dùng service_role để đọc store + bump version (bỏ qua RLS), nhưng CHỈ sau khi
-// đã xác thực caller là operator.
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+// đã xác thực caller là chủ quán của quán đó.
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 import { signKitchenToken } from '@/lib/kitchen-token'
 
-async function assertOperator(): Promise<void> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error('Chưa đăng nhập')
-
-  const { data: op } = await supabase
-    .from('mevo_operators')
-    .select('user_id')
-    .eq('user_id', user.id)
-    .maybeSingle()
-  if (!op) throw new Error('Không có quyền vận hành')
+// Chỉ CHỦ QUÁN của ĐÚNG quán đó (vá 2026-10-08): bản cũ chỉ kiểm "có dòng mevo_operators" — nhân viên,
+// thu ngân, tài khoản đã khoá hay chủ quán khác đều lấy được token bếp (đọc được đơn) của quán bất kỳ.
+async function assertStoreOwnerOf(storeId: string): Promise<void> {
+  const ownStoreId = await requireStoreOwnerStoreId()
+  if (ownStoreId !== storeId) throw new Error('Chỉ chủ quán của quán này mới quản lý được link bếp')
 }
 
 type KitchenLink = { path: string }
 
 // Sinh link bếp hiện tại (theo version đang lưu) cho 1 quán.
 export async function generateKitchenLink(storeId: string): Promise<KitchenLink> {
-  await assertOperator()
+  await assertStoreOwnerOf(storeId)
   const admin = createAdminClient()
   const { data: store, error } = await admin
     .from('stores')
@@ -40,7 +33,7 @@ export async function generateKitchenLink(storeId: string): Promise<KitchenLink>
 
 // Thu hồi: bump version (token cũ chết ngay) rồi cấp link mới.
 export async function revokeKitchenToken(storeId: string): Promise<KitchenLink> {
-  await assertOperator()
+  await assertStoreOwnerOf(storeId)
   const admin = createAdminClient()
   const { data: store, error } = await admin
     .from('stores')

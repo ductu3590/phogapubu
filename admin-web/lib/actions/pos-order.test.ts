@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/auth/operator', () => ({
-  requireStoreOwnerStoreId: mocks.requireOwner,
+  requirePosOperatorStoreId: mocks.requireOwner,
 }))
 
 vi.mock('@/lib/supabase/server', () => ({

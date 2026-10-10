@@ -5,7 +5,7 @@
 // Logic dữ liệu / thao tác giữ nguyên của POS cũ: cùng server action, cùng watcher realtime, cùng chuông.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ArrowLeftRight, Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, Layers, ListTodo, TriangleAlert, X, Zap } from 'lucide-react'
+import { ArrowLeftRight, Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, Layers, ListTodo, TriangleAlert, UserPlus, UserRound, Volume2, X, Zap } from 'lucide-react'
 import { TableStateLegend } from '@/components/ui/badge'
 import { Button, IconButton } from '@/components/ui/button'
 import { Banner, EmptyState, SkeletonList } from '@/components/ui/feedback'
@@ -25,11 +25,14 @@ import {
   confirmOrder,
   rejectOrder,
   restoreOrderItem,
+  setOrderItemQuantity,
+  walkInOrder,
   type OrderRejectReason,
   type PosManualItem,
   voidOrderItem,
 } from '@/lib/actions/pos-order'
-import { playBell, unlockBell } from '@/lib/bell'
+import { playBell, ringBellOnce, stopBell, unlockBell } from '@/lib/bell'
+import BellVolumeControl from '@/components/bell-volume-control'
 import type { FloorSnapshot } from '@/lib/area-layout'
 import { assignTrayColors } from '@/lib/tray-colors'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
@@ -66,6 +69,7 @@ import AreaControls from './area-controls'
 import FloorMap, { type TableState } from './floor-map'
 import RejectOrderSheet from './reject-order-sheet'
 import ManualOrderSheet, { type PosMenuCategory } from './manual-order-sheet'
+import WalkInPicker from './walk-in-picker'
 import ReservationPreorderPanel from './reservation-preorder-panel'
 import {
   beginReservationTablePick,
@@ -125,6 +129,8 @@ export default function PosClient({
   initialFloorError,
   categories,
   initialSessions,
+  canArrange,
+  operatorEmail,
   initialError,
   initialRequests,
   initialRequestError,
@@ -147,6 +153,10 @@ export default function PosClient({
   initialFloorError: string | null
   categories: PosMenuCategory[]
   initialSessions: OpenTableSession[]
+  /** Thu ngân (PA-2) không sắp xếp sơ đồ — việc cấu hình của chủ quán; server cũng chặn lưu. */
+  canArrange: boolean
+  /** Email người đang đăng nhập — hiện cạnh nhãn "Chủ quán" / "Thu ngân". */
+  operatorEmail: string | null
   initialError: string | null
   initialRequests: ServiceRequestRow[]
   initialRequestError: string | null
@@ -165,6 +175,7 @@ export default function PosClient({
   const [view, setView] = useState<View>('timeline')
   const [areaFilter, setAreaFilter] = useState<string>(ALL)
   const [workOpen, setWorkOpen] = useState(false)
+  const [volumeOpen, setVolumeOpen] = useState(false)
   const [workFilter, setWorkFilter] = useState<WorkFilter>('all')
   const serviceRequests = useServiceRequests(storeId, initialRequests, initialRequestError)
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null)
@@ -189,6 +200,8 @@ export default function PosClient({
   const [bookingError, setBookingError] = useState<string | null>(null)
   const [pickedTableIds, setPickedTableIds] = useState<Set<string>>(new Set())
   const [manualSessionId, setManualSessionId] = useState<string | null>(null)
+  // "Khách lẻ": chọn bàn trống → chọn món. Bàn chỉ mở khi gửi món (mig 099).
+  const [walkIn, setWalkIn] = useState<null | { step: 'pick' } | { step: 'menu'; tableId: string; tableNumber: string }>(null)
   const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null)
   const [reservations, setReservations] = useState(initialReservations)
   const [preorders, setPreorders] = useState(initialPreorders)
@@ -198,7 +211,7 @@ export default function PosClient({
   const [customerCalls, setCustomerCalls] = useState(initialCustomerCalls)
   const [customerCallBusy, setCustomerCallBusy] = useState(false)
   const reminders = useMemo(() => createReservationReminderCoordinator({
-    storeId, storage: browserStorage(), now: Date.now, playBell,
+    storeId, storage: browserStorage(), now: Date.now, playBell: ringBellOnce,
   }), [storeId])
   const reportActionError = useCallback((message: string | null) => {
     setError(message ? actionError(message) : null)
@@ -394,6 +407,8 @@ export default function PosClient({
       reportActionError(res.error)
       return
     }
+    // Gộp bill đã thu xong → tự thoát chế độ gộp, không bắt thu ngân bấm "Thoát gộp bill".
+    setMergeMode(false)
     await sauKhiXong('already' in res && res.already ? 'Bàn này vừa được máy khác chốt xong.' : undefined)
   }
 
@@ -452,6 +467,28 @@ export default function PosClient({
     window.open(`/staff/tables/print?ids=${list.map((s) => s.session_id).join(',')}`, '_blank')
   }
 
+  const onWalkIn = async (tableId: string, items: PosManualItem[], clientRequestId: string) => {
+    setBusy(true)
+    try {
+      const res = await walkInOrder(tableId, items, clientRequestId)
+      if (!res.ok) {
+        reportActionError(res.error)
+        return false
+      }
+      setWalkIn(null)
+      await reload()
+      // Mở luôn bill bàn vừa mở để thu ngân thấy món + thu tiền ngay nếu khách trả liền.
+      setSelectedReservationId(null)
+      setSelectedSessionId(res.sessionId)
+      return true
+    } catch {
+      reportActionError('Lỗi kết nối. Kiểm tra mạng rồi thử lại — bấm lại không tạo trùng.')
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const onAddManualItems = async (sessionId: string, items: PosManualItem[], clientRequestId: string) => {
     setBusy(true)
     try {
@@ -478,6 +515,21 @@ export default function PosClient({
       else await reload()
     } catch {
       reportActionError('Lỗi kết nối. Kiểm tra lại bill trước khi thao tác tiếp.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onSetItemQuantity = async (orderItemId: string, quantity: number, reason: string): Promise<boolean> => {
+    setBusy(true)
+    try {
+      const res = await setOrderItemQuantity(orderItemId, quantity, reason)
+      if (!res.ok) { reportActionError(res.error); return false }
+      await reload()
+      return true
+    } catch {
+      reportActionError('Lỗi kết nối. Kiểm tra lại bill trước khi thao tác tiếp.')
+      return false
     } finally {
       setBusy(false)
     }
@@ -721,6 +773,10 @@ export default function PosClient({
     setMergeMode(true)
   }
 
+  const mergeButton = openSessions.length > 1 && !arrange && !reservationPick && !mergeMode ? (
+    <Button icon={<Layers />} onClick={beginMerge} className="min-h-9 border-slate-900 bg-slate-900 text-white hover:bg-slate-800 hover:text-white md:min-h-9">Gộp bill</Button>
+  ) : null
+
   const openWork = (filter: WorkFilter = 'all') => {
     dongBill()
     setSelectedReservationId(null)
@@ -770,6 +826,8 @@ export default function PosClient({
     ] : []),
   ]
   const workTotal = workItems.length
+  // Kiểu chuông "Báo liên tục": hết việc chờ thì im ngay, không đợi người chạm màn hình.
+  useEffect(() => { if (workTotal === 0) stopBell() }, [workTotal])
 
   const areaItems = [
     { value: ALL, label: 'Tất cả', count: placed.length },
@@ -788,6 +846,15 @@ export default function PosClient({
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-slate-900">MEVO POS</h1>
                 <span className="max-w-48 truncate rounded-md border border-orange-200 bg-orange-50 px-2 py-0.5 text-[13px] font-semibold text-orange-700">{storeName}</span>
+                {/* Vai trò đang vận hành máy quầy (chủ quán và thu ngân có quyền khác nhau — PA-2). */}
+                <span
+                  className="inline-flex max-w-64 items-center gap-1.5 truncate rounded-md border border-slate-300 bg-slate-900 px-2 py-0.5 text-[13px] font-semibold text-white"
+                  title={operatorEmail ?? undefined}
+                >
+                  <UserRound className="size-3.5 shrink-0" aria-hidden />
+                  {canArrange ? 'Chủ quán' : 'Thu ngân'}
+                  {operatorEmail && <span className="hidden truncate font-normal text-slate-300 lg:inline">· {operatorEmail}</span>}
+                </span>
               </div>
               <p className="hidden text-[13px] text-slate-500 sm:block">Điều hành bàn &amp; mâm gọi món</p>
             </div>
@@ -810,6 +877,16 @@ export default function PosClient({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <IconButton icon={<Volume2 />} label="Âm lượng chuông" aria-expanded={volumeOpen} onClick={() => setVolumeOpen((v) => !v)} />
+              {volumeOpen && (
+                <div className="absolute right-0 top-full z-40 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-modal">
+                  <p className="mb-2 text-sm font-semibold text-slate-900">Âm lượng chuông trên máy này</p>
+                  <BellVolumeControl />
+                  <div className="mt-2 flex justify-end"><Button type="button" variant="ghost" onClick={() => setVolumeOpen(false)}>Đóng</Button></div>
+                </div>
+              )}
+            </div>
             {reservationsEnabled && !arrange && !reservationPick && (
               <Button variant="primary" icon={<CalendarPlus />} onClick={() => {
                 setBookingError(null)
@@ -819,9 +896,13 @@ export default function PosClient({
                 Đặt bàn mới
               </Button>
             )}
-            {openSessions.length > 1 && !arrange && !reservationPick && !mergeMode && (
-              <Button icon={<Layers />} onClick={beginMerge} className="border-slate-900 bg-slate-900 text-white hover:bg-slate-800 hover:text-white">Gộp bill</Button>
+            {!arrange && !reservationPick && !mergeMode && (
+              <Button icon={<UserPlus />} onClick={() => setWalkIn({ step: 'pick' })} disabled={busy} className="border-orange-600 font-semibold text-orange-700 hover:bg-orange-50">
+                Khách lẻ
+              </Button>
             )}
+            {/* Timeline: nút Gộp bill nằm ở hàng "Về Bây giờ" (anh Tú 2026-10-09); sơ đồ / danh sách giữ ở đây. */}
+            {view !== 'timeline' && mergeButton}
             <Button icon={<ListTodo />} onClick={() => openWork()} className="xl:hidden">
               Việc cần xử lý{workTotal > 0 ? ` · ${workTotal}` : ''}
             </Button>
@@ -929,7 +1010,7 @@ export default function PosClient({
             </label>
           )}
           {view !== 'floor' && <TableStateLegend className="ml-auto hidden 2xl:flex" />}
-          {view === 'floor' && (
+          {view === 'floor' && canArrange && (
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {arrange && <Button disabled={floor.saving} onClick={floor.cancel}>Hủy chỉnh sửa</Button>}
               <Button
@@ -972,6 +1053,7 @@ export default function PosClient({
               slotMinutes={slotIntervalMinutes}
               holdMinutes={planningHoldMinutes}
               bookUntil={servingShiftEnd(servingHours, now)}
+              toolbarExtra={mergeButton}
               onPickSlot={reservationsEnabled && !mergeMode && !arrange && !reservationPick ? (tableId, at) => {
                 const table = placed.find((t) => t.id === tableId)
                 if (!table || arrange || reservationPick) return
@@ -1000,7 +1082,7 @@ export default function PosClient({
               <AreaControls floor={floor} />
               <div className="overflow-auto p-4 md:p-5">
                 {floor.ready && !placed.some((t) => t.area_id === floor.areaId) && (
-                  <EmptyState className="py-4 text-left">Khu vực này chưa có bàn. Vào Sắp xếp bàn để phân bàn vào khu vực.</EmptyState>
+                  <EmptyState className="py-4 text-left">{canArrange ? 'Khu vực này chưa có bàn. Vào Sắp xếp bàn để phân bàn vào khu vực.' : 'Khu vực này chưa có bàn.'}</EmptyState>
                 )}
                 <FloorMap
                   placed={placed.filter((t) => t.area_id === floor.areaId)}
@@ -1143,6 +1225,7 @@ export default function PosClient({
           onPrintOrder={onPrintOrder}
           onOpenManualOrder={(sessionId) => setManualSessionId(sessionId)}
           onVoidOrderItem={(itemId, type, reason) => void onVoidOrderItem(itemId, type, reason)}
+          onSetItemQuantity={onSetItemQuantity}
           onRestoreOrderItem={(itemId) => void onRestoreOrderItem(itemId)}
           onReset={(s) => void onReset(s)}
           onCreateTray={() => void chay(() => createTraySession([...pickedTableIds]))}
@@ -1169,6 +1252,25 @@ export default function PosClient({
           />
         )
       })()}
+      {walkIn?.step === 'pick' && (
+        <WalkInPicker
+          tables={freeTables}
+          areas={floor.draft.areas.map((a) => ({ id: a.id, name: a.name, color: a.color ?? null }))}
+          onClose={() => setWalkIn(null)}
+          onPick={(t) => setWalkIn({ step: 'menu', tableId: t.id, tableNumber: t.table_number })}
+        />
+      )}
+      {walkIn?.step === 'menu' && (
+        <ManualOrderSheet
+          key={walkIn.tableId}
+          tableNumber={walkIn.tableNumber}
+          title={`Khách lẻ · ${walkIn.tableNumber}`}
+          categories={categories}
+          busy={busy}
+          onClose={() => setWalkIn(null)}
+          onSubmit={(items, requestId) => onWalkIn(walkIn.tableId, items, requestId)}
+        />
+      )}
       {newBooking && (
         <NewReservationSheet
           table={newBooking.table}

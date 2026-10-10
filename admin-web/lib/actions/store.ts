@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 import { normalizeMapsUrl } from '@/lib/maps-url'
+import { parseBellStyle, type BellStyle } from '@/lib/bell-settings'
 
 // Dùng chung bucket ảnh với menu (public read, service-role ghi)
 const ASSET_BUCKET = 'menu-images'
@@ -58,9 +59,13 @@ export async function updateStoreSettings(formData: FormData) {
   const termsOfUse = (formData.get('terms_of_use') as string | null)?.trim()
   patch.terms_of_use = termsOfUse || null
 
-  // wifi_name, wifi_password — optional; tên rỗng thì coi như tắt hiển thị wifi
+  // wifi_name, wifi_password — công tắc wifi tắt thì form không gửi 2 ô này → ghi null (không hiện).
+  // Bật thì phải đủ cả hai (client đã kiểm, đây là chốt chặn).
   const wifiName = (formData.get('wifi_name') as string | null)?.trim()
   const wifiPassword = (formData.get('wifi_password') as string | null)?.trim()
+  if (Boolean(wifiName) !== Boolean(wifiPassword)) {
+    throw new Error('Đã bật wifi thì phải nhập đủ tên và mật khẩu wifi')
+  }
   patch.wifi_name = wifiName || null
   patch.wifi_password = wifiPassword || null
 
@@ -86,4 +91,14 @@ export async function updateStoreSettings(formData: FormData) {
   const { error } = await admin.from('stores').update(patch).eq('id', storeId)
   if (error) throw new Error(`updateStoreSettings: ${error.message}`)
   revalidatePath('/admin/settings')
+}
+
+// Kiểu chuông báo của quán (PA-1). Chỉ chủ quán; giá trị lạ bị chặn ở đây lẫn CHECK của DB.
+export async function saveBellStyle(style: BellStyle): Promise<{ ok: true } | { ok: false; error: string }> {
+  const storeId = await getStoreId()
+  if (parseBellStyle(style) !== style) return { ok: false, error: 'Kiểu chuông không hợp lệ' }
+  const { error } = await createAdminClient().from('stores').update({ bell_style: style }).eq('id', storeId)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/admin', 'layout')
+  return { ok: true }
 }

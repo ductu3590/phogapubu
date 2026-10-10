@@ -13,7 +13,7 @@ const gio = (iso: string) =>
     minute: '2-digit',
   })
 
-export default function PrintBill({ bill }: { bill: SessionsBill }) {
+export default function PrintBill({ bill, testMode = false }: { bill: SessionsBill; testMode?: boolean }) {
   // Mở tab là in luôn — thu ngân không phải bấm thêm bước nào. Chờ một nhịp cho font/layout
   // ổn định rồi mới gọi print, nếu không Chrome đôi khi in ra trang trắng.
   useEffect(() => {
@@ -39,6 +39,7 @@ export default function PrintBill({ bill }: { bill: SessionsBill }) {
         .row { display: flex; justify-content: space-between; gap: 6px; }
         .row .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
         .row .num { flex-shrink: 0; text-align: right; }
+        .diachi { overflow-wrap: anywhere; }
       `}</style>
 
       <div className="no-print" style={{ padding: 12, textAlign: 'center' }}>
@@ -53,7 +54,7 @@ export default function PrintBill({ bill }: { bill: SessionsBill }) {
             fontWeight: 600,
           }}
         >
-          In lại
+          {testMode ? 'In thử lại' : 'In lại'}
         </button>
         <p style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
           Chọn máy in bill 80mm trong hộp thoại in. Đóng tab này sau khi in xong.
@@ -63,13 +64,13 @@ export default function PrintBill({ bill }: { bill: SessionsBill }) {
       <div className="bill">
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{bill.store.name}</div>
-          {bill.store.address && <div>{bill.store.address}</div>}
-          {bill.store.phone && <div>ĐT: {bill.store.phone}</div>}
+          {bill.store.address?.trim() && <div className="diachi">{bill.store.address.trim()}</div>}
+          {bill.store.phone?.trim() && <div>ĐT: {bill.store.phone.trim()}</div>}
         </div>
 
         <hr />
         <div style={{ textAlign: 'center', fontWeight: 700 }}>
-          {nhieuMam ? 'HOÁ ĐƠN TỔNG' : 'HOÁ ĐƠN'}
+          {testMode ? 'PHIẾU IN THỬ' : nhieuMam ? 'HOÁ ĐƠN TỔNG' : 'HOÁ ĐƠN'}
         </div>
         <div className="row">
           <span className="name">In lúc</span>
@@ -92,13 +93,27 @@ export default function PrintBill({ bill }: { bill: SessionsBill }) {
                     <span className="num">{dong(it.line_total)}</span>
                   </div>
                   <div style={{ fontSize: 11, paddingLeft: 8 }}>
-                    {it.quantity} × {dong(it.price)}
-                    {it.is_gift && ' · Tặng'}
+                    {it.void_type ? (
+                      // Dòng 0đ: ghi rõ Tặng hay Bỏ + lý do (mig 098) — khách hiểu vì sao không tính tiền.
+                      <>{it.quantity} × {it.void_type === 'gift' ? 'TẶNG' : 'BỎ'}{it.void_reason?.trim() ? ` — ${it.void_reason.trim()}` : ''}</>
+                    ) : (
+                      <>{it.quantity} × {dong(it.price)}{it.is_gift && ' · Tặng'}</>
+                    )}
                   </div>
                 </div>
               ))}
               {s.items.length === 0 && <div style={{ fontSize: 11 }}>(chưa gọi món)</div>}
             </div>
+            {(s.qty_changes?.length ?? 0) > 0 && (
+              <div style={{ marginTop: 4, fontSize: 11 }}>
+                <div style={{ fontWeight: 700 }}>Điều chỉnh số lượng:</div>
+                {s.qty_changes!.map((c, i) => (
+                  <div key={i} style={{ paddingLeft: 8 }}>
+                    {c.name}: {c.old_quantity} → {c.new_quantity} — {c.reason}
+                  </div>
+                ))}
+              </div>
+            )}
             {nhieuMam && (
               <div className="row" style={{ marginTop: 3 }}>
                 <span className="name">Cộng {s.tables}</span>
@@ -116,9 +131,15 @@ export default function PrintBill({ bill }: { bill: SessionsBill }) {
 
         <hr />
         <div style={{ textAlign: 'center', fontSize: 11 }}>
-          Cảm ơn quý khách — hẹn gặp lại!
-          <br />
-          Đặt món bằng QR trên bàn · MEVO
+          {testMode ? (
+            <>Không phải hoá đơn — không tạo đơn</>
+          ) : (
+            <>
+              Cảm ơn quý khách — hẹn gặp lại!
+              <br />
+              Đặt món bằng QR trên bàn · MEVO
+            </>
+          )}
         </div>
         <div style={{ height: 24 }} />
       </div>

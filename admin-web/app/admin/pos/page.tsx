@@ -1,6 +1,5 @@
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { listOpenTableSessions } from '@/lib/actions/table-session'
 import { loadFloorLayout } from '@/lib/actions/floor-layout'
 import type { PosMenuCategory } from './manual-order-sheet'
@@ -22,8 +21,7 @@ function queueRange() {
 // Màn POS thu ngân (Timeline) — chỉ chủ quán. Kèm giờ phục vụ + bước giờ / khoảng giữ bàn của
 // đặt bàn để dựng trục giờ. AdminLayout đã chặn, kiểm lại ở đây cho fail-closed theo tầng.
 export default async function PosPage() {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('pos')
 
   const supabase = await createClient()
 
@@ -41,6 +39,8 @@ export default async function PosPage() {
   } | null
   const reservationsEnabled = workflowSettings?.reservations_enabled === true
   const floorPromise = loadFloorLayout()
+  // Email người đang đăng nhập — hiện cạnh nhãn vai trò trên thanh trên (máy quầy dùng chung, cần biết ai đang trực).
+  const userPromise = supabase.auth.getUser()
   const sessionsPromise = listOpenTableSessions()
   const requestsPromise = listOpenServiceRequests()
   const reservationsPromise = reservationsEnabled
@@ -92,8 +92,8 @@ export default async function PosPage() {
       })),
   }))
 
-  const [floor, res, requests, reservationQueue, preorderQueue, customerCalls] = await Promise.all([
-    floorPromise, sessionsPromise, requestsPromise, reservationsPromise, preordersPromise, customerCallsPromise,
+  const [floor, res, requests, reservationQueue, preorderQueue, customerCalls, userRes] = await Promise.all([
+    floorPromise, sessionsPromise, requestsPromise, reservationsPromise, preordersPromise, customerCallsPromise, userPromise,
   ])
 
   return (
@@ -119,6 +119,8 @@ export default async function PosPage() {
       initialFloorError={floor.ok ? null : floor.error}
       categories={categories}
       initialSessions={res.ok ? res.sessions : []}
+      canArrange={operator.role === 'store_owner'}
+      operatorEmail={userRes.data.user?.email ?? null}
       initialError={res.ok ? null : res.error}
     />
   )

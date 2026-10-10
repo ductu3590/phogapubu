@@ -1,6 +1,7 @@
 import { supabase } from "../supabase";
 import { Category, CategoryWithProducts } from "@/types/category.types";
 import { Product, Topping, Variant } from "@/types/product.types";
+import { menuBadge } from "@/utils/menu-badge";
 
 function mapToppings(links: Record<string, unknown>[] | null | undefined): Topping[] {
   return (links ?? [])
@@ -41,6 +42,7 @@ function mapProduct(row: Record<string, unknown>): Product {
     variants: mapVariants(row.menu_item_variants as Record<string, unknown>[] | undefined),
     hasVariantGroup: ((row.menu_item_variants as unknown[] | undefined) ?? []).length > 0,
     variantGroupName: (row.variant_group_name as string | null) ?? null,
+    badge: menuBadge(row.badge)?.key ?? null,
   };
 }
 

@@ -1,21 +1,22 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
+import { requirePosOperatorStoreId, requireStoreOwnerStoreId } from '@/lib/auth/operator'
 import type { FloorSnapshot } from '@/lib/area-layout'
 
 export type FloorResult = { ok: true; snapshot: FloorSnapshot } | { ok: false; error: string }
 
+// Xem sơ đồ: chủ quán + thu ngân (PA-2). Lưu sơ đồ bên dưới vẫn chỉ chủ quán.
 export async function loadFloorLayout(): Promise<FloorResult> {
   try {
-    await requireStoreOwnerStoreId()
+    await requirePosOperatorStoreId()
     const supabase = await createClient()
     const { data, error } = await supabase.rpc('pos_get_floor_layout')
     if (error) return { ok: false, error: `Không tải được sơ đồ: ${error.message}` }
     if (!data) return { ok: false, error: 'Không tìm thấy sơ đồ của quán' }
     return { ok: true, snapshot: data as FloorSnapshot }
   } catch {
-    return { ok: false, error: 'Không tải được sơ đồ. Kiểm tra kết nối và quyền chủ quán.' }
+    return { ok: false, error: 'Không tải được sơ đồ. Kiểm tra kết nối và quyền chủ quán / thu ngân.' }
   }
 }
 

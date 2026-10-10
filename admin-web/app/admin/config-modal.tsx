@@ -13,7 +13,7 @@ export default async function ConfigModal({ children }: { children: ReactNode })
   ])
   const reservationsEnabled = (workflow as { reservations_enabled?: unknown } | null)?.reservations_enabled === true
   return (
-    <ConfigDialog storeName={(data?.name as string | undefined) ?? 'Quán'} reservationsEnabled={reservationsEnabled}>
+    <ConfigDialog storeName={(data?.name as string | undefined) ?? 'Quán'} reservationsEnabled={reservationsEnabled} role={operator.role === 'store_cashier' ? 'store_cashier' : 'store_owner'}>
       {children}
     </ConfigDialog>
   )

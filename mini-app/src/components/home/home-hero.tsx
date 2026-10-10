@@ -49,9 +49,6 @@ export default function HomeHero({
         {bannerUrl ? (
           <div className="relative">
             <img src={bannerUrl} alt={storeName} className="aspect-[16/9] w-full object-cover" draggable={false} />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 pb-3 pt-10">
-              <p className="text-large-m font-bold text-white">{storeName}</p>
-            </div>
           </div>
         ) : (
           <div className="flex items-center gap-3 bg-primary px-4 py-5">

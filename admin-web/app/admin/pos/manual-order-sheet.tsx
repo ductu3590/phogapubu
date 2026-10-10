@@ -37,12 +37,15 @@ function Stepper({ value, onMinus, onPlus, label }: { value: number; onMinus: ()
 
 export default function ManualOrderSheet({
   tableNumber,
+  title,
   categories,
   busy,
   onClose,
   onSubmit,
 }: {
   tableNumber: string
+  /** Mặc định "Thêm món tay · <bàn>"; Khách lẻ đổi thành "Khách lẻ · <bàn>". */
+  title?: string
   categories: PosMenuCategory[]
   busy: boolean
   onClose: () => void
@@ -115,7 +118,7 @@ export default function ManualOrderSheet({
         // Đang có món nháp thì không đóng khi bấm ra ngoài — mất giỏ nháp là mất công gõ lại.
         dismissible={!busy && lines.length === 0}
         onClose={() => { if (!busy) onClose() }}
-        title={`Thêm món tay · ${tableNumber}`}
+        title={title ?? `Thêm món tay · ${tableNumber}`}
         description="Món chỉ bổ sung vào bill, không gửi thông báo bếp."
         className="max-w-2xl sm:max-w-2xl"
         footer={

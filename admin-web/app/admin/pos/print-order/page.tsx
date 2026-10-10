@@ -1,7 +1,7 @@
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
+import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import PrintOrder, { type OrderSlip } from './print-order'
+import { cleanStoreText } from '@/lib/print/store-lines'
 
 // Hai liên cho MỘT đơn khách vừa gọi: phiếu bếp (không giá) + phiếu bàn (có giá, có ô tick).
 // Số liệu đọc thẳng từ DB qua phiên đăng nhập của chủ quán — RLS auth_read_orders (mig 019)
@@ -11,8 +11,7 @@ export default async function PrintOrderPage({
 }: {
   searchParams: Promise<{ id?: string; job?: string }>
 }) {
-  const operator = await requireOperatorOrRedirect()
-  if (operator.role !== 'store_owner') redirect('/mevo')
+  const operator = await requireAdminPageOrRedirect('pos')
 
   const { id, job } = await searchParams
   if (!id && !job) return <p className="p-6 text-sm text-red-600">Thiếu mã đơn.</p>
@@ -25,13 +24,13 @@ export default async function PrintOrderPage({
     const { data, error } = await supabase.rpc('get_reservation_preorder_print_job', { p_print_job_id: job })
     if (error || !data || typeof data !== 'object') return <p className="p-6 text-sm text-red-600">{error?.message ?? 'Không tìm thấy phiếu in của quán này.'}</p>
     const printJob = data as { kind: string; revision: number; snapshot: unknown; requested_at: string }
-    const { data: store } = await supabase.from('stores').select('name, phone').eq('id', operator.storeId).single()
+    const { data: store } = await supabase.from('stores').select('name, phone, address').eq('id', operator.storeId).single()
     const snapshot = printJob.snapshot as {
       total_amount?: number; note?: string | null; items?: Array<{ name?: string; item_name?: string; quantity: number; price?: number; item_price?: number; note?: string | null; toppings?: Array<{ name: string; price: number }>; selected_toppings?: Array<{ name: string; price: number }>}>
       table_numbers?: string[]
     }
     const slip: OrderSlip = {
-      storeName: store?.name ?? 'Quán', storePhone: store?.phone ?? null,
+      storeName: store?.name ?? 'Quán', storePhone: cleanStoreText(store?.phone), storeAddress: cleanStoreText(store?.address),
       tableLabel: snapshot.table_numbers?.join(', ') || 'Chưa nhận khách', createdAt: printJob.requested_at as string,
       orderNote: snapshot.note ?? null, orderTotal: snapshot.total_amount ?? 0, sessionTotal: snapshot.total_amount ?? 0,
       orderSource: 'reservation_preorder', preorderPrintKind: printJob.kind as 'original' | 'adjustment' | 'reprint', preorderRevision: printJob.revision as number,
@@ -56,7 +55,7 @@ export default async function PrintOrderPage({
 
   const { data: store } = await supabase
     .from('stores')
-    .select('name, phone')
+    .select('name, phone, address')
     .eq('id', operator.storeId)
     .single()
 
@@ -97,7 +96,8 @@ export default async function PrintOrderPage({
 
   const slip: OrderSlip = {
     storeName: store?.name ?? 'Quán',
-    storePhone: store?.phone ?? null,
+    storePhone: cleanStoreText(store?.phone),
+    storeAddress: cleanStoreText(store?.address),
     tableLabel: tableLabel || '—',
     createdAt: order.created_at as string,
     orderNote: (order.note as string | null) ?? null,
