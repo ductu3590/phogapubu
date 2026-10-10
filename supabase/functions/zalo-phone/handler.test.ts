@@ -86,4 +86,18 @@ describe('zalo-phone handler', () => {
       }
     }
   })
+  it('log kèm câu message của Zalo để chẩn đoán, đã che token/secret/số và cắt ngắn', async () => {
+    const { d, logs } = deps({
+      fetch: vi.fn(async () => zaloResponse({
+        error: -501,
+        message: `Invalid secret ${SECRET} code tok-1 token acc-1 phone 84912345678 ` + 'x'.repeat(300),
+      })),
+    })
+    await handleZaloPhone(body, d)
+    const line = logs.join(' | ')
+    expect(line).toContain('error=-501')
+    expect(line).toContain('Invalid secret')
+    for (const secretish of ['84912345678', 'tok-1', 'acc-1', SECRET]) expect(line).not.toContain(secretish)
+    expect(line.length).toBeLessThan(260)
+  })
 })

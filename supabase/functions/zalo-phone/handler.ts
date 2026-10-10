@@ -19,6 +19,14 @@ export type ZaloPhoneDeps = {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+// Câu message Zalo trả kèm lỗi, để chẩn đoán: che mọi giá trị nhạy cảm + dãy số dài (có thể là SĐT) rồi cắt ngắn.
+function safeMessage(message: unknown, hide: string[]): string {
+  if (typeof message !== 'string') return ''
+  let out = message
+  for (const secret of hide) if (secret) out = out.split(secret).join('***')
+  return out.replace(/\d{8,}/g, '***').slice(0, 120)
+}
+
 function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -49,7 +57,7 @@ export async function handleZaloPhone(body: ZaloPhoneBody, deps: ZaloPhoneDeps):
     return { status: 502, body: { error: 'zalo_error' } }
   }
 
-  let payload: { error?: unknown; data?: { number?: unknown } } | null = null
+  let payload: { error?: unknown; message?: unknown; data?: { number?: unknown } } | null = null
   try {
     payload = await res.json()
   } catch {
@@ -58,7 +66,7 @@ export async function handleZaloPhone(body: ZaloPhoneBody, deps: ZaloPhoneDeps):
   const number = payload?.data?.number
   if (!res.ok || payload?.error !== 0 || typeof number !== 'string' || !number) {
     const code = typeof payload?.error === 'number' ? payload.error : 'n/a'
-    deps.log(`[zalo-phone] Zalo trả lỗi http=${res.status} error=${code}`)
+    deps.log(`[zalo-phone] Zalo trả lỗi http=${res.status} error=${code} message=${safeMessage(payload?.message, [token, accessToken, secret])}`)
     return { status: 502, body: { error: 'zalo_error' } }
   }
   return { status: 200, body: { phone: number } }
