@@ -99,3 +99,7 @@ export function getReservationProfile(storeId: string): ReservationProfile | nul
 export function saveReservationProfile(storeId: string, profile: ReservationProfile): boolean {
   return validProfile(profile) && write(key(PROFILE_PREFIX, storeId), profile);
 }
+
+export function clearReservationProfile(storeId: string): void {
+  try { localStorage.removeItem(key(PROFILE_PREFIX, storeId)); } catch { /* storage không khả dụng */ }
+}
