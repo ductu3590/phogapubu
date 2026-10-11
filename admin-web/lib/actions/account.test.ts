@@ -94,11 +94,22 @@ describe('account actions', () => {
       error: { message: 'Invalid login credentials' },
     })
 
-    await expect(updateAccountPassword(passwordFormData('sai-mat-khau', 'matkhau-moi'))).rejects.toThrow(
-      'Mật khẩu hiện tại không đúng',
-    )
+    await expect(updateAccountPassword(passwordFormData('sai-mat-khau', 'matkhau-moi'))).resolves.toEqual({
+      ok: false,
+      error: 'Mật khẩu hiện tại không đúng',
+    })
 
     expect(mocks.supabase.auth.updateUser).not.toHaveBeenCalled()
+  })
+
+  it('trả lỗi nhập sai (không ném) khi dữ liệu mật khẩu không hợp lệ', async () => {
+    mocks.parseAccountPassword.mockImplementation(() => { throw new Error('Mật khẩu nhập lại không khớp') })
+
+    await expect(updateAccountPassword(passwordFormData('a', 'b'))).resolves.toEqual({
+      ok: false,
+      error: 'Mật khẩu nhập lại không khớp',
+    })
+    expect(mocks.supabase.auth.signInWithPassword).not.toHaveBeenCalled()
   })
 
   it('verifies the current password before updating to the new password', async () => {
@@ -117,9 +128,10 @@ describe('account actions', () => {
   it('fails closed when the signed-in user email is missing', async () => {
     mocks.supabase.auth.getUser.mockResolvedValue({ data: { user: {} } })
 
-    await expect(updateAccountPassword(passwordFormData('matkhau-cu', 'matkhau-moi'))).rejects.toThrow(
-      'Không tìm thấy email đăng nhập',
-    )
+    await expect(updateAccountPassword(passwordFormData('matkhau-cu', 'matkhau-moi'))).resolves.toEqual({
+      ok: false,
+      error: 'Không tìm thấy email đăng nhập',
+    })
 
     expect(mocks.supabase.auth.signInWithPassword).not.toHaveBeenCalled()
     expect(mocks.supabase.auth.updateUser).not.toHaveBeenCalled()
@@ -131,7 +143,7 @@ describe('thu ngân sửa tài khoản của mình (vá review PA-2)', () => {
     vi.clearAllMocks()
     mocks.requireStoreOwnerStoreId.mockResolvedValue({ userId: 'c1', role: 'store_cashier', storeId: 'store-1' })
     mocks.supabase.auth.updateUser.mockResolvedValue({ error: null })
-    await expect(updateAccountProfile(profileFormData())).resolves.toBeUndefined()
+    await expect(updateAccountProfile(profileFormData())).resolves.toEqual({ ok: true })
     expect(mocks.supabase.auth.updateUser).toHaveBeenCalled()
   })
 })

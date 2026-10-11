@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   // thu ngân còn mở URL cũ; query (?id=, ?job=) của trang in được giữ nguyên.
   async redirects() {
     return [
+      // Vòng quay đã gộp vào trang Ưu đãi (2026-10-11).
+      { source: '/admin/spin', destination: '/admin/vouchers', permanent: false },
       { source: '/admin/cashier', destination: '/admin/pos', permanent: false },
       { source: '/admin/cashier/print-order', destination: '/admin/pos/print-order', permanent: false },
     ]

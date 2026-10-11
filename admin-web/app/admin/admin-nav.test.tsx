@@ -20,14 +20,14 @@ describe('menu khu chủ quán (rail icon Stitch)', () => {
     expect(adminMoreItems(true).map((item) => item.href)[0]).toBe('/admin/reservations')
     expect(adminMoreItems(false).map((item) => item.href)).not.toContain('/admin/reservations')
     expect(adminMoreItems(false).map((item) => item.href)).toEqual([
-      '/admin/tables', '/admin/staff', '/admin/vouchers', '/admin/spin', '/admin/account',
+      '/admin/tables', '/admin/staff', '/admin/vouchers', '/admin/account',
     ])
   })
 
   it('không mất trang nào so với sidebar cũ (quán bật đặt bàn + dùng màn bếp)', () => {
     expect(new Set(hrefs(true))).toEqual(new Set([
       '/admin/dashboard', '/admin/pos', '/admin/orders', '/admin/kitchen', '/admin/reservations',
-      '/admin/menu', '/admin/vouchers', '/admin/spin',
+      '/admin/menu', '/admin/vouchers',
       '/admin/settings', '/admin/tables', '/admin/staff', '/admin/account',
     ]))
   })

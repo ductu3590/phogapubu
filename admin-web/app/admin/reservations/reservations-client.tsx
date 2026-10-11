@@ -267,7 +267,9 @@ export default function ReservationsClient({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto bg-background p-4 sm:p-6" onClickCapture={unlockReminderBell}>
-      <div className="mx-auto max-w-3xl">
+      {/* @container: hộp thoại cấu hình đè lên POS rộng hẹp tuỳ màn hình, nên chia cột theo
+          bề rộng khung chứa chứ không theo viewport. */}
+      <div className="@container mx-auto max-w-[1400px]">
         <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -303,7 +305,7 @@ export default function ReservationsClient({
         />
         <CustomerCallTasks tasks={customerCalls} busy={customerCallBusy} onResolve={(id, outcome) => void resolveCustomerCall(id, outcome)} />
 
-        <div className="mb-4 grid grid-cols-2 gap-3">
+        <div className="mb-5 grid grid-cols-2 gap-3 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]">
           <div className="rounded-xl border border-border bg-surface p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Cần duyệt / đổi</p>
             <p className="mt-1 text-2xl font-bold text-foreground">{pendingCount}</p>
@@ -312,18 +314,17 @@ export default function ReservationsClient({
             <p className="text-xs font-semibold uppercase tracking-wide text-danger">Quá giờ chưa đến</p>
             <p className="mt-1 text-2xl font-bold text-critical">{overdueCount}</p>
           </div>
+          <label className="col-span-2 block rounded-xl border border-border bg-surface p-3 @3xl:col-span-1">
+            <span className="block text-xs font-semibold uppercase tracking-wide text-muted">Lọc lịch đã xử lý / sắp tới</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(event) => setSelectedDate(event.target.value)}
+              className="mt-2 min-h-11 w-full rounded-lg border border-border-strong bg-surface px-3 text-base text-foreground"
+            />
+            <span className="mt-1 block text-xs text-muted">Việc chờ duyệt, khách yêu cầu đổi, quá giờ và đã đến luôn được giữ lại.</span>
+          </label>
         </div>
-
-        <label className="mb-5 block rounded-xl border border-border bg-surface p-3">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-muted">Lọc lịch đã xử lý / sắp tới</span>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(event) => setSelectedDate(event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-border-strong bg-surface px-3 text-base text-foreground"
-          />
-          <span className="mt-1 block text-xs text-muted">Việc chờ duyệt, khách yêu cầu đổi, quá giờ và đã đến luôn được giữ lại.</span>
-        </label>
 
         {reloadError && (
           <div className="mb-4 rounded-xl bg-warning-bg px-4 py-3 text-sm text-warning ring-1 ring-warning-border">
@@ -348,7 +349,7 @@ export default function ReservationsClient({
                 <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-foreground/80">
                   {group.title} <span className="text-muted">({group.reservations.length})</span>
                 </h2>
-                <div className="space-y-3">
+                <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
                   {group.reservations.map((reservation) => (
                     <ReservationCard
                       key={reservation.reservationId}

@@ -79,8 +79,27 @@ export async function setStaffActive(userId: string, isActive: boolean): Promise
   revalidatePath('/admin/staff')
 }
 
-// Danh sách nhân viên của quán (dùng bởi trang /admin/staff). Ghép email từ Auth.
-export async function listStoreStaff(): Promise<Array<{ userId: string; email: string; isActive: boolean; role: StoreTeamRole }>> {
+export type StaffMember = {
+  userId: string
+  email: string
+  isActive: boolean
+  role: StoreTeamRole
+  lastSignInText: string
+  createdText: string
+}
+
+// Format ở server theo giờ VN: để client tự format thì SSR và hydrate lệch múi giờ → cảnh báo hydration.
+function formatVn(iso: string | null, empty: string, withTime: boolean): string {
+  if (!iso) return empty
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'short',
+    ...(withTime ? { timeStyle: 'short' as const } : {}),
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).format(new Date(iso))
+}
+
+// Danh sách nhân viên của quán (dùng bởi trang /admin/staff). Ghép email + lần đăng nhập cuối từ Auth.
+export async function listStoreStaff(): Promise<StaffMember[]> {
   const storeId = await requireStoreOwnerStoreId()
   const admin = createAdminClient()
   const { data: ops, error } = await admin
@@ -91,14 +110,59 @@ export async function listStoreStaff(): Promise<Array<{ userId: string; email: s
   if (error) throw new Error(`listStoreStaff: ${error.message}`)
 
   const authUsers = await listAllAuthUsers(admin)
-  const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? '(không rõ email)']))
+  const authById = new Map(authUsers.map((u) => [u.id, u]))
 
-  return (ops ?? []).map((o) => ({
-    userId: o.user_id as string,
-    email: emailById.get(o.user_id as string) ?? '(không rõ email)',
-    isActive: o.is_active !== false,
-    role: parseTeamRole(o.role),
-  }))
+  return (ops ?? []).map((o) => {
+    const auth = authById.get(o.user_id as string)
+    return {
+      userId: o.user_id as string,
+      email: auth?.email ?? '(không rõ email)',
+      isActive: o.is_active !== false,
+      role: parseTeamRole(o.role),
+      lastSignInText: formatVn(auth?.lastSignInAt ?? null, 'Chưa đăng nhập', true),
+      createdText: formatVn(auth?.createdAt ?? null, '—', false),
+    }
+  })
+}
+
+const MIN_PASSWORD_LENGTH = 8
+
+// Chủ quán đặt lại mật khẩu cho nhân viên/thu ngân CỦA QUÁN MÌNH (không hỏi mật khẩu cũ).
+// Chặn: (1) chỉ chủ quán gọi được; (2) userId đích phải là phục vụ/thu ngân của đúng store_id này —
+// không đụng được chủ quán hay người quán khác; (3) hai ô khớp + đủ dài.
+// TRẢ {ok,error} thay vì ném: Next prod giấu nội dung lỗi ném. Mật khẩu không bao giờ log/trả ngược.
+export async function resetStaffPassword(
+  userId: string,
+  formData: FormData
+): Promise<{ ok: true; email: string } | { ok: false; error: string }> {
+  const storeId = await requireStoreOwnerStoreId()
+  const admin = createAdminClient()
+
+  const password = (formData.get('password') as string | null) ?? ''
+  const confirm = (formData.get('password_confirm') as string | null) ?? ''
+  if (!password || !confirm) return { ok: false, error: 'Nhập mật khẩu mới ở cả hai ô' }
+  if (password !== confirm) return { ok: false, error: 'Hai ô mật khẩu không khớp nhau' }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return { ok: false, error: `Mật khẩu phải từ ${MIN_PASSWORD_LENGTH} ký tự trở lên` }
+  }
+  if (password !== password.trim()) {
+    return { ok: false, error: 'Mật khẩu không được có dấu cách ở đầu hoặc cuối' }
+  }
+
+  const { data: target, error: targetError } = await admin
+    .from('mevo_operators')
+    .select('user_id')
+    .eq('user_id', userId)
+    .eq('store_id', storeId)
+    .in('role', TEAM_ROLES)
+    .maybeSingle()
+  if (targetError) return { ok: false, error: 'Không kiểm tra được tài khoản, thử lại sau' }
+  if (!target) return { ok: false, error: 'Tài khoản này không phải nhân viên của quán anh' }
+
+  const { data: updated, error } = await admin.auth.admin.updateUserById(userId, { password })
+  if (error) return { ok: false, error: 'Không đổi được mật khẩu, thử lại sau' }
+
+  return { ok: true, email: updated.user?.email ?? '' }
 }
 
 // Đổi vai trò Nhân viên phục vụ ↔ Thu ngân. Chỉ đụng người phục vụ/thu ngân của ĐÚNG quán — không bao giờ

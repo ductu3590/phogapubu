@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
       admin: {
         listUsers: vi.fn(),
         createUser: vi.fn(),
+        updateUserById: vi.fn(),
       },
     },
     from: vi.fn(() => {
@@ -61,7 +62,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
-const { createStoreStaff, setStaffActive, setStaffRole } = await import('./staff')
+const { createStoreStaff, setStaffActive, setStaffRole, resetStaffPassword } = await import('./staff')
 
 function emailForm(email: string) {
   const fd = new FormData()
@@ -199,5 +200,48 @@ describe('setStaffRole (PA-2)', () => {
     mocks.requireStoreOwnerStoreId.mockRejectedValue(new Error('Chỉ chủ quán mới thao tác được ở đây'))
     await expect(setStaffRole('u1', 'store_cashier')).rejects.toThrow('Chỉ chủ quán')
     expect(mocks.admin._updateArgs.value).toBeNull()
+  })
+})
+
+function pwForm(password: string, confirm = password) {
+  const fd = new FormData()
+  fd.set('password', password)
+  fd.set('password_confirm', confirm)
+  return fd
+}
+
+describe('resetStaffPassword', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.admin._eqCalls.value = []
+    mocks.requireStoreOwnerStoreId.mockResolvedValue('store-1')
+    mocks.admin._operatorsRow.value = { user_id: 'u1', store_id: 'store-1', role: 'store_staff' }
+    mocks.admin.auth.admin.updateUserById.mockResolvedValue({ data: { user: { email: 'a@b.vn' } }, error: null })
+  })
+
+  it('đặt mật khẩu cho nhân viên đúng quán, scope theo store_id + vai trò phục vụ/thu ngân', async () => {
+    const res = await resetStaffPassword('u1', pwForm('matkhau123'))
+    expect(res).toEqual({ ok: true, email: 'a@b.vn' })
+    expect(mocks.admin.auth.admin.updateUserById).toHaveBeenCalledWith('u1', { password: 'matkhau123' })
+    expect(mocks.admin._eqCalls.value).toContainEqual(['store_id', 'store-1'])
+    expect(mocks.admin._eqCalls.value).toContainEqual(['in:role', ['store_staff', 'store_cashier']])
+  })
+
+  it('từ chối khi userId không thuộc nhân viên của quán (chủ quán / quán khác)', async () => {
+    mocks.admin._operatorsRow.value = null
+    const res = await resetStaffPassword('u-lạ', pwForm('matkhau123'))
+    expect(res.ok).toBe(false)
+    expect(mocks.admin.auth.admin.updateUserById).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['hai ô không khớp', pwForm('matkhau123', 'matkhau124')],
+    ['quá ngắn', pwForm('abc123')],
+    ['có dấu cách ở đầu', pwForm(' matkhau123')],
+    ['bỏ trống', pwForm('')],
+  ])('từ chối mật khẩu %s', async (_name, fd) => {
+    const res = await resetStaffPassword('u1', fd)
+    expect(res.ok).toBe(false)
+    expect(mocks.admin.auth.admin.updateUserById).not.toHaveBeenCalled()
   })
 })

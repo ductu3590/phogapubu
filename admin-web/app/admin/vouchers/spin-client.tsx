@@ -1,0 +1,287 @@
+'use client'
+
+import { StatusDot } from '@/components/ui/badge'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { setSpinEnabled, saveRewards, type RewardInput } from '@/lib/actions/spin'
+import { formatVndTyping, parseVnd } from '@/lib/money'
+
+type Row = RewardInput & { key: string }
+
+const DEFAULT_REWARDS: Omit<RewardInput, 'id'>[] = [
+  { label: 'Giảm 10.000đ đơn sau', type: 'gift', weight: 1, is_active: true },
+  { label: 'Tặng 1 trà đá', type: 'gift', weight: 2, is_active: true },
+  { label: 'Chúc may mắn lần sau', type: 'none', weight: 4, is_active: true },
+  { label: 'Giảm 5% đơn sau', type: 'gift', weight: 1, is_active: true },
+  { label: 'Tặng khăn lạnh', type: 'gift', weight: 2, is_active: true },
+  { label: 'Chúc may mắn lần sau', type: 'none', weight: 4, is_active: true },
+]
+
+let keySeq = 0
+const newKey = () => `r${keySeq++}`
+
+export default function SpinClient({
+  enabled,
+  initialRewards,
+}: {
+  enabled: boolean
+  initialRewards: RewardInput[]
+}) {
+  const router = useRouter()
+  const [isEnabled, setIsEnabled] = useState(enabled)
+  const [rows, setRows] = useState<Row[]>(
+    initialRewards.map((r) => ({ ...r, key: newKey() })),
+  )
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const activeCount = rows.filter((r) => r.is_active && r.label.trim()).length
+
+  const update = (key: string, patch: Partial<Row>) =>
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)))
+  const remove = (key: string) => setRows((prev) => prev.filter((r) => r.key !== key))
+  const addRow = () =>
+    setRows((prev) => [
+      ...prev,
+      { key: newKey(), label: '', type: 'gift', weight: 1, is_active: true },
+    ])
+  const loadDefaults = () =>
+    setRows(DEFAULT_REWARDS.map((r) => ({ ...r, key: newKey() })))
+
+  const handleSave = async () => {
+    setError('')
+    setBusy(true)
+    try {
+      const res = await saveRewards(rows.map(({ key: _key, ...r }) => r))
+      if (res?.error) {
+        setError(res.error)
+        return
+      }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+      router.refresh()
+    } catch {
+      setError('Lỗi kết nối khi lưu quà, thử lại.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleToggle = async () => {
+    setError('')
+    const next = !isEnabled
+    setBusy(true)
+    try {
+      const res = await setSpinEnabled(next)
+      if (res?.error) {
+        setError(res.error)
+        return
+      }
+      setIsEnabled(next)
+      router.refresh()
+    } catch {
+      setError('Lỗi kết nối, thử lại.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 text-foreground">
+      {/* Toggle bật/tắt */}
+      <div className="flex items-center justify-between rounded-xl border border-border bg-surface p-4">
+        <div>
+          <p className="flex items-center gap-2 font-semibold"><StatusDot tone={isEnabled ? 'success' : 'neutral'} />{isEnabled ? 'Đang bật' : 'Đang tắt'}</p>
+          <p className="text-xs text-muted">
+            Tắt = khách thanh toán xong KHÔNG thấy vòng quay.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleToggle}
+          disabled={busy}
+          className={`h-7 w-12 rounded-full transition-colors ${isEnabled ? 'bg-primary' : 'bg-border-strong'} disabled:opacity-50`}
+        >
+          <div
+            className={`h-6 w-6 translate-y-0.5 rounded-full bg-surface shadow transition-transform ${isEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
+          />
+        </button>
+      </div>
+
+      {isEnabled && activeCount === 0 && (
+        <p className="rounded-lg border border-warning-border bg-warning-bg px-3 py-2 text-sm text-warning">
+          Cần ít nhất 1 quà đang bật, nếu không khách sẽ không thấy vòng quay.
+        </p>
+      )}
+
+      {/* Danh sách quà */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <label className="label">Danh sách ô quà ({activeCount} đang bật)</label>
+          {rows.length === 0 && (
+            <button
+              type="button"
+              onClick={loadDefaults}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              + Tạo bộ mặc định 6 ô
+            </button>
+          )}
+        </div>
+
+        {rows.length > 0 && (
+          <div className="overflow-hidden rounded-xl border border-border bg-surface">
+            {/* Tiêu đề cột — cùng lưới với từng dòng bên dưới */}
+            <div className="hidden grid-cols-[minmax(0,1fr)_7rem_4.5rem_3.5rem_2rem] items-center gap-2 border-b border-border bg-background px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted @xl:grid">
+              <span>Tên phần thưởng</span><span>Loại</span><span>Tỉ lệ</span><span>Bật</span><span />
+            </div>
+            <div className="divide-y divide-border">
+              {rows.map((r) => (
+                <div key={r.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 @xl:grid-cols-[minmax(0,1fr)_7rem_4.5rem_3.5rem_2rem]">
+                  <input
+                    value={r.label}
+                    onChange={(e) => update(r.key, { label: e.target.value })}
+                    placeholder="Tên phần thưởng"
+                    className="input min-w-0"
+                  />
+                  <select
+                    value={r.type}
+                    onChange={(e) => update(r.key, { type: e.target.value as RewardInput['type'] })}
+                    className="input"
+                    title="Loại"
+                  >
+                    <option value="gift">Có quà</option>
+                    <option value="voucher">Mã giảm giá</option>
+                    <option value="none">— Trượt</option>
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    value={r.weight}
+                    onChange={(e) => update(r.key, { weight: Number(e.target.value) })}
+                    className="input"
+                    aria-label="Tỉ lệ"
+                    title="Tỉ trọng (số càng lớn càng dễ trúng)"
+                  />
+                  <label className="flex items-center gap-1 text-xs text-muted">
+                    <input
+                      type="checkbox"
+                      checked={r.is_active}
+                      onChange={(e) => update(r.key, { is_active: e.target.checked })}
+                    />
+                    <span className="@xl:sr-only">Bật</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => remove(r.key)}
+                    className="rounded-lg px-2 py-1 text-sm text-danger hover:bg-danger-bg"
+                    title="Xoá ô"
+                    aria-label="Xoá ô"
+                  >
+                    ✕
+                  </button>
+
+                  {/* Chi tiết mã giảm giá: dòng phụ ngay dưới, chỉ khi loại = Mã giảm giá */}
+                  {r.type === 'voucher' && (
+                    <div className="col-span-full flex flex-wrap items-center gap-2 rounded-lg bg-background px-2.5 py-2 text-xs text-muted">
+                      <span className="font-medium">Mã giảm:</span>
+                      <select
+                        value={r.discount_type ?? 'fixed'}
+                        onChange={(e) => update(r.key, { discount_type: e.target.value as 'fixed' | 'percent' })}
+                        className="input w-20"
+                        title="Kiểu giảm"
+                      >
+                        <option value="fixed">đ</option>
+                        <option value="percent">%</option>
+                      </select>
+                      {/* Ô này là TIỀN khi kiểu giảm là "đ", là PHẦN TRĂM khi là "%".
+                          Chỉ chèn dấu ngăn nghìn ở chế độ tiền — "10%" mà hiện "10.000" là sai. */}
+                      {r.discount_type === 'percent' ? (
+                        <input
+                          type="number"
+                          min={1}
+                          value={r.discount_value ?? ''}
+                          onChange={(e) => update(r.key, { discount_value: Number(e.target.value) })}
+                          placeholder="VD 10"
+                          className="input w-24"
+                          title="Mức giảm (%)"
+                        />
+                      ) : (
+                        <input
+                          inputMode="numeric"
+                          value={r.discount_value == null ? '' : formatVndTyping(String(r.discount_value))}
+                          onChange={(e) => {
+                            const text = formatVndTyping(e.target.value)
+                            update(r.key, { discount_value: text === '' ? null : parseVnd(text) })
+                          }}
+                          placeholder="VD 10.000"
+                          className="input w-28"
+                          title="Mức giảm (đ)"
+                        />
+                      )}
+                      {r.discount_type === 'percent' && (
+                        <input
+                          inputMode="numeric"
+                          value={r.max_discount == null ? '' : formatVndTyping(String(r.max_discount))}
+                          onChange={(e) => {
+                            const text = formatVndTyping(e.target.value)
+                            update(r.key, { max_discount: text === '' ? null : parseVnd(text) })
+                          }}
+                          placeholder="Tối đa đ"
+                          className="input w-28"
+                          title="Giảm tối đa (đ)"
+                        />
+                      )}
+                      <label className="flex items-center gap-1">
+                        HSD
+                        <input
+                          type="number"
+                          min={1}
+                          value={r.voucher_days ?? 30}
+                          onChange={(e) => update(r.key, { voucher_days: Number(e.target.value) })}
+                          className="input w-16"
+                          title="Số ngày hạn dùng"
+                        />
+                        ngày
+                      </label>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {rows.length > 0 && (
+          <button
+            type="button"
+            onClick={addRow}
+            className="mt-2 rounded-lg border border-dashed border-border-strong px-3 py-1.5 text-sm text-muted hover:bg-item-hover"
+          >
+            + Thêm ô
+          </button>
+        )}
+        <p className="mt-2 text-xs text-muted">
+          &quot;Tỉ lệ&quot; là tỉ trọng random — ô tỉ lệ 4 dễ trúng gấp 4 lần ô tỉ lệ 1.
+          Nên để vài ô &quot;Trượt&quot; tỉ lệ cao để không tặng quà mọi lượt.
+          Ô &quot;Mã giảm giá&quot;: khách trúng sẽ được mã TỰ ĐỘNG áp vào lần đặt món sau.
+        </p>
+      </div>
+
+      {error && <p className="text-sm text-danger">{error}</p>}
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={busy}
+          className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
+        >
+          Lưu quà
+        </button>
+        {saved && <span className="text-sm text-success">✓ Đã lưu</span>}
+      </div>
+    </div>
+  )
+}

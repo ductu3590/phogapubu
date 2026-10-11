@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatVND } from '@/lib/utils'
 import { formatVndTyping, parseVnd } from '@/lib/money'
@@ -121,63 +121,98 @@ export default function VouchersClient({
     </span>
   }
 
+  // Bảng mã: mỗi dòng một mã, nút thao tác ở cuối dòng; bấm "lượt dùng" để mở lịch sử ngay dưới dòng.
   const renderList = (list: VoucherRow[]) => (
-    <div className="flex flex-col gap-2">
-      {list.length === 0 && <p className="py-6 text-center text-sm text-muted">Chưa có mã nào</p>}
-      {list.map((v) => {
-        const uses = usesByVoucher.get(v.id) ?? []
-        const totalSaved = uses.reduce((s, o) => s + o.discount_amount, 0)
-        return (
-          <div key={v.id} className="rounded-xl border border-border bg-surface p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-sm font-bold text-foreground">{v.code}</span>
-              {statusBadge(v)}
-              <span className="flex-1 text-sm text-muted">{v.label}</span>
-              <span className="text-sm text-muted">{discountText(v)}</span>
-              {v.daily_limit != null && (
-                <span className="text-xs text-muted">tối đa {v.daily_limit} đơn/ngày</span>
-              )}
-              {v.kind === 'shipper' && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void handleToggle(v)}
-                  className={`rounded-lg px-3 py-1 text-xs font-semibold ${
-                    v.is_active
-                      ? 'border border-critical-border text-danger hover:bg-danger-bg'
-                      : 'border border-border-strong text-foreground hover:bg-button-hover'
-                  }`}
-                >
-                  {v.is_active ? 'Thu hồi' : 'Bật lại'}
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setOpenHistory(openHistory === v.id ? null : v.id)}
-              className="mt-1 text-xs text-primary hover:underline"
-            >
-              {uses.length} lượt dùng • đã giảm {formatVND(totalSaved)} {openHistory === v.id ? '▲' : '▼'}
-            </button>
-            {openHistory === v.id && uses.length > 0 && (
-              <div className="mt-2 space-y-1 border-t border-border pt-2">
-                {uses.map((o) => (
-                  <p key={o.id} className="text-xs text-muted">
-                    {new Date(o.created_at).toLocaleString('vi-VN')} — đơn #
-                    {o.id.slice(-6).toUpperCase()} • giảm {formatVND(o.discount_amount)} • trả{' '}
-                    {formatVND(o.total_amount)}
-                  </p>
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
+    list.length === 0 ? (
+      <p className="rounded-xl border border-dashed border-border-strong bg-surface p-6 text-center text-sm text-muted">Chưa có mã nào</p>
+    ) : (
+      <div className="overflow-hidden rounded-xl border border-border bg-surface">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-border bg-background text-xs font-semibold uppercase tracking-wide text-muted">
+            <tr>
+              <th className="px-3 py-2.5">Mã</th>
+              <th className="px-3 py-2.5">Mức giảm</th>
+              <th className="px-3 py-2.5">Trạng thái</th>
+              <th className="px-3 py-2.5">Lượt dùng</th>
+              <th className="px-3 py-2.5 text-right">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {list.map((v) => {
+              const uses = usesByVoucher.get(v.id) ?? []
+              const totalSaved = uses.reduce((sum, o) => sum + o.discount_amount, 0)
+              const expanded = openHistory === v.id
+              return (
+                <Fragment key={v.id}>
+                  <tr>
+                    <td className="px-3 py-3">
+                      <span className="font-mono text-sm font-bold text-foreground">{v.code}</span>
+                      <span className="block max-w-48 truncate text-xs text-muted">{v.label}</span>
+                    </td>
+                    <td className="px-3 py-3 text-foreground/80">
+                      {discountText(v)}
+                      {v.daily_limit != null && <span className="block text-xs text-muted">tối đa {v.daily_limit} đơn/ngày</span>}
+                    </td>
+                    <td className="px-3 py-3">{statusBadge(v)}</td>
+                    <td className="px-3 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setOpenHistory(expanded ? null : v.id)}
+                        aria-expanded={expanded}
+                        className="text-left text-xs text-primary hover:underline"
+                      >
+                        {uses.length} lượt · giảm {formatVND(totalSaved)} {expanded ? '▲' : '▼'}
+                      </button>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      {v.kind === 'shipper' ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleToggle(v)}
+                          className={`min-h-9 rounded-lg px-3 text-xs font-semibold disabled:opacity-50 ${
+                            v.is_active
+                              ? 'border border-critical-border text-danger hover:bg-danger-bg'
+                              : 'border border-border-strong text-foreground hover:bg-button-hover'
+                          }`}
+                        >
+                          {v.is_active ? 'Thu hồi' : 'Bật lại'}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted">—</span>
+                      )}
+                    </td>
+                  </tr>
+                  {expanded && (
+                    <tr className="bg-background">
+                      <td colSpan={5} className="px-3 py-2">
+                        {uses.length === 0 ? (
+                          <p className="text-xs text-muted">Chưa có lượt dùng.</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {uses.map((o) => (
+                              <p key={o.id} className="text-xs text-muted">
+                                {new Date(o.created_at).toLocaleString('vi-VN')} — đơn #
+                                {o.id.slice(-6).toUpperCase()} • giảm {formatVND(o.discount_amount)} • trả{' '}
+                                {formatVND(o.total_amount)}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    )
   )
 
   return (
-    <div className="flex max-w-3xl flex-col gap-5 text-foreground">
+    <div className="flex flex-col gap-4 text-foreground">
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl bg-secondary p-1">
         <button
@@ -269,7 +304,7 @@ export default function VouchersClient({
       {tab === 'spin' && (
         <>
           <p className="text-xs text-muted">
-            Mã khách trúng từ vòng quay — chỉ xem. Cấu hình ô trúng ở trang Vòng quay.
+            Mã khách trúng từ vòng quay — chỉ xem. Cấu hình ô trúng ở khối Vòng quay bên cạnh.
           </p>
           {renderList(spinVouchers)}
         </>

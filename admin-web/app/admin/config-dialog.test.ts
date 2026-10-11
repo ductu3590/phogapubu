@@ -30,8 +30,8 @@ describe('tab theo vai trò (PA-2)', () => {
   it('mọi tab thu ngân thấy đều là trang thu ngân được mở', () => {
     expect(visibleConfigTabs({ reservationsEnabled: true, role: 'store_cashier' }).every((t) => adminPathAllowed('store_cashier', t.href))).toBe(true)
   })
-  it('chủ quán vẫn đủ 10 tab như cũ (9 nếu tắt đặt bàn)', () => {
-    expect(visibleConfigTabs({ reservationsEnabled: true, role: 'store_owner' })).toHaveLength(10)
-    expect(visibleConfigTabs({ reservationsEnabled: false, role: 'store_owner' })).toHaveLength(9)
+  it('chủ quán đủ 9 tab (8 nếu tắt đặt bàn) — Ưu đãi & Vòng quay đã gộp một tab', () => {
+    expect(visibleConfigTabs({ reservationsEnabled: true, role: 'store_owner' })).toHaveLength(9)
+    expect(visibleConfigTabs({ reservationsEnabled: false, role: 'store_owner' })).toHaveLength(8)
   })
 })

@@ -3,7 +3,6 @@ import {
   CalendarDays,
   ChefHat,
   ClipboardList,
-  Gift,
   LayoutGrid,
   QrCode,
   Settings,
@@ -54,8 +53,7 @@ export function adminMoreItems(reservationsEnabled = false, role: OperatorRole =
     ...booking,
     { href: '/admin/tables', label: 'Bàn & QR', icon: <QrCode /> },
     { href: '/admin/staff', label: 'Nhân viên', icon: <Users /> },
-    { href: '/admin/vouchers', label: 'Ưu đãi', icon: <Ticket /> },
-    { href: '/admin/spin', label: 'Vòng quay', icon: <Gift /> },
+    { href: '/admin/vouchers', label: 'Ưu đãi & Vòng quay', icon: <Ticket /> },
     { href: '/admin/account', label: 'Tài khoản', icon: <User /> },
   ]
 }

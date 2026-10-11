@@ -39,7 +39,7 @@ export async function setSpinEnabled(enabled: boolean): Promise<ActionResult> {
 
   const { error } = await admin.from('stores').update({ spin_enabled: enabled }).eq('id', storeId)
   if (error) return { error: `Lỗi lưu trạng thái: ${error.message}` }
-  revalidatePath('/admin/spin')
+  revalidatePath('/admin/vouchers')
   return {}
 }
 
@@ -103,7 +103,7 @@ export async function saveRewards(rewards: RewardInput[]): Promise<ActionResult>
     const { error } = await admin.from('spin_rewards').upsert(rows)
     if (error) return { error: `Lỗi lưu quà: ${error.message}` }
   }
-  revalidatePath('/admin/spin')
+  revalidatePath('/admin/vouchers')
   return {}
 }
 
