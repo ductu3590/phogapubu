@@ -8,7 +8,11 @@ const nextConfig: NextConfig = {
       // Vòng quay đã gộp vào trang Ưu đãi (2026-10-11).
       { source: '/admin/spin', destination: '/admin/vouchers', permanent: false },
       { source: '/admin/cashier', destination: '/admin/pos', permanent: false },
-      { source: '/admin/cashier/print-order', destination: '/admin/pos/print-order', permanent: false },
+      { source: '/admin/cashier/print-order', destination: '/print/order', permanent: false },
+      // Trang in dời ra ngoài khung /admin và /staff (2026-10-12): in ngầm trong iframe không được kéo theo
+      // thanh nav, chuông, realtime của khung.
+      { source: '/admin/pos/print-order', destination: '/print/order', permanent: false },
+      { source: '/staff/tables/print', destination: '/print/bill', permanent: false },
     ]
   },
   experimental: {

@@ -53,4 +53,15 @@ describe('PrintBill (PA-5)', () => {
     expect(html).toContain('.diachi { overflow-wrap: anywhere; }')
     expect(html).toMatch(/class="diachi"/)
   })
+
+  it('2026-10-12: chân hoá đơn có logo MEVO, dòng giới thiệu và mevo.vn; có tổng số món + thời gian ngồi', () => {
+    const bill = buildTestBill(store, now)
+    bill.sessions[0].opened_at = new Date(now.getTime() - 80 * 60000).toISOString()
+    const html = renderToStaticMarkup(<PrintBill bill={bill} />)
+    expect(html).toContain('<img src="data:image/png;base64,')
+    expect(html).toContain('MEVO · Menu Evolution')
+    expect(html).toContain('mevo.vn')
+    expect(html).toContain('Tổng số món')
+    expect(html).toContain('Ngồi 1g 20p')
+  })
 })

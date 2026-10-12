@@ -2,7 +2,7 @@ import { requireStaffAreaOrRedirect } from '@/lib/auth/operator'
 import { getSessionsBill } from '@/lib/actions/table-session'
 import PrintBill from './print-bill'
 
-// Trang in hoá đơn 80mm. Mở bằng window.open từ màn Bàn, in qua máy in đã cài trên PC quầy
+// Trang in hoá đơn 80mm. Route /print/bill nằm ngoài khung /staff, nạp vào iframe ẩn bằng printInPlace, in qua máy in đã cài trên PC quầy
 // (print CSS, không đụng ESC/POS — quán đã có sẵn máy in nối PC).
 // Tiền lấy từ RPC get_sessions_bill, KHÔNG nhận số từ client.
 export default async function PrintBillPage({

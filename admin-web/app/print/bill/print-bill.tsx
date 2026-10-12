@@ -1,9 +1,17 @@
 'use client'
 
-import { useEffect } from 'react'
 import type { SessionsBill } from '@/lib/actions/table-session'
+import { useAutoPrint } from '@/lib/print/use-auto-print'
+import { MEVO_LOGO_DATA_URI } from '@/lib/print/mevo-logo'
 
 const dong = (n: number) => n.toLocaleString('vi-VN')
+
+// Thời gian khách ngồi, vd "1g 20p" — chỉ để thu ngân/khách đối chiếu, không dùng tính tiền.
+const thoiGianNgoi = (tuIso: string, denIso: string) => {
+  const ph = Math.round((new Date(denIso).getTime() - new Date(tuIso).getTime()) / 60000)
+  if (!Number.isFinite(ph) || ph < 1) return null
+  return ph >= 60 ? `${Math.floor(ph / 60)}g ${ph % 60}p` : `${ph}p`
+}
 
 const gio = (iso: string) =>
   new Date(iso).toLocaleString('vi-VN', {
@@ -14,14 +22,11 @@ const gio = (iso: string) =>
   })
 
 export default function PrintBill({ bill, testMode = false }: { bill: SessionsBill; testMode?: boolean }) {
-  // Mở tab là in luôn — thu ngân không phải bấm thêm bước nào. Chờ một nhịp cho font/layout
-  // ổn định rồi mới gọi print, nếu không Chrome đôi khi in ra trang trắng.
-  useEffect(() => {
-    const t = setTimeout(() => window.print(), 350)
-    return () => clearTimeout(t)
-  }, [])
+  useAutoPrint()
 
   const nhieuMam = bill.sessions.length > 1
+  // Dòng Bỏ/Tặng (0đ) không tính vào số món khách phải trả.
+  const soMon = bill.sessions.reduce((n, ss) => n + ss.items.filter((it) => !it.void_type && !it.is_gift).reduce((m, it) => m + it.quantity, 0), 0)
 
   return (
     <>
@@ -40,6 +45,8 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
         .row .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
         .row .num { flex-shrink: 0; text-align: right; }
         .diachi { overflow-wrap: anywhere; }
+        .mevo { text-align: center; font-size: 11px; line-height: 1.3; }
+        .mevo img { width: 22mm; height: auto; display: block; margin: 0 auto 3px; }
       `}</style>
 
       <div className="no-print" style={{ padding: 12, textAlign: 'center' }}>
@@ -57,7 +64,7 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
           {testMode ? 'In thử lại' : 'In lại'}
         </button>
         <p style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
-          Chọn máy in bill 80mm trong hộp thoại in. Đóng tab này sau khi in xong.
+          Chọn máy in bill 80mm trong hộp thoại in.
         </p>
       </div>
 
@@ -84,7 +91,10 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
               {s.tables}
               {s.is_open_ordering && nhieuMam ? ' (mâm)' : ''}
             </div>
-            <div style={{ fontSize: 11 }}>Mở lúc {gio(s.opened_at)}</div>
+            <div style={{ fontSize: 11 }}>
+              Mở lúc {gio(s.opened_at)}
+              {thoiGianNgoi(s.opened_at, bill.printed_at) && <> · Ngồi {thoiGianNgoi(s.opened_at, bill.printed_at)}</>}
+            </div>
             <div style={{ marginTop: 4 }}>
               {s.items.map((it, i) => (
                 <div key={i}>
@@ -124,22 +134,28 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
         ))}
 
         <hr />
-        <div className="row" style={{ fontSize: 15, fontWeight: 700 }}>
+        <div className="row" style={{ fontSize: 11 }}>
+          <span className="name">Tổng số món</span>
+          <span className="num">{soMon}</span>
+        </div>
+        <div className="row" style={{ fontSize: 15, fontWeight: 700, marginTop: 2 }}>
           <span className="name">TỔNG CỘNG</span>
           <span className="num">{dong(bill.grand_total)}đ</span>
         </div>
 
         <hr />
         <div style={{ textAlign: 'center', fontSize: 11 }}>
-          {testMode ? (
-            <>Không phải hoá đơn — không tạo đơn</>
-          ) : (
-            <>
-              Cảm ơn quý khách — hẹn gặp lại!
-              <br />
-              Đặt món bằng QR trên bàn · MEVO
-            </>
-          )}
+          {testMode ? <>Không phải hoá đơn — không tạo đơn</> : <>Cảm ơn quý khách — hẹn gặp lại!</>}
+        </div>
+
+        <hr />
+        {/* Quảng bá MEVO: logo đơn sắc + một dòng giới thiệu + website. */}
+        <div className="mevo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={MEVO_LOGO_DATA_URI} alt="MEVO" />
+          <div style={{ fontWeight: 700 }}>MEVO · Menu Evolution</div>
+          <div>Quét QR gọi món, thanh toán nhanh ngay trên Zalo — giải pháp cho quán ăn Việt.</div>
+          <div style={{ fontWeight: 700, marginTop: 2 }}>mevo.vn</div>
         </div>
         <div style={{ height: 24 }} />
       </div>

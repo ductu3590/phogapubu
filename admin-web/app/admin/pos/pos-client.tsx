@@ -428,7 +428,7 @@ export default function PosClient({
   }
 
   const onPrintOrder = (orderId: string) => {
-    printInPlace(`/admin/pos/print-order?id=${orderId}`)
+    printInPlace(`/print/order?id=${orderId}`)
   }
 
   const onConfirmOrder = async (orderId: string) => {
@@ -465,7 +465,7 @@ export default function PosClient({
   }
 
   const onPrint = (list: OpenTableSession[]) => {
-    printInPlace(`/staff/tables/print?ids=${list.map((s) => s.session_id).join(',')}`)
+    printInPlace(`/print/bill?ids=${list.map((s) => s.session_id).join(',')}`)
   }
 
   const onWalkIn = async (tableId: string, items: PosManualItem[], clientRequestId: string) => {
@@ -587,7 +587,7 @@ export default function PosClient({
       ? (fresh.revision > 1 ? 'adjustment' : 'reprint') : kind
     const result = await requestReservationPreorderPrint(fresh.orderId, fresh.releasedRevision, printKind, undefined, reason)
     if (!result.ok) { reportActionError(result.error); return result }
-    if (result.printJobId) printInPlace(`/admin/pos/print-order?job=${result.printJobId}`)
+    if (result.printJobId) printInPlace(`/print/order?job=${result.printJobId}`)
     else reportActionError('Phiếu đã tạo nhưng chưa có mã in. Mở lại từ POS để in.')
     await reloadPreorders()
     return result

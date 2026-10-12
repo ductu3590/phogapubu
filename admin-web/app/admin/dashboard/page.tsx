@@ -96,7 +96,7 @@ function time(iso: string): string {
 
 function BillRow({ bill }: { bill: DailyReportBill }) {
   // In lại hoá đơn chỉ có với bill trả sau (theo phiên); đơn trả trước không có mẫu hoá đơn 80mm.
-  const printHref = bill.sessionIds.length > 0 ? `/staff/tables/print?ids=${bill.sessionIds.join(',')}` : null
+  const printHref = bill.sessionIds.length > 0 ? `/print/bill?ids=${bill.sessionIds.join(',')}` : null
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 px-3 py-3">
       <div className="min-w-0">

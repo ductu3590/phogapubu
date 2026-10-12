@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useAutoPrint } from '@/lib/print/use-auto-print'
 
 export type SlipItem = {
   name: string
@@ -39,12 +39,7 @@ const gio = (iso: string) =>
 const donGia = (it: SlipItem) => it.isGift ? 0 : it.price + it.toppings.reduce((s, t) => s + t.price, 0)
 
 export default function PrintOrder({ slip }: { slip: OrderSlip }) {
-  // Mở tab là in luôn, y như trang bill (staff/tables/print). Chờ một nhịp cho font/layout ổn
-  // định, nếu không Chrome thỉnh thoảng in ra trang trắng.
-  useEffect(() => {
-    const t = setTimeout(() => window.print(), 350)
-    return () => clearTimeout(t)
-  }, [])
+  useAutoPrint()
 
   return (
     <>
@@ -122,19 +117,17 @@ export default function PrintOrder({ slip }: { slip: OrderSlip }) {
         <p style={{ textAlign: 'center' }}>— hết phiếu bếp —</p>
       </div>
 
-      {/* ── LIÊN 2: PHIẾU BÀN — đặt ở bàn khách, có ô tick để nhân viên gạch khi bưng ra ── */}
+      {/* ── LIÊN 2: PHIẾU BÀN — đặt ở bàn khách, THẬT NGẮN: tên quán, bàn, món (có ô tick để nhân viên
+            gạch khi bưng ra), tiền. Địa chỉ/SĐT/lời dặn dài nằm ở hoá đơn thanh toán, không ở đây. ── */}
       <div className="lien">
         <p className="tieude">{slip.storeName}{slip.preorderPrintKind === 'reprint' ? ' · IN LẠI' : ''}</p>
-        {slip.storeAddress && <p className="diachi">{slip.storeAddress}</p>}
-        {slip.storePhone && <p style={{ textAlign: 'center' }}>ĐT: {slip.storePhone}</p>}
-        <p className="ban">{slip.tableLabel}</p>
-        <div className="row">
-          <span>{gio(slip.createdAt)}</span>
-          <span>PHIẾU MÓN (chưa thanh toán)</span>
+        <div className="row to">
+          <span>{slip.tableLabel}</span>
+          <span className="num">{gio(slip.createdAt)}</span>
         </div>
         <hr />
         {slip.items.map((it, i) => (
-          <div key={i} style={{ marginBottom: 4 }}>
+          <div key={i} style={{ marginBottom: 2 }}>
             <div className="row">
               <span className="name">
                 ☐ {it.name} x{it.quantity}
@@ -150,16 +143,16 @@ export default function PrintOrder({ slip }: { slip: OrderSlip }) {
         ))}
         <hr />
         <div className="row to">
-          <span>Lần gọi này</span>
+          <span>Lần này</span>
           <span className="num">{dong(slip.orderTotal)}</span>
         </div>
         <div className="row">
-          <span>Tạm tính cả bàn</span>
+          <span>Cả bàn (tạm tính)</span>
           <span className="num">{dong(slip.sessionTotal)}</span>
         </div>
         <hr />
-        <p style={{ textAlign: 'center' }}>Nhân viên gạch ô ☐ khi đã bưng món ra.</p>
-        <p style={{ textAlign: 'center' }}>Phiếu này KHÔNG phải hoá đơn thanh toán.</p>
+        <p style={{ textAlign: 'center', fontSize: 11 }}>Chưa thanh toán · gạch ☐ khi đã bưng ra</p>
+        <p style={{ textAlign: 'center', fontSize: 11 }}>MEVO · mevo.vn</p>
       </div>
     </>
   )

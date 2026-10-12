@@ -82,7 +82,7 @@ export async function requireAdminPageOrRedirect(
 }
 
 // Dùng trong layout khu /staff — cho phép store_staff, store_owner (vào để hỗ trợ/test) và store_cashier
-// (trang in hoá đơn 80mm nằm ở /staff/tables/print — POS + Báo cáo mở nó).
+// (trang in hoá đơn 80mm nằm ở /print/bill — POS + Báo cáo mở nó).
 // Superadmin bị đẩy về /mevo; không operator → /login. Trả về operator (đã loại superadmin, luôn có storeId).
 export async function requireStaffAreaOrRedirect(): Promise<
   { userId: string; role: 'store_owner' | 'store_staff' | 'store_cashier'; storeId: string }

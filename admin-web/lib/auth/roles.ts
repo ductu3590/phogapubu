@@ -29,7 +29,7 @@ export function canEnterAdmin(role: OperatorRole | null): boolean {
   return role === 'store_owner' || role === 'store_cashier'
 }
 
-// Thu ngân vào được khu /staff vì trang in hoá đơn 80mm nằm ở /staff/tables/print (POS + Báo cáo mở nó).
+// Thu ngân vào được khu /staff vì trang in hoá đơn 80mm nằm ở /print/bill (POS + Báo cáo mở nó).
 export function canEnterStaffArea(role: OperatorRole | null): boolean {
   return role === 'store_owner' || role === 'store_staff' || role === 'store_cashier'
 }

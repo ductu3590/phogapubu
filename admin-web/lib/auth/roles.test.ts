@@ -27,7 +27,7 @@ describe('khu được vào', () => {
     expect(homeForRole('store_staff')).toBe('/staff/order')
     expect(homeForRole('mevo_superadmin')).toBe('/mevo')
   })
-  it('admin: chủ quán + thu ngân; khu nhân viên: thêm cả thu ngân (in hoá đơn nằm ở /staff/tables/print)', () => {
+  it('admin: chủ quán + thu ngân; khu nhân viên: thêm cả thu ngân (in hoá đơn nằm ở /print/bill)', () => {
     expect(canEnterAdmin('store_cashier')).toBe(true)
     expect(canEnterAdmin('store_staff')).toBe(false)
     expect(canEnterAdmin(null)).toBe(false)

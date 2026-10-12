@@ -185,7 +185,7 @@ export default function TablesClient({
 
   const printBill = (list: OpenTableSession[]) => {
     const ids = list.map((s) => s.session_id).join(',')
-    printInPlace(`/staff/tables/print?ids=${ids}`)
+    printInPlace(`/print/bill?ids=${ids}`)
   }
 
   const doSimple = async (fn: () => Promise<{ ok: boolean; error?: string }>) => {
