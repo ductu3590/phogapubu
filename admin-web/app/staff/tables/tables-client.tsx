@@ -1,5 +1,6 @@
 'use client'
 
+import { printInPlace } from '@/lib/print/print-in-place'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Banknote, Ellipsis, Landmark, Layers, Link2, Plus, Printer, RefreshCw, Trash2 } from 'lucide-react'
 import { StatusDot } from '@/components/ui/badge'
@@ -184,7 +185,7 @@ export default function TablesClient({
 
   const printBill = (list: OpenTableSession[]) => {
     const ids = list.map((s) => s.session_id).join(',')
-    window.open(`/staff/tables/print?ids=${ids}`, '_blank')
+    printInPlace(`/staff/tables/print?ids=${ids}`)
   }
 
   const doSimple = async (fn: () => Promise<{ ok: boolean; error?: string }>) => {

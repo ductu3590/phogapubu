@@ -69,7 +69,7 @@ export type PosBillPanelProps = {
   onDismiss: () => void
   /** Hàng chờ món đặt trước — để in phiếu món đặt trước ngay trong bill khi khách đã đến. */
   preorders: ReservationPreorderRow[]
-  onPrintPreorder: (row: ReservationPreorderRow, popup: Window | null, reason?: string) => Promise<{ ok: boolean }>
+  onPrintPreorder: (row: ReservationPreorderRow, reason?: string) => Promise<{ ok: boolean }>
 }
 
 /** Ai gọi lượt này — tab Lịch sử. */
@@ -122,12 +122,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
   const printPreorder = async (row: ReservationPreorderRow) => {
     const reprint = row.releasedRevision > 0 && !row.needsPrint && !row.needsReview
     const reason = reprint ? prompt('Lý do in lại phiếu') ?? undefined : undefined
-    const popup = window.open('', '_blank')
-    if (popup) popup.document.write('<p style="font-family:sans-serif;padding:24px">Đang tạo phiếu in…</p>')
-    const result = await props.onPrintPreorder(row, popup, reason)
-    if (!result.ok && popup && !popup.closed) {
-      popup.document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px">Chưa tạo được phiếu. Quay lại POS để thử lại.</p>'
-    }
+    const result = await props.onPrintPreorder(row, reason)
   }
   const preorderButton = (orderId: string, compact = false) => {
     const row = preorderOf(orderId)

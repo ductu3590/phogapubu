@@ -13,7 +13,7 @@ export default function ReservationPreorderPanel({
 }: {
   rows: ReservationPreorderRow[]; busy: boolean
   onRelease: (row: ReservationPreorderRow) => Promise<{ ok: boolean; error?: string }>
-  onPrint: (row: ReservationPreorderRow, kind: PreorderPrintKind, popup: Window | null, reason?: string) => Promise<{ ok: boolean; error?: string }>
+  onPrint: (row: ReservationPreorderRow, kind: PreorderPrintKind, reason?: string) => Promise<{ ok: boolean; error?: string }>
   onResolveWaste: (row: ReservationPreorderRow, reason: string) => Promise<{ ok: boolean; error?: string }>
 }) {
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -22,14 +22,8 @@ export default function ReservationPreorderPanel({
   // In lại: panel Tiếp nhận khách đặt bàn có nút in cạnh danh sách món.
   if (pendingRows.length === 0) return null
 
-  // Popup phải mở trong đúng click gesture. Khi RPC xong mới điều hướng sang snapshot job.
   const releaseAndPrint = async (row: ReservationPreorderRow, kind: PreorderPrintKind) => {
-    const popup = window.open('', '_blank')
-    if (popup) popup.document.write('<p style="font-family:sans-serif;padding:24px">Đang tạo phiếu in…</p>')
-    const result = await onPrint(row, kind, popup, kind === 'reprint' ? prompt('Lý do in lại') ?? undefined : undefined)
-    if (!result.ok && popup && !popup.closed) {
-      popup.document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px">Chưa tạo được phiếu. Quay lại POS để thử lại.</p>'
-    }
+    const result = await onPrint(row, kind, kind === 'reprint' ? prompt('Lý do in lại') ?? undefined : undefined)
   }
 
   return (

@@ -4,6 +4,7 @@
 // Thay hẳn /admin/cashier cũ (đã xoá 2026-10-03 sau POS-1..4 PASS; URL cũ chuyển hướng về đây).
 // Logic dữ liệu / thao tác giữ nguyên của POS cũ: cùng server action, cùng watcher realtime, cùng chuông.
 
+import { printInPlace } from '@/lib/print/print-in-place'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeftRight, Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, Layers, ListTodo, TriangleAlert, UserPlus, UserRound, Volume2, X, Zap } from 'lucide-react'
 import { TableStateLegend } from '@/components/ui/badge'
@@ -427,7 +428,7 @@ export default function PosClient({
   }
 
   const onPrintOrder = (orderId: string) => {
-    window.open(`/admin/pos/print-order?id=${orderId}`, '_blank')
+    printInPlace(`/admin/pos/print-order?id=${orderId}`)
   }
 
   const onConfirmOrder = async (orderId: string) => {
@@ -464,7 +465,7 @@ export default function PosClient({
   }
 
   const onPrint = (list: OpenTableSession[]) => {
-    window.open(`/staff/tables/print?ids=${list.map((s) => s.session_id).join(',')}`, '_blank')
+    printInPlace(`/staff/tables/print?ids=${list.map((s) => s.session_id).join(',')}`)
   }
 
   const onWalkIn = async (tableId: string, items: PosManualItem[], clientRequestId: string) => {
@@ -575,7 +576,7 @@ export default function PosClient({
     return result
   }
 
-  const onPrintPreorder = async (row: ReservationPreorderRow, kind: PreorderPrintKind, popup: Window | null, reason?: string) => {
+  const onPrintPreorder = async (row: ReservationPreorderRow, kind: PreorderPrintKind, reason?: string) => {
     if (row.needsReview) {
       const released = await onReleasePreorder(row)
       if (!released.ok) return released
@@ -586,8 +587,8 @@ export default function PosClient({
       ? (fresh.revision > 1 ? 'adjustment' : 'reprint') : kind
     const result = await requestReservationPreorderPrint(fresh.orderId, fresh.releasedRevision, printKind, undefined, reason)
     if (!result.ok) { reportActionError(result.error); return result }
-    if (popup && result.printJobId) popup.location.href = `/admin/pos/print-order?job=${result.printJobId}`
-    else reportActionError('Phiếu đã tạo nhưng trình duyệt chặn tab in. Mở lại từ POS để in.')
+    if (result.printJobId) printInPlace(`/admin/pos/print-order?job=${result.printJobId}`)
+    else reportActionError('Phiếu đã tạo nhưng chưa có mã in. Mở lại từ POS để in.')
     await reloadPreorders()
     return result
   }
@@ -1202,7 +1203,7 @@ export default function PosClient({
           onSnooze={(id, minutes) => void snoozeReminders([id], minutes)}
           onNoShow={noShowReservation}
           onCancel={(r, reason) => void reservationAction(() => cancelStoreReservation(r.reservationId, reason))}
-          onPrintPreorder={(row, popup, reason) => onPrintPreorder(row, 'original', popup, reason)}
+          onPrintPreorder={(row, reason) => onPrintPreorder(row, 'original', reason)}
         />
       )}
       {panel === 'bill' && (
@@ -1211,7 +1212,7 @@ export default function PosClient({
           key={selected?.session_id ?? [...pickedSessionIds].sort().join(',') ?? 'pick'}
           trayColors={trayColors}
           preorders={preorders}
-          onPrintPreorder={(row, popup, reason) => onPrintPreorder(row, 'original', popup, reason)}
+          onPrintPreorder={(row, reason) => onPrintPreorder(row, 'original', reason)}
           selected={selected}
           picked={pickedSessions}
           freeTables={freeTables}

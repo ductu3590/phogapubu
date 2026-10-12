@@ -43,7 +43,7 @@ export default function ReservationDetail({
   onNoShow: (reservation: ReservationRow) => void
   onCancel: (reservation: ReservationRow, reason: string) => void
   /** In phiếu món đặt trước (chưa duyệt thì duyệt rồi in) — dùng lại đúng luồng của khối Món đặt trước. */
-  onPrintPreorder?: (row: ReservationPreorderRow, popup: Window | null, reason?: string) => Promise<{ ok: boolean }>
+  onPrintPreorder?: (row: ReservationPreorderRow, reason?: string) => Promise<{ ok: boolean }>
 }) {
   const r = reservation
   const [cancelling, setCancelling] = useState(false)
@@ -52,17 +52,11 @@ export default function ReservationDetail({
   const href = phoneHref(r.customerPhone)
   const items = preorder?.currentSnapshot?.items ?? []
 
-  // Tab in phải mở NGAY trong cú bấm (trình duyệt chặn popup mở sau await), rồi mới gọi server.
-  const printPreorder = async () => {
+    const printPreorder = async () => {
     if (!preorder || !onPrintPreorder) return
     const reprint = preorder.releasedRevision > 0 && !preorder.needsPrint
     const reason = reprint ? prompt('Lý do in lại phiếu') ?? undefined : undefined
-    const popup = window.open('', '_blank')
-    if (popup) popup.document.write('<p style="font-family:sans-serif;padding:24px">Đang tạo phiếu in…</p>')
-    const result = await onPrintPreorder(preorder, popup, reason)
-    if (!result.ok && popup && !popup.closed) {
-      popup.document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px">Chưa tạo được phiếu. Quay lại POS để thử lại.</p>'
-    }
+    const result = await onPrintPreorder(preorder, reason)
   }
 
   return (
