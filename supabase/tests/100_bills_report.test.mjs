@@ -254,3 +254,26 @@ test('Chờ thu (hôm nay): phiên đang mở có tạm tính + số món + khá
   const past = await report()
   assert.ok(!past.waiting.some((x) => x.session_ids?.includes(s)))
 })
+
+test('phiên HẾT HẠN còn nợ → vẫn nằm trong Chờ thu của ngày mở phiên (cờ expired); hết hạn đã trả đủ thì không', async () => {
+  const debt = newId(), clean = newId()
+  for (const [sid, table] of [[debt, t1], [clean, t2]]) {
+    await db.query(`INSERT INTO table_sessions(id, store_id, table_id, status, opened_at, closed_at, close_reason)
+      VALUES ($1, $2, $3, 'closed', $4, $5, 'expired')`, [sid, store, table, at('07:30'), at('14:01')])
+    await db.query('INSERT INTO session_tables(session_id, table_id, is_open) VALUES ($1, $2, false)', [sid, table])
+  }
+  await db.query(`INSERT INTO orders(id, store_id, table_id, session_id, status, total_amount, created_at) VALUES
+    ($1, $3, $4, $5, 'confirmed', 513000, $6), ($2, $3, $4, $5, 'confirmed', 320000, $6)`,
+  [newId(), newId(), store, t1, debt, at('07:30')])
+  await db.query(`INSERT INTO orders(id, store_id, table_id, session_id, status, total_amount, payment_received_at, created_at)
+    VALUES ($1, $2, $3, $4, 'paid', 90000, $5, $6)`, [newId(), store, t2, clean, at('09:00'), at('08:00')])
+
+  const r = await report()
+  const w = r.waiting.find((x) => x.session_ids.includes(debt))
+  assert.ok(w, 'phiên hết hạn còn nợ phải hiện trong Chờ thu')
+  assert.equal(w.expired, true)
+  assert.equal(w.provisional_total, 833000)
+  assert.equal(w.table_label, 'Bàn 1')
+  assert.ok(!r.waiting.some((x) => x.session_ids.includes(clean)))
+  assert.ok(!(await report('2026-10-02')).waiting.some((x) => x.session_ids.includes(debt)), 'chỉ thuộc ngày mở phiên')
+})

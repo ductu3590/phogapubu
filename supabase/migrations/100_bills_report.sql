@@ -15,6 +15,8 @@
 --   • phiên chưa đóng / đóng vì lý do khác → S:<session_id>;  • đơn không phiên (trả trước) → O:<order_id>.
 --
 -- Trả về: totals · open · bills[] · waiting[] (Chờ thu) · cancelled[] · adjustments[] (Bỏ / Tặng / Sửa số lượng).
+-- Prod: áp 2 bước — `100_bills_report` rồi `100b_bills_report_expired_debt` (vá tại chỗ thêm phiên HẾT HẠN còn nợ
+-- vào Chờ thu). File này là bản đầy đủ sau cả hai bước.
 -- ⚠️ File này chỉ tạo hàm MỚI. Sửa hàm sau khi đã chạy prod: vá tại chỗ (pg_get_functiondef), không chạy lại file.
 
 -- Nhãn bàn của một bill / dòng chờ thu: bàn của các phiên → bàn của đơn → loại đơn (Mang về / Ship).
@@ -108,16 +110,21 @@ BEGIN
       FROM keyed
       GROUP BY bill_key
     ),
-    -- Chờ thu (1): phiên đang mở — chỉ khi xem HÔM NAY (phiên mở là trạng thái hiện tại, không thuộc ngày cũ).
+    -- Chờ thu (1): phiên đang mở — chỉ khi xem HÔM NAY (phiên mở là trạng thái hiện tại, không thuộc ngày cũ);
+    -- + phiên HẾT HẠN còn nợ, tính vào ngày MỞ phiên. Job hết hạn không được nuốt tiền chưa thu (CLAUDE.md
+    -- 2026-10-09) nên các phiên này vẫn còn đơn chưa nhận tiền — POS gom ở cuối tab Bàn.
     open_sessions AS (
-      SELECT s.id, s.opened_at, s.is_open_ordering,
+      SELECT s.id, s.opened_at, s.is_open_ordering, s.status = 'closed' AS expired,
              COALESCE(array_agg(o.id ORDER BY o.created_at) FILTER (WHERE o.id IS NOT NULL), '{}'::uuid[]) AS order_ids,
              COALESCE(SUM(o.total_amount) FILTER (WHERE o.payment_received_at IS NULL), 0)::bigint AS provisional_total
       FROM public.table_sessions s
       LEFT JOIN public.orders o
         ON o.session_id = s.id AND o.status <> 'cancelled' AND o.rejected_at IS NULL
-      WHERE s.store_id = p_store_id AND s.status = 'open' AND v_today
+      WHERE s.store_id = p_store_id
+        AND ((s.status = 'open' AND v_today)
+          OR (s.status = 'closed' AND s.close_reason = 'expired' AND s.opened_at >= v_from AND s.opened_at < v_to))
       GROUP BY s.id
+      HAVING s.status = 'open' OR COALESCE(SUM(o.total_amount) FILTER (WHERE o.payment_received_at IS NULL), 0) > 0
     ),
     -- Chờ thu (2): đơn không phiên tạo trong ngày, chưa nhận tiền, thu tay được — khớp isAwaitingPayment
     -- (lib/revenue.ts). Ví (wallet) do callback tự xác nhận; món đặt trước không phải đơn chờ thu.
@@ -194,11 +201,14 @@ BEGIN
             'order_ids', to_jsonb(os.order_ids),
             'opened_at', os.opened_at,
             'is_tray', os.is_open_ordering,
-            'tables_count', (SELECT COUNT(*) FROM public.session_tables st WHERE st.session_id = os.id AND st.is_open),
+            'expired', os.expired,
+            -- Phiên đã đóng (hết hạn) không còn bàn is_open → lấy mọi bàn từng thuộc phiên.
+            'tables_count', (SELECT COUNT(*) FROM public.session_tables st
+                              WHERE st.session_id = os.id AND (st.is_open OR os.expired)),
             'table_label', COALESCE(
               (SELECT string_agg(t.table_number, ', ' ORDER BY t.table_number)
                  FROM public.session_tables st JOIN public.tables t ON t.id = st.table_id
-                WHERE st.session_id = os.id AND st.is_open),
+                WHERE st.session_id = os.id AND (st.is_open OR os.expired)),
               '—'),
             'order_type', 'dine_in',
             'customer_name', (SELECT NULLIF(btrim(r.customer_name), '') FROM public.reservations r
@@ -219,6 +229,7 @@ BEGIN
             'order_ids', jsonb_build_array(ao.id),
             'opened_at', ao.created_at,
             'is_tray', false,
+            'expired', false,
             'tables_count', 0,
             'table_label', public.bills_report_table_label('{}'::uuid[], ARRAY[ao.id], ao.order_type),
             'order_type', ao.order_type,
