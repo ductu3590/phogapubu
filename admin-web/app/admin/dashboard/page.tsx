@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, PageHeader } from '@/components/ui/card'
 import { EmptyState, ErrorState } from '@/components/ui/feedback'
 import { getButtonClasses } from '@/components/ui/button-classes'
-import ReportDatePicker from './report-date-picker'
+import ReportDatePicker from '../bills/report-date-picker'
 
 // Báo cáo NGÀY theo bill (PA-1, 2026-10-07) — thay dashboard cũ. Chưa có khái niệm "ca".
 // Mọi con số lấy nguyên từ RPC get_daily_report; trang này chỉ hiển thị.

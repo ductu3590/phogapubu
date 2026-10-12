@@ -11,7 +11,7 @@ import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { hasRealMoney, isAwaitingPayment } from '@/lib/revenue'
 import { paymentBadge } from '@/lib/order-payment-badge'
 import { orderTags } from '@/lib/order-tags'
-import OrdersRealtime from './orders-realtime'
+import OrdersRealtime from '../bills/orders-realtime'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Chờ', confirmed: 'Xác nhận', cooking: 'Đang làm',

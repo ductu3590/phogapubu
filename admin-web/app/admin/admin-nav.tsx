@@ -3,6 +3,7 @@ import {
   CalendarDays,
   ChefHat,
   ClipboardList,
+  ReceiptText,
   LayoutGrid,
   QrCode,
   Settings,
@@ -27,6 +28,7 @@ export function adminRailItems(kitchenEnabled = true, role: OperatorRole = 'stor
   if (role === 'store_cashier') {
     return [
       { href: '/admin/pos', label: 'POS', icon: <LayoutGrid /> },
+      { href: '/admin/bills', label: 'Hoá đơn', icon: <ReceiptText /> },
       { href: '/admin/dashboard', label: 'Báo cáo', icon: <BarChart3 /> },
     ]
   }
@@ -34,6 +36,8 @@ export function adminRailItems(kitchenEnabled = true, role: OperatorRole = 'stor
     { href: '/admin/pos', label: 'POS', icon: <LayoutGrid /> },
     ...(kitchenEnabled ? [{ href: '/admin/kitchen', label: 'Bếp', icon: <ChefHat /> }] : []),
     { href: '/admin/menu', label: 'Món', icon: <UtensilsCrossed /> },
+    // A04 (2026-10-12): "Hoá đơn & Báo cáo" chạy song song với Đơn + Báo cáo cũ tới khi PASS, rồi mới xoá 2 mục cũ.
+    { href: '/admin/bills', label: 'Hoá đơn', icon: <ReceiptText /> },
     { href: '/admin/orders', label: 'Đơn', icon: <ClipboardList /> },
     { href: '/admin/dashboard', label: 'Báo cáo', icon: <BarChart3 /> },
   ]

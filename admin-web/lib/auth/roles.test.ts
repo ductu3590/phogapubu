@@ -40,7 +40,7 @@ describe('khu được vào', () => {
 
 describe('trang admin thu ngân được mở', () => {
   it.each([
-    ['/admin/pos', true], ['/admin/pos/print-order', true], ['/admin/dashboard', true],
+    ['/admin/pos', true], ['/admin/pos/print-order', true], ['/admin/dashboard', true], ['/admin/bills', true],
     ['/admin/reservations', true], ['/admin/menu', true], ['/admin/account', true],
     ['/admin', false], ['/admin/settings', false], ['/admin/tables', false], ['/admin/staff', false],
     ['/admin/vouchers', false], ['/admin/spin', false], ['/admin/orders', false], ['/admin/kitchen', false],
