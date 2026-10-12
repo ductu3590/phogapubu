@@ -6,6 +6,7 @@ import PermissionSheet from "@/components/common/permission-sheet";
 import { useOaFollow } from "@/hooks/use-oa-follow";
 import { directionsUrl } from "@/utils/directions";
 import DirectionsButton from "@/components/ui/directions-button";
+import { CallPhoneSheet } from "@/components/ui/call-phone-button";
 import TermsSheet from "@/components/common/terms-sheet";
 import { DEFAULT_TERMS } from "@/constants/terms";
 import { ScanLineIcon, UtensilsIcon, MapPinIcon, BikeIcon, PhoneIcon, WifiIcon, FileTextIcon, MessageCircleIcon, BellIcon } from "@/components/common/icons";
@@ -96,6 +97,7 @@ export default function StoreInfoPage() {
 
   const [showPermSheet, setShowPermSheet] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [showCall, setShowCall] = useState(false);
   const termsContent = termsOfUse.trim() || DEFAULT_TERMS;
 
   // Tự bật sheet 1 lần MỖI PHIÊN (khi chưa kết nối) — dùng sessionStorage để mỗi lần
@@ -175,7 +177,7 @@ export default function StoreInfoPage() {
               icon={<PhoneIcon />}
               label="Điện thoại"
               value={storePhone}
-              onPress={() => { window.location.href = `tel:${storePhone}`; }}
+              onPress={() => setShowCall(true)}
             />
           )}
           {/* Wifi — hiện ngay dưới Điện thoại; wifi_name rỗng thì không render */}
@@ -266,6 +268,7 @@ export default function StoreInfoPage() {
 
 
       {/* Sheet điều khoản sử dụng */}
+      {storePhone && <CallPhoneSheet phone={storePhone} open={showCall} onClose={() => setShowCall(false)} />}
       <TermsSheet
         visible={showTerms}
         content={termsContent}

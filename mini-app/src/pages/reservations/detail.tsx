@@ -15,6 +15,7 @@ import SectionCard from "@/components/ui/section-card";
 import StatusPill from "@/components/ui/status-pill";
 import ConfirmSheet from "@/components/ui/confirm-sheet";
 import DirectionsButton from "@/components/ui/directions-button";
+import { dialPhone } from "@/components/ui/call-phone-button";
 import { CalendarDaysIcon, MapPinIcon, PhoneIcon, UtensilsIcon } from "@/components/common/icons";
 
 const TONE_BG = {
@@ -148,10 +149,10 @@ export default function ReservationDetailPage() {
           </div>
         )}
         {storePhone ? (
-          <a href={`tel:${storePhone}`} className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-neutral50 px-3 py-2.5">
+          <button type="button" onClick={() => dialPhone(storePhone)} className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl bg-neutral50 px-3 py-2.5 text-left active:opacity-70">
             <span className="flex items-center gap-2 text-small font-semibold text-text-primary"><PhoneIcon className="size-4 text-text-secondary" />{storePhone}</span>
             <span className="rounded-full bg-primary px-3 py-1.5 text-xxsmall font-bold text-white">Gọi ngay</span>
-          </a>
+          </button>
         ) : (
           <p className="mt-2 text-small text-text-secondary">Cần hỗ trợ? Vui lòng hỏi nhân viên tại quán.</p>
         )}
