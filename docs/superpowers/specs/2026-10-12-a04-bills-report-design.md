@@ -10,7 +10,7 @@ song tới khi trang mới PASS, rồi mới xoá (như cách làm POS 2026-10-0
 | Câu hỏi | Chọn |
 |---|---|
 | Báo cáo theo ca hay theo ngày | **Theo ngày** (giờ VN). Ca làm việc (mở ca, tiền đầu ca, đếm két, chênh lệch, phiếu bàn giao) để spec riêng sau |
-| Mã hoá đơn | **Số thứ tự thật** mỗi quán, tăng dần, không reset theo ngày, cấp lúc thu tiền; bill gộp N mâm dùng CHUNG một số; in lên hoá đơn 80mm |
+| Mã hoá đơn | ~~Số thứ tự thật~~ **HOÃN (anh Tú, 2026-10-12)**. Tạm dùng **mã rút gọn `#XXXXXX`** = 6 ký tự cuối ID phiên đầu tiên của bill (bill gộp lấy ID nhỏ nhất) hoặc ID đơn (đơn không phiên) — cùng kiểu mã trang Đơn hàng đang hiện. Không migration, không in lên hoá đơn. Kế hoạch số thật để sẵn: `docs/superpowers/plans/2026-10-12-a04-1-bill-numbers.md` |
 | Cột Khách hàng | **Giữ**, lấy từ đặt bàn (`reservations.session_id` → `customer_name`, `party_size`); đơn mang về/ship lấy `orders.customer_name`; khách vãng lai để "—" |
 | Xuất file | **Excel thật `.xlsx`** |
 
@@ -32,7 +32,7 @@ song tới khi trang mới PASS, rồi mới xoá (như cách làm POS 2026-10-0
    thu (N bàn, tạm tính). Ngày cũ: thẻ 4 đổi thành "Số hoá đơn" như hiện nay.
 3. **Thanh lọc:** chip `Tất cả` · `Đã thanh toán` · `Đã huỷ / giảm trừ` · `Chờ thu` (mỗi chip kèm số đếm) + ô tìm
    "Bàn, mã HD, tên khách". Lọc + tìm ở trình duyệt (dữ liệu 1 ngày đủ nhỏ).
-4. **Bảng hoá đơn (8/12 cột):** Mã HD · Bàn (nhãn Ghép / Mang về / Ship) · Khách hàng (tên · số khách) · Vào / Món
+4. **Bảng hoá đơn (8/12 cột):** Mã (`#XXXXXX`) · Bàn (nhãn Ghép / Mang về / Ship) · Khách hàng (tên · số khách) · Vào / Món
    · Tổng tiền & phương thức · Trạng thái · Thao tác (Xem bill, In lại). Phân trang 20 dòng. "Cập nhật lúc
    HH:MM:SS" + tự làm mới (dùng lại `OrdersRealtime`).
 5. **Cột phải (4/12): Lịch sử điều chỉnh bill** — Bỏ / Tặng / Sửa số lượng, giờ, người làm, bàn, lý do.
@@ -49,28 +49,26 @@ chỉ hiển thị.
 
 Trả về:
 - `totals` (như 092) · `open` (như 092).
-- `bills[]` = 092 + thêm: `bill_no`, `opened_at` (min `table_sessions.opened_at`; đơn không phiên = `created_at`),
+- `bills[]` = 092 + thêm: `opened_at` (min `table_sessions.opened_at`; đơn không phiên = `created_at`),
   `order_type`, `customer_name`, `party_size`, `discount_total`, `adjustments_count`.
 - `waiting[]` (**Chờ thu**): mỗi phiên đang mở = 1 dòng (bàn, mâm/ghép, `opened_at`, khách đặt bàn, số món, tạm
   tính) + đơn trả trước chưa nhận tiền trong ngày (luật `isAwaitingPayment` của `lib/revenue.ts`).
 - `cancelled[]`: đơn `status='cancelled'` hoặc `rejected_at` trong ngày (bàn, giờ, tổng, nguồn đơn).
 - `adjustments[]` = 092 + **sửa số lượng** (`order_item_quantity_changes`, mig 098: từ → tới, lý do, người làm).
 
+**Sửa luôn lỗi gom bill của 092:** phiên đóng `paid` gom theo `closed_by` + **giờ nhận tiền của phiên**
+(`MAX(payment_received_at)` các đơn trong phiên — `close_table_session` ghi `now()` của transaction thu tiền),
+KHÔNG theo `closed_at`. Lý do: `close_table_session` giữ `closed_at = COALESCE(closed_at, now())`, nên các phiên bị
+job hết hạn đóng cùng lúc rồi thu RIÊNG từng bàn sẽ trùng `closed_at` + `closed_by` và bị 092 gộp nhầm thành một bill.
+Gộp bill N mâm vẫn gom đúng vì N phiên thu trong MỘT transaction (cùng `now()`).
+
 Chip "Đã huỷ / giảm trừ" = `cancelled[]` + bill có `adjustments_count > 0` hoặc `discount_total > 0`.
 "Tất cả" = bills + waiting + cancelled.
 
-### 4.1 Số hoá đơn (mig riêng, TRƯỚC RPC)
+### 4.1 Số hoá đơn — HOÃN
 
-- Bảng `store_bill_counters(store_id PK, last_no int)`; cột `table_sessions.bill_no int` và `orders.bill_no int`
-  (đơn không phiên, trả trước). Unique `(store_id, bill_no)` theo từng bảng.
-- Cấp bằng **trigger**, KHÔNG sửa `close_table_session` (hàm tiền đang chạy thật):
-  - phiên chuyển sang `closed` + `close_reason='paid'` → nếu đã có phiên cùng quán cùng `closed_by` + `closed_at`
-    có số (gộp bill trong một transaction) thì dùng lại số đó, không thì lấy số mới
-    (`UPDATE store_bill_counters ... RETURNING`, khoá dòng chống trùng);
-  - đơn không phiên có `payment_received_at` lần đầu → số mới.
-- Hiển thị `HD-000123` (6 chữ số). Bill cũ trước migration: KHÔNG backfill, hiện "—" (backfill đánh số ngược
-  theo giờ cũ dễ đụng bill gộp — làm sau nếu anh cần).
-- Hoá đơn 80mm (`/print/bill`) in dòng "Số HD" khi phiên đã có số; tạm tính chưa thu tiền không có số.
+Anh Tú quyết định 2026-10-12 bỏ qua ở giai đoạn này. Kế hoạch đầy đủ (mig bộ đếm + trigger + test) để ở
+`docs/superpowers/plans/2026-10-12-a04-1-bill-numbers.md`, ghi trong memory `project_ideas_backlog`.
 
 ## 5. Chuyển chức năng từ trang Đơn hàng sang
 
@@ -97,17 +95,13 @@ trang (như Báo cáo hiện nay).
 
 | Bước | Nội dung | Migration |
 |---|---|---|
-| **A04-1** | Số hoá đơn: bảng đếm + cột + trigger; in "Số HD" lên `/print/bill` | mig 100 |
-| **A04-2** | RPC `get_bills_report` + bộ đọc `lib/bills-report.ts` (hàm thuần + test: parse, lọc chip, tìm, phân trang) | mig 101 |
-| **A04-3** | Trang `/admin/bills` + route hộp thoại `@modal/(config)/(.)bills`: đầu trang, 4 thẻ, chip, tìm, bảng, cột điều chỉnh, tự làm mới. Thêm vào thanh icon + tab hộp thoại (cả thu ngân) | — |
-| **A04-4** | Ngăn kéo Xem bill + chuyển 4 thao tác từ trang Đơn hàng + In lại | — |
-| **A04-5** | Xuất Excel + In báo cáo cuối ngày | — |
-| **A04-6** | Dọn dẹp: xoá `/admin/orders`, `/admin/dashboard`, 2 route `@modal`; chuyển hướng URL cũ trong `next.config`; sửa `admin-nav.tsx`, `config-dialog.tsx`, `lib/auth/roles.ts` (`CASHIER_ADMIN_PATHS`), trang đăng nhập, `revalidatePath` trong `lib/actions/orders.ts` + `spin.ts`, test liên quan; cập nhật CLAUDE.md | (tuỳ) drop `get_daily_report` |
+| **A04-1** | RPC `get_bills_report` + bộ đọc `lib/bills-report.ts` (hàm thuần + test) + trang `/admin/bills` (đầu trang, 4 thẻ, chip, tìm, bảng, phân trang, cột điều chỉnh, tự làm mới) + route hộp thoại + thanh icon/tab. Chỉ XEM, chưa thao tác | mig 100 |
+| **A04-2** | Ngăn kéo Xem bill + chuyển 4 thao tác từ trang Đơn hàng + In lại | — |
+| **A04-3** | Xuất Excel + In báo cáo cuối ngày | — |
+| **A04-4** | Dọn dẹp: xoá `/admin/orders`, `/admin/dashboard`, 2 route `@modal`; chuyển hướng URL cũ trong `next.config`; sửa `admin-nav.tsx`, `config-dialog.tsx`, `lib/auth/roles.ts` (`CASHIER_ADMIN_PATHS`), trang đăng nhập, `revalidatePath` trong `lib/actions/orders.ts` + `spin.ts`, test liên quan; cập nhật CLAUDE.md | (tuỳ) drop `get_daily_report` |
 
 ## 8. Rủi ro / cần để ý
 
-- Trigger cấp số chạy trong transaction thu tiền: lỗi trong trigger = thu tiền thất bại. Trigger phải tối giản,
-  có test gộp bill 2–3 mâm và test hai máy thu cùng lúc (không trùng số, không nhảy số khi gộp).
 - `list_open_table_sessions` không trả `confirmed_at` (CLAUDE.md 2026-10-03) — `waiting[]` lấy thẳng từ bảng,
   không dựa hàm đó.
 - Đơn `order_source='pos'` / `reservation_preorder` nằm `pending` mãi — không đếm vào "Chờ thu" của đơn trả trước.
@@ -115,4 +109,4 @@ trang (như Báo cáo hiện nay).
 
 ## 9. Ngoài phạm vi
 
-Ca làm việc · backfill số hoá đơn cũ · lọc nhiều ngày / theo tháng · biểu đồ.
+Ca làm việc · số hoá đơn thật (hoãn, §4.1) · lọc nhiều ngày / theo tháng · biểu đồ.

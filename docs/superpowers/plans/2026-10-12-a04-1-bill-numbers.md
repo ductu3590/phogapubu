@@ -1,4 +1,7 @@
-# A04-1 — Số hoá đơn thật (mig 100) Implementation Plan
+# [HOÃN] Số hoá đơn thật Implementation Plan
+
+> ⏸ **HOÃN 2026-10-12** — anh Tú bỏ qua phần này ở giai đoạn A04. Giữ nguyên làm tài liệu khi cần làm lại.
+> Khi làm lại: đổi số migration sang số trống kế tiếp (mig 100 đã dùng cho `get_bills_report`).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
