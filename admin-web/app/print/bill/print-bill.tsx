@@ -2,7 +2,6 @@
 
 import type { SessionsBill } from '@/lib/actions/table-session'
 import { useAutoPrint } from '@/lib/print/use-auto-print'
-import { MEVO_LOGO_DATA_URI } from '@/lib/print/mevo-logo'
 
 const dong = (n: number) => n.toLocaleString('vi-VN')
 
@@ -46,7 +45,6 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
         .row .num { flex-shrink: 0; text-align: right; }
         .diachi { overflow-wrap: anywhere; }
         .mevo { text-align: center; font-size: 11px; line-height: 1.3; }
-        .mevo img { width: 22mm; height: auto; display: block; margin: 0 auto 3px; }
       `}</style>
 
       <div className="no-print" style={{ padding: 12, textAlign: 'center' }}>
@@ -149,10 +147,8 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
         </div>
 
         <hr />
-        {/* Quảng bá MEVO: logo đơn sắc + một dòng giới thiệu + website. */}
+        {/* Quảng bá MEVO: dòng giới thiệu + website (không in logo — anh Tú bỏ 2026-10-12). */}
         <div className="mevo">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={MEVO_LOGO_DATA_URI} alt="MEVO" />
           <div style={{ fontWeight: 700 }}>MEVO · Menu Evolution</div>
           <div>Quét QR gọi món, thanh toán nhanh ngay trên Zalo — giải pháp cho quán ăn Việt.</div>
           <div style={{ fontWeight: 700, marginTop: 2 }}>mevo.vn</div>
