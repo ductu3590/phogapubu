@@ -16,18 +16,20 @@ beforeEach(() => {
 });
 
 describe("clearPersonalData", () => {
-  it("xoá hồ sơ, nháp đặt bàn, form mang về; GIỮ quyền xem lịch hẹn, device id, giỏ hàng, dữ liệu quán khác", () => {
+  it("xoá hồ sơ, nháp đặt bàn, form mang về, cờ đã hỏi quyền Zalo; GIỮ quyền xem lịch hẹn, device id, giỏ hàng, dữ liệu quán khác", () => {
     const keep = [
       "mevo_reservation_access:store-a:r1",
       "mevo_reservation_accesses:store-a",
       "mevo_device_id",
       "mevo_cart",
       "mevo_reservation_profile:store-b",
+      "mevo_reservation_zalo_asked:store-b",
     ];
     const gone = [
       "mevo_reservation_profile:store-a",
       "mevo_reservation_draft:store-a",
       "mevo_takeaway_form",
+      "mevo_reservation_zalo_asked:store-a",
     ];
     for (const k of [...keep, ...gone]) storage.set(k, "{}");
 
