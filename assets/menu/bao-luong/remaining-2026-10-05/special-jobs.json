@@ -1,0 +1,34 @@
+[
+  {
+    "name": "Tù và ếch xào dưa",
+    "slug": "tu-va-ech-xao-dua",
+    "description": "Vietnamese frog stomachs stir fried with pickled mustard greens: small cleaned ivory beige curled pouch-shaped frog stomach pieces, crunchy yellow-green sour mustard stems and leaves, garlic, scallion, a little chili. No frog legs, no snails.",
+    "ids": [
+      "1944dcd2-de3a-456b-ac44-9b8baa7d9947"
+    ]
+  },
+  {
+    "name": "Nấm Biển xào",
+    "slug": "nam-bien-xao",
+    "description": "Vietnamese stir fried cuttlefish fin edges, known as nam bien: irregular ivory curled frilly thin strips of cuttlefish fin, firm crunchy seafood texture, sauteed with celery, onion and garlic. No terrestrial mushrooms, no mushroom caps.",
+    "ids": [
+      "cc561417-de02-44ce-b85a-c8befc0cd71f"
+    ]
+  },
+  {
+    "name": "Chấn thuỷ nướng",
+    "slug": "chan-thuy-nuong",
+    "description": "Vietnamese grilled pork skirt meat (diaphragm, nac day, chan thuy), sliced irregular lean juicy strips with fine thin connective tissue seams, golden brown grilled surface, restrained herbs, no pork belly.",
+    "ids": [
+      "4c604243-f284-4cb1-b2bc-e7899ccb9369"
+    ]
+  },
+  {
+    "name": "Chấn thuỷ nướng tê cay",
+    "slug": "chan-thuy-nuong-te-cay",
+    "description": "Vietnamese grilled pork skirt meat (diaphragm, nac day, chan thuy), irregular lean juicy strips with connective tissue seams, charred edges coated with reddish numbing chili spice, chili flakes, restrained herbs, no pork belly.",
+    "ids": [
+      "81afe8a3-fae0-4509-b7fe-2c22872c8334"
+    ]
+  }
+]

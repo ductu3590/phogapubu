@@ -6,6 +6,8 @@
 
 ## Checklist mới tách riêng
 
+- [Bảo Lương — Ảnh menu còn lại](docs/testing/bao-luong/MENU-IMAGES-REMAINING.md) — đã dừng theo yêu cầu, chờ Test 1 (2026-10-05)
+
 - [Bảo Lương — Ảnh Món ngon tuần này](docs/testing/bao-luong/MENU-IMAGES-WEEKLY.md) — chờ Test 1 (2026-10-05)
 
 - ✅ [UI-1 — Nền móng design system](docs/testing/ui-system/UI-1.md) — UI-1 PASS (2026-10-02), nhánh `feat/ui-system`
