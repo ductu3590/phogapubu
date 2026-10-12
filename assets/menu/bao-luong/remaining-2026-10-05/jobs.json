@@ -1,0 +1,422 @@
+[
+  {
+    "name": "Vịt xông khói thảo mộc Bảo Lương",
+    "slug": "vit-xong-khoi-thao-moc-bao-luong",
+    "description": "Sliced herb-smoked duck with amber brown skin and moist cooked meat, Vietnamese herbs, rustic sharing platter.",
+    "ids": [
+      "863ed9dd-6f7f-4fcc-8e72-9bd0e826e421"
+    ]
+  },
+  {
+    "name": "Tôm nướng mọi",
+    "slug": "tom-nuong-moi",
+    "description": "Whole shell-on charcoal grilled prawns with heads and tails, orange shells and light char, no heavy sauce.",
+    "ids": [
+      "c703b538-7002-4482-a53a-61eda06d99a1"
+    ]
+  },
+  {
+    "name": "Ếch rang muối",
+    "slug": "ech-rang-muoi",
+    "description": "Crispy fried frog legs and chopped frog meat dusted in pale Vietnamese savory roasted salt powder, fried lemongrass strands.",
+    "ids": [
+      "e2726020-327f-4f0a-b137-6c695026a962"
+    ]
+  },
+  {
+    "name": "Ếch chiên mắm",
+    "slug": "ech-chien-mam",
+    "description": "Fried frog legs in glossy amber fish sauce garlic glaze, small red chili garnish.",
+    "ids": [
+      "bbb295a6-a5c1-4d2b-b75e-1669baf11315"
+    ]
+  },
+  {
+    "name": "Chân gà chiên mắm",
+    "slug": "chan-ga-chien-mam",
+    "description": "Cooked whole chicken feet, recognizable toes, golden fried and coated with shiny amber garlic fish sauce glaze.",
+    "ids": [
+      "06413a99-9ea2-40fc-a238-084a12dededb"
+    ]
+  },
+  {
+    "name": "Trâu xào tỏi / lá lốt",
+    "slug": "trau-xao-toi-la-lot",
+    "description": "Thin slices of stir fried water buffalo meat with sauteed garlic and dark green sliced wild betel leaves.",
+    "ids": [
+      "582dde45-be63-4181-995a-707dabc43b79"
+    ]
+  },
+  {
+    "name": "Trâu nhúng mẻ",
+    "slug": "trau-nhung-me",
+    "description": "Vietnamese water buffalo hotpot with gently steaming pale tangy fermented rice broth, tomato wedges, herbs, and a small adjoining plate of thinly sliced fresh buffalo meat for dipping. Compact composition showing complete pot.",
+    "ids": [
+      "e473c8b4-ac92-42b8-9148-e285ea3f2417"
+    ]
+  },
+  {
+    "name": "Da trâu xào mẻ",
+    "slug": "da-trau-xao-me",
+    "description": "Tender translucent tan sliced buffalo skin stir fried with fermented rice sauce, lightly creamy tangy sauce and herbs.",
+    "ids": [
+      "57066eec-f632-4064-b2f0-a89442954713"
+    ]
+  },
+  {
+    "name": "Bắp bò nộm cà",
+    "slug": "bap-bo-nom-ca",
+    "description": "Vietnamese beef shank salad: thin cooked beef shank slices with visible tendon marbling, sliced small round white-green Vietnamese eggplants, herbs and chili.",
+    "ids": [
+      "e86c2496-bb98-4566-a5ab-c72736c3bab7"
+    ]
+  },
+  {
+    "name": "Bắp bò nộm rau má",
+    "slug": "bap-bo-nom-rau-ma",
+    "description": "Vietnamese salad of thin cooked beef shank slices and abundant fresh round pennywort leaves with thin stems, aromatic herbs.",
+    "ids": [
+      "8b4c21b7-3c75-4f27-b3d1-f4b9ad91d4ed"
+    ]
+  },
+  {
+    "name": "Bắp bò nộm tiến vua",
+    "slug": "bap-bo-nom-tien-vua",
+    "description": "Vietnamese beef shank salad with crunchy long pale green dried stem lettuce strips (rau tien vua), herbs, thin sliced beef with tendon marbling.",
+    "ids": [
+      "be38864a-f7c6-4b64-be6b-5188cdc23a08"
+    ]
+  },
+  {
+    "name": "Bò cuốn cải",
+    "slug": "bo-cuon-cai",
+    "description": "Cooked beef slices rolled in broad fresh green mustard leaves, neatly arranged small rolls, extra beef slices and small dipping bowl.",
+    "ids": [
+      "cb046a0d-9011-4b7e-8e84-ee53ce557a2c"
+    ]
+  },
+  {
+    "name": "Lợn quay",
+    "slug": "lon-quay",
+    "description": "Vietnamese roast pork chopped into rustic bite-size pieces, crisp deep golden skin, mixed lean and fatty meat cuts.",
+    "ids": [
+      "c9744507-1482-49ad-81f7-d5a5acf31ee1"
+    ]
+  },
+  {
+    "name": "Ba chỉ quay",
+    "slug": "ba-chi-quay",
+    "description": "Even slices of roast pork belly showing distinct layers of crisp blistered golden skin, white rendered fat and cooked meat.",
+    "ids": [
+      "c8dbcdf3-4501-41c3-9a0f-b61032a3513d"
+    ]
+  },
+  {
+    "name": "Nầm chiên tê cay",
+    "slug": "nam-chien-te-cay",
+    "description": "Vietnamese crispy fried pork udder cut into small pale golden textured morsels with spicy red chili seasoning, no pork belly.",
+    "ids": [
+      "e53389d5-25c2-48de-b232-15c6b0428e6a"
+    ]
+  },
+  {
+    "name": "Gan cháy tỏi",
+    "slug": "gan-chay-toi",
+    "description": "Pan seared pork liver slices, deep brown flat tender liver slices covered with plentiful crispy golden fried garlic.",
+    "ids": [
+      "7eb0cbdf-de95-4a33-91c2-c083af69ebc4"
+    ]
+  },
+  {
+    "name": "Tóp mỡ dưa chua",
+    "slug": "top-mo-dua-chua",
+    "description": "Golden rendered pork fat cracklings stir fried with yellow-green pickled mustard greens and scallions.",
+    "ids": [
+      "6aba21b9-707d-40fc-b63f-9d6330745abf"
+    ]
+  },
+  {
+    "name": "Cuống tim xào",
+    "slug": "cuong-tim-xao",
+    "description": "Vietnamese stir fried cleaned pork heart stalk and aorta, ivory pale curled crunchy tubular slices with celery, onion and garlic.",
+    "ids": [
+      "ee9b231b-352d-452f-a675-182c9ac329bf"
+    ]
+  },
+  {
+    "name": "Lòng chiên tê cay",
+    "slug": "long-chien-te-cay",
+    "description": "Crispy fried pork intestines sliced into small curled golden brown rings with red numbing chili spice.",
+    "ids": [
+      "5053fd6e-9d6e-4777-b4c1-1c962c572758"
+    ]
+  },
+  {
+    "name": "Lòng xào dưa",
+    "slug": "long-xao-dua",
+    "description": "Cooked pork intestine rings stir fried with yellow green pickled mustard greens, tomato wedges and scallions.",
+    "ids": [
+      "a0131564-a21b-46af-8cdc-3e5e6c2a6674"
+    ]
+  },
+  {
+    "name": "Chó chặt đĩa",
+    "slug": "cho-chat-dia",
+    "description": "Traditional northern Vietnamese cooked dog meat sharing platter: fully cooked chopped boneless brown meat with small pieces of golden-brown skin, galangal slices and Vietnamese herbs. Food only, no animal head, no live animals, no slaughter, no gore.",
+    "ids": [
+      "6715771a-cc6a-43b0-9994-682ed2d2128d"
+    ]
+  },
+  {
+    "name": "Chả chó",
+    "slug": "cha-cho",
+    "description": "Traditional Vietnamese grilled dog meat patties, small rustic dark golden brown cooked meat patties with galangal and lemongrass, herbs on side. Food only, no animal head, no live animals, no slaughter, no gore.",
+    "ids": [
+      "f94b04c6-a003-4e18-bda9-7b92222f6c4c"
+    ]
+  },
+  {
+    "name": "Mèo xào rau má",
+    "slug": "meo-xao-rau-ma",
+    "description": "Traditional northern Vietnamese stir fried cat meat, small fully cooked brown boneless meat slices tossed with abundant fresh green pennywort leaves. Food only, no animal head, no live animals, no slaughter, no gore.",
+    "ids": [
+      "3093686a-fb7b-430a-a457-fdf0adf578b1"
+    ]
+  },
+  {
+    "name": "Cơm rang dưa bò",
+    "slug": "com-rang-dua-bo",
+    "description": "Vietnamese fried rice with sliced cooked beef and chopped pickled mustard greens, separate golden grains and scallions.",
+    "ids": [
+      "4e50bb93-c1c4-4301-8c9b-ec65a9621ee2",
+      "8f2c6c96-6baf-4c90-be24-21b47d3eabe7"
+    ]
+  },
+  {
+    "name": "Cơm rang trứng",
+    "slug": "com-rang-trung",
+    "description": "Vietnamese egg fried rice with fluffy separate pale golden grains, scrambled egg pieces and scallions, no meat.",
+    "ids": [
+      "58a9d404-f745-4635-8995-46db3c29cd04",
+      "a55680c9-05c1-46eb-8bd4-94d6fa6bb7f4"
+    ]
+  },
+  {
+    "name": "Mì xào bò",
+    "slug": "mi-xao-bo",
+    "description": "Vietnamese stir fried curly yellow wheat noodles with thin cooked beef slices and green bok choy.",
+    "ids": [
+      "9c82973d-7d0e-42fc-9c70-435e8e88d6a5",
+      "e27b2d85-ae1a-4e06-8908-e6c30649974e"
+    ]
+  },
+  {
+    "name": "Mì xào trứng",
+    "slug": "mi-xao-trung",
+    "description": "Vietnamese stir fried curly yellow wheat noodles with scrambled egg pieces and green bok choy, no meat.",
+    "ids": [
+      "4b0eab06-f55c-408a-96a5-9f5dc1a10a15",
+      "5f5dda5d-ba5d-453e-9ea4-e571b0df94ef"
+    ]
+  },
+  {
+    "name": "Đậu tẩm hành",
+    "slug": "dau-tam-hanh",
+    "description": "Golden fried tofu cubes generously covered with chopped green scallions in light savory sauce.",
+    "ids": [
+      "43902759-40ec-4263-baa3-c04ffefb84d5"
+    ]
+  },
+  {
+    "name": "Đậu chiên giòn",
+    "slug": "dau-chien-gion",
+    "description": "Deep fried tofu squares with crisp evenly golden surfaces and airy soft interiors, no scallion topping.",
+    "ids": [
+      "4f36bbc0-cd8d-42b3-8c9c-c0c0d9555cb3"
+    ]
+  },
+  {
+    "name": "Đậu lướt",
+    "slug": "dau-luot",
+    "description": "Very lightly flash fried soft tofu, pale ivory tender cubes with barely golden thin edges, visibly softer and paler than crispy fried tofu.",
+    "ids": [
+      "58118c05-2bbc-4787-b33d-9796c5e3cb07"
+    ]
+  },
+  {
+    "name": "Đậu luộc",
+    "slug": "dau-luoc",
+    "description": "Plain boiled silken firm tofu, clean white tender rectangular pieces, no browning and no fried crust.",
+    "ids": [
+      "7efee30c-482e-4098-84ff-c2e494e8c8f8"
+    ]
+  },
+  {
+    "name": "Rau xào theo mùa",
+    "slug": "rau-xao-theo-mua",
+    "description": "Seasonal Vietnamese green vegetables, fresh morning glory stems and leaves stir fried with garlic, lightly glossy.",
+    "ids": [
+      "a0fba500-4d1d-4291-bef6-11ad9eb05865"
+    ]
+  },
+  {
+    "name": "Rau luộc theo mùa",
+    "slug": "rau-luoc-theo-mua",
+    "description": "Simply boiled seasonal green vegetables, leafy bok choy and tender stems, naturally fresh green, no oil or stir fry char.",
+    "ids": [
+      "393b6661-1d69-4821-8f2c-bdeb190d9c39"
+    ]
+  },
+  {
+    "name": "Ngô chiên",
+    "slug": "ngo-chien",
+    "description": "Vietnamese crispy fried sweet corn, individual plump yellow kernels in a light golden crunchy coating.",
+    "ids": [
+      "6de31c08-c639-4e23-8ccc-77247cc8a058"
+    ]
+  },
+  {
+    "name": "Khoai tây chiên",
+    "slug": "khoai-tay-chien",
+    "description": "Golden crispy potato french fries, lightly salted, simple casual Vietnamese restaurant serving.",
+    "ids": [
+      "d8946b39-ff57-4d13-a9c1-d0085f558c19"
+    ]
+  },
+  {
+    "name": "Phồng tôm lắc tê cay",
+    "slug": "phong-tom-lac-te-cay",
+    "description": "Airy prawn crackers dusted with reddish spicy numbing chili seasoning, crisp curved irregular white-gold crackers.",
+    "ids": [
+      "256d9cac-b426-4d43-8d86-9436ce63e0b7"
+    ]
+  },
+  {
+    "name": "Mướp đắng ruốc",
+    "slug": "muop-dang-ruoc",
+    "description": "Thin raw bitter melon crescent slices, bright pale green ridged skin, seeds removed, topped with fluffy golden pork floss.",
+    "ids": [
+      "a0f9f0ea-af24-4ef3-a55e-35a28db8929b"
+    ]
+  },
+  {
+    "name": "Mướp đắng xào trứng",
+    "slug": "muop-dang-xao-trung",
+    "description": "Thin green bitter melon crescent slices stir fried with soft golden scrambled eggs.",
+    "ids": [
+      "1df1985d-2cf2-4b32-8304-c1d3d4503ea8"
+    ]
+  },
+  {
+    "name": "Mực nướng",
+    "slug": "muc-nuong",
+    "description": "Grilled dried squid, flattened lightly toasted ivory golden squid body cut and torn into edible strips, slight char and fibrous dried texture, chili dipping sauce.",
+    "ids": [
+      "987358b4-4d26-4640-ad8f-861bc3d3a6ec"
+    ]
+  },
+  {
+    "name": "Cá chỉ vàng nướng",
+    "slug": "ca-chi-vang-nuong",
+    "description": "Vietnamese grilled dried yellowstripe scad, several small butterflied dried fish, flat golden tan with gently toasted edges.",
+    "ids": [
+      "4161d44d-3ff8-4552-a9a3-97d6da6e6cc9"
+    ]
+  },
+  {
+    "name": "Cá chỉ vàng chiên mắm tỏi",
+    "slug": "ca-chi-vang-chien-mam-toi",
+    "description": "Small butterflied dried yellowstripe scad fried and glazed with amber garlic fish sauce, crispy garlic pieces.",
+    "ids": [
+      "4bb1045c-d558-4e09-8e90-ab9aadbc6f46"
+    ]
+  },
+  {
+    "name": "Trâu khô xé",
+    "slug": "trau-kho-xe",
+    "description": "Northern Vietnamese dried smoked buffalo jerky torn into long dark reddish-brown fibrous strips, modest rustic pile.",
+    "ids": [
+      "22522834-1310-4bbb-82f8-b70e63434ce7"
+    ]
+  },
+  {
+    "name": "Lạc luộc, rang",
+    "slug": "lac-luoc-rang",
+    "description": "Two small matching bowls in one unified scene, one with boiled peanuts in tan shells and one with roasted shelled reddish peanuts, Vietnamese snack.",
+    "ids": [
+      "77fa61bc-d3ab-4784-a7cc-15e83be4ab16"
+    ]
+  },
+  {
+    "name": "Bánh đa",
+    "slug": "banh-da",
+    "description": "Vietnamese toasted rice crackers with black sesame, thin large curved beige crisp pieces with airy bubbled texture.",
+    "ids": [
+      "afbd2e12-03f4-419e-bd67-e1c8ca7389e4"
+    ]
+  },
+  {
+    "name": "Nem chua",
+    "slug": "nem-chua",
+    "description": "Vietnamese fermented pork rolls unwrapped, small pink cured pork cylinders with thin pork skin strands, garlic and chili slices, banana leaf underneath.",
+    "ids": [
+      "4a052ed5-823d-4b49-8be8-f8677e8bec7e"
+    ]
+  },
+  {
+    "name": "Nem nắm",
+    "slug": "nem-nam",
+    "description": "Northern Vietnamese nem nam, loose mound of fine cooked pork and pork skin shreds coated in golden toasted rice powder, fig leaves on side, not spring rolls.",
+    "ids": [
+      "cfbe9459-211a-4e6f-8577-77a6a6785408"
+    ]
+  },
+  {
+    "name": "Nem ngựa",
+    "slug": "nem-ngua",
+    "description": "Vietnamese fermented horse meat nem, small compact reddish cured meat pieces flecked with fine pale skin strands, garlic, chili and banana leaf, not fried spring rolls.",
+    "ids": [
+      "bf8280cc-8b80-40c9-b821-ce141821eb07"
+    ]
+  },
+  {
+    "name": "Nộm sứa",
+    "slug": "nom-sua",
+    "description": "Vietnamese jellyfish salad, translucent ivory crunchy jellyfish strips with julienned cucumber, carrot, herbs and toasted peanuts.",
+    "ids": [
+      "8eed8876-fbef-4d3f-8e0a-65b3c29bb18b"
+    ]
+  },
+  {
+    "name": "Bia hơi",
+    "slug": "bia-hoi",
+    "description": "A single unbranded thick clear glass beer mug filled with golden Vietnamese draft lager, white foam head and chilled condensation.",
+    "ids": [
+      "3ab23b37-8902-42e4-bf14-346c83190823"
+    ]
+  },
+  {
+    "name": "Rượu",
+    "slug": "ruou",
+    "description": "Small unbranded clear glass carafe of crystal clear Vietnamese rice liquor alongside two tiny shot glasses, simple restaurant serving.",
+    "ids": [
+      "76e22f94-74af-4806-8479-16c09c19f745"
+    ]
+  },
+  {
+    "name": "Nước suối",
+    "slug": "nuoc-suoi",
+    "description": "An unbranded sealed clear plastic bottle of mineral water with plain blue cap, no label or writing, condensation, beside a simple clear drinking glass.",
+    "ids": [
+      "b4cf5a3d-a1ff-4fdb-90b6-8c87e0a5a020"
+    ]
+  },
+  {
+    "name": "Nước ngọt",
+    "slug": "nuoc-ngot",
+    "description": "An unbranded clear glass of amber cola soda with ice and fine bubbles, condensation, no fruit garnish, generic soft drink.",
+    "ids": [
+      "f0b9f8b8-f0bd-4fc3-a78a-94dbaa6ea08d"
+    ]
+  }
+]

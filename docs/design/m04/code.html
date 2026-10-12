@@ -1,0 +1,297 @@
+<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_stack" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@500&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "error-container": "#ffdad6", "text-muted": "#475569", "on-surface-variant": "#554339", "tertiary-fixed": "#c4e7ff", "canvas": "#F8FAFC", "secondary": "#565e74", "text-main": "#0F172A", "on-surface": "#221a15", "on-secondary-fixed-variant": "#3f465c", "primary-fixed-dim": "#ffb68b", "primary": "#8a4001", "on-secondary-fixed": "#131b2e", "status-amber": "#B45309", "on-primary-fixed-variant": "#743400", "surface-variant": "#f0dfd7", "primary-fixed": "#ffdbc8", "surface-dim": "#e7d7cf", "on-primary-container": "#ffede4", "surface-bright": "#fff8f5", "on-background": "#221a15", "surface-container": "#fceae2", "surface-container-low": "#fff1ea", "surface-container-highest": "#f0dfd7", "error": "#ba1a1a", "secondary-container": "#dae2fd", "status-red": "#B91C1C", "on-tertiary-fixed-variant": "#004c69", "outline": "#887368", "surface-container-lowest": "#ffffff", "status-amber-bg": "#FFFBEB", "inverse-surface": "#382e29", "on-primary-fixed": "#321300", "surface-tint": "#96490b", "surface-container-high": "#f6e5dd", "surface": "#FFFFFF", "on-tertiary-container": "#e2f2ff", "primary-container": "#a9571b", "inverse-on-surface": "#ffede5", "tertiary": "#005b7d", "status-green-bg": "#F0FDF4", "secondary-fixed-dim": "#bec6e0", "outline-variant": "#dbc2b4", "on-tertiary": "#ffffff", "inverse-primary": "#ffb68b", "status-green": "#15803D", "border": "#CBD5E1", "on-error-container": "#93000a", "on-tertiary-fixed": "#001e2c", "selected-bg": "#FFFBEB", "tertiary-fixed-dim": "#7ed0fe", "tertiary-container": "#00759f", "on-secondary": "#ffffff", "on-error": "#ffffff", "on-primary": "#ffffff", "secondary-fixed": "#dae2fd", "background": "#fff8f5", "status-red-bg": "#FEF2F2", "on-secondary-container": "#5c647a" }, borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, spacing: { "space-md": "12px", "space-xs": "4px", "gutter": "1rem", "space-lg": "16px", "space-2xl": "32px", "space-xl": "24px", "space-sm": "8px", "margin": "1.5rem" }, fontFamily: { "headline-lg-mobile": ["Geist"], "headline-md": ["Geist"], "metadata": ["Geist"], "body-base": ["Geist"], "tabular-nums": ["Geist Mono"], "panel-title": ["Geist"], "headline-lg": ["Geist"] }, fontSize: { "headline-lg-mobile": ["22px", { lineHeight: "30px", fontWeight: "600" }], "headline-md": ["24px", { lineHeight: "32px", fontWeight: "600" }], "metadata": ["14px", { lineHeight: "20px", fontWeight: "400" }], "body-base": ["16px", { lineHeight: "24px", fontWeight: "400" }], "tabular-nums": ["16px", { lineHeight: "24px", fontWeight: "500" }], "panel-title": ["20px", { lineHeight: "28px", fontWeight: "600" }], "headline-lg": ["28px", { lineHeight: "36px", fontWeight: "600" }] } } } };</script><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#F8FAFC;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style></head><body class="bg-canvas text-text-main font-body-base text-body-base min-h-screen flex flex-col antialiased selection:bg-selected-bg"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 px-space-md flex items-center justify-between"><div class="flex items-center gap-space-xs min-w-0 flex-1 pr-space-sm"><button aria-label="Back" class="w-11 h-11 flex items-center justify-center text-text-main hover:text-primary transition-colors -ml-space-xs" onclick="history.back()" type="button"><span class="material-symbols-outlined text-[24px]">arrow_back_ios_new</span></button><h1 class="font-panel-title text-panel-title text-text-main truncate">Chi Tiết Món Ăn</h1></div><div class="flex items-center gap-space-sm shrink-0"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="flex items-center h-8 px-space-xs rounded-full bg-surface-container-high/80 backdrop-blur-md"><button aria-label="More actions" class="w-7 h-7 flex items-center justify-center text-text-main hover:text-primary transition-colors" type="button"><span class="material-symbols-outlined text-[18px]">more_horiz</span></button><div class="w-[1px] h-3.5 bg-outline-variant mx-0.5"></div><button aria-label="Close mini app" class="w-7 h-7 flex items-center justify-center text-text-main hover:text-status-red transition-colors" type="button"><span class="material-symbols-outlined text-[18px]">cancel</span></button></div></div></div></header><main class="flex-1 w-full bg-canvas pt-14 pb-safe"><div class="flex flex-col w-full pb-28">
+<div class="bg-surface-container-high px-gutter py-space-md shadow-sm">
+<div class="flex items-start justify-between gap-space-sm">
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs text-primary font-panel-title text-metadata font-medium">
+<span class="material-symbols-outlined text-[18px]">restaurant</span>
+<span>Bàn đặt #BK-8840 • Nguyễn Minh An</span>
+</div>
+<p class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mt-0.5">
+          18:30 hôm nay <span class="text-text-muted font-normal text-metadata">| Đoàn 10 khách</span>
+</p>
+</div>
+<span class="inline-flex items-center gap-1 bg-status-green-bg text-status-green px-space-sm py-1 rounded-full text-[12px] font-medium leading-none shrink-0">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+        Đã giữ bàn
+      </span>
+</div>
+<div class="mt-space-sm bg-surface-container-lowest/80 rounded-xl p-space-sm flex items-center gap-space-sm shadow-sm">
+<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center shrink-0 text-primary">
+<span class="material-symbols-outlined text-[18px]">soup_kitchen</span>
+</div>
+<p class="text-text-muted font-metadata text-metadata leading-snug">
+        Đặt trước món để quán kịp chuẩn bị nước dùng ngọt thanh hầm 12h và rau rừng tươi mới ngay khi bạn đến!
+      </p>
+</div>
+</div>
+<div class="sticky top-14 z-40 bg-surface/95 backdrop-blur-md px-gutter py-space-sm shadow-sm">
+<div class="flex items-center gap-space-xs overflow-x-auto no-scrollbar py-0.5" id="categoryScroll">
+<button class="cat-pill whitespace-nowrap px-space-md py-2 rounded-full font-metadata text-metadata font-semibold transition-all bg-primary-container text-on-primary" onclick="selectTab(this, 'all')" type="button">
+        Tất cả
+      </button>
+<button class="cat-pill whitespace-nowrap px-space-md py-2 rounded-full font-metadata text-metadata font-medium transition-all bg-surface-container text-text-muted hover:bg-surface-variant" onclick="selectTab(this, 'lau')" type="button">
+        Lẩu bò đặc sản
+      </button>
+<button class="cat-pill whitespace-nowrap px-space-md py-2 rounded-full font-metadata text-metadata font-medium transition-all bg-surface-container text-text-muted hover:bg-surface-variant" onclick="selectTab(this, 'bo-to')" type="button">
+        Bò tơ cuốn rau rừng
+      </button>
+<button class="cat-pill whitespace-nowrap px-space-md py-2 rounded-full font-metadata text-metadata font-medium transition-all bg-surface-container text-text-muted hover:bg-surface-variant" onclick="selectTab(this, 'khai-vi')" type="button">
+        Khai vị &amp; Lai rai
+      </button>
+<button class="cat-pill whitespace-nowrap px-space-md py-2 rounded-full font-metadata text-metadata font-medium transition-all bg-surface-container text-text-muted hover:bg-surface-variant" onclick="selectTab(this, 'do-uong')" type="button">
+        Bia &amp; Đồ uống
+      </button>
+</div>
+</div>
+<div class="px-gutter pt-space-md flex flex-col gap-space-lg">
+<div class="flex items-center justify-between">
+<h2 class="font-panel-title text-panel-title text-text-main flex items-center gap-space-xs">
+<span class="w-1.5 h-4 bg-primary-container rounded-full"></span>
+        Gợi ý cho đoàn 10 người
+      </h2>
+<span class="text-text-muted font-metadata text-metadata">3 món đã chọn</span>
+</div>
+<div class="bg-surface rounded-xl p-space-md shadow-sm flex flex-col gap-space-md">
+<div class="flex gap-space-md">
+<div class="relative w-24 h-24 rounded-lg overflow-hidden shrink-0 bg-surface-container-high">
+<img class="w-full h-full object-cover" data-alt="A steaming hot claypot of Vietnamese beef shank hotpot with golden crab paste broth, fresh herbs, tender ribs, and mushrooms in warm atmospheric restaurant lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZulNOdPO60qpf-FGOhecryI9XA_Y11AeIcDtUQay_yTT546LEzTSelymwodx3RdsbTyvdx9g4_aKVPrdXQngIW87f8cgdJuI2mz9WbByPJ6tSOOblwVku_AIpTvlNJRsS-73BGFPFQj_oWc-nOW2bNskSZFFTqYnHAIUTrCA82eQ21hbkTaPOxzhHguG5b9jl2Z6n17VyCoeMrH6vMB82J3sM2PY36ZYDxgt2dzZqrMyfHUEK9MCCkQ">
+<span class="absolute bottom-1 left-1 bg-surface-container-lowest/90 px-1.5 py-0.5 rounded text-[11px] font-bold text-primary">
+            Must try
+          </span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between">
+<div>
+<h3 class="font-panel-title text-body-base text-text-main leading-snug line-clamp-1">
+              Lẩu Riêu Cua Bắp Bò Sườn Sụn
+            </h3>
+<p class="font-metadata text-metadata text-text-muted line-clamp-1 mt-0.5">
+              Nước riêu đồng béo ngọt, bắp bò hoa giòn, sườn sụn non
+            </p>
+</div>
+<div class="flex items-center justify-between mt-2">
+<span class="font-tabular-nums text-tabular-nums font-semibold text-primary">
+              450.000đ
+            </span>
+<span class="text-[12px] text-text-muted bg-surface-container px-2 py-0.5 rounded">Nồi lớn 4-6 người</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-space-xs rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-1.5 text-text-muted text-[13px] pl-1">
+<span class="material-symbols-outlined text-[16px] text-status-green">check_circle</span>
+<span>Dọn khi vừa vào bàn</span>
+</div>
+<div class="flex items-center gap-space-sm bg-surface rounded-lg p-0.5 shadow-sm">
+<button aria-label="Giảm" class="w-11 h-11 flex items-center justify-center rounded-lg text-text-main active:bg-surface-container transition-colors" onclick="updateQty('qty-lau', -1, 450000)" type="button">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<span class="font-tabular-nums text-tabular-nums font-bold w-6 text-center text-text-main" id="qty-lau">1</span>
+<button aria-label="Tăng" class="w-11 h-11 flex items-center justify-center rounded-lg text-text-main active:bg-surface-container transition-colors" onclick="updateQty('qty-lau', 1, 450000)" type="button">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<div class="bg-surface rounded-xl p-space-md shadow-sm flex flex-col gap-space-md">
+<div class="flex gap-space-md">
+<div class="relative w-24 h-24 rounded-lg overflow-hidden shrink-0 bg-surface-container-high">
+<img class="w-full h-full object-cover" data-alt="Thinly sliced tender Vietnamese young beef rolled with wild forest leaves, rice paper wrappers, and savory dipping sauce on a bamboo platter in soft natural dining light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9WheLMGlArB56s7eT3SYjunloumL_EsvwIslJxQLyXtet8wmmDE0ZSKXMXT4wIIDIqQ9vGGB5Rdt6KigLOWJsoRirLHycoBBwpZ9XbmMGuGjp9PDM-yR1n5i8wtB2WJUsNPIJOFPPfrkhViVm4Q4cgFuTUeYwgqy9oGAueurdTnqAUW1aGa_CibvxW7xmaeC9boUmp9aTQyb_tZ10EdhBNxIosZ-HSZ9Km1B-wQiRHepPU2XDS4D5JA">
+<span class="absolute top-1 left-1 bg-primary-container text-on-primary px-1.5 py-0.5 rounded text-[11px] font-bold">
+            Món chuẩn
+          </span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between">
+<div>
+<h3 class="font-panel-title text-body-base text-text-main leading-snug line-clamp-1">
+              Bò Tơ Cuốn Rau Rừng Bánh Tráng
+            </h3>
+<p class="font-metadata text-metadata text-text-muted line-clamp-1 mt-0.5">
+              Bò tơ mềm ngọt cuốn xà lách son, lá cóc non, mắm nêm đậm đà
+            </p>
+</div>
+<div class="flex items-center justify-between mt-2">
+<div>
+<span class="font-tabular-nums text-tabular-nums font-semibold text-primary">180.000đ</span>
+<span class="text-text-muted text-[12px] font-normal"> / đĩa</span>
+</div>
+<span class="text-[12px] text-text-muted">Đoàn 10 người nên dùng 2 đĩa</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-space-xs rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-1.5 text-text-muted text-[13px] pl-1">
+<span class="font-medium text-text-main">Tổng: <span class="text-primary font-bold" id="subtotal-bo">360.000đ</span></span>
+</div>
+<div class="flex items-center gap-space-sm bg-surface rounded-lg p-0.5 shadow-sm">
+<button aria-label="Giảm" class="w-11 h-11 flex items-center justify-center rounded-lg text-text-main active:bg-surface-container transition-colors" onclick="updateQty('qty-boto', -1, 180000)" type="button">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<span class="font-tabular-nums text-tabular-nums font-bold w-6 text-center text-text-main" id="qty-boto">2</span>
+<button aria-label="Tăng" class="w-11 h-11 flex items-center justify-center rounded-lg text-text-main active:bg-surface-container transition-colors" onclick="updateQty('qty-boto', 1, 180000)" type="button">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<div class="bg-surface rounded-xl p-space-md shadow-sm flex flex-col gap-space-md">
+<div class="flex gap-space-md">
+<div class="relative w-24 h-24 rounded-lg overflow-hidden shrink-0 bg-surface-container-high">
+<img class="w-full h-full object-cover" data-alt="Chilled illuminated tabletop beer tower dispenser with frosty mist filled with pale lager beer and frosted glasses on a restaurant table at night" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCj4Dzbyf4pZskTXlEU2jxbfjiHcm9tv1MV1v0HE4kNTAXQVwQkt9hVn4Mk6RQWerQat3rqF5pkAPtcLaaQpPK2sLx8qx6sMOmC5fKOXUKLfwiIwWu9TxI9DnBecrW6F7UQpF4ZmtMFLYk9YpiMVayQXjuDZcncHq2h78MX5TnHJkePQfdnlrnL-h7acVUFx-38KmDQeaNkWrWpkNsvSqYFDXgjglp4XggM69jKmZv0KDpnynFEQFakXA">
+<span class="absolute bottom-1 right-1 bg-status-amber-bg text-status-amber px-1.5 py-0.5 rounded text-[11px] font-bold">
+            Ướp lạnh
+          </span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between">
+<div>
+<h3 class="font-panel-title text-body-base text-text-main leading-snug line-clamp-1">
+              Tháp Bia Tiger Bạc (3 Lít)
+            </h3>
+<p class="font-metadata text-metadata text-text-muted line-clamp-1 mt-0.5">
+              Kèm lõi đá giữ nhiệt cực lạnh suốt 2 giờ tiệc
+            </p>
+</div>
+<div class="flex items-center justify-between mt-2">
+<span class="font-tabular-nums text-tabular-nums font-semibold text-primary">
+              340.000đ
+            </span>
+<span class="text-[12px] text-text-muted bg-surface-container px-2 py-0.5 rounded">Tháp 3L</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-space-xs rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-1.5 text-text-muted text-[13px] pl-1">
+<span class="material-symbols-outlined text-[16px] text-status-amber">ac_unit</span>
+<span>Bật lõi đá lạnh trước 15p</span>
+</div>
+<div class="flex items-center gap-space-sm bg-surface rounded-lg p-0.5 shadow-sm">
+<button aria-label="Giảm" class="w-11 h-11 flex items-center justify-center rounded-lg text-text-main active:bg-surface-container transition-colors" onclick="updateQty('qty-beer', -1, 340000)" type="button">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<span class="font-tabular-nums text-tabular-nums font-bold w-6 text-center text-text-main" id="qty-beer">1</span>
+<button aria-label="Tăng" class="w-11 h-11 flex items-center justify-center rounded-lg text-text-main active:bg-surface-container transition-colors" onclick="updateQty('qty-beer', 1, 340000)" type="button">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<div class="pt-2">
+<h3 class="font-panel-title text-panel-title text-text-main mb-space-sm flex items-center gap-space-xs">
+<span class="w-1.5 h-4 bg-secondary rounded-full"></span>
+        Gợi ý thêm đồ nhúng &amp; Khai vị
+      </h3>
+<div class="grid grid-cols-2 gap-space-md">
+<div class="bg-surface rounded-xl p-space-sm shadow-sm flex flex-col justify-between">
+<div>
+<div class="w-full h-24 rounded-lg overflow-hidden bg-surface-container mb-space-xs">
+<img class="w-full h-full object-cover" data-alt="Plate of fresh mixed Vietnamese wild vegetables and organic greens for hotpot dipping with mushrooms on a rustic wooden table" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfkT1nu0uzJ2YzKBAXdc7lyvq7BeG5JxxDcebqqA0sO_DZxT3PSHgibRFlFj54Bi3hiT1rLEzpY5kggam0kUZjWkfO6dcoc5hXk8JCQerUHyGMQj_VnAW386GJ-0XG2Xp2L0kujq832I20m6XsFhsO9SQL9aG1ASClt1u_rWLpNF3u2T0Mg4hZoUadoLKECKEGOrvsoMOdhMP5Ef2-oReNE2nj-f5z8ilx8IUj0a9y_633rSIhZAw0IA">
+</div>
+<h4 class="font-medium text-metadata text-text-main line-clamp-1">Mẹt Rau Rừng Tươi Thêm</h4>
+<p class="font-tabular-nums text-[13px] font-semibold text-primary mt-0.5">45.000đ</p>
+</div>
+<button class="mt-space-sm w-full h-11 bg-surface-container hover:bg-surface-variant text-text-main rounded-lg text-[13px] font-medium flex items-center justify-center gap-1 transition-all active:scale-[0.98]" onclick="addSuggested(this, 'Mẹt Rau Rừng', 45000)" type="button">
+<span class="material-symbols-outlined text-[18px]">add</span> Thêm món
+          </button>
+</div>
+<div class="bg-surface rounded-xl p-space-sm shadow-sm flex flex-col justify-between">
+<div>
+<div class="w-full h-24 rounded-lg overflow-hidden bg-surface-container mb-space-xs">
+<img class="w-full h-full object-cover" data-alt="Golden crisp deep fried corn kernels tossed with spicy garlic butter and scallions served in an artisanal clay bowl" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBBD8tCtS0IInAhka5MmwI4ghpyk3gWruk8Un3-n0KE5hI-SpZ5iqudgI9rIjs_wYJ1aWZ3WSfqP3zc2879IOmsqF0bwteRoUZHfgnrkkzYO1Iudvsi33dyDkFYeHgOyoB4l8cQqNBxqq0p4JM-UPs8LKRacxBeu_JMYB56dfWmk3NeTI1ikQSJK6R1nocC4Rl_48Lw4oXu-_3fqGm4VXyCmyevIYsWcc_SczTfQo498rJp09-xzVpYg">
+</div>
+<h4 class="font-medium text-metadata text-text-main line-clamp-1">Ngô Chiên Bơ Cay</h4>
+<p class="font-tabular-nums text-[13px] font-semibold text-primary mt-0.5">55.000đ</p>
+</div>
+<button class="mt-space-sm w-full h-11 bg-surface-container hover:bg-surface-variant text-text-main rounded-lg text-[13px] font-medium flex items-center justify-center gap-1 transition-all active:scale-[0.98]" onclick="addSuggested(this, 'Ngô Chiên Bơ', 55000)" type="button">
+<span class="material-symbols-outlined text-[18px]">add</span> Thêm món
+          </button>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-xl p-space-md mt-2 flex items-center gap-space-md">
+<div class="w-10 h-10 rounded-full bg-status-green-bg text-status-green flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[22px]">verified</span>
+</div>
+<div class="text-[13px] text-text-muted leading-tight">
+<span class="font-semibold text-text-main">Chính sách đặt món trước:</span> Quán cam kết hoàn tiền 100% nếu món ăn không chuẩn vị hoặc trễ hẹn quá 10 phút.
+      </div>
+</div>
+</div>
+<div class="fixed bottom-0 left-0 right-0 z-50 p-space-md bg-surface/90 backdrop-blur-xl shadow-xl">
+<div class="max-w-md mx-auto flex items-center justify-between gap-space-md">
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 rounded-full bg-status-green animate-pulse"></span>
+<span class="font-panel-title text-metadata text-text-main" id="cartSummaryCount">3 món đặt trước</span>
+</div>
+<span class="font-tabular-nums text-tabular-nums font-bold text-primary" id="cartTotalPrice">1.150.000đ</span>
+</div>
+<a class="h-12 px-space-lg bg-primary-container hover:bg-primary active:scale-[0.98] text-on-primary rounded-xl font-medium font-body-base text-metadata flex items-center justify-center gap-2 transition-all shadow-md shrink-0" href="#m05-confirm">
+<span>XEM GIỎ MÓN ĐẶT TRƯỚC</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+<script>
+  let cart = {
+    lau: { qty: 1, price: 450000 },
+    boto: { qty: 2, price: 180000 },
+    beer: { qty: 1, price: 340000 }
+  };
+
+  function updateQty(id, delta, unitPrice) {
+    const el = document.getElementById(id);
+    let val = parseInt(el.innerText) + delta;
+    if (val < 0) val = 0;
+    el.innerText = val;
+
+    if (id === 'qty-lau') cart.lau.qty = val;
+    if (id === 'qty-boto') {
+      cart.boto.qty = val;
+      const sub = document.getElementById('subtotal-bo');
+      if (sub) sub.innerText = (val * unitPrice).toLocaleString('vi-VN') + 'đ';
+    }
+    if (id === 'qty-beer') cart.beer.qty = val;
+
+    recalculate();
+  }
+
+  function recalculate() {
+    let totalItems = 0;
+    let totalPrice = 0;
+
+    for (let k in cart) {
+      totalItems += cart[k].qty;
+      totalPrice += cart[k].qty * cart[k].price;
+    }
+
+    const countEl = document.getElementById('cartSummaryCount');
+    const priceEl = document.getElementById('cartTotalPrice');
+
+    if (countEl) countEl.innerText = `${totalItems} món đặt trước`;
+    if (priceEl) priceEl.innerText = totalPrice.toLocaleString('vi-VN') + 'đ';
+  }
+
+  function addSuggested(btn, name, price) {
+    btn.innerHTML = `<span class="material-symbols-outlined text-[18px] text-status-green">check</span> Đã thêm`;
+    btn.classList.add('bg-status-green-bg', 'text-status-green');
+    
+    const key = 'item_' + Date.now();
+    cart[key] = { qty: 1, price: price };
+    recalculate();
+
+    setTimeout(() => {
+      btn.innerHTML = `<span class="material-symbols-outlined text-[18px]">add</span> Thêm tiếp`;
+      btn.classList.remove('bg-status-green-bg', 'text-status-green');
+    }, 2000);
+  }
+
+  function selectTab(btn, cat) {
+    document.querySelectorAll('.cat-pill').forEach(el => {
+      el.className = 'cat-pill whitespace-nowrap px-space-md py-2 rounded-full font-metadata text-metadata font-medium transition-all bg-surface-container text-text-muted hover:bg-surface-variant';
+    });
+    btn.className = 'cat-pill whitespace-nowrap px-space-md py-2 rounded-full font-metadata text-metadata font-semibold transition-all bg-primary-container text-on-primary';
+  }
+
+  recalculate();
+</script></main></body></html>

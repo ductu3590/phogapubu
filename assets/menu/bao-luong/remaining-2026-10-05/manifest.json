@@ -1,0 +1,472 @@
+[
+  {
+    "id": "c8dbcdf3-4501-41c3-9a0f-b61032a3513d",
+    "name": "Ba chỉ quay",
+    "price": 170000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/ba-chi-quay.webp",
+    "previous_image_url": null,
+    "file": "ba-chi-quay.webp",
+    "bytes": 246872,
+    "ai_generated": true
+  },
+  {
+    "id": "afbd2e12-03f4-419e-bd67-e1c8ca7389e4",
+    "name": "Bánh đa",
+    "price": 15000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/banh-da.webp",
+    "previous_image_url": null,
+    "file": "banh-da.webp",
+    "bytes": 280904,
+    "ai_generated": true
+  },
+  {
+    "id": "e86c2496-bb98-4566-a5ab-c72736c3bab7",
+    "name": "Bắp bò nộm cà",
+    "price": 135000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/bap-bo-nom-ca.webp",
+    "previous_image_url": null,
+    "file": "bap-bo-nom-ca.webp",
+    "bytes": 290898,
+    "ai_generated": true
+  },
+  {
+    "id": "8b4c21b7-3c75-4f27-b3d1-f4b9ad91d4ed",
+    "name": "Bắp bò nộm rau má",
+    "price": 135000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/bap-bo-nom-rau-ma.webp",
+    "previous_image_url": null,
+    "file": "bap-bo-nom-rau-ma.webp",
+    "bytes": 275494,
+    "ai_generated": true
+  },
+  {
+    "id": "be38864a-f7c6-4b64-be6b-5188cdc23a08",
+    "name": "Bắp bò nộm tiến vua",
+    "price": 150000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/bap-bo-nom-tien-vua.webp",
+    "previous_image_url": null,
+    "file": "bap-bo-nom-tien-vua.webp",
+    "bytes": 286870,
+    "ai_generated": true
+  },
+  {
+    "id": "cb046a0d-9011-4b7e-8e84-ee53ce557a2c",
+    "name": "Bò cuốn cải",
+    "price": 170000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/bo-cuon-cai.webp",
+    "previous_image_url": null,
+    "file": "bo-cuon-cai.webp",
+    "bytes": 279520,
+    "ai_generated": true
+  },
+  {
+    "id": "4161d44d-3ff8-4552-a9a3-97d6da6e6cc9",
+    "name": "Cá chỉ vàng nướng",
+    "price": 80000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/ca-chi-vang-nuong.webp",
+    "previous_image_url": null,
+    "file": "ca-chi-vang-nuong.webp",
+    "bytes": 322134,
+    "ai_generated": true
+  },
+  {
+    "id": "f94b04c6-a003-4e18-bda9-7b92222f6c4c",
+    "name": "Chả chó",
+    "price": 150000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/cha-cho.webp",
+    "previous_image_url": null,
+    "file": "cha-cho.webp",
+    "bytes": 294608,
+    "ai_generated": true
+  },
+  {
+    "id": "06413a99-9ea2-40fc-a238-084a12dededb",
+    "name": "Chân gà chiên mắm",
+    "price": 110000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/chan-ga-chien-mam.webp",
+    "previous_image_url": null,
+    "file": "chan-ga-chien-mam.webp",
+    "bytes": 289192,
+    "ai_generated": true
+  },
+  {
+    "id": "6715771a-cc6a-43b0-9994-682ed2d2128d",
+    "name": "Chó chặt đĩa",
+    "price": 200000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/cho-chat-dia.webp",
+    "previous_image_url": null,
+    "file": "cho-chat-dia.webp",
+    "bytes": 294486,
+    "ai_generated": true
+  },
+  {
+    "id": "4e50bb93-c1c4-4301-8c9b-ec65a9621ee2",
+    "name": "Cơm rang dưa bò (to)",
+    "price": 90000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/com-rang-dua-bo.webp",
+    "previous_image_url": null,
+    "file": "com-rang-dua-bo.webp",
+    "bytes": 286938,
+    "ai_generated": true
+  },
+  {
+    "id": "8f2c6c96-6baf-4c90-be24-21b47d3eabe7",
+    "name": "Cơm rang dưa bò (nhỏ)",
+    "price": 50000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/com-rang-dua-bo.webp",
+    "previous_image_url": null,
+    "file": "com-rang-dua-bo.webp",
+    "bytes": 286938,
+    "ai_generated": true
+  },
+  {
+    "id": "58a9d404-f745-4635-8995-46db3c29cd04",
+    "name": "Cơm rang trứng (to)",
+    "price": 60000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/com-rang-trung.webp",
+    "previous_image_url": null,
+    "file": "com-rang-trung.webp",
+    "bytes": 248470,
+    "ai_generated": true
+  },
+  {
+    "id": "a55680c9-05c1-46eb-8bd4-94d6fa6bb7f4",
+    "name": "Cơm rang trứng (nhỏ)",
+    "price": 40000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/com-rang-trung.webp",
+    "previous_image_url": null,
+    "file": "com-rang-trung.webp",
+    "bytes": 248470,
+    "ai_generated": true
+  },
+  {
+    "id": "ee9b231b-352d-452f-a675-182c9ac329bf",
+    "name": "Cuống tim xào",
+    "price": 140000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/cuong-tim-xao.webp",
+    "previous_image_url": null,
+    "file": "cuong-tim-xao.webp",
+    "bytes": 234616,
+    "ai_generated": true
+  },
+  {
+    "id": "57066eec-f632-4064-b2f0-a89442954713",
+    "name": "Da trâu xào mẻ",
+    "price": 80000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/da-trau-xao-me.webp",
+    "previous_image_url": null,
+    "file": "da-trau-xao-me.webp",
+    "bytes": 268560,
+    "ai_generated": true
+  },
+  {
+    "id": "4f36bbc0-cd8d-42b3-8c9c-c0c0d9555cb3",
+    "name": "Đậu chiên giòn",
+    "price": 35000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/dau-chien-gion.webp",
+    "previous_image_url": null,
+    "file": "dau-chien-gion.webp",
+    "bytes": 246828,
+    "ai_generated": true
+  },
+  {
+    "id": "7efee30c-482e-4098-84ff-c2e494e8c8f8",
+    "name": "Đậu luộc",
+    "price": 20000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/dau-luoc.webp",
+    "previous_image_url": null,
+    "file": "dau-luoc.webp",
+    "bytes": 183056,
+    "ai_generated": true
+  },
+  {
+    "id": "58118c05-2bbc-4787-b33d-9796c5e3cb07",
+    "name": "Đậu lướt",
+    "price": 35000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/dau-luot.webp",
+    "previous_image_url": null,
+    "file": "dau-luot.webp",
+    "bytes": 224052,
+    "ai_generated": true
+  },
+  {
+    "id": "43902759-40ec-4263-baa3-c04ffefb84d5",
+    "name": "Đậu tẩm hành",
+    "price": 40000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/dau-tam-hanh.webp",
+    "previous_image_url": null,
+    "file": "dau-tam-hanh.webp",
+    "bytes": 266068,
+    "ai_generated": true
+  },
+  {
+    "id": "bbb295a6-a5c1-4d2b-b75e-1669baf11315",
+    "name": "Ếch chiên mắm",
+    "price": 135000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/ech-chien-mam.webp",
+    "previous_image_url": null,
+    "file": "ech-chien-mam.webp",
+    "bytes": 305216,
+    "ai_generated": true
+  },
+  {
+    "id": "e2726020-327f-4f0a-b137-6c695026a962",
+    "name": "Ếch rang muối",
+    "price": 135000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/ech-rang-muoi.webp",
+    "previous_image_url": null,
+    "file": "ech-rang-muoi.webp",
+    "bytes": 363966,
+    "ai_generated": true
+  },
+  {
+    "id": "7eb0cbdf-de95-4a33-91c2-c083af69ebc4",
+    "name": "Gan cháy tỏi",
+    "price": 90000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/gan-chay-toi.webp",
+    "previous_image_url": null,
+    "file": "gan-chay-toi.webp",
+    "bytes": 284084,
+    "ai_generated": true
+  },
+  {
+    "id": "d8946b39-ff57-4d13-a9c1-d0085f558c19",
+    "name": "Khoai tây chiên",
+    "price": 35000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/khoai-tay-chien.webp",
+    "previous_image_url": null,
+    "file": "khoai-tay-chien.webp",
+    "bytes": 208170,
+    "ai_generated": true
+  },
+  {
+    "id": "77fa61bc-d3ab-4784-a7cc-15e83be4ab16",
+    "name": "Lạc luộc, rang",
+    "price": 20000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/lac-luoc-rang.webp",
+    "previous_image_url": null,
+    "file": "lac-luoc-rang.webp",
+    "bytes": 255448,
+    "ai_generated": true
+  },
+  {
+    "id": "c9744507-1482-49ad-81f7-d5a5acf31ee1",
+    "name": "Lợn quay",
+    "price": 200000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/lon-quay.webp",
+    "previous_image_url": null,
+    "file": "lon-quay.webp",
+    "bytes": 274740,
+    "ai_generated": true
+  },
+  {
+    "id": "5053fd6e-9d6e-4777-b4c1-1c962c572758",
+    "name": "Lòng chiên tê cay",
+    "price": 100000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/long-chien-te-cay.webp",
+    "previous_image_url": null,
+    "file": "long-chien-te-cay.webp",
+    "bytes": 314898,
+    "ai_generated": true
+  },
+  {
+    "id": "a0131564-a21b-46af-8cdc-3e5e6c2a6674",
+    "name": "Lòng xào dưa",
+    "price": 90000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/long-xao-dua.webp",
+    "previous_image_url": null,
+    "file": "long-xao-dua.webp",
+    "bytes": 280638,
+    "ai_generated": true
+  },
+  {
+    "id": "3093686a-fb7b-430a-a457-fdf0adf578b1",
+    "name": "Mèo xào rau má",
+    "price": 200000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/meo-xao-rau-ma.webp",
+    "previous_image_url": null,
+    "file": "meo-xao-rau-ma.webp",
+    "bytes": 325876,
+    "ai_generated": true
+  },
+  {
+    "id": "9c82973d-7d0e-42fc-9c70-435e8e88d6a5",
+    "name": "Mì xào bò (to)",
+    "price": 90000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/mi-xao-bo.webp",
+    "previous_image_url": null,
+    "file": "mi-xao-bo.webp",
+    "bytes": 249076,
+    "ai_generated": true
+  },
+  {
+    "id": "e27b2d85-ae1a-4e06-8908-e6c30649974e",
+    "name": "Mì xào bò (nhỏ)",
+    "price": 50000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/mi-xao-bo.webp",
+    "previous_image_url": null,
+    "file": "mi-xao-bo.webp",
+    "bytes": 249076,
+    "ai_generated": true
+  },
+  {
+    "id": "4b0eab06-f55c-408a-96a5-9f5dc1a10a15",
+    "name": "Mì xào trứng (to)",
+    "price": 60000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/mi-xao-trung.webp",
+    "previous_image_url": null,
+    "file": "mi-xao-trung.webp",
+    "bytes": 251312,
+    "ai_generated": true
+  },
+  {
+    "id": "5f5dda5d-ba5d-453e-9ea4-e571b0df94ef",
+    "name": "Mì xào trứng (nhỏ)",
+    "price": 40000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/mi-xao-trung.webp",
+    "previous_image_url": null,
+    "file": "mi-xao-trung.webp",
+    "bytes": 251312,
+    "ai_generated": true
+  },
+  {
+    "id": "987358b4-4d26-4640-ad8f-861bc3d3a6ec",
+    "name": "Mực nướng",
+    "price": 230000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/muc-nuong.webp",
+    "previous_image_url": null,
+    "file": "muc-nuong.webp",
+    "bytes": 283392,
+    "ai_generated": true
+  },
+  {
+    "id": "a0f9f0ea-af24-4ef3-a55e-35a28db8929b",
+    "name": "Mướp đắng ruốc",
+    "price": 55000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/muop-dang-ruoc.webp",
+    "previous_image_url": null,
+    "file": "muop-dang-ruoc.webp",
+    "bytes": 306716,
+    "ai_generated": true
+  },
+  {
+    "id": "1df1985d-2cf2-4b32-8304-c1d3d4503ea8",
+    "name": "Mướp đắng xào trứng",
+    "price": 50000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/muop-dang-xao-trung.webp",
+    "previous_image_url": null,
+    "file": "muop-dang-xao-trung.webp",
+    "bytes": 239028,
+    "ai_generated": true
+  },
+  {
+    "id": "e53389d5-25c2-48de-b232-15c6b0428e6a",
+    "name": "Nầm chiên tê cay",
+    "price": 180000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/nam-chien-te-cay.webp",
+    "previous_image_url": null,
+    "file": "nam-chien-te-cay.webp",
+    "bytes": 319644,
+    "ai_generated": true
+  },
+  {
+    "id": "4a052ed5-823d-4b49-8be8-f8677e8bec7e",
+    "name": "Nem chua",
+    "price": 40000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/nem-chua.webp",
+    "previous_image_url": null,
+    "file": "nem-chua.webp",
+    "bytes": 217258,
+    "ai_generated": true
+  },
+  {
+    "id": "6de31c08-c639-4e23-8ccc-77247cc8a058",
+    "name": "Ngô chiên",
+    "price": 30000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/ngo-chien.webp",
+    "previous_image_url": null,
+    "file": "ngo-chien.webp",
+    "bytes": 257756,
+    "ai_generated": true
+  },
+  {
+    "id": "256d9cac-b426-4d43-8d86-9436ce63e0b7",
+    "name": "Phồng tôm lắc tê cay",
+    "price": 35000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/phong-tom-lac-te-cay.webp",
+    "previous_image_url": null,
+    "file": "phong-tom-lac-te-cay.webp",
+    "bytes": 289052,
+    "ai_generated": true
+  },
+  {
+    "id": "393b6661-1d69-4821-8f2c-bdeb190d9c39",
+    "name": "Rau luộc theo mùa",
+    "price": 30000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/rau-luoc-theo-mua.webp",
+    "previous_image_url": null,
+    "file": "rau-luoc-theo-mua.webp",
+    "bytes": 248438,
+    "ai_generated": true
+  },
+  {
+    "id": "a0fba500-4d1d-4291-bef6-11ad9eb05865",
+    "name": "Rau xào theo mùa",
+    "price": 40000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/rau-xao-theo-mua.webp",
+    "previous_image_url": null,
+    "file": "rau-xao-theo-mua.webp",
+    "bytes": 267646,
+    "ai_generated": true
+  },
+  {
+    "id": "c703b538-7002-4482-a53a-61eda06d99a1",
+    "name": "Tôm nướng mọi",
+    "price": 160000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/tom-nuong-moi.webp",
+    "previous_image_url": null,
+    "file": "tom-nuong-moi.webp",
+    "bytes": 293884,
+    "ai_generated": true
+  },
+  {
+    "id": "6aba21b9-707d-40fc-b63f-9d6330745abf",
+    "name": "Tóp mỡ dưa chua",
+    "price": 110000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/top-mo-dua-chua.webp",
+    "previous_image_url": null,
+    "file": "top-mo-dua-chua.webp",
+    "bytes": 294686,
+    "ai_generated": true
+  },
+  {
+    "id": "e473c8b4-ac92-42b8-9148-e285ea3f2417",
+    "name": "Trâu nhúng mẻ",
+    "price": 170000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/trau-nhung-me.webp",
+    "previous_image_url": null,
+    "file": "trau-nhung-me.webp",
+    "bytes": 307450,
+    "ai_generated": true
+  },
+  {
+    "id": "582dde45-be63-4181-995a-707dabc43b79",
+    "name": "Trâu xào tỏi / lá lốt",
+    "price": 150000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/trau-xao-toi-la-lot.webp",
+    "previous_image_url": null,
+    "file": "trau-xao-toi-la-lot.webp",
+    "bytes": 293004,
+    "ai_generated": true
+  },
+  {
+    "id": "863ed9dd-6f7f-4fcc-8e72-9bd0e826e421",
+    "name": "Vịt xông khói thảo mộc Bảo Lương",
+    "price": 180000,
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/remaining-2026-10-05/vit-xong-khoi-thao-moc-bao-luong.webp",
+    "previous_image_url": null,
+    "file": "vit-xong-khoi-thao-moc-bao-luong.webp",
+    "bytes": 326954,
+    "ai_generated": true
+  }
+]

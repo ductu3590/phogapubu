@@ -1,0 +1,67 @@
+[
+  {
+    "id": "966a651e-4e9a-41eb-8880-2f245a9cc572",
+    "slug": "chan-ga-nuong-te-cay",
+    "name": "Chân gà nướng tê cay",
+    "previous_image_url": null,
+    "store_id": "2139c162-9677-4cbd-87e3-d2e1ac22e6e8",
+    "file": "chan-ga-nuong-te-cay.webp",
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/weekly-2026-10-05/chan-ga-nuong-te-cay.webp",
+    "bytes": 274610,
+    "width": 1024,
+    "height": 1024,
+    "ai_generated": true
+  },
+  {
+    "id": "0c1bf4b8-bb42-4437-bce4-a4eca97eeade",
+    "slug": "ech-xao-mang-cay",
+    "name": "Ếch xào măng cay",
+    "previous_image_url": null,
+    "store_id": "2139c162-9677-4cbd-87e3-d2e1ac22e6e8",
+    "file": "ech-xao-mang-cay.webp",
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/weekly-2026-10-05/ech-xao-mang-cay.webp",
+    "bytes": 236074,
+    "width": 1024,
+    "height": 1024,
+    "ai_generated": true
+  },
+  {
+    "id": "bc5a5bb6-88d8-464b-bd6a-be2a10e72cd4",
+    "slug": "ech-xao-la-lot",
+    "name": "Ếch xào lá lốt",
+    "previous_image_url": null,
+    "store_id": "2139c162-9677-4cbd-87e3-d2e1ac22e6e8",
+    "file": "ech-xao-la-lot.webp",
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/weekly-2026-10-05/ech-xao-la-lot.webp",
+    "bytes": 286670,
+    "width": 1024,
+    "height": 1024,
+    "ai_generated": true
+  },
+  {
+    "id": "674f7bb5-d61d-44ad-8cfd-2ec7b0823951",
+    "slug": "me-ngan-xuc-phong-tom",
+    "name": "Mề ngan xúc phồng tôm",
+    "previous_image_url": null,
+    "store_id": "2139c162-9677-4cbd-87e3-d2e1ac22e6e8",
+    "file": "me-ngan-xuc-phong-tom.webp",
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/weekly-2026-10-05/me-ngan-xuc-phong-tom.webp",
+    "bytes": 241758,
+    "width": 1024,
+    "height": 1024,
+    "ai_generated": true
+  },
+  {
+    "id": "c0877b50-c062-4a11-916e-45a18ecaee44",
+    "slug": "rau-song-top-mo-ca-chua",
+    "name": "Rau sống - tóp mỡ - cà chua",
+    "previous_image_url": null,
+    "store_id": "2139c162-9677-4cbd-87e3-d2e1ac22e6e8",
+    "file": "rau-song-top-mo-ca-chua.webp",
+    "image_url": "https://dlkgdpexjtyynbotkwka.supabase.co/storage/v1/object/public/menu-images/2139c162-9677-4cbd-87e3-d2e1ac22e6e8/weekly-2026-10-05/rau-song-top-mo-ca-chua.webp",
+    "bytes": 275074,
+    "width": 1024,
+    "height": 1024,
+    "ai_generated": true
+  }
+]

@@ -1,0 +1,1002 @@
+<!DOCTYPE html><html lang="vi" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>MEVO POS — Điều hành bàn &amp; đặt bàn (Màn P03 Duyệt món mới &amp; Lệnh in bếp)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&amp;family=Geist+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#8a4001",
+            "primary-container": "#ea580c",
+            "primary-hover": "#c2410c",
+            "surface": "#FFFFFF",
+            "canvas": "#F8FAFC",
+            "text-main": "#0F172A",
+            "text-muted": "#475569",
+            "status-green": "#15803D",
+            "status-green-bg": "#F0FDF4",
+            "status-amber": "#B45309",
+            "status-amber-bg": "#FFFBEB",
+            "status-red": "#B91C1C",
+            "status-red-bg": "#FEF2F2",
+            "selected-bg": "#FFFBEB"
+          },
+          fontFamily: {
+            sans: ['Geist', 'sans-serif'],
+            mono: ['Geist Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body { font-family: 'Geist', sans-serif; }
+    .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .now-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ef4444;
+      z-index: 25;
+      pointer-events: none;
+    }
+    .now-line::after {
+      content: '19:15 Hiện tại';
+      position: absolute;
+      top: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ef4444;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .booking-tentative {
+      background-image: repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(249, 115, 22, 0.08) 6px, rgba(249, 115, 22, 0.08) 12px);
+    }
+    .fixed-zone-hdr { height: 34px !important; min-height: 34px !important; max-height: 34px !important; box-sizing: border-box !important; }
+    .fixed-table-row { height: 48px !important; min-height: 48px !important; max-height: 48px !important; box-sizing: border-box !important; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex flex-col overflow-hidden text-xs select-none antialiased">
+<!-- TOP NAVBAR -->
+<header class="h-[60px] bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0 z-30">
+<div class="flex items-center space-x-3">
+<div class="w-9 h-9 rounded-lg bg-[#ea580c] text-white flex items-center justify-center font-black text-lg shadow-sm">M</div>
+<div>
+<div class="flex items-center space-x-2">
+<span class="font-extrabold text-slate-900 text-sm tracking-tight">MEVO POS</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-900 border border-orange-200">Quán Bia Lẩu Bảo Lương</span>
+</div>
+<p class="text-[10px] text-slate-500 font-medium leading-none mt-0.5">Điều hành bàn &amp; mâm gọi món ca cao điểm</p>
+</div>
+<div class="h-5 w-px bg-slate-200 mx-2"></div>
+<div class="flex items-center space-x-1.5 bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-md text-[11px] font-semibold border border-emerald-200">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+<span class="">Trực tuyến (Máy thu ngân 01)</span>
+</div>
+<div class="flex items-center space-x-1.5 text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1 text-[11px]">
+<i class="fa-regular fa-calendar text-slate-400"></i>
+<span class="font-bold">20/09/2026</span>
+<span class="text-orange-600 font-semibold">Ca tối (17:00-23:30)</span>
+</div>
+</div>
+<div class="flex items-center space-x-2">
+<div class="relative w-64">
+<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+<input class="w-full pl-8 pr-3 py-1.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded-md text-xs outline-none focus:ring-1 focus:ring-orange-500 transition" id="searchInput" placeholder="Tìm khách, SĐT (09xx), bàn..." type="text">
+</div>
+<button class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold border border-slate-200 flex items-center gap-1.5 transition" onclick="resetDemoData()" title="Đặt lại toàn bộ dữ liệu mẫu">
+<i class="fa-solid fa-rotate-left text-slate-500"></i> Reset Demo
+      </button>
+<button class="px-3 py-1.5 bg-[#ea580c] hover:bg-[#c2410c] text-white rounded-md font-bold shadow-sm flex items-center gap-1.5 transition" onclick="openBookingModal()">
+<i class="fa-solid fa-calendar-plus"></i> + Đặt bàn mới
+      </button>
+<button class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md font-bold flex items-center gap-1.5 transition" onclick="quickWalkinModal()">
+<i class="fa-solid fa-person-walking"></i> Khách vãng lai
+      </button>
+<div class="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center ml-1 border border-slate-700">BL</div>
+</div>
+</header>
+<!-- ACTION QUEUE / HÀNG ĐỢI TÓM TẮT -->
+<div class="h-[40px] bg-slate-900 text-white px-4 flex items-center justify-between shrink-0 z-20 text-[11px]">
+<div class="flex items-center space-x-2.5 overflow-x-auto custom-scrollbar">
+<span class="text-slate-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+<i class="fa-solid fa-bolt text-amber-400"></i> Hàng đợi:
+      </span>
+<button class="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full font-semibold flex items-center gap-1.5 hover:bg-amber-500/30 transition" onclick="openQueue('bookings')">
+        Đặt bàn chờ duyệt <span class="bg-amber-500 text-slate-950 px-1.5 rounded-full text-[10px] font-black" id="badgeBookings">2</span>
+</button>
+<button class="px-2.5 py-1 bg-red-500/20 text-red-300 border border-red-500/40 rounded-full font-semibold flex items-center gap-1.5 hover:bg-red-500/30 transition" onclick="openQueue('overdue')">
+<i class="fa-solid fa-clock-rotate-left"></i> Khách quá giờ <span class="bg-red-600 text-white px-1.5 rounded-full text-[10px] font-black">1 đoàn</span>
+</button>
+<button class="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full font-semibold flex items-center gap-1.5 hover:bg-emerald-500/30 transition ring-1 ring-emerald-400/50" onclick="openQueue('rounds')">
+<i class="fa-solid fa-bell-concierge"></i> Lượt món chờ duyệt <span class="bg-emerald-500 text-slate-950 px-1.5 rounded-full text-[10px] font-black" id="badgeRounds">2 lượt</span>
+</button>
+<button class="px-2.5 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/40 rounded-full font-semibold flex items-center gap-1.5 hover:bg-blue-500/30 transition" onclick="openQueue('staff')">
+<i class="fa-solid fa-hand"></i> Gọi nhân viên <span class="bg-blue-500 text-white px-1.5 rounded-full text-[10px] font-black" id="badgeStaff">1 yêu cầu</span>
+</button>
+<button class="px-2.5 py-1 bg-slate-800 text-slate-300 border border-slate-700 rounded text-[11px]" onclick="openQueue('unassigned')">
+        Chưa xếp bàn: <strong>1 đơn</strong> (C. Thảo 4K)
+      </button>
+</div>
+<div class="flex items-center space-x-1.5 shrink-0 bg-slate-800/80 p-0.5 rounded border border-slate-700">
+<span class="text-[10px] text-slate-400 px-1 font-bold uppercase">Mô phỏng:</span>
+<button class="px-2 py-0.5 rounded font-bold bg-orange-600 text-white shadow-xs" id="tab-m0910" onclick="selectTable('MAM_09_10')">Mâm 09+10 (2 Lượt)</button>
+<button class="px-2 py-0.5 rounded font-bold text-slate-300 hover:text-white transition" id="tab-t04" onclick="selectTable('T_04')">Bàn 04 (Trống)</button>
+<button class="px-2 py-0.5 rounded font-bold text-slate-300 hover:text-white transition" id="tab-t01" onclick="selectTable('T_01')">Bàn 01 (1.45M)</button>
+<button class="px-2 py-0.5 rounded font-bold text-slate-300 hover:text-white transition" id="tab-t102" onclick="selectTable('T1_02')">T1-02 (Xung đột)</button>
+</div>
+</div>
+<!-- WORKSPACE BODY (FLEX ROW) -->
+<div class="flex-1 flex overflow-hidden">
+<!-- CỘT TRÁI: NAV ICONS THU GỌN -->
+<aside class="w-14 bg-white border-r border-slate-200 flex flex-col justify-between items-center py-3 shrink-0 z-20">
+<div class="flex flex-col items-center space-y-2.5">
+<button class="w-10 h-10 rounded-lg bg-[#ea580c] text-white flex flex-col items-center justify-center font-bold text-[9px] shadow-sm" title="Điều hành POS">
+<i class="fa-solid fa-table-cells-large text-base mb-0.5"></i>POS
+        </button>
+<button class="w-10 h-10 rounded-lg text-slate-500 hover:bg-slate-100 flex flex-col items-center justify-center font-semibold text-[9px] transition" onclick="openQueue('bookings')" title="Đơn đặt bàn">
+<i class="fa-regular fa-calendar-check text-base mb-0.5"></i>Đặt
+        </button>
+<button class="w-10 h-10 rounded-lg text-slate-500 hover:bg-slate-100 flex flex-col items-center justify-center font-semibold text-[9px] transition" onclick="openQueue('rounds')" title="Bếp chế biến">
+<i class="fa-solid fa-fire-burner text-base mb-0.5"></i>Bếp
+        </button>
+<button class="w-10 h-10 rounded-lg text-slate-500 hover:bg-slate-100 flex flex-col items-center justify-center font-semibold text-[9px] transition" onclick="showToast('Thực đơn điện tử')" title="Thực đơn">
+<i class="fa-solid fa-utensils text-base mb-0.5"></i>Món
+        </button>
+</div>
+<button class="w-8 h-8 rounded text-slate-400 hover:text-slate-700 flex items-center justify-center transition" onclick="alert('Đã đồng bộ dữ liệu POS ca tối thành công!')">
+<i class="fa-solid fa-gear text-sm"></i>
+</button>
+</aside>
+<!-- KHU VỰC GIỮA: TIMELINE GANTT SƠ ĐỒ BÀN -->
+<main class="flex-1 flex flex-col min-w-0 bg-white overflow-hidden border-r border-slate-200">
+<!-- SUBHEADER CONTROLS CỦA TIMELINE -->
+<div class="h-10 border-b border-slate-200 px-3 flex items-center justify-between bg-slate-50 shrink-0">
+<div class="flex items-center space-x-2">
+<div class="bg-slate-200/80 p-0.5 rounded flex items-center text-[11px] font-bold">
+<button class="px-2.5 py-0.5 rounded bg-orange-600 text-white shadow-xs">Timeline (Gantt)</button>
+<button class="px-2 py-0.5 text-slate-600 hover:text-slate-900 transition" onclick="alert('Chuyển chế độ Sơ đồ bàn')">Sơ đồ bàn</button>
+<button class="px-2 py-0.5 text-slate-600 hover:text-slate-900 transition" onclick="alert('Chuyển chế độ Danh sách')">Danh sách</button>
+</div>
+<div class="h-4 w-px bg-slate-300 mx-1"></div>
+<select class="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-semibold text-slate-700 outline-none" id="zoneSelect">
+<option value="all">Tất cả khu vực (24 bàn)</option>
+<option value="garden">Sân vườn ngoài trời (8 bàn)</option>
+<option value="indoor">Tầng 1 máy lạnh (10 bàn)</option>
+<option value="vip">Phòng VIP riêng tư (6 bàn)</option>
+</select>
+<button class="px-2.5 py-0.5 bg-white border border-slate-200 hover:bg-slate-100 rounded text-slate-700 font-bold flex items-center gap-1 shadow-xs transition" onclick="scrollToNow()">
+<i class="fa-solid fa-crosshairs text-orange-500"></i> Về "Bây giờ" (19:15)
+          </button>
+</div>
+<div class="flex items-center space-x-3 text-[11px] font-medium text-slate-600">
+<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span> Đang phục vụ</span>
+<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span> Đã đặt trước</span>
+<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Chờ cọc</span>
+<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Trễ giờ / Xung đột</span>
+<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full border border-dashed border-slate-400 bg-white"></span> Trống</span>
+</div>
+</div>
+<!-- TIMELINE MATRIX VỚI FIXED COLUMN & SCROLLABLE TIMELINE CHUẨN SCREEN_115 / SCREEN_11 -->
+<div class="flex-1 flex overflow-hidden relative">
+<!-- CỘT DANH SÁCH BÀN (FIXED LEFT COLUMN) -->
+<div class="w-52 bg-slate-50 border-r border-slate-200 shrink-0 flex flex-col z-20 select-none shadow-[2px_0_4px_rgba(0,0,0,0.02)]">
+<div class="h-9 border-b border-slate-200 px-3 flex items-center justify-between font-bold text-slate-600 bg-slate-100 text-[11px]">
+<span class="">BÀN &amp; SỨC CHỨA</span>
+<span class="text-[9px] bg-slate-200 px-1.5 py-0.5 rounded font-mono font-bold">24 BÀN</span>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-200" id="tableListCol" onscroll="syncScrollLeft(this)">
+<!-- KHU 1: SÂN VƯỜN -->
+<div class="fixed-zone-hdr bg-emerald-50 px-3 flex justify-between items-center border-b border-emerald-200 text-[11px] font-bold text-emerald-900">
+<span class="flex items-center"><i class="fa-solid fa-tree text-emerald-600 mr-1.5"></i> SÂN VƯỜN (8 bàn)</span>
+<span class="text-emerald-700 text-[10px] font-semibold">Gió thoáng</span>
+</div>
+<div class="fixed-table-row px-3 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 cursor-pointer transition" onclick="selectTable('T_01')">
+<div><div class="font-bold text-slate-900 text-xs">Bàn 01</div><div class="text-[10px] text-slate-500">4-6 khách</div></div>
+<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[10px]">Đang ăn</span>
+</div>
+<div class="fixed-table-row px-3 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 cursor-pointer transition" onclick="selectTable('T_02')">
+<div><div class="font-bold text-slate-900 text-xs">Bàn 02</div><div class="text-[10px] text-slate-500">4-6 khách</div></div>
+<span class="px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-bold text-[10px]">Đã đặt</span>
+</div>
+<div class="fixed-table-row px-3 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 cursor-pointer transition" onclick="selectTable('T_03')">
+<div><div class="font-bold text-slate-900 text-xs flex items-center gap-1"><span class="">Bàn 03 (Dài)</span><i class="fa-solid fa-hand text-blue-500 text-[9px]"></i></div><div class="text-[10px] text-slate-500">8-10 khách</div></div>
+<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[10px]">Đang ăn</span>
+</div>
+<div class="fixed-table-row px-3 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 cursor-pointer transition" onclick="selectTable('T_04')">
+<div><div class="font-bold text-slate-900 text-xs">Bàn 04</div><div class="text-[10px] text-slate-500">4-6 khách</div></div>
+<span class="px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 font-bold text-[10px]">Trống</span>
+</div>
+<!-- BÀN 09 + BÀN 10 (MÂM GHÉP ĐOÀN A. TÚ - ACTIVE SELECTION CHO P03) -->
+<div class="fixed-table-row px-3 flex items-center justify-between border-b border-orange-200 bg-orange-100/80 border-l-4 border-orange-600 cursor-pointer transition" onclick="selectTable('MAM_09_10')">
+<div>
+<div class="font-bold text-orange-950 text-xs flex items-center gap-1">
+<span class="">Bàn 09</span><i class="fa-solid fa-link text-orange-600 text-[10px]"></i>
+</div>
+<div class="text-[10px] text-orange-800 font-medium">Mâm ghép đoàn</div>
+</div>
+<span class="px-1.5 py-0.5 rounded-full bg-status-amber text-white font-mono font-bold text-[10px] animate-pulse">2 mới</span>
+</div>
+<div class="fixed-table-row px-3 flex items-center justify-between border-b border-orange-200 bg-orange-100/80 border-l-4 border-orange-600 cursor-pointer transition" onclick="selectTable('MAM_09_10')">
+<div>
+<div class="font-bold text-orange-950 text-xs flex items-center gap-1">
+<span class="">Bàn 10</span><i class="fa-solid fa-link text-orange-600 text-[10px]"></i>
+</div>
+<div class="text-[10px] text-orange-800 font-medium">Mâm ghép đoàn</div>
+</div>
+<span class="px-1.5 py-0.5 rounded bg-orange-200 text-orange-900 font-bold text-[10px]">Chung bill</span>
+</div>
+<!-- KHU 2: TẦNG 1 MÁY LẠNH -->
+<div class="fixed-zone-hdr bg-blue-50 px-3 flex justify-between items-center border-b border-blue-200 text-[11px] font-bold text-blue-900">
+<span class="flex items-center"><i class="fa-solid fa-snowflake text-blue-500 mr-1.5"></i> TẦNG 1 MÁY LẠNH (10 bàn)</span>
+<span class="text-blue-700 text-[10px] font-semibold">Điều hòa</span>
+</div>
+<div class="fixed-table-row px-3 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 cursor-pointer transition" onclick="selectTable('T1_01')">
+<div><div class="font-bold text-slate-900 text-xs">Bàn T1-01</div><div class="text-[10px] text-slate-500">4 khách</div></div>
+<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[10px]">Đang ăn</span>
+</div>
+<div class="fixed-table-row px-3 flex items-center justify-between border-b border-slate-100 bg-red-50/40 hover:bg-red-50 border-l-4 border-red-600 cursor-pointer transition" onclick="selectTable('T1_02')">
+<div><div class="font-bold text-red-950 text-xs flex items-center gap-1"><span class="">Bàn T1-02</span><i class="fa-solid fa-triangle-exclamation text-red-500 text-[9px]"></i></div><div class="text-[10px] text-red-600 font-semibold">Khách ăn lâu</div></div>
+<span class="px-1.5 py-0.5 rounded bg-red-100 text-red-800 font-bold text-[10px]">Xung đột</span>
+</div>
+<div class="fixed-table-row px-3 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 cursor-pointer transition" onclick="selectTable('T1_03')">
+<div><div class="font-bold text-slate-900 text-xs">Bàn T1-03</div><div class="text-[10px] text-slate-500">6 khách</div></div>
+<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[10px]">Đang ăn</span>
+</div>
+<div class="fixed-table-row px-3 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 cursor-pointer transition" onclick="selectTable('T1_04')">
+<div><div class="font-bold text-slate-900 text-xs">Bàn T1-04</div><div class="text-[10px] text-slate-500">6 khách</div></div>
+<span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Chờ cọc</span>
+</div>
+<!-- KHU 3: PHÒNG VIP -->
+<div class="fixed-zone-hdr bg-purple-50 px-3 flex justify-between items-center border-b border-purple-200 text-[11px] font-bold text-purple-900">
+<span class="flex items-center"><i class="fa-solid fa-crown text-purple-600 mr-1.5"></i> PHÒNG VIP (6 phòng)</span>
+<span class="text-purple-700 text-[10px] font-semibold">Phòng riêng</span>
+</div>
+<div class="fixed-table-row px-3 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 cursor-pointer transition" onclick="selectTable('VIP_01')">
+<div><div class="font-bold text-slate-900 text-xs">VIP 01 (Lầu 2)</div><div class="text-[10px] text-slate-500">16-20 chỗ</div></div>
+<span class="px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-bold text-[10px]">Đặt 20:00</span>
+</div>
+</div>
+</div>
+<!-- VÙNG CUỘN TIMELINE MATRIX GANTT -->
+<div class="flex-1 flex flex-col overflow-x-auto overflow-y-auto custom-scrollbar relative bg-slate-50/40" id="timelineScrollArea" onscroll="syncScrollRight(this)">
+<!-- TIME HEADER (14 slots: 17:00 đến 23:30) -->
+<div class="h-9 border-b border-slate-200 bg-white sticky top-0 z-10 flex font-bold text-slate-600 min-w-[1190px] text-[11px]">
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">17:00</div>
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">17:30</div>
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">18:00</div>
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">18:30</div>
+<div class="w-[85px] border-r border-red-200 bg-red-50/30 px-1 flex items-center justify-center shrink-0 text-red-600 font-black">19:00</div>
+<div class="w-[85px] border-r border-orange-200 bg-orange-50/30 px-1 flex items-center justify-center shrink-0 text-orange-600 font-black">19:30</div>
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">20:00</div>
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">20:30</div>
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">21:00</div>
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">21:30</div>
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">22:00</div>
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">22:30</div>
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">23:00</div>
+<div class="w-[85px] border-r border-slate-200 px-1 flex items-center justify-center shrink-0">23:30</div>
+</div>
+<!-- VẠCH ĐỎ HIỆN TẠI 19:15 -->
+<div class="now-line" id="nowIndicator" style="left: 382.5px;"></div>
+<!-- ROWS LANES TƯƠNG ỨNG CỘT TRÁI -->
+<div class="min-w-[1190px] relative divide-y divide-slate-200" id="timelineRows">
+<!-- ZONE 1: SÂN VƯỜN HEADER -->
+<div class="fixed-zone-hdr bg-emerald-50/60 border-b border-emerald-200 px-3 flex items-center text-[11px] text-emerald-800 font-bold">
+<span class="flex items-center"><i class="fa-solid fa-tree text-emerald-600 mr-1.5"></i> Khu Sân Vườn ngoài trời thoáng mát</span>
+</div>
+<!-- BÀN 01 -->
+<div class="fixed-table-row relative flex items-center px-1 bg-white hover:bg-slate-50 transition border-b border-slate-100">
+<div class="absolute left-[170px] w-[340px] h-9 bg-emerald-600 text-white rounded p-1.5 flex items-center justify-between shadow-xs cursor-pointer hover:bg-emerald-700 border border-emerald-500" onclick="selectTable('T_01')">
+<div class="truncate flex items-center space-x-1.5">
+<i class="fa-solid fa-beer-mug-empty text-emerald-200"></i>
+<span class="font-bold">Đoàn A. Thành (5K)</span>
+<span class="text-[9px] bg-emerald-800 px-1 rounded">18:00</span>
+</div>
+<span class="font-mono font-bold text-xs">1.450.000đ</span>
+</div>
+<div class="absolute left-[680px] w-[170px] h-8 border border-dashed border-emerald-300 rounded flex items-center justify-center text-emerald-700 hover:border-orange-500 hover:text-orange-600 cursor-pointer font-bold text-[10px]">
+                + Đặt lúc 21:00
+              </div>
+</div>
+<!-- BÀN 02 -->
+<div class="fixed-table-row relative flex items-center px-1 bg-white hover:bg-slate-50 transition border-b border-slate-100">
+<div class="absolute left-[382px] w-[255px] h-9 bg-orange-500 text-white rounded p-1.5 flex items-center justify-between shadow-xs cursor-pointer hover:bg-orange-600 border border-orange-400" onclick="selectTable('T_02')">
+<div class="truncate flex items-center space-x-1.5">
+<i class="fa-solid fa-phone text-orange-200"></i>
+<span class="font-bold">A. Dũng (6K)</span>
+<span class="text-[9px] bg-orange-700 px-1 rounded">19:15</span>
+</div>
+<span class="text-[9px] font-bold bg-white text-orange-700 px-1.5 py-0.5 rounded">Đã xác nhận</span>
+</div>
+</div>
+<!-- BÀN 03 -->
+<div class="fixed-table-row relative flex items-center px-1 bg-white hover:bg-slate-50 transition border-b border-slate-100">
+<div class="absolute left-[85px] w-[320px] h-9 bg-emerald-600 text-white rounded p-1.5 flex items-center justify-between shadow-xs cursor-pointer hover:bg-emerald-700" onclick="selectTable('T_03')">
+<div class="truncate flex items-center space-x-1.5">
+<i class="fa-solid fa-users text-emerald-200"></i>
+<span class="font-bold">Hội Nghệ An (8K)</span>
+</div>
+<span class="font-mono font-bold text-xs">2.180.000đ</span>
+</div>
+<div class="absolute left-[425px] w-[255px] h-9 bg-orange-100 text-orange-900 border border-dashed border-orange-400 rounded p-1.5 flex items-center justify-between booking-tentative">
+<span class="font-bold text-[10px]">C. Yến (10K) · Hẹn 20:00</span>
+<span class="text-[8px] bg-orange-600 text-white px-1.5 py-0.5 rounded font-bold">Dự kiến</span>
+</div>
+</div>
+<!-- BÀN 04 -->
+<div class="fixed-table-row relative flex items-center px-3 bg-slate-50/60 hover:bg-slate-100/60 transition cursor-pointer border-b border-slate-100" onclick="selectTable('T_04')">
+<span class="text-[11px] text-slate-400 italic">Bàn trống sẵn sàng đón khách vãng lai</span>
+<div class="absolute left-[425px] w-[170px] h-8 border border-dashed border-emerald-400 bg-white/80 text-emerald-800 rounded flex items-center justify-center font-bold hover:bg-orange-100 hover:text-orange-700 cursor-pointer text-[10px]">
+                + Đặt lúc 19:30
+              </div>
+</div>
+<!-- BÀN 09 (MÂM GHÉP 09+10 - ĐOÀN A. TÚ ĐANG CHỌN) -->
+<div class="fixed-table-row relative flex items-center px-1 bg-amber-50/40 border-b border-orange-200">
+<div class="absolute left-[340px] w-[450px] h-9 bg-primary-container text-white rounded p-1.5 flex items-center justify-between shadow-md border-2 border-amber-300 z-20 cursor-pointer" onclick="selectTable('MAM_09_10')">
+<div class="flex items-center space-x-1.5 truncate">
+<span class="material-symbols-outlined text-[15px] text-amber-200">restaurant</span>
+<span class="font-black text-[11px] truncate uppercase tracking-wide">MÂM 09+10: ĐOÀN A. TÚ (10 KHÁCH)</span>
+<span class="bg-amber-400 text-slate-950 text-[9px] px-1.5 py-0.5 rounded font-extrabold flex items-center gap-0.5 animate-pulse">
+<span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> 2 LƯỢT MỚI
+                  </span>
+</div>
+<div class="flex items-center space-x-1.5 shrink-0">
+<span class="font-mono font-black text-xs bg-white text-orange-700 px-2 py-0.5 rounded">710.000đ</span>
+</div>
+</div>
+</div>
+<!-- BÀN 10 (GHÉP CÙNG BÀN 09) -->
+<div class="fixed-table-row relative flex items-center px-1 bg-amber-50/40 border-b border-orange-200">
+<div class="absolute left-[340px] w-[450px] h-8 rounded bg-orange-100/90 border border-dashed border-orange-400 text-orange-950 px-2.5 flex items-center justify-between shadow-xs cursor-pointer" onclick="selectTable('MAM_09_10')">
+<span class="font-semibold text-[11px] flex items-center gap-1.5 text-orange-900">
+<i class="fa-solid fa-link text-orange-700 text-xs"></i> Kê thêm Bàn 10 — Phục vụ chung hóa đơn Mâm 09
+                </span>
+<span class="text-orange-800 font-bold text-[10px] bg-white px-1.5 py-0.5 rounded border border-orange-300">Đã đủ 10 ghế</span>
+</div>
+</div>
+<!-- ZONE 2: TẦNG 1 MÁY LẠNH HEADER -->
+<div class="fixed-zone-hdr bg-blue-50/60 border-b border-blue-200 px-3 flex items-center text-[11px] text-blue-900 font-bold">
+<span class="flex items-center"><i class="fa-solid fa-snowflake text-blue-500 mr-1.5"></i> Khu Tầng 1 máy lạnh gia đình &amp; đối tác</span>
+</div>
+<!-- T1-01 -->
+<div class="fixed-table-row relative flex items-center px-1 bg-white hover:bg-slate-50 transition border-b border-slate-100">
+<div class="absolute left-[127px] w-[340px] h-9 bg-emerald-600 text-white rounded p-1.5 flex items-center justify-between shadow-xs cursor-pointer" onclick="selectTable('T1_01')">
+<span class="font-bold">Gia đình chị Vy (4K)</span>
+<span class="font-mono font-bold text-xs">545.000đ</span>
+</div>
+</div>
+<!-- T1-02 (XUNG ĐỘT) -->
+<div class="fixed-table-row relative flex items-center px-1 bg-red-50/30 border-b border-slate-100">
+<div class="absolute left-[127px] w-[270px] h-9 bg-red-600 text-white rounded p-1.5 flex items-center justify-between shadow-xs cursor-pointer" onclick="selectTable('T1_02')">
+<span class="font-bold">A. Hoàng (Quá giờ 30p)</span>
+<span class="font-mono text-[10px] font-bold bg-white text-red-600 px-1 rounded">Xung đột</span>
+</div>
+<div class="absolute left-[410px] w-[250px] h-9 bg-red-100 text-red-900 rounded p-1.5 flex items-center justify-between shadow-xs border border-red-300 cursor-pointer" onclick="selectTable('T1_02')">
+<span class="font-bold text-[10px] truncate">Đoàn A. Phong (12K) chờ</span>
+<span class="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">Điều phối</span>
+</div>
+</div>
+<!-- T1-03 -->
+<div class="fixed-table-row relative flex items-center px-1 bg-white hover:bg-slate-50 transition border-b border-slate-100">
+<div class="absolute left-[212px] w-[340px] h-9 bg-emerald-600 text-white rounded p-1.5 flex items-center justify-between shadow-xs cursor-pointer" onclick="selectTable('T1_03')">
+<span class="font-bold">A. Khoa (6 khách)</span>
+<span class="font-mono font-bold text-xs">550.000đ</span>
+</div>
+</div>
+<!-- T1-04 -->
+<div class="fixed-table-row relative flex items-center px-1 bg-white hover:bg-slate-50 transition border-b border-slate-100">
+<div class="absolute left-[467px] w-[255px] h-9 bg-amber-100 text-amber-900 border border-dashed border-amber-400 rounded p-1.5 flex items-center justify-between cursor-pointer hover:bg-amber-200" onclick="selectTable('T1_04')">
+<span class="font-bold">Chị Thảo (4 khách)</span>
+<span class="text-[9px] bg-amber-500 text-slate-950 font-bold px-1 rounded">Chờ cọc</span>
+</div>
+</div>
+<!-- ZONE 3: PHÒNG VIP HEADER -->
+<div class="fixed-zone-hdr bg-purple-50/60 border-b border-purple-200 px-3 flex items-center text-[11px] text-purple-900 font-bold">
+<span class="flex items-center"><i class="fa-solid fa-crown text-purple-600 mr-1.5"></i> Khu VIP riêng biệt (6 phòng)</span>
+</div>
+<!-- VIP 01 -->
+<div class="fixed-table-row relative flex items-center px-1 bg-white hover:bg-slate-50 transition border-b border-slate-100">
+<div class="absolute left-[510px] w-[340px] h-9 bg-orange-500 text-white rounded p-1.5 flex items-center justify-between shadow-xs cursor-pointer hover:bg-orange-600" onclick="selectTable('VIP_01')">
+<span class="font-bold">VIP 01: Anh Long (18K) - Hẹn 20:00</span>
+<span class="text-[9px] bg-white text-orange-700 font-bold px-1.5 py-0.5 rounded">Đã cọc 1tr</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- FOOTER SUMMARY STATS -->
+<div class="h-10 border-t border-slate-200 bg-white px-4 flex items-center justify-between shrink-0 z-20 text-[11px]">
+<div class="flex items-center space-x-5 font-semibold">
+<span class="font-extrabold text-slate-800 text-xs">24 Tổng bàn</span>
+<span class="text-emerald-700 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> <strong>18 bàn đang phục vụ</strong></span>
+<span class="text-orange-600 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-orange-500"></span> <strong>1 mâm có món mới</strong></span>
+<span class="text-slate-500 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-300"></span> <strong>5 bàn trống</strong></span>
+</div>
+<div class="flex items-center space-x-3 text-slate-500">
+<span class="flex items-center text-status-green font-bold text-[11px]">
+<span class="w-2 h-2 rounded-full bg-status-green mr-1.5 animate-pulse"></span>2 Máy in nhiệt 80mm sẵn sàng
+          </span>
+<span class="text-slate-300">|</span>
+<span class="font-mono text-[11px] text-slate-600">Đồng bộ ca: 19:15:42</span>
+</div>
+</div>
+</main>
+<!-- CỘT PHẢI: PANEL NGỮ CẢNH NGHIỆP VỤ RỘNG 420px CỐ ĐỊNH CHO MÀN P03 DUYỆT MÓN & LỆNH IN -->
+<aside class="w-[420px] bg-white border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-xl overflow-hidden" id="p03InspectionPanel">
+<!-- 1. PANEL HEADER -->
+<div class="bg-slate-900 text-white p-3.5 shrink-0 border-b border-slate-800 space-y-2.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-2.5">
+<div class="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center font-black text-sm shadow shrink-0">
+<i class="fa-solid fa-link text-white"></i>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<h2 class="font-extrabold text-[13px] text-white tracking-tight">Mâm 09 + 10 (Ghép 2 bàn)</h2>
+<span class="bg-emerald-500 text-slate-950 font-black text-[9px] px-1.5 py-0.5 rounded uppercase">Đang phục vụ</span>
+</div>
+<p class="text-[11px] text-slate-300 mt-0.5">Khách: <strong>Đoàn A. Tú</strong> (10 khách)</p>
+</div>
+</div>
+<button class="text-slate-400 hover:text-white transition p-1" onclick="showToast('Panel Mâm 09+10 đang hoạt động')" title="Đóng panel">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- THỐNG KÊ TÓM TẮT 2 CỘT -->
+<div class="grid grid-cols-2 gap-2 bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60">
+<div>
+<span class="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">Hóa đơn đã duyệt</span>
+<span class="font-mono font-black text-white text-base leading-tight">710.000đ</span>
+</div>
+<div class="bg-orange-950/60 border border-orange-500/40 p-1.5 rounded text-left">
+<span class="text-[10px] text-amber-300 uppercase tracking-wider block font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span> Chờ duyệt mới
+            </span>
+<span class="font-mono font-black text-amber-300 text-base leading-tight" id="pendingTotalDisplay">150.000đ</span>
+<span class="text-[10px] text-amber-200 block font-medium" id="pendingCountDisplay">(2 món)</span>
+</div>
+</div>
+</div>
+<!-- TABS CHUYÊN BIỆT P03 -->
+<div class="flex border-b border-slate-200 bg-slate-100 text-xs font-bold text-slate-600 shrink-0">
+<button class="flex-1 py-2 text-center border-b-2 border-orange-600 text-orange-600 bg-white font-extrabold flex items-center justify-center gap-1 shadow-xs">
+<span class="">Lượt gọi mới</span>
+<span class="w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center ml-0.5 animate-pulse" id="badgeTabCount">2</span>
+</button>
+<button class="flex-1 py-2 text-center border-b-2 border-transparent hover:text-slate-900 transition flex items-center justify-center gap-1 text-slate-600" onclick="alert('Xem chi tiết hóa đơn hiện tại: 710.000đ')">
+<span class="">Hóa đơn mâm</span>
+<span class="font-mono text-slate-500 text-[10px] font-normal">(710k)</span>
+</button>
+<button class="flex-1 py-2 text-center border-b-2 border-transparent hover:text-slate-900 transition flex items-center justify-center gap-1 text-slate-600" onclick="alert('Mở lịch sử các lệnh in bếp 80mm trước đó')">
+<span class="">Lịch sử lệnh in</span>
+<span class="material-symbols-outlined text-[14px] text-slate-400">receipt_long</span>
+</button>
+</div>
+<!-- 2. SCROLLABLE BODY: CARDS DANH SÁCH MÓN & CẤU HÌNH IN (CUSTOM SCROLLBAR) -->
+<div class="flex-1 overflow-y-auto p-3.5 space-y-3 custom-scrollbar bg-slate-50/60">
+<!-- HÀNG CHỌN TOÀN BỘ -->
+
+<!-- MÓN 1: NGUỒN QR KHÁCH GỌI LÚC 19:08 -->
+<div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden transition-all duration-150 relative" id="cardRound01"><!-- Strip Header -->
+<div class="px-3 py-1.5 bg-orange-50/70 border-b border-orange-100 flex items-center justify-between">
+<div class="flex items-center space-x-2">
+<span class="px-1.5 py-0.5 bg-orange-600 text-white font-mono text-[9px] font-extrabold rounded uppercase tracking-wider flex items-center gap-1 shadow-xs">
+<i class="fa-solid fa-qrcode text-[10px]"></i> QR Khách tại bàn
+</span>
+<span class="text-[11px] font-bold text-slate-800">Lượt #01</span>
+</div>
+<div class="flex items-center space-x-1 font-mono text-[11px] text-slate-500 font-medium">
+<i class="fa-regular fa-clock text-[10px]"></i>
+<span class="">19:08 (7 phút trước)</span>
+</div>
+</div>
+<!-- Nội dung món -->
+<div class="p-3 space-y-2.5">
+<div class="flex items-start justify-between">
+<div class="space-y-1">
+<div class="flex items-center space-x-1.5">
+<span class="font-mono font-black text-sm text-orange-600">4x</span>
+<span class="font-bold text-slate-900 text-xs">Bia Tiger Bạc (Tháp 3L)</span>
+</div>
+<div class="text-[11px] text-slate-500 font-mono">
+Đơn giá: 25.000đ / đơn vị quy đổi
+</div>
+<!-- Ghi chú khách -->
+<div class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-semibold">
+<span class="material-symbols-outlined text-[13px] text-amber-600">edit_note</span>
+<span class="">Ghi chú: “Cho nhiều đá”</span>
+</div>
+</div>
+<div class="text-right shrink-0 font-mono font-black text-sm text-slate-900">
+100.000đ
+</div>
+</div>
+<!-- Cụm hành động độc lập cho Lượt #01 -->
+<div class="pt-2 border-t border-slate-100 flex items-center gap-2">
+<button class="flex-1 py-2 px-2.5 bg-[#ea580c] hover:bg-[#c2410c] text-white rounded font-bold text-[11px] shadow-xs flex items-center justify-center gap-1.5 transition active:scale-[0.99]" onclick="approveSingleRound('cardRound01', 100000, 'Lượt #01 (QR Khách)')" title="Tự động in 2 liên bếp + bàn">
+<span class="material-symbols-outlined text-[15px]">print</span>
+<span class="">Duyệt &amp; In bếp</span>
+
+</button>
+<button class="py-2 px-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded font-bold text-[11px] flex items-center justify-center gap-1 transition shadow-xs" onclick="openRejectModal('cardRound01', 100000, 'Lượt #01: 4x Bia Tiger Bạc')">
+<span class="material-symbols-outlined text-[14px]">close</span>
+<span class="">Từ chối lượt</span>
+</button>
+</div>
+</div></div>
+<!-- MÓN 2: NGUỒN NV NAM GỌI HỘ LÚC 19:12 -->
+<div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden transition-all duration-150 relative" id="cardRound02"><!-- Strip Header -->
+<div class="px-3 py-1.5 bg-blue-50/70 border-b border-blue-100 flex items-center justify-between">
+<div class="flex items-center space-x-2">
+<span class="px-1.5 py-0.5 bg-blue-600 text-white font-mono text-[9px] font-extrabold rounded uppercase tracking-wider flex items-center gap-1 shadow-xs">
+<i class="fa-solid fa-user-tag text-[10px]"></i> NV Nam đặt hộ
+</span>
+<span class="text-[11px] font-bold text-slate-800">Lượt #02</span>
+</div>
+<div class="flex items-center space-x-1 font-mono text-[11px] text-slate-500 font-medium">
+<i class="fa-regular fa-clock text-[10px]"></i>
+<span class="">19:12 (3 phút trước)</span>
+</div>
+</div>
+<!-- Nội dung món -->
+<div class="p-3 space-y-2.5">
+<div class="flex items-start justify-between">
+<div class="space-y-1">
+<div class="flex items-center space-x-1.5">
+<span class="font-mono font-black text-sm text-orange-600">1x</span>
+<span class="font-bold text-slate-900 text-xs">Rau rừng cuốn thêm (Rau tươi sạch)</span>
+</div>
+<div class="text-[11px] text-slate-500 font-mono">
+Đơn giá: 50.000đ / đĩa lớn
+</div>
+<!-- Ghi chú nhân viên -->
+<div class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 text-[11px] font-semibold">
+<span class="material-symbols-outlined text-[13px] text-slate-500">comment</span>
+<span class="">Ghi chú: “Lấy đọt non”</span>
+</div>
+</div>
+<div class="text-right shrink-0 font-mono font-black text-sm text-slate-900">
+50.000đ
+</div>
+</div>
+<!-- Cụm hành động độc lập cho Lượt #02 -->
+<div class="pt-2 border-t border-slate-100 flex items-center gap-2">
+<button class="flex-1 py-2 px-2.5 bg-[#ea580c] hover:bg-[#c2410c] text-white rounded font-bold text-[11px] shadow-xs flex items-center justify-center gap-1.5 transition active:scale-[0.99]" onclick="approveSingleRound('cardRound02', 50000, 'Lượt #02 (NV Nam đặt hộ)')" title="Tự động in 2 liên bếp + bàn">
+<span class="material-symbols-outlined text-[15px]">print</span>
+<span class="">Duyệt &amp; In bếp</span>
+
+</button>
+<button class="py-2 px-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded font-bold text-[11px] flex items-center justify-center gap-1 transition shadow-xs" onclick="openRejectModal('cardRound02', 50000, 'Lượt #02: 1x Rau rừng cuốn thêm')">
+<span class="material-symbols-outlined text-[14px]">close</span>
+<span class="">Từ chối lượt</span>
+</button>
+</div>
+</div></div>
+<!-- PHẦN CẤU HÌNH LỆNH IN NHIỆT BẢO LƯƠNG (80MM) -->
+<div class="p-2.5 bg-emerald-50/60 rounded-lg border border-emerald-200 flex items-center justify-between text-xs"><div class="flex items-center space-x-2"><span class="material-symbols-outlined text-emerald-600 text-[18px]">print</span><div><div class="font-bold text-slate-900 flex items-center gap-1.5"><span class="">Trạng thái máy in: Đã kết nối</span></div><div class="text-[10px] text-slate-500">Luôn kiểm tra dây kết nối máy in khi trục trặc</div></div></div><span class="text-[10px] text-emerald-700 font-bold flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-emerald-300 shadow-xs shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Sẵn sàng</span></div>
+<!-- BOX LƯU Ý QUAN TRỌNG VỀ MÁY IN (INDEPENDENT STATES) -->
+<div class="p-3 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg shadow-xs space-y-1">
+<div class="text-[11px] font-black uppercase tracking-wider flex items-center gap-1 text-amber-800">
+<span class="material-symbols-outlined text-[15px]">info</span> Lưu ý quan trọng về máy in:
+          </div>
+<p class="text-[11px] leading-relaxed text-amber-900">
+            Duyệt món và In phiếu là <strong>2 trạng thái độc lập</strong>. Nếu kẹt giấy hoặc hết giấy, thu ngân có thể bấm <strong>In lại</strong> trong tab <em>Lịch sử</em> bất cứ lúc nào mà không làm lệch hóa đơn mâm.
+          </p>
+</div>
+</div>
+<!-- 3. PANEL FOOTER CỐ ĐỊNH PHÍA DƯỚI (KHÔNG BỊ ĐÈ CHỮ) -->
+<div class="p-3.5 bg-white border-t border-slate-200 space-y-2 shrink-0 shadow-lg"><!-- Tóm tắt & Trạng thái hướng dẫn thu ngân -->
+<div class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 space-y-2">
+<div class="flex items-center justify-between text-xs">
+<span class="text-slate-600 font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-orange-600">touch_app</span>
+<span class="">Duyệt từng lượt trực tiếp ở trên</span>
+</span>
+<span class="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-xs" id="footerPendingTotal">2 lượt: 150.000đ</span>
+</div>
+<div class="flex items-center justify-between pt-1 border-t border-slate-200/60 text-[10px] text-slate-500">
+<span class="">Liên in: Bếp nóng + Thu ngân</span>
+<span class="text-emerald-700 font-semibold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Tự động ngắt giấy</span>
+</div>
+</div>
+<!-- Nút tiện ích tổng Duyệt nhanh tất cả -->
+<button class="w-full py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition active:scale-[0.99]" id="btnQuickApproveAll" onclick="executeQuickApproveAll()">
+<span class="material-symbols-outlined text-[16px] text-amber-400">flash_on</span>
+<span id="btnQuickApproveLabel" class="">Duyệt nhanh tất cả lượt (In tự động)</span>
+</button></div>
+</aside>
+</div>
+<!-- TOAST NOTIFICATION -->
+<div class="fixed bottom-4 right-4 bg-slate-900 text-white px-4 py-2.5 rounded-lg shadow-2xl font-bold flex items-center space-x-2.5 transition-all duration-300 z-50 text-xs opacity-0 pointer-events-none" id="toastAlert">
+<i class="fa-solid fa-circle-check text-emerald-400 text-sm" id="toastIcon"></i>
+<span id="toastText" class="">Đã di chuyển góc nhìn về thời gian Hiện tại (19:15)</span>
+</div>
+<!-- MODAL CONTAINER (DÙNG CHO TÁC VỤ PHỤ NẾU CẦN) -->
+<div class="fixed inset-0 bg-slate-950/60 hidden z-50 flex items-center justify-center p-4" id="modalBackdrop">
+<div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200" id="modalBox"><div class="p-4 border-b border-slate-200 bg-red-50 flex items-center justify-between">
+<div class="flex items-center space-x-2 text-red-900 font-bold text-sm">
+<span class="material-symbols-outlined text-red-600">error</span>
+<span id="rejectModalTitle" class="">Từ chối lượt gọi món</span>
+</div>
+<button class="text-slate-400 hover:text-slate-700 transition" onclick="closeRejectModal()">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="p-4 space-y-3">
+<p class="text-xs text-slate-600">Vui lòng chọn lý do từ chối để hệ thống gửi thông báo phản hồi lại cho khách / nhân viên phục vụ:</p>
+<div class="space-y-2" id="rejectReasonList">
+<label class="flex items-center p-2.5 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50/40 cursor-pointer transition">
+<input type="radio" name="rejectReason" value="Hết món / Hết nguyên liệu chế biến" checked="" class="text-red-600 focus:ring-0 mr-2.5 accent-red-600">
+<div>
+<div class="font-bold text-xs text-slate-900">Hết món / Hết nguyên liệu chế biến</div>
+<div class="text-[10px] text-slate-500">Kho hoặc bếp đã báo ngưng nhận thêm món này</div>
+</div>
+</label>
+<label class="flex items-center p-2.5 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50/40 cursor-pointer transition">
+<input type="radio" name="rejectReason" value="Bếp quá tải / Tạm ngưng nhận lượt mới" class="text-red-600 focus:ring-0 mr-2.5 accent-red-600">
+<div>
+<div class="font-bold text-xs text-slate-900">Bếp quá tải / Tạm ngưng nhận món</div>
+<div class="text-[10px] text-slate-500">Thời gian chờ chế biến dự kiến trên 45 phút</div>
+</div>
+</label>
+<label class="flex items-center p-2.5 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50/40 cursor-pointer transition">
+<input type="radio" name="rejectReason" value="Khách đổi ý / Yêu cầu hủy trực tiếp" class="text-red-600 focus:ring-0 mr-2.5 accent-red-600">
+<div>
+<div class="font-bold text-xs text-slate-900">Khách đổi ý / Đã báo hủy với phục vụ</div>
+<div class="text-[10px] text-slate-500">Khách tại bàn đổi sang món khác hoặc không muốn dùng nữa</div>
+</div>
+</label>
+<label class="flex items-center p-2.5 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50/40 cursor-pointer transition">
+<input type="radio" name="rejectReason" value="Sai thông tin đơn vị / Đặt nhầm bàn" class="text-red-600 focus:ring-0 mr-2.5 accent-red-600">
+<div>
+<div class="font-bold text-xs text-slate-900">Sai thông tin / Đặt nhầm mâm bàn</div>
+<div class="text-[10px] text-slate-500">Món quét nhầm mã QR bàn khác hoặc sai số lượng quy cách</div>
+</div>
+</label>
+</div>
+<div class="pt-2">
+<input type="text" id="rejectCustomNote" placeholder="Ghi chú thêm lý do chi tiết (nếu có)..." class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded outline-none focus:border-red-400 focus:bg-white transition">
+</div>
+</div>
+<div class="p-3.5 bg-slate-50 border-t border-slate-200 flex justify-end space-x-2">
+<button class="px-3 py-1.5 rounded border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition" onclick="closeRejectModal()">Hủy bỏ</button>
+<button class="px-4 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition shadow-xs flex items-center gap-1" onclick="confirmRejectAction()">
+<span class="material-symbols-outlined text-[14px]">delete</span>
+<span class="">Xác nhận từ chối</span>
+</button>
+</div></div>
+</div>
+<!-- JAVASCRIPT LOGIC HOÀN CHỈNH CHO P03 & ĐIỀU HÀNH BÀN -->
+<script>
+    let activeRounds = {
+      round1: { id: 'cardRound01', amount: 100000, name: '4x Bia Tiger Bạc', checked: true, active: true },
+      round2: { id: 'cardRound02', amount: 50000, name: '1x Rau rừng cuốn thêm', checked: true, active: true }
+    };
+
+    let isSyncingLeft = false;
+    let isSyncingRight = false;
+
+    function syncScrollLeft(el) {
+      if (!isSyncingLeft) {
+        isSyncingRight = true;
+        const target = document.getElementById('timelineScrollArea');
+        if (target) target.scrollTop = el.scrollTop;
+        isSyncingRight = false;
+      }
+    }
+
+    function syncScrollRight(el) {
+      if (!isSyncingRight) {
+        isSyncingLeft = true;
+        const target = document.getElementById('tableListCol');
+        if (target) target.scrollTop = el.scrollTop;
+        isSyncingLeft = false;
+      }
+    }
+
+    function showToast(msg, type = 'success') {
+      const el = document.getElementById('toastAlert');
+      const txt = document.getElementById('toastText');
+      const ico = document.getElementById('toastIcon');
+      txt.textContent = msg;
+      ico.className = type === 'success' ? 'fa-solid fa-circle-check text-emerald-400 text-sm' : 'fa-solid fa-triangle-exclamation text-amber-400 text-sm';
+      el.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => el.classList.add('opacity-0', 'pointer-events-none'), 3000);
+    }
+
+    function scrollToNow() {
+      const area = document.getElementById('timelineScrollArea');
+      if (area) {
+        area.scrollTo({ left: 190, behavior: 'smooth' });
+        showToast('Đã di chuyển góc nhìn về thời gian Hiện tại (19:15)');
+      }
+    }
+
+    function updateBatchCalculations() {
+      const chk1 = document.querySelector('input[data-round="1"]');
+      const chk2 = document.querySelector('input[data-round="2"]');
+      
+      if (chk1 && activeRounds.round1.active) activeRounds.round1.checked = chk1.checked;
+      if (chk2 && activeRounds.round2.active) activeRounds.round2.checked = chk2.checked;
+
+      let total = 0;
+      let count = 0;
+      let activeCount = 0;
+
+      Object.values(activeRounds).forEach(r => {
+        if (r.active) {
+          activeCount++;
+          if (r.checked) {
+            total += r.amount;
+            count++;
+          }
+        }
+      });
+
+      // Cập nhật text hiển thị
+      document.getElementById('pendingTotalDisplay').textContent = total.toLocaleString('vi-VN') + 'đ';
+      document.getElementById('pendingCountDisplay').textContent = '(' + count + ' món)';
+      document.getElementById('selectedCountText').textContent = count + ' / ' + activeCount + ' món';
+      document.getElementById('badgeTabCount').textContent = activeCount;
+      
+      const btnLabel = document.getElementById('btnMainLabel');
+      const btnMain = document.getElementById('btnApproveAndPrint');
+
+      if (count === 0) {
+        btnLabel.textContent = 'Chọn ít nhất 1 món để duyệt';
+        btnMain.disabled = true;
+        btnMain.classList.add('opacity-50', 'pointer-events-none');
+      } else {
+        btnMain.disabled = false;
+        btnMain.classList.remove('opacity-50', 'pointer-events-none');
+        btnLabel.textContent = 'Duyệt & Phát lệnh in ' + count + ' lượt món (' + total.toLocaleString('vi-VN') + 'đ)';
+      }
+    }
+
+    function toggleSelectAll(isChecked) {
+      document.querySelectorAll('.item-checkbox').forEach(cb => {
+        cb.checked = isChecked;
+      });
+      updateBatchCalculations();
+    }
+
+    function rejectSpecificItem(cardId, amount, itemName) {
+      if (confirm('Xác nhận từ chối món: ' + itemName + '?')) {
+        const el = document.getElementById(cardId);
+        if (el) {
+          el.style.display = 'none';
+        }
+        if (cardId === 'cardRound01') activeRounds.round1.active = false;
+        if (cardId === 'cardRound02') activeRounds.round2.active = false;
+
+        updateBatchCalculations();
+        showToast('Đã từ chối món: ' + itemName, 'warn');
+      }
+    }
+
+    function executeApproveAndPrint() {
+      const btn = document.getElementById('btnApproveAndPrint');
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">sync</span><span>Đang duyệt & Gửi lệnh in 2 liên (Bếp + Thu ngân)...</span>';
+      btn.disabled = true;
+
+      setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+
+        const c1 = document.getElementById('cardRound01');
+        const c2 = document.getElementById('cardRound02');
+        if (c1) c1.style.display = 'none';
+        if (c2) c2.style.display = 'none';
+        
+        activeRounds.round1.active = false;
+        activeRounds.round2.active = false;
+
+        document.getElementById('pendingTotalDisplay').textContent = '0đ';
+        document.getElementById('pendingCountDisplay').textContent = '(0 món)';
+        document.getElementById('badgeTabCount').textContent = '0';
+        document.getElementById('badgeTabCount').classList.remove('animate-pulse');
+        document.getElementById('selectedCountText').textContent = '0 / 0 món';
+
+        const badgeRounds = document.getElementById('badgeRounds');
+        if (badgeRounds) badgeRounds.textContent = '0 lượt';
+
+        const btnLabel = document.getElementById('btnMainLabel');
+        btnLabel.textContent = 'Không có món mới chờ duyệt';
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'pointer-events-none');
+
+        showToast('Duyệt thành công! Đã phát 2 liên in nhiệt 80mm (Bếp + Thu ngân) cho Mâm 09+10.');
+      }, 700);
+    }
+
+    function executeApproveOnly() {
+      if (confirm('Xác nhận CHỈ DUYỆT ghi nhận vào hóa đơn (KHÔNG in phiếu bếp chế biến)?')) {
+        executeApproveAndPrint();
+      }
+    }
+
+    function executeRejectAll() {
+      const reason = prompt('Lý do từ chối toàn bộ lượt gọi món này:', 'Khách báo hủy / Bếp hết hàng');
+      if (reason) {
+        const c1 = document.getElementById('cardRound01');
+        const c2 = document.getElementById('cardRound02');
+        if (c1) c1.style.display = 'none';
+        if (c2) c2.style.display = 'none';
+        
+        activeRounds.round1.active = false;
+        activeRounds.round2.active = false;
+        updateBatchCalculations();
+
+        showToast('Đã từ chối toàn bộ món chờ duyệt (Lý do: ' + reason + ')', 'warn');
+      }
+    }
+
+    function selectTable(id) {
+      document.querySelectorAll('[id^="tab-"]').forEach(b => {
+        b.className = 'px-2 py-0.5 rounded font-bold text-slate-300 hover:text-white transition';
+      });
+      if (id === 'MAM_09_10') {
+        const t = document.getElementById('tab-m0910');
+        if (t) t.className = 'px-2 py-0.5 rounded font-bold bg-orange-600 text-white shadow-xs';
+        showToast('Đang xem Mâm 09+10 (Ghép 2 bàn) - Đoàn A. Tú');
+      } else if (id === 'T_04') {
+        const t = document.getElementById('tab-t04');
+        if (t) t.className = 'px-2 py-0.5 rounded font-bold bg-orange-600 text-white shadow-xs';
+        showToast('Bàn 04 đang trống sẵn sàng đón khách');
+      } else if (id === 'T_01') {
+        const t = document.getElementById('tab-t01');
+        if (t) t.className = 'px-2 py-0.5 rounded font-bold bg-orange-600 text-white shadow-xs';
+        showToast('Bàn 01 - Đoàn A. Thành (1.450.000đ)');
+      } else if (id === 'T1_02') {
+        const t = document.getElementById('tab-t102');
+        if (t) t.className = 'px-2 py-0.5 rounded font-bold bg-orange-600 text-white shadow-xs';
+        showToast('Cảnh báo xung đột quá giờ tại T1-02');
+      }
+    }
+
+    function openQueue(q) {
+      if (q === 'rounds' || q === 'overdue') selectTable('MAM_09_10');
+      else if (q === 'staff') selectTable('T_03');
+      else if (q === 'unassigned') selectTable('T_04');
+      else selectTable('T_02');
+    }
+
+    function openBookingModal() {
+      showToast('Mở biểu mẫu tiếp nhận đặt bàn mới');
+    }
+
+    function quickWalkinModal() {
+      showToast('Mở điều phối bàn cho khách vãng lai');
+    }
+
+    function resetDemoData() {
+      if (confirm('Đặt lại toàn bộ dữ liệu POS mẫu về trạng thái gốc ca tối?')) {
+        const c1 = document.getElementById('cardRound01');
+        const c2 = document.getElementById('cardRound02');
+        if (c1) c1.style.display = 'block';
+        if (c2) c2.style.display = 'block';
+
+        activeRounds.round1.active = true;
+        activeRounds.round1.checked = true;
+        activeRounds.round2.active = true;
+        activeRounds.round2.checked = true;
+
+        document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = true);
+        const checkAll = document.getElementById('checkSelectAll');
+        if (checkAll) checkAll.checked = true;
+
+        updateBatchCalculations();
+        showToast('Đã đặt lại dữ liệu Demo P03 ban đầu!');
+        scrollToNow();
+      }
+    }
+
+    window.onload = () => {
+      scrollToNow();
+      updateBatchCalculations();
+    };
+  </script>
+
+
+<script class="">
+let pendingRejection = { cardId: null, amount: 0, itemName: '' };
+
+function openRejectModal(cardId, amount, itemName) {
+  pendingRejection = { cardId, amount, itemName };
+  const title = document.getElementById('rejectModalTitle');
+  if (title) title.textContent = 'Từ chối: ' + itemName;
+  const modal = document.getElementById('modalBackdrop');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeRejectModal() {
+  const modal = document.getElementById('modalBackdrop');
+  if (modal) modal.classList.add('hidden');
+}
+
+function confirmRejectAction() {
+  const selectedRadio = document.querySelector('input[name="rejectReason"]:checked');
+  const reason = selectedRadio ? selectedRadio.value : 'Lý do khác';
+  const card = document.getElementById(pendingRejection.cardId);
+  if (card) {
+    card.style.display = 'none';
+  }
+  if (pendingRejection.cardId === 'cardRound01') activeRounds.round1.active = false;
+  if (pendingRejection.cardId === 'cardRound02') activeRounds.round2.active = false;
+  
+  closeRejectModal();
+  syncPendingState();
+  showToast('Đã từ chối ' + pendingRejection.itemName + ' (Lý do: ' + reason + ')', 'warn');
+}
+
+function approveSingleRound(cardId, amount, roundName) {
+  const card = document.getElementById(cardId);
+  if (card) {
+    card.style.display = 'none';
+  }
+  if (cardId === 'cardRound01') activeRounds.round1.active = false;
+  if (cardId === 'cardRound02') activeRounds.round2.active = false;
+  
+  syncPendingState();
+  showToast('Đã duyệt ' + roundName + ' & phát 2 liên in nhiệt 80mm thành công!');
+}
+
+function executeQuickApproveAll() {
+  const c1 = document.getElementById('cardRound01');
+  const c2 = document.getElementById('cardRound02');
+  if (c1) c1.style.display = 'none';
+  if (c2) c2.style.display = 'none';
+  activeRounds.round1.active = false;
+  activeRounds.round2.active = false;
+  syncPendingState();
+  showToast('Đã duyệt toàn bộ các lượt món & gửi lệnh in đồng thời 2 liên.');
+}
+
+function syncPendingState() {
+  let total = 0;
+  let count = 0;
+  if (activeRounds.round1 && activeRounds.round1.active) { total += activeRounds.round1.amount; count++; }
+  if (activeRounds.round2 && activeRounds.round2.active) { total += activeRounds.round2.amount; count++; }
+  
+  const pendingTotalDisp = document.getElementById('pendingTotalDisplay');
+  const pendingCountDisp = document.getElementById('pendingCountDisplay');
+  const badgeTab = document.getElementById('badgeTabCount');
+  const footerPending = document.getElementById('footerPendingTotal');
+  const quickBtn = document.getElementById('btnQuickApproveAll');
+  const quickLabel = document.getElementById('btnQuickApproveLabel');
+  
+  if (pendingTotalDisp) pendingTotalDisp.textContent = total.toLocaleString('vi-VN') + 'đ';
+  if (pendingCountDisp) pendingCountDisp.textContent = '(' + count + ' món)';
+  if (badgeTab) {
+    badgeTab.textContent = count;
+    if (count === 0) badgeTab.classList.remove('animate-pulse');
+  }
+  if (footerPending) footerPending.textContent = count + ' lượt: ' + total.toLocaleString('vi-VN') + 'đ';
+  
+  const badgeRounds = document.getElementById('badgeRounds');
+  if (badgeRounds) badgeRounds.textContent = count + ' lượt';
+  
+  if (count === 0 && quickBtn) {
+    quickBtn.disabled = true;
+    quickBtn.classList.add('opacity-50', 'pointer-events-none');
+    if (quickLabel) quickLabel.textContent = 'Đã hoàn tất duyệt các lượt';
+  }
+}
+</script></body></html>

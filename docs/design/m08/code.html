@@ -1,0 +1,441 @@
+<!DOCTYPE html><html lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title>Bảo Lương Hotpot - Gọi Nhân Viên Phục Vụ</title>
+<!-- Tailwind CSS CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Custom Tailwind Configuration for Gogi / Golden Gate palette -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gogi: {
+              50: '#fff7ed',
+              100: '#ffedd5',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c',
+              800: '#9a3412',
+              dark: '#1c1917'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif']
+          },
+          boxShadow: {
+            'soft': '0 2px 12px rgba(0, 0, 0, 0.04)',
+            'floating': '0 8px 24px rgba(234, 88, 12, 0.28)'
+          }
+        }
+      }
+    }
+  </script>
+<!-- BEGIN: Custom Styles -->
+<style data-purpose="custom-layout">
+    /* iOS Momentum Scrolling & Touch smoothness */
+    body {
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    
+    /* Active feedback animation for quick tap */
+    .touch-scale {
+      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s ease, background-color 0.15s ease;
+    }
+    .touch-scale:active {
+      transform: scale(0.96);
+    }
+
+    /* Pulsing notification badge */
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.15); }
+    }
+    .status-pulse {
+      animation: pulse-subtle 2s infinite ease-in-out;
+    }
+  </style>
+<!-- END: Custom Styles -->
+</head>
+<body class="bg-[#F8F9FA] text-stone-800 antialiased min-h-screen flex justify-center pb-28">
+<!-- Mobile Container (iPhone Form Factor) -->
+<div class="w-full max-w-md bg-white min-h-screen relative flex flex-col shadow-sm">
+<!-- BEGIN: TopBar -->
+<header class="sticky top-0 z-30 bg-white border-b border-stone-200/80 shadow-sm" data-purpose="app-header">
+  <!-- Zalo Mini App System Navigation Bar -->
+  <div class="flex items-center justify-between px-3 py-2 bg-stone-50/80 border-b border-stone-100 text-stone-800">
+    <div class="flex items-center gap-2">
+      <button aria-label="Quay lại thực đơn" class="w-7 h-7 flex items-center justify-center rounded-full active:bg-stone-200 text-stone-700 transition-colors" type="button">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path d="M15.75 19.5L8.25 12l7.5-7.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </button>
+      <span class="text-xs font-semibold text-stone-800 tracking-tight truncate max-w-[200px]">Bia Lẩu Bảo Lương - Zalo Mini App</span>
+    </div>
+    <!-- Zalo Mini App Capsule Controls (3 dots and close X) -->
+    <div class="flex items-center bg-white border border-stone-200 rounded-full px-2 py-0.5 shadow-sm gap-2 text-stone-600">
+      <button aria-label="Tuỳ chọn Zalo" class="flex items-center justify-center">
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+          <circle cx="5" cy="12" r="2"></circle>
+          <circle cx="12" cy="12" r="2"></circle>
+          <circle cx="19" cy="12" r="2"></circle>
+        </svg>
+      </button>
+      <span class="w-[1px] h-3 bg-stone-200"></span>
+      <button aria-label="Đóng Mini App" class="flex items-center justify-center">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main App Header Toolbar (M06 Menu Bar Style) -->
+  <div class="px-3.5 py-2.5 flex items-center justify-between gap-2 bg-white">
+    <div class="flex items-center gap-2">
+      <!-- Brand Avatar BL with notification dot -->
+      <div class="relative flex-shrink-0">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-600 to-orange-500 flex items-center justify-center text-white font-extrabold text-sm shadow-sm ring-2 ring-orange-100">
+          BL
+        </div>
+        <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-600 border-2 border-white rounded-full"></span>
+      </div>
+      <!-- Table Badge -->
+      <div class="inline-flex items-center gap-1 bg-stone-100 border border-stone-200/80 px-2.5 py-1 rounded-full text-xs font-semibold text-stone-700 shadow-sm">
+        <span class="text-stone-400 font-normal text-[11px]">Bàn</span>
+        <span class="font-extrabold text-stone-900 text-xs">09</span>
+      </div>
+    </div>
+
+    <!-- Actions Cluster -->
+    <div class="flex items-center gap-2">
+      <!-- Gọi NV Button (Red #DC2626 pill) -->
+      <button class="flex items-center gap-1 bg-[#DC2626] hover:bg-red-700 text-white px-2.5 py-1 rounded-full text-xs font-bold shadow-sm transition-transform active:scale-95" type="button">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+        <span class="">Gọi NV</span>
+      </button>
+
+      <!-- Rewards / Star Icon -->
+      <button aria-label="Điểm thưởng tích lũy" class="w-8 h-8 rounded-full bg-stone-50 border border-stone-200/70 flex items-center justify-center text-amber-500 active:bg-stone-100 transition-colors" type="button">
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+        </svg>
+      </button>
+
+      <!-- Cart Icon with badge -->
+      <button aria-label="Giỏ hàng" class="relative w-8 h-8 rounded-full bg-stone-50 border border-stone-200/70 flex items-center justify-center text-stone-700 active:bg-stone-100 transition-colors" type="button">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25c-.67 0-1.188-.578-1.119-1.243l1.263-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+        <span class="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center border border-white">3</span>
+      </button>
+
+      <!-- Profile / User Icon -->
+      <button aria-label="Tài khoản" class="w-8 h-8 rounded-full bg-stone-50 border border-stone-200/70 flex items-center justify-center text-stone-700 active:bg-stone-100 transition-colors" type="button">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Subheader Banner: Hỗ Trợ Tại Bàn • Nhân viên sẵn sàng -->
+  <div class="bg-orange-50/70 border-t border-orange-100/80 px-4 py-2 flex items-center justify-between">
+    <div class="flex items-center gap-1.5">
+      <span class="text-xs font-bold text-stone-900 tracking-tight">Hỗ Trợ Tại Bàn</span>
+      <span class="text-stone-300 text-xs">•</span>
+      <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 status-pulse"></span>
+      <span class="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">Nhân viên sẵn sàng</span>
+    </div>
+    <span class="text-[10px] font-medium text-stone-500 bg-white px-2 py-0.5 rounded-full border border-stone-200">Ca trưa</span>
+  </div>
+</header>
+<!-- END: TopBar -->
+<!-- BEGIN: MainContent -->
+<main class="flex-1 px-4 py-4 space-y-5" data-purpose="service-content">
+<!-- Section Title & Instruction -->
+<div class="flex items-end justify-between px-1">
+<div>
+<h2 class="text-lg font-extrabold text-stone-900 tracking-tight">Cần hỗ trợ món gì?</h2>
+<p class="text-xs text-stone-500 mt-0.5">Chạm để chọn nhanh nhu cầu cần phục vụ</p>
+</div>
+<span class="text-[11px] font-semibold text-gogi-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-100">
+          1-chạm gửi ngay
+        </span>
+</div>
+<!-- BEGIN: QuickServiceGrid -->
+<!-- 2-Column Responsive Touch Tiles inspired by Golden Gate Food Ordering UX -->
+<section class="grid grid-cols-2 gap-3" data-purpose="quick-options-grid" id="service-options-grid">
+<!-- Option 1: Thêm đá lạnh (Selected by default) -->
+<label class="relative flex flex-col items-center justify-center p-3.5 rounded-2xl bg-white border-2 border-gogi-600 bg-orange-50/40 shadow-soft cursor-pointer touch-scale transition-all select-none">
+<input checked="" class="peer sr-only" name="service_request" type="checkbox" value="ice">
+<!-- Checked indicator icon -->
+<div class="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-gogi-600 text-white flex items-center justify-center shadow-sm">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+<path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<!-- Modern minimal 3D-feel Icon -->
+<div class="w-13 h-13 mb-2 flex items-center justify-center">
+<div class="w-12 h-12 rounded-2xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+<svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+<rect fill="#e0f2fe" height="7" rx="2" stroke="currentColor" width="7" x="4" y="4"></rect>
+<rect fill="#bae6fd" height="7" rx="2" stroke="currentColor" width="7" x="13" y="4"></rect>
+<rect fill="#7dd3fc" height="7" rx="2" stroke="currentColor" width="7" x="8.5" y="13"></rect>
+</svg>
+</div>
+</div>
+<span class="text-sm font-bold text-stone-900 text-center">Thêm đá lạnh</span>
+<span class="text-[11px] text-stone-500 text-center mt-0.5">Xô đá bi / đá viên</span>
+</label>
+<!-- Option 2: Thêm chén đĩa, đũa -->
+<label class="relative flex flex-col items-center justify-center p-3.5 rounded-2xl bg-white border border-stone-200/90 hover:border-orange-300 shadow-soft cursor-pointer touch-scale transition-all select-none peer-checked:border-gogi-600">
+<input class="peer sr-only" name="service_request" type="checkbox" value="tableware">
+<!-- Checked indicator icon (Dynamic via peer state) -->
+<div class="absolute top-2.5 right-2.5 w-5 h-5 rounded-full border border-stone-300 peer-checked:bg-gogi-600 peer-checked:border-gogi-600 text-white flex items-center justify-center shadow-sm transition-all">
+<svg class="w-3.5 h-3.5 opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+<path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div class="w-13 h-13 mb-2 flex items-center justify-center">
+<div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+<svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+<ellipse cx="12" cy="14" rx="8" ry="4" stroke="currentColor" stroke-width="1.8"></ellipse>
+<path d="M6 14v1a6 3 0 0012 0v-1" stroke-linecap="round"></path>
+<path d="M19 6L5 8" stroke-linecap="round"></path>
+<path d="M19 9L5 11" stroke-linecap="round"></path>
+</svg>
+</div>
+</div>
+<span class="text-sm font-bold text-stone-900 text-center">Chén đĩa, đũa</span>
+<span class="text-[11px] text-stone-500 text-center mt-0.5">Bộ đồ ăn sơ cua</span>
+</label>
+<!-- Option 3: Châm nước lẩu -->
+<label class="relative flex flex-col items-center justify-center p-3.5 rounded-2xl bg-white border border-stone-200/90 hover:border-orange-300 shadow-soft cursor-pointer touch-scale transition-all select-none">
+<input class="peer sr-only" name="service_request" type="checkbox" value="hotpot_broth">
+<div class="absolute top-2.5 right-2.5 w-5 h-5 rounded-full border border-stone-300 peer-checked:bg-gogi-600 peer-checked:border-gogi-600 text-white flex items-center justify-center shadow-sm transition-all">
+<svg class="w-3.5 h-3.5 opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+<path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div class="w-13 h-13 mb-2 flex items-center justify-center">
+<div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+<svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+<path d="M12 3v3m-4-2v2m8-2v2M4 11h16a1 1 0 011 1v2a6 6 0 01-6 6h-6a6 6 0 01-6-6v-2a1 1 0 011-1z" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M2 13h20" stroke-linecap="round"></path>
+</svg>
+</div>
+</div>
+<span class="text-sm font-bold text-stone-900 text-center">Châm nước lẩu</span>
+<span class="text-[11px] text-stone-500 text-center mt-0.5">Lẩu Thái / Lẩu riêu</span>
+</label>
+<!-- Option 4: Khăn lạnh & Giấy ăn -->
+<label class="relative flex flex-col items-center justify-center p-3.5 rounded-2xl bg-white border border-stone-200/90 hover:border-orange-300 shadow-soft cursor-pointer touch-scale transition-all select-none">
+<input class="peer sr-only" name="service_request" type="checkbox" value="tissue">
+<div class="absolute top-2.5 right-2.5 w-5 h-5 rounded-full border border-stone-300 peer-checked:bg-gogi-600 peer-checked:border-gogi-600 text-white flex items-center justify-center shadow-sm transition-all">
+<svg class="w-3.5 h-3.5 opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+<path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div class="w-13 h-13 mb-2 flex items-center justify-center">
+<div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+<svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<span class="text-sm font-bold text-stone-900 text-center">Khăn lạnh / Giấy</span>
+<span class="text-[11px] text-stone-500 text-center mt-0.5">Khăn thơm &amp; khăn giấy</span>
+</label>
+<!-- Option 5: Đổi vỉ / Đổi bình ga -->
+<label class="relative flex flex-col items-center justify-center p-3.5 rounded-2xl bg-white border border-stone-200/90 hover:border-orange-300 shadow-soft cursor-pointer touch-scale transition-all select-none">
+<input class="peer sr-only" name="service_request" type="checkbox" value="stove_gas">
+<div class="absolute top-2.5 right-2.5 w-5 h-5 rounded-full border border-stone-300 peer-checked:bg-gogi-600 peer-checked:border-gogi-600 text-white flex items-center justify-center shadow-sm transition-all">
+<svg class="w-3.5 h-3.5 opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+<path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div class="w-13 h-13 mb-2 flex items-center justify-center">
+<div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
+<svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+<path d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1.341A3.75 3.75 0 0012 18z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<span class="text-sm font-bold text-stone-900 text-center">Đổi bếp / Vỉ ga</span>
+<span class="text-[11px] text-stone-500 text-center mt-0.5">Thay ga hoặc vỉ nướng</span>
+</label>
+<!-- Option 6: In bill tạm tính -->
+<label class="relative flex flex-col items-center justify-center p-3.5 rounded-2xl bg-white border border-stone-200/90 hover:border-orange-300 shadow-soft cursor-pointer touch-scale transition-all select-none">
+<input class="peer sr-only" name="service_request" type="checkbox" value="bill">
+<div class="absolute top-2.5 right-2.5 w-5 h-5 rounded-full border border-stone-300 peer-checked:bg-gogi-600 peer-checked:border-gogi-600 text-white flex items-center justify-center shadow-sm transition-all">
+<svg class="w-3.5 h-3.5 opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+<path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div class="w-13 h-13 mb-2 flex items-center justify-center">
+<div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center">
+<svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+<path d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9 8.25h.008v.008H9V8.25zm6 6h.008v.008H15v-.008z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<span class="text-sm font-bold text-stone-900 text-center">In bill thanh toán</span>
+<span class="text-[11px] text-stone-500 text-center mt-0.5">Kiểm tra hóa đơn tạm</span>
+</label>
+</section>
+<!-- END: QuickServiceGrid -->
+<!-- Option 7: Single Wide Card for "Gặp Trực Tiếp Quản Lý / Nhân Viên" -->
+<label class="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white border border-stone-200/90 hover:border-orange-300 shadow-soft cursor-pointer touch-scale transition-all select-none">
+<input class="peer sr-only" name="service_request" type="checkbox" value="direct_waiter">
+<div class="w-10 h-10 rounded-xl bg-orange-100/70 text-gogi-700 flex items-center justify-center shrink-0">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M15.75 6a3.75 3.75 0 11-7.001 0 3.75 3.75 0 017.001 0zM19.5 20.25a8.25 8.25 0 10-15 0" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div class="flex-1">
+<div class="text-sm font-bold text-stone-900">Gặp trực tiếp nhân viên</div>
+<p class="text-[11px] text-stone-500">Cần tư vấn món / giải quyết sự cố bàn ăn</p>
+</div>
+<div class="w-5 h-5 rounded-full border border-stone-300 peer-checked:bg-gogi-600 peer-checked:border-gogi-600 text-white flex items-center justify-center shadow-sm shrink-0 transition-all">
+<svg class="w-3.5 h-3.5 opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+<path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</label>
+<!-- BEGIN: QuickNoteInput -->
+<div class="space-y-1.5" data-purpose="quick-note">
+<label class="text-xs font-semibold text-stone-600 ml-1 flex items-center justify-between" for="order-note">
+<span class="">Ghi chú thêm (không bắt buộc)</span>
+<span class="text-stone-400 font-normal">Tối đa 60 ký tự</span>
+</label>
+<div class="relative">
+<input class="w-full text-xs sm:text-sm bg-stone-50/70 border border-stone-200 rounded-xl px-3.5 py-2.5 focus:bg-white focus:border-gogi-500 focus:ring-1 focus:ring-gogi-500 outline-none text-stone-800 placeholder-stone-400 transition-all" id="order-note" maxlength="60" placeholder="Vd: Nước lẩu ít cay, đổi thìa cho bé..." type="text">
+</div>
+</div>
+<!-- END: QuickNoteInput -->
+<!-- BEGIN: ServiceHistoryList -->
+<section class="mt-4 pt-4 border-t border-stone-100" data-purpose="service-history">
+<div class="flex items-center justify-between mb-2.5 px-1">
+<span class="text-xs font-bold text-stone-700 uppercase tracking-wider">Yêu cầu ca này</span>
+<span class="text-[11px] text-stone-400 font-medium">Bảo Lương Hotpot • Ca trưa</span>
+</div>
+<div class="space-y-2">
+<!-- History Item 1 (In Progress) -->
+<div class="flex items-center justify-between bg-white border border-stone-100 rounded-xl px-3 py-2 text-xs shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+<span class="font-medium text-stone-800">Châm nước lẩu riêu cua</span>
+</div>
+<div class="flex items-center gap-1.5 text-stone-400">
+<span class="">19:25</span>
+<span class="text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded text-[10px]">Đang tới</span>
+</div>
+</div>
+<!-- History Item 2 (Completed) -->
+<div class="flex items-center justify-between bg-white border border-stone-100 rounded-xl px-3 py-2 text-xs shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+<div class="flex items-center gap-2">
+<span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+<svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+</span>
+<span class="font-medium text-stone-600">Thêm 1 xô đá bia</span>
+</div>
+<div class="flex items-center gap-1.5 text-stone-400">
+<span class="">19:10</span>
+<span class="text-stone-400 font-normal text-[10px]">Hoàn thành</span>
+</div>
+</div>
+</div>
+</section>
+<!-- END: ServiceHistoryList -->
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: FloatingBottomBar -->
+<div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-white/95 backdrop-blur-md border-t border-stone-100 z-40" data-purpose="floating-action-container">
+<!-- Primary CTA Button with Golden Gate Style -->
+<button class="w-full bg-gradient-to-r from-gogi-600 to-gogi-700 hover:from-gogi-700 hover:to-gogi-800 text-white font-bold py-3.5 px-6 rounded-2xl shadow-floating active:scale-[0.98] transition-all flex items-center justify-center gap-2.5" id="btn-call-waiter" type="button">
+<!-- Bell Shake Icon -->
+<svg class="w-5 h-5 animate-[wiggle_1s_ease-in-out_infinite]" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+<path d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="text-base tracking-wide">Rung Chuông Gọi Phục Vụ</span>
+</button>
+<!-- Trust & Service SLA Micro-copy -->
+<p class="text-[11px] text-center text-stone-400 mt-2 flex items-center justify-center gap-1">
+<svg class="w-3.5 h-3.5 text-emerald-600 inline" fill="currentColor" viewBox="0 0 20 20">
+<path clip-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" fill-rule="evenodd"></path>
+</svg>
+<span class="">Nhân viên Bảo Lương sẽ có mặt tại bàn trong <strong>2 - 3 phút</strong></span>
+</p>
+</div>
+<!-- END: FloatingBottomBar -->
+<!-- BEGIN: Interactive Toast Notification (Hidden by default) -->
+<div class="fixed top-5 left-4 right-4 max-w-sm mx-auto bg-stone-900/95 text-white backdrop-blur px-4 py-3 rounded-2xl shadow-xl z-50 flex items-center gap-3 transform -translate-y-20 opacity-0 transition-all duration-300 pointer-events-none" id="toast-success">
+<div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+<path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<p class="text-xs font-bold text-white">Đã gửi yêu cầu thành công!</p>
+<p class="text-[11px] text-stone-300">Nhân viên đang di chuyển đến Bàn 09.</p>
+</div>
+</div>
+<!-- END: Interactive Toast Notification -->
+</div>
+<!-- BEGIN: Interactive Logic for 1-Tap Toggle -->
+<script data-purpose="toggle-options-and-submit">
+    document.addEventListener('DOMContentLoaded', () => {
+      // Toggle card selected visual states
+      const optionLabels = document.querySelectorAll('label:has(input[type="checkbox"])');
+
+      function updateCardStyle(label) {
+        const checkbox = label.querySelector('input[type="checkbox"]');
+        if (!checkbox) return;
+        
+        if (checkbox.checked) {
+          label.classList.add('border-gogi-600', 'bg-orange-50/40');
+          label.classList.remove('border-stone-200/90');
+        } else {
+          label.classList.remove('border-gogi-600', 'bg-orange-50/40');
+          label.classList.add('border-stone-200/90');
+        }
+      }
+
+      optionLabels.forEach(label => {
+        const checkbox = label.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+          updateCardStyle(label);
+          checkbox.addEventListener('change', () => updateCardStyle(label));
+        }
+      });
+
+      // Submit trigger action with simulated toast
+      const btnCall = document.getElementById('btn-call-waiter');
+      const toast = document.getElementById('toast-success');
+
+      if (btnCall && toast) {
+        btnCall.addEventListener('click', () => {
+          // Play micro haptic / visual feedback
+          toast.classList.remove('-translate-y-20', 'opacity-0');
+          toast.classList.add('translate-y-0', 'opacity-100');
+
+          setTimeout(() => {
+            toast.classList.remove('translate-y-0', 'opacity-100');
+            toast.classList.add('-translate-y-20', 'opacity-0');
+          }, 3200);
+        });
+      }
+    });
+  </script>
+<!-- END: Interactive Logic -->
+
+
+</body></html>

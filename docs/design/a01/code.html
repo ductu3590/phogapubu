@@ -1,0 +1,342 @@
+<!DOCTYPE html><html class="h-full" lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Cấu hình Hệ thống MEVO POS - Bia Lẩu Bảo Lương</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "inverse-surface": "#382e29",
+            "inverse-primary": "#ffb68b",
+            "surface-container-lowest": "#ffffff",
+            "surface-container": "#fceae2",
+            "on-background": "#221a15",
+            "status-amber": "#B45309",
+            "on-primary-container": "#ffede4",
+            "secondary-fixed": "#dae2fd",
+            "secondary": "#565e74",
+            "on-tertiary-fixed-variant": "#004c69",
+            "tertiary-container": "#00759f",
+            "on-secondary-container": "#5c647a",
+            "on-error": "#ffffff",
+            "on-tertiary": "#ffffff",
+            "on-surface-variant": "#554339",
+            "outline-variant": "#dbc2b4",
+            "on-primary-fixed": "#321300",
+            "status-red-bg": "#FEF2F2",
+            "primary-fixed": "#ffdbc8",
+            "surface-tint": "#96490b",
+            "tertiary": "#005b7d",
+            "surface-dim": "#e7d7cf",
+            "background": "#fff8f5",
+            "status-green-bg": "#F0FDF4",
+            "surface-container-high": "#f6e5dd",
+            "secondary-fixed-dim": "#bec6e0",
+            "canvas": "#F8FAFC",
+            "surface-bright": "#fff8f5",
+            "surface-variant": "#f0dfd7",
+            "on-secondary-fixed": "#131b2e",
+            "tertiary-fixed-dim": "#7ed0fe",
+            "on-primary": "#ffffff",
+            "surface-container-low": "#fff1ea",
+            "selected-bg": "#FFFBEB",
+            "on-secondary-fixed-variant": "#3f465c",
+            "secondary-container": "#dae2fd",
+            "surface": "#FFFFFF",
+            "inverse-on-surface": "#ffede5",
+            "text-muted": "#475569",
+            "status-amber-bg": "#FFFBEB",
+            "on-tertiary-fixed": "#001e2c",
+            "status-red": "#B91C1C",
+            "error": "#ba1a1a",
+            "surface-container-highest": "#f0dfd7",
+            "on-secondary": "#ffffff",
+            "error-container": "#ffdad6",
+            "outline": "#887368",
+            "on-primary-fixed-variant": "#743400",
+            "tertiary-fixed": "#c4e7ff",
+            "on-error-container": "#93000a",
+            "border": "#CBD5E1",
+            "on-tertiary-container": "#e2f2ff",
+            "on-surface": "#221a15",
+            "primary-container": "#a9571b",
+            "status-green": "#15803D",
+            "primary-fixed-dim": "#ffb68b",
+            "primary": "#8a4001",
+            "text-main": "#0F172A"
+          },
+          borderRadius: {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "2xl": "1rem",
+            "full": "0.75rem"
+          },
+          fontFamily: {
+            sans: ["Geist", "sans-serif"],
+            mono: ["Geist Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-900 text-on-surface font-sans h-full overflow-hidden select-none">
+<!-- Background: Blurred Desktop POS Interface Behind the Modal Overlay -->
+<div class="fixed inset-0 flex flex-col pointer-events-none filter blur-[3px] scale-[1.01] opacity-60">
+<!-- Simulated POS Top Bar -->
+<div class="h-14 bg-slate-900 text-white flex items-center justify-between px-6 border-b border-slate-800">
+<div class="flex items-center gap-3 font-semibold text-lg tracking-tight">
+<span class="size-7 bg-primary rounded flex items-center justify-center text-white text-xs font-bold">ME</span>
+<span class="">MEVO POS • Trạm #01 - Hoàng Mai</span>
+</div>
+<div class="flex items-center gap-6 text-sm text-slate-300 font-mono">
+<span class="flex items-center gap-2"><span class="size-2 rounded-full bg-emerald-500"></span> LAN 192.168.1.101</span>
+<span class="">Ca trưa: 10:30 - 22:30</span>
+<span class="bg-slate-800 px-3 py-1 rounded text-slate-200">NV: Nguyễn Văn Nam</span>
+</div>
+</div>
+<!-- Simulated POS Tables Grid / Dashboard -->
+<div class="flex-1 p-6 grid grid-cols-6 gap-4 bg-slate-950 overflow-hidden">
+<div class="bg-emerald-950/40 border border-emerald-700/50 rounded-xl p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start font-mono text-sm"><span class="font-bold text-white text-lg">Bàn A01</span><span class="text-emerald-400">4 Khách</span></div>
+<div class="text-xs text-slate-400">Đã phục vụ 4 món • 42 phút</div>
+<div class="text-emerald-300 font-mono font-bold text-right text-base">780.000đ</div>
+</div>
+<div class="bg-amber-950/40 border border-amber-700/50 rounded-xl p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start font-mono text-sm"><span class="font-bold text-white text-lg">Bàn A02</span><span class="text-amber-400">Chờ bếp</span></div>
+<div class="text-xs text-slate-400">Lẩu riêu cua bắp bò (2)</div>
+<div class="text-amber-300 font-mono font-bold text-right text-base">1.250.000đ</div>
+</div>
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between opacity-60">
+<div class="flex justify-between items-start font-mono text-sm"><span class="font-bold text-slate-300 text-lg">Bàn A03</span><span class="text-slate-500">Trống</span></div>
+<div class="text-xs text-slate-500">Khu vực Sân Vườn</div>
+<div class="text-slate-600 font-mono text-right text-base">---</div>
+</div>
+<div class="bg-emerald-950/40 border border-emerald-700/50 rounded-xl p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start font-mono text-sm"><span class="font-bold text-white text-lg">Bàn VIP 1</span><span class="text-emerald-400">8 Khách</span></div>
+<div class="text-xs text-slate-400">Bia hơi Hà Nội (12L)</div>
+<div class="text-emerald-300 font-mono font-bold text-right text-base">3.420.000đ</div>
+</div>
+<div class="bg-emerald-950/40 border border-emerald-700/50 rounded-xl p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start font-mono text-sm"><span class="font-bold text-white text-lg">Bàn VIP 2</span><span class="text-emerald-400">10 Khách</span></div>
+<div class="text-xs text-slate-400">Đặt trước 19:30</div>
+<div class="text-emerald-300 font-mono font-bold text-right text-base">2.100.000đ</div>
+</div>
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between opacity-60">
+<div class="flex justify-between items-start font-mono text-sm"><span class="font-bold text-slate-300 text-lg">Bàn B01</span><span class="text-slate-500">Trống</span></div>
+<div class="text-xs text-slate-500">Tầng 1 Máy Lạnh</div>
+<div class="text-slate-600 font-mono text-right text-base">---</div>
+</div>
+</div>
+</div>
+<!-- Modal Backdrop Overlay -->
+<div class="fixed inset-0 z-40 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+<!-- Main Admin Modal Container (1200px desktop width, 760px fixed height) -->
+<div class="w-full max-w-[1240px] h-[780px] bg-white rounded-2xl shadow-2xl border border-slate-200/80 flex flex-col overflow-hidden text-text-main animate-in fade-in zoom-in-95 duration-150">
+<!-- 1. Header Modal -->
+<div class="px-7 py-4 bg-white border-b border-border/70 flex items-center justify-between shrink-0">
+<div class="flex items-center gap-4">
+<div class="size-11 rounded-xl bg-orange-50 border border-orange-200/60 flex items-center justify-center text-primary-container shadow-sm">
+<span class="material-symbols-outlined text-[26px]">settings</span>
+</div>
+<div>
+<div class="flex items-center gap-3">
+<h2 class="text-xl font-bold tracking-tight text-slate-900">Quản trị &amp; Cấu hình Hệ thống MEVO POS</h2>
+<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">Trạm POS #01</span>
+</div>
+<p class="text-xs text-slate-500 mt-0.5 font-normal">
+              Quán Bia Lẩu Bảo Lương (Hoàng Mai) • Phiên bản MEVO v2.4 • Đăng nhập với quyền: <span class="font-medium text-slate-700">Quản lý cơ sở</span>
+</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="hidden sm:flex items-center gap-2 bg-emerald-50 text-status-green border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-medium"><span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>LAN: 1 Máy in quầy sẵn sàng</div>
+<button class="flex items-center gap-1.5 px-4 h-10 rounded-lg bg-primary-container text-white text-sm font-semibold hover:bg-primary transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px]">save</span>
+<span class="">Lưu thay đổi</span>
+</button>
+<button class="size-10 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors border border-transparent hover:border-slate-200 ml-1" title="Đóng modal (ESC)">
+<span class="material-symbols-outlined text-[22px]">close</span>
+</button>
+</div>
+</div>
+<!-- 2. Tabs Navigation Bar (A01 -> A05) -->
+<div class="bg-slate-50/80 px-6 border-b border-border/80 shrink-0">
+<nav aria-label="Tabs Admin" class="flex space-x-1">
+<!-- Tab A01 - Active -->
+<button class="group flex items-center gap-2.5 px-4 py-3 border-b-2 border-primary-container text-primary-container font-semibold text-sm">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: &quot;FILL&quot; 1;">print</span>
+<span class="">[A01] Cấu hình &amp; In ấn</span>
+<span class="size-2 rounded-full bg-primary-container ml-0.5"></span>
+</button>
+<!-- Tab A02 -->
+<button class="group flex items-center gap-2.5 px-4 py-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 font-medium text-sm transition-colors hover:border-slate-300">
+<span class="material-symbols-outlined text-[20px]">restaurant_menu</span>
+<span class="">[A02] Thực đơn &amp; Giá</span>
+</button>
+<!-- Tab A03 -->
+<button class="group flex items-center gap-2.5 px-4 py-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 font-medium text-sm transition-colors hover:border-slate-300">
+<span class="material-symbols-outlined text-[20px]">table_restaurant</span>
+<span class="">[A03] Sơ đồ Bàn &amp; Mã QR</span>
+</button>
+<!-- Tab A04 -->
+<button class="group flex items-center gap-2.5 px-4 py-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 font-medium text-sm transition-colors hover:border-slate-300">
+<span class="material-symbols-outlined text-[20px]">receipt_long</span>
+<span class="">[A04] Hóa đơn &amp; Báo cáo Ca</span>
+</button>
+<!-- Tab A05 -->
+<button class="group flex items-center gap-2.5 px-4 py-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 font-medium text-sm transition-colors hover:border-slate-300">
+<span class="material-symbols-outlined text-[20px]">badge</span>
+<span class="">[A05] Tài khoản &amp; Phân quyền</span>
+</button>
+</nav>
+</div>
+<!-- 3. Modal Body: Tab Content [A01] Active -->
+<div class="flex-1 overflow-y-auto p-6 bg-slate-50/50 space-y-6">
+<!-- Khối 1: Thông tin quán & Quy trình phục vụ -->
+<section class="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+<div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+<div class="flex items-center gap-2.5">
+<span class="size-8 rounded-lg bg-orange-100/70 text-primary-container flex items-center justify-center font-bold text-xs">1</span>
+<div>
+<h3 class="font-bold text-slate-900 text-base">Thông tin Cơ sở &amp; Quy trình Nhận Đơn</h3>
+<p class="text-xs text-slate-500">Tùy biến hiển thị trên tiêu đề bill thanh toán và luồng duyệt bếp tự động</p>
+</div>
+</div>
+<span class="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded">SYS_CONFIG_BRANCH</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+<!-- Tên cơ sở -->
+<div>
+<label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Tên cơ sở hiển thị trên bill</label>
+<input class="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container bg-slate-50/30" type="text" value="Bia Lẩu Bảo Lương (Chi nhánh Hoàng Mai)">
+</div>
+<!-- Hotline -->
+<div>
+<label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Hotline CSKH / Đặt bàn</label>
+<input class="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container bg-slate-50/30 font-mono" type="text" value="0984.729.112 - 024.3876.5432">
+</div>
+<!-- Thời gian giữ bàn -->
+<div>
+<label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Thời gian giữ bàn đặt trước</label>
+<select class="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container bg-white">
+<option>45 phút trước giờ hẹn</option>
+<option selected="">60 phút trước giờ hẹn (Khuyên dùng giờ cao điểm)</option>
+<option>90 phút trước giờ hẹn</option>
+<option>Tự động nhả bàn nếu trễ 15 phút</option>
+</select>
+</div>
+<!-- Địa chỉ trên bill -->
+<div class="lg:col-span-2">
+<label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Địa chỉ in chân hóa đơn</label>
+<input class="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container bg-slate-50/30" type="text" value="Số 48 Ngõ 102 Hoàng Đạo Thành, Phường Kim Giang, Hoàng Mai, Hà Nội">
+</div>
+<!-- Toggle Quy trình nhận đơn -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-orange-50/50 border border-orange-200/60">
+<div class="pr-2">
+<span class="block text-xs font-bold text-slate-900">Duyệt món tại POS trước khi in bếp</span>
+<span class="text-[11px] text-slate-500">Tránh in nhầm phiếu khi khách đang chọn món</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- Khối 2: Cấu hình Máy in nhiệt 80mm & In tự động -->
+<section class="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+<div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100"><div class="flex items-center gap-2.5"><span class="size-8 rounded-lg bg-orange-100/70 text-primary-container flex items-center justify-center font-bold text-xs">2</span><div><h3 class="font-bold text-slate-900 text-base">Cấu hình Máy In Nhiệt 80mm Tại Quầy (Đơn máy in - In 2 liên)</h3><p class="text-xs text-slate-500">Quán sử dụng 1 máy in nhiệt 80mm duy nhất đặt tại quầy thu ngân. Mỗi lệnh duyệt món sẽ tự động in ra 2 liên nối tiếp nhau.</p></div></div><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-status-green text-xs font-medium"><span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span><span class="">Đang kết nối LAN (192.168.1.200) • Khổ K80 Auto-cut</span></div></div>
+<div class="border border-slate-200 rounded-xl p-5 bg-slate-50/30 flex flex-col gap-4.5"><div class="flex items-start justify-between pb-3 border-b border-slate-100"><div class="flex items-center gap-3.5"><div class="size-11 rounded-xl bg-orange-100/80 text-primary-container flex items-center justify-center"><span class="material-symbols-outlined text-[24px]">print</span></div><div><div class="flex items-center gap-2.5"><h4 class="font-bold text-sm text-slate-900">Máy In Đa Năng Quầy Thu Ngân #01 (ESC/POS LAN/USB)</h4><span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 flex items-center gap-1"><span class="size-1.5 rounded-full bg-emerald-600"></span> Online</span><span class="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200">Cơ chế In 2 Liên</span></div><p class="text-xs text-slate-500 font-mono mt-0.5">Xprinter XP-Q800 / Khổ giấy K80 (80mm) • Tự cắt giấy</p></div></div><button class="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-primary-container px-3 py-1.5 bg-white border border-slate-200 rounded-lg hover:border-orange-300 shadow-2xs transition-colors"><span class="material-symbols-outlined text-[15px]">receipt</span> In thử 2 liên test</button></div><div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono"><div class="bg-white p-2.5 rounded-lg border border-slate-200"><span class="text-slate-400 block text-[10px] uppercase font-sans font-semibold">Giao thức / Địa chỉ IP</span><span class="font-bold text-slate-800 text-[13px]">LAN TCP/IP: 192.168.1.200:9100</span></div><div class="bg-white p-2.5 rounded-lg border border-slate-200"><span class="text-slate-400 block text-[10px] uppercase font-sans font-semibold">Cài đặt lệnh in</span><span class="font-bold text-slate-800 text-[11px] block leading-tight mt-0.5">Luôn xuất 2 liên tự cắt (Liên 1: Bếp &amp; Chạy bàn • Liên 2: Thu ngân &amp; Bàn)</span></div><div class="bg-white p-2.5 rounded-lg border border-slate-200"><span class="text-slate-400 block text-[10px] uppercase font-sans font-semibold">Còi báo (Buzzer)</span><span class="font-bold text-slate-800 text-[13px]">Bíp 2 tiếng ngắn khi in ra thành công</span></div></div><div class="pt-2 border-t border-slate-100 space-y-2.5"><div class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Luồng Nghiệp Vụ In 2 Liên &amp; Bảo Toàn Dữ Liệu:</div><div class="flex items-start gap-3 text-xs bg-white p-2.5 rounded-lg border border-slate-200/80"><input checked="" class="rounded border-slate-300 text-primary-container focus:ring-primary-container/20 size-4 mt-0.5" type="checkbox"><div class="flex-1"><span class="font-semibold text-slate-800">1. Duyệt món mới: </span><span class="text-slate-600">Hệ thống nối món vào bill mâm → Lập tức gửi lệnh in 2 liên ra máy in quầy (Liên 1 mang xuống bếp chế biến, Liên 2 giao chạy bàn kẹp hóa đơn tạm).</span></div></div><div class="flex items-start gap-3 text-xs bg-white p-2.5 rounded-lg border border-slate-200/80"><input checked="" class="rounded border-slate-300 text-primary-container focus:ring-primary-container/20 size-4 mt-0.5" type="checkbox"><div class="flex-1"><span class="font-semibold text-slate-800">2. In lại an toàn (Re-print): </span><span class="text-slate-600">Thu ngân có thể bấm "In lại" trong lịch sử lượt để in lại đúng 2 liên của lượt đó (khi kẹt giấy/hết giấy) mà tuyệt đối không nhân đôi món hay tăng tổng tiền bill.</span></div></div><div class="flex items-start gap-3 text-xs bg-white p-2.5 rounded-lg border border-slate-200/80"><input checked="" class="rounded border-slate-300 text-primary-container focus:ring-primary-container/20 size-4 mt-0.5" type="checkbox"><div class="flex-1"><span class="font-semibold text-slate-800">3. In hóa đơn thanh toán: </span><span class="text-slate-600">Tự động in bill thanh toán khi bấm "Thanh toán mâm" (Tích hợp in mã VietQR chuyển khoản động theo số tiền thực thu).</span></div></div></div></div>
+<!-- Alert banner quy chuẩn D01 -->
+<div class="mt-4 p-3 rounded-lg bg-amber-50/80 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5"><span class="material-symbols-outlined text-amber-700 text-[18px] shrink-0 mt-0.5">verified_user</span><div class=""><span class="font-bold">Quy chuẩn nghiệp vụ D01 của MEVO POS:</span> Khi hết giấy hoặc kẹt máy, hệ thống vẫn lưu hóa đơn và cho phép thanh toán bình thường. Sau khi thay giấy, bấm "In lại" ở tab Lịch sử sẽ in lại đầy đủ 2 liên của đúng lượt vừa gọi mà không làm sai lệch số liệu doanh thu hay số lượng món.</div></div>
+</section>
+<!-- Khối 3: Cấu hình Khách & Thông báo -->
+<section class="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+<div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+<div class="flex items-center gap-2.5">
+<span class="size-8 rounded-lg bg-orange-100/70 text-primary-container flex items-center justify-center font-bold text-xs">3</span>
+<div>
+<h3 class="font-bold text-slate-900 text-base">Cấu hình Đặt Món QR &amp; Chuông Cảnh Báo</h3>
+<p class="text-xs text-slate-500">Cơ chế tương tác khách tại bàn và hệ thống âm thanh thông báo nhân viên</p>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+<div class="p-3.5 rounded-lg border border-slate-200 bg-white flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-bold text-xs text-slate-800 uppercase tracking-wider">Khách Quét QR Gọi Món</span>
+<input checked="" class="rounded text-primary-container focus:ring-primary-container/20 size-4" type="checkbox">
+</div>
+<p class="text-xs text-slate-500 leading-relaxed">
+                  Cho phép thực khách dùng điện thoại quét mã QR dán tại bàn để xem thực đơn điện tử và gửi gọi thêm món.
+                </p>
+</div>
+<div class="mt-3 pt-2 border-t border-slate-100 text-[11px] text-emerald-700 font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px]">check_circle</span> Đang kích hoạt 36 bàn
+              </div>
+</div>
+<div class="p-3.5 rounded-lg border border-slate-200 bg-white flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-bold text-xs text-slate-800 uppercase tracking-wider">Âm Thanh Báo Gọi Nhân Viên</span>
+<input checked="" class="rounded text-primary-container focus:ring-primary-container/20 size-4" type="checkbox">
+</div>
+<label class="block text-xs text-slate-500 mb-2">Kiểu chuông phát trên trạm POS:</label>
+<select class="w-full h-8 px-2 rounded border border-slate-200 text-xs bg-slate-50 font-medium">
+<option selected="">Chuông Ding-Dong kép (Chuẩn)</option>
+<option>Tiếng gõ nhẹ (Không gây ồn)</option>
+<option>Báo động liên tục cho tới khi nhận</option>
+</select>
+</div>
+<div class="mt-2 text-[11px] text-slate-400">Âm lượng thiết bị: 80%</div>
+</div>
+<div class="p-3.5 rounded-lg border border-slate-200 bg-white flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-bold text-xs text-slate-800 uppercase tracking-wider">Cảnh Báo Xung Đột Bàn</span>
+<input checked="" class="rounded text-primary-container focus:ring-primary-container/20 size-4" type="checkbox">
+</div>
+<p class="text-xs text-slate-500 leading-relaxed">
+                  Tự động chặn xếp khách vãng lai vào bàn đã có lịch hẹn trước nếu khoảng cách dưới 45 phút.
+                </p>
+</div>
+<div class="mt-3 pt-2 border-t border-slate-100 text-[11px] text-primary-container font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px]">security</span> Tránh trùng lịch cao điểm
+              </div>
+</div>
+</div>
+</section>
+</div>
+<!-- 4. Footer Modal -->
+<div class="px-7 py-4 bg-white border-t border-border flex items-center justify-between shrink-0">
+<div class="flex items-center gap-2 text-xs text-slate-500">
+<span class="material-symbols-outlined text-slate-400 text-[18px]">sync</span>
+<span class="">Lần đồng bộ gần nhất: <span class="font-mono font-medium text-slate-700">19:15:42</span> • Thực hiện bởi: <span class="font-medium text-slate-800">QL. Nguyễn Văn Nam</span></span>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors">
+            Khôi phục mặc định
+          </button>
+<button class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100 transition-colors">
+            Hủy bỏ (ESC)
+          </button>
+<button class="flex items-center gap-1.5 px-5 py-2 rounded-lg bg-primary-container text-white text-xs font-bold hover:bg-primary transition-all shadow-sm">
+<span class="material-symbols-outlined text-[16px]">done</span>
+            Lưu cấu hình ngay
+          </button>
+</div>
+</div>
+</div>
+</div>
+
+
+</body></html>
