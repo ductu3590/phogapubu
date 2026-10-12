@@ -1,0 +1,359 @@
+<!DOCTYPE html><html lang="vi" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title>M07 - Theo dõi đơn &amp; Tạm tính | Quán Bia Lẩu Bảo Lương</title>
+<!-- Tailwind CSS v3 with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Phosphor Icons for iOS-style minimalist iconography -->
+<script src="https://unpkg.com/@phosphor-icons/web"></script><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/thin/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/light/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/bold/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/fill/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/duotone/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/thin/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/light/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/bold/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/fill/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/duotone/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/thin/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/light/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/bold/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/fill/style.css"><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/duotone/style.css">
+<style data-purpose="base-styling">
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      letter-spacing: -0.015em;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      display: none;
+    }
+    .custom-scroll {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+<style data-purpose="status-indicators">
+    .badge-soft-amber {
+      background-color: #FFF7ED;
+      color: #C2410C;
+      border: 1px solid #FFEDD5;
+    }
+    .badge-soft-blue {
+      background-color: #EFF6FF;
+      color: #1D4ED8;
+      border: 1px solid #DBEAFE;
+    }
+    .badge-soft-green {
+      background-color: #F0FDF4;
+      color: #15803D;
+      border: 1px solid #DCFCE7;
+    }
+  </style>
+</head>
+<body class="bg-[#F8F9FA] text-[#1E293B] antialiased min-h-screen flex justify-center selection:bg-rose-100">
+<!-- Mobile Screen Container (Emulates iOS viewport width) -->
+<div class="w-full max-w-[430px] min-h-screen bg-[#F8F9FA] flex flex-col pb-28 relative shadow-xl overflow-x-hidden">
+<!-- BEGIN: TopBar -->
+<header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100 px-4 pt-2.5 pb-2.5">
+  <!-- Zalo Mini App Top Bar -->
+  <div class="flex items-center justify-between pb-2 border-b border-gray-100/60 text-gray-800">
+    <div class="flex items-center gap-2">
+      <button aria-label="Quay lại thực đơn" class="w-7 h-7 rounded-full flex items-center justify-center text-gray-700 active:bg-gray-100 transition" type="button">
+        <i class="ph ph-caret-left text-lg font-bold"></i>
+      </button>
+      <span class="text-[13px] font-semibold text-gray-800 truncate">Bia Lẩu Bảo Lương</span>
+    </div>
+    <!-- Zalo Mini App Capsule Controls (3 dots & Close) -->
+    <div class="flex items-center bg-gray-100/90 border border-gray-200/80 rounded-full px-2.5 py-1 gap-2.5 text-gray-700">
+      <button type="button" class="hover:text-black flex items-center">
+        <span class="flex gap-0.5">
+          <span class="w-1 h-1 rounded-full bg-gray-700"></span>
+          <span class="w-1 h-1 rounded-full bg-gray-700"></span>
+          <span class="w-1 h-1 rounded-full bg-gray-700"></span>
+        </span>
+      </button>
+      <span class="w-px h-3 bg-gray-300"></span>
+      <button type="button" class="hover:text-black flex items-center">
+        <svg class="w-3.5 h-3.5 stroke-current stroke-2" viewBox="0 0 24 24" fill="none">
+          <path d="M18 6L6 18M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Tools Bar: Avatar, Gọi NV, Bàn 09, Action Icons -->
+  <div class="flex items-center justify-between gap-2 pt-2.5">
+    <div class="flex items-center gap-2 min-w-0">
+      <!-- Round Avatar BL with notification dot -->
+      <div class="relative shrink-0">
+        <div class="w-9 h-9 rounded-full bg-rose-600 text-white font-black text-sm flex items-center justify-center border-2 border-white shadow-xs">
+          BL
+        </div>
+        <span class="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
+      </div>
+      <!-- Gọi NV Button -->
+      <button class="flex items-center gap-1.5 bg-[#DC2626] text-white px-3 py-1.5 rounded-full text-[12px] font-bold shadow-xs active:scale-95 transition-transform shrink-0" type="button">
+        <i class="ph ph-bell-ringing text-[14px]"></i>
+        <span class="">Gọi NV</span>
+      </button>
+      <!-- Table Badge -->
+      <div class="bg-gray-100/90 text-gray-800 text-[12px] font-semibold px-2.5 py-1 rounded-full border border-gray-200 shrink-0">
+        Bàn 09
+      </div>
+    </div>
+
+    <!-- Right Action Icons: Star, Cart (badge 2), Profile -->
+    <div class="flex items-center gap-2.5 shrink-0 text-gray-600">
+      <!-- Star / Points -->
+      <button aria-label="Điểm thưởng" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 active:scale-95 transition text-amber-500" type="button">
+        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path>
+        </svg>
+      </button>
+      <!-- Cart with Badge 2 -->
+      <button aria-label="Giỏ hàng" class="relative w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 active:scale-95 transition" type="button">
+        <svg class="w-5 h-5 text-gray-700 stroke-current stroke-2" fill="none" viewBox="0 0 24 24">
+          <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+        </svg>
+        <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 border-2 border-white leading-none">
+          2
+        </span>
+      </button>
+      <!-- Profile -->
+      <button aria-label="Tài khoản" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 active:scale-95 transition text-gray-700" type="button">
+        <svg class="w-5 h-5 stroke-current stroke-2" fill="none" viewBox="0 0 24 24">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+<!-- END: TopBar -->
+<main class="flex-1 px-4 py-3 space-y-4">
+<!-- BEGIN: TableSummaryCard -->
+<section class="bg-white rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100/80" data-purpose="table-summary-card">
+<div class="flex items-start justify-between pb-3 border-b border-dashed border-gray-100">
+<div>
+<div class="flex items-center gap-1.5">
+<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+<h2 class="text-base font-bold text-gray-900 tracking-tight">Bàn 09 (Mâm ghép 09 + 10)</h2>
+</div>
+<div class="flex items-center gap-3 text-[12px] text-gray-400 mt-1 font-normal">
+<span class="flex items-center gap-1">
+<i class="ph ph-clock"></i> Giờ vào: 18:15
+              </span>
+<span class="">•</span>
+<span class="text-emerald-700 font-medium">Đang phục vụ</span>
+</div>
+</div>
+<span class="text-[11px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">
+            #BL-2409
+          </span>
+</div>
+<!-- Highlighted Total Amount -->
+<div class="pt-3 flex items-end justify-between">
+<div>
+<span class="text-[12px] font-medium text-gray-500 uppercase tracking-wider block">Tổng tạm tính</span>
+<div class="text-[26px] font-black text-rose-600 leading-none tracking-tight mt-0.5">
+              2.150.000 <span class="text-[16px] font-semibold">đ</span>
+</div>
+</div>
+<span class="text-[11px] text-gray-400 font-normal italic pb-0.5">Chưa gồm giảm giá (nếu có)</span>
+</div>
+</section>
+<!-- END: TableSummaryCard -->
+<!-- BEGIN: TimelineSection -->
+<section class="space-y-3" data-purpose="order-rounds-timeline">
+<div class="flex items-center justify-between px-0.5">
+<h3 class="text-xs font-bold uppercase tracking-wider text-gray-500">Các đợt gọi món (3 lượt)</h3>
+<span class="text-[11px] text-gray-400 font-medium">Mới nhất ở trên</span>
+</div>
+<!-- LƯỢT 3 (MỚI NHẤT): Chờ duyệt -->
+<article class="bg-white rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-amber-200/70 relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
+<!-- Round Header -->
+<div class="flex items-center justify-between pl-1 pb-2.5 border-b border-gray-100">
+<div class="flex items-center gap-2">
+<span class="text-xs font-black text-gray-900 tracking-tight">Lượt #03</span>
+<span class="text-[11px] text-gray-400 font-medium">19:12</span>
+</div>
+<span class="badge-soft-amber text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+<i class="ph ph-hourglass-high text-xs"></i> Chờ duyệt
+            </span>
+</div>
+<!-- Items List -->
+<div class="pl-1 pt-2.5 space-y-2.5">
+<!-- Item 1 -->
+<div class="flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 min-w-0">
+<img alt="Lẩu riêu cua bắp bò" class="w-10 h-10 rounded-xl object-cover border border-gray-100 shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3W-0xYJ93SQ6IRNsirC4f_FgoFkohDdC_jBCUeZ0VHsQFnOXVkdyX1QO1g8v5fZc8dgj0Dft5S40RAD6lP7zX444Ryc3T4O4GEonYRld05T7wQiNiSPJvXvl-JN72jtQkAxX2sCUCmAYeQF78AwQo55HJLpTw-GYxBI6E7nfjsZMkl9u89jngRCBSXMzEIGvcL-cn5Bm80DZzR9ANnMvXOe19A-uMKaxGqx-iAb3xmRM4FEak73sJ9w">
+<div class="min-w-0">
+<p class="text-[13px] font-semibold text-gray-800 truncate">Lẩu riêu cua bắp bò sườn sụn</p>
+<p class="text-[11px] text-gray-400">Nồi lớn đặc biệt</p>
+</div>
+</div>
+<div class="text-right shrink-0">
+<span class="text-[11px] font-medium text-gray-500">x1</span>
+<p class="text-[13px] font-bold text-gray-900 leading-tight">590.000 đ</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 min-w-0">
+<img alt="Rau rừng nhúng thêm" class="w-10 h-10 rounded-xl object-cover border border-gray-100 shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnIeDBctcCayJLZUduoDNqqxBlWHtNLXKGPCIo3vcnEH44HTZILyDj5esfbxdbbCGXF1CmURXzK12UbM_0o5P1qiK52-FaURJyhAWqTewFAdGNlv1ryq1M2sB5atVIcRJvQaNYWMzR-gLfsGH-j-56QHS9AA2D9yZJtwSm8SBRyXK6dWj52Q6trSWlTRhlH1zVT4mrvtuSMcy6bfgyVkHems1LIqLBQP2ns4x9OpxciFhRJagk8gNUxA">
+<div class="min-w-0">
+<p class="text-[13px] font-semibold text-gray-800 truncate">Rau rừng Tây Bắc nhúng thêm</p>
+<p class="text-[11px] text-gray-400">Đĩa thêm</p>
+</div>
+</div>
+<div class="text-right shrink-0">
+<span class="text-[11px] font-medium text-gray-500">x2</span>
+<p class="text-[13px] font-bold text-gray-900 leading-tight">80.000 đ</p>
+</div>
+</div>
+</div>
+<!-- Subtotal Round -->
+<div class="mt-3 pt-2 pl-1 border-t border-dashed border-gray-100 flex items-center justify-between text-xs">
+<span class="text-gray-400">Tiểu kế đợt gọi:</span>
+<span class="font-bold text-gray-800">670.000 đ</span>
+</div>
+</article>
+<!-- LƯỢT 2: Đã duyệt & In bếp -->
+<article class="bg-white rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-gray-100/90 relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
+<!-- Round Header -->
+<div class="flex items-center justify-between pl-1 pb-2.5 border-b border-gray-100">
+<div class="flex items-center gap-2">
+<span class="text-xs font-black text-gray-900 tracking-tight">Lượt #02</span>
+<span class="text-[11px] text-gray-400 font-medium">19:08</span>
+</div>
+<span class="badge-soft-blue text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+<i class="ph ph-printer text-xs"></i> Đã duyệt &amp; In bếp
+            </span>
+</div>
+<!-- Items List -->
+<div class="pl-1 pt-2.5 space-y-2.5">
+<div class="flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 min-w-0">
+<img alt="Tháp bia Tiger 3L" class="w-10 h-10 rounded-xl object-cover border border-gray-100 shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpnvGu3ESbitCLmqQDCM9fgxrjKYKL5ZxU_VPttWp7bXrX88EZifTHWvhYOWyce9WoHPuruQen5hLmzkHWpFggByR3H32MZNUMGg3R6n45z99JLVI_qTYOI5cOfZnIRe1_qxk75dV9mfOdm-kJB8A2txI656Qxn9x_36xLQApMWYdgImuOahnUPPOJf5WLAsH9CHpdbXYch43TRDwfbdsCG9q44LBRFlA8FpgxW92zQTuUhxZ-30YrOw">
+<div class="min-w-0">
+<p class="text-[13px] font-semibold text-gray-800 truncate">Tháp bia Tiger mát lạnh (3L)</p>
+<p class="text-[11px] text-gray-400">Kèm đá lạnh xô</p>
+</div>
+</div>
+<div class="text-right shrink-0">
+<span class="text-[11px] font-medium text-gray-500">x1</span>
+<p class="text-[13px] font-bold text-gray-900 leading-tight">100.000 đ</p>
+</div>
+</div>
+</div>
+<!-- Subtotal Round -->
+<div class="mt-3 pt-2 pl-1 border-t border-dashed border-gray-100 flex items-center justify-between text-xs">
+<span class="text-gray-400">Tiểu kế đợt gọi:</span>
+<span class="font-bold text-gray-800">100.000 đ</span>
+</div>
+</article>
+<!-- LƯỢT 1: Đã ra bàn -->
+<article class="bg-white rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-gray-100/90 relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
+<!-- Round Header -->
+<div class="flex items-center justify-between pl-1 pb-2.5 border-b border-gray-100">
+<div class="flex items-center gap-2">
+<span class="text-xs font-black text-gray-900 tracking-tight">Lượt #01</span>
+<span class="text-[11px] text-gray-400 font-medium">18:15</span>
+</div>
+<span class="badge-soft-green text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+<i class="ph ph-check-circle text-xs"></i> Đã ra bàn
+            </span>
+</div>
+<!-- Items List -->
+<div class="pl-1 pt-2.5 space-y-2.5">
+<!-- Item 1 -->
+<div class="flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 min-w-0">
+<img alt="Mực một nắng" class="w-10 h-10 rounded-xl object-cover border border-gray-100 shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBimx9Rfg0L0TfRUZ3vJaydP-nDAqBn9czyFGC6pA4ETX5uAd9rEx1ZZRZYNgLeDZtpWeSW-mx_LA-AKMI86GJHq0cXY23YnNHgdak2cGRk1FpkaAA0WF8L10AfaO1wTBQg28CQUS-gqoslCxwiWygECizqu146H4rHSMVrDcu5DLLbur00rhYN_qOP5bikU_boHUyxevGy1J4ntPUWbek4yA23RSKEMNHikxrML_tENbRnuHjVx_O7Sw">
+<div class="min-w-0">
+<p class="text-[13px] font-semibold text-gray-800 truncate">Mực một nắng nướng sa tế</p>
+<p class="text-[11px] text-gray-400">Cay vừa</p>
+</div>
+</div>
+<div class="text-right shrink-0">
+<span class="text-[11px] font-medium text-gray-500">x1</span>
+<p class="text-[13px] font-bold text-gray-900 leading-tight">490.000 đ</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 min-w-0">
+<img alt="Gỏi xoài tôm khô" class="w-10 h-10 rounded-xl object-cover border border-gray-100 shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiRoKIW0zdVgdGEKN5VFKsPiVDvDJRSukJ0eSzGSwU4qyN-pgI8AXH0QZBHQZ5y4BjZIcWXCN-EB5jQx_JrumspE2c4lBQfVyxaVd-dNaWKGKgKPFBav4frCQh5vMgmpde46M3jQqIhj8fCO1DmPgVshIiti8Pt3nQ6QI4C6Fdo1-4w0JaFDdQZaIG4RJzbXoWJ6BVo50mVVN_Zexon1IdtetY2sGCWjxLto7PHAtBCE-2G1UOOeuHsw">
+<div class="min-w-0">
+<p class="text-[13px] font-semibold text-gray-800 truncate">Gỏi xoài tôm khô chua ngọt</p>
+<p class="text-[11px] text-gray-400">Món khai vị</p>
+</div>
+</div>
+<div class="text-right shrink-0">
+<span class="text-[11px] font-medium text-gray-500">x1</span>
+<p class="text-[13px] font-bold text-gray-900 leading-tight">220.000 đ</p>
+</div>
+</div>
+</div>
+<!-- Subtotal Round -->
+<div class="mt-3 pt-2 pl-1 border-t border-dashed border-gray-100 flex items-center justify-between text-xs">
+<span class="text-gray-400">Tiểu kế đợt gọi:</span>
+<span class="font-bold text-gray-800">710.000 đ</span>
+</div>
+</article>
+</section>
+<!-- END: TimelineSection -->
+<!-- BEGIN: BillingBreakdown -->
+<section class="bg-stone-50/90 rounded-2xl p-4 border border-stone-200/70 space-y-2.5" data-purpose="postpay-summary">
+<h4 class="text-xs font-bold text-stone-700 uppercase tracking-wider">Đối soát tạm tính</h4>
+<div class="space-y-1.5 text-[13px]">
+<div class="flex justify-between text-stone-600">
+<span class="">Món đã phục vụ (Lượt 1 + 2)</span>
+<span class="font-semibold text-stone-800">1.480.000 đ</span>
+</div>
+<div class="flex justify-between text-stone-600">
+<span class="">Món đang chờ gửi/duyệt (Lượt 3)</span>
+<span class="font-semibold text-amber-700">670.000 đ</span>
+</div>
+<div class="pt-2 border-t border-stone-200 flex justify-between items-baseline text-base font-bold text-stone-900">
+<span class="">Tổng cộng tạm tính</span>
+<span class="text-lg font-black text-rose-600">2.150.000 đ</span>
+</div>
+</div>
+<!-- Postpay Note / Non-intrusive notification -->
+<div class="mt-2 pt-2.5 border-t border-stone-200/60 flex items-center gap-2 text-[12px] text-stone-500 leading-snug">
+<i class="ph ph-info text-stone-400 text-sm shrink-0"></i>
+<span class="">Quý khách thanh toán tại quầy thu ngân khi kết thúc bữa tiệc.</span>
+</div>
+</section>
+<!-- END: BillingBreakdown -->
+</main>
+<!-- BEGIN: FixedFooterActions -->
+<div class="fixed bottom-0 left-0 right-0 z-50 flex justify-center bg-transparent pointer-events-none">
+<div class="w-full max-w-[430px] bg-white/95 backdrop-blur-md border-t border-gray-100 p-3.5 pb-6 pointer-events-auto space-y-2 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+<!-- Action Buttons -->
+<div class="grid grid-cols-12 gap-2">
+<!-- Button 1: Service Assist -->
+<button class="col-span-5 flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl border border-gray-300 text-gray-700 text-xs font-semibold bg-white active:bg-gray-50 active:scale-[0.98] transition" type="button">
+<i class="ph ph-hand-palm text-base text-gray-500"></i>
+<span class="truncate">Thêm đá / Nước lẩu</span>
+</button>
+<!-- Button 2: Primary Order More -->
+<button class="col-span-7 flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-xs font-bold shadow-md shadow-red-500/20 active:scale-[0.98] transition" type="button">
+<i class="ph ph-plus-circle text-base"></i>
+<span class="">Tiếp tục gọi món (+)</span>
+</button>
+</div>
+<!-- Mini App Tab Bar Equivalent (iOS Safe Area Anchor) -->
+<div class="flex items-center justify-around pt-1 text-gray-400 text-[10px]">
+<div class="flex flex-col items-center gap-0.5">
+<i class="ph ph-book-open text-base"></i>
+<span class="">Thực đơn</span>
+</div>
+<div class="flex flex-col items-center gap-0.5 text-rose-600 font-bold">
+<i class="ph ph-receipt text-base"></i>
+<span class="">Đơn gọi</span>
+</div>
+<div class="flex flex-col items-center gap-0.5">
+<i class="ph ph-bell text-base"></i>
+<span class="">Hỗ trợ</span>
+</div>
+</div>
+</div>
+</div>
+<!-- END: FixedFooterActions -->
+</div>
+
+
+</body></html>

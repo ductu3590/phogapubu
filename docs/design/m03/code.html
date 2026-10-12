@@ -1,0 +1,264 @@
+<!DOCTYPE html><html lang="vi" style=""><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_tab" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@500&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "error-container": "#ffdad6", "text-muted": "#475569", "on-surface-variant": "#554339", "tertiary-fixed": "#c4e7ff", "canvas": "#F8FAFC", "secondary": "#565e74", "text-main": "#0F172A", "on-surface": "#221a15", "on-secondary-fixed-variant": "#3f465c", "primary-fixed-dim": "#ffb68b", "primary": "#8a4001", "on-secondary-fixed": "#131b2e", "status-amber": "#B45309", "on-primary-fixed-variant": "#743400", "surface-variant": "#f0dfd7", "primary-fixed": "#ffdbc8", "surface-dim": "#e7d7cf", "on-primary-container": "#ffede4", "surface-bright": "#fff8f5", "on-background": "#221a15", "surface-container": "#fceae2", "surface-container-low": "#fff1ea", "surface-container-highest": "#f0dfd7", "error": "#ba1a1a", "secondary-container": "#dae2fd", "status-red": "#B91C1C", "on-tertiary-fixed-variant": "#004c69", "outline": "#887368", "surface-container-lowest": "#ffffff", "status-amber-bg": "#FFFBEB", "inverse-surface": "#382e29", "on-primary-fixed": "#321300", "surface-tint": "#96490b", "surface-container-high": "#f6e5dd", "surface": "#FFFFFF", "on-tertiary-container": "#e2f2ff", "primary-container": "#a9571b", "inverse-on-surface": "#ffede5", "tertiary": "#005b7d", "status-green-bg": "#F0FDF4", "secondary-fixed-dim": "#bec6e0", "outline-variant": "#dbc2b4", "on-tertiary": "#ffffff", "inverse-primary": "#ffb68b", "status-green": "#15803D", "border": "#CBD5E1", "on-error-container": "#93000a", "on-tertiary-fixed": "#001e2c", "selected-bg": "#FFFBEB", "tertiary-fixed-dim": "#7ed0fe", "tertiary-container": "#00759f", "on-secondary": "#ffffff", "on-error": "#ffffff", "on-primary": "#ffffff", "secondary-fixed": "#dae2fd", "background": "#fff8f5", "status-red-bg": "#FEF2F2", "on-secondary-container": "#5c647a" }, borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, spacing: { "space-md": "12px", "space-xs": "4px", "gutter": "1rem", "space-lg": "16px", "space-2xl": "32px", "space-xl": "24px", "space-sm": "8px", "margin": "1.5rem" }, fontFamily: { "headline-lg-mobile": ["Geist"], "headline-md": ["Geist"], "metadata": ["Geist"], "body-base": ["Geist"], "tabular-nums": ["Geist Mono"], "panel-title": ["Geist"], "headline-lg": ["Geist"] }, fontSize: { "headline-lg-mobile": ["22px", { lineHeight: "30px", fontWeight: "600" }], "headline-md": ["24px", { lineHeight: "32px", fontWeight: "600" }], "metadata": ["14px", { lineHeight: "20px", fontWeight: "400" }], "body-base": ["16px", { lineHeight: "24px", fontWeight: "400" }], "tabular-nums": ["16px", { lineHeight: "24px", fontWeight: "500" }], "panel-title": ["20px", { lineHeight: "28px", fontWeight: "600" }], "headline-lg": ["28px", { lineHeight: "36px", fontWeight: "600" }] } } } };</script><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#F8FAFC;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head><body class="bg-canvas text-text-main font-body-base text-body-base min-h-screen flex flex-col antialiased selection:bg-selected-bg"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 px-space-md flex items-center justify-between"><div class="flex items-center gap-space-sm min-w-0 flex-1 pr-space-sm"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-primary text-[18px]">sports_bar</span></div><div class="flex flex-col min-w-0"><span class="font-metadata text-metadata text-text-muted truncate leading-none">Bia Lẩu Bảo Lương</span><h1 class="font-panel-title text-panel-title text-text-main truncate mt-space-xs leading-none">Đơn Của Tôi</h1></div></div><div class="flex items-center gap-space-sm shrink-0"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="flex items-center h-8 px-space-xs rounded-full bg-surface-container-high/80 backdrop-blur-md"><button aria-label="More actions" class="w-7 h-7 flex items-center justify-center text-text-main hover:text-primary transition-colors" type="button"><span class="material-symbols-outlined text-[18px]">more_horiz</span></button><div class="w-[1px] h-3.5 bg-outline-variant mx-0.5"></div><button aria-label="Close mini app" class="w-7 h-7 flex items-center justify-center text-text-main hover:text-status-red transition-colors" type="button"><span class="material-symbols-outlined text-[18px]">cancel</span></button></div></div></div></header><main class="flex-1 w-full bg-canvas pt-14 pb-20"><div class="flex flex-col w-full">
+<div class="px-space-md py-space-sm space-y-space-md">
+<!-- Header Meta & Booking Code -->
+<div class="flex items-center justify-between bg-surface p-space-md rounded-full shadow-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: &quot;FILL&quot; 1;">confirmation_number</span>
+<span class="font-metadata text-metadata text-text-muted">Mã giữ chỗ:</span>
+<span class="font-tabular-nums text-tabular-nums font-semibold text-text-main">#BK-8840</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-high px-space-sm py-1 rounded-full">
+<span class="w-2 h-2 rounded-full bg-status-green"></span>
+<span class="font-metadata text-metadata text-on-surface-variant font-medium">Hệ thống ghi nhận</span>
+</div>
+</div>
+<!-- Status Banner: Confirmed -->
+<div class="bg-status-green-bg p-space-md rounded-full shadow-sm relative overflow-hidden">
+<div class="flex items-start gap-space-md">
+<div class="w-10 h-10 rounded-full bg-status-green flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+<span class="material-symbols-outlined text-on-primary text-[22px]">check_circle</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-metadata text-metadata font-bold text-status-green uppercase tracking-wide">ĐÃ XÁC NHẬN</span>
+<span class="text-status-green font-metadata text-metadata">•</span>
+<span class="font-metadata text-metadata text-status-green font-medium">Bàn sẵn sàng</span>
+</div>
+<p class="font-metadata text-metadata text-text-main mt-1 leading-snug">
+            Chỗ ngồi của bạn đã sẵn sàng! Bia Lẩu Bảo Lương đã giữ bàn cho bạn lúc <strong class="font-semibold text-text-main">18:30 hôm nay</strong>. Bàn được giữ tối đa trong 15 phút (đến 18:45).
+          </p>
+</div>
+</div>
+</div>
+<!-- Pre-order Recommendation Card (Prominent Call to Action) -->
+<div class="bg-surface-container-low p-space-md rounded-full shadow-md space-y-space-md relative overflow-hidden">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs bg-primary/10 text-primary px-space-sm py-1 rounded-full">
+<span class="material-symbols-outlined text-[16px]">bolt</span>
+<span class="font-metadata text-metadata font-bold">TIẾT KIỆM 20 PHÚT CHỜ</span>
+</div>
+<span class="font-metadata text-metadata text-primary font-medium">Phục vụ tức thì</span>
+</div>
+<div>
+<h2 class="font-panel-title text-panel-title text-text-main">Đặt món trước khi đến 🍲</h2>
+<p class="font-metadata text-metadata text-text-muted mt-1 leading-snug">
+          Lên sẵn món nhậu &amp; nước lẩu để bếp hâm nóng ngay lúc cả nhóm có mặt, bia rót mát lạnh vừa tầm.
+        </p>
+</div>
+<!-- Preview Image Showcase -->
+<div class="grid grid-cols-3 gap-space-xs">
+<div class="relative rounded-lg overflow-hidden h-20 shadow-sm">
+<img class="w-full h-full object-cover" data-alt="Traditional Vietnamese beef and crab hotpot with rich golden broth, raw beef slices, tofu, and fresh herbs in a bustling beer restaurant atmosphere, warm overhead lighting, photorealistic culinary shot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4VqLwRih8yJr_eyueUDM77NyOQMtHAy9K5rqf4OkDZg1FckCiBf_flJWv5a1zUrh5DuB_NLn2CGmHtk0x_37E6hrx7RluajLsqQaX5GViZ9six3bUHK0PZnEzsy0XK2edvTlp4fatkyuLSjFN9gg1IaTQ7ZK8EOCDZxDAXVM3A1-g7_1rkMZh4jPW685PJsHej-bMDXiHM2dwxyLqjIvnJ1xtgJ5pK1KhGC9qP4QbGTjGqQfG6YIiOg">
+<div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-1">
+<span class="font-metadata text-[11px] text-white font-medium leading-tight truncate">Lẩu riêu cua</span>
+</div>
+</div>
+<div class="relative rounded-lg overflow-hidden h-20 shadow-sm">
+<img class="w-full h-full object-cover" data-alt="Tender sliced young beef roll platter with Vietnamese rice paper, fresh aromatic herbs, pineapple, green banana and dipping sauce, authentic food styling, vibrant daylight ambiance" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCf4GZIezZZDUDjOsP76d9BsarX9nt0pqp9qvk_8TNchlup0W4DZEMdHJu_wujU85g1UEqi5PpAalFM40FFmROD7rObIjC9zp-D4AU2KspwCo7cGX6Qa6b1LVjsOukPkWevVLqDGfybQdIyffEy9cdMokzVHNyRflUqhFv-fZZdFnG-5hG6eZ3NYw9dV5PqVBh9H3H7kv_kY-QxTcWnFWL0hfHjnFew1DlPlaJJXcG6o0dRfAsZFgCr4w">
+<div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-1">
+<span class="font-metadata text-[11px] text-white font-medium leading-tight truncate">Bò tơ cuốn</span>
+</div>
+</div>
+<div class="relative rounded-lg overflow-hidden h-20 shadow-sm">
+<img class="w-full h-full object-cover" data-alt="A cold condensation-covered Tiger beer draft tower with amber lager beer and bubbly head on a wooden pub table surrounded by drinking glasses, dynamic evening restaurant mood" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDR7CRQzBrodUZn5t0ApUv8Sq5UsC0TnQnZg5qELRh7sY4HlSRoTR_BLX_DDbdNLPlC9rYaftO90UrsrL6Mj0xKzPZnBzBmDLlW1GCjJAisoVpCOzzw8Ly_RACzPXI7zh4loL_hukP1thaN6UuvS16NxvnTNJKR_HADGLJUdFchqjWe2JUev-sL2y5IsFcDVVTuh6JPS7w9NbiW6hlAtyjp3WZcjhsnJfbu-cPshyGaa9B_n0OiaqMfYQ">
+<div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-1">
+<span class="font-metadata text-[11px] text-white font-medium leading-tight truncate">Tháp bia Tiger</span>
+</div>
+</div>
+</div>
+<button class="w-full min-h-[48px] py-space-sm px-space-md rounded-full bg-primary-container text-on-primary font-panel-title text-[15px] flex items-center justify-center gap-space-sm shadow-sm active:scale-[0.99] transition-transform" id="preorder-btn" type="button">
+<span class="material-symbols-outlined text-[20px]">restaurant_menu</span>
+<span>CHỌN MÓN ĐẶT TRƯỚC (PREORDER) 🍲</span>
+</button>
+</div>
+<!-- Booking Details Card -->
+<div class="bg-surface p-space-md rounded-full shadow-sm space-y-space-md">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">calendar_month</span>
+<h2 class="font-panel-title text-panel-title text-text-main">Chi tiết lịch hẹn</h2>
+</div>
+<span class="font-metadata text-metadata text-status-green bg-status-green-bg px-2 py-0.5 rounded-full font-medium">Ưu tiên phục vụ</span>
+</div>
+<div class="space-y-space-sm">
+<div class="flex items-start justify-between py-1 bg-surface-container-low px-space-sm rounded-lg">
+<span class="font-metadata text-metadata text-text-muted shrink-0">Người đặt bàn</span>
+<div class="text-right">
+<div class="font-body-base text-body-base font-semibold text-text-main">Nguyễn Minh An</div>
+<div class="font-metadata text-[12px] text-primary font-medium">Khách quen Zalo (Hạng Vàng)</div>
+</div>
+</div>
+<div class="flex items-center justify-between py-1 bg-surface-container-low px-space-sm rounded-lg">
+<span class="font-metadata text-metadata text-text-muted">Số lượng khách</span>
+<div class="flex items-center gap-1 font-body-base text-body-base font-semibold text-text-main">
+<span class="material-symbols-outlined text-[18px] text-secondary">groups</span>
+<span>10 người lớn</span>
+</div>
+</div>
+<div class="flex items-center justify-between py-1 bg-surface-container-low px-space-sm rounded-lg">
+<span class="font-metadata text-metadata text-text-muted">Thời gian đến</span>
+<div class="font-tabular-nums text-tabular-nums font-semibold text-primary text-right">
+            18:30 • Hôm nay (01/10/2026)
+          </div>
+</div>
+<div class="flex items-start justify-between py-1 bg-surface-container-low px-space-sm rounded-lg">
+<span class="font-metadata text-metadata text-text-muted shrink-0">Vị trí bố trí</span>
+<div class="text-right">
+<div class="font-body-base text-body-base font-semibold text-text-main">Khu Sân Vườn Thoáng</div>
+<div class="font-metadata text-[13px] text-secondary font-medium">Bàn 09 + Bàn 10 (Mâm ghép)</div>
+</div>
+</div>
+<div class="p-space-sm bg-status-amber-bg rounded-lg space-y-1">
+<div class="flex items-center gap-1 text-status-amber">
+<span class="material-symbols-outlined text-[16px]">sticky_note_2</span>
+<span class="font-metadata text-metadata font-semibold">Ghi chú của bạn:</span>
+</div>
+<p class="font-metadata text-metadata text-text-main italic pl-space-lg">
+            “Sắp xếp gần cây bóng mát, có sinh nhật bạn thân.”
+          </p>
+</div>
+</div>
+</div>
+<!-- Fast Check-in QR Code Card -->
+<div class="bg-surface p-space-md rounded-full shadow-sm text-center space-y-space-md">
+<div class="flex items-center justify-center gap-space-xs text-text-main">
+<span class="material-symbols-outlined text-primary text-[20px]">qr_code_scanner</span>
+<h2 class="font-panel-title text-panel-title">Mã Check-in tại quầy lễ tân</h2>
+</div>
+<div class="flex flex-col items-center justify-center p-space-md bg-canvas rounded-full shadow-inner max-w-[220px] mx-auto">
+<!-- Structured SVG QR Simulation with High Contrast -->
+<svg class="w-36 h-36" fill="none" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect fill="#FFFFFF" height="100" rx="4" width="100"></rect>
+<!-- Corner Pos 1 -->
+<rect fill="#0F172A" height="24" rx="2" width="24" x="8" y="8"></rect>
+<rect fill="#FFFFFF" height="16" width="16" x="12" y="12"></rect>
+<rect fill="#8A4001" height="8" width="8" x="16" y="16"></rect>
+<!-- Corner Pos 2 -->
+<rect fill="#0F172A" height="24" rx="2" width="24" x="68" y="8"></rect>
+<rect fill="#FFFFFF" height="16" width="16" x="72" y="12"></rect>
+<rect fill="#8A4001" height="8" width="8" x="76" y="16"></rect>
+<!-- Corner Pos 3 -->
+<rect fill="#0F172A" height="24" rx="2" width="24" x="8" y="68"></rect>
+<rect fill="#FFFFFF" height="16" width="16" x="12" y="72"></rect>
+<rect fill="#8A4001" height="8" width="8" x="16" y="76"></rect>
+<!-- Data blocks -->
+<rect fill="#0F172A" height="6" width="6" x="36" y="12"></rect>
+<rect fill="#0F172A" height="6" width="6" x="46" y="12"></rect>
+<rect fill="#0F172A" height="6" width="6" x="56" y="12"></rect>
+<rect fill="#8A4001" height="8" width="8" x="36" y="24"></rect>
+<rect fill="#0F172A" height="6" width="6" x="48" y="24"></rect>
+<rect fill="#0F172A" height="6" width="6" x="58" y="24"></rect>
+<rect fill="#0F172A" height="6" width="6" x="12" y="38"></rect>
+<rect fill="#0F172A" height="6" width="8" x="22" y="38"></rect>
+<rect fill="#0F172A" height="12" width="12" x="34" y="36"></rect>
+<rect fill="#8A4001" height="8" width="8" x="50" y="38"></rect>
+<rect fill="#0F172A" height="6" width="6" x="62" y="38"></rect>
+<rect fill="#0F172A" height="6" width="14" x="74" y="38"></rect>
+<rect fill="#0F172A" height="8" width="10" x="12" y="48"></rect>
+<rect fill="#0F172A" height="8" width="6" x="26" y="48"></rect>
+<rect fill="#0F172A" height="8" width="8" x="42" y="52"></rect>
+<rect fill="#0F172A" height="10" width="12" x="54" y="50"></rect>
+<rect fill="#0F172A" height="8" width="8" x="70" y="48"></rect>
+<rect fill="#0F172A" height="8" width="6" x="82" y="48"></rect>
+<rect fill="#0F172A" height="6" width="8" x="36" y="66"></rect>
+<rect fill="#0F172A" height="12" width="6" x="48" y="66"></rect>
+<rect fill="#0F172A" height="6" width="14" x="60" y="66"></rect>
+<rect fill="#0F172A" height="8" width="10" x="78" y="66"></rect>
+<rect fill="#0F172A" height="10" width="6" x="36" y="78"></rect>
+<rect fill="#0F172A" height="12" width="8" x="60" y="76"></rect>
+<rect fill="#8A4001" height="6" width="16" x="72" y="80"></rect>
+</svg>
+<span class="font-tabular-nums text-tabular-nums text-[13px] font-bold text-text-main mt-2">BK-8840-0110</span>
+</div>
+<p class="font-metadata text-metadata text-text-muted leading-tight">
+        Đưa mã QR này cho thu ngân khi vừa tới nơi để mở bàn ngay trong 3 giây.
+      </p>
+</div>
+<!-- Restaurant Info & Direction Card -->
+<div class="bg-surface p-space-md rounded-full shadow-sm space-y-space-md">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">storefront</span>
+<h2 class="font-panel-title text-panel-title text-text-main">Thông tin Quán Bia Lẩu Bảo Lương</h2>
+</div>
+<div class="space-y-space-sm">
+<!-- Address & Direction -->
+<div class="p-space-sm bg-surface-container-low rounded-lg flex items-center justify-between gap-space-sm">
+<div class="flex items-start gap-space-sm min-w-0">
+<span class="material-symbols-outlined text-primary text-[20px] mt-0.5 shrink-0">pin_drop</span>
+<div class="min-w-0">
+<div class="font-body-base text-body-base font-semibold text-text-main truncate">124 Đường Bờ Sông, Cầu Giấy</div>
+<div class="font-metadata text-[13px] text-text-muted truncate">Quận Cầu Giấy, Hà Nội (Có bãi đỗ ô tô)</div>
+</div>
+</div>
+<button class="shrink-0 px-space-sm py-1.5 rounded-full bg-surface-container-high text-primary font-metadata text-metadata font-medium flex items-center gap-1 active:scale-95 transition-transform" id="directions-btn" type="button">
+<span class="material-symbols-outlined text-[16px]">navigation</span>
+<span>Chỉ đường</span>
+</button>
+</div>
+<!-- Phone Hotline -->
+<div class="p-space-sm bg-surface-container-low rounded-lg flex items-center justify-between gap-space-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">call</span>
+<div>
+<div class="font-body-base text-body-base font-semibold text-text-main">0903.888.789</div>
+<div class="font-metadata text-[12px] text-text-muted">Hotline hỗ trợ đặt bàn 24/7</div>
+</div>
+</div>
+<a class="shrink-0 px-space-sm py-1.5 rounded-full bg-primary text-on-primary font-metadata text-metadata font-semibold flex items-center gap-1 shadow-sm active:scale-95 transition-transform" href="tel:0903888789">
+<span class="material-symbols-outlined text-[16px]">phone_in_talk</span>
+<span>Gọi ngay</span>
+</a>
+</div>
+</div>
+<!-- Action Secondary Buttons: Reschedule & Cancel -->
+<div class="pt-space-xs grid grid-cols-2 gap-space-sm">
+<button class="min-h-[44px] px-space-sm py-2 rounded-full bg-surface-container-high text-text-main font-metadata text-metadata font-medium flex items-center justify-center gap-1 active:scale-98 transition-transform" id="reschedule-btn" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary">update</span>
+<span>Sửa đặt bàn</span>
+</button>
+<button class="min-h-[44px] px-space-sm py-2 rounded-full bg-status-red-bg text-status-red font-metadata text-metadata font-medium flex items-center justify-center gap-1 active:scale-98 transition-transform" id="cancel-btn" type="button">
+<span class="material-symbols-outlined text-[18px]">event_busy</span>
+<span>Hủy bàn</span>
+</button>
+</div>
+</div>
+<!-- Small Note Footer -->
+<div class="py-space-sm text-center">
+<p class="font-metadata text-[12px] text-text-muted">
+        Cần đón tiếp đoàn lớn hoặc set-up âm thanh sinh nhật riêng? Vui lòng bấm “Gọi ngay” để gặp Quản lý ca trực.
+      </p>
+</div>
+</div>
+</div>
+<script>
+  // Interactive micro-feedbacks for buttons
+  document.getElementById('preorder-btn')?.addEventListener('click', function() {
+    this.innerText = 'Đang chuyển tới thực đơn...';
+    setTimeout(() => {
+      window.location.hash = '#thuc-don';
+    }, 300);
+  });
+
+  document.getElementById('directions-btn')?.addEventListener('click', function() {
+    alert('Đang mở bản đồ chỉ đường tới 124 Đường Bờ Sông, Cầu Giấy...');
+  });
+
+  document.getElementById('reschedule-btn')?.addEventListener('click', function() {
+    alert('Vui lòng chọn khung giờ mới hoặc liên hệ Hotline để đổi bàn ngay.');
+  });
+
+  document.getElementById('cancel-btn')?.addEventListener('click', function() {
+    if (confirm('Bạn có chắc muốn hủy lịch đặt bàn #BK-8840 tại Bia Lẩu Bảo Lương không?')) {
+      alert('Đã tiếp nhận yêu cầu hủy. Nhân viên quán sẽ liên hệ xác nhận nếu cần.');
+    }
+  });
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-1px_8px_rgba(0,0,0,0.04)]" data-active-classes="text-primary font-semibold"><div class="flex items-stretch justify-around h-16 px-space-xs"><a class="flex flex-1 flex-col items-center justify-center min-w-[44px] min-h-[44px] text-text-muted hover:text-text-main transition-colors gap-1" data-path="trang-chu" href="#"><span class="material-symbols-outlined text-[22px]">storefront</span><span class="font-metadata text-[11px] leading-tight">Trang chủ</span></a><a class="flex flex-1 flex-col items-center justify-center min-w-[44px] min-h-[44px] text-text-muted hover:text-text-main transition-colors gap-1" data-path="dat-ban" href="#"><span class="material-symbols-outlined text-[22px]">table_restaurant</span><span class="font-metadata text-[11px] leading-tight">Đặt bàn</span></a><a class="flex flex-1 flex-col items-center justify-center min-w-[44px] min-h-[44px] text-text-muted hover:text-text-main transition-colors gap-1" data-path="don-cua-toi" href="#"><span class="material-symbols-outlined text-[22px]">receipt_long</span><span class="font-metadata text-[11px] leading-tight">Đơn của tôi</span></a><a class="flex flex-1 flex-col items-center justify-center min-w-[44px] min-h-[44px] text-text-muted hover:text-text-main transition-colors gap-1" data-path="ho-tro-goi-nv" href="#"><span class="material-symbols-outlined text-[22px]">support_agent</span><span class="font-metadata text-[11px] leading-tight">Hỗ trợ</span></a></div></nav>
+
+</body></html>

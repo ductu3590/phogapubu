@@ -1,0 +1,754 @@
+<!DOCTYPE html><html class="scroll-smooth" lang="vi" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title>Bảo Lương Beer &amp; Hotpot - Gọi món tại bàn</title>
+<!-- Google Fonts: Geist -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&amp;family=Geist+Mono:wght@500;600&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              red: '#D32323',
+              darkRed: '#B91C1C',
+              orange: '#EA580C',
+              black: '#1F1F1F',
+              bgLight: '#F8F9FA'
+            }
+          },
+          fontFamily: {
+            sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', 'Roboto', 'sans-serif'],
+            mono: ['"Geist Mono"', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+<!-- BEGIN: Custom CSS -->
+<style data-purpose="scrollbar-styling">
+    /* Ẩn thanh scrollbar cho tabs ngang chuẩn mobile iOS */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+<style data-purpose="badge-overlay">
+    /* Nhãn chéo Đã gọi phong cách Gogi House */
+    .ordered-ribbon {
+      position: absolute;
+      top: 14px;
+      right: 8px;
+      color: rgba(255, 255, 255, 0.95);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      transform: rotate(25deg);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+      pointer-events: none;
+      z-index: 10;
+    }
+    /* Scroll margin chuẩn theo header offset sticky */
+    .category-target {
+      scroll-margin-top: 125px;
+    }
+  </style>
+<!-- END: Custom CSS -->
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased overflow-y-auto">
+<!-- BEGIN: MobileContainer -->
+<div class="max-w-md mx-auto min-h-screen bg-white shadow-2xl relative flex flex-col pb-32">
+<!-- BEGIN: Unified Sticky Header Container -->
+<header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-slate-100 transition-all" id="main-header">
+<!-- BEGIN: iOSStatusBar / Zalo Mini App Bar -->
+<div class="px-4 py-2 flex items-center justify-between border-b border-slate-100/80">
+<div class="flex items-center space-x-2.5 truncate">
+<button aria-label="Quay lại" class="p-1 -ml-1 text-slate-700 hover:text-slate-900 rounded-full hover:bg-slate-100 transition-colors" type="button">
+<svg class="w-5 h-5 stroke-[2.2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-slate-900 tracking-tight leading-tight truncate">Thực đơn</span>
+<span class="text-[10px] text-slate-400 font-medium leading-none">Bia Lẩu Bảo Lương</span>
+</div>
+</div>
+</div>
+<!-- END: iOSStatusBar -->
+<!-- BEGIN: Table & Action Bar -->
+<div class="px-3.5 py-2 flex items-center justify-between gap-1.5">
+<!-- Logo Quán Bảo Lương -->
+<div class="relative flex-shrink-0">
+<div class="w-8 h-8 rounded-full bg-amber-500/10 border border-amber-600/20 flex items-center justify-center font-black text-amber-700 text-xs shadow-inner">
+  BL
+</div>
+<span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-white"></span>
+</div>
+<!-- Action: Nút Gọi NV phong cách Gogi -->
+<button class="flex items-center space-x-1 bg-brand-red active:bg-brand-darkRed text-white text-xs font-semibold px-2.5 py-1.5 rounded-full shadow-sm shadow-red-200 transition-transform active:scale-95" type="button">
+<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+<path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"></path>
+</svg>
+<span class="tracking-tight">Gọi NV</span>
+</button>
+<!-- Badge Bàn -->
+<div class="bg-slate-100 text-slate-800 text-xs font-bold px-3 py-1 rounded-full border border-slate-200">
+  Bàn 09
+</div>
+<!-- Group Quick Icons: Giỏ, Profile, Bookmark -->
+<div class="flex items-center space-x-1 text-slate-700">
+<!-- Icon Cart with Red Dot Badge -->
+<div class="relative p-1.5 hover:bg-slate-100 rounded-full cursor-pointer">
+<svg class="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] bg-[#D32323] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 border border-white">2</span>
+</div>
+<!-- Icon User -->
+<div class="p-1.5 hover:bg-slate-100 rounded-full cursor-pointer">
+<svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<!-- Icon Star Favorite -->
+<div class="w-6 h-6 rounded-full bg-brand-red flex items-center justify-center text-white cursor-pointer shadow-sm">
+<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+<path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- END: Table & Action Bar -->
+<!-- BEGIN: Scrollspy Horizontal Category Pills -->
+<div class="px-3 pb-2.5 pt-0.5 flex items-center space-x-1.5">
+<!-- Search Quick Icon -->
+<button aria-label="Tìm món" class="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 flex-shrink-0" type="button">
+<svg class="w-4 h-4 stroke-[2.2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- Scrollable Pills Container -->
+<div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 text-xs font-semibold tracking-tight" id="category-tabs-container">
+<button class="cat-pill active bg-[#d32323] text-white px-3 py-1.5 rounded-full whitespace-nowrap shadow-sm shadow-red-200 transition-all font-bold" data-cat="cat-salad">
+  SALAD - KHAI VỊ
+</button>
+<button class="cat-pill bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full whitespace-nowrap transition-all font-medium" data-cat="cat-combo">
+  COMBO MUST TRY
+</button>
+<button class="cat-pill bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full whitespace-nowrap transition-all font-medium" data-cat="cat-drinks">
+  BIA &amp; ĐỒ UỐNG
+</button>
+<button class="cat-pill bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full whitespace-nowrap transition-all font-medium" data-cat="cat-nuong">
+  MÓN NƯỚNG &amp; NHẬU
+</button>
+<button class="cat-pill bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full whitespace-nowrap transition-all font-medium" data-cat="cat-lau">
+  LẨU ĐẶC SẢN
+</button>
+<button class="cat-pill bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full whitespace-nowrap transition-all font-medium" data-cat="cat-dessert">
+  TRÁNG MIỆNG
+</button>
+</div>
+</div>
+<!-- END: Scrollspy Horizontal Category Pills -->
+</header>
+<!-- END: Unified Sticky Header Container -->
+<!-- BEGIN: MainContent -->
+<main class="flex-1 px-3.5 py-3 space-y-6">
+<!-- ==================== DANH MỤC 1: SALAD - KHAI VỊ ==================== -->
+<section class="category-target" data-purpose="category-section" id="cat-salad">
+<div class="flex items-center justify-between mb-2.5">
+<h2 class="text-[13px] font-extrabold text-slate-900 uppercase tracking-wide flex items-center space-x-1.5">
+<span class="w-1.5 h-4 bg-brand-red rounded-full inline-block"></span>
+<span class="">SALAD - KHAI VỊ</span>
+</h2>
+<span class="text-[11px] text-slate-400 font-medium">4 món</span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<!-- Dish Card 1 -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Salad hoa quả" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_mXoZxGILnYMfv-S1mJa258sq2YQYOyqPA17laWMJvec7kibWY1ujXuJmqvV7vQRbRVfk7wTbMNUS20modTHvZQDzvQJwxI8XB2FIuhfhNEzN26fk_xUYOOyK_abbj9juFf9vbedRi1EjXd-y1Z7UCoFukPmbc1F7y4R1ZH8QOxbNbGHilFZacgrJa_OumxVXCbQDJeAgHDAw1yHcdqkzzirD6mj72qH4PB088jNY7fScqK-o4jqNgQ">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 line-clamp-1">Salad hoa quả</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">79.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 2 (Đã gọi) -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between relative overflow-hidden">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Salad cá ngừ" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBa_gtoWLWcX2_-QUX-BkP28cVlmmpA7AZcuMwNgmovMgSSX1da4p9uuXZbPHrSMlXk2C1xFk2vIEv7-qKj-40A7-TbMT9L0zMyqWDpVSNGYF9yoozJWH3slSnA710NPgk7tcha7kVSZDkCSKKCpPUI0QgsywbDuKFVjyy9TzwamE0de1tH9XZwmboTCrZIkZcafa3I4ru1PFTDSGYRifjfMGqMcmpn3V1GR730vmRZWb9dscsBzhwQg">
+<span class="ordered-ribbon">Đã gọi</span>
+<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-black/35 pointer-events-none"></div>
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 line-clamp-1">Salad cá ngừ</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">69.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 3: Khoai lang kén chiên vừng -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Khoai lang kén vừng" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9ESFVGLom4LU8AXgQz1Z3o7XrfuGFAbiJikbIIiIyLvw63scMVKwJqqOanzlT8bmaOTQVfpnGqTXGFwgFdjlxsct02TIsd2esPeboR19qoequy5Sv8xNS4M_kUzgpYh28F4jeVHPUvAwP_o3B9cAvh5Fcf3aYy1LM4objgPPNZ-P8T6oxpzzt0qn1slwcpLkLe7gYpAqwKstwmGLZ7gQ3C_SRlBYtCBKwRUHUtQbUwYcamDf04bMOLA">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 line-clamp-1">Khoai lang kén vừng</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">45.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 4: Gỏi xoài tép đồng chua cay -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Gỏi xoài tép đồng" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBUZXJxYZ5vPv3VS92B4PUBrby9CBY8ZnvWFmdr64VOZDXVbWoMnoMSSzC6ii40D8FEhRfK_QhqffzjT1fyq3jRsM0jstQyzi4PwHc7kRpY6a87ELvAShrBVIaGf9wDc4wW4Ol1QuVJll_cPgukOfxGO8ENlnOt65LI4TMHY-8d3HWTvO6805iCJCSAiDF525BM7fJXJBX5m4EmXxw2JovY-sNVtYhqo0Mi_4HUZeVhBPuvUnq89dEa8A">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 line-clamp-1">Gỏi xoài tép đồng</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">85.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ==================== DANH MỤC 2: COMBO MUST TRY ==================== -->
+<section class="category-target" data-purpose="category-section" id="cat-combo">
+<div class="flex items-center justify-between mb-2.5">
+<h2 class="text-[13px] font-extrabold text-slate-900 uppercase tracking-wide flex items-center space-x-1.5">
+<span class="w-1.5 h-4 bg-brand-red rounded-full inline-block"></span>
+<span class="">COMBO MUST TRY</span>
+</h2>
+<span class="text-[11px] text-slate-400 font-medium">4 món</span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<!-- Dish Card 1 -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Combo Bẹ gầu bò Mỹ" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCP9F7H59_c2fCIAm9-1c2dT6obAERI2ZMUvbBR1w_SQ33QuZrPTjyofs8mZ8_aaF-Dqn6vDznifO_VsdyXqSL3FPPtjOoDwAJVJA1Ci9WjXLkixC1znuSFrbY-kM5cuOizazCVb_-qmewfNjBN6x4J1UWFfHzH5PLW9cbbhEvGvYa_ct29wzYBXGeSMJKBiDpLGeEKuVOelGriARNlvZc0734aCojf9nqQXDTG5AiRho-9MLISMe7k5Q">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Bẹ gầu bò sốt cay</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">399.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 2 (Đã chọn 1) -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Combo Dẻ sườn bò Mỹ" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANyTU4LHmEI4vM5EfaEhUwO_znPcL3571vGUMGTnH0z1dSfA50Jsn08kRJvpYWvpJoBYc3mq4pgRZRxW89v8yaFG8zkGzCpicSxqKGVeb9ZW4dm3rADTP7SjYPdTUvlrDZ6DNKvHf4ElG-su7s-SgLFoaNIRQg0PZSPlDnuclQVUVftoVWPk9NV4XHNPLQJkyuKVkYYF39WB6Yz6hDMMDjA5ABSXVCGTWUFYvCYrL31njN6tehqd5G1Q">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Combo Dẻ sườn bò Mỹ</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">469.000 đ</span>
+<!-- Stepper đã chọn 1 suất -->
+<div class="flex items-center space-x-1 bg-slate-100 rounded-full px-1.5 py-0.5 border border-slate-200">
+<button class="w-5 h-5 flex items-center justify-center text-xs font-bold text-slate-700 active:text-red-600">-</button>
+<span class="text-xs font-bold text-brand-red px-1">1</span>
+<button class="w-5 h-5 flex items-center justify-center text-xs font-bold text-slate-700 active:text-brand-red">+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Dish Card 3 -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Thăn lưng bò tuyết" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcIdnucukLfEkjxAPvAqewc1VrviHg96UTdAnBp-d-Gj7JxIDcY3EJr7nP4iqyu3d1RUzo5fw19nMB_jbva5GpA1j_aIASoZIN94d2bha3bqSWOi9xmdoq12GQDDV-73VvED3Oxjm0XZPrw__HVniDUP4Oq7E-mpDT4vZLC-ABTzUpod1Us30hJeklDQftyUJHQONFXM92oSqrTLfomLfMaJ_IH5vhBqyYgQulcAHRSardubDPxkJH1g">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Thăn lưng bò tuyết</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">469.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 4 -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Lẩu nấm bò Mỹ ấm" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHaf--6kUMfJusx3BFhhcjXglB2a02Whr03DdaAG5YE0xdrHxT0zxL8-PNzm0izoQN9ThiDg9iFFkHXmlE5plF1S_g53GuXwzsjDL6UjBtgikGu6rwKeGwziC1xfI8BURoX2pe7ZBe2z0UMJGrrQWL6ntE--ELp9ygZZT0PcD8U5twAhRNpWY6R-Ci81On8ayTAcy9C4s280lpIj2P_uGRNhlyun8FWIc_yszY-Pa56Qw218CgIuV-0w">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Lẩu nấm bò Mỹ ấm</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">489.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ==================== DANH MỤC 3: BIA & ĐỒ UỐNG ==================== -->
+<section class="category-target" data-purpose="category-section" id="cat-drinks">
+<div class="flex items-center justify-between mb-2.5">
+<h2 class="text-[13px] font-extrabold text-slate-900 uppercase tracking-wide flex items-center space-x-1.5">
+<span class="w-1.5 h-4 bg-brand-red rounded-full inline-block"></span>
+<span class="">BIA &amp; ĐỒ UỐNG</span>
+</h2>
+<span class="text-[11px] text-slate-400 font-medium">4 món</span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<!-- Drink Card 1 -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Tháp Bia Tươi Hà Nội 3L" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxS--7m6ol6rTZJMke4KWV70lCn3F5GEeoWJDc7Q3zeS0bfLPQR4OOiuyTB1BPbhhCL1RcgnxvlRPXsV9cuXMuli-NiiyBKkl_AxBRB9uRwq-7hBZ29OA0Qq8Wu5NyxLE-bfj1tNTVSOKqwGBHdDHTd8zJJUhgfuCCHYOJznXtRDFeCDkHJ4P4HQRZPNu8SbUCj5U2kWO51OJxFk7WaERqpB8JL9QPib-1ry24mEk7RxkrTaniGuMWPw">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Tháp bia tươi 3L</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">195.000 đ</span>
+<!-- Stepper đã chọn 1 suất -->
+<div class="flex items-center space-x-1 bg-slate-100 rounded-full px-1.5 py-0.5 border border-slate-200">
+<button class="w-5 h-5 flex items-center justify-center text-xs font-bold text-slate-700 active:text-red-600">-</button>
+<span class="text-xs font-bold text-brand-red px-1">1</span>
+<button class="w-5 h-5 flex items-center justify-center text-xs font-bold text-slate-700 active:text-brand-red">+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Drink Card 2 -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Trà hoa cúc đá" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfg_lC90JlAWXB5IgrfZS--aF7nqH09VtR7R7RjrQnOsEQtVTJutqAx2g51BSUCqvtKcYj5cUKl7LRcsevm---M8xqH4gRwrSdxQ_4j_QzvUM2P6_Jqm5rd6iSyUKrNfbgywVJrnrz8R_U2sMVm3CuhjUQqLYJ-HH7tzHdmJ1S0MF9nGKH6SwzAQm3D_IoGYPMJ34PJZqgW-3WCao8bEgfI-sdIG_ML76d3_m1VbqxayIEJfxo7UZ0LA">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Trà hoa cúc đá</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">29.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Drink Card 3: Bia hơi Hà Nội bình 2L -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Bia hơi Hà Nội (2L)" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJevbC87BFQgx46qD1F_9BH94eeepSNAZoGYiKYJ3T1lVJNQmywT4vMIPjaX7b3iKT3ZetS0qoCBTw-1J1uonYg1YC5E25z6bkKC0auJTpDz8JG1Z6lP18qV5Hrjf6DiPHN7NY5KultHcWeGgIpbJFz4O_84wc5K8aqb6Kci94I5Ij-Pz_Y2VhCaOAO2OlRfexhM9x8bN1weC0ssK3w9Cu57wkWYZ2X2ASPP9CMduEMv6wbocUWPmllA">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Bia hơi Hà Nội (2L)</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">85.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Drink Card 4: Nước ngọt lon -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Nước ngọt lon (Cola/7Up)" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCg-CAO0h6MZQEn5IOB3-b2ndG1KkmOswPiSH94hSahNt97Ujh69Nms-Tiv5JD6SpvydNfZvX9zx922uwReYmi95NB1BD0MvWW-w-_UZWVrpWNh9wLLrBQn_Hc7XFDIpsSVdJNcjbzThdLF5JKJ_V4514sS_zP1hbCpuPTM0DwOko52GT4WuxJgUV2v6wiaZaP5Op0OqRXXrst3_SU5iR-qg-DQ1wPDDc45JviQvKJbif3LzfVLmnhl2A">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Nước ngọt lon (Cola/7Up)</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">20.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ==================== DANH MỤC 4: MÓN NƯỚNG & NHẬU LAI RAI ==================== -->
+<section class="category-target" data-purpose="category-section" id="cat-nuong">
+<div class="flex items-center justify-between mb-2.5">
+<h2 class="text-[13px] font-extrabold text-slate-900 uppercase tracking-wide flex items-center space-x-1.5">
+<span class="w-1.5 h-4 bg-brand-red rounded-full inline-block"></span>
+<span class="">MÓN NƯỚNG &amp; NHẬU LAI RAI</span>
+</h2>
+<span class="text-[11px] text-slate-400 font-medium">4 món</span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<!-- Dish 4-1: Mực một nắng nướng sa tế -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Mực 1 nắng nướng sa tế" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_WESNWPsxSCPoxkdo2WPQGe8zANXxraGFTGnbOb7jML8E0Gf1LnzgNwsNTdP2kB8UHk7jyHKt61qxHT-bebTQtK77OZqCFZfgWhjWFPQUb2AV0SKEWWQkTQPI8ch5W7cJ--LVduEd0pf3iplQSE9ncdaoT6nocmv7R_dlchWVLe2MISsI6GKJEiXuJ5WVMbW9aIlWAsW1QLtZkRGcCQrS_-cDWFJWBW_0FAd5IvV5e8OocH_Pm5Hakw">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Mực 1 nắng nướng sa tế</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">380.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish 4-2: Ba chỉ bò nướng tiêu xanh -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Ba chỉ bò nướng tiêu" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDM7AsJ9set-RTG5QawfiZKK_MW-YEe-7YT5rS_sPkORPK3vDMOAxs9r6mPKgTiFIUTcijiz5S22Ii-sMDiHEtNtSUZWyBMTYzemQ_46Po1PoiVjWflxn1Ymry6TZSKmEKW8fNcLkimD3D-MBNcXrH4Izpzeb198HL2jbtCaCpajgHX8MgYMKO9dgFucLh-JNZnXJ03Z5uDGZTohAAwTb-Ycyt1eu_4oH1EKtn_yID_-oMLGA-tt3uxog">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Ba chỉ bò nướng tiêu</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">220.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish 4-3: Bò tơ cuốn rau rừng Tây Ninh -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Bò tơ cuốn rau rừng" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoic-0pLTWF5muAEanz7HhMhJpN5ZBZ6y32dynRiCclAitga_ukcRhYO2Z1A175JYW2ajXEWGFpEvU1Ft2T9Wp3nIwTWbCFEHKj2hojbZdnEpnYclwOZP7bzuRnuAwxUf4YP-xsBdxlI5zMb7qMMIB0jSdyje63eciT4RSbog5C17nl55AnvhP1Am1aIWcfNleOOhFmXoJbRckhBr75wkEkgfsahnBaq3-z7RRWWNzenusxiZU_xzb9w">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Bò tơ cuốn rau rừng</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">180.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish 4-4: Lạc luộc húng lìu -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Lạc luộc húng lìu giòn" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCylySZ5j2S9Mni3fout9COX1jQBse33WWJOaMcge-QgPdKqY4Ivv_J6shlwcqdcssol4V4CHlpobrKXo9blGFas9BUBoHlUDImub9GSwcELKgKiWhirpt6JzwCwsyTZq3iFqdi_C5w1WF8qsajiTr2M9c1kezAcy96GraqIPcCMrt9k68vl2xSvpV5JHb7qxuMDWeTI77mflvbDWOIqRTrKBLeKoTgGWe3EJWNlINxtyB_gD4D1LgaGw">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Lạc luộc húng lìu giòn</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">35.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ==================== DANH MỤC 5: LẨU ĐẶC SẢN & ĐỒ NHÚNG ==================== -->
+<section class="category-target" data-purpose="category-section" id="cat-lau">
+<div class="flex items-center justify-between mb-2.5">
+<h2 class="text-[13px] font-extrabold text-slate-900 uppercase tracking-wide flex items-center space-x-1.5">
+<span class="w-1.5 h-4 bg-brand-red rounded-full inline-block"></span>
+<span class="">LẨU ĐẶC SẢN &amp; ĐỒ NHÚNG</span>
+</h2>
+<span class="text-[11px] text-slate-400 font-medium">4 món</span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<!-- Dish 5-1: Lẩu riêu cua bắp bò sườn sụn -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Lẩu riêu cua bắp bò sườn sụn" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnzOZeqmQDDltIR5QJ1j8DYSniQQLDfpZt_Un83CGF23X3ug3BfEQUkzKoi7pjERWJQLiflwVJXlgwDEQOyyQdepuDTksidhS9Ego0Lw6OobNg1dvFY2_468X1U9fd0Gn6lY64xBnRZJnLuKzVJQlTSUyqup2-oFtcLsb0kaQHhe1wOk_FMu7AoPfg-38QdnQDmY_xs9DYRCjHL_yjW8MBXQ-0rKw3tl9F3kgaO4xEZkGe2IWNJbvU6g">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Lẩu riêu cua sườn sụn</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">450.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish 5-2: Ba chỉ bò Mỹ nhúng lẩu -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Ba chỉ bò Mỹ nhúng" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQ4kfkrj1i8D0at2Qb4bxJ4fXznqoEQAOxgH7N_KPmu9mHI6Aogikfn9ANOnMSRmIGKI6PnLIPvmhml78dJ7M-c_s4MUVZlSi4Y3xt9tC0uI0MASMwP7nV6pR00kp-l6GnXubcdHPFvop-RprlMthlD7DSV0O98AIQ0hsjXFPUHRLCmO0mQmByumrGwSIKF-jMleblrojrW7Uw9N0bOoOvlSlDazwcMh_g6klmFvIzb-dWVhZ14q3jaA">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Ba chỉ bò Mỹ nhúng</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">120.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish 5-3: Đĩa rau rừng Tây Bắc -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Đĩa rau rừng Tây Bắc" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxnGTXItHhlx3O_mBUqp7B6QEEZXNJTqR9Tcj2TtXP_6SxB9CQyWHvpo9CcD6CdY9gIF69GYBT_QFkvYn4QL4eHSRHwho_WYHSPRkdl8qPVR6YJ_4HPELlnDmJnrYtHQLmNXuYeH2flZMT9oAVjW85OiOVBjZN-5Sfww_4I91m-0csNEGq7Ec-eR6OaWUdRA-JI3teTErV-cIbh1XPDi7CHX4a5xpSAnKXw4f-_QY6iGlxumBp-28iFg">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Đĩa rau rừng Tây Bắc</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">50.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish 5-4: Mì tôm / Bánh đa đỏ -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Mì tôm / Bánh đa đỏ Hải Phòng" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBl4sV4u-QK1_CmGySyr6AfXjQ7GV1S0SmIm2-F5dZWN_zjOOfj1YzH4YTmUvWoVdQIfcF-Yh9GJYkn1owinlhgI1QmqXmlDdl9ZBj9op_wFFLl5brkQtyeZNwMQZRgFvACZcb1DcMO965K251kZ0pSvyaoQi4aBWpShlEq5Ka9NGS0W5zzBZvU-HJZTWUEn0luscWYgXXFrZd6630s8bidUfR7B6YVfG-b0CoVOoI9iuKgyJ07xipylA">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Mì tôm / Bánh đa đỏ</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">25.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ==================== DANH MỤC 6: TRÁNG MIỆNG ==================== -->
+<section class="category-target" data-purpose="category-section" id="cat-dessert">
+<div class="flex items-center justify-between mb-2.5">
+<h2 class="text-[13px] font-extrabold text-slate-900 uppercase tracking-wide flex items-center space-x-1.5">
+<span class="w-1.5 h-4 bg-brand-red rounded-full inline-block"></span>
+<span class="">TRÁNG MIỆNG</span>
+</h2>
+<span class="text-[11px] text-slate-400 font-medium">2 món</span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<!-- Dish 6-1: Chè dưỡng nhan tuyết yến -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Chè dưỡng nhan tuyết yến" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgDplqI8hXJhMHOc2c-NW2YfCIOTtl-GnYBTLSAVCM8a3Hs1goWLNro_L9-IaG4Z2qfnv3g7PpYMZHdznXXSnrhi0uXJ5CGhu2mHxtIlrA74x1I2Gb0_88w155Ompak7MFXtWmCu1A10a-X7Wf9LL_xFmx9KXDBL8fH20HpYQuUCL8iQsa8wHJaWd5OrKP47U3r9OM21hRRNasDpAqGP5jtwe5UTJjSXF8ewV_pyY08g9vbs4llx2bIQ">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Chè dưỡng nhan tuyết yến</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">35.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish 6-2: Kem tươi dừa non -->
+<div class="bg-white rounded-2xl p-2 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col justify-between">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-100">
+<img alt="Kem tươi dừa non ngọt ngào" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCL104f0Y4_9YwUgolGQJYDbncqw320SxmFoiPcdxgennwwqnY2vmDkbKMMmR6D_Z-T7Gs6NWsr536NBu_yweIRhUPkXbXAYKG6LzQPh0mcSOq09do6HScuCTJVy7UPE66KFg56vfqtp9MILfv_-vyh3h5ATbcvIh_1tecMOzpvmhNtkG8ZZVox2sE3Js2Z9geNQbpSrMXj-i94wl75uGya8ElmIm8hjOWQjeUt8AD_X1fbLCUw_uRqug">
+</div>
+<div class="pt-2">
+<h3 class="text-xs font-bold text-slate-800 truncate">Kem tươi dừa non</h3>
+<div class="mt-2 flex items-center justify-between">
+<span class="text-xs font-extrabold text-slate-900 tracking-tight">30.000 đ</span>
+<button class="w-7 h-7 bg-slate-900 active:bg-brand-red text-white rounded-full flex items-center justify-center shadow transition-colors" type="button">
+<svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: Floating Mini Cart Sticky bar above bottom nav -->
+<div class="fixed bottom-14 left-0 right-0 max-w-md mx-auto px-3.5 z-40 pointer-events-none">
+<div class="pointer-events-auto bg-slate-900/95 backdrop-blur-md text-white rounded-2xl px-4 py-2.5 flex items-center justify-between shadow-xl border border-slate-800/80 transition-all transform active:scale-[0.99]">
+<div class="flex items-center space-x-3">
+<div class="relative">
+<div class="w-9 h-9 rounded-full bg-brand-red flex items-center justify-center text-white shadow-md shadow-red-900/40">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 text-slate-900 text-[10px] font-black rounded-full flex items-center justify-center">2</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center space-x-1.5">
+<span class="text-xs font-bold text-white">2 món đã chọn</span>
+<span class="text-[10px] text-slate-400">• Bàn 09</span>
+</div>
+<span class="text-xs font-extrabold text-amber-400">664.000 đ</span>
+</div>
+</div>
+<button class="bg-[#D32323] hover:bg-[#B91C1C] active:scale-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center space-x-1 transition-all shadow-md shadow-red-900/40" type="button">
+<span class="">Xem đơn</span>
+<svg class="w-3.5 h-3.5 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+<!-- END: Floating Mini Cart -->
+<!-- BEGIN: iOS Bottom Navigation Bar (3 Tabs) -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 px-6 py-2 flex items-center justify-around shadow-lg max-w-md mx-auto">
+<!-- Tab 1: Thực đơn (Đang chọn) -->
+<button class="flex flex-col items-center justify-center text-[#D32323] focus:outline-none" type="button">
+<svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="text-[11px] font-bold tracking-tight">Thực đơn</span>
+</button>
+<!-- Tab 2: Đơn gọi -->
+<button class="flex flex-col items-center justify-center text-slate-400 hover:text-slate-600 focus:outline-none" type="button">
+<div class="relative">
+<svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="absolute -top-1 -right-2 w-2 h-2 bg-brand-red rounded-full"></span>
+</div>
+<span class="text-[11px] font-medium tracking-tight">Đơn gọi</span>
+</button>
+<!-- Tab 3: Hỗ trợ -->
+<button class="flex flex-col items-center justify-center text-slate-400 hover:text-slate-600 focus:outline-none" type="button">
+<svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="text-[11px] font-medium tracking-tight">Hỗ trợ</span>
+</button>
+</nav>
+<!-- END: iOS Bottom Navigation Bar -->
+</div>
+<!-- END: MobileContainer -->
+<!-- BEGIN: Vanilla JavaScript for Category Scrollspy -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const pills = Array.from(document.querySelectorAll('.cat-pill'));
+    const sections = pills.map(p => document.getElementById(p.getAttribute('data-cat'))).filter(Boolean);
+    const header = document.getElementById('main-header');
+
+    let isManualScrolling = false;
+    let manualScrollTimer = null;
+
+    // Helper setActive tab styles
+    function setActiveTab(activePill) {
+      pills.forEach(pill => {
+        if (pill === activePill) {
+          pill.classList.remove('bg-white', 'text-slate-700', 'border', 'border-slate-200', 'font-medium');
+          pill.classList.add('bg-[#d32323]', 'text-white', 'font-bold', 'shadow-sm', 'shadow-red-200');
+          // Cuộn pill ra giữa thanh trượt
+          pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        } else {
+          pill.classList.remove('bg-[#d32323]', 'text-white', 'font-bold', 'shadow-sm', 'shadow-red-200');
+          pill.classList.add('bg-white', 'text-slate-700', 'border', 'border-slate-200', 'font-medium');
+        }
+      });
+    }
+
+    // Click navigation handler
+    pills.forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        const targetId = pill.getAttribute('data-cat');
+        const targetSection = document.getElementById(targetId);
+        if (!targetSection) return;
+
+        isManualScrolling = true;
+        clearTimeout(manualScrollTimer);
+
+        setActiveTab(pill);
+
+        const headerHeight = header ? header.offsetHeight : 125;
+        const targetTop = targetSection.getBoundingClientRect().top + window.scrollY;
+
+        window.scrollTo({
+          top: targetTop - headerHeight,
+          behavior: 'smooth'
+        });
+
+        manualScrollTimer = setTimeout(() => {
+          isManualScrolling = false;
+        }, 700);
+      });
+    });
+
+    // Scrollspy listener using window scroll
+    window.addEventListener('scroll', () => {
+      if (isManualScrolling) return;
+
+      const headerHeight = header ? header.offsetHeight : 125;
+      const scrollPos = window.scrollY + headerHeight + 20;
+
+      let currentSection = sections[0];
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        if (section.offsetTop <= scrollPos) {
+          currentSection = section;
+        }
+      }
+
+      if (currentSection) {
+        const correspondingPill = pills.find(p => p.getAttribute('data-cat') === currentSection.id);
+        if (correspondingPill && !correspondingPill.classList.contains('bg-[#d32323]')) {
+          setActiveTab(correspondingPill);
+        }
+      }
+    }, { passive: true });
+  });
+</script>
+<!-- END: Vanilla JavaScript -->
+
+
+</body></html>

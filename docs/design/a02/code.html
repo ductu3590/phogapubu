@@ -1,0 +1,428 @@
+<!DOCTYPE html><html lang="vi" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>MEVO POS - Quản trị &amp; Cấu hình [A02] Thực đơn &amp; Giá</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "outline-variant": "#dbc2b4",
+            "text-main": "#0F172A",
+            "on-tertiary-fixed-variant": "#004c69",
+            "on-tertiary-container": "#e2f2ff",
+            "on-primary": "#ffffff",
+            "error-container": "#ffdad6",
+            "on-secondary-fixed-variant": "#3f465c",
+            "secondary-container": "#dae2fd",
+            "status-green-bg": "#F0FDF4",
+            "secondary": "#565e74",
+            "inverse-primary": "#ffb68b",
+            "primary-fixed-dim": "#ffb68b",
+            "canvas": "#F8FAFC",
+            "on-primary-fixed": "#321300",
+            "secondary-fixed-dim": "#bec6e0",
+            "tertiary": "#005b7d",
+            "on-primary-container": "#ffede4",
+            "surface-container-high": "#f6e5dd",
+            "on-secondary": "#ffffff",
+            "on-surface": "#221a15",
+            "on-primary-fixed-variant": "#743400",
+            "surface-container": "#fceae2",
+            "selected-bg": "#FFFBEB",
+            "surface-container-highest": "#f0dfd7",
+            "surface-dim": "#e7d7cf",
+            "primary-container": "#a9571b",
+            "status-red": "#B91C1C",
+            "surface-bright": "#fff8f5",
+            "outline": "#887368",
+            "status-red-bg": "#FEF2F2",
+            "on-surface-variant": "#554339",
+            "primary-fixed": "#ffdbc8",
+            "status-amber": "#B45309",
+            "on-error-container": "#93000a",
+            "on-secondary-container": "#5c647a",
+            "tertiary-container": "#00759f",
+            "tertiary-fixed-dim": "#7ed0fe",
+            "surface-variant": "#f0dfd7",
+            "surface": "#FFFFFF",
+            "inverse-on-surface": "#ffede5",
+            "on-secondary-fixed": "#131b2e",
+            "on-tertiary": "#ffffff",
+            "secondary-fixed": "#dae2fd",
+            "text-muted": "#475569",
+            "error": "#ba1a1a",
+            "status-green": "#15803D",
+            "surface-tint": "#96490b",
+            "background": "#fff8f5",
+            "surface-container-lowest": "#ffffff",
+            "border": "#CBD5E1",
+            "surface-container-low": "#fff1ea",
+            "on-error": "#ffffff",
+            "status-amber-bg": "#FFFBEB",
+            "tertiary-fixed": "#c4e7ff",
+            "primary": "#8a4001",
+            "inverse-surface": "#382e29",
+            "on-tertiary-fixed": "#001e2c",
+            "on-background": "#221a15"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem",
+            "2xl": "1rem"
+          },
+          "fontFamily": {
+            "body": ["Geist", "Be Vietnam Pro", "sans-serif"],
+            "tabular": ["Geist Mono", "monospace"]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    body {
+      font-family: 'Geist', 'Be Vietnam Pro', sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f8fafc;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-canvas text-text-main antialiased h-screen w-screen overflow-hidden relative select-none">
+<!-- MÀN NỀN POS DESKTOP BỊ LÀM MỜ (BACKDROP OVERLAY) -->
+<div class="absolute inset-0 z-0 flex flex-col filter blur-[3px] scale-[1.01] pointer-events-none opacity-80 bg-canvas">
+<!-- POS Header Background -->
+<header class="h-14 border-b border-border bg-surface px-6 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary-container text-white flex items-center justify-center font-bold text-sm">MB</div>
+<div class="text-sm font-semibold">MEVO POS - Quán Bia Lẩu Bảo Lương (Hoàng Mai)</div>
+<span class="px-2 py-0.5 text-xs bg-status-green-bg text-status-green rounded font-medium">Bán hàng trực tiếp</span>
+</div>
+<div class="flex items-center gap-4 text-text-muted text-xs">
+<span class="">Bàn: 24/30 Đang phục vụ</span>
+<span class="">Doanh thu ca: 18.450.000đ</span>
+<div class="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center font-bold text-primary">NL</div>
+</div>
+</header>
+<!-- POS Floor Map Layout Mock -->
+<div class="flex-1 grid grid-cols-12 gap-4 p-6 overflow-hidden">
+<div class="col-span-8 grid grid-cols-4 gap-4 auto-rows-max">
+<div class="h-28 rounded-xl border border-border bg-surface p-3 flex flex-col justify-between shadow-sm">
+<div class="flex justify-between items-center text-xs font-bold text-status-green"><span class="">BÀN T1-01</span><span class="">4 Khách</span></div>
+<div class="text-base font-bold tabular-nums">480.000đ</div>
+<div class="text-[11px] text-text-muted">Đang uống bia • 42p</div>
+</div>
+<div class="h-28 rounded-xl border border-border bg-selected-bg p-3 flex flex-col justify-between shadow-sm">
+<div class="flex justify-between items-center text-xs font-bold text-status-amber"><span class="">BÀN T1-02</span><span class="">8 Khách</span></div>
+<div class="text-base font-bold tabular-nums">1.820.000đ</div>
+<div class="text-[11px] text-text-muted">Chờ gọi thêm món • 1h15p</div>
+</div>
+<div class="h-28 rounded-xl border border-border bg-surface p-3 flex flex-col justify-between shadow-sm opacity-60">
+<div class="flex justify-between items-center text-xs font-semibold text-text-muted"><span class="">BÀN T1-03</span><span class="">Trống</span></div>
+<div class="text-sm text-text-muted">Sẵn sàng</div>
+<div class="text-[11px] text-text-muted">Khu ngoài trời</div>
+</div>
+<div class="h-28 rounded-xl border border-border bg-surface p-3 flex flex-col justify-between shadow-sm">
+<div class="flex justify-between items-center text-xs font-bold text-status-green"><span class="">BÀN VIP-01</span><span class="">12 Khách</span></div>
+<div class="text-base font-bold tabular-nums">3.450.000đ</div>
+<div class="text-[11px] text-text-muted">Phòng lạnh VIP • 2h05p</div>
+</div>
+</div>
+<div class="col-span-4 rounded-xl border border-border bg-surface p-4 flex flex-col shadow-sm">
+<div class="font-bold text-sm mb-3">Order Hiện Tại - Bàn T1-02</div>
+<div class="space-y-2 text-xs">
+<div class="flex justify-between py-1 border-b border-surface-container"><span class="">Tháp bia tươi Hà Nội 3L x 2</span><span class="font-semibold">390.000đ</span></div>
+<div class="flex justify-between py-1 border-b border-surface-container"><span class="">Lẩu riêu cua sườn sụn (Lớn)</span><span class="font-semibold">450.000đ</span></div>
+<div class="flex justify-between py-1 border-b border-surface-container"><span class="">Bò tơ cuốn rau rừng x 2</span><span class="font-semibold">360.000đ</span></div>
+</div>
+</div>
+</div>
+</div>
+<!-- LỚP PHỦ TỐI MỜ (MODAL OVERLAY BACKDROP) -->
+<div class="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-10 flex items-center justify-center p-4">
+<!-- MODAL CONTAINER (1200px x 740px) -->
+<div class="w-[1200px] h-[740px] max-w-full max-h-[983px] bg-surface rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-outline-variant/30">
+<!-- HEADER MODAL -->
+<div class="bg-surface border-b border-border/80 px-6 pt-4 pb-0 flex flex-col shrink-0">
+<div class="flex items-center justify-between pb-3">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-primary-container shadow-inner">
+<span class="material-symbols-outlined text-[24px]">settings</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h1 class="text-panel-title font-bold text-text-main tracking-tight">Quản trị &amp; Cấu hình Hệ thống MEVO POS</h1>
+<span class="bg-primary-fixed text-on-primary-fixed text-xs font-semibold px-2 py-0.5 rounded border border-outline-variant/40">Trạm POS #01</span>
+</div>
+<p class="text-xs text-text-muted mt-0.5 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-primary-container">storefront</span>
+<span class="">Quán Bia Lẩu Bảo Lương (Hoàng Mai)</span>
+<span class="text-outline-variant">•</span>
+<span class="text-status-green font-medium flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-status-green inline-block animate-pulse"></span>
+                  Máy chủ nội bộ hoạt động bình thường
+                </span>
+</p>
+</div>
+</div>
+<div class="flex items-center gap-2.5">
+<button class="h-9 px-4 rounded bg-primary-container hover:bg-primary text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">save</span>
+<span class="">Lưu thay đổi</span>
+</button>
+<button class="w-9 h-9 rounded hover:bg-surface-container text-text-muted hover:text-text-main flex items-center justify-center transition-colors cursor-pointer" title="Đóng modal">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+</div>
+<!-- 5 TABS NAVIGATION -->
+<nav class="flex items-center gap-1 border-t border-surface-container/80 pt-1 text-sm">
+<button class="flex items-center gap-2 px-4 py-2.5 text-text-muted hover:text-text-main font-medium border-b-2 border-transparent transition-all">
+<span class="material-symbols-outlined text-[18px]">print</span>
+<span class="">[A01] Cấu hình &amp; In ấn</span>
+</button>
+<!-- TAB ACTIVE: [A02] Thực đơn & Giá -->
+<button class="flex items-center gap-2 px-4 py-2.5 text-primary-container font-bold border-b-2 border-primary-container bg-surface-container-low/60 rounded-t transition-all">
+<span class="material-symbols-outlined text-[18px]">restaurant_menu</span>
+<span class="">[A02] Thực đơn &amp; Giá</span>
+
+</button>
+<button class="flex items-center gap-2 px-4 py-2.5 text-text-muted hover:text-text-main font-medium border-b-2 border-transparent transition-all">
+<span class="material-symbols-outlined text-[18px]">grid_view</span>
+<span class="">[A03] Sơ đồ Bàn &amp; Mã QR</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2.5 text-text-muted hover:text-text-main font-medium border-b-2 border-transparent transition-all">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+<span class="">[A04] Hóa đơn &amp; Báo cáo Ca</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2.5 text-text-muted hover:text-text-main font-medium border-b-2 border-transparent transition-all">
+<span class="material-symbols-outlined text-[18px]">manage_accounts</span>
+<span class="">[A05] Tài khoản &amp; Phân quyền</span>
+</button>
+</nav>
+</div>
+<!-- TAB [A02] NỘI DUNG: CHIA 2 CỘT (280px Master / Detail Bảng món) -->
+<div class="flex-1 flex overflow-hidden bg-canvas">
+<!-- CỘT TRÁI (280px): DANH MỤC MÓN & THỐNG KÊ NHANH -->
+<aside class="w-[280px] shrink-0 border-r border-border/70 bg-surface flex flex-col justify-between" id="menu-sidebar">
+<div class="p-3.5 space-y-3.5 overflow-y-auto custom-scrollbar flex-1">
+<!-- Nút Thêm Món Mới -->
+<button class="w-full h-9 rounded bg-primary-container hover:bg-primary text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span class="">+ Thêm món mới</span>
+</button>
+<!-- Thanh tìm kiếm danh mục/món ăn -->
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2.5 top-2.5 text-[18px] text-text-muted">search</span>
+<input class="w-full h-8 pl-8 pr-3 text-xs bg-canvas rounded border border-border focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all placeholder:text-text-muted" placeholder="Tìm tên món, mã món..." type="text">
+</div>
+<!-- Danh sách nhóm món -->
+<div>
+<div class="text-[11px] font-bold uppercase tracking-wider text-text-muted px-2 mb-1.5 flex items-center justify-between">
+<span class="">Nhóm thực đơn</span>
+<span class="text-[10px] font-normal text-text-muted">6 nhóm</span>
+</div>
+<ul class="space-y-0.5 text-xs">
+<li class="">
+<button class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-container text-primary-container font-semibold transition-colors text-left">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">menu_book</span>
+<span class="">Tất cả</span>
+</span>
+<span class="text-[11px] bg-white text-primary-container px-2 py-0.5 rounded-full border border-outline-variant/30 font-tabular">38</span>
+</button>
+</li>
+<li class="">
+<button class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-text-main hover:bg-canvas font-medium transition-colors text-left group">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-text-muted group-hover:text-primary-container">soup_kitchen</span>
+<span class="truncate">Lẩu đặc sản &amp; Đồ nhúng</span>
+</span>
+<span class="text-[11px] text-text-muted font-tabular">8</span>
+</button>
+</li>
+<li class="">
+<button class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-text-main hover:bg-canvas font-medium transition-colors text-left group">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-text-muted group-hover:text-primary-container">outdoor_grill</span>
+<span class="truncate">Món nướng &amp; Lai rai</span>
+</span>
+<span class="text-[11px] text-text-muted font-tabular">12</span>
+</button>
+</li>
+<li class="">
+<button class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-text-main hover:bg-canvas font-medium transition-colors text-left group">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-text-muted group-hover:text-primary-container">stars</span>
+<span class="truncate">Combo Must Try</span>
+</span>
+<span class="text-[11px] text-text-muted font-tabular">4</span>
+</button>
+</li>
+<li class="">
+<button class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-text-main hover:bg-canvas font-medium transition-colors text-left group">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-text-muted group-hover:text-primary-container">nutrition</span>
+<span class="truncate">Salad - Khai vị</span>
+</span>
+<span class="text-[11px] text-text-muted font-tabular">6</span>
+</button>
+</li>
+<li class="">
+<button class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-text-main hover:bg-canvas font-medium transition-colors text-left group">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-text-muted group-hover:text-primary-container">sports_bar</span>
+<span class="truncate">Bia &amp; Đồ uống</span>
+</span>
+<span class="text-[11px] text-text-muted font-tabular">8</span>
+</button>
+</li>
+</ul>
+</div>
+<!-- Bộ lọc trạng thái kinh doanh -->
+<div class="pt-2 border-t border-border/70">
+<div class="text-[11px] font-bold uppercase tracking-wider text-text-muted px-2 mb-1.5">Trạng thái bán</div>
+<div class="space-y-1 text-xs">
+<label class="flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-canvas cursor-pointer">
+<span class="flex items-center gap-2 text-text-main">
+<span class="w-2 h-2 rounded-full bg-status-green"></span>
+<span class="">Đang bán (Mở gọi)</span>
+</span>
+<span class="text-[11px] font-tabular text-status-green font-semibold">34</span>
+</label>
+<label class="flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-canvas cursor-pointer">
+<span class="flex items-center gap-2 text-text-main">
+<span class="w-2 h-2 rounded-full bg-status-red"></span>
+<span class="">Tạm ngưng / Tạm hết</span>
+</span>
+<span class="text-[11px] font-tabular text-status-red font-semibold">4</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Quick Stat Mini Card bên góc dưới cột trái -->
+<div class="p-3 bg-surface-container-low border-t border-border/70 text-xs">
+<div class="flex items-center justify-between text-text-muted mb-1">
+<span class="">Đồng bộ POS &amp; QR Code:</span>
+<span class="text-status-green font-semibold flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">sync</span> Tức thời
+              </span>
+</div>
+<p class="text-[11px] text-text-muted leading-tight">Món tắt sẽ lập tức biến mất trên thực đơn mã QR quét tại bàn.</p>
+</div>
+</aside>
+<!-- CỘT PHẢI: BẢNG QUẢN LÝ MÓN & THIẾT LẬP GIÁ CHI TIẾT -->
+<main class="flex-1 flex flex-col overflow-hidden bg-surface">
+<!-- Thanh điều khiển bảng & Tác vụ nhanh -->
+<div class="px-5 py-3 border-b border-border/70 flex items-center justify-between bg-surface"><div class="flex items-center gap-3"><button id="btn-toggle-sidebar" class="h-8 w-8 rounded border border-border hover:bg-canvas text-text-muted hover:text-text-main flex items-center justify-center transition-colors cursor-pointer" title="Thu gọn / Mở rộng danh mục bên trái"><span class="material-symbols-outlined text-[18px]">menu_open</span></button><span class="text-sm font-bold text-text-main">Danh sách Món ăn &amp; Đồ uống</span><span class="text-xs text-text-muted bg-canvas border border-border px-2 py-0.5 rounded font-tabular">Hiển thị 6 / 38 món</span></div><div class="flex items-center gap-2"><button class="h-8 px-3 rounded border border-border hover:bg-canvas text-xs font-medium text-text-main flex items-center gap-1.5 transition-colors"><span class="material-symbols-outlined text-[16px] text-text-muted">tune</span><span class="">Điều chỉnh giá hàng loạt</span></button><button class="h-8 px-3 rounded border border-border hover:bg-canvas text-xs font-medium text-text-main flex items-center gap-1.5 transition-colors"><span class="material-symbols-outlined text-[16px] text-text-muted">download</span><span class="">Xuất Excel</span></button></div></div>
+<!-- Bảng danh sách món thực tế của Quán Bia Lẩu Bảo Lương -->
+<div class="flex-1 overflow-y-auto custom-scrollbar">
+<table class="w-full border-collapse text-left text-xs">
+<thead class="bg-canvas sticky top-0 z-10 border-b border-border text-text-muted font-semibold"><tr class=""><th class="py-2.5 px-3 w-12 text-center">STT</th><th class="py-2.5 px-3 w-28 text-left">Mã món</th><th class="py-2.5 px-3 w-20 text-center">Hình ảnh</th><th class="py-2.5 px-4">Tên món &amp; Quy cách</th><th class="py-2.5 px-4 w-40">Nhóm món</th><th class="py-2.5 px-4 w-36 text-right">Giá bán (VNĐ)</th><th class="py-2.5 px-4 w-36 text-center">Trạng thái bán</th><th class="py-2.5 px-4 w-20 text-center">Thao tác</th></tr></thead>
+<tbody class="divide-y divide-border/60"><tr class="hover:bg-surface-container-low/40 transition-colors group"><td class="py-3 px-3 text-center font-tabular text-text-muted font-medium">01</td><td class="py-3 px-3 text-left"><span class="font-tabular font-semibold text-text-main bg-canvas px-2 py-1 rounded border border-border/80 text-[11px] inline-block tracking-tight">BIA-THAP-03</span></td><td class="py-3 px-3 text-center"><div class="w-14 h-14 rounded-lg overflow-hidden border border-border/80 bg-surface-container shrink-0 mx-auto shadow-sm relative group/img"><img src="https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=150&amp;auto=format&amp;fit=crop&amp;q=80" alt="Tháp bia tươi 3L" class="w-full h-full object-cover"></div></td><td class="py-3 px-4"><div class="flex flex-col gap-1"><div class="font-bold text-text-main text-[14px] flex items-center gap-2 flex-wrap"><span class="">Tháp bia tươi 3L (Hà Nội Gold)</span><span class="text-[10px] bg-status-amber-bg text-status-amber font-semibold px-2 py-0.5 rounded border border-status-amber/20">Best Seller</span></div><div class="text-[11px] text-text-muted">Quy cách: Tháp rót có lõi đá làm lạnh 3000ml</div></div></td><td class="py-3 px-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-canvas border border-border text-xs text-text-muted font-medium"><span class="material-symbols-outlined text-[14px] text-primary-container">sports_bar</span>Bia &amp; Đồ uống</span></td><td class="py-3 px-4 text-right"><div class="inline-flex items-center justify-end gap-1.5 group/price cursor-pointer border border-transparent hover:border-outline-variant hover:bg-canvas px-2 py-1 rounded transition-all" title="Bấm để sửa nhanh giá bán"><span class="font-bold text-text-main font-tabular text-[15px]">195.000đ</span><span class="material-symbols-outlined text-[15px] text-text-muted opacity-0 group-hover/price:opacity-100">edit</span></div></td><td class="py-3 px-4 text-center"><div class="flex items-center justify-center gap-2"><button class="w-10 h-5 bg-status-green rounded-full relative p-0.5 transition-colors cursor-pointer" title="Đang mở bán trên POS và QR"><span class="w-4 h-4 bg-white rounded-full block shadow transform translate-x-5 transition-transform"></span></button><span class="text-xs text-status-green font-semibold">Đang bán</span></div></td><td class="py-3 px-4 text-center"><button onclick="openEditModal('Tháp bia tươi 3L (Hà Nội Gold)', 'BIA-THAP-03', '195.000', 'Bia &amp; Đồ uống', 'https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=150&amp;auto=format&amp;fit=crop&amp;q=80')" class="p-1.5 rounded hover:bg-surface-container text-text-muted hover:text-primary-container transition-colors cursor-pointer inline-flex items-center justify-center" title="Chỉnh sửa chi tiết món"><span class="material-symbols-outlined text-[19px]">edit_note</span></button></td></tr><tr class="hover:bg-surface-container-low/40 transition-colors group"><td class="py-3 px-3 text-center font-tabular text-text-muted font-medium">02</td><td class="py-3 px-3 text-left"><span class="font-tabular font-semibold text-text-main bg-canvas px-2 py-1 rounded border border-border/80 text-[11px] inline-block tracking-tight">BO-CUON-01</span></td><td class="py-3 px-3 text-center"><div class="w-14 h-14 rounded-lg overflow-hidden border border-border/80 bg-surface-container shrink-0 mx-auto shadow-sm relative group/img"><img src="https://images.unsplash.com/photo-1544025162-d76694265947?w=150&amp;auto=format&amp;fit=crop&amp;q=80" alt="Bò tơ cuốn rau rừng Tây Ninh" class="w-full h-full object-cover"></div></td><td class="py-3 px-4"><div class="flex flex-col gap-1"><div class="font-bold text-text-main text-[14px] flex items-center gap-2 flex-wrap"><span class="">Bò tơ cuốn rau rừng Tây Ninh</span></div><div class="text-[11px] text-text-muted">Quy cách: Đĩa thịt bò luộc mềm kèm 8 loại rau rừng &amp; mắm nêm</div></div></td><td class="py-3 px-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-canvas border border-border text-xs text-text-muted font-medium"><span class="material-symbols-outlined text-[14px] text-primary-container">kebab_dining</span>Món nướng &amp; Nhậu</span></td><td class="py-3 px-4 text-right"><div class="inline-flex items-center justify-end gap-1.5 group/price cursor-pointer border border-transparent hover:border-outline-variant hover:bg-canvas px-2 py-1 rounded transition-all" title="Bấm để sửa nhanh giá bán"><span class="font-bold text-text-main font-tabular text-[15px]">180.000đ</span><span class="material-symbols-outlined text-[15px] text-text-muted opacity-0 group-hover/price:opacity-100">edit</span></div></td><td class="py-3 px-4 text-center"><div class="flex items-center justify-center gap-2"><button class="w-10 h-5 bg-status-green rounded-full relative p-0.5 transition-colors cursor-pointer"><span class="w-4 h-4 bg-white rounded-full block shadow transform translate-x-5 transition-transform"></span></button><span class="text-xs text-status-green font-semibold">Đang bán</span></div></td><td class="py-3 px-4 text-center"><button onclick="openEditModal('Bò tơ cuốn rau rừng Tây Ninh', 'BO-CUON-01', '180.000', 'Món nướng &amp; Nhậu', 'https://images.unsplash.com/photo-1544025162-d76694265947?w=150&amp;auto=format&amp;fit=crop&amp;q=80')" class="p-1.5 rounded hover:bg-surface-container text-text-muted hover:text-primary-container transition-colors cursor-pointer inline-flex items-center justify-center" title="Chỉnh sửa chi tiết món"><span class="material-symbols-outlined text-[19px]">edit_note</span></button></td></tr><tr class="hover:bg-surface-container-low/40 transition-colors group"><td class="py-3 px-3 text-center font-tabular text-text-muted font-medium">03</td><td class="py-3 px-3 text-left"><span class="font-tabular font-semibold text-text-main bg-canvas px-2 py-1 rounded border border-border/80 text-[11px] inline-block tracking-tight">LAU-RIEU-01</span></td><td class="py-3 px-3 text-center"><div class="w-14 h-14 rounded-lg overflow-hidden border border-border/80 bg-surface-container shrink-0 mx-auto shadow-sm relative group/img"><img src="https://images.unsplash.com/photo-1547928576-a4a33237cbc3?w=150&amp;auto=format&amp;fit=crop&amp;q=80" alt="Lẩu riêu cua sườn sụn bắp bò" class="w-full h-full object-cover"></div></td><td class="py-3 px-4"><div class="flex flex-col gap-1"><div class="font-bold text-text-main text-[14px] flex items-center gap-2 flex-wrap"><span class="">Lẩu riêu cua sườn sụn bắp bò</span><span class="text-[10px] bg-status-amber-bg text-status-amber font-semibold px-2 py-0.5 rounded border border-status-amber/20">Chữ ký quán</span></div><div class="text-[11px] text-text-muted">Quy cách: Nồi lẩu set lớn 4-6 người ăn kèm rau sống, bún và hột vịt lộn</div></div></td><td class="py-3 px-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-canvas border border-border text-xs text-text-muted font-medium"><span class="material-symbols-outlined text-[14px] text-primary-container">soup_kitchen</span>Lẩu đặc sản</span></td><td class="py-3 px-4 text-right"><div class="inline-flex items-center justify-end gap-1.5 group/price cursor-pointer border border-transparent hover:border-outline-variant hover:bg-canvas px-2 py-1 rounded transition-all" title="Bấm để sửa nhanh giá bán"><span class="font-bold text-text-main font-tabular text-[15px]">450.000đ</span><span class="material-symbols-outlined text-[15px] text-text-muted opacity-0 group-hover/price:opacity-100">edit</span></div></td><td class="py-3 px-4 text-center"><div class="flex items-center justify-center gap-2"><button class="w-10 h-5 bg-status-green rounded-full relative p-0.5 transition-colors cursor-pointer"><span class="w-4 h-4 bg-white rounded-full block shadow transform translate-x-5 transition-transform"></span></button><span class="text-xs text-status-green font-semibold">Đang bán</span></div></td><td class="py-3 px-4 text-center"><button onclick="openEditModal('Lẩu riêu cua sườn sụn bắp bò', 'LAU-RIEU-01', '450.000', 'Lẩu đặc sản', 'https://images.unsplash.com/photo-1547928576-a4a33237cbc3?w=150&amp;auto=format&amp;fit=crop&amp;q=80')" class="p-1.5 rounded hover:bg-surface-container text-text-muted hover:text-primary-container transition-colors cursor-pointer inline-flex items-center justify-center" title="Chỉnh sửa chi tiết món"><span class="material-symbols-outlined text-[19px]">edit_note</span></button></td></tr><tr class="hover:bg-surface-container-low/40 transition-colors group"><td class="py-3 px-3 text-center font-tabular text-text-muted font-medium">04</td><td class="py-3 px-3 text-left"><span class="font-tabular font-semibold text-text-main bg-canvas px-2 py-1 rounded border border-border/80 text-[11px] inline-block tracking-tight">CB-SUON-02</span></td><td class="py-3 px-3 text-center"><div class="w-14 h-14 rounded-lg overflow-hidden border border-border/80 bg-surface-container shrink-0 mx-auto shadow-sm relative group/img"><img src="https://images.unsplash.com/photo-1558030006-450675393462?w=150&amp;auto=format&amp;fit=crop&amp;q=80" alt="Combo Dẻ sườn bò Mỹ sốt tiêu đen" class="w-full h-full object-cover"></div></td><td class="py-3 px-4"><div class="flex flex-col gap-1"><div class="font-bold text-text-main text-[14px] flex items-center gap-2 flex-wrap"><span class="">Combo Dẻ sườn bò Mỹ sốt tiêu đen</span></div><div class="text-[11px] text-text-muted">Quy cách: Chảo nướng gang giữ nhiệt nóng hổi kèm bánh mì nướng bơ tỏi</div></div></td><td class="py-3 px-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-canvas border border-border text-xs text-text-muted font-medium"><span class="material-symbols-outlined text-[14px] text-primary-container">stars</span>Combo Must Try</span></td><td class="py-3 px-4 text-right"><div class="inline-flex items-center justify-end gap-1.5 group/price cursor-pointer border border-transparent hover:border-outline-variant hover:bg-canvas px-2 py-1 rounded transition-all" title="Bấm để sửa nhanh giá bán"><span class="font-bold text-text-main font-tabular text-[15px]">469.000đ</span><span class="material-symbols-outlined text-[15px] text-text-muted opacity-0 group-hover/price:opacity-100">edit</span></div></td><td class="py-3 px-4 text-center"><div class="flex items-center justify-center gap-2"><button class="w-10 h-5 bg-status-green rounded-full relative p-0.5 transition-colors cursor-pointer"><span class="w-4 h-4 bg-white rounded-full block shadow transform translate-x-5 transition-transform"></span></button><span class="text-xs text-status-green font-semibold">Đang bán</span></div></td><td class="py-3 px-4 text-center"><button onclick="openEditModal('Combo Dẻ sườn bò Mỹ sốt tiêu đen', 'CB-SUON-02', '469.000', 'Combo Must Try', 'https://images.unsplash.com/photo-1558030006-450675393462?w=150&amp;auto=format&amp;fit=crop&amp;q=80')" class="p-1.5 rounded hover:bg-surface-container text-text-muted hover:text-primary-container transition-colors cursor-pointer inline-flex items-center justify-center" title="Chỉnh sửa chi tiết món"><span class="material-symbols-outlined text-[19px]">edit_note</span></button></td></tr><tr class="bg-status-red-bg/40 hover:bg-status-red-bg/60 transition-colors group"><td class="py-3 px-3 text-center font-tabular text-text-muted font-medium">05</td><td class="py-3 px-3 text-left"><span class="font-tabular font-semibold text-text-muted line-through bg-surface-dim px-2 py-1 rounded border border-status-red/30 text-[11px] inline-block tracking-tight">MUC-01</span></td><td class="py-3 px-3 text-center"><div class="w-14 h-14 rounded-lg overflow-hidden border border-status-red/30 bg-surface-dim shrink-0 mx-auto shadow-sm relative group/img"><img src="https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=150&amp;auto=format&amp;fit=crop&amp;q=80" alt="Mực 1 nắng Côn Đảo nướng sa tế" class="w-full h-full object-cover filter grayscale opacity-70"></div></td><td class="py-3 px-4"><div class="flex flex-col gap-1"><div class="font-bold text-text-main text-[14px] flex items-center gap-2 flex-wrap"><span class="line-through decoration-status-red/50 text-text-muted">Mực 1 nắng Côn Đảo nướng sa tế</span><span class="text-[10px] bg-status-red text-white font-bold px-2 py-0.5 rounded">HẾT HÔM NAY</span></div><div class="flex items-center gap-2 text-[11px] text-status-red font-medium"><span class="material-symbols-outlined text-[13px]">block</span><span class="">Đã ẩn khỏi menu gọi món QR Code tại bàn</span></div></div></td><td class="py-3 px-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-white border border-border text-xs text-text-muted font-medium"><span class="material-symbols-outlined text-[14px] text-text-muted">set_meal</span>Món nướng &amp; Nhậu</span></td><td class="py-3 px-4 text-right"><div class="inline-flex items-center justify-end gap-1.5 group/price cursor-pointer border border-transparent hover:border-outline-variant hover:bg-canvas px-2 py-1 rounded transition-all"><span class="font-bold text-text-muted font-tabular text-[15px]">380.000đ</span><span class="material-symbols-outlined text-[15px] text-text-muted opacity-0 group-hover/price:opacity-100">edit</span></div></td><td class="py-3 px-4 text-center"><div class="flex items-center justify-center gap-2"><button class="w-10 h-5 bg-border rounded-full relative p-0.5 transition-colors cursor-pointer" title="Bấm để bật bán lại khi có nguyên liệu"><span class="w-4 h-4 bg-white rounded-full block shadow transform translate-x-0 transition-transform"></span></button><span class="text-xs text-status-red font-semibold">Tạm hết món</span></div></td><td class="py-3 px-4 text-center"><button onclick="openEditModal('Mực 1 nắng Côn Đảo nướng sa tế', 'MUC-01', '380.000', 'Món nướng &amp; Nhậu', 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=150&amp;auto=format&amp;fit=crop&amp;q=80')" class="p-1.5 rounded hover:bg-surface-container text-text-muted hover:text-primary-container transition-colors cursor-pointer inline-flex items-center justify-center" title="Chỉnh sửa chi tiết món"><span class="material-symbols-outlined text-[19px]">edit_note</span></button></td></tr><tr class="hover:bg-surface-container-low/40 transition-colors group"><td class="py-3 px-3 text-center font-tabular text-text-muted font-medium">06</td><td class="py-3 px-3 text-left"><span class="font-tabular font-semibold text-text-main bg-canvas px-2 py-1 rounded border border-border/80 text-[11px] inline-block tracking-tight">SAL-NGU-01</span></td><td class="py-3 px-3 text-center"><div class="w-14 h-14 rounded-lg overflow-hidden border border-border/80 bg-surface-container shrink-0 mx-auto shadow-sm relative group/img"><img src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=150&amp;auto=format&amp;fit=crop&amp;q=80" alt="Salad cá ngừ sốt mè rang Nhật" class="w-full h-full object-cover"></div></td><td class="py-3 px-4"><div class="flex flex-col gap-1"><div class="font-bold text-text-main text-[14px] flex items-center gap-2 flex-wrap"><span class="">Salad cá ngừ sốt mè rang Nhật</span></div><div class="text-[11px] text-text-muted">Quy cách: Xà lách lolo búp tươi giòn, cá ngừ ngâm dầu mè Nhật và sốt Kewpie</div></div></td><td class="py-3 px-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-canvas border border-border text-xs text-text-muted font-medium"><span class="material-symbols-outlined text-[14px] text-primary-container">eco</span>Salad - Khai vị</span></td><td class="py-3 px-4 text-right"><div class="inline-flex items-center justify-end gap-1.5 group/price cursor-pointer border border-transparent hover:border-outline-variant hover:bg-canvas px-2 py-1 rounded transition-all" title="Bấm để sửa nhanh giá bán"><span class="font-bold text-text-main font-tabular text-[15px]">69.000đ</span><span class="material-symbols-outlined text-[15px] text-text-muted opacity-0 group-hover/price:opacity-100">edit</span></div></td><td class="py-3 px-4 text-center"><div class="flex items-center justify-center gap-2"><button class="w-10 h-5 bg-status-green rounded-full relative p-0.5 transition-colors cursor-pointer"><span class="w-4 h-4 bg-white rounded-full block shadow transform translate-x-5 transition-transform"></span></button><span class="text-xs text-status-green font-semibold">Đang bán</span></div></td><td class="py-3 px-4 text-center"><button onclick="openEditModal('Salad cá ngừ sốt mè rang Nhật', 'SAL-NGU-01', '69.000', 'Salad - Khai vị', 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=150&amp;auto=format&amp;fit=crop&amp;q=80')" class="p-1.5 rounded hover:bg-surface-container text-text-muted hover:text-primary-container transition-colors cursor-pointer inline-flex items-center justify-center" title="Chỉnh sửa chi tiết món"><span class="material-symbols-outlined text-[19px]">edit_note</span></button></td></tr></tbody>
+</table>
+</div>
+<!-- Dải lưu ý thao tác nhanh -->
+<div class="px-5 py-2 bg-status-amber-bg/60 border-t border-status-amber/20 flex items-center justify-between text-xs text-status-amber">
+<div class="flex items-center gap-1.5 font-medium">
+<span class="material-symbols-outlined text-[16px]">info</span>
+<span class="">Mẹo thu ngân / quản lý: Bấm đúp vào cột <b>Giá bán</b> để sửa giá nhanh trong ca trực mà không cần vào form chi tiết.</span>
+</div>
+<span class="text-[11px] text-text-muted">Bấm phím <kbd class="px-1 py-0.5 bg-white border border-border rounded font-mono text-[10px] text-text-main">Enter</kbd> để hoàn tất sửa giá</span>
+</div>
+</main>
+</div>
+<!-- FOOTER MODAL -->
+<footer class="h-14 px-6 border-t border-border bg-surface flex items-center justify-between shrink-0">
+<!-- Thông tin đồng bộ & Người thực hiện -->
+<div class="flex items-center gap-4 text-xs text-text-muted">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-status-green">cloud_done</span>
+<span class="">Lần đồng bộ gần nhất: <span class="font-tabular font-semibold text-text-main">19:15:42</span></span>
+</div>
+<span class="text-outline-variant">•</span>
+<div class="flex items-center gap-1">
+<span class="">Thực hiện bởi:</span>
+<span class="font-semibold text-text-main">QL. Nguyễn Văn Nam (Ca Tối)</span>
+</div>
+</div>
+<!-- Các nút tác vụ chân modal -->
+<div class="flex items-center gap-2.5">
+<button class="h-9 px-3.5 rounded border border-border hover:bg-canvas text-xs font-semibold text-text-muted hover:text-text-main transition-colors cursor-pointer">
+            Khôi phục mặc định
+          </button>
+<button class="h-9 px-4 rounded border border-border hover:bg-surface-container text-xs font-semibold text-text-main transition-colors cursor-pointer">
+            Hủy bỏ (ESC)
+          </button>
+<button class="h-9 px-5 rounded bg-primary-container hover:bg-primary text-white text-xs font-bold flex items-center gap-1.5 shadow transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+<span class="">Lưu thực đơn &amp; giá</span>
+</button>
+</div>
+</footer>
+</div>
+</div>
+<!-- SCRIPT ĐƠN GIẢN ĐỂ TƯƠNG TÁC SWITCH VÀ EDIT NHANH GIÁ -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Toggle Switch Bật/Tắt Trạng thái bán
+      const toggles = document.querySelectorAll('tbody tr button[title]');
+      toggles.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const dot = btn.querySelector('span');
+          const statusText = btn.parentElement.querySelector('span:last-child');
+          const isGreen = btn.classList.contains('bg-status-green');
+          
+          if (isGreen) {
+            btn.classList.remove('bg-status-green');
+            btn.classList.add('bg-border');
+            dot.classList.remove('translate-x-5');
+            dot.classList.add('translate-x-0');
+            statusText.textContent = 'Tạm hết món';
+            statusText.className = 'text-[11px] text-status-red font-semibold';
+          } else {
+            btn.classList.remove('bg-border');
+            btn.classList.add('bg-status-green');
+            dot.classList.remove('translate-x-0');
+            dot.classList.add('translate-x-5');
+            statusText.textContent = 'Đang bán';
+            statusText.className = 'text-[11px] text-status-green font-semibold';
+          }
+        });
+      });
+
+      // Hỗ trợ đóng ESC giả lập
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          console.log('Phím ESC bấm: Đóng modal quản trị MEVO');
+        }
+      });
+    });
+  </script>
+
+
+</body></html>
