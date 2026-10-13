@@ -16,21 +16,33 @@ export type AppNavItem = {
   count?: number
   /** Khớp đúng href, không khớp các trang con (dùng cho mục gốc như `/admin`). */
   exact?: boolean
+  /** Trang khác cũng làm mục này sáng (⚙ Cài đặt sáng cả khi đang ở Nhân viên / Ưu đãi / Bảo mật). */
+  alsoActive?: string[]
 }
 
 export type AppNavGroup = { label?: string; items: AppNavItem[] }
 
-export function isNavItemActive(pathname: string, item: Pick<AppNavItem, 'href' | 'exact'>): boolean {
-  if (item.exact) return pathname === item.href
-  return pathname === item.href || pathname.startsWith(`${item.href}/`)
+function matchLength(pathname: string, item: Pick<AppNavItem, 'href' | 'exact' | 'alsoActive'>): number {
+  if (item.exact) return pathname === item.href ? item.href.length : -1
+  let best = -1
+  for (const p of [item.href, ...(item.alsoActive ?? [])]) {
+    if ((pathname === p || pathname.startsWith(`${p}/`)) && p.length > best) best = p.length
+  }
+  return best
+}
+
+export function isNavItemActive(pathname: string, item: Pick<AppNavItem, 'href' | 'exact' | 'alsoActive'>): boolean {
+  return matchLength(pathname, item) >= 0
 }
 
 /** Mục đang chọn là mục khớp DÀI NHẤT, để `/admin/menu` không sáng cùng lúc với `/admin`. */
 export function findActiveHref(pathname: string, groups: AppNavGroup[]): string | null {
   let best: string | null = null
+  let bestLen = -1
   for (const group of groups) {
     for (const item of group.items) {
-      if (isNavItemActive(pathname, item) && (!best || item.href.length > best.length)) best = item.href
+      const len = matchLength(pathname, item)
+      if (len > bestLen) { best = item.href; bestLen = len }
     }
   }
   return best

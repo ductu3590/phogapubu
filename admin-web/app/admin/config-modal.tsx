@@ -7,13 +7,9 @@ import ConfigDialog from './config-dialog'
 export default async function ConfigModal({ children }: { children: ReactNode }) {
   const operator = await requireOperatorOrRedirect()
   const supabase = await createClient()
-  const [{ data }, { data: workflow }] = await Promise.all([
-    supabase.from('stores').select('name').eq('id', operator.storeId).maybeSingle(),
-    supabase.rpc('get_public_store_workflow', { p_store_id: operator.storeId }),
-  ])
-  const reservationsEnabled = (workflow as { reservations_enabled?: unknown } | null)?.reservations_enabled === true
+  const { data } = await supabase.from('stores').select('name').eq('id', operator.storeId).maybeSingle()
   return (
-    <ConfigDialog storeName={(data?.name as string | undefined) ?? 'Quán'} reservationsEnabled={reservationsEnabled} role={operator.role === 'store_cashier' ? 'store_cashier' : 'store_owner'}>
+    <ConfigDialog storeName={(data?.name as string | undefined) ?? 'Quán'} role={operator.role === 'store_cashier' ? 'store_cashier' : 'store_owner'}>
       {children}
     </ConfigDialog>
   )

@@ -12,27 +12,31 @@ import type { OperatorRole } from '@/lib/auth/roles'
 // Mở bằng intercepting route (app/admin/@modal/(.)<trang>): bấm link trong ứng dụng thì trang cấu hình
 // hiện trong hộp thoại, trang đang mở phía sau (POS) KHÔNG bị gỡ — đơn mới, chuông vẫn chạy.
 // Mở thẳng URL / F5 thì ra trang đầy đủ như cũ (Next không chặn khi tải cứng).
+// 2026-10-13: mục hằng ngày (Đặt bàn, Món, Bàn QR, Báo cáo) nằm trên thanh icon dọc (admin-nav.tsx); hộp
+// thoại chừa thanh đó ra (md:left-[76px]) nên bấm icon là chuyển mục ngay. Riêng nhóm ⚙ Cài đặt còn hàng
+// tab: Cài đặt chung · Nhân viên · Ưu đãi & Vòng quay · Bảo mật.
 
 export const CONFIG_TABS = [
-  { href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays />, needsReservations: true, cashier: true },
-  { href: '/admin/settings', label: 'Cấu hình quán', icon: <Settings /> },
-  { href: '/admin/menu', label: 'Thực đơn & Giá', icon: <UtensilsCrossed />, cashier: true },
+  { href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> },
+  { href: '/admin/settings', label: 'Cài đặt chung', icon: <Settings />, settings: true },
+  { href: '/admin/menu', label: 'Thực đơn & Giá', icon: <UtensilsCrossed /> },
   { href: '/admin/tables', label: 'Sơ đồ bàn & QR', icon: <QrCode /> },
-  { href: '/admin/bills', label: 'Hoá đơn & Báo cáo', icon: <ReceiptText />, cashier: true },
-  { href: '/admin/staff', label: 'Nhân viên', icon: <Users /> },
-  { href: '/admin/vouchers', label: 'Ưu đãi & Vòng quay', icon: <Ticket /> },
-  { href: '/admin/account', label: 'Bảo mật', icon: <ShieldCheck />, cashier: true },
-] as const satisfies ReadonlyArray<{ href: string; label: string; icon: ReactNode; needsReservations?: boolean; cashier?: boolean }>
+  { href: '/admin/bills', label: 'Hoá đơn & Báo cáo', icon: <ReceiptText /> },
+  { href: '/admin/staff', label: 'Nhân viên', icon: <Users />, settings: true },
+  { href: '/admin/vouchers', label: 'Ưu đãi & Vòng quay', icon: <Ticket />, settings: true },
+  { href: '/admin/account', label: 'Bảo mật', icon: <ShieldCheck />, settings: true, cashier: true },
+] as const satisfies ReadonlyArray<{ href: string; label: string; icon: ReactNode; settings?: boolean; cashier?: boolean }>
 
-// Tab hiện theo quán (có bật đặt bàn) và vai trò: thu ngân chỉ thấy tab gắn cờ `cashier` (PA-2).
-export function visibleConfigTabs({ reservationsEnabled, role }: { reservationsEnabled: boolean; role: OperatorRole }) {
-  return CONFIG_TABS.filter((t) =>
-    (!('needsReservations' in t) || reservationsEnabled) &&
-    (role !== 'store_cashier' || ('cashier' in t && t.cashier)))
+type ConfigTab = (typeof CONFIG_TABS)[number]
+const isSettingsTab = (t: ConfigTab) => 'settings' in t && t.settings
+
+/** Tab trong nhóm ⚙ Cài đặt theo vai trò: thu ngân chỉ có Bảo mật (tài khoản của mình) → không cần hàng tab. */
+export function settingsTabs(role: OperatorRole) {
+  return CONFIG_TABS.filter((t) => isSettingsTab(t) && (role !== 'store_cashier' || ('cashier' in t && t.cashier)))
 }
 
 // Độ dài lịch sử trình duyệt lúc hộp thoại MỞ — đóng là quay về đúng trang nền dù bên trong đã bấm
-// lọc (Đơn hàng đổi ngày tạo thêm mục lịch sử). Đổi tab dùng replace nên không cộng thêm.
+// lọc (Đơn hàng đổi ngày tạo thêm mục lịch sử) hay bấm sang mục khác trên thanh icon.
 const BASE_KEY = 'mevo_config_modal_base'
 
 function readBase(): number | null {
@@ -52,12 +56,14 @@ export function ModalBaseReset() {
   return null
 }
 
-export default function ConfigDialog({ storeName, reservationsEnabled, role, children }: { storeName: string; reservationsEnabled: boolean; role: OperatorRole; children: ReactNode }) {
+export default function ConfigDialog({ storeName, role, children }: { storeName: string; role: OperatorRole; children: ReactNode }) {
   const pathname = usePathname()
   const panel = useRef<HTMLDivElement>(null)
-  const tabs = useRef<HTMLElement>(null)
-  const active = CONFIG_TABS.find((t) => pathname === t.href || pathname.startsWith(`${t.href}/`))?.href
+  const active = CONFIG_TABS.find((t) => pathname === t.href || pathname.startsWith(`${t.href}/`))
   const open = active !== undefined
+  const tabs = active && isSettingsTab(active) ? settingsTabs(role) : []
+  // Nhóm Cài đặt có hàng tab thì tiêu đề là "Cài đặt" (tab nói đang ở mục nào); mục rail thì tiêu đề = tên mục.
+  const heading = tabs.length > 1 ? { label: 'Cài đặt', icon: <Settings /> } : active
 
   useEffect(() => {
     if (!open) return
@@ -73,11 +79,6 @@ export default function ConfigDialog({ storeName, reservationsEnabled, role, chi
     const steps = base === null ? 1 : Math.max(1, window.history.length - base)
     window.history.go(-steps)
   }
-
-  // Màn hẹp hàng tab cuộn ngang: đưa tab đang chọn vào giữa, không để nó khuất mép.
-  useEffect(() => {
-    tabs.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ inline: 'center', block: 'nearest' })
-  }, [active])
 
   // Chỉ khoá cuộn trang nền + bắt Esc khi hộp thoại đang hiện (đã ẩn vì sang trang khác thì nhả ra).
   useEffect(() => {
@@ -95,41 +96,43 @@ export default function ConfigDialog({ storeName, reservationsEnabled, role, chi
   if (!open) return <ModalBaseReset />
 
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-slate-900/60 backdrop-blur-[2px] md:items-center md:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) close() }}>
+    <div className="fixed inset-0 z-50 flex md:left-[76px] items-stretch justify-center bg-slate-900/60 backdrop-blur-[2px] md:items-center md:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) close() }}>
       <div
         ref={panel}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label="Quản trị & cấu hình quán"
+        aria-label={heading?.label}
         className="flex h-full w-full max-w-[1280px] flex-col overflow-hidden bg-white shadow-modal outline-none md:h-[min(900px,94dvh)] md:rounded-2xl"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-slate-200 px-4 py-3 md:px-6">
-          <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-orange-200 bg-orange-50 text-orange-600 [&>svg]:size-5" aria-hidden><Settings /></span>
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-orange-200 bg-orange-50 text-orange-600 [&>svg]:size-5" aria-hidden>{heading?.icon}</span>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-bold text-slate-900">Quản trị &amp; cấu hình quán</h2>
+            <h2 className="truncate text-lg font-bold text-slate-900">{heading?.label}</h2>
             <p className="truncate text-[13px] text-slate-500">{storeName} · thay đổi áp dụng ngay cho POS và Mini App</p>
           </div>
           <IconButton icon={<X />} label="Đóng (Esc)" onClick={close} className="shrink-0" />
         </header>
-        <nav ref={tabs} aria-label="Mục cấu hình" className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 px-2 [scrollbar-width:none] md:px-4 [&::-webkit-scrollbar]:hidden">
-          {visibleConfigTabs({ reservationsEnabled, role }).map((t) => {
-            const isActive = t.href === active
-            return (
-              <Link
-                key={t.href}
-                href={t.href}
-                aria-current={isActive ? 'page' : undefined}
-                className={cn(
-                  'inline-flex min-h-12 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-semibold whitespace-nowrap transition-colors [&>svg]:size-4',
-                  isActive ? 'border-orange-600 text-orange-700' : 'border-transparent text-slate-500 hover:text-slate-900',
-                )}
-              >
-                {t.icon}{t.label}
-              </Link>
-            )
-          })}
-        </nav>
+        {tabs.length > 1 && (
+          <nav aria-label="Mục cài đặt" className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 px-2 [scrollbar-width:none] md:px-4 [&::-webkit-scrollbar]:hidden">
+            {tabs.map((t) => {
+              const isActive = t.href === active.href
+              return (
+                <Link
+                  key={t.href}
+                  href={t.href}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={cn(
+                    'inline-flex min-h-12 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-semibold whitespace-nowrap transition-colors [&>svg]:size-4',
+                    isActive ? 'border-orange-600 text-orange-700' : 'border-transparent text-slate-500 hover:text-slate-900',
+                  )}
+                >
+                  {t.icon}{t.label}
+                </Link>
+              )
+            })}
+          </nav>
+        )}
         <div className="relative min-h-0 flex-1 overflow-y-auto bg-slate-50">{children}</div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { getButtonClasses } from '@/components/ui/button-classes'
 import { cn } from '@/lib/utils'
 import BellStyleSync from '@/components/bell-style-sync'
 import { PosLockProvider } from '@/components/pos-lock'
-import { adminBottomItems, adminMoreItems, adminRailItems } from './admin-nav'
+import { adminBottomItems, adminRailItems } from './admin-nav'
 
 // `modal` = slot @modal: trang cấu hình mở thành hộp thoại đè lên trang đang mở (Pha 4 ST-3).
 export default async function AdminLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
@@ -32,9 +32,10 @@ export default async function AdminLayout({ children, modal }: { children: React
     <PosLockProvider userId={user?.id ?? ''} userLabel={user?.email}>
       <IconRailShell
         brand={{ initial: 'M', title: storeName, subtitle: operator.role === 'store_cashier' ? 'MEVO · Thu ngân' : 'MEVO · Chủ quán' }}
-        items={adminRailItems(kitchenEnabled, operator.role)}
+        items={adminRailItems(kitchenEnabled, reservationsEnabled, operator.role)}
         bottomItems={adminBottomItems(operator.role)}
-        moreItems={adminMoreItems(reservationsEnabled, operator.role)}
+        signOut={signOut}
+        userEmail={user?.email}
         footer={
           <div className="space-y-1">
             {user?.email ? <p className="truncate px-3 text-[13px] text-muted">{user.email}</p> : null}

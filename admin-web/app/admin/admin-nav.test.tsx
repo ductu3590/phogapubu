@@ -1,63 +1,69 @@
 import { describe, expect, it } from 'vitest'
 import { findActiveHref } from '@/components/ui/app-shell'
 import { adminPathAllowed } from '@/lib/auth/roles'
-import { adminBottomItems, adminMoreItems, adminNavGroups, adminRailItems } from './admin-nav'
+import { adminBottomItems, adminNavGroups, adminRailItems } from './admin-nav'
+import { CONFIG_TABS, settingsTabs } from './config-dialog'
 
-const hrefs = (reservations: boolean, kitchen = true) => adminNavGroups(reservations, kitchen).flatMap((group) => group.items.map((item) => item.href))
+const hrefs = (items: { href: string }[]) => items.map((i) => i.href)
+const all = (reservations: boolean, kitchen = true, role: 'store_owner' | 'store_cashier' = 'store_owner') =>
+  adminNavGroups(reservations, kitchen, role).flatMap((g) => hrefs(g.items))
 
-describe('menu khu chủ quán (rail icon Stitch)', () => {
-  it('rail giữ mục hằng ngày, POS đứng đầu; KHÔNG còn Đặt bàn trên rail', () => {
-    expect(adminRailItems().map((item) => item.href)).toEqual([
-      '/admin/pos', '/admin/kitchen', '/admin/menu', '/admin/bills',
+describe('rail chủ quán — thanh icon dọc, không còn ô Thêm (2026-10-13)', () => {
+  it('POS đứng đầu, mục hằng ngày trên rail; Nhân viên · Ưu đãi · Bảo mật nằm trong ⚙ Cài đặt', () => {
+    expect(hrefs(adminRailItems(true, true))).toEqual([
+      '/admin/pos', '/admin/kitchen', '/admin/reservations', '/admin/menu', '/admin/tables', '/admin/bills',
     ])
+    expect(adminRailItems(true, true).find((i) => i.href === '/admin/bills')?.label).toBe('Báo cáo')
+    expect(hrefs(adminBottomItems())).toEqual(['/admin/settings'])
   })
 
-  it('quán thu ngân xác nhận rồi in phiếu (Bảo Lương) → ẩn Bếp', () => {
-    expect(adminRailItems(false).map((item) => item.href)).not.toContain('/admin/kitchen')
+  it('đang ở Nhân viên / Ưu đãi / Bảo mật thì sáng nút ⚙ Cài đặt', () => {
+    for (const p of ['/admin/staff', '/admin/vouchers', '/admin/account', '/admin/settings']) {
+      expect(findActiveHref(p, adminNavGroups(true)), p).toBe('/admin/settings')
+    }
   })
 
-  it('Đặt bàn nằm trong ô Thêm, chỉ khi quán bật đặt bàn', () => {
-    expect(adminMoreItems(true).map((item) => item.href)[0]).toBe('/admin/reservations')
-    expect(adminMoreItems(false).map((item) => item.href)).not.toContain('/admin/reservations')
-    expect(adminMoreItems(false).map((item) => item.href)).toEqual([
-      '/admin/tables', '/admin/staff', '/admin/vouchers', '/admin/account',
-    ])
+  it('nhãn chỉ 1–2 chữ cho vừa rail 76px', () => {
+    for (const item of [...adminRailItems(true, true), ...adminBottomItems()]) {
+      expect(item.label.replace(' & ', '&').split(' ').length, item.label).toBeLessThanOrEqual(2)
+    }
   })
 
-  it('không mất trang nào so với sidebar cũ (quán bật đặt bàn + dùng màn bếp)', () => {
-    expect(new Set(hrefs(true))).toEqual(new Set([
-      '/admin/bills', '/admin/pos', '/admin/kitchen', '/admin/reservations',
-      '/admin/menu', '/admin/vouchers',
-      '/admin/settings', '/admin/tables', '/admin/staff', '/admin/account',
+  it('quán thu ngân xác nhận rồi in phiếu (Bảo Lương) → ẩn Bếp; tắt đặt bàn → ẩn Đặt bàn', () => {
+    expect(hrefs(adminRailItems(false, true))).not.toContain('/admin/kitchen')
+    expect(hrefs(adminRailItems(true, false))).not.toContain('/admin/reservations')
+  })
+
+  it('không mất trang nào: rail + tab trong ⚙ Cài đặt phủ đủ mọi trang (quán bật đặt bàn + dùng màn bếp)', () => {
+    expect(new Set([...all(true), ...settingsTabs('store_owner').map((t) => t.href)])).toEqual(new Set([
+      '/admin/pos', '/admin/kitchen', '/admin/reservations', '/admin/menu', '/admin/tables',
+      '/admin/bills', '/admin/staff', '/admin/vouchers', '/admin/account', '/admin/settings',
     ]))
+  })
+
+  it('mục cấu hình nào trên rail cũng mở được thành hộp thoại (có trong CONFIG_TABS)', () => {
+    const config = new Set<string>(CONFIG_TABS.map((t) => t.href))
+    for (const h of all(true)) {
+      if (h === '/admin/pos' || h === '/admin/kitchen') continue
+      expect(config.has(h), h).toBe(true)
+    }
   })
 
   it('trang con vẫn sáng đúng mục cha', () => {
     expect(findActiveHref('/admin/pos/print-order', adminNavGroups(false))).toBe('/admin/pos')
     expect(findActiveHref('/admin/reservations', adminNavGroups(true))).toBe('/admin/reservations')
-  })
-
-  it('Cài đặt quán là nút ⚙ riêng ngay trên ô Thêm, không còn trong Thêm', () => {
-    expect(adminBottomItems().map((item) => item.href)).toEqual(['/admin/settings'])
-    expect(adminMoreItems(true).map((item) => item.href)).not.toContain('/admin/settings')
-  })
-
-  it('đang ở trang cài đặt thì sáng nút ⚙', () => {
     expect(findActiveHref('/admin/settings', adminNavGroups(false))).toBe('/admin/settings')
   })
 })
 
 describe('thu ngân (PA-2)', () => {
-  it('rail chỉ POS · Hoá đơn; không có ⚙', () => {
-    expect(adminRailItems(true, 'store_cashier').map((i) => i.href)).toEqual(['/admin/pos', '/admin/bills'])
-    expect(adminBottomItems('store_cashier')).toEqual([])
+  it('rail: POS · Món · Báo cáo; ⚙ Cài đặt = tài khoản của chính mình', () => {
+    expect(hrefs(adminRailItems(true, true, 'store_cashier'))).toEqual(['/admin/pos', '/admin/menu', '/admin/bills'])
+    expect(adminRailItems(true, true, 'store_cashier').map((i) => i.label)).toEqual(['POS', 'Món', 'Báo cáo'])
+    expect(adminBottomItems('store_cashier')).toMatchObject([{ href: '/admin/account', label: 'Cài đặt' }])
   })
-  it('ô Thêm: Đặt bàn (nếu bật) · Thực đơn (Tạm hết) · Tài khoản', () => {
-    expect(adminMoreItems(true, 'store_cashier').map((i) => i.href)).toEqual(['/admin/reservations', '/admin/menu', '/admin/account'])
-    expect(adminMoreItems(false, 'store_cashier').map((i) => i.href)).toEqual(['/admin/menu', '/admin/account'])
-  })
+
   it('mọi mục của thu ngân đều là trang thu ngân được mở', () => {
-    const all = adminNavGroups(true, true, 'store_cashier').flatMap((g) => g.items.map((i) => i.href))
-    expect(all.every((h) => adminPathAllowed('store_cashier', h))).toBe(true)
+    expect(all(true, true, 'store_cashier').every((h) => adminPathAllowed('store_cashier', h))).toBe(true)
   })
 })

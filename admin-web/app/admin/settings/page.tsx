@@ -27,7 +27,7 @@ export default async function SettingsPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
-        <h1 className="text-xl font-bold text-foreground">Cài đặt quán</h1>
+        <h1 className="text-xl font-bold text-foreground">Cài đặt chung</h1>
         <p className="text-sm text-muted">Thông tin hiển thị và quy trình vận hành</p>
       </div>
       <div className="flex-1 overflow-y-auto p-6">

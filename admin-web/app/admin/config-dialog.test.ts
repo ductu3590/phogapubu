@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CONFIG_TABS, visibleConfigTabs } from './config-dialog'
+import { CONFIG_TABS, settingsTabs } from './config-dialog'
 import { adminPathAllowed } from '@/lib/auth/roles'
 
 // Mỗi tab của hộp thoại cấu hình phải có trang thật + route chặn trong slot @modal — thiếu route chặn
@@ -22,16 +22,14 @@ describe('hộp thoại cấu hình (ST-3)', () => {
   })
 })
 
-describe('tab theo vai trò (PA-2)', () => {
-  it('thu ngân chỉ thấy Đặt bàn · Thực đơn · Hoá đơn & Báo cáo · Tài khoản', () => {
-    expect(visibleConfigTabs({ reservationsEnabled: true, role: 'store_cashier' }).map((t) => t.href))
-      .toEqual(['/admin/reservations', '/admin/menu', '/admin/bills', '/admin/account'])
+describe('tab trong ⚙ Cài đặt (2026-10-13)', () => {
+  it('chủ quán: Cài đặt chung · Nhân viên · Ưu đãi & Vòng quay · Bảo mật', () => {
+    expect(settingsTabs('store_owner').map((t) => t.href))
+      .toEqual(['/admin/settings', '/admin/staff', '/admin/vouchers', '/admin/account'])
   })
-  it('mọi tab thu ngân thấy đều là trang thu ngân được mở', () => {
-    expect(visibleConfigTabs({ reservationsEnabled: true, role: 'store_cashier' }).every((t) => adminPathAllowed('store_cashier', t.href))).toBe(true)
-  })
-  it('chủ quán đủ 8 tab (7 nếu tắt đặt bàn) — A04 gộp Đơn hàng + Báo cáo thành một tab', () => {
-    expect(visibleConfigTabs({ reservationsEnabled: true, role: 'store_owner' })).toHaveLength(8)
-    expect(visibleConfigTabs({ reservationsEnabled: false, role: 'store_owner' })).toHaveLength(7)
+  it('thu ngân chỉ có Bảo mật (một tab → không hiện hàng tab), và mở được trang đó', () => {
+    const tabs = settingsTabs('store_cashier')
+    expect(tabs.map((t) => t.href)).toEqual(['/admin/account'])
+    expect(tabs.every((t) => adminPathAllowed('store_cashier', t.href))).toBe(true)
   })
 })
