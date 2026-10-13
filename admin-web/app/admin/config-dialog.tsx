@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, CalendarDays, ClipboardList, QrCode, Settings, Ticket, User, Users, UtensilsCrossed, X } from 'lucide-react'
+import { BarChart3, CalendarDays, ClipboardList, QrCode, Settings, ShieldCheck, Ticket, Users, UtensilsCrossed, X } from 'lucide-react'
 import { IconButton } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { OperatorRole } from '@/lib/auth/roles'
@@ -22,7 +22,7 @@ export const CONFIG_TABS = [
   { href: '/admin/dashboard', label: 'Báo cáo', icon: <BarChart3 />, cashier: true },
   { href: '/admin/staff', label: 'Nhân viên', icon: <Users /> },
   { href: '/admin/vouchers', label: 'Ưu đãi & Vòng quay', icon: <Ticket /> },
-  { href: '/admin/account', label: 'Tài khoản', icon: <User />, cashier: true },
+  { href: '/admin/account', label: 'Bảo mật', icon: <ShieldCheck />, cashier: true },
 ] as const satisfies ReadonlyArray<{ href: string; label: string; icon: ReactNode; needsReservations?: boolean; cashier?: boolean }>
 
 // Tab hiện theo quán (có bật đặt bàn) và vai trò: thu ngân chỉ thấy tab gắn cờ `cashier` (PA-2).

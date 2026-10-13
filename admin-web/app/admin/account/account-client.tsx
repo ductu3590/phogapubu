@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateAccountPassword, updateAccountProfile } from '@/lib/actions/account'
+import { PosLockSettings } from '@/components/pos-lock'
 
 type Props = {
   email: string
@@ -134,6 +135,8 @@ export default function AccountClient({ email, fullName, phone, roleLabel }: Pro
             {passwordSaved && <span className="text-sm text-success">Đã đổi mật khẩu</span>}
           </div>
         </form>
+
+        <PosLockSettings />
       </div>
     </div>
   )

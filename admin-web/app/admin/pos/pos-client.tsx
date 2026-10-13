@@ -34,6 +34,7 @@ import {
 } from '@/lib/actions/pos-order'
 import { playBell, ringBellOnce, stopBell, unlockBell } from '@/lib/bell'
 import BellVolumeControl from '@/components/bell-volume-control'
+import { PosLockButton } from '@/components/pos-lock'
 import type { FloorSnapshot } from '@/lib/area-layout'
 import { assignTrayColors } from '@/lib/tray-colors'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
@@ -888,6 +889,7 @@ export default function PosClient({
                 </div>
               )}
             </div>
+            <PosLockButton />
             {reservationsEnabled && !arrange && !reservationPick && (
               <Button variant="primary" icon={<CalendarPlus />} onClick={() => {
                 setBookingError(null)

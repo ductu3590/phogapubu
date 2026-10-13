@@ -231,3 +231,10 @@ dialog.ui-dialog[open]::backdrop {
     color: var(--foreground);
   }
 }
+
+/* Rung chấm PIN khi nhập sai (components/pos-lock.tsx) */
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}

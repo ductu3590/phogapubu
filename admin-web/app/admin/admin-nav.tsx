@@ -6,8 +6,8 @@ import {
   LayoutGrid,
   QrCode,
   Settings,
+  ShieldCheck,
   Ticket,
-  User,
   Users,
   UtensilsCrossed,
 } from 'lucide-react'
@@ -41,12 +41,12 @@ export function adminRailItems(kitchenEnabled = true, role: OperatorRole = 'stor
 
 export function adminMoreItems(reservationsEnabled = false, role: OperatorRole = 'store_owner'): AppNavItem[] {
   const booking = reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []
-  // Thu ngân: Đặt bàn · Thực đơn (chỉ bật/tắt Tạm hết) · Tài khoản của mình.
+  // Thu ngân: Đặt bàn · Thực đơn (chỉ bật/tắt Tạm hết) · Bảo mật (tài khoản của mình).
   if (role === 'store_cashier') {
     return [
       ...booking,
       { href: '/admin/menu', label: 'Thực đơn (Tạm hết)', icon: <UtensilsCrossed /> },
-      { href: '/admin/account', label: 'Tài khoản', icon: <User /> },
+      { href: '/admin/account', label: 'Bảo mật', icon: <ShieldCheck /> },
     ]
   }
   return [
@@ -54,7 +54,7 @@ export function adminMoreItems(reservationsEnabled = false, role: OperatorRole =
     { href: '/admin/tables', label: 'Bàn & QR', icon: <QrCode /> },
     { href: '/admin/staff', label: 'Nhân viên', icon: <Users /> },
     { href: '/admin/vouchers', label: 'Ưu đãi & Vòng quay', icon: <Ticket /> },
-    { href: '/admin/account', label: 'Tài khoản', icon: <User /> },
+    { href: '/admin/account', label: 'Bảo mật', icon: <ShieldCheck /> },
   ]
 }
 
