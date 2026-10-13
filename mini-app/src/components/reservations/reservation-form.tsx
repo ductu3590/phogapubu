@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BookingDraft, CustomerReservation, ReservationAccess } from "@/types/reservation.types";
 import { getReservationConfig, getReservationSlots, prepareAndPersistBooking, requestBookingChange, resubmitDraftWithEdits, submitPersistedBooking } from "@/services/reservation/reservation.api";
-import { getBookingDraft, getReservationProfile } from "@/services/reservation/reservation-storage";
+import { getBookingDraft, getReservationProfile, saveReservationProfile } from "@/services/reservation/reservation-storage";
+import { requestZaloContact } from "@/services/zalo-contact";
+import { mergeProfile } from "@/utils/account-profile";
 import { errorMessage, normalizeVnPhone } from "@/utils/booking-validation";
 import { useReservationConfig, useReservationSlots } from "@/services/reservation/reservation.queries";
 import { formatReservationDate } from "@/utils/reservation-display";
@@ -60,6 +62,35 @@ export function ReservationForm({ mode, booking, access, onSuccess, header }: Pr
 
   const existingDraft = savedDraft;
   const canCreate = configQuery.data?.reservationsEnabled === true;
+
+  // Đặt bàn mới mà Tên/SĐT còn trống → lấy từ Zalo (lần đầu bật hộp xin quyền, xem zalo-contact.ts).
+  // Chỉ điền ô còn TRỐNG lúc có kết quả — khách gõ trong lúc chờ thì giữ chữ khách gõ.
+  // startedRef thay cờ huỷ: StrictMode chạy effect 2 lần, huỷ lượt đầu là mất kết quả của hộp xin quyền.
+  const [filledFromZalo, setFilledFromZalo] = useState(false);
+  const contactRef = useRef({ customerName, customerPhone });
+  contactRef.current = { customerName, customerPhone };
+  const zaloStartedRef = useRef(false);
+  useEffect(() => {
+    if (mode !== "create" || !storeId || !canCreate || zaloStartedRef.current) return;
+    const initial = contactRef.current;
+    if (initial.customerName.trim() && initial.customerPhone.trim()) return;
+    zaloStartedRef.current = true;
+    void requestZaloContact(storeId).then((zalo) => {
+      if (!zalo.name && !zalo.phone) return;
+      // Lưu vào hồ sơ trên máy để trang Tài khoản + form mang về cũng tự có. Chỉ BỔ SUNG ô hồ sơ còn trống:
+      // khách đã tự nhập tên/SĐT khác ở trang Tài khoản thì giữ (mergeProfile luôn đè SĐT nên phải chặn ở đây).
+      const saved = getReservationProfile(storeId);
+      saveReservationProfile(storeId, mergeProfile(saved, {
+        customerName: zalo.name,
+        customerPhone: saved?.customerPhone ? undefined : zalo.phone,
+      }, { overwriteName: false }));
+      const current = contactRef.current;
+      let filled = false;
+      if (zalo.name && !current.customerName.trim()) { setCustomerName(zalo.name); filled = true; }
+      if (zalo.phone && !current.customerPhone.trim()) { setCustomerPhone(zalo.phone); filled = true; }
+      if (filled) setFilledFromZalo(true);
+    });
+  }, [mode, storeId, canCreate]);
 
   const submit = async () => {
     setError("");
@@ -156,6 +187,7 @@ export function ReservationForm({ mode, booking, access, onSuccess, header }: Pr
             />
           </Field>
         </div>
+        {filledFromZalo && <p className="mt-2 text-xxsmall text-success">Đã điền từ Zalo · bạn có thể sửa</p>}
       </SectionCard>
 
       {/* 2. Thời gian */}

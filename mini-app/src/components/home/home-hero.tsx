@@ -1,6 +1,7 @@
-import { CalendarDaysIcon, ClockIcon, MapPinIcon, PhoneIcon, ScanLineIcon } from "@/components/common/icons";
+import { CalendarDaysIcon, ClockIcon, MapPinIcon, ScanLineIcon } from "@/components/common/icons";
 import StatusPill from "@/components/ui/status-pill";
 import DirectionsButton from "@/components/ui/directions-button";
+import CallPhoneButton from "@/components/ui/call-phone-button";
 import { directionsUrl } from "@/utils/directions";
 import { formatServingHours, isStoreOpen, type ServingShift } from "@/utils/store-hours";
 
@@ -74,12 +75,7 @@ export default function HomeHero({
             <p className="min-w-0 flex-1 text-small text-text-primary">{hours ? `Mở cửa: ${hours}` : "Mở cả ngày"}</p>
             <StatusPill tone={open ? "success" : "critical"}>{open ? "Đang mở" : isAcceptingOrders ? "Đã đóng cửa" : "Tạm nghỉ"}</StatusPill>
           </div>
-          {phone && (
-            <a href={`tel:${phone}`} className="flex items-center gap-2.5">
-              <PhoneIcon className="size-4 shrink-0 text-text-secondary" />
-              <span className="text-small font-semibold text-primary">{phone}</span>
-            </a>
-          )}
+          {phone && <CallPhoneButton phone={phone} />}
 
           {canReserve && (
             <button

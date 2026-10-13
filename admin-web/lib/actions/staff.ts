@@ -13,6 +13,15 @@ function parseTeamRole(v: unknown): StoreTeamRole {
   return v === 'store_cashier' ? 'store_cashier' : 'store_staff'
 }
 
+// Tên nhân viên chủ quán tự gõ — chỉ là nhãn để biết tài khoản của ai (mig 101). Gộp dấu cách thừa.
+const MAX_NAME_LENGTH = 60
+function parseDisplayName(v: unknown): { ok: true; name: string } | { ok: false; error: string } {
+  const name = typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : ''
+  if (!name) return { ok: false, error: 'Nhập tên nhân viên' }
+  if (name.length > MAX_NAME_LENGTH) return { ok: false, error: `Tên tối đa ${MAX_NAME_LENGTH} ký tự` }
+  return { ok: true, name }
+}
+
 // Chủ quán tạo tài khoản nhân viên phục vụ / thu ngân cho ĐÚNG quán mình.
 // Mô phỏng assignStoreOwner: tạo Supabase Auth user nếu email chưa có + sinh mật khẩu tạm
 // (chỉ trả về 1 lần), rồi gắn mevo_operators role store_staff.
@@ -25,6 +34,8 @@ export async function createStoreStaff(formData: FormData): Promise<{ email: str
   const email = (formData.get('email') as string).trim().toLowerCase()
   const role = parseTeamRole(formData.get('role'))
   if (!email) throw new Error('Thiếu email nhân viên')
+  const name = parseDisplayName(formData.get('display_name'))
+  if (!name.ok) throw new Error(name.error)
 
   const existing = await findAuthUserByEmail(admin, email)
 
@@ -56,7 +67,7 @@ export async function createStoreStaff(formData: FormData): Promise<{ email: str
   // is_active: true để việc thêm lại một nhân viên đã tắt cũng đồng thời BẬT lại quyền.
   const { error: opError } = await admin
     .from('mevo_operators')
-    .upsert({ user_id: userId, store_id: storeId, role, is_active: true })
+    .upsert({ user_id: userId, store_id: storeId, role, is_active: true, display_name: name.name })
   if (opError) throw new Error(`createStoreStaff(operator): ${opError.message}`)
 
   revalidatePath('/admin/staff')
@@ -82,6 +93,7 @@ export async function setStaffActive(userId: string, isActive: boolean): Promise
 export type StaffMember = {
   userId: string
   email: string
+  displayName: string | null
   isActive: boolean
   role: StoreTeamRole
   lastSignInText: string
@@ -104,7 +116,7 @@ export async function listStoreStaff(): Promise<StaffMember[]> {
   const admin = createAdminClient()
   const { data: ops, error } = await admin
     .from('mevo_operators')
-    .select('user_id, is_active, role')
+    .select('user_id, is_active, role, display_name')
     .eq('store_id', storeId)
     .in('role', TEAM_ROLES)
   if (error) throw new Error(`listStoreStaff: ${error.message}`)
@@ -117,6 +129,7 @@ export async function listStoreStaff(): Promise<StaffMember[]> {
     return {
       userId: o.user_id as string,
       email: auth?.email ?? '(không rõ email)',
+      displayName: (o.display_name as string | null) || null,
       isActive: o.is_active !== false,
       role: parseTeamRole(o.role),
       lastSignInText: formatVn(auth?.lastSignInAt ?? null, 'Chưa đăng nhập', true),
@@ -165,17 +178,28 @@ export async function resetStaffPassword(
   return { ok: true, email: updated.user?.email ?? '' }
 }
 
-// Đổi vai trò Nhân viên phục vụ ↔ Thu ngân. Chỉ đụng người phục vụ/thu ngân của ĐÚNG quán — không bao giờ
-// đổi được chủ quán hay người quán khác. Trang web có hiệu lực ở lần tải kế tiếp của người đó; RPC thì ngay.
-export async function setStaffRole(userId: string, role: StoreTeamRole): Promise<void> {
+// Chỉnh sửa nhân viên: tên + vai trò (Phục vụ ↔ Thu ngân). Chỉ đụng người phục vụ/thu ngân của ĐÚNG quán —
+// không bao giờ đổi được chủ quán hay người quán khác. Vai trò mới có hiệu lực ở lần tải trang kế tiếp của
+// người đó; RPC thì ngay. TRẢ {ok,error} thay vì ném (Next prod giấu nội dung lỗi ném).
+export async function updateStaff(
+  userId: string,
+  formData: FormData
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const storeId = await requireStoreOwnerStoreId()
-  const next = parseTeamRole(role)
-  const { error } = await createAdminClient()
+  const name = parseDisplayName(formData.get('display_name'))
+  if (!name.ok) return name
+  const role = parseTeamRole(formData.get('role'))
+
+  const { data, error } = await createAdminClient()
     .from('mevo_operators')
-    .update({ role: next })
+    .update({ display_name: name.name, role })
     .eq('user_id', userId)
     .eq('store_id', storeId)
     .in('role', TEAM_ROLES)
-  if (error) throw new Error(`setStaffRole: ${error.message}`)
+    .select('user_id')
+  if (error) return { ok: false, error: 'Không lưu được, thử lại sau' }
+  if (!data || data.length === 0) return { ok: false, error: 'Tài khoản này không phải nhân viên của quán anh' }
+
   revalidatePath('/admin/staff')
+  return { ok: true }
 }

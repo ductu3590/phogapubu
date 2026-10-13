@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => {
   const upsertArgs = { value: null as unknown }
   const updateArgs = { value: null as unknown }
   const eqCalls = { value: [] as Array<[string, unknown]> }
+  // Dòng trả về sau update().select() — mặc định trúng 1 dòng.
+  const updatedRows = { value: [{ user_id: 'u1' }] as unknown[] }
 
   const admin = {
     auth: {
@@ -42,13 +44,14 @@ const mocks = vi.hoisted(() => {
       })
       builder.maybeSingle = vi.fn(() => Promise.resolve({ data: operatorsRow.value, error: null }))
       // update/delete chain là thenable để `await` ra { error }
-      builder.then = (resolve: (v: { error: null }) => void) => resolve({ error: null })
+      builder.then = (resolve: (v: { error: null; data: unknown[] }) => void) => resolve({ error: null, data: updatedRows.value })
       return builder
     }),
     _operatorsRow: operatorsRow,
     _upsertArgs: upsertArgs,
     _updateArgs: updateArgs,
     _eqCalls: eqCalls,
+    _updatedRows: updatedRows,
   }
 
   return { requireStoreOwnerStoreId, revalidatePath, admin }
@@ -62,11 +65,12 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
-const { createStoreStaff, setStaffActive, setStaffRole, resetStaffPassword } = await import('./staff')
+const { createStoreStaff, setStaffActive, updateStaff, resetStaffPassword } = await import('./staff')
 
-function emailForm(email: string) {
+function emailForm(email: string, name = 'Nguyễn Văn A') {
   const fd = new FormData()
   fd.set('email', email)
+  fd.set('display_name', name)
   return fd
 }
 
@@ -97,7 +101,19 @@ describe('createStoreStaff', () => {
       store_id: 'store-1', // từ requireStoreOwnerStoreId, không phải form
       role: 'store_staff',
       is_active: true,
+      display_name: 'Nguyễn Văn A',
     })
+  })
+
+  it('bỏ trống tên → từ chối, không tạo user', async () => {
+    await expect(createStoreStaff(emailForm('nv@x.vn', '   '))).rejects.toThrow('Nhập tên nhân viên')
+    expect(mocks.admin.auth.admin.createUser).not.toHaveBeenCalled()
+    expect(mocks.admin._upsertArgs.value).toBeNull()
+  })
+
+  it('tên gộp dấu cách thừa trước khi lưu', async () => {
+    await createStoreStaff(emailForm('nv@x.vn', '  Trần   Thị  B '))
+    expect(mocks.admin._upsertArgs.value).toMatchObject({ display_name: 'Trần Thị B' })
   })
 
   it('tạo user mới kèm mật khẩu tạm khi email chưa tồn tại và trả về 1 lần', async () => {
@@ -175,30 +191,53 @@ describe('setStaffActive', () => {
   })
 })
 
-describe('setStaffRole (PA-2)', () => {
+function editForm(name: string, role: string) {
+  const fd = new FormData()
+  fd.set('display_name', name)
+  fd.set('role', role)
+  return fd
+}
+
+describe('updateStaff', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.admin._updateArgs.value = null
     mocks.admin._eqCalls.value = []
+    mocks.admin._updatedRows.value = [{ user_id: 'u1' }]
     mocks.requireStoreOwnerStoreId.mockResolvedValue('store-1')
   })
 
-  it('chỉ đổi người staff/cashier của đúng quán', async () => {
-    await setStaffRole('u1', 'store_cashier')
-    expect(mocks.admin._updateArgs.value).toEqual({ role: 'store_cashier' })
+  it('lưu tên + vai trò, chỉ đụng người staff/cashier của đúng quán', async () => {
+    await expect(updateStaff('u1', editForm(' Lê  C ', 'store_cashier'))).resolves.toEqual({ ok: true })
+    expect(mocks.admin._updateArgs.value).toEqual({ display_name: 'Lê C', role: 'store_cashier' })
     expect(mocks.admin._eqCalls.value).toEqual(expect.arrayContaining([
       ['user_id', 'u1'], ['store_id', 'store-1'], ['in:role', ['store_staff', 'store_cashier']],
     ]))
   })
 
-  it('giá trị lạ → store_staff', async () => {
-    await setStaffRole('u1', 'store_owner' as never)
-    expect(mocks.admin._updateArgs.value).toEqual({ role: 'store_staff' })
+  it('vai trò lạ → store_staff (không bao giờ thành store_owner)', async () => {
+    await updateStaff('u1', editForm('Lê C', 'store_owner'))
+    expect(mocks.admin._updateArgs.value).toMatchObject({ role: 'store_staff' })
+  })
+
+  it.each([
+    ['bỏ trống', ''],
+    ['quá 60 ký tự', 'a'.repeat(61)],
+  ])('tên %s → báo lỗi, không ghi', async (_n, name) => {
+    const res = await updateStaff('u1', editForm(name, 'store_staff'))
+    expect(res.ok).toBe(false)
+    expect(mocks.admin._updateArgs.value).toBeNull()
+  })
+
+  it('không trúng dòng nào (chủ quán / quán khác) → báo lỗi', async () => {
+    mocks.admin._updatedRows.value = []
+    const res = await updateStaff('u-lạ', editForm('Lê C', 'store_staff'))
+    expect(res).toEqual({ ok: false, error: 'Tài khoản này không phải nhân viên của quán anh' })
   })
 
   it('không phải chủ quán → từ chối', async () => {
     mocks.requireStoreOwnerStoreId.mockRejectedValue(new Error('Chỉ chủ quán mới thao tác được ở đây'))
-    await expect(setStaffRole('u1', 'store_cashier')).rejects.toThrow('Chỉ chủ quán')
+    await expect(updateStaff('u1', editForm('Lê C', 'store_staff'))).rejects.toThrow('Chỉ chủ quán')
     expect(mocks.admin._updateArgs.value).toBeNull()
   })
 })
