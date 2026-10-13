@@ -2,23 +2,31 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, KeyRound, Plus, Search } from 'lucide-react'
+import { Copy, KeyRound, Pencil, Plus, Search, UserCheck, UserX } from 'lucide-react'
 import {
   createStoreStaff,
   resetStaffPassword,
   setStaffActive,
-  setStaffRole,
+  updateStaff,
   type StaffMember,
 } from '@/lib/actions/staff'
 import { ROLE_LABEL } from '@/lib/auth/roles'
 
 type Dialog =
   | { kind: 'add' }
+  | { kind: 'edit'; staff: StaffMember }
   | { kind: 'reset'; staff: StaffMember }
-  | { kind: 'role' | 'toggle'; staff: StaffMember }
+  | { kind: 'toggle'; staff: StaffMember }
 
 const fieldClass = 'rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-sm text-foreground outline-none focus:border-focus'
 const inputClass = 'w-full rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-sm text-foreground outline-none focus:border-focus'
+const iconButtonClass = 'inline-flex size-9 items-center justify-center rounded-lg border'
+const NAME_MAX = 60
+
+// Tài khoản cũ (trước mig 101) chưa có tên → hiện email làm tên chính.
+function staffLabel(s: StaffMember) {
+  return s.displayName ?? s.email
+}
 
 export default function StaffClient({ staff }: { staff: StaffMember[] }) {
   const router = useRouter()
@@ -35,7 +43,7 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
     return staff.filter((s) =>
-      (!q || s.email.toLowerCase().includes(q)) &&
+      (!q || s.email.toLowerCase().includes(q) || (s.displayName ?? '').toLowerCase().includes(q)) &&
       (roleFilter === 'all' || s.role === roleFilter) &&
       (statusFilter === 'all' || (statusFilter === 'active') === s.isActive))
   }, [staff, search, roleFilter, statusFilter])
@@ -75,16 +83,23 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
     })
   }
 
-  // Đổi vai trò / bật-tắt: xác nhận bằng hộp thoại trong trang thay cho confirm()/alert() của trình duyệt.
-  function handleConfirm(d: { kind: 'role' | 'toggle'; staff: StaffMember }) {
+  async function handleEdit(userId: string, formData: FormData) {
+    setError('')
+    startTransition(async () => {
+      const res = await updateStaff(userId, formData)
+      if (!res.ok) { setError(res.error); return }
+      setDialog(null)
+      setNotice('')
+      router.refresh()
+    })
+  }
+
+  // Bật/tắt: xác nhận bằng hộp thoại trong trang thay cho confirm()/alert() của trình duyệt.
+  function handleToggle(staff: StaffMember) {
     setError('')
     startTransition(async () => {
       try {
-        if (d.kind === 'role') {
-          await setStaffRole(d.staff.userId, d.staff.role === 'store_cashier' ? 'store_staff' : 'store_cashier')
-        } else {
-          await setStaffActive(d.staff.userId, !d.staff.isActive)
-        }
+        await setStaffActive(staff.userId, !staff.isActive)
         setDialog(null)
         setNotice('')
         router.refresh()
@@ -103,8 +118,8 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm theo email"
-              aria-label="Tìm theo email"
+              placeholder="Tìm theo tên hoặc email"
+              aria-label="Tìm theo tên hoặc email"
               className={`${inputClass} pl-9`}
             />
           </label>
@@ -148,7 +163,7 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
             <table className="w-full text-left text-sm">
               <thead className="hidden border-b border-border bg-background text-xs font-semibold uppercase tracking-wide text-muted md:table-header-group">
                 <tr>
-                  <th className="px-4 py-2.5">Tài khoản</th>
+                  <th className="px-4 py-2.5">Nhân viên</th>
                   <th className="px-4 py-2.5">Vai trò</th>
                   <th className="px-4 py-2.5">Trạng thái</th>
                   <th className="px-4 py-2.5">Đăng nhập lần cuối</th>
@@ -160,7 +175,16 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
                 {visible.map((s) => (
                   <tr key={s.userId} className="flex flex-col gap-2 px-4 py-3 md:table-row md:p-0">
                     <td className="min-w-0 md:px-4 md:py-3">
-                      <span className={`break-all font-medium ${s.isActive ? 'text-foreground' : 'text-muted line-through'}`}>{s.email}</span>
+                      <div className={`font-semibold ${s.isActive ? 'text-foreground' : 'text-muted line-through'}`}>
+                        {staffLabel(s)}
+                      </div>
+                      {s.displayName ? (
+                        <div className="break-all text-xs text-muted">{s.email}</div>
+                      ) : (
+                        <button type="button" onClick={() => open({ kind: 'edit', staff: s })} className="text-xs font-medium text-primary hover:underline">
+                          Chưa có tên — đặt tên
+                        </button>
+                      )}
                     </td>
                     <td className="md:px-4 md:py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.role === 'store_cashier' ? 'bg-orange-50 text-orange-700' : 'bg-secondary text-muted'}`}>
@@ -175,19 +199,33 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
                     <td className="text-muted md:px-4 md:py-3">{s.lastSignInText}</td>
                     <td className="text-muted md:px-4 md:py-3">{s.createdText}</td>
                     <td className="md:px-4 md:py-3">
-                      <div className="flex flex-wrap items-center gap-1.5 md:justify-end">
-                        <button type="button" onClick={() => open({ kind: 'reset', staff: s })} className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-border-strong px-2.5 text-xs font-semibold text-foreground hover:bg-item-hover">
-                          <KeyRound className="size-3.5" aria-hidden />Đặt lại mật khẩu
+                      <div className="flex items-center gap-1.5 md:justify-end">
+                        <button
+                          type="button"
+                          onClick={() => open({ kind: 'edit', staff: s })}
+                          title="Chỉnh sửa"
+                          aria-label={`Chỉnh sửa ${staffLabel(s)}`}
+                          className={`${iconButtonClass} border-border-strong text-foreground hover:bg-item-hover`}
+                        >
+                          <Pencil className="size-4" aria-hidden />
                         </button>
-                        <button type="button" onClick={() => open({ kind: 'role', staff: s })} className="min-h-9 rounded-lg border border-border-strong px-2.5 text-xs font-semibold text-foreground hover:bg-item-hover">
-                          {s.role === 'store_cashier' ? 'Đổi thành Phục vụ' : 'Đổi thành Thu ngân'}
+                        <button
+                          type="button"
+                          onClick={() => open({ kind: 'reset', staff: s })}
+                          title="Đặt lại mật khẩu"
+                          aria-label={`Đặt lại mật khẩu ${staffLabel(s)}`}
+                          className={`${iconButtonClass} border-border-strong text-foreground hover:bg-item-hover`}
+                        >
+                          <KeyRound className="size-4" aria-hidden />
                         </button>
                         <button
                           type="button"
                           onClick={() => open({ kind: 'toggle', staff: s })}
-                          className={`min-h-9 rounded-lg border px-2.5 text-xs font-semibold ${s.isActive ? 'border-critical-border text-danger hover:bg-danger-bg' : 'border-border-strong text-success hover:bg-success-bg'}`}
+                          title={s.isActive ? 'Vô hiệu hoá' : 'Bật lại'}
+                          aria-label={`${s.isActive ? 'Vô hiệu hoá' : 'Bật lại'} ${staffLabel(s)}`}
+                          className={`${iconButtonClass} ${s.isActive ? 'border-critical-border text-danger hover:bg-danger-bg' : 'border-border-strong text-success hover:bg-success-bg'}`}
                         >
-                          {s.isActive ? 'Vô hiệu hoá' : 'Bật lại'}
+                          {s.isActive ? <UserX className="size-4" aria-hidden /> : <UserCheck className="size-4" aria-hidden />}
                         </button>
                       </div>
                     </td>
@@ -205,11 +243,14 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
             {dialog.kind === 'add' && (
               <AddDialog created={created} error={error} busy={isPending} onSubmit={handleCreate} onClose={close} />
             )}
+            {dialog.kind === 'edit' && (
+              <EditDialog staff={dialog.staff} error={error} busy={isPending} onSubmit={(fd) => handleEdit(dialog.staff.userId, fd)} onClose={close} />
+            )}
             {dialog.kind === 'reset' && (
               <ResetDialog staff={dialog.staff} error={error} busy={isPending} onSubmit={(fd) => handleReset(dialog.staff.userId, fd)} onClose={close} />
             )}
-            {(dialog.kind === 'role' || dialog.kind === 'toggle') && (
-              <ConfirmDialog dialog={dialog} error={error} busy={isPending} onConfirm={() => handleConfirm(dialog)} onClose={close} />
+            {dialog.kind === 'toggle' && (
+              <ConfirmDialog staff={dialog.staff} error={error} busy={isPending} onConfirm={() => handleToggle(dialog.staff)} onClose={close} />
             )}
           </section>
         </div>
@@ -266,7 +307,11 @@ function AddDialog({ created, error, busy, onSubmit, onClose }: {
       <DialogHeader title="Thêm nhân viên" onClose={onClose} />
       {error && <p className="rounded-lg bg-critical-bg p-3 text-sm text-danger">{error}</p>}
       <label className="block">
-        <span className="mb-1 block text-sm font-medium text-foreground/80">Email nhân viên</span>
+        <span className="mb-1 block text-sm font-medium text-foreground/80">Tên nhân viên</span>
+        <input name="display_name" required maxLength={NAME_MAX} placeholder="VD: Nguyễn Văn An" autoComplete="off" className={inputClass} />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-sm font-medium text-foreground/80">Email đăng nhập</span>
         <input name="email" type="email" required placeholder="nhanvien@quan.vn" className={inputClass} />
       </label>
       <label className="block">
@@ -297,7 +342,10 @@ function ResetDialog({ staff, error, busy, onSubmit, onClose }: {
   return (
     <form action={onSubmit} className="space-y-4">
       <DialogHeader title="Đặt lại mật khẩu" onClose={onClose} />
-      <p className="text-sm text-muted">Đặt mật khẩu mới cho <strong className="text-foreground">{staff.email}</strong>. Không cần mật khẩu cũ.</p>
+      <p className="text-sm text-muted">
+        Đặt mật khẩu mới cho <strong className="text-foreground">{staffLabel(staff)}</strong>
+        {staff.displayName && <> ({staff.email})</>}. Không cần mật khẩu cũ.
+      </p>
       {error && <p className="rounded-lg bg-critical-bg p-3 text-sm text-danger">{error}</p>}
       {[['Mật khẩu mới', 'password'], ['Nhập lại mật khẩu mới', 'password_confirm']].map(([label, name]) => (
         <label key={name} className="block">
@@ -316,28 +364,86 @@ function ResetDialog({ staff, error, busy, onSubmit, onClose }: {
   )
 }
 
-function ConfirmDialog({ dialog, error, busy, onConfirm, onClose }: {
-  dialog: { kind: 'role' | 'toggle'; staff: StaffMember }
+function EditDialog({ staff, error, busy, onSubmit, onClose }: {
+  staff: StaffMember
+  error: string
+  busy: boolean
+  onSubmit: (fd: FormData) => void
+  onClose: () => void
+}) {
+  const [role, setRole] = useState(staff.role)
+  const roleChanged = role !== staff.role
+  // onSubmit + preventDefault (không dùng form action): React 19 tự reset form sau action, kể cả khi báo lỗi.
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); onSubmit(new FormData(e.currentTarget)) }}
+      className="space-y-4"
+    >
+      <DialogHeader title="Chỉnh sửa nhân viên" onClose={onClose} />
+      {error && <p className="rounded-lg bg-critical-bg p-3 text-sm text-danger">{error}</p>}
+      <label className="block">
+        <span className="mb-1 block text-sm font-medium text-foreground/80">Tên nhân viên</span>
+        <input
+          name="display_name"
+          required
+          maxLength={NAME_MAX}
+          defaultValue={staff.displayName ?? ''}
+          placeholder="VD: Nguyễn Văn An"
+          autoComplete="off"
+          autoFocus
+          className={inputClass}
+        />
+      </label>
+      <div>
+        <span className="mb-1 block text-sm font-medium text-foreground/80">Email đăng nhập</span>
+        <p className="break-all rounded-lg bg-secondary px-3 py-2.5 text-sm text-muted">{staff.email}</p>
+      </div>
+      <label className="block">
+        <span className="mb-1 block text-sm font-medium text-foreground/80">Vai trò</span>
+        <select name="role" value={role} onChange={(e) => setRole(e.target.value as StaffMember['role'])} className={inputClass}>
+          <option value="store_staff">{ROLE_LABEL.store_staff}</option>
+          <option value="store_cashier">{ROLE_LABEL.store_cashier}</option>
+        </select>
+      </label>
+      {roleChanged ? (
+        <p className="rounded-lg bg-warning-bg p-3 text-xs text-warning">
+          {role === 'store_cashier'
+            ? 'Người này sẽ thu tiền, bỏ/tặng món và xem doanh thu.'
+            : 'Người này sẽ không thu tiền được nữa.'}
+          {' '}Có hiệu lực từ lần tải trang kế tiếp của họ.
+        </p>
+      ) : (
+        <p className="text-xs text-muted">Phục vụ: đặt món hộ khách. Thu ngân: thu tiền, bỏ/tặng món, xem báo cáo ngày.</p>
+      )}
+      <div className="flex gap-2">
+        <button type="button" onClick={onClose} className="min-h-10 flex-1 rounded-lg border border-border-strong font-bold">Huỷ</button>
+        <button type="submit" disabled={busy} className="min-h-10 flex-1 rounded-lg bg-primary font-bold text-white hover:bg-primary-hover disabled:opacity-50">
+          {busy ? 'Đang lưu…' : 'Lưu'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function ConfirmDialog({ staff, error, busy, onConfirm, onClose }: {
+  staff: StaffMember
   error: string
   busy: boolean
   onConfirm: () => void
   onClose: () => void
 }) {
-  const { kind, staff } = dialog
-  const toCashier = staff.role !== 'store_cashier'
-  const title = kind === 'role' ? (toCashier ? 'Đổi thành Thu ngân' : 'Đổi thành Nhân viên phục vụ') : staff.isActive ? 'Vô hiệu hoá tài khoản' : 'Bật lại tài khoản'
-  const body = kind === 'role'
-    ? toCashier
-      ? 'Người này sẽ thu tiền, bỏ/tặng món và xem doanh thu.'
-      : 'Người này sẽ không thu tiền được nữa.'
-    : staff.isActive
-      ? 'Nhân viên này sẽ không đăng nhập được cho tới khi bật lại. Lịch sử bill và báo cáo được giữ nguyên.'
-      : 'Nhân viên này sẽ đăng nhập và làm việc lại được.'
-  const danger = kind === 'toggle' && staff.isActive
+  const title = staff.isActive ? 'Vô hiệu hoá tài khoản' : 'Bật lại tài khoản'
+  const body = staff.isActive
+    ? 'Nhân viên này sẽ không đăng nhập được cho tới khi bật lại. Lịch sử bill và báo cáo được giữ nguyên.'
+    : 'Nhân viên này sẽ đăng nhập và làm việc lại được.'
+  const danger = staff.isActive
   return (
     <div className="space-y-4">
       <DialogHeader title={title} onClose={onClose} />
-      <p className="text-sm text-foreground/80"><strong>{staff.email}</strong></p>
+      <p className="text-sm text-foreground/80">
+        <strong>{staffLabel(staff)}</strong>
+        {staff.displayName && <span className="text-muted"> · {staff.email}</span>}
+      </p>
       <p className="text-sm text-muted">{body}</p>
       {error && <p className="rounded-lg bg-critical-bg p-3 text-sm text-danger">{error}</p>}
       <div className="flex gap-2">
