@@ -232,9 +232,9 @@ function BillTableRow({ row: r, date, onOpen }: { row: BillRow; date: string; on
       </td>
       <td className="@3xl:px-4 @3xl:py-3">
         <div className="flex flex-wrap gap-2 @3xl:flex-nowrap @3xl:justify-end">
-          <button type="button" onClick={onOpen} className={cn(getButtonClasses('outline'), 'whitespace-nowrap')}>
+          <button type="button" onClick={onOpen} aria-label="Xem bill" title="Xem bill"
+            className={cn(getButtonClasses('outline'), 'aspect-square px-0')}>
             <Eye className="size-4" aria-hidden />
-            Xem bill
           </button>
           {printUrl && (
             <button type="button" onClick={() => printInPlace(printUrl)} aria-label="In lại hoá đơn" title="In lại hoá đơn"
