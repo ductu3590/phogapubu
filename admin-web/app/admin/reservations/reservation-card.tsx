@@ -1,18 +1,52 @@
-import { Clock, Phone, Users } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { AlarmClockOff, ArrowLeftRight, Ban, CalendarClock, Check, Phone, PhoneOff, ReceiptText, UserCheck, UserX, X } from 'lucide-react'
 import type { ReservationRow } from '@/lib/actions/reservations'
 import { reservationQueueState } from '@/lib/reservation-queue'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { reservationCardView, reservationUiActions, type ReservationUiAction } from './reservation-ui'
 
-const toneClasses = {
-  normal: 'border-border bg-surface',
-  attention: 'border-warning-border bg-warning-bg',
-  critical: 'border-critical-border bg-critical-bg',
+// Một dòng của bảng "đang xử lý" (trang Đặt bàn, phương án B — 2026-10-13).
+// Nút chỉ có icon, rê chuột hiện tên (title). Nút đầu tô đặc = việc chính của dòng; gọi khách đứng ngay sau.
+
+/** Cột chung cho hàng tiêu đề và mọi dòng — mỗi dòng là một lưới riêng nên cột thao tác phải cố định bề rộng. */
+export const RESERVATION_TABLE_COLS = '@3xl:grid-cols-[112px_minmax(0,1.6fr)_minmax(0,1fr)_150px_248px]'
+
+const ACTION_META: Record<Exclude<ReservationUiAction, 'call'>, { label: string; icon: ReactNode }> = {
+  confirm: { label: 'Duyệt & chọn bàn', icon: <Check /> },
+  reject: { label: 'Từ chối', icon: <X /> },
+  resolve_change: { label: 'Xử lý yêu cầu đổi', icon: <ArrowLeftRight /> },
+  arrive: { label: 'Khách đã đến', icon: <UserCheck /> },
+  reschedule: { label: 'Đổi lịch / bàn', icon: <CalendarClock /> },
+  no_show: { label: 'Không đến', icon: <UserX /> },
+  cancel_store: { label: 'Huỷ đặt bàn', icon: <Ban /> },
+  open_session: { label: 'Mở bill trên POS', icon: <ReceiptText /> },
 }
 
-const badgeClasses = {
-  normal: 'bg-secondary text-foreground/80',
-  attention: 'bg-warning-bg text-warning',
-  critical: 'bg-critical-bg text-critical',
+const ROW_TINT: Record<string, string> = {
+  overdue: 'bg-critical-bg',
+  pending: 'bg-warning-bg',
+  change_requested: 'bg-warning-bg',
+}
+
+const iconButtonClass = (primary: boolean) => cn(
+  'inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors outline-hidden',
+  'focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:size-4',
+  primary
+    ? 'bg-primary text-primary-foreground hover:bg-primary-hover'
+    : 'border border-border-strong bg-surface text-foreground hover:bg-button-hover',
+)
+
+export function ReservationTableHeader() {
+  return (
+    <div role="row" className={cn('hidden items-center gap-3 border-b border-border px-4 py-2.5 text-[13px] font-medium text-muted @3xl:grid', RESERVATION_TABLE_COLS)}>
+      <span role="columnheader">Thời gian</span>
+      <span role="columnheader">Khách</span>
+      <span role="columnheader">Bàn</span>
+      <span role="columnheader">Trạng thái</span>
+      <span role="columnheader" className="sr-only">Thao tác</span>
+    </div>
+  )
 }
 
 export default function ReservationCard({
@@ -31,76 +65,63 @@ export default function ReservationCard({
   const view = reservationCardView(reservation, now)
   const actions = onAction ? reservationUiActions(reservation).filter((action) => action !== 'call') : []
   const reminderDue = reservationQueueState(reservation, now).reminderDue
+  const [primary, ...rest] = actions
+  const note = reservation.changeNote ? `Khách nhắn đổi: ${reservation.changeNote}` : reservation.note
+  const status = <Badge tone={view.badgeTone} withDot>{view.statusLabel}</Badge>
+
+  const actionButton = (action: Exclude<ReservationUiAction, 'call'>, isPrimary: boolean) => (
+    <button
+      key={action}
+      type="button"
+      title={ACTION_META[action].label}
+      aria-label={ACTION_META[action].label}
+      onClick={() => onAction?.(action, reservation)}
+      className={iconButtonClass(isPrimary)}
+    >
+      {ACTION_META[action].icon}
+    </button>
+  )
 
   return (
-    <article className={`flex flex-col gap-3 border-l-4 px-4 py-3 @3xl:flex-row @3xl:items-center @3xl:gap-4 ${toneClasses[view.tone]}`}>
-      {/* Giờ đến + tên khách */}
-      <div className="min-w-0 @3xl:w-56 @3xl:shrink-0">
-        <h3 className="truncate text-base font-bold text-foreground">{reservation.customerName}</h3>
-        <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium text-foreground/80"><Clock className="size-4 shrink-0 text-muted" aria-hidden />{view.arrivalLabel}</p>
+    <div role="row" className={cn('grid grid-cols-[minmax(0,1fr)] gap-2 border-b border-border px-4 py-3 last:border-b-0 hover:bg-surface-hover @3xl:items-center @3xl:gap-3', RESERVATION_TABLE_COLS, ROW_TINT[view.kind])}>
+      <div className="flex items-center justify-between gap-2 @3xl:block">
+        <span className="text-sm font-semibold tabular">{view.dateTimeLabel}</span>
+        <span className="@3xl:hidden">{status}</span>
       </div>
-
-      {/* Số khách / bàn + ghi chú */}
-      <div className="min-w-0 flex-1 text-sm">
-        <p className="flex items-start gap-1.5 text-foreground/80"><Users className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden /><span>{view.summary}</span></p>
-        {reservation.note && (
-          <p className="mt-1 line-clamp-2 text-muted">Ghi chú: {reservation.note}</p>
-        )}
-        {reservation.changeNote && (
-          <p className="mt-1 line-clamp-2 font-medium text-warning">Khách nhắn đổi: {reservation.changeNote}</p>
-        )}
+      <div className="min-w-0">
+        <h3 className="truncate text-sm font-semibold text-foreground" title={reservation.customerName}>{reservation.customerName}</h3>
+        <p className="text-[13px] text-muted">
+          {reservation.partySize} khách
+          {note ? <> · <span title={note} className="cursor-help underline decoration-dotted underline-offset-2">có ghi chú</span></> : null}
+        </p>
       </div>
-
-      <span className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${badgeClasses[view.tone]}`}>
-        {view.statusLabel}
-      </span>
-
-      {/* Nút thao tác nằm cuối dòng */}
-      <div className="flex flex-wrap items-center gap-2 @3xl:shrink-0 @3xl:justify-end">
-        {view.phoneHref && (
-          <a
-            href={view.phoneHref}
-            title={`Gọi khách · ${reservation.customerPhone}`}
-            aria-label={`Gọi khách ${reservation.customerPhone}`}
-            className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-border-strong bg-surface text-foreground transition-colors hover:bg-item-hover"
-          >
-            <Phone className="size-4" aria-hidden />
+      <div className="text-sm text-foreground/80">
+        {view.tablesLabel || <span className="text-muted italic">Chưa xếp bàn</span>}
+      </div>
+      <div className="hidden @3xl:block">{status}</div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {primary ? actionButton(primary, true) : null}
+        {view.phoneHref ? (
+          <a href={view.phoneHref} title={`Gọi khách · ${reservation.customerPhone}`} aria-label={`Gọi khách ${reservation.customerPhone}`} className={iconButtonClass(false)}>
+            <Phone />
           </a>
+        ) : (
+          <span title="Chưa có số điện thoại" className="inline-flex size-9 shrink-0 items-center justify-center text-muted/50 [&>svg]:size-4"><PhoneOff aria-hidden /></span>
         )}
-        {actions.map((action, index) => (
-          <button
-            key={action}
-            type="button"
-            onClick={() => onAction?.(action, reservation)}
-            className={`min-h-10 rounded-lg px-3 text-sm font-bold ${index === 0
-              ? 'bg-foreground text-white hover:bg-foreground/90'
-              : 'border border-border-strong bg-surface text-foreground hover:bg-item-hover'}`}
-          >
-            {actionLabel[action]}
-          </button>
-        ))}
+        {rest.map((action) => actionButton(action, false))}
         {onSnooze && reminderDue && (
           <button
             type="button"
             disabled={snoozeBusy}
+            title="Nhắc lại sau 10 phút"
+            aria-label="Nhắc lại sau 10 phút"
             onClick={() => onSnooze(reservation)}
-            className="min-h-10 rounded-lg border border-warning-border bg-surface px-3 text-sm font-bold text-warning hover:bg-warning-bg disabled:opacity-50"
+            className={cn(iconButtonClass(false), 'border-warning-border text-warning hover:bg-warning-bg')}
           >
-            Nhắc lại 10 phút
+            <AlarmClockOff />
           </button>
         )}
       </div>
-    </article>
+    </div>
   )
-}
-
-const actionLabel: Record<Exclude<ReservationUiAction, 'call'>, string> = {
-  confirm: 'Xác nhận & chọn bàn',
-  reject: 'Từ chối',
-  resolve_change: 'Xử lý yêu cầu đổi',
-  arrive: 'Khách đã đến',
-  reschedule: 'Đổi lịch/bàn',
-  no_show: 'Không đến',
-  cancel_store: 'Hủy đặt bàn',
-  open_session: 'Mở bill trên POS',
 }

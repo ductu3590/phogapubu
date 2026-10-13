@@ -37,6 +37,10 @@ export function reservationQueueState(
   if (reservation.status === 'change_requested') {
     return { kind: 'change_requested', severity: 'attention', minutesOverdue: 0, reminderBucket: null, reminderDue: false }
   }
+  // Đã đến mà bill đã đóng (Bỏ bàn / hết hạn — thu tiền thì DB đã tự chuyển completed) = lượt đã xong.
+  if (reservation.status === 'arrived' && reservation.sessionClosed) {
+    return { kind: 'terminal', severity: 'normal', minutesOverdue: 0, reminderBucket: null, reminderDue: false }
+  }
   if (reservation.status === 'arrived') {
     return { kind: 'arrived', severity: 'normal', minutesOverdue: 0, reminderBucket: null, reminderDue: false }
   }

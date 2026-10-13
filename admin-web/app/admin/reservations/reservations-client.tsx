@@ -6,6 +6,7 @@ import {
   cancelStoreReservation,
   confirmReservation,
   createManualReservation,
+  listReservationHistory,
   listReservationQueue,
   markReservationNoShow,
   rejectReservation,
@@ -17,17 +18,19 @@ import {
 import { loadFloorLayout } from '@/lib/actions/floor-layout'
 import { listOpenTableSessions, type OpenTableSession } from '@/lib/actions/table-session'
 import type { FloorSnapshot } from '@/lib/area-layout'
-import { reservationQueueState, sortReservationQueue } from '@/lib/reservation-queue'
+import { reservationQueueState } from '@/lib/reservation-queue'
+import type { ReservationHistoryRow } from '@/lib/reservation-history'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
 import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
 import { createClient } from '@/lib/supabase/client'
 import { ringBellOnce, unlockBell } from '@/lib/bell'
 import { createReservationReminderCoordinator, type ReminderStorage } from '@/lib/reservation-reminders'
-import ReservationCard from './reservation-card'
+import ReservationCard, { ReservationTableHeader } from './reservation-card'
+import ReservationHistoryPanel, { type HistoryRange } from './reservation-history-panel'
 import ReservationReminderBanner from './reservation-reminder-banner'
 import {
-  filterReservationsForDate,
-  groupReservationsForDisplay,
-  reservationLocalDate,
+  activeReservationRows,
   reservationChangeDecisionActions,
   type ReservationUiAction,
 } from './reservation-ui'
@@ -86,7 +89,10 @@ export default function ReservationsClient({
   const [reloadError, setReloadError] = useState(initialError)
   const [actionError, setActionError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(() => reservationLocalDate(new Date().toISOString()) ?? '')
+  const [historyRange, setHistoryRange] = useState<HistoryRange>('30')
+  const [historyRows, setHistoryRows] = useState<ReservationHistoryRow[] | null>(null)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [floor, setFloor] = useState(initialFloor)
   const [floorError, setFloorError] = useState(initialFloorError)
   const [sessions, setSessions] = useState(initialSessions)
@@ -123,15 +129,31 @@ export default function ReservationsClient({
   }, [reminders, reservations, reminderAudioUnlocked])
 
   const now = new Date()
-  const filtered = filterReservationsForDate(reservations, selectedDate, now)
-  const groups = groupReservationsForDisplay(sortReservationQueue(filtered, now), now)
-  const pendingCount = reservations.filter((reservation) => {
-    const kind = reservationQueueState(reservation, now).kind
-    return kind === 'pending' || kind === 'change_requested'
-  }).length
-  const overdueCount = reservations.filter(
-    (reservation) => reservationQueueState(reservation, now).kind === 'overdue',
-  ).length
+  const activeRows = activeReservationRows(reservations, now)
+  const nowLabel = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now)
+
+  // Cột "Đã qua": tải lại khi đổi khoảng ngày, và khi một lượt vừa chuyển sang đã xong (khoá theo danh sách id
+  // lượt đã xong trong hàng đợi — không theo mảng, vì watcher trả mảng mới mỗi lần đọc lại).
+  const finishedKey = reservations
+    .filter((reservation) => reservationQueueState(reservation, now).kind === 'terminal')
+    .map((reservation) => `${reservation.reservationId}:${reservation.status}`)
+    .sort()
+    .join(',')
+  useEffect(() => {
+    let cancelled = false
+    const since = new Date(Date.now() - Number(historyRange) * 24 * 60 * 60 * 1000).toISOString()
+    // "Đang tải" bật ở changeHistoryRange (lúc người dùng đổi khoảng), không bật ở đây: lần tải lại ngầm
+    // khi có lượt vừa xong không cần nháy trạng thái.
+    listReservationHistory(since)
+      .then((result) => {
+        if (cancelled) return
+        if (result.ok) { setHistoryRows(result.rows); setHistoryError(null) }
+        else setHistoryError(result.error)
+      })
+      .catch(() => { if (!cancelled) setHistoryError('Lỗi kết nối. Kiểm tra mạng rồi thử lại.') })
+      .finally(() => { if (!cancelled) setHistoryLoading(false) })
+    return () => { cancelled = true }
+  }, [historyRange, finishedKey])
 
   const reloadNow = async () => {
     const result = await load()
@@ -269,34 +291,22 @@ export default function ReservationsClient({
     <div className="min-h-0 flex-1 overflow-y-auto bg-background p-4 sm:p-6" onClickCapture={unlockReminderBell}>
       {/* @container: hộp thoại cấu hình đè lên POS rộng hẹp tuỳ màn hình, nên chia cột theo
           bề rộng khung chứa chứ không theo viewport. */}
-      <div className="@container mx-auto max-w-[1400px]">
-        <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-foreground">Đặt bàn</h1>
-              <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-success-dot' : 'bg-border-strong'}`} />
-            </div>
-            <p className="mt-1 text-sm text-muted">
-              {connected ? 'Đang cập nhật trực tiếp' : 'Đang kết nối — vẫn tự tải lại mỗi vài giây'}
-            </p>
+      <div className="@container mx-auto flex max-w-[1400px] flex-col gap-4">
+        {/* Không lặp tiêu đề "Đặt bàn" (hộp thoại đã có) và bỏ nút Tải lại (danh sách tự cập nhật trực tiếp). */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted">
+            Việc cần duyệt, khách đang ngồi và lịch 7 ngày tới · bây giờ <span className="tabular">{nowLabel}</span>
+          </p>
+          <div className="flex items-center gap-3">
+            <span className="hidden items-center gap-1.5 text-[13px] text-muted sm:inline-flex">
+              <span className={`size-2 rounded-full ${connected ? 'bg-success-dot' : 'bg-border-strong'}`} aria-hidden />
+              {connected ? 'Cập nhật trực tiếp' : 'Đang kết nối lại…'}
+            </span>
+            <Button variant="primary" icon={<Plus />} onClick={() => { setActionError(null); setOperation({ kind: 'manual' }) }}>
+              Tạo đặt bàn
+            </Button>
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => { setActionError(null); setOperation({ kind: 'manual' }) }}
-              className="min-h-11 rounded-lg bg-primary px-4 text-sm font-bold text-white hover:bg-primary-hover"
-            >
-              + Tạo đặt bàn
-            </button>
-            <button
-              type="button"
-              onClick={() => void reloadNow()}
-              className="min-h-11 rounded-lg border border-border-strong bg-surface px-4 text-sm font-semibold text-foreground/80 hover:bg-item-hover"
-            >
-              ↻ Tải lại
-            </button>
-          </div>
-        </header>
+        </div>
 
         <ReservationReminderBanner
           reservationIds={dueReminders.reservationIds}
@@ -305,66 +315,49 @@ export default function ReservationsClient({
         />
         <CustomerCallTasks tasks={customerCalls} busy={customerCallBusy} onResolve={(id, outcome) => void resolveCustomerCall(id, outcome)} />
 
-        <div className="mb-5 grid grid-cols-2 gap-3 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]">
-          <div className="rounded-xl border border-border bg-surface p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Cần duyệt / đổi</p>
-            <p className="mt-1 text-2xl font-bold text-foreground">{pendingCount}</p>
-          </div>
-          <div className="rounded-xl border border-critical-border bg-critical-bg p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-danger">Quá giờ chưa đến</p>
-            <p className="mt-1 text-2xl font-bold text-critical">{overdueCount}</p>
-          </div>
-          <label className="col-span-2 block rounded-xl border border-border bg-surface p-3 @3xl:col-span-1">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-muted">Lọc lịch đã xử lý / sắp tới</span>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(event) => setSelectedDate(event.target.value)}
-              className="mt-2 min-h-11 w-full rounded-lg border border-border-strong bg-surface px-3 text-base text-foreground"
-            />
-            <span className="mt-1 block text-xs text-muted">Việc chờ duyệt, khách yêu cầu đổi, quá giờ và đã đến luôn được giữ lại.</span>
-          </label>
-        </div>
-
         {reloadError && (
-          <div className="mb-4 rounded-xl bg-warning-bg px-4 py-3 text-sm text-warning ring-1 ring-warning-border">
+          <div className="rounded-xl bg-warning-bg px-4 py-3 text-sm text-warning ring-1 ring-warning-border">
             {reloadError}
           </div>
         )}
         {actionError && (
-          <div className="mb-4 flex items-start justify-between gap-3 rounded-xl bg-critical-bg px-4 py-3 text-sm text-critical ring-1 ring-critical-border">
+          <div className="flex items-start justify-between gap-3 rounded-xl bg-critical-bg px-4 py-3 text-sm text-critical ring-1 ring-critical-border">
             <span>{actionError}</span>
             <button type="button" onClick={() => setActionError(null)} className="font-bold underline">Đóng</button>
           </div>
         )}
 
-        {groups.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border-strong bg-surface px-5 py-12 text-center text-sm text-muted">
-            Chưa có đặt bàn cần theo dõi trong khoảng thời gian này.
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 @5xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="min-w-0">
+            {activeRows.length === 0 ? (
+              <div className="rounded-xl border border-border bg-surface px-6 py-14 text-center">
+                <p className="text-base font-semibold">Chưa có lịch đặt bàn nào trong 7 ngày tới</p>
+                <p className="mt-1 text-sm text-muted">Khách đặt qua Zalo sẽ hiện ở đây để quán duyệt.</p>
+              </div>
+            ) : (
+              <div role="table" aria-label="Lịch đặt bàn đang xử lý" className="overflow-hidden rounded-xl border border-border bg-surface">
+                <ReservationTableHeader />
+                {activeRows.map((reservation) => (
+                  <ReservationCard
+                    key={reservation.reservationId}
+                    reservation={reservation}
+                    now={now}
+                    onAction={beginAction}
+                    snoozeBusy={reminderBusy}
+                    onSnooze={(row) => void snoozeReminders([row.reservationId], 10)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="space-y-6">
-            {groups.map((group) => (
-              <section key={group.title} aria-label={group.title}>
-                <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-foreground/80">
-                  {group.title} <span className="text-muted">({group.reservations.length})</span>
-                </h2>
-                <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-                  {group.reservations.map((reservation) => (
-                    <ReservationCard
-                      key={reservation.reservationId}
-                      reservation={reservation}
-                      now={now}
-                      onAction={beginAction}
-                      snoozeBusy={reminderBusy}
-                      onSnooze={(row) => void snoozeReminders([row.reservationId], 10)}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
+          <ReservationHistoryPanel
+            range={historyRange}
+            onRangeChange={(range) => { setHistoryLoading(true); setHistoryRange(range) }}
+            rows={historyRows}
+            loading={historyLoading}
+            error={historyError}
+          />
+        </div>
       </div>
       {operation && (
         <ReservationOperationSheet title={operationTitle(operation)} onClose={() => { if (!busy) setOperation(null) }}>

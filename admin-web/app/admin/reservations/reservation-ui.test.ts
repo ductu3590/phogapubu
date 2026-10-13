@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { ReservationRow } from '@/lib/actions/reservations'
 import {
-  filterReservationsForDate,
+  activeReservationRows,
   formatReservationArrival,
-  groupReservationsForDisplay,
+  formatReservationDateTime,
   phoneHref,
   reservationChangeDecisionActions,
   reservationCardView,
@@ -69,40 +69,41 @@ describe('reservation mobile view model', () => {
     expect(reservationUiActions(reservation({ status: 'no_show' }))).toEqual([])
   })
 
-  it('lọc ngày chỉ áp dụng lịch sử và booking sắp tới, không làm mất việc chưa xử lý', () => {
+  it('cột Thời gian ghi ngày trước giờ, theo giờ Việt Nam', () => {
+    expect(formatReservationDateTime('2026-09-20T12:00:00.000Z')).toBe('20/09 · 19:00')
+  })
+
+  it('bảng đang xử lý: việc cần làm luôn hiện, lịch đã xác nhận chỉ trong 7 ngày, lượt đã xong không hiện; xếp theo giờ', () => {
     const now = new Date('2026-09-20T12:00:00.000Z')
     const rows = [
-      reservation({ reservationId: 'pending', status: 'pending', arrivalAt: '2026-09-22T12:00:00.000Z' }),
+      reservation({ reservationId: 'upcoming-8-days', arrivalAt: '2026-09-28T13:00:00.000Z' }),
+      reservation({ reservationId: 'upcoming', arrivalAt: '2026-09-21T12:00:00.000Z' }),
+      reservation({ reservationId: 'pending-far', status: 'pending', arrivalAt: '2026-10-05T12:00:00.000Z' }),
       reservation({ reservationId: 'overdue', arrivalAt: '2026-09-20T11:00:00.000Z' }),
-      reservation({ reservationId: 'upcoming-other-day', arrivalAt: '2026-09-22T12:00:00.000Z' }),
-      reservation({ reservationId: 'terminal-other-day', status: 'no_show', arrivalAt: '2026-09-22T12:00:00.000Z' }),
-      reservation({ reservationId: 'terminal-selected-day', status: 'completed', arrivalAt: '2026-09-20T12:00:00.000Z' }),
+      reservation({ reservationId: 'seated', status: 'arrived', sessionId: 's-1', arrivalAt: '2026-09-20T10:00:00.000Z' }),
+      reservation({ reservationId: 'seated-bill-closed', status: 'arrived', sessionId: 's-2', sessionClosed: true }),
+      reservation({ reservationId: 'no-show', status: 'no_show' }),
     ]
 
-    expect(filterReservationsForDate(rows, '2026-09-20', now).map((row) => row.reservationId)).toEqual([
-      'pending', 'overdue', 'terminal-selected-day',
+    expect(activeReservationRows(rows, now).map((row) => row.reservationId)).toEqual([
+      'seated', 'overdue', 'upcoming', 'pending-far',
     ])
   })
 
-  it('gom hàng đợi theo thứ tự việc cần xử lý trước, rồi tới lịch đã xác nhận và lịch sử', () => {
-    const now = new Date('2026-09-20T12:00:00.000Z')
-    const groups = groupReservationsForDisplay([
-      reservation({ reservationId: 'arrived', status: 'arrived' }),
-      reservation({ reservationId: 'terminal', status: 'no_show' }),
-      reservation({ reservationId: 'upcoming', arrivalAt: '2026-09-20T13:00:00.000Z' }),
-      reservation({ reservationId: 'pending', status: 'pending' }),
-      reservation({ reservationId: 'overdue', arrivalAt: '2026-09-20T11:55:00.000Z' }),
-      reservation({ reservationId: 'change', status: 'change_requested' }),
-    ], now)
+  it('đã đến mà bill đã đóng (Bỏ bàn / hết hạn) là lượt đã xong', () => {
+    const view = reservationCardView(
+      reservation({ status: 'arrived', sessionId: 's-1', sessionClosed: true }),
+      new Date('2026-09-20T12:00:00.000Z'),
+    )
+    expect(view.kind).toBe('terminal')
+  })
 
-    expect(groups.map((group) => [group.title, group.reservations.map((row) => row.reservationId)])).toEqual([
-      ['Chờ duyệt', ['pending']],
-      ['Khách yêu cầu đổi', ['change']],
-      ['Quá giờ chưa đến', ['overdue']],
-      ['Sắp đến', ['upcoming']],
-      ['Đã đến', ['arrived']],
-      ['Lịch sử gần đây', ['terminal']],
-    ])
+  it('nhãn và màu trạng thái theo bảng màu chung', () => {
+    const now = new Date('2026-09-20T12:00:00.000Z')
+    expect(reservationCardView(reservation({ status: 'arrived', sessionId: 's-1' }), now)).toMatchObject({ statusLabel: 'Đang ngồi', badgeTone: 'success' })
+    expect(reservationCardView(reservation({ status: 'pending' }), now)).toMatchObject({ statusLabel: 'Chờ duyệt', badgeTone: 'warning' })
+    expect(reservationCardView(reservation({ arrivalAt: '2026-09-21T12:00:00.000Z' }), now)).toMatchObject({ statusLabel: 'Đã xác nhận', badgeTone: 'accent' })
+    expect(reservationCardView(reservation({ tableNumbers: [] }), now).tablesLabel).toBe('')
   })
 
   it('yêu cầu đổi luôn cho chủ quán cả hai lựa chọn chấp nhận và từ chối', () => {

@@ -4,6 +4,7 @@ import { requireOperator } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { toReservationRow, type ReservationRpcRow } from '@/lib/reservation-rows'
 import { isPosRole } from '@/lib/auth/roles'
+import { toReservationHistoryRows, type ReservationHistoryRow, type ReservationHistoryRpcRow } from '@/lib/reservation-history'
 
 export type ReservationStatus =
   | 'pending'
@@ -35,6 +36,8 @@ export type ReservationRow = {
   suggestedTableCount: number
   planningHoldMinutes: number
   sessionId: string | null
+  /** Bill gắn với lượt đặt đã đóng (mig 103). Đã đến + bill đóng = lượt đã xong, kể cả đóng vì Bỏ bàn / hết hạn. */
+  sessionClosed?: boolean
   already: boolean
   reminderSnoozedUntil: string | null
   reminderSnoozedBy: string | null
@@ -125,6 +128,22 @@ export async function listReservationQueue(
   if (rpcError) return { ok: false, error: rpcError.message }
   if (!Array.isArray(data)) return { ok: false, error: 'Dữ liệu phản hồi đặt bàn không hợp lệ' }
   return { ok: true, reservations: data.map((row) => toReservationRow(row as ReservationRpcRow)) }
+}
+
+/** Lịch sử đặt bàn từ `sinceIso` (mig 103): lượt đã kết thúc + lượt đã đến mà bill đã đóng. */
+export async function listReservationHistory(
+  sinceIso: string,
+): Promise<{ ok: true; rows: ReservationHistoryRow[] } | { ok: false; error: string }> {
+  const { supabase, storeId, error } = await ownerClient()
+  if (!supabase || !storeId) return { ok: false, error: error ?? 'Không có quyền xử lý đặt bàn' }
+
+  const { data, error: rpcError } = await supabase.rpc('list_reservation_history', {
+    p_store_id: storeId,
+    p_since: sinceIso,
+  })
+  if (rpcError) return { ok: false, error: rpcError.message }
+  if (!Array.isArray(data)) return { ok: false, error: 'Dữ liệu lịch sử đặt bàn không hợp lệ' }
+  return { ok: true, rows: toReservationHistoryRows(data as ReservationHistoryRpcRow[]) }
 }
 
 export async function createManualReservation(

@@ -97,6 +97,7 @@ describe('reservation actions', () => {
         suggestedTableCount: 2,
         planningHoldMinutes: 180,
         sessionId: null,
+        sessionClosed: false,
         already: false,
         reminderSnoozedUntil: '2026-09-20T12:15:00.000Z',
         reminderSnoozedBy: 'owner-1',
