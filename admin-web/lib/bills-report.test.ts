@@ -7,6 +7,8 @@ import {
   normalizeSearch,
   paginate,
   startedLabel,
+  daySummary,
+  vnDateTimeLabel,
   parseBillsReport,
   type BillsReport,
 } from './bills-report'
@@ -162,5 +164,34 @@ describe('startedLabel — giờ vào kèm ngày khi khác ngày đang xem (A04-
   })
   it('rỗng → "—"', () => {
     expect(startedLabel('', '2026-10-13')).toBe('—')
+  })
+})
+
+describe('daySummary — số liệu phụ cho phiếu cuối ngày + Excel (A04-3)', () => {
+  it('đếm chờ thu / đơn huỷ / Bỏ / Tặng / sửa số lượng; tiền lấy nguyên từng dòng server', () => {
+    const r = parseBillsReport({
+      waiting: [{ key: 'S:a', provisional_total: 100000 }, { key: 'O:b', provisional_total: 55000 }],
+      cancelled: [{ order_id: 'x', total: 20000 }, { order_id: 'y', total: 30000 }],
+      adjustments: [
+        { type: 'gift', amount: 50000 }, { type: 'gift', amount: 10000 },
+        { type: 'cancelled', amount: 40000 }, { type: 'quantity', amount: -24000 },
+      ],
+    })
+    expect(daySummary(r)).toEqual({
+      waitingCount: 2, waitingTotal: 155000, cancelledCount: 2, cancelledTotal: 50000,
+      giftCount: 2, giftTotal: 60000, voidCount: 1, voidTotal: 40000, quantityChangeCount: 1,
+    })
+  })
+  it('báo cáo rỗng → toàn 0', () => {
+    expect(daySummary(parseBillsReport(null))).toEqual({
+      waitingCount: 0, waitingTotal: 0, cancelledCount: 0, cancelledTotal: 0,
+      giftCount: 0, giftTotal: 0, voidCount: 0, voidTotal: 0, quantityChangeCount: 0,
+    })
+  })
+})
+
+describe('vnDateTimeLabel (A04-3)', () => {
+  it('dd/mm/yyyy HH:MM theo giờ VN', () => {
+    expect(vnDateTimeLabel(new Date('2026-10-09T17:30:00Z'))).toBe('10/10/2026 00:30')
   })
 })

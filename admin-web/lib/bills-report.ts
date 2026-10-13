@@ -229,3 +229,35 @@ export function startedLabel(iso: string, reportDate: string): string {
   const ymd = VN_DATE.format(d)
   return ymd === reportDate ? hm : `${ymd.slice(8, 10)}/${ymd.slice(5, 7)} ${hm}`
 }
+
+export type DaySummary = {
+  waitingCount: number; waitingTotal: number
+  cancelledCount: number; cancelledTotal: number
+  giftCount: number; giftTotal: number
+  voidCount: number; voidTotal: number
+  quantityChangeCount: number
+}
+
+/** Số liệu phụ cho phiếu cuối ngày + Excel (A04-3): chỉ ĐẾM và cộng các dòng server đã tính sẵn — doanh thu vẫn lấy `totals`. */
+export function daySummary(report: BillsReport): DaySummary {
+  const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0)
+  const gifts = report.adjustments.filter((a) => a.type === 'gift')
+  const voids = report.adjustments.filter((a) => a.type === 'cancelled')
+  return {
+    waitingCount: report.waiting.length,
+    waitingTotal: sum(report.waiting.map((w) => w.provisionalTotal)),
+    cancelledCount: report.cancelled.length,
+    cancelledTotal: sum(report.cancelled.map((c) => c.total)),
+    giftCount: gifts.length,
+    giftTotal: sum(gifts.map((a) => a.amount)),
+    voidCount: voids.length,
+    voidTotal: sum(voids.map((a) => a.amount)),
+    quantityChangeCount: report.adjustments.filter((a) => a.type === 'quantity').length,
+  }
+}
+
+/** "dd/mm/yyyy HH:MM" giờ VN — tự ghép, không phụ thuộc cách trình duyệt/Node xếp ngày giờ của locale vi-VN. */
+export function vnDateTimeLabel(d: Date): string {
+  const ymd = VN_DATE.format(d)
+  return `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)} ${VN_TIME.format(d)}`
+}

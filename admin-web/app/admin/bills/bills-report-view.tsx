@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { Banknote, Eye, Gift, Landmark, ListOrdered, Printer, Receipt, Search, Undo2, Users, Wallet } from 'lucide-react'
+import { Banknote, Eye, FileSpreadsheet, Gift, Landmark, ListOrdered, Printer, Receipt, Search, Undo2, Users, Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { getButtonClasses } from '@/components/ui/button-classes'
 import { EmptyState } from '@/components/ui/feedback'
@@ -74,7 +74,19 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
           </p>
           <p className="mt-1 text-[13px] text-muted">Đang xem: <strong className="font-medium text-foreground">{viewer}</strong></p>
         </div>
-        <ReportDatePicker value={date} max={maxDate} showRefresh={today} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ReportDatePicker value={date} max={maxDate} showRefresh={today} />
+          {/* Tải file thường (không Link): route handler trả .xlsx, không đi qua điều hướng mềm / hộp thoại. */}
+          <a href={`/admin/bills/export?date=${date}`} download className={cn(getButtonClasses('outline'), 'whitespace-nowrap')}>
+            <FileSpreadsheet className="size-4 text-emerald-600" aria-hidden />
+            Xuất Excel
+          </a>
+          <button type="button" onClick={() => printInPlace(`/print/day-report?date=${date}`)}
+            className={cn(getButtonClasses('outline'), 'whitespace-nowrap')}>
+            <Printer className="size-4 text-blue-600" aria-hidden />
+            In báo cáo cuối ngày
+          </button>
+        </div>
       </div>
 
       {/* 4 thẻ số liệu — tiền từ server, không tính lại. */}
