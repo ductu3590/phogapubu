@@ -6,6 +6,7 @@ import { requirePosOperatorStoreId } from '@/lib/auth/operator'
 import { parseBillDetail, type BillDetailOrder } from '@/lib/bill-detail'
 import { cancelOrder, completeOrder, confirmManualPayment } from '@/lib/actions/orders'
 import { redeemSpin } from '@/lib/actions/spin'
+import { closeTableSession, closeTableSessionsBulk } from '@/lib/actions/table-session'
 
 // Ngăn kéo "Xem bill" (A04-2) của trang Hoá đơn & Báo cáo.
 // Gọi MỘT lần khi mở ngăn kéo / sau mỗi thao tác — KHÔNG poll bằng server action (bài học ST-3).
@@ -66,6 +67,23 @@ export async function redeemBillSpin(resultId: string): Promise<{ ok: true } | {
     await redeemSpin(resultId)
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Không đánh dấu được, thử lại sau' }
+  }
+  revalidatePath('/admin/bills')
+  return { ok: true }
+}
+
+// Bàn trả sau: "Đã nhận tiền" = thu CẢ BÀN một lần rồi đóng bill (anh Tú 2026-10-13: quán chỉ thanh toán một lần
+// trước khi khách về). Dùng lại NGUYÊN action thu tiền của POS → close_table_session(paid): ghi tiền mọi lượt chưa thu,
+// chuyển đơn sang Hoàn tất (mig 085), đóng phiên. Chủ quán + thu ngân (như POS). Phiên hết hạn còn nợ cũng thu được.
+export async function collectSessionBill(sessionIds: string[], instrument: 'cash' | 'bank'): Promise<{ ok: true } | { ok: false; error: string }> {
+  const ids = Array.isArray(sessionIds) ? sessionIds.filter((x) => typeof x === 'string' && UUID.test(x)) : []
+  if (ids.length === 0) return { ok: false, error: 'Không có bàn nào để thu' }
+  if (instrument !== 'cash' && instrument !== 'bank') return { ok: false, error: 'Phương thức thanh toán không hợp lệ' }
+  try {
+    const res = ids.length === 1 ? await closeTableSession(ids[0], 'paid', instrument) : await closeTableSessionsBulk(ids, 'paid', instrument)
+    if (!res.ok) return { ok: false, error: res.error }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Không thu được, thử lại sau' }
   }
   revalidatePath('/admin/bills')
   return { ok: true }

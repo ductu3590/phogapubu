@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Gift, Printer } from 'lucide-react'
+import { Banknote, Check, Gift, Landmark, Printer } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,7 @@ import { instrumentLabel } from '@/lib/daily-report'
 import { printInPlace } from '@/lib/print/print-in-place'
 import type { BillRow } from '@/lib/bills-report'
 import type { BillDetailOrder } from '@/lib/bill-detail'
-import { loadBillDetail, redeemBillSpin, runBillOrderAction, type BillOrderAction } from '@/lib/actions/bill-detail'
+import { collectSessionBill, loadBillDetail, redeemBillSpin, runBillOrderAction, type BillOrderAction } from '@/lib/actions/bill-detail'
 
 const time = (iso: string) =>
   iso ? new Date(iso).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -64,6 +64,26 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
     }
   }
 
+  // Bàn trả sau: thu CẢ BÀN một lần → đóng bill (như POS → Thanh toán). Xong thì dòng chuyển sang "Đã thanh toán"
+  // với key khác → đóng ngăn kéo.
+  const onCollect = async (instrument: 'cash' | 'bank') => {
+    if (!row) return
+    const how = instrument === 'cash' ? 'TIỀN MẶT' : 'CHUYỂN KHOẢN'
+    if (!window.confirm(`Đã nhận ${formatVND(row.amount)} bằng ${how} cho ${row.tableLabel}?
+Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.`)) return
+    setBusy(`collect:${instrument}`)
+    try {
+      const res = await collectSessionBill(row.sessionIds, instrument)
+      if (!res.ok) { setError(res.error); return }
+      router.refresh()
+      onClose()
+    } catch {
+      setError('Lỗi kết nối. Kiểm tra lại bàn ở POS trước khi thu lại.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const onOrderAction = (orderId: string, action: BillOrderAction) => {
     if (!window.confirm(CONFIRM_TEXT[action])) return
     void act(`${orderId}:${action}`, () => runBillOrderAction(orderId, action))
@@ -109,9 +129,19 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
           </p>
         )}
         {row.kind === 'waiting' && row.sessionIds.length > 0 && (
-          <p className="rounded-lg border border-warning-border bg-warning-bg px-3 py-2 text-[13px] text-warning">
-            Bàn trả sau: thu tiền cả bàn ở <strong>POS → Thanh toán</strong>. Nút trong từng lượt bên dưới chỉ tác động lên lượt đó.
-          </p>
+          <div className="rounded-xl border border-warning-border bg-warning-bg p-3">
+            <p className="text-[13px] text-warning">
+              {row.expired ? 'Bàn đã hết hạn nhưng còn nợ. ' : ''}Thu <strong>cả bàn một lần</strong> — thu xong bill đóng lại, mọi lượt chuyển Hoàn tất (giống POS → Thanh toán).
+            </p>
+            <div className="mt-2.5 grid grid-cols-2 gap-2">
+              <Button variant="primary" icon={<Banknote />} isLoading={busy === 'collect:cash'} disabled={busy !== null} onClick={() => void onCollect('cash')}>
+                Đã nhận tiền mặt
+              </Button>
+              <Button icon={<Landmark />} isLoading={busy === 'collect:bank'} disabled={busy !== null} onClick={() => void onCollect('bank')}>
+                Đã nhận chuyển khoản
+              </Button>
+            </div>
+          </div>
         )}
         {error && <p role="alert" className="rounded-lg border border-critical-border bg-critical-bg px-3 py-2 text-[13px] text-critical">{error}</p>}
 

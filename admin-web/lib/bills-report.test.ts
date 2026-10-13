@@ -111,6 +111,17 @@ describe('buildBillRows (A04-1)', () => {
   })
 })
 
+describe('key dòng không trùng (A04-2 fix)', () => {
+  it('bàn đang mở đã thu một phần: cùng phiên vừa ở "Đã thanh toán" vừa ở "Chờ thu" → hai key khác nhau', () => {
+    const r = parseBillsReport({
+      bills: [{ key: 'S:abc', session_ids: ['abc'], order_ids: ['o1'], total: 1, paid_at: '2026-10-13T01:00:00Z' }],
+      waiting: [{ key: 'S:abc', session_ids: ['abc'], order_ids: ['o2'], opened_at: '2026-10-13T00:00:00Z' }],
+    })
+    const keys = buildBillRows(r).map((x) => x.key)
+    expect(new Set(keys).size).toBe(keys.length)
+  })
+})
+
 describe('chip + tìm kiếm + phân trang (A04-1)', () => {
   it('đếm chip: Đã huỷ/giảm trừ = đơn huỷ + bill có điều chỉnh/giảm giá', () => {
     expect(chipCounts(rows)).toEqual({ all: 4, paid: 2, adjusted: 3, waiting: 1 })

@@ -75,6 +75,10 @@ describe('orderActions — giữ đúng luật trang Đơn hàng cũ (A04-2)', (
     expect(orderActions(money({ status: 'paid' }), { id: 's', label: 'Quà', type: 'gift', status: 'won' }).redeem).toBe(true)
   })
 
+  it('lượt thuộc PHIÊN BÀN trả sau: KHÔNG thu/hoàn tất từng lượt (thu cả bàn một lần), vẫn huỷ được lượt chưa có tiền', () => {
+    expect(orderActions(money({ session_id: 'sess' }), null)).toEqual({ confirm: false, complete: false, cancel: true, redeem: false })
+  })
+
   it('đổi thưởng chỉ khi là quà hiện vật và còn "won"', () => {
     expect(orderActions(money({}), { id: 's', label: 'Giảm 10%', type: 'voucher', status: 'won' }).redeem).toBe(false)
     expect(orderActions(money({}), { id: 's', label: 'Quà', type: 'gift', status: 'redeemed' }).redeem).toBe(false)

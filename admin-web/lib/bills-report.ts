@@ -144,8 +144,10 @@ export type BillRow = {
 }
 
 export function buildBillRows(report: BillsReport): BillRow[] {
+  // Tiền tố 'W:': bàn đang mở mà đã có lượt nhận tiền thì CÙNG phiên nằm cả ở bills ('S:<phiên>') lẫn waiting
+  // ('S:<phiên>') — trùng key React (lỗi 2026-10-13).
   const waiting: BillRow[] = report.waiting.map((w) => ({
-    key: w.key, kind: 'waiting', code: billCode(w.sessionIds, w.orderIds), tableLabel: w.tableLabel,
+    key: `W:${w.key}`, kind: 'waiting', code: billCode(w.sessionIds, w.orderIds), tableLabel: w.tableLabel,
     grouped: w.tablesCount > 1, orderType: w.orderType, customerName: w.customerName, partySize: w.partySize,
     startedAt: w.openedAt, at: w.openedAt, itemsCount: w.itemsCount, amount: w.provisionalTotal, instrument: null,
     adjusted: false, adjustmentsCount: 0, discountTotal: 0, expired: w.expired, rejected: false, reasonText: null,
