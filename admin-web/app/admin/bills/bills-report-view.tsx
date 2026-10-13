@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { Banknote, Gift, Landmark, ListOrdered, Printer, Receipt, Search, Undo2, Users, Wallet } from 'lucide-react'
+import { Banknote, Eye, Gift, Landmark, ListOrdered, Printer, Receipt, Search, Undo2, Users, Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { getButtonClasses } from '@/components/ui/button-classes'
 import { EmptyState } from '@/components/ui/feedback'
@@ -12,12 +12,15 @@ import {
   chipCounts,
   filterBillRows,
   paginate,
+  startedLabel,
   type BillChip,
   type BillRow,
   type BillsReport,
   type BillsReportAdjustment,
 } from '@/lib/bills-report'
+import { printInPlace } from '@/lib/print/print-in-place'
 import ReportDatePicker from './report-date-picker'
+import BillDrawer from './bill-drawer'
 
 const CHIPS: { id: BillChip; label: string }[] = [
   { id: 'all', label: 'Tất cả' },
@@ -33,7 +36,7 @@ const time = (iso: string, withSeconds = false) =>
       })
     : '—'
 
-export default function BillsReportView({ report, date, maxDate, today, dateTitle, viewer, updatedAt }: {
+export default function BillsReportView({ report, date, maxDate, today, dateTitle, viewer, updatedAt, canManage }: {
   report: BillsReport
   date: string
   maxDate: string
@@ -41,8 +44,11 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
   dateTitle: string
   viewer: string
   updatedAt: string
+  /** Chủ quán: thấy nút Đã nhận tiền / Hoàn tất / Huỷ đơn / Đổi thưởng trong ngăn kéo (thu ngân chỉ xem). */
+  canManage: boolean
 }) {
   const [chip, setChip] = useState<BillChip>('all')
+  const [openKey, setOpenKey] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
 
@@ -51,6 +57,8 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
   const visible = useMemo(() => filterBillRows(rows, chip, query), [rows, chip, query])
   const paged = paginate(visible, page)
   const expiredDebt = report.waiting.filter((w) => w.expired)
+  // Giữ theo KEY (không giữ object): sau router.refresh dòng được dựng lại, ngăn kéo vẫn bám đúng dòng.
+  const openRow = openKey ? rows.find((r) => r.key === openKey) ?? null : null
 
   const pickChip = (id: BillChip) => { setChip(id); setPage(1) }
 
@@ -133,6 +141,7 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
               {rows.length === 0 ? 'Chưa có hoá đơn nào trong ngày này.' : 'Không có hoá đơn khớp bộ lọc.'}
             </EmptyState>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="hidden border-b border-border bg-background whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-muted @3xl:table-header-group">
                 <tr>
@@ -146,9 +155,10 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {paged.items.map((r) => <BillTableRow key={r.key} row={r} />)}
+                {paged.items.map((r) => <BillTableRow key={r.key} row={r} date={date} onOpen={() => setOpenKey(r.key)} />)}
               </tbody>
             </table>
+            </div>
           )}
           {paged.total > 0 && (
             <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-[13px] text-muted">
@@ -184,17 +194,19 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
           <p className="border-t border-border px-4 py-3 text-xs text-muted">Mọi lần bỏ món, tặng món, sửa số lượng đều được ghi lại tự động kèm người làm và lý do.</p>
         </section>
       </div>
+
+      {openRow && <BillDrawer key={openRow.key} row={openRow} canManage={canManage} onClose={() => setOpenKey(null)} />}
     </div>
   )
 }
 
-function BillTableRow({ row: r }: { row: BillRow }) {
-  // In lại hoá đơn 80mm chỉ có với bill trả sau đã thu (theo phiên) — như trang Báo cáo cũ.
-  const printHref = r.kind === 'paid' && r.sessionIds.length > 0 ? `/print/bill?ids=${r.sessionIds.join(',')}` : null
+function BillTableRow({ row: r, date, onOpen }: { row: BillRow; date: string; onOpen: () => void }) {
+  // In lại hoá đơn 80mm chỉ có với bill trả sau đã thu (theo phiên) — như trang Báo cáo cũ. In ngầm (printInPlace).
+  const printUrl = r.kind === 'paid' && r.sessionIds.length > 0 ? `/print/bill?ids=${r.sessionIds.join(',')}` : null
   return (
     <tr className={cn('flex flex-col gap-1.5 px-4 py-3 @3xl:table-row @3xl:p-0', r.kind === 'cancelled' && 'bg-background/60')}>
       <td className="whitespace-nowrap font-mono text-[13px] font-semibold text-foreground @3xl:px-4 @3xl:py-3">{r.code}</td>
-      <td className="@3xl:px-4 @3xl:py-3">
+      <td className="@3xl:min-w-24 @3xl:px-4 @3xl:py-3">
         <span className="font-medium text-foreground">{r.tableLabel}</span>
         {r.grouped && <span className="ml-2 whitespace-nowrap rounded-md bg-violet-50 px-1.5 py-0.5 text-[12px] font-medium text-violet-700">Ghép</span>}
       </td>
@@ -204,7 +216,7 @@ function BillTableRow({ row: r }: { row: BillRow }) {
         ) : <span className="text-muted">—</span>}
       </td>
       <td className="whitespace-nowrap text-muted tabular @3xl:px-4 @3xl:py-3">
-        {time(r.startedAt)}{r.itemsCount !== null && <> <span aria-hidden>•</span> {r.itemsCount} món</>}
+        {startedLabel(r.startedAt, date)}{r.itemsCount !== null && <> <span aria-hidden>•</span> {r.itemsCount} món</>}
       </td>
       <td className="whitespace-nowrap @3xl:px-4 @3xl:py-3 @3xl:text-right">
         <span className={cn('block font-semibold tabular', r.kind === 'cancelled' ? 'text-muted line-through' : 'text-foreground')}>
@@ -219,13 +231,17 @@ function BillTableRow({ row: r }: { row: BillRow }) {
         <RowStatus row={r} />
       </td>
       <td className="@3xl:px-4 @3xl:py-3">
-        <div className="flex @3xl:justify-end">
-          {printHref ? (
-            <a href={printHref} target="_blank" rel="noopener" className={cn(getButtonClasses('outline'), 'whitespace-nowrap')}>
+        <div className="flex flex-wrap gap-2 @3xl:flex-nowrap @3xl:justify-end">
+          <button type="button" onClick={onOpen} className={cn(getButtonClasses('outline'), 'whitespace-nowrap')}>
+            <Eye className="size-4" aria-hidden />
+            Xem bill
+          </button>
+          {printUrl && (
+            <button type="button" onClick={() => printInPlace(printUrl)} aria-label="In lại hoá đơn" title="In lại hoá đơn"
+              className={cn(getButtonClasses('outline'), 'aspect-square px-0')}>
               <Printer className="size-4" aria-hidden />
-              In lại
-            </a>
-          ) : <span className="hidden text-muted @3xl:inline">—</span>}
+            </button>
+          )}
         </div>
       </td>
     </tr>

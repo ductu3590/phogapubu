@@ -44,6 +44,7 @@ export default async function BillsPage({ searchParams }: { searchParams: Promis
             dateTitle={title}
             viewer={viewer}
             updatedAt={now.toISOString()}
+            canManage={operator.role === 'store_owner'}
           />
         ) : (
           <ErrorState title="Không tải được báo cáo" reason={res.error} />

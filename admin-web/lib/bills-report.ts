@@ -214,3 +214,16 @@ export function paginate<T>(items: T[], page: number, size = BILLS_PAGE_SIZE) {
   const slice = items.slice(start, start + size)
   return { items: slice, page: current, pageCount, total, from: total === 0 ? 0 : start + 1, to: start + slice.length }
 }
+
+const VN_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' })
+const VN_TIME = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false })
+
+/** Giờ khách vào: chỉ HH:MM nếu cùng ngày đang xem (giờ VN), khác ngày thì "dd/mm HH:MM" — bill vào hôm trước, thu hôm nay. */
+export function startedLabel(iso: string, reportDate: string): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  const hm = VN_TIME.format(d)
+  const ymd = VN_DATE.format(d)
+  return ymd === reportDate ? hm : `${ymd.slice(8, 10)}/${ymd.slice(5, 7)} ${hm}`
+}

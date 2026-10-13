@@ -6,6 +6,7 @@ import {
   filterBillRows,
   normalizeSearch,
   paginate,
+  startedLabel,
   parseBillsReport,
   type BillsReport,
 } from './bills-report'
@@ -135,5 +136,20 @@ describe('chip + tìm kiếm + phân trang (A04-1)', () => {
     expect(paginate(many, 3).items).toEqual(many.slice(40))
     expect(paginate(many, 9)).toMatchObject({ page: 3, from: 41, to: 45 })
     expect(paginate([], 1)).toMatchObject({ page: 1, pageCount: 1, total: 0, from: 0, to: 0, items: [] })
+  })
+})
+
+describe('startedLabel — giờ vào kèm ngày khi khác ngày đang xem (A04-2)', () => {
+  it('cùng ngày (giờ VN) → chỉ giờ', () => {
+    expect(startedLabel('2026-10-12T07:30:00Z', '2026-10-12')).toBe('14:30')
+  })
+  it('vào hôm trước, thu hôm nay → kèm ngày/tháng', () => {
+    expect(startedLabel('2026-10-12T07:30:00Z', '2026-10-13')).toBe('12/10 14:30')
+  })
+  it('qua nửa đêm giờ VN (17:30Z = 00:30 hôm sau) tính theo giờ VN, không theo UTC', () => {
+    expect(startedLabel('2026-10-12T17:30:00Z', '2026-10-13')).toBe('00:30')
+  })
+  it('rỗng → "—"', () => {
+    expect(startedLabel('', '2026-10-13')).toBe('—')
   })
 })
