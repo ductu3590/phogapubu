@@ -1,5 +1,5 @@
 // Hàm ngày giờ VN + nhãn phương thức thanh toán cho báo cáo theo ngày.
-// (PA-1 đọc RPC get_daily_report ở đây; A04-4 2026-10-13 thay bằng lib/bills-report.ts + RPC get_bills_report.)
+// (PA-1 đọc RPC get_daily_report ở đây; A04-4 2026-10-13 thay bằng lib/bills-report.ts + RPC get_bills_report, mig 102 DROP hàm cũ.)
 
 export type ReportInstrument = 'cash' | 'bank' | 'other' | 'mixed'
 
