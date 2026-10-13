@@ -1,8 +1,6 @@
 import {
-  BarChart3,
   CalendarDays,
   ChefHat,
-  ClipboardList,
   ReceiptText,
   LayoutGrid,
   QrCode,
@@ -24,22 +22,19 @@ import type { OperatorRole } from '@/lib/auth/roles'
 // - Bếp chỉ hiện với quán dùng màn hình bếp. Quán "thu ngân xác nhận rồi in phiếu"
 //   (kitchen_release_policy = pos_confirmation, mô hình Bảo Lương) không có màn bếp nào để mở.
 export function adminRailItems(kitchenEnabled = true, role: OperatorRole = 'store_owner'): AppNavItem[] {
-  // Thu ngân (PA-2): chỉ việc ở quầy — POS + Báo cáo ngày.
+  // Thu ngân (PA-2): chỉ việc ở quầy — POS + Hoá đơn & Báo cáo (A04).
   if (role === 'store_cashier') {
     return [
       { href: '/admin/pos', label: 'POS', icon: <LayoutGrid /> },
       { href: '/admin/bills', label: 'Hoá đơn', icon: <ReceiptText /> },
-      { href: '/admin/dashboard', label: 'Báo cáo', icon: <BarChart3 /> },
     ]
   }
   return [
     { href: '/admin/pos', label: 'POS', icon: <LayoutGrid /> },
     ...(kitchenEnabled ? [{ href: '/admin/kitchen', label: 'Bếp', icon: <ChefHat /> }] : []),
     { href: '/admin/menu', label: 'Món', icon: <UtensilsCrossed /> },
-    // A04 (2026-10-12): "Hoá đơn & Báo cáo" chạy song song với Đơn + Báo cáo cũ tới khi PASS, rồi mới xoá 2 mục cũ.
+    // A04 (2026-10-13): "Hoá đơn & Báo cáo" thay hẳn 2 mục Đơn + Báo cáo cũ.
     { href: '/admin/bills', label: 'Hoá đơn', icon: <ReceiptText /> },
-    { href: '/admin/orders', label: 'Đơn', icon: <ClipboardList /> },
-    { href: '/admin/dashboard', label: 'Báo cáo', icon: <BarChart3 /> },
   ]
 }
 

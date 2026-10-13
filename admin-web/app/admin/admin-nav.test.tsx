@@ -8,7 +8,7 @@ const hrefs = (reservations: boolean, kitchen = true) => adminNavGroups(reservat
 describe('menu khu chủ quán (rail icon Stitch)', () => {
   it('rail giữ mục hằng ngày, POS đứng đầu; KHÔNG còn Đặt bàn trên rail', () => {
     expect(adminRailItems().map((item) => item.href)).toEqual([
-      '/admin/pos', '/admin/kitchen', '/admin/menu', '/admin/bills', '/admin/orders', '/admin/dashboard',
+      '/admin/pos', '/admin/kitchen', '/admin/menu', '/admin/bills',
     ])
   })
 
@@ -26,7 +26,7 @@ describe('menu khu chủ quán (rail icon Stitch)', () => {
 
   it('không mất trang nào so với sidebar cũ (quán bật đặt bàn + dùng màn bếp)', () => {
     expect(new Set(hrefs(true))).toEqual(new Set([
-      '/admin/dashboard', '/admin/bills', '/admin/pos', '/admin/orders', '/admin/kitchen', '/admin/reservations',
+      '/admin/bills', '/admin/pos', '/admin/kitchen', '/admin/reservations',
       '/admin/menu', '/admin/vouchers',
       '/admin/settings', '/admin/tables', '/admin/staff', '/admin/account',
     ]))
@@ -48,8 +48,8 @@ describe('menu khu chủ quán (rail icon Stitch)', () => {
 })
 
 describe('thu ngân (PA-2)', () => {
-  it('rail chỉ POS · Hoá đơn · Báo cáo; không có ⚙', () => {
-    expect(adminRailItems(true, 'store_cashier').map((i) => i.href)).toEqual(['/admin/pos', '/admin/bills', '/admin/dashboard'])
+  it('rail chỉ POS · Hoá đơn; không có ⚙', () => {
+    expect(adminRailItems(true, 'store_cashier').map((i) => i.href)).toEqual(['/admin/pos', '/admin/bills'])
     expect(adminBottomItems('store_cashier')).toEqual([])
   })
   it('ô Thêm: Đặt bàn (nếu bật) · Thực đơn (Tạm hết) · Tài khoản', () => {

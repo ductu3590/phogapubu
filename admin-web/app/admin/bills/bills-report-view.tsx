@@ -36,7 +36,7 @@ const time = (iso: string, withSeconds = false) =>
       })
     : '—'
 
-export default function BillsReportView({ report, date, maxDate, today, dateTitle, viewer, updatedAt, canManage }: {
+export default function BillsReportView({ report, date, maxDate, today, dateTitle, viewer, updatedAt, canManage, inModal }: {
   report: BillsReport
   date: string
   maxDate: string
@@ -46,6 +46,8 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
   updatedAt: string
   /** Chủ quán: thấy nút Đã nhận tiền / Hoàn tất / Huỷ đơn / Đổi thưởng trong ngăn kéo (thu ngân chỉ xem). */
   canManage: boolean
+  /** Đang hiện trong hộp thoại đè lên POS (đổi ngày bằng điều hướng mềm) hay trang đầy đủ (tải lại trang). */
+  inModal: boolean
 }) {
   const [chip, setChip] = useState<BillChip>('all')
   const [openKey, setOpenKey] = useState<string | null>(null)
@@ -75,7 +77,7 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
           <p className="mt-1 text-[13px] text-muted">Đang xem: <strong className="font-medium text-foreground">{viewer}</strong></p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <ReportDatePicker value={date} max={maxDate} showRefresh={today} />
+          <ReportDatePicker value={date} max={maxDate} showRefresh={today} hardNavigate={!inModal} />
           {/* Tải file thường (không Link): route handler trả .xlsx, không đi qua điều hướng mềm / hộp thoại. */}
           <a href={`/admin/bills/export?date=${date}`} download className={cn(getButtonClasses('outline'), 'whitespace-nowrap')}>
             <FileSpreadsheet className="size-4 text-emerald-600" aria-hidden />

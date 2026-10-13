@@ -1,6 +1,6 @@
 # A04 — "Hoá đơn & Báo cáo" thay hai trang Đơn hàng + Báo cáo
 
-**Ngày:** 2026-10-12 · **Trạng thái:** chờ anh Tú duyệt
+**Ngày:** 2026-10-12 · **Trạng thái:** XONG — A04-1..3 PASS 2026-10-13, A04-4 (dọn trang cũ) chờ test
 **Bản vẽ:** `docs/design/a04/code.html` + `screen.png` (Stitch, tab A04 trong hộp thoại cấu hình)
 **Thay thế:** `/admin/orders` (Đơn hàng) và `/admin/dashboard` (Báo cáo ngày PA-1). Hai trang cũ chạy song
 song tới khi trang mới PASS, rồi mới xoá (như cách làm POS 2026-10-03).
