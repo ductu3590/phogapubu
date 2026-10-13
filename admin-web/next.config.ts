@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
       // thanh nav, chuông, realtime của khung.
       { source: '/admin/pos/print-order', destination: '/print/order', permanent: false },
       { source: '/staff/tables/print', destination: '/print/bill', permanent: false },
+      // Đơn hàng + Báo cáo ngày gộp thành "Hoá đơn & Báo cáo" (A04, 2026-10-13). Query ?date= được giữ nguyên.
+      { source: '/admin/orders', destination: '/admin/bills', permanent: false },
+      { source: '/admin/dashboard', destination: '/admin/bills', permanent: false },
     ]
   },
   experimental: {

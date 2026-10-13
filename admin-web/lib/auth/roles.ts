@@ -39,7 +39,7 @@ export function isPosRole(role: OperatorRole | null): boolean {
 }
 
 /** Trang /admin thu ngân được mở (kể cả trang con). Thực đơn: chỉ có công tắc Tạm hết. */
-export const CASHIER_ADMIN_PATHS = ['/admin/pos', '/admin/dashboard', '/admin/reservations', '/admin/menu', '/admin/account'] as const
+export const CASHIER_ADMIN_PATHS = ['/admin/pos', '/admin/bills', '/admin/reservations', '/admin/menu', '/admin/account'] as const
 
 export function adminPathAllowed(role: OperatorRole, pathname: string): boolean {
   if (role === 'store_owner') return true

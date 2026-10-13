@@ -14,8 +14,7 @@ export async function confirmManualPayment(orderId: string) {
   const supabase = await createClient()
   const { error } = await supabase.rpc('confirm_manual_payment', { p_order_id: orderId })
   if (error) throw new Error(`confirmManualPayment: ${error.message}`)
-  revalidatePath('/admin/orders')
-  revalidatePath('/admin/dashboard')
+  revalidatePath('/admin/bills')
 }
 
 // Hoàn tất đơn ("Hoàn tất & đã thu"): xác nhận đã nhận tiền (nếu là tiền mặt/chuyển khoản chưa thu)
@@ -48,8 +47,7 @@ export async function completeOrder(orderId: string) {
   const { error: closeErr } = await supabase.from('orders').update({ status: 'paid' }).eq('id', orderId)
   if (closeErr) throw new Error(`completeOrder(close): ${closeErr.message}`)
 
-  revalidatePath('/admin/orders')
-  revalidatePath('/admin/dashboard')
+  revalidatePath('/admin/bills')
 }
 
 // Huỷ đơn — chỉ chủ quán, chỉ đơn của quán mình. Trước 2026-10-08 action này KHÔNG kiểm quyền: ai đăng
@@ -63,6 +61,5 @@ export async function cancelOrder(orderId: string) {
     .eq('id', orderId)
     .eq('store_id', storeId)
   if (error) throw new Error(`cancelOrder: ${error.message}`)
-  revalidatePath('/admin/orders')
-  revalidatePath('/admin/dashboard')
+  revalidatePath('/admin/bills')
 }

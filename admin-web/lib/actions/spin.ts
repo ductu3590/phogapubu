@@ -118,5 +118,5 @@ export async function redeemSpin(resultId: string) {
     .eq('store_id', storeId)
     .eq('status', 'won')
   if (error) throw new Error(`redeemSpin: ${error.message}`)
-  revalidatePath('/admin/orders')
+  revalidatePath('/admin/bills')
 }
