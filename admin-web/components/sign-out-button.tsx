@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { LogOut } from 'lucide-react'
 import { signOut } from '@/app/(auth)/login/actions'
 import { Button, IconButton } from '@/components/ui/button'
 import { getButtonClasses } from '@/components/ui/button-classes'
-import { Dialog } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 // Nút đăng xuất DÙNG CHUNG cho mọi khu (/staff, POS/admin, /mevo) — bấm là hỏi lại rồi mới thoát
@@ -19,7 +18,7 @@ import { cn } from '@/lib/utils'
 function ConfirmButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" variant="primary" icon={<LogOut />} isLoading={pending}>
+    <Button type="submit" variant="primary" isLoading={pending} className="w-full">
       Đăng xuất
     </Button>
   )
@@ -35,7 +34,16 @@ export default function SignOutButton({
   className?: string
 }) {
   const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
   const show = () => setOpen(true)
+
+  useEffect(() => {
+    const dialog = ref.current
+    if (!dialog) return
+    if (open && !dialog.open) dialog.showModal()
+    if (!open && dialog.open) dialog.close()
+  }, [open])
 
   let trigger
   if (variant === 'rail') {
@@ -67,22 +75,26 @@ export default function SignOutButton({
   return (
     <>
       {trigger}
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Đăng xuất?"
-        description={email ? `Tài khoản ${email} sẽ thoát khỏi máy này.` : 'Tài khoản sẽ thoát khỏi máy này.'}
-        footer={
-          <>
-            <Button onClick={() => setOpen(false)}>Ở lại</Button>
+      {/* Hộp xác nhận gọn: chỉ tiêu đề + 2 nút (anh Tú 2026-10-14 — không cần chữ giải thích, không nút X).
+          Esc hoặc bấm ra ngoài = Ở lại. */}
+      <dialog
+        ref={ref}
+        aria-labelledby={titleId}
+        onCancel={(event) => { event.preventDefault(); setOpen(false) }}
+        onClick={(event) => { if (event.target === ref.current) setOpen(false) }}
+        className="ui-dialog m-auto w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-border bg-surface p-0 text-foreground shadow-modal"
+      >
+        {/* Đệm nằm ở div trong: đệm trên chính <dialog> thì bấm vào đệm bị tính là bấm ra ngoài. */}
+        <div className="p-5">
+          <h2 id={titleId} className="text-center text-base font-semibold">Đăng xuất?</h2>
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <Button onClick={() => setOpen(false)} className="w-full">Ở lại</Button>
             <form action={signOut}>
               <ConfirmButton />
             </form>
-          </>
-        }
-      >
-        <p className="text-sm text-muted">Lần sau cần đăng nhập lại bằng email và mật khẩu.</p>
-      </Dialog>
+          </div>
+        </div>
+      </dialog>
     </>
   )
 }
