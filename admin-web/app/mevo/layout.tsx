@@ -1,8 +1,8 @@
-import { LayoutDashboard, LogOut, Palette, ShieldCheck, Store, Users, PlusSquare } from 'lucide-react'
+import { LayoutDashboard, Palette, ShieldCheck, Store, Users, PlusSquare } from 'lucide-react'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { signOut } from '@/app/(auth)/login/actions'
+import SignOutButton from '@/components/sign-out-button'
 import { AppShell } from '@/components/ui/app-shell'
 
 // Khu MEVO superadmin — sidebar rộng theo bản Stitch A07/A10 (ST-4): logo "MEVO Cockpit", nhóm
@@ -37,16 +37,7 @@ export default async function MevoLayout({ children }: { children: React.ReactNo
             <p className="truncate text-sm font-semibold text-slate-900">MEVO Superadmin</p>
             <p className="truncate text-[12px] text-slate-500">{user?.email ?? 'Quyền toàn hệ thống'}</p>
           </div>
-          <form action={signOut}>
-            <button
-              type="submit"
-              aria-label="Đăng xuất"
-              title="Đăng xuất"
-              className="grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-            >
-              <LogOut className="size-4" aria-hidden />
-            </button>
-          </form>
+          <SignOutButton email={user?.email} className="size-9 md:size-9" />
         </div>
       }
     >

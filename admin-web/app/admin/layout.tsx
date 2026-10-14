@@ -1,10 +1,7 @@
-import { LogOut } from 'lucide-react'
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
-import { signOut } from '@/app/(auth)/login/actions'
+import SignOutButton from '@/components/sign-out-button'
 import { IconRailShell } from '@/components/ui/icon-rail-shell'
-import { getButtonClasses } from '@/components/ui/button-classes'
-import { cn } from '@/lib/utils'
 import BellStyleSync from '@/components/bell-style-sync'
 import { PosLockProvider } from '@/components/pos-lock'
 import { adminBottomItems, adminRailItems } from './admin-nav'
@@ -34,17 +31,12 @@ export default async function AdminLayout({ children, modal }: { children: React
         brand={{ initial: 'M', title: storeName, subtitle: operator.role === 'store_cashier' ? 'MEVO · Thu ngân' : 'MEVO · Chủ quán' }}
         items={adminRailItems(kitchenEnabled, reservationsEnabled, operator.role)}
         bottomItems={adminBottomItems(operator.role)}
-        signOut={signOut}
+        signOut
         userEmail={user?.email}
         footer={
           <div className="space-y-1">
             {user?.email ? <p className="truncate px-3 text-[13px] text-muted">{user.email}</p> : null}
-            <form action={signOut}>
-              <button type="submit" className={cn(getButtonClasses('ghost'), 'w-full justify-start px-3')}>
-                <LogOut className="size-4" aria-hidden />
-                Đăng xuất
-              </button>
-            </form>
+            <SignOutButton variant="row" email={user?.email} />
           </div>
         }
       >

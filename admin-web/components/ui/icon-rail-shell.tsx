@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LogOut, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
+import SignOutButton from '@/components/sign-out-button'
 import { cn } from '@/lib/utils'
 import { findActiveHref, type AppNavItem } from './app-shell'
 import { IconButton } from './button'
@@ -27,8 +28,8 @@ export function IconRailShell({
   items: AppNavItem[]
   /** Mục ở chân rail, ngay trên nút Đăng xuất (⚙ Cài đặt). */
   bottomItems?: AppNavItem[]
-  /** Server action đăng xuất — nút cuối rail. */
-  signOut?: () => Promise<void>
+  /** Hiện nút Đăng xuất (có hỏi lại) ở cuối rail. */
+  signOut?: boolean
   /** Hiện khi rê chuột lên nút Đăng xuất (biết đang đăng nhập tài khoản nào). */
   userEmail?: string | null
   /** Email + nút đăng xuất — chân ngăn kéo màn hẹp. */
@@ -103,16 +104,9 @@ export function IconRailShell({
           <ul className="mt-1.5 flex flex-col items-center gap-1">{bottomItems.map(railLink)}</ul>
         )}
         {signOut && (
-          <form action={signOut} className="mt-1.5 border-t border-slate-100 pt-1.5">
-            <button
-              type="submit"
-              title={userEmail ? `Đăng xuất (${userEmail})` : 'Đăng xuất'}
-              className="flex w-16 cursor-pointer flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[12px] leading-tight font-medium text-slate-500 transition-colors hover:bg-red-50 hover:text-red-700 [&>svg]:size-[18px]"
-            >
-              <LogOut aria-hidden />
-              Đăng xuất
-            </button>
-          </form>
+          <div className="mt-1.5 border-t border-slate-100 pt-1.5">
+            <SignOutButton variant="rail" email={userEmail} />
+          </div>
         )}
       </aside>
 
