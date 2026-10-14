@@ -1,8 +1,6 @@
-import { LogOut } from 'lucide-react'
 import { requireStaffAreaOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
-import { signOut } from '@/app/(auth)/login/actions'
-import { getButtonClasses } from '@/components/ui/button-classes'
+import SignOutButton from '@/components/sign-out-button'
 import StaffNav from './staff-nav'
 import BellStyleSync from '@/components/bell-style-sync'
 import ServiceCallBar from './service-call-bar'
@@ -34,12 +32,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="hidden truncate text-[13px] text-muted sm:inline">{user?.email}</span>
-          <form action={signOut}>
-            <button type="submit" className={getButtonClasses('ghost')}>
-              <LogOut className="size-4" aria-hidden />
-              Đăng xuất
-            </button>
-          </form>
+          <SignOutButton email={user?.email} />
         </div>
       </header>
       <StaffNav />
