@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
   const rows: Record<string, unknown> = {}
@@ -137,5 +137,46 @@ describe('Zalo OA owner onboarding webhook', () => {
     const response = await post(signedRequest())
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true })
+  })
+})
+
+describe('Webhook URL chung của tổ chức — chuyển tiếp Sổ Tay Buôn Đá', () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    fetchMock.mockReset()
+    vi.stubGlobal('fetch', fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('event Mini App của Sổ Tay → chuyển nguyên body + chữ ký, trả đúng status Supabase, không đụng DB', async () => {
+    fetchMock.mockResolvedValue(new Response('{"result":"deleted"}', { status: 200 }))
+    const raw = '{"appId": 805750043345863894, "event":"user.revoke.consent","userId":"u1","timestamp":1}'
+    const response = await post(new Request('https://mevo.test/api/zalo-oa-webhook/store-1', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-zevent-signature': 'abc123' },
+      body: raw,
+    }))
+
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('{"result":"deleted"}')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('https://pasefbdemcxxwdquofzt.supabase.co/functions/v1/zalo-webhook')
+    expect(init.body).toBe(raw)
+    expect(init.headers['X-ZEvent-Signature']).toBe('abc123')
+    expect(mocks.admin.from).not.toHaveBeenCalled()
+  })
+
+  it('event OA bình thường không bị chuyển tiếp', async () => {
+    Object.assign(mocks.rows, {
+      stores: { zalo_oa_id: 'oa-789' },
+      store_zalo_configs: { zalo_oa_app_id: 'oa-parent-app-1', zalo_app_secret_key: 'oa-secret-test', is_enabled: true },
+    })
+    mocks.rpc.mockResolvedValue({ data: { status: 'claimed' }, error: null })
+    const response = await post(signedRequest())
+    expect(response.status).toBe(200)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(mocks.rpc).toHaveBeenCalled()
   })
 })
