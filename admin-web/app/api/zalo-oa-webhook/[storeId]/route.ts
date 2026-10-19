@@ -4,6 +4,7 @@ import {
   UnsupportedOaEventError,
   verifyAndNormalizeOaWebhook,
 } from '@/lib/zalo/oa-contract'
+import { forwardToSoTay, isSoTayEvent } from '@/lib/zalo/so-tay-forward'
 
 export async function GET() {
   return Response.json({ ok: true })
@@ -14,6 +15,12 @@ export async function POST(
   { params }: { params: Promise<{ storeId: string }> },
 ) {
   const { storeId } = await params
+  const rawBody = await request.text()
+  // URL này là Webhook URL chung của cả tổ chức Zalo → event Mini App của Sổ Tay cũng đổ về đây.
+  // Phải đứng TRƯỚC mọi bước kiểm tra OA: payload Mini App không có `app_id` nên sẽ bị 401.
+  if (isSoTayEvent(rawBody)) {
+    return forwardToSoTay(rawBody, request.headers.get('x-zevent-signature') ?? '')
+  }
   // Zalo gửi POST kiểm tra URL trước khi phát event có chữ ký. Không xử lý body này.
   if (!request.headers.get('x-zevent-signature')?.trim()) {
     return Response.json({ ok: true })
@@ -39,7 +46,6 @@ export async function POST(
     return Response.json({ ok: false }, { status: 503 })
   }
 
-  const rawBody = await request.text()
   let message
   try {
     message = verifyAndNormalizeOaWebhook(
