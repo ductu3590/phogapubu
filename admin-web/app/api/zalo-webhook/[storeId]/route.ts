@@ -10,6 +10,33 @@
 import { createHash } from 'crypto'
 import { createAdminClient } from '@/lib/supabase/server'
 
+// App "Sổ Tay Buôn Đá" (không thuộc MEVO) mượn domain đã duyệt của MEVO để đăng ký webhook.
+// Event của app đó được chuyển nguyên body + chữ ký sang Supabase của Sổ Tay, MEVO không xử lý.
+const SO_TAY_APP_ID = '805750043345863894'
+const SO_TAY_WEBHOOK = 'https://pasefbdemcxxwdquofzt.supabase.co/functions/v1/zalo-webhook'
+
+// Đọc appId từ body THÔ, không qua JSON.parse: App ID Zalo 18 chữ số vượt Number.MAX_SAFE_INTEGER,
+// gửi dạng số thì JSON.parse làm tròn (805750043345863894 → 805750043345864000) và so sánh trượt.
+function rawAppId(raw: string): string | null {
+  return raw.match(/"appId"\s*:\s*"?(\d+)"?/)?.[1] ?? null
+}
+
+async function forwardToSoTay(raw: string, signature: string): Promise<Response> {
+  try {
+    const res = await fetch(SO_TAY_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-ZEvent-Signature': signature },
+      body: raw, // giữ nguyên body gốc để Sổ Tay tự verify chữ ký
+      signal: AbortSignal.timeout(10_000),
+    })
+    // Trả đúng status của Supabase: lỗi 5xx thì Zalo gửi lại sau.
+    return new Response(await res.text(), { status: res.status })
+  } catch (e) {
+    console.error('[zalo-webhook] chuyển tiếp Sổ Tay lỗi:', e)
+    return new Response('forward failed', { status: 502 })
+  }
+}
+
 function expectedSignature(payload: Record<string, unknown>, apiKey: string): string {
   const content = Object.keys(payload)
     .sort()
@@ -28,6 +55,14 @@ export async function GET() {
 export async function POST(request: Request, { params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params
   try {
+    const raw = await request.text()
+    const payload = JSON.parse(raw) as Record<string, unknown>
+
+    // Phải đứng TRƯỚC bước tra cấu hình quán: storeId trong URL của Sổ Tay không phải quán MEVO.
+    if (rawAppId(raw) === SO_TAY_APP_ID) {
+      return forwardToSoTay(raw, request.headers.get('x-zevent-signature') ?? '')
+    }
+
     const admin = createAdminClient()
 
     const { data: config } = await admin
@@ -40,9 +75,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ sto
       console.error(`[zalo-webhook] quán ${storeId} chưa cấu hình secret — ack nhưng bỏ qua`)
       return new Response('ok', { status: 200 })
     }
-
-    const raw = await request.text()
-    const payload = JSON.parse(raw) as Record<string, unknown>
 
     const sig = request.headers.get('x-zevent-signature') ?? ''
     const valid = sig === expectedSignature(payload, config.zalo_app_secret_key)
