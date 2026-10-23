@@ -49,7 +49,7 @@ export function ShotPlaceholder({ label, ratio = 'aspect-[4/3]' }: { label: stri
     >
       <ImageIcon aria-hidden className="size-7 text-neutral-dot" />
       <p className="text-sm font-medium text-muted">{label}</p>
-      <p className="text-xs text-neutral-dot">Ảnh chụp màn hình sẽ bổ sung</p>
+      <p className="text-xs text-muted">Ảnh chụp màn hình sẽ bổ sung</p>
     </div>
   )
 }

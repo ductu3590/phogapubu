@@ -15,11 +15,13 @@ export function FnbSection() {
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FNB_FEATURES.map((f) => (
           <li key={f.title} className="rounded-2xl border border-border bg-surface p-5">
-            <span className="flex size-11 items-center justify-center rounded-xl bg-primary-light text-primary">
-              <f.icon aria-hidden className="size-6" />
-            </span>
-            <h3 className="mt-4 text-lg font-semibold leading-snug text-foreground">{f.title}</h3>
-            <p className="mt-2 text-base leading-relaxed text-muted">{f.body}</p>
+            <div className="flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
+                <f.icon aria-hidden className="size-6" />
+              </span>
+              <h3 className="text-lg font-semibold leading-snug text-foreground">{f.title}</h3>
+            </div>
+            <p className="mt-3 text-base leading-relaxed text-muted">{f.body}</p>
           </li>
         ))}
       </ul>

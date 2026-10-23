@@ -1,0 +1,44 @@
+# Landing mevo.vn — cấu trúc, deploy, kiểm tra
+
+Quyết định (2026-10-23): **phương án A** — landing nằm ngay tại `/` của project Vercel `phogapubu` (Root Directory `admin-web`).
+Khu quản lý giữ nguyên URL (`/login`, `/admin`, `/staff`, `/mevo`, `/kitchen`, `/print`, `/api/*`, `/privacy`, `/terms`).
+**Không đổi DNS, không đổi domain, không cần redirect** → Bảo Lương/Pubu không bị ảnh hưởng.
+
+## Code nằm ở đâu
+| Việc | File |
+|---|---|
+| Đổi SĐT / Zalo / email / vùng phục vụ | `admin-web/lib/landing/site.ts` |
+| Sửa chữ: tính năng, mô hình quán, dịch vụ, sản phẩm, quy trình | `admin-web/lib/landing/content.ts` |
+| Bố cục các section | `admin-web/components/landing/*.tsx` |
+| Title/meta/OG/JSON-LD | `admin-web/app/page.tsx` |
+| sitemap / robots | `admin-web/app/sitemap.ts`, `admin-web/app/robots.ts` |
+| Ảnh chia sẻ (1200×630) | `admin-web/public/og.png` |
+| Chuyển người đã đăng nhập từ `/` về `/admin` | `admin-web/proxy.ts` + `lib/auth/session-cookie.ts` |
+
+Thêm ảnh chụp màn hình thật: thả file vào `admin-web/public/landing/`, thay `<ShotPlaceholder>` bằng `next/image`.
+Khi có địa chỉ cố định: thêm `address` vào JSON-LD trong `app/page.tsx`.
+
+## Deploy (không cần chỉnh DNS)
+1. Push nhánh `feat/landing-mevo-vn` → Vercel tự tạo **Preview URL** (xem trong PR).
+2. Mở Preview URL trên điện thoại, duyệt giao diện + chạy checklist bên dưới.
+3. Merge vào `main` → Vercel deploy production lên `mevo.vn`.
+4. Sau khi lên: Google Search Console → thêm `https://mevo.vn/sitemap.xml`; thử chia sẻ link lên Zalo/Facebook để kiểm ảnh OG.
+5. Rollback nếu cần: Vercel → Deployments → bản trước → *Promote to Production* (hoặc `git revert` commit merge).
+
+Tuỳ chọn sau này: thêm domain `admin.mevo.vn` làm alias cùng project (Vercel → Settings → Domains) — chưa cần, và KHÔNG cắt `mevo.vn/login`.
+
+## Checklist kiểm tra login Bảo Lương / Pubu (làm trên Preview, rồi làm lại trên mevo.vn sau khi merge)
+- [ ] `/login` hiện form đăng nhập; đăng nhập tài khoản Bảo Lương (chủ quán) → vào `/admin/pos`.
+- [ ] Đăng nhập tài khoản nhân viên Bảo Lương → vào `/staff`.
+- [ ] Đăng nhập `pubu@mevo.vn` → vào `/admin`.
+- [ ] Đang đăng nhập, mở lại `mevo.vn` (gõ tay hoặc bookmark) → tự chuyển về `/admin` (không kẹt ở landing).
+- [ ] Máy POS đang mở sẵn: tải lại trang, PIN khoá màn hình vẫn còn (cùng origin nên không mất).
+- [ ] `/privacy`, `/terms` vẫn mở được (Zalo console đang trỏ vào).
+- [ ] Mini App Zalo: đặt thử 1 đơn → đơn vào POS (webhook `/api/zalo-webhook/<storeId>` vẫn nhận).
+- [ ] Chưa đăng nhập, vào `/admin` → bị đưa về `/login` như cũ.
+- [ ] Landing: nút Zalo mở `zalo.me/0962814888`, nút Gọi bấm ra số `0962 814 888`, chip menu cuộn đúng mục, không cuộn ngang trên điện thoại.
+
+## Kết quả kiểm tra khi build (Lighthouse, bản build production chạy local)
+- Mobile: Performance 91 · Accessibility 100 · Best Practices 100 · SEO 100
+- Desktop: 100 · 100 · 100 · 100
+(Mobile LCP đo giả lập 4G chậm trên server local; trên CDN Vercel thường nhanh hơn. Đo lại trên Preview.)
