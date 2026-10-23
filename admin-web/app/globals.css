@@ -146,6 +146,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Landing mevo.vn: cuộn mượt tới anchor, chừa chỗ cho header dính (56px + dải chip trên điện thoại). */
+html:has([data-landing]) {
+  scroll-behavior: smooth;
+  scroll-padding-top: 6.5rem;
+}
+@media (min-width: 768px) {
+  html:has([data-landing]) { scroll-padding-top: 4.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:has([data-landing]) { scroll-behavior: auto; }
+}
+
 /* Số tiền, giờ, số bàn: chữ số thẳng hàng của chính font, không đổi sang mono. */
 .tabular {
   font-variant-numeric: tabular-nums;
