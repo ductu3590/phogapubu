@@ -1,8 +1,20 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { hasSupabaseSessionCookie } from '@/lib/auth/session-cookie'
 import { adminPathAllowed, canEnterAdmin, canEnterStaffArea, homeForRole, parseOperatorRow, type OperatorRole } from '@/lib/auth/roles'
 
 export async function proxy(request: NextRequest) {
+  // Landing mevo.vn (2026-10-23): "/" là trang giới thiệu tĩnh, KHÔNG gọi Supabase để tải nhanh.
+  // Người đã đăng nhập (có cookie phiên) vẫn được chuyển về /admin như trước — bookmark "mevo.vn" của
+  // chủ quán/thu ngân không bị kẹt ở landing. sitemap/robots cũng đi thẳng. Mọi URL khu quản lý giữ nguyên.
+  const path = request.nextUrl.pathname
+  if (path === '/') {
+    return hasSupabaseSessionCookie(request.cookies.getAll())
+      ? NextResponse.redirect(new URL('/admin', request.url))
+      : NextResponse.next()
+  }
+  if (path === '/sitemap.xml' || path === '/robots.txt') return NextResponse.next()
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
