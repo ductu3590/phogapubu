@@ -1,7 +1,7 @@
 // Nội dung landing. Chỉ ghi điều có thật; chỗ chưa có dữ liệu để rõ là "chờ bổ sung".
 import type { LucideIcon } from 'lucide-react'
 import {
-  BedDouble, BellRing, Bot, CalendarClock, ClipboardList, Coffee, FlaskConical, Globe, LayoutDashboard,
+  BedDouble, BellRing, Bot, CalendarClock, Coffee, FlaskConical, Globe, LayoutDashboard,
   Lightbulb, QrCode, Rocket, Search, Settings2, Smartphone, Soup, Beer, Printer, Wallet, Workflow,
 } from 'lucide-react'
 
@@ -52,11 +52,25 @@ export const STEPS: Step[] = [
   { icon: Rocket, title: 'Vận hành', body: 'Hướng dẫn nhân viên, theo sát những ngày đầu, sau đó hỗ trợ và cập nhật khi quán cần.' },
 ]
 
-export const HERO_FLOW = [
-  { icon: QrCode, label: 'Quét QR' },
-  { icon: ClipboardList, label: 'Chọn món' },
-  { icon: Wallet, label: 'Thanh toán' },
-  { icon: BellRing, label: 'Bếp nhận đơn' },
-] as const
+// Dải chạy ngang dưới hero: những việc MEVO làm được (KHÔNG phải logo khách hàng — chưa có thì không bịa).
+export const CAPABILITIES: { icon: LucideIcon; label: string }[] = [
+  { icon: QrCode, label: 'Gọi món QR' },
+  { icon: CalendarClock, label: 'Đặt bàn' },
+  { icon: LayoutDashboard, label: 'Sơ đồ bàn realtime' },
+  { icon: Wallet, label: 'VietQR' },
+  { icon: Printer, label: 'In bill 80mm' },
+  { icon: BellRing, label: 'Loa đọc đơn' },
+  { icon: Smartphone, label: 'Zalo Mini App' },
+  { icon: Workflow, label: 'Tự động hoá n8n' },
+  { icon: Globe, label: 'Website' },
+  { icon: Lightbulb, label: 'Trợ lý AI' },
+]
 
-export const ABOUT_ICON = Lightbulb
+export const FAQS: { q: string; a: string }[] = [
+  { q: 'Khách có phải tải app hay đăng ký tài khoản không?', a: 'Không. Khách quét mã QR ở bàn bằng Zalo hoặc camera điện thoại, menu mở ngay trong Zalo. Không cần cài thêm ứng dụng, không cần tạo tài khoản.' },
+  { q: 'Tiền khách thanh toán về tài khoản của ai?', a: 'Về thẳng tài khoản ngân hàng của quán. MEVO chỉ làm và vận hành phần mềm, không giữ tiền của quán.' },
+  { q: 'Quán nhậu tính tiền cuối bữa có dùng được không?', a: 'Được. MEVO có mô hình trả sau: mở bàn, khách gọi nhiều lượt, thu ngân thu tiền một lần khi khách về, có ghép mâm cho đoàn đông và gộp bill.' },
+  { q: 'Quán cần chuẩn bị thiết bị gì?', a: 'Một máy tính hoặc máy tính bảng có trình duyệt để làm quầy, điện thoại cho nhân viên nếu cần, và máy in nhiệt 80mm nếu muốn in bill, phiếu bếp. Tôi sẽ tư vấn cụ thể khi khảo sát, tận dụng đồ quán đang có.' },
+  { q: 'Dữ liệu của quán có an toàn không?', a: 'Dữ liệu lưu trên Supabase, máy chủ đặt tại Singapore. Mỗi tài khoản chỉ xem được dữ liệu của đúng quán mình, nhân viên và thu ngân được phân quyền riêng.' },
+  { q: 'Chi phí triển khai bao nhiêu?', a: 'Tuỳ mô hình quán, số bàn và phần việc cần làm. Tôi khảo sát trước rồi mới báo giá cụ thể. Nhắn Zalo để trao đổi, chưa cần quyết định gì.' },
+]

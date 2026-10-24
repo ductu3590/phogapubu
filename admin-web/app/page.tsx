@@ -1,8 +1,25 @@
 import type { Metadata } from 'next'
-import { Header } from '@/components/landing/header'
+import { Newsreader } from 'next/font/google'
+import { Faq } from '@/components/landing/faq'
+import { FeatureOrdering, FeatureRealtime } from '@/components/landing/features'
+import { Footer } from '@/components/landing/footer'
 import { Hero } from '@/components/landing/hero'
-import { ContactSection, FnbSection, Footer, ProcessSection, ProductsSection, ServicesSection } from '@/components/landing/sections'
+import { Nav } from '@/components/landing/nav'
+import { FadeInUp, RevealRoot } from '@/components/landing/reveal'
+import { ModelsSection, ProcessSection, ProductsSection, ServicesSection } from '@/components/landing/sections'
+import { Em } from '@/components/landing/ui'
 import { SITE } from '@/lib/landing/site'
+
+// Chữ nghiêng có chân để nhấn trong tiêu đề. Chỉ nạp ở landing (khu quản lý không tải font này).
+const serif = Newsreader({
+  subsets: ['latin', 'vietnamese'],
+  style: ['italic'],
+  weight: ['400'],
+  variable: '--font-landing-serif',
+  display: 'swap',
+  // Không preload: chữ nghiêng chỉ là phần nhấn, nhường băng thông cho font chính của trang.
+  preload: false,
+})
 
 // Trang chủ mevo.vn (landing giới thiệu). Tĩnh hoàn toàn: không gọi Supabase, không cần JavaScript để đọc.
 // Khu quản lý vẫn ở /login, /admin, /staff, /mevo — không đổi URL (xem proxy.ts: "/" được bỏ qua bước Supabase).
@@ -43,20 +60,32 @@ const jsonLd = {
 
 export default function LandingPage() {
   return (
-    <div data-landing className="text-foreground">
+    <div data-landing className={`${serif.variable} min-h-screen bg-black text-white antialiased`}>
       <script
         type="application/ld+json"
         // Thay "<" để chuỗi JSON không thể đóng thẻ script.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
       />
-      <Header />
+      <RevealRoot />
+      <Nav />
       <main>
         <Hero />
-        <FnbSection />
+        <FeatureOrdering />
+        <FeatureRealtime />
+        <ModelsSection />
         <ServicesSection />
         <ProductsSection />
         <ProcessSection />
-        <ContactSection />
+        <section id="faq" className="mx-auto max-w-3xl px-6 py-32">
+          <FadeInUp>
+            <h2 className="mb-12 text-center text-4xl font-semibold tracking-tight text-white md:text-5xl">
+              Những câu <Em>hay được hỏi</Em>
+            </h2>
+          </FadeInUp>
+          <FadeInUp delay={150}>
+            <Faq />
+          </FadeInUp>
+        </section>
       </main>
       <Footer />
     </div>

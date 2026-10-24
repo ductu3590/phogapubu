@@ -146,16 +146,33 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Landing mevo.vn: cuộn mượt tới anchor, chừa chỗ cho header dính (56px + dải chip trên điện thoại). */
+/* ===== Landing mevo.vn (app/page.tsx) — nền đen, cuộn mượt, hiệu ứng trượt lên, dải chạy ngang ===== */
 html:has([data-landing]) {
   scroll-behavior: smooth;
-  scroll-padding-top: 6.5rem;
+  scroll-padding-top: 4rem;
+  color-scheme: dark;
 }
-@media (min-width: 768px) {
-  html:has([data-landing]) { scroll-padding-top: 4.5rem; }
+html:has([data-landing]) body {
+  background: #000;
+}
+/* FadeInUp (components/landing/reveal.tsx): chỉ ẩn khi JS đã gắn `reveal-ready`. */
+.reveal-ready [data-reveal] {
+  opacity: 0;
+  transform: translateY(2.5rem);
+  transition: opacity 1000ms ease, transform 1000ms ease;
+}
+.reveal-ready [data-reveal][data-shown] {
+  opacity: 1;
+  transform: none;
+}
+/* Dãy được nhân 4 lần → dịch đúng 1/4 là khớp vòng lặp, không lộ chỗ nối. */
+@keyframes landing-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-25%); }
 }
 @media (prefers-reduced-motion: reduce) {
   html:has([data-landing]) { scroll-behavior: auto; }
+  .reveal-ready [data-reveal] { opacity: 1; transform: none; transition: none; }
 }
 
 /* Số tiền, giờ, số bàn: chữ số thẳng hàng của chính font, không đổi sang mono. */

@@ -7,13 +7,18 @@ Khu quản lý giữ nguyên URL (`/login`, `/admin`, `/staff`, `/mevo`, `/kitch
 ## Code nằm ở đâu
 | Việc | File |
 |---|---|
-| Đổi SĐT / Zalo / email / vùng phục vụ | `admin-web/lib/landing/site.ts` |
-| Sửa chữ: tính năng, mô hình quán, dịch vụ, sản phẩm, quy trình | `admin-web/lib/landing/content.ts` |
-| Bố cục các section | `admin-web/components/landing/*.tsx` |
+| Đổi SĐT / Zalo / email / vùng phục vụ / link video nền | `admin-web/lib/landing/site.ts` |
+| Sửa chữ: mô hình quán, dịch vụ, sản phẩm, quy trình, dải chạy ngang, hỏi đáp | `admin-web/lib/landing/content.ts` |
+| Bố cục các section (giao diện tối, video nền, hiệu ứng trượt lên) | `admin-web/components/landing/*.tsx` |
+| CSS hiệu ứng + dải chạy ngang | khối "Landing mevo.vn" trong `admin-web/app/globals.css` |
 | Title/meta/OG/JSON-LD | `admin-web/app/page.tsx` |
 | sitemap / robots | `admin-web/app/sitemap.ts`, `admin-web/app/robots.ts` |
 | Ảnh chia sẻ (1200×630) | `admin-web/public/og.png` |
 | Chuyển người đã đăng nhập từ `/` về `/admin` | `admin-web/proxy.ts` + `lib/auth/session-cookie.ts` |
+
+**Video nền** đang trỏ CDN bên thứ ba (`cdn.sceneai.art`, lấy từ prompt thiết kế). Nên tải về, tự host
+(`public/landing/*.mp4` hoặc Supabase Storage) rồi đổi link trong `site.ts`. Video chỉ tải khi cuộn tới, bỏ qua khi máy
+bật tiết kiệm dữ liệu / giảm chuyển động; video lỗi thì nền gradient vẫn hiện.
 
 Thêm ảnh chụp màn hình thật: thả file vào `admin-web/public/landing/`, thay `<ShotPlaceholder>` bằng `next/image`.
 Khi có địa chỉ cố định: thêm `address` vào JSON-LD trong `app/page.tsx`.
@@ -39,6 +44,8 @@ Tuỳ chọn sau này: thêm domain `admin.mevo.vn` làm alias cùng project (Ve
 - [ ] Landing: nút Zalo mở `zalo.me/0962814888`, nút Gọi bấm ra số `0962 814 888`, chip menu cuộn đúng mục, không cuộn ngang trên điện thoại.
 
 ## Kết quả kiểm tra khi build (Lighthouse, bản build production chạy local)
-- Mobile: Performance 91 · Accessibility 100 · Best Practices 100 · SEO 100
-- Desktop: 100 · 100 · 100 · 100
-(Mobile LCP đo giả lập 4G chậm trên server local; trên CDN Vercel thường nhanh hơn. Đo lại trên Preview.)
+- Giao diện tối (2026-10-24): mobile Performance 87–90 (giả lập 4G, dao động giữa các lần đo; đo throttling thật: 90,
+  LCP 2.5s) · Accessibility 100 · Best Practices 96 · SEO 100. Desktop: 100 · 100 · 96 · 100.
+- Best Practices 96 chỉ vì sandbox không tải được video CDN (lỗi console mạng); trên Vercel video tải được thì hết lỗi.
+- Phần lớn LCP mobile là 8 file font Be Vietnam Pro preload từ layout gốc (dùng chung với khu quản lý) — đo lại bằng
+  PageSpeed Insights trên Preview URL để có số thật.

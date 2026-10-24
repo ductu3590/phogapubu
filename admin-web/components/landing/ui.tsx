@@ -1,55 +1,72 @@
 import type { ReactNode } from 'react'
 import { ImageIcon } from 'lucide-react'
 
-// Mọi link ra ngoài (Zalo) mở tab mới.
-type BtnProps = { href: string; children: ReactNode; variant?: 'primary' | 'outline' | 'ghost'; external?: boolean; className?: string }
+type BtnProps = { href: string; children: ReactNode; external?: boolean; className?: string }
 
-const BTN_BASE =
-  'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-const BTN_VARIANT = {
-  primary: 'bg-primary text-primary-foreground hover:bg-primary-hover',
-  outline: 'border border-border-strong bg-surface text-foreground hover:bg-button-hover',
-  ghost: 'text-primary hover:bg-primary-light',
-} as const
+const BASE =
+  'inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white'
 
-export function Button({ href, children, variant = 'primary', external, className = '' }: BtnProps) {
+function linkProps(external?: boolean) {
+  return external ? { target: '_blank', rel: 'noopener noreferrer' } : {}
+}
+
+export function PrimaryButton({ href, children, external, className = '' }: BtnProps) {
   return (
-    <a
-      href={href}
-      className={`${BTN_BASE} ${BTN_VARIANT[variant]} ${className}`}
-      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-    >
+    <a href={href} className={`${BASE} bg-white text-black hover:bg-gray-200 ${className}`} {...linkProps(external)}>
       {children}
     </a>
   )
 }
 
-export function Section({
-  id, eyebrow, title, intro, tone = 'white', children,
-}: { id: string; eyebrow: string; title: string; intro?: string; tone?: 'white' | 'soft'; children: ReactNode }) {
+export function SecondaryButton({ href, children, external, className = '' }: BtnProps) {
   return (
-    <section id={id} className={tone === 'soft' ? 'bg-background' : 'bg-surface'}>
-      <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 md:py-20">
-        <p className="text-sm font-semibold uppercase tracking-wide text-primary">{eyebrow}</p>
-        <h2 className="mt-2 max-w-3xl text-2xl font-bold leading-tight text-foreground sm:text-3xl">{title}</h2>
-        {intro ? <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted">{intro}</p> : null}
-        <div className="mt-8 md:mt-10">{children}</div>
-      </div>
-    </section>
+    <a href={href} className={`${BASE} border border-white/5 bg-[#1F1F22] text-white hover:bg-[#2A2A2D] ${className}`} {...linkProps(external)}>
+      {children}
+    </a>
+  )
+}
+
+const BADGE_TONE = {
+  neutral: 'text-gray-300',
+  amber: 'text-amber-300',
+  emerald: 'text-emerald-300',
+  orange: 'text-orange-300',
+} as const
+
+export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: keyof typeof BADGE_TONE }) {
+  return (
+    <span className={`inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium backdrop-blur-sm ${BADGE_TONE[tone]}`}>
+      {children}
+    </span>
+  )
+}
+
+// Phần chữ in nghiêng có chân, dùng để nhấn một cụm trong tiêu đề.
+export function Em({ children }: { children: ReactNode }) {
+  return <span className="font-[family-name:var(--font-landing-serif)] font-normal italic">{children}</span>
+}
+
+export function SectionHeading({ eyebrow, title, intro, center }: { eyebrow?: ReactNode; title: ReactNode; intro?: string; center?: boolean }) {
+  return (
+    <div className={center ? 'mx-auto max-w-3xl text-center' : 'max-w-3xl'}>
+      {eyebrow ? <div className="mb-5">{eyebrow}</div> : null}
+      <h2 className="text-4xl font-semibold leading-[1.1] tracking-tight text-white md:text-5xl">{title}</h2>
+      {intro ? <p className="mt-5 text-[16px] leading-relaxed text-gray-400">{intro}</p> : null}
+    </div>
   )
 }
 
 // Khung chờ ảnh chụp màn hình thật: nhìn là biết chưa có ảnh, không giả làm ảnh thật.
-export function ShotPlaceholder({ label, ratio = 'aspect-[4/3]' }: { label: string; ratio?: string }) {
+export function ShotPlaceholder({ label }: { label: string }) {
   return (
     <div
       role="img"
       aria-label={`Khung chờ ảnh chụp màn hình: ${label}`}
-      className={`${ratio} flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border-strong bg-background px-4 text-center`}
+      className="flex aspect-[16/10] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-[radial-gradient(ellipse_at_top,rgba(249,115,22,0.10),transparent_60%)] px-4 text-center"
     >
-      <ImageIcon aria-hidden className="size-7 text-neutral-dot" />
-      <p className="text-sm font-medium text-muted">{label}</p>
-      <p className="text-xs text-muted">Ảnh chụp màn hình sẽ bổ sung</p>
+      <ImageIcon aria-hidden className="size-6 text-gray-400" />
+      <p className="text-sm font-medium text-gray-300">{label}</p>
+      <p className="text-xs text-gray-400">Ảnh chụp màn hình sẽ bổ sung</p>
     </div>
   )
 }
