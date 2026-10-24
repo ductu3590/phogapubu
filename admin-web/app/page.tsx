@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Newsreader } from 'next/font/google'
+import { Noto_Serif_Display } from 'next/font/google'
 import { Faq } from '@/components/landing/faq'
 import { FeatureOrdering, FeatureRealtime } from '@/components/landing/features'
 import { Footer } from '@/components/landing/footer'
@@ -10,8 +10,9 @@ import { ModelsSection, ProcessSection, ProductsSection, ServicesSection } from 
 import { Em } from '@/components/landing/ui'
 import { SITE } from '@/lib/landing/site'
 
-// Chữ nghiêng có chân để nhấn trong tiêu đề. Chỉ nạp ở landing (khu quản lý không tải font này).
-const serif = Newsreader({
+// Chữ nghiêng có chân để nhấn trong tiêu đề (anh Tú chọn 2026-10-24: dấu tiếng Việt cân, rõ ở cỡ lớn).
+// Chỉ nạp ở landing (khu quản lý không tải font này).
+const serif = Noto_Serif_Display({
   subsets: ['latin', 'vietnamese'],
   style: ['italic'],
   weight: ['400'],
