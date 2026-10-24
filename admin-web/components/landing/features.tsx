@@ -8,11 +8,11 @@ import { Badge, Em, PrimaryButton } from './ui'
 // Hai khối tính năng chính, bố cục 2 cột xen kẽ chữ / minh hoạ. Thẻ minh hoạ là giao diện mô phỏng
 // (dữ liệu ví dụ), không phải ảnh chụp màn hình thật.
 
-function Mockup({ video, children }: { video: string; children: ReactNode }) {
+function Mockup({ video, children }: { video: readonly string[]; children: ReactNode }) {
   return (
     <div className="relative flex min-h-[26rem] items-center justify-center overflow-hidden rounded-3xl border border-white/10 p-6 sm:p-8">
       <div aria-hidden className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(234,88,12,0.35),transparent_60%),radial-gradient(ellipse_at_80%_90%,rgba(250,204,21,0.15),transparent_55%)]" />
-      <LazyVideo src={video} className="absolute inset-0 h-full w-full object-cover" />
+      <LazyVideo sources={video} className="absolute inset-0 h-full w-full object-cover" />
       <div aria-hidden className="absolute inset-0 bg-black/20" />
       <div className="relative w-full max-w-md">{children}</div>
     </div>

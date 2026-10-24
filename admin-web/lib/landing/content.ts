@@ -37,7 +37,8 @@ export const SERVICES: Service[] = [
 export type Product = { name: string; tag: string; tagTone: 'ok' | 'soon'; body: string; shot: string }
 
 export const PRODUCTS: Product[] = [
-  { name: 'MEVO tại Bảo Lương và Pubu', tag: 'Đã triển khai', tagTone: 'ok', body: 'Gọi món QR và quản lý quán, triển khai tại Bia lẩu Bảo Lương (trả sau) và Phở Gà Pubu (trả trước), Lào Cai.', shot: 'Màn hình admin / gọi món' },
+  // Không ghi tên quán khách hàng (anh Tú, 2026-10-24): chỉ nêu giải pháp, có khách đồng ý mới đưa tên/ảnh lên.
+  { name: 'MEVO F&B', tag: 'Đã triển khai', tagTone: 'ok', body: 'Gọi món QR, đặt bàn và quản lý quán realtime, đã chạy thực tế cho cả mô hình trả trước và trả sau.', shot: 'Màn hình admin / gọi món' },
   { name: 'Sổ Chung Đá', tag: 'Zalo Mini App', tagTone: 'ok', body: 'Zalo Mini App dành cho giới buôn đá ở Lục Yên, Yên Bái.', shot: 'Màn hình Mini App' },
   { name: 'ThầuGPT', tag: 'Sắp ra mắt', tagTone: 'soon', body: 'Trợ lý AI hỗ trợ công việc đấu thầu.', shot: 'Bản xem trước' },
   { name: 'App quản lý giải pickleball', tag: 'Đã làm', tagTone: 'ok', body: 'Ứng dụng quản lý giải đấu pickleball, lịch thi đấu và kết quả.', shot: 'Màn hình ứng dụng' },

@@ -4,17 +4,26 @@ import { useEffect, useRef } from 'react'
 
 // Video nền: chỉ tải khi sắp cuộn tới, KHÔNG tải khi máy bật tiết kiệm dữ liệu hoặc giảm chuyển động.
 // Nhờ vậy video không chặn lần vẽ đầu (Lighthouse) và không đốt 4G của khách xem trên điện thoại.
-export function LazyVideo({ src, className = '' }: { src: string; className?: string }) {
+// `sources` thử lần lượt: nguồn đầu lỗi (vd. file tự host chưa có) thì chuyển sang nguồn kế tiếp.
+export function LazyVideo({ sources, className = '' }: { sources: readonly string[]; className?: string }) {
   const ref = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el || sources.length === 0) return
     const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
     if (conn?.saveData || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
+    let i = 0
+    const tryNext = () => {
+      i += 1
+      if (i >= sources.length) return
+      el.src = sources[i]
+      el.play().catch(() => {})
+    }
     const start = () => {
-      el.src = src
+      el.addEventListener('error', tryNext)
+      el.src = sources[0]
       el.play().catch(() => {})
     }
     const io = new IntersectionObserver(
@@ -31,8 +40,9 @@ export function LazyVideo({ src, className = '' }: { src: string; className?: st
     return () => {
       io.disconnect()
       window.removeEventListener('load', start)
+      el.removeEventListener('error', tryNext)
     }
-  }, [src])
+  }, [sources])
 
   return <video ref={ref} aria-hidden muted loop playsInline preload="none" className={className} />
 }

@@ -16,9 +16,16 @@ Khu quản lý giữ nguyên URL (`/login`, `/admin`, `/staff`, `/mevo`, `/kitch
 | Ảnh chia sẻ (1200×630) | `admin-web/public/og.png` |
 | Chuyển người đã đăng nhập từ `/` về `/admin` | `admin-web/proxy.ts` + `lib/auth/session-cookie.ts` |
 
-**Video nền** đang trỏ CDN bên thứ ba (`cdn.sceneai.art`, lấy từ prompt thiết kế). Nên tải về, tự host
-(`public/landing/*.mp4` hoặc Supabase Storage) rồi đổi link trong `site.ts`. Video chỉ tải khi cuộn tới, bỏ qua khi máy
-bật tiết kiệm dữ liệu / giảm chuyển động; video lỗi thì nền gradient vẫn hiện.
+**Video nền tự host trên CDN Vercel** (quyết định 2026-10-24): file nằm ở `admin-web/public/landing/`
+(`hero.mp4`, `feature-order.mp4`, `feature-realtime.mp4`), phục vụ từ chính `mevo.vn`.
+- Lấy file lần đầu (máy anh Tú, sandbox của Claude bị chặn host `cdn.sceneai.art`):
+  `node scripts/fetch-landing-videos.mjs` → `git add admin-web/public/landing` → commit → push.
+  Có `ffmpeg` thì script tự nén 720p không tiếng.
+- Khi chưa có file, trang tự dùng link gốc sceneai.art làm dự phòng (`VIDEOS` trong `site.ts`). Commit xong 3 file
+  thì xoá link dự phòng.
+- Video chỉ tải khi cuộn tới, bỏ qua khi máy bật tiết kiệm dữ liệu / giảm chuyển động; hỏng hết thì nền gradient vẫn hiện.
+
+**Không ghi tên quán khách hàng** trên landing (quyết định 2026-10-24): chỉ nêu giải pháp, công nghệ.
 
 Thêm ảnh chụp màn hình thật: thả file vào `admin-web/public/landing/`, thay `<ShotPlaceholder>` bằng `next/image`.
 Khi có địa chỉ cố định: thêm `address` vào JSON-LD trong `app/page.tsx`.

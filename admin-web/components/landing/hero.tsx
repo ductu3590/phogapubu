@@ -10,7 +10,7 @@ export function Hero() {
     <section id="about" className="relative z-0 flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-20 pt-32">
       {/* Nền dự phòng (khi video chưa tải / tắt video): quầng cam mờ trên nền đen. */}
       <div aria-hidden className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_80%_60%_at_50%_20%,rgba(234,88,12,0.28),transparent_70%)]" />
-      <LazyVideo src={VIDEOS.hero} className="absolute left-1/2 top-1/2 -z-10 min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover opacity-90" />
+      <LazyVideo sources={VIDEOS.hero} className="absolute left-1/2 top-1/2 -z-10 min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover opacity-90" />
       <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-b from-black/30 via-transparent to-black" />
 
       <div className="flex max-w-5xl flex-col items-center text-center">

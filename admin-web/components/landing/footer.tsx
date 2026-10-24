@@ -40,7 +40,7 @@ export function Footer() {
   return (
     <footer id="contact" className="relative z-0 overflow-hidden border-t border-white/5 px-6 pb-10 pt-32">
       <div aria-hidden className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(234,88,12,0.22),transparent_70%)]" />
-      <LazyVideo src={VIDEOS.hero} className="absolute inset-0 -z-10 h-full w-full object-cover opacity-40" />
+      <LazyVideo sources={VIDEOS.hero} className="absolute inset-0 -z-10 h-full w-full object-cover opacity-40" />
       <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-b from-black via-black/60 to-black" />
 
       <FadeInUp className="mx-auto mb-32 flex max-w-4xl flex-col items-center text-center">
