@@ -8,7 +8,7 @@
 -- không đụng bàn thật). Giả lập thu ngân bằng request.jwt.claims; các RPC là SECURITY DEFINER
 -- nên chạy được bằng role hiện tại, quyền do is_store_pos_operator(auth.uid()) quyết định.
 --
--- Ca: move_basic · move_chain · move_busy_target · move_held_target (+ lịch hẹn muộn vẫn chuyển được) ·
+-- Ca: move_privileges · move_basic · move_chain · move_busy_target · move_held_target (+ lịch hẹn muộn vẫn chuyển được) ·
 --     move_tray_one_table · move_service_request · move_race · move_guards (tự chuyển, sai bàn nguồn,
 --     phiên đóng, không có quyền).
 
@@ -72,7 +72,6 @@ DECLARE
   o1 uuid; o5a uuid; o5b uuid;
   v_req uuid; v_req_done uuid;
   v_res uuid;
-  v_hold_fixture boolean := true;
 BEGIN
   -- ---------- chọn quán + thu ngân ----------
   SELECT id INTO v_store FROM public.stores WHERE name ILIKE '%Bảo Lương%' ORDER BY created_at LIMIT 1;
@@ -181,11 +180,11 @@ BEGIN
     INSERT INTO public.reservation_tables (reservation_id, store_id, table_id, hold_starts_at, hold_ends_at)
     VALUES (v_res, v_store, v_t[5], now() - interval '1 hour', now() + interval '1 hour');
   EXCEPTION WHEN OTHERS THEN
-    v_hold_fixture := false;
-    RAISE NOTICE 'SKIP move_held_target — không dựng được lịch đặt bàn fixture: %', SQLERRM;
+    -- Luật giữ bàn là quyết định của chủ quán: không dựng được fixture thì FAIL, không được lặng lẽ bỏ qua.
+    RAISE EXCEPTION 'FAIL fixture move_held_target: %', SQLERRM;
   END;
 
-  IF v_hold_fixture THEN
+  BEGIN
     PERFORM pg_temp.must('move_held_target: fixture — bàn đích đang trong khung giữ',
       public.table_has_current_reservation_hold(v_t[5], now()));
     PERFORM pg_temp.expect_fail('move_held_target',
@@ -201,7 +200,20 @@ BEGIN
     r := public.pos_move_session_table(s3, v_t[6], v_t[5]);
     PERFORM pg_temp.must('move_held_target: lịch muộn hơn trong ngày vẫn chuyển được',
       (r->>'ok')::boolean AND public.open_session_id_for_table(v_t[5]) = s3);
-  END IF;
+  END;
+
+  -- =====================================================================
+  -- move_privileges: helper nội bộ không được mở cho anon/authenticated
+  -- (default privileges của public cấp EXECUTE thẳng cho 2 role này, REVOKE FROM PUBLIC không gỡ được)
+  -- =====================================================================
+  PERFORM pg_temp.must('move_privileges: anon KHÔNG gọi được moved_session_for_caller',
+    NOT has_function_privilege('anon', 'public.moved_session_for_caller(uuid,text,text)', 'EXECUTE'));
+  PERFORM pg_temp.must('move_privileges: authenticated KHÔNG gọi được moved_session_for_caller',
+    NOT has_function_privilege('authenticated', 'public.moved_session_for_caller(uuid,text,text)', 'EXECUTE'));
+  PERFORM pg_temp.must('move_privileges: anon KHÔNG gọi được pos_move_session_table',
+    NOT has_function_privilege('anon', 'public.pos_move_session_table(uuid,uuid,uuid)', 'EXECUTE'));
+  PERFORM pg_temp.must('move_privileges: authenticated gọi được pos_move_session_table',
+    has_function_privilege('authenticated', 'public.pos_move_session_table(uuid,uuid,uuid)', 'EXECUTE'));
 
   -- =====================================================================
   -- move_tray_one_table: mâm 2 bàn (T7, T8), đổi T8 -> T9; T7 giữ nguyên

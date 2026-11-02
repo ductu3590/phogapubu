@@ -96,7 +96,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
    ORDER BY m.moved_at DESC
    LIMIT 1;
 $$;
-REVOKE ALL ON FUNCTION public.moved_session_for_caller(uuid, text, text) FROM PUBLIC;
+-- Phải gỡ tường minh anon/authenticated: default privileges của schema public cấp EXECUTE thẳng cho 2 role
+-- này, REVOKE FROM PUBLIC không đụng tới (mẫu: mig 100).
+REVOKE ALL ON FUNCTION public.moved_session_for_caller(uuid, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ============================================================
 -- 4) pos_move_session_table — chuyển MỘT bàn của phiên sang bàn trống, một giao dịch

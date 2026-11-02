@@ -50,7 +50,7 @@ test('moved_session_for_caller là helper nội bộ: không cấp quyền cho a
   const sql = await readFile(migration, 'utf8')
   assert.match(sql, /FUNCTION public\.moved_session_for_caller\(\s*p_table_id uuid,\s*p_zalo_user_id text,\s*p_device_id text/)
   assert.match(sql, /RETURNS TABLE\(\s*session_id uuid,\s*table_id uuid\s*\)/)
-  assert.match(sql, /REVOKE ALL ON FUNCTION public\.moved_session_for_caller\(uuid, text, text\) FROM PUBLIC/)
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.moved_session_for_caller\(uuid, text, text\) FROM PUBLIC, anon, authenticated;/)
   assert.doesNotMatch(sql, /GRANT EXECUTE ON FUNCTION public\.moved_session_for_caller/)
 
   const fn = body(sql, 'moved_session_for_caller')
