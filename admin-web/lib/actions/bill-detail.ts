@@ -77,7 +77,7 @@ export async function getSessionMoves(sessionIds: string[]): Promise<{ ok: true;
   return { ok: true, moves: parseSessionMoves(data, names) }
 }
 
-export type BillOrderAction ='confirm' | 'complete' | 'cancel'
+export type BillOrderAction = 'confirm' | 'complete' | 'cancel'
 
 // Bọc 3 thao tác của trang Đơn hàng cũ. Quyền (chỉ chủ quán, đúng quán) do chính các hàm đó kiểm — giữ nguyên.
 export async function runBillOrderAction(orderId: string, action: BillOrderAction): Promise<{ ok: true } | { ok: false; error: string }> {

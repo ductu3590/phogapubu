@@ -52,18 +52,19 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
 
   // Lịch sử chuyển bàn: chỉ bill có phiên bàn mới gọi (đơn mang về/ship không có phiên). Lỗi thì bỏ qua êm —
   // khối này chỉ là thông tin phụ, không được che bill chính.
-  const [moves, setMoves] = useState<SessionMove[]>([])
+  // Lưu kèm khoá của bill đã tải: đổi bill thì kết quả của bill trước không bao giờ hiện nhầm dưới bill mới.
+  const [movesLoaded, setMovesLoaded] = useState<{ key: string; moves: SessionMove[] }>({ key: '', moves: [] })
   const sessionKey = row?.sessionIds.join(',') ?? ''
   useEffect(() => {
     if (!sessionKey) return
     let alive = true
     getSessionMoves(sessionKey.split(',')).then(
-      (res) => { if (alive && res.ok) setMoves(res.moves) },
+      (res) => { if (alive && res.ok) setMovesLoaded({ key: sessionKey, moves: res.moves }) },
       () => {},
     )
     return () => { alive = false }
   }, [sessionKey])
-  const shownMoves = sessionKey ? moves : []
+  const shownMoves = sessionKey && movesLoaded.key === sessionKey ? movesLoaded.moves : []
 
   const act = async (key: string, run: () => Promise<{ ok: boolean; error?: string }>) => {
     setBusy(key)

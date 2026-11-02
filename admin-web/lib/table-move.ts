@@ -4,7 +4,7 @@
 // không đưa ra lựa chọn mà server sẽ từ chối).
 
 import { PREARRIVAL_HOLD_MINUTES } from '@/lib/staff-reserved-tables'
-import { vnDayStart } from '@/lib/pos-timeline'
+import { clock, vnDayStart } from '@/lib/pos-timeline'
 
 const MIN = 60_000
 const DAY = 24 * 60 * MIN
@@ -62,4 +62,13 @@ export function moveTargets(
         laterReservationAt: at === undefined ? null : new Date(at).toISOString(),
       }
     })
+}
+
+/**
+ * Câu hỏi xác nhận khi chuyển vào bàn có lịch đặt muộn hơn. Nói rõ mốc khách mất quyền tự gọi món qua QR:
+ * từ (giờ hẹn − PREARRIVAL_HOLD_MINUTES) server chặn đơn khách vào bàn đang giữ cho khách đặt.
+ */
+export function laterReservationConfirmText(tableNumber: string, arrivalIso: string): string {
+  const arrival = new Date(arrivalIso).getTime()
+  return `${tableNumber} có khách đặt lúc ${clock(arrival)}. Từ ${clock(arrival - PREARRIVAL_HOLD_MINUTES * MIN)} khách không tự gọi món qua QR được. Vẫn chuyển?`
 }

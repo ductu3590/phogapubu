@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { moveTargets, type ReservationLike } from './table-move'
+import { laterReservationConfirmText, moveTargets, type ReservationLike } from './table-move'
 
 const MIN = 60_000
 // 2026-11-02 12:00 giờ VN (05:00 UTC)
@@ -70,5 +70,13 @@ describe('moveTargets', () => {
   it('ignores reservations that are not confirmed', () => {
     const out = moveTargets(tables, [res({ status: 'pending', arrivalAt: iso(NOW + 3 * 60 * MIN) })], NOW)
     expect(out.find((t) => t.id === 't1')?.laterReservationAt).toBeNull()
+  })
+})
+
+describe('laterReservationConfirmText', () => {
+  it('nêu giờ hẹn và mốc 60 phút trước đó khách không tự gọi món được', () => {
+    // 21:00 giờ VN = 14:00 UTC
+    const text = laterReservationConfirmText('Bàn 16', iso(Date.UTC(2026, 10, 2, 14, 0, 0)))
+    expect(text).toBe('Bàn 16 có khách đặt lúc 21:00. Từ 20:00 khách không tự gọi món qua QR được. Vẫn chuyển?')
   })
 })

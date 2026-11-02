@@ -10,6 +10,7 @@ import { ArrowLeftRight, Bell, BellRing, CalendarClock, CalendarDays, CalendarPl
 import { TableStateLegend } from '@/components/ui/badge'
 import { Button, IconButton } from '@/components/ui/button'
 import { Banner, EmptyState, SkeletonList } from '@/components/ui/feedback'
+import { useToast } from '@/components/ui/toast'
 import type { StatusTone } from '@/components/ui/status'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -38,7 +39,7 @@ import BellVolumeControl from '@/components/bell-volume-control'
 import { PosLockButton } from '@/components/pos-lock'
 import type { FloorSnapshot } from '@/lib/area-layout'
 import { assignTrayColors } from '@/lib/tray-colors'
-import { moveTargets as buildMoveTargets } from '@/lib/table-move'
+import { laterReservationConfirmText, moveTargets as buildMoveTargets } from '@/lib/table-move'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { serviceRequestSession } from '@/lib/service-request-queue'
 import { buildWorkQueue, isReviewableOrder, type WorkFilter } from '@/lib/pos-work-queue'
@@ -65,7 +66,7 @@ import {
   type PreorderPrintKind,
   type ReservationPreorderRow,
 } from '@/lib/actions/reservation-preorders'
-import { buildTimeline, clock, servingShiftEnd, timelineWindow, type ServingPeriod, type TimelineBar } from '@/lib/pos-timeline'
+import { buildTimeline, servingShiftEnd, timelineWindow, type ServingPeriod, type TimelineBar } from '@/lib/pos-timeline'
 import { cn } from '@/lib/utils'
 import { heldTableIdsForReservationWindow } from '../reservations/reservation-table-picker'
 import { useFloorLayout } from './use-floor-layout'
@@ -173,6 +174,7 @@ export default function PosClient({
 }) {
   // Một client Supabase trình duyệt cho cả trang: realtime + đọc định kỳ (lib/pos-browser-reads.ts).
   const supabase = useMemo(() => createClient(), [])
+  const toast = useToast()
   const floor = useFloorLayout(storeId, initialFloor, initialFloorError)
   const placed = floor.draft.tables
   const arrange = floor.arrange
@@ -422,7 +424,7 @@ export default function PosClient({
   // Chuyển bàn: panel bill GIỮ NGUYÊN phiên (không dùng sauKhiXong vì nó bỏ chọn phiên).
   const onMoveTable = async (sessionId: string, fromTableId: string, toTableId: string) => {
     const target = moveTargets.find((t) => t.id === toTableId)
-    if (target?.laterReservationAt && !confirm(`${target.table_number} có khách đặt lúc ${clock(new Date(target.laterReservationAt).getTime())}. Vẫn chuyển?`)) return
+    if (target?.laterReservationAt && !confirm(laterReservationConfirmText(target.table_number, target.laterReservationAt))) return
     setBusy(true)
     const res = await moveSessionTable(sessionId, fromTableId, toTableId)
     setBusy(false)
@@ -430,7 +432,8 @@ export default function PosClient({
       reportActionError(res.error)
       return
     }
-    reportActionError(`Đã chuyển ${res.from} → ${res.to}`)
+    // Kết quả thành công = toast ngắn tự tắt (không dùng banner lỗi: banner đứng đó và che lỗi tải sau).
+    toast({ tone: 'success', title: `Đã chuyển ${res.from || 'bàn cũ'} → ${res.to || 'bàn mới'}` })
     await reload()
   }
 

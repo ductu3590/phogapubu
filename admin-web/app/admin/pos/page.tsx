@@ -5,6 +5,7 @@ import { loadFloorLayout } from '@/lib/actions/floor-layout'
 import type { PosMenuCategory } from './manual-order-sheet'
 import type { ServingPeriod } from '@/lib/pos-timeline'
 import PosClient from './pos-client'
+import { ToastProvider } from '@/components/ui/toast'
 import { listOpenServiceRequests } from '@/lib/actions/service-requests'
 import { listReservationQueue } from '@/lib/actions/reservations'
 import { listReservationPreorderQueue } from '@/lib/actions/reservation-preorders'
@@ -97,6 +98,7 @@ export default async function PosPage() {
   ])
 
   return (
+    <ToastProvider>
     <PosClient
       storeName={(storeRow?.name as string | undefined) ?? 'Quán'}
       servingHours={Array.isArray(workflowSettings?.serving_hours) ? workflowSettings.serving_hours : []}
@@ -123,5 +125,6 @@ export default async function PosPage() {
       operatorEmail={userRes.data.user?.email ?? null}
       initialError={res.ok ? null : res.error}
     />
+    </ToastProvider>
   )
 }
