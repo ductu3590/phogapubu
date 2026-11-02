@@ -152,6 +152,11 @@ function AppInit() {
           if (moved) {
             if (cur.tableId !== tableId) return;
             setTableInfo({ tableId: moved.tableId, tableNumber: moved.tableNumber });
+            // Lối vào QR bàn phải trỏ bàn mới, không thì tableId !== entryContext.tableId
+            // → layout/menu/checkout coi bàn chưa xác thực và khoá gọi món. Lối vào root giữ nguyên.
+            if (cur.entryContext.kind === "table") setEntryContext(moved.entryContext);
+            // Bỏ trạng thái bàn cũ; null = "chưa biết", không khoá UI. Lần hỏi kế tiếp điền lại.
+            setSessionState(null);
             openSnackbarRef.current({ text: moved.message, type: "success", duration: 4000 });
             return;
           }
@@ -173,7 +178,7 @@ function AppInit() {
       window.removeEventListener('online', refresh);
       window.clearInterval(interval);
     };
-  }, [storeId, tableId, zaloUserId, deviceId, paymentTiming, setSessionState, setTableInfo]);
+  }, [storeId, tableId, zaloUserId, deviceId, paymentTiming, setSessionState, setTableInfo, setEntryContext]);
 
   return null;
 }

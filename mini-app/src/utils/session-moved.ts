@@ -1,4 +1,5 @@
 import type { TableSessionState } from "@/types/order.types";
+import type { EntryContext } from "@/types/workflow.types";
 
 /**
  * Thu ngân chuyển bàn của khách (mig 105): get_table_session_state trả state 'moved' kèm bàn mới.
@@ -8,11 +9,14 @@ import type { TableSessionState } from "@/types/order.types";
 export function movedTableNotice(
   _prevTableNumber: string,
   st: TableSessionState,
-): { tableId: string; tableNumber: string; message: string } | null {
+): { tableId: string; tableNumber: string; message: string; entryContext: EntryContext } | null {
   if (st.mode !== "postpay" || st.state !== "moved") return null;
   return {
     tableId: st.table_id,
     tableNumber: st.table_number,
     message: `Bàn của bạn đã chuyển sang ${st.table_number}`,
+    // Lối vào QR bàn cũng phải trỏ bàn mới: layout/menu/checkout/đơn gọi chỉ cho gọi món khi
+    // tableId trong store khớp entryContext.tableId.
+    entryContext: { kind: "table", tableId: st.table_id, tableNumber: st.table_number },
   };
 }

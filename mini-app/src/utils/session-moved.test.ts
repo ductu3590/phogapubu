@@ -11,6 +11,7 @@ describe("movedTableNotice — thu ngân chuyển bàn của khách", () => {
       tableId: "t12",
       tableNumber: "Bàn 12",
       message: "Bàn của bạn đã chuyển sang Bàn 12",
+      entryContext: { kind: "table", tableId: "t12", tableNumber: "Bàn 12" },
     });
   });
   it("owner / free / prepay → null", () => {
