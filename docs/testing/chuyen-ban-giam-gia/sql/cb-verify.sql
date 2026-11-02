@@ -314,11 +314,11 @@ DECLARE
   v_op    uuid;
   v_menu  uuid;
   v_items jsonb;
-  v_t     uuid[] := '{}';      -- 12 bàn fixture ZZ-CB17..ZZ-CB28 → v_t[1]..v_t[12]
+  v_t     uuid[] := '{}';      -- 15 bàn fixture ZZ-CB17..ZZ-CB31 → v_t[1]..v_t[15]
   v_tid   uuid;
   v_i     int;
   r jsonb; r2 jsonb;
-  sa uuid; sg uuid; sc uuid; sd uuid; se uuid; sf uuid;
+  sa uuid; sg uuid; sc uuid; sd uuid; se uuid; sf uuid; sh uuid;
   v_req1 uuid := gen_random_uuid();
   v_req2 uuid := gen_random_uuid();
 BEGIN
@@ -353,7 +353,7 @@ BEGIN
   IF v_menu IS NULL THEN RAISE EXCEPTION 'FAIL fixture 105 — quán không có món thường đang bán'; END IF;
   v_items := jsonb_build_array(jsonb_build_object('menu_item_id', v_menu, 'quantity', 1));
 
-  FOR v_i IN 17..28 LOOP
+  FOR v_i IN 17..31 LOOP
     INSERT INTO public.tables (store_id, table_number) VALUES (v_store, 'ZZ-CB' || v_i)
     RETURNING id INTO v_tid;
     v_t := v_t || v_tid;
@@ -414,6 +414,12 @@ BEGIN
   r := public.get_table_session_state(v_t[4], 'cb5-host-c', NULL);
   PERFORM pg_temp.must('move_chain (state): hỏi bàn giữa → moved tới ZZ-CB21',
     r->>'state' = 'moved' AND (r->>'table_id')::uuid = v_t[5]);
+  r := public.create_order(v_store, v_t[3], v_items, 'cash', 'cb5-host-c', NULL, 'dine_in',
+                           NULL, NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.must('move_chain (order): app cũ gọi ở bàn đầu → vào phiên ở ZZ-CB21, không mở phiên ở bàn cũ',
+    (r->>'session_id')::uuid = sc AND (r->>'table_id')::uuid = v_t[5]
+    AND NOT EXISTS (SELECT 1 FROM public.table_sessions WHERE table_id IN (v_t[3], v_t[4]))
+    AND NOT EXISTS (SELECT 1 FROM public.session_tables WHERE table_id IN (v_t[3], v_t[4])));
 
   -- =====================================================================
   -- stale_app_batch: app cũ gửi lượt món ở bàn cũ ZZ-CB22 sau khi phiên đã sang ZZ-CB23
@@ -448,6 +454,7 @@ BEGIN
     '%Phiên bàn đã thay đổi%');
   PERFORM pg_temp.must('stale_app_batch: bàn cũ KHÔNG bị mở phiên mới (không bill ma)',
     public.open_session_id_for_table(v_t[6]) IS NULL
+    AND NOT EXISTS (SELECT 1 FROM public.table_sessions WHERE table_id = v_t[6])
     AND (SELECT count(*) FROM public.orders WHERE table_id = v_t[6]) = 0);
 
   -- =====================================================================
@@ -486,6 +493,35 @@ BEGIN
                            NULL, NULL, NULL, NULL, NULL);
   PERFORM pg_temp.must('state_readded_owner: create_order giữ nguyên bàn được hỏi',
     (r->>'session_id')::uuid = sf AND (r->>'table_id')::uuid = v_t[11]);
+
+  -- =====================================================================
+  -- create_order_recheck_guard: chốt tra lại SAU khi giữ khoá bàn.
+  -- Race thật (lệnh chuyển commit giữa lần tra đầu và lúc lấy khoá) không dựng được trong MỘT giao dịch,
+  -- nên dựng đúng TRẠNG THÁI mà lần tra đầu nhìn thấy trong race (b): phiên đã rời bàn Y nhưng bàn gốc
+  -- table_sessions.table_id vẫn chỉ Y (như ảnh chụp trước khi lệnh chuyển Y→Z commit). Lần tra đầu đưa đơn
+  -- sang Y; Y không có phiên mở → vào nhánh mở phiên → lần tra lại phải chặn, không được mở phiên ở Y.
+  -- =====================================================================
+  sh := pg_temp.mk_session(v_store, v_t[13], 'cb5-host-h');
+  PERFORM public.pos_move_session_table(sh, v_t[13], v_t[14]);          -- X → Y (có nhật ký)
+  UPDATE public.session_tables SET table_id = v_t[15]                     -- phiên đã sang Z, root còn chỉ Y
+   WHERE session_id = sh AND table_id = v_t[14];
+  PERFORM pg_temp.must('create_order_recheck_guard: fixture — lần tra đầu đưa sang bàn Y mà phiên không còn giữ',
+    (SELECT table_id FROM public.moved_session_for_caller(v_t[13], 'cb5-host-h', NULL)) = v_t[14]
+    AND public.open_session_id_for_table(v_t[14]) IS NULL);
+  PERFORM pg_temp.expect_fail('create_order_recheck_guard: tra lại sau khoá → báo thử lại, không mở phiên ở Y',
+    format('SELECT public.create_order(%L::uuid, %L::uuid, %L::jsonb, %L, %L, NULL, %L, NULL, NULL, NULL, NULL, NULL)',
+           v_store, v_t[13], v_items, 'cash', 'cb5-host-h', 'dine_in'),
+    '%Bàn vừa được chuyển, vui lòng thử lại%');
+  PERFORM pg_temp.must('create_order_recheck_guard: không có phiên nào khác mở ở bàn X / Y',
+    NOT EXISTS (SELECT 1 FROM public.table_sessions WHERE table_id IN (v_t[13], v_t[14]) AND id <> sh)
+    AND public.open_session_id_for_table(v_t[13]) IS NULL
+    AND public.open_session_id_for_table(v_t[14]) IS NULL);
+  -- Người lạ ở bàn Y không dính chốt (không thuộc phiên đã chuyển) → mở phiên bình thường
+  r := public.create_order(v_store, v_t[14], v_items, 'cash', 'cb5-stranger-y', NULL, 'dine_in',
+                           NULL, NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.must('create_order_recheck_guard: người lạ ở bàn Y vẫn mở phiên mới bình thường',
+    (r->>'session_id')::uuid IS NOT NULL AND (r->>'session_id')::uuid <> sh
+    AND public.open_session_id_for_table(v_t[14]) = (r->>'session_id')::uuid);
 
   RAISE NOTICE 'TẤT CẢ CA ĐÃ PASS — giao dịch sẽ ROLLBACK, không để lại dữ liệu';
 END

@@ -134,7 +134,7 @@ SELECT pg_temp.mevo_patch('public.create_order(uuid,uuid,jsonb,text,text,text,te
 $a$  v_skip_method_check boolean := false;
 $a$,
 $b$  v_skip_method_check boolean := false;
-  v_moved_session uuid; v_moved_table uuid;
+  v_moved_session uuid; v_moved_table uuid; v_orig_table_id uuid;
 $b$);
 
 SELECT pg_temp.mevo_patch('public.create_order(uuid,uuid,jsonb,text,text,text,text,text,text,text,text,text)',
@@ -144,6 +144,7 @@ $a$    -- Khoá theo BÀN trước khi tìm-hoặc-mở: hai máy bấm cùng l�
 $b$    -- mig 105: người gọi thuộc một phiên ĐANG MỞ đã chuyển đi khỏi bàn này → gắn đơn vào đúng phiên đó
     -- ở bàn hiện tại, KHÔNG mở phiên mới ở bàn cũ (bill ma). Đứng trước cả trường hợp bàn cũ đã có khách
     -- mới. Phiên đã giữ lại chính bàn này (thêm lại vào mâm) → không đổi gì.
+    v_orig_table_id := p_table_id;
     SELECT m.session_id, m.table_id INTO v_moved_session, v_moved_table
       FROM moved_session_for_caller(p_table_id, p_zalo_user_id, p_device_id) m;
     IF v_moved_session IS NOT NULL AND NOT EXISTS (
@@ -155,6 +156,35 @@ $b$    -- mig 105: người gọi thuộc một phiên ĐANG MỞ đã chuyển 
     -- Khoá theo BÀN trước khi tìm-hoặc-mở: hai máy bấm cùng lúc thì máy sau phải nhìn thấy
     -- phiên máy trước vừa tạo, không được tạo phiên thứ hai (rủi ro #1).
     PERFORM lock_table_for_session(p_table_id);$b$);
+
+-- Chốt chặn race: lần tra phía trên chạy TRƯỚC khi giữ khoá bàn, nên có thể trượt khi
+--   (a) thu ngân đang chuyển 3→12 (đang giữ khoá bàn 3, chưa commit): lần tra không thấy gì, đơn chờ khoá
+--       bàn 3, được khoá sau khi lệnh chuyển commit → bàn 3 trống → mở phiên mới = bill ma;
+--   (b) chuỗi: tra ra bàn 12, rồi 12→15 commit trước khi đơn khoá được bàn 12 → mở phiên mới ở bàn 12.
+-- Tra LẠI ngay trước khi mở phiên (lúc này đã giữ khoá bàn; READ COMMITTED → câu lệnh mới thấy lệnh chuyển
+-- đã commit), cho cả bàn gốc app gửi lên lẫn bàn đang định mở. Thấy phiên đã chuyển đi → báo thử lại,
+-- KHÔNG mở phiên: lần thử lại sẽ được chuyển hướng đúng ở lần tra phía trên.
+SELECT pg_temp.mevo_patch('public.create_order(uuid,uuid,jsonb,text,text,text,text,text,text,text,text,text)',
+$a$    v_session_id := open_session_id_for_table(p_table_id);
+    IF v_session_id IS NULL THEN
+      INSERT INTO table_sessions (store_id, table_id, host_zalo_user_id, host_device_id, opened_by)$a$,
+$b$    v_session_id := open_session_id_for_table(p_table_id);
+    IF v_session_id IS NULL THEN
+      -- mig 105: tra lại phiên đã chuyển SAU khi giữ khoá bàn (xem chú thích ở migration 105).
+      -- Phiên trả về mà không giữ bàn đang định mở → bàn vừa được chuyển đi, không được mở phiên mới ở đây.
+      IF EXISTS (
+           SELECT 1 FROM moved_session_for_caller(v_orig_table_id, p_zalo_user_id, p_device_id) m
+            WHERE NOT EXISTS (
+              SELECT 1 FROM session_tables st
+               WHERE st.session_id = m.session_id AND st.table_id = p_table_id AND st.is_open))
+         OR EXISTS (
+           SELECT 1 FROM moved_session_for_caller(p_table_id, p_zalo_user_id, p_device_id) m
+            WHERE NOT EXISTS (
+              SELECT 1 FROM session_tables st
+               WHERE st.session_id = m.session_id AND st.table_id = p_table_id AND st.is_open)) THEN
+        RAISE EXCEPTION 'Bàn vừa được chuyển, vui lòng thử lại';
+      END IF;
+      INSERT INTO table_sessions (store_id, table_id, host_zalo_user_id, host_device_id, opened_by)$b$);
 
 -- device_id: cùng zalo_user_id, moved_session_for_caller dùng để nhận ra khách thuộc phiên đã chuyển bàn.
 SELECT pg_temp.mevo_patch('public.create_order(uuid,uuid,jsonb,text,text,text,text,text,text,text,text,text)',
