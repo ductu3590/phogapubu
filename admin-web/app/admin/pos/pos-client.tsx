@@ -18,6 +18,7 @@ import {
   closeTableSessionsBulk,
   createTraySession,
   mergeSessionIntoTray,
+  moveSessionTable,
   releaseTableSessionHost,
   type OpenTableSession,
 } from '@/lib/actions/table-session'
@@ -37,6 +38,7 @@ import BellVolumeControl from '@/components/bell-volume-control'
 import { PosLockButton } from '@/components/pos-lock'
 import type { FloorSnapshot } from '@/lib/area-layout'
 import { assignTrayColors } from '@/lib/tray-colors'
+import { moveTargets as buildMoveTargets } from '@/lib/table-move'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { serviceRequestSession } from '@/lib/service-request-queue'
 import { buildWorkQueue, isReviewableOrder, type WorkFilter } from '@/lib/pos-work-queue'
@@ -63,7 +65,7 @@ import {
   type PreorderPrintKind,
   type ReservationPreorderRow,
 } from '@/lib/actions/reservation-preorders'
-import { buildTimeline, servingShiftEnd, timelineWindow, type ServingPeriod, type TimelineBar } from '@/lib/pos-timeline'
+import { buildTimeline, clock, servingShiftEnd, timelineWindow, type ServingPeriod, type TimelineBar } from '@/lib/pos-timeline'
 import { cn } from '@/lib/utils'
 import { heldTableIdsForReservationWindow } from '../reservations/reservation-table-picker'
 import { useFloorLayout } from './use-floor-layout'
@@ -347,6 +349,9 @@ export default function PosClient({
       && new Date(reservation.arrivalAt).getTime() + reservation.planningHoldMinutes * 60_000 > now)
     .flatMap((reservation) => reservation.tableIds)), [reservations, now])
 
+  // Bàn đích của "Chuyển sang bàn trống": bàn trống, trừ bàn đang trong khung giữ cho khách đặt trước.
+  const moveTargets = useMemo(() => buildMoveTargets(freeTables, reservations, now), [freeTables, reservations, now])
+
   const timeWindow = useMemo(() => timelineWindow(servingHours, now), [servingHours, now])
   const timeline = useMemo(() => buildTimeline({
     tableIds: placed.map((t) => t.id),
@@ -412,6 +417,21 @@ export default function PosClient({
     // Gộp bill đã thu xong → tự thoát chế độ gộp, không bắt thu ngân bấm "Thoát gộp bill".
     setMergeMode(false)
     await sauKhiXong('already' in res && res.already ? 'Bàn này vừa được máy khác chốt xong.' : undefined)
+  }
+
+  // Chuyển bàn: panel bill GIỮ NGUYÊN phiên (không dùng sauKhiXong vì nó bỏ chọn phiên).
+  const onMoveTable = async (sessionId: string, fromTableId: string, toTableId: string) => {
+    const target = moveTargets.find((t) => t.id === toTableId)
+    if (target?.laterReservationAt && !confirm(`${target.table_number} có khách đặt lúc ${clock(new Date(target.laterReservationAt).getTime())}. Vẫn chuyển?`)) return
+    setBusy(true)
+    const res = await moveSessionTable(sessionId, fromTableId, toTableId)
+    setBusy(false)
+    if (!res.ok) {
+      reportActionError(res.error)
+      return
+    }
+    reportActionError(`Đã chuyển ${res.from} → ${res.to}`)
+    await reload()
   }
 
   const onReset = async (s: OpenTableSession) => {
@@ -1233,6 +1253,9 @@ export default function PosClient({
           onReset={(s) => void onReset(s)}
           onCreateTray={() => void chay(() => createTraySession([...pickedTableIds]))}
           onAddTable={(sid, tid) => void chay(() => addTableToSession(sid, tid))}
+          moveTargets={moveTargets}
+          moveAreas={floor.draft.areas.map((a) => ({ id: a.id, name: a.name, color: a.color ?? null }))}
+          onMoveTable={(sid, from, to) => void onMoveTable(sid, from, to)}
           onMergeInto={(sid, target) => void chay(() => mergeSessionIntoTray(sid, target))}
           onReleaseHost={(sid) => void chay(() => releaseTableSessionHost(sid))}
           onClearPick={() => {

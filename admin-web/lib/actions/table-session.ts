@@ -198,6 +198,30 @@ export async function addTableToSession(sessionId: string, tableId: string): Pro
   return { ok: true }
 }
 
+// Chuyển MỘT bàn của phiên sang bàn trống (mig 104). Chỉ chủ quán / thu ngân. Mọi luật (bàn đích
+// trống, không nằm trong khung giữ đặt trước, phiên còn mở...) do RPC kiểm; lỗi trả nguyên văn tiếng Việt.
+export async function moveSessionTable(
+  sessionId: string,
+  fromTableId: string,
+  toTableId: string,
+): Promise<{ ok: true; from: string; to: string } | { ok: false; error: string }> {
+  const { operator, supabase, error } = await staffClient()
+  if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được chuyển bàn' }
+  }
+
+  const { data, error: rpcErr } = await supabase.rpc('pos_move_session_table', {
+    p_session_id: sessionId,
+    p_from_table_id: fromTableId,
+    p_to_table_id: toTableId,
+  })
+  if (rpcErr) return { ok: false, error: rpcErr.message }
+
+  const r = data as { from_table_number?: string; to_table_number?: string } | null
+  return { ok: true, from: r?.from_table_number ?? '', to: r?.to_table_number ?? '' }
+}
+
 // Khách quét QR trước khi nhân viên kịp ghép bàn → phiên lẻ lạc. Gom nó vào mâm:
 // chuyển cả đơn lẫn bàn sang mâm rồi đóng phiên lẻ với close_reason='merged'.
 export async function mergeSessionIntoTray(

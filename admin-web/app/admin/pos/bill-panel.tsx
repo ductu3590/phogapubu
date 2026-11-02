@@ -20,6 +20,8 @@ import { Dialog } from '@/components/ui/dialog'
 import { STATUS_TONE_CLASSES, TABLE_STATE, type TableVisualState } from '@/components/ui/status'
 import { cn } from '@/lib/utils'
 import { billHistory, rejectReasonLabel } from '@/lib/pos-bill-history'
+import type { MoveTarget } from '@/lib/table-move'
+import { groupTablesByArea, type StaffArea } from '@/lib/staff-area-groups'
 
 // Bill của /admin/pos theo bản Stitch P01 (bill dạng tab) + P03 (lượt gọi mới) + P04 (thanh toán một nút).
 // Mọi con số tiền là của server (OpenTableSession.total, order.total_amount); bill KHÔNG tự cộng tổng.
@@ -55,6 +57,10 @@ export type PosBillPanelProps = {
   onReset: (s: OpenTableSession) => void
   onCreateTray: () => void
   onAddTable: (sessionId: string, tableId: string) => void
+  /** Bàn trống chuyển được tới (đã loại bàn trong khung giữ đặt trước) + khu để nhóm danh sách. */
+  moveTargets: MoveTarget[]
+  moveAreas: StaffArea[]
+  onMoveTable: (sessionId: string, fromTableId: string, toTableId: string) => void
   onMergeInto: (sessionId: string, targetSessionId: string) => void
   onReleaseHost: (sessionId: string) => void
   onConfirmOrder: (orderId: string) => void
@@ -555,7 +561,7 @@ function QtyDialog({ item, busy, onClose, onSubmit }: {
 
 const QTY_REASONS = ['Khách gọi nhầm', 'Nhân viên bấm nhầm', 'Khách gọi thêm', 'Bếp báo hết bớt phần']
 
-function OtherActions({ list, freeTables, otherSessions, busy, onReset, onAddTable, onMergeInto, onReleaseHost, onClearPick, picked }: PosBillPanelProps & { list: OpenTableSession[] }) {
+function OtherActions({ list, freeTables, otherSessions, busy, onReset, onAddTable, onMergeInto, onReleaseHost, onClearPick, picked, moveTargets, moveAreas, onMoveTable }: PosBillPanelProps & { list: OpenTableSession[] }) {
   if (list.length > 1) {
     return picked.length > 0 ? <Button variant="ghost" onClick={onClearPick} className="mt-3 w-full">Bỏ chọn {picked.length} mâm</Button> : null
   }
@@ -563,6 +569,7 @@ function OtherActions({ list, freeTables, otherSessions, busy, onReset, onAddTab
   return (
     <details className="mt-4 rounded-xl border border-slate-200 p-3">
       <summary className="cursor-pointer text-sm font-semibold text-slate-700">Thao tác khác</summary>
+      <MoveTableControl session={s} targets={moveTargets} areas={moveAreas} busy={busy} onMove={onMoveTable} />
       <label className="mt-3 block text-[13px] text-slate-500" htmlFor="pos-bill-add-table">Thêm bàn trống vào mâm này</label>
       <div className="mt-1">
         <Select id="pos-bill-add-table" disabled={busy || freeTables.length === 0} defaultValue=""
@@ -584,6 +591,52 @@ function OtherActions({ list, freeTables, otherSessions, busy, onReset, onAddTab
         Bỏ bàn (không thu tiền)
       </Button>
     </details>
+  )
+}
+
+/** Chuyển một bàn của phiên sang bàn trống. Mâm nhiều bàn: chọn bàn cần đổi trước (đổi từng bàn một). */
+function MoveTableControl({ session, targets, areas, busy, onMove }: {
+  session: OpenTableSession
+  targets: MoveTarget[]
+  areas: StaffArea[]
+  busy: boolean
+  onMove: (sessionId: string, fromTableId: string, toTableId: string) => void
+}) {
+  const [fromId, setFromId] = useState('')
+  const multi = session.tables.length > 1
+  // Sau khi chuyển, bàn vừa đổi không còn trong mâm → bỏ lựa chọn cũ, không để lại id lạc.
+  const from = multi ? (session.tables.some((t) => t.id === fromId) ? fromId : '') : session.tables[0]?.id ?? session.table_id
+  const groups = groupTablesByArea(targets, areas)
+  return (
+    <div>
+      {multi && (
+        <>
+          <label className="mt-3 block text-[13px] text-slate-500" htmlFor="pos-bill-move-from">Bàn cần đổi</label>
+          <div className="mt-1">
+            <Select id="pos-bill-move-from" disabled={busy} value={from} onChange={(e) => setFromId(e.target.value)}>
+              <option value="">— chọn bàn trong mâm —</option>
+              {session.tables.map((t) => <option key={t.id} value={t.id}>{t.table_number}</option>)}
+            </Select>
+          </div>
+        </>
+      )}
+      <label className="mt-3 block text-[13px] text-slate-500" htmlFor="pos-bill-move-to">Chuyển sang bàn trống</label>
+      <div className="mt-1">
+        <Select id="pos-bill-move-to" disabled={busy || !from || targets.length === 0} defaultValue=""
+          onChange={(e) => { const v = e.target.value; e.target.value = ''; if (v && from) onMove(session.session_id, from, v) }}>
+          <option value="">{multi && !from ? '— chọn bàn cần đổi trước —' : targets.length === 0 ? '— không còn bàn trống —' : '— chọn bàn đích —'}</option>
+          {groups.map((g) => (
+            <optgroup key={g.area?.id ?? 'none'} label={g.area?.name ?? (areas.length > 0 ? 'Chưa phân khu' : 'Bàn trống')}>
+              {g.tables.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.table_number}{t.laterReservationAt ? ` · có khách đặt lúc ${gio(t.laterReservationAt)}` : ''}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </Select>
+      </div>
+    </div>
   )
 }
 

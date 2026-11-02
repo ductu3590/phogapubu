@@ -39,7 +39,7 @@ export default function PosBillDemo({ withPending }: { withPending: boolean }) {
   return (
     <div className="flex h-[720px] overflow-hidden rounded-xl border border-border [&>aside]:static [&>aside]:max-h-none [&>aside]:w-[400px] [&>aside]:rounded-none [&>aside]:shadow-none [&>button]:hidden">
       <PosBillPanel
-        selected={session} picked={[]} freeTables={[]} otherSessions={[]} pickedFreeTables={0} trayColors={trays} busy={false}
+        selected={session} picked={[]} freeTables={[]} moveTargets={[]} moveAreas={[]} onMoveTable={noop} otherSessions={[]} pickedFreeTables={0} trayColors={trays} busy={false}
         onPay={noop} onPrint={noop} onReset={noop} onCreateTray={noop} onAddTable={noop} onMergeInto={noop} onReleaseHost={noop}
         onConfirmOrder={noop} onRejectOrder={noop} onPrintOrder={noop} onOpenManualOrder={noop} onVoidOrderItem={noop} onSetItemQuantity={async () => true}
         onRestoreOrderItem={noop} onClearPick={noop} onDismiss={noop} preorders={[]} onPrintPreorder={async () => ({ ok: true })}
