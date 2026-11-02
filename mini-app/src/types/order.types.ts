@@ -55,6 +55,9 @@ export type TableSessionState =
   | { mode: "postpay"; state: "free" }
   | { mode: "postpay"; state: "reserved" }
   | { mode: "postpay"; state: "locked"; opened_at: string }
+  // mig 105 — thu ngân đã chuyển bàn của khách sang bàn khác. Chỉ là tín hiệu thoáng qua:
+  // app đổi tableId sang table_id mới (KHÔNG lưu vào store), table_number đã gồm chữ "Bàn".
+  | { mode: "postpay"; state: "moved"; session_id: string; table_id: string; table_number: string }
   | {
       mode: "postpay";
       state: "owner";

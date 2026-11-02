@@ -1,14 +1,15 @@
 import { RouterProvider } from "react-router-dom";
 import router from "./router";
 import { ReactQueryProvider } from "./lib/react-query-provider";
-import React, { useEffect } from "react";
-import { SnackbarProvider } from "zmp-ui";
+import React, { useEffect, useRef } from "react";
+import { SnackbarProvider, useSnackbar } from "zmp-ui";
 import { useAppStore, parseQRParams, PaymentMethod, PaymentTiming } from "./stores/app.store";
 import { supabase } from "./services/supabase";
 import { sessionOrderService } from "./services/order/order.api";
 import { getOrCreateDeviceId } from "./services/device-id";
 import { getPublicWorkflow } from "./services/workflow/workflow.api";
 import { applyPrimaryColor } from "@/utils/theme-color";
+import { movedTableNotice } from "@/utils/session-moved";
 import { getUserID } from "zmp-sdk";
 
 function AppInit() {
@@ -21,6 +22,10 @@ function AppInit() {
   const zaloUserId = useAppStore((s) => s.zaloUserId);
   const deviceId = useAppStore((s) => s.deviceId);
   const paymentTiming = useAppStore((s) => s.paymentTiming);
+  // Snackbar qua ref để effect phiên bàn không bị chạy lại chỉ vì identity của hàm đổi.
+  const { openSnackbar } = useSnackbar();
+  const openSnackbarRef = useRef(openSnackbar);
+  openSnackbarRef.current = openSnackbar;
 
   // Device id đọc ĐỒNG BỘ từ localStorage, không chờ mạng: nó là chân định danh dự phòng khi
   // getUserID() fail (PB5). Hàm tự idempotent nên StrictMode chạy 2 lần không sinh 2 id.
@@ -137,7 +142,21 @@ function AppInit() {
     const refresh = () => {
       void sessionOrderService
         .getTableSessionState(tableId, zaloUserId || null, deviceId || null)
-        .then((st) => { if (!aborted) setSessionState(st); })
+        .then((st) => {
+          if (aborted) return;
+          // Thu ngân đã chuyển bàn của khách: đổi sang bàn mới (effect tự chạy lại vì tableId đổi),
+          // KHÔNG lưu 'moved' vào store. Chặn nếu hai lần hỏi chồng nhau (focus + interval) cùng
+          // trả 'moved' → store đã sang bàn mới rồi thì không báo/đổi lần nữa.
+          const cur = useAppStore.getState();
+          const moved = movedTableNotice(cur.tableNumber, st);
+          if (moved) {
+            if (cur.tableId !== tableId) return;
+            setTableInfo({ tableId: moved.tableId, tableNumber: moved.tableNumber });
+            openSnackbarRef.current({ text: moved.message, type: "success", duration: 4000 });
+            return;
+          }
+          setSessionState(st);
+        })
         .catch(() => {
           // Không hỏi được trạng thái thì không khóa oan; RPC tạo đơn vẫn là chốt chặn thật.
           if (!aborted) setSessionState(null);
@@ -154,7 +173,7 @@ function AppInit() {
       window.removeEventListener('online', refresh);
       window.clearInterval(interval);
     };
-  }, [storeId, tableId, zaloUserId, deviceId, paymentTiming, setSessionState]);
+  }, [storeId, tableId, zaloUserId, deviceId, paymentTiming, setSessionState, setTableInfo]);
 
   return null;
 }
