@@ -1,6 +1,7 @@
--- cb-verify.sql — kiểm tra mig 104 (chuyển bàn) trên DB thật, trong MỘT giao dịch rồi ROLLBACK.
+-- cb-verify.sql — kiểm tra mig 104 (chuyển bàn) + mig 105 (không sinh bill ma) trên DB thật,
+-- trong MỘT giao dịch rồi ROLLBACK.
 --
--- CÁCH CHẠY: dán nguyên file vào SQL editor (hoặc execute_sql) SAU KHI mig 104 đã áp.
+-- CÁCH CHẠY: dán nguyên file vào SQL editor (hoặc execute_sql) SAU KHI mig 104 VÀ 105 đã áp.
 -- Mỗi ca in `NOTICE: PASS <tên ca>`. Ca nào sai → RAISE EXCEPTION 'FAIL ...' và cả giao dịch dừng.
 -- KHÔNG BAO GIỜ COMMIT: kết thúc bằng ROLLBACK nên không để lại bàn/phiên/đơn nào.
 --
@@ -11,6 +12,12 @@
 -- Ca: move_privileges · move_basic · move_chain · move_busy_target · move_held_target (+ lịch hẹn muộn vẫn chuyển được) ·
 --     move_tray_one_table · move_service_request · move_race · move_guards (tự chuyển, sai bàn nguồn,
 --     phiên đóng, không có quyền).
+-- Ca mig 105 (khối thứ hai, bàn ZZ-CB17..28): state_moved_host · state_stranger_free ·
+--     state_moved_before_new_guest (+ create_order trực tiếp ở bàn cũ đã có khách mới) · move_chain (state) ·
+--     stale_app_batch (expected = phiên đã chuyển / NULL / sai, gửi lại trùng mã) · device_only_member ·
+--     state_readded_owner (bàn cũ được thêm lại vào phiên → không chuyển hướng).
+-- Giới hạn đã biết (spec §3.3): người trong nhóm chưa gọi món lần nào và không phải chủ phiên mở lại app
+-- ở bàn cũ thì thấy bàn trống — có ca khẳng định đúng hành vi này trong device_only_member.
 
 BEGIN;
 
@@ -293,8 +300,195 @@ BEGIN
     format('SELECT public.pos_move_session_table(%L, %L, %L)', s2, v_t[4], v_t[16]),
     '%Không có quyền%');
 
-  RAISE NOTICE 'TẤT CẢ CA ĐÃ PASS — giao dịch sẽ ROLLBACK, không để lại dữ liệu';
+  RAISE NOTICE 'PASS hết ca mig 104 — sang ca mig 105';
 END
 $verify$;
+
+-- =====================================================================
+-- MIG 105 — không sinh bill ma: get_table_session_state 'moved', create_table_order_batch / create_order
+-- chuyển hướng về bàn hiện tại của phiên, orders.device_id
+-- =====================================================================
+DO $verify105$
+DECLARE
+  v_store uuid;
+  v_op    uuid;
+  v_menu  uuid;
+  v_items jsonb;
+  v_t     uuid[] := '{}';      -- 12 bàn fixture ZZ-CB17..ZZ-CB28 → v_t[1]..v_t[12]
+  v_tid   uuid;
+  v_i     int;
+  r jsonb; r2 jsonb;
+  sa uuid; sg uuid; sc uuid; sd uuid; se uuid; sf uuid;
+  v_req1 uuid := gen_random_uuid();
+  v_req2 uuid := gen_random_uuid();
+BEGIN
+  -- ---------- fixture: cùng quán + thu ngân như khối trên ----------
+  SELECT id INTO v_store FROM public.stores WHERE name ILIKE '%Bảo Lương%' ORDER BY created_at LIMIT 1;
+  IF v_store IS NULL THEN
+    SELECT id INTO v_store FROM public.stores
+     WHERE is_active AND payment_timing = 'postpay' ORDER BY created_at LIMIT 1;
+  END IF;
+  IF v_store IS NULL THEN RAISE EXCEPTION 'FAIL fixture 105 — không tìm thấy quán trả sau'; END IF;
+  IF (SELECT payment_timing FROM public.stores WHERE id = v_store) <> 'postpay' THEN
+    RAISE EXCEPTION 'FAIL fixture 105 — quán fixture không phải trả sau';
+  END IF;
+
+  SELECT user_id INTO v_op FROM public.mevo_operators
+   WHERE store_id = v_store AND is_active AND role IN ('store_cashier', 'store_owner')
+   ORDER BY (role = 'store_cashier') DESC LIMIT 1;
+  IF v_op IS NULL THEN RAISE EXCEPTION 'FAIL fixture 105 — quán chưa có thu ngân/chủ quán'; END IF;
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_op, 'role', 'authenticated')::text, true);
+
+  -- Khách gọi món tại bàn phải đi qua được: quán đang nhận đơn + bật kênh gọi tại bàn. Rollback sau.
+  UPDATE public.stores SET is_accepting_orders = true, serving_hours = '[]'::jsonb WHERE id = v_store;
+  UPDATE public.store_workflow_settings SET table_ordering_enabled = true WHERE store_id = v_store;
+  IF NOT FOUND THEN RAISE EXCEPTION 'FAIL fixture 105 — quán chưa có store_workflow_settings'; END IF;
+
+  -- Một món thường (không biến thể) đang bán để create_order dựng đơn thật
+  SELECT m.id INTO v_menu FROM public.menu_items m
+   WHERE m.store_id = v_store AND m.is_available
+     AND NOT EXISTS (SELECT 1 FROM public.menu_item_variants v WHERE v.menu_item_id = m.id)
+   ORDER BY m.created_at LIMIT 1;
+  IF v_menu IS NULL THEN RAISE EXCEPTION 'FAIL fixture 105 — quán không có món thường đang bán'; END IF;
+  v_items := jsonb_build_array(jsonb_build_object('menu_item_id', v_menu, 'quantity', 1));
+
+  FOR v_i IN 17..28 LOOP
+    INSERT INTO public.tables (store_id, table_number) VALUES (v_store, 'ZZ-CB' || v_i)
+    RETURNING id INTO v_tid;
+    v_t := v_t || v_tid;
+  END LOOP;
+
+  -- =====================================================================
+  -- state_moved_host: chủ phiên hỏi bàn cũ → 'moved', đúng phiên + bàn mới
+  -- =====================================================================
+  sa := pg_temp.mk_session(v_store, v_t[1], 'cb5-host-a');
+  PERFORM public.pos_move_session_table(sa, v_t[1], v_t[2]);
+  r := public.get_table_session_state(v_t[1], 'cb5-host-a', NULL);
+  PERFORM pg_temp.must('state_moved_host: chủ phiên hỏi bàn cũ → moved, đúng phiên + bàn mới + số bàn',
+    r->>'mode' = 'postpay' AND r->>'state' = 'moved' AND (r->>'session_id')::uuid = sa
+    AND (r->>'table_id')::uuid = v_t[2] AND r->>'table_number' = 'ZZ-CB18');
+  r := public.get_table_session_state(v_t[2], 'cb5-host-a', NULL);
+  PERFORM pg_temp.must('state_moved_host: hỏi bàn mới → owner như bình thường',
+    r->>'state' = 'owner' AND (r->>'session_id')::uuid = sa);
+
+  -- =====================================================================
+  -- state_stranger_free: người lạ hỏi bàn cũ → bàn trống bình thường
+  -- =====================================================================
+  r := public.get_table_session_state(v_t[1], 'cb5-stranger', 'cb5-stranger-dev');
+  PERFORM pg_temp.must('state_stranger_free: người lạ hỏi bàn cũ → free', r->>'state' = 'free');
+  r := public.get_table_session_state(v_t[1], NULL, NULL);
+  PERFORM pg_temp.must('state_stranger_free: không UID không device → free', r->>'state' = 'free');
+
+  -- =====================================================================
+  -- state_moved_before_new_guest: bàn cũ đã có khách mới — chủ phiên cũ vẫn thấy 'moved' (luật đứng trước),
+  -- khách mới thấy phiên của mình; app cũ của chủ phiên gọi thẳng create_order ở bàn cũ → đơn vào phiên cũ
+  -- =====================================================================
+  sg := pg_temp.mk_session(v_store, v_t[1], 'cb5-new-guest');
+  r := public.get_table_session_state(v_t[1], 'cb5-host-a', NULL);
+  PERFORM pg_temp.must('state_moved_before_new_guest: chủ phiên cũ vẫn moved',
+    r->>'state' = 'moved' AND (r->>'table_id')::uuid = v_t[2]);
+  r := public.get_table_session_state(v_t[1], 'cb5-new-guest', NULL);
+  PERFORM pg_temp.must('state_moved_before_new_guest: khách mới là chủ phiên của bàn cũ',
+    r->>'state' = 'owner' AND (r->>'session_id')::uuid = sg);
+  r := public.get_table_session_state(v_t[1], 'cb5-stranger', NULL);
+  PERFORM pg_temp.must('state_moved_before_new_guest: người lạ thứ ba thấy bàn đang khoá', r->>'state' = 'locked');
+
+  r := public.create_order(v_store, v_t[1], v_items, 'cash', 'cb5-host-a', NULL, 'dine_in',
+                           NULL, NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.must('create_order_direct: đơn của chủ phiên cũ vào phiên cũ ở bàn mới, không vào phiên khách mới',
+    (r->>'session_id')::uuid = sa AND (r->>'table_id')::uuid = v_t[2]);
+  PERFORM pg_temp.must('create_order_direct: bàn cũ vẫn là phiên của khách mới',
+    public.open_session_id_for_table(v_t[1]) = sg);
+
+  -- =====================================================================
+  -- move_chain (state): ZZ-CB19 → 20 → 21, chủ phiên hỏi bàn đầu → bàn hiện tại
+  -- =====================================================================
+  sc := pg_temp.mk_session(v_store, v_t[3], 'cb5-host-c');
+  PERFORM public.pos_move_session_table(sc, v_t[3], v_t[4]);
+  PERFORM public.pos_move_session_table(sc, v_t[4], v_t[5]);
+  r := public.get_table_session_state(v_t[3], 'cb5-host-c', NULL);
+  PERFORM pg_temp.must('move_chain (state): hỏi bàn đầu → moved tới bàn cuối ZZ-CB21',
+    r->>'state' = 'moved' AND (r->>'table_id')::uuid = v_t[5] AND r->>'table_number' = 'ZZ-CB21'
+    AND (r->>'session_id')::uuid = sc);
+  r := public.get_table_session_state(v_t[4], 'cb5-host-c', NULL);
+  PERFORM pg_temp.must('move_chain (state): hỏi bàn giữa → moved tới ZZ-CB21',
+    r->>'state' = 'moved' AND (r->>'table_id')::uuid = v_t[5]);
+
+  -- =====================================================================
+  -- stale_app_batch: app cũ gửi lượt món ở bàn cũ ZZ-CB22 sau khi phiên đã sang ZZ-CB23
+  -- =====================================================================
+  sd := pg_temp.mk_session(v_store, v_t[6], 'cb5-host-d');
+  PERFORM public.pos_move_session_table(sd, v_t[6], v_t[7]);
+
+  r := public.create_table_order_batch(v_store, v_t[6], v_items, 'cash', v_req1, 'cb5-host-d', NULL,
+                                       NULL, NULL, sd);
+  PERFORM pg_temp.must('stale_app_batch: expected = phiên đã chuyển → đơn vào phiên đó, bàn mới',
+    (r->>'session_id')::uuid = sd AND (r->>'table_id')::uuid = v_t[7]);
+  PERFORM pg_temp.must('stale_app_batch: bản ghi chống trùng lưu bàn GỐC + expected gốc + phiên thật',
+    EXISTS (SELECT 1 FROM public.table_order_batch_requests
+             WHERE store_id = v_store AND client_request_id = v_req1
+               AND table_id = v_t[6] AND expected_session_id = sd AND actual_session_id = sd
+               AND order_id = (r->>'id')::uuid));
+
+  r2 := public.create_table_order_batch(v_store, v_t[6], v_items, 'cash', v_req1, 'cb5-host-d', NULL,
+                                        NULL, NULL, sd);
+  PERFORM pg_temp.must('stale_app_batch: gửi lại trùng mã → trả đúng đơn cũ, không tạo đơn mới',
+    (r2->>'id') = (r->>'id')
+    AND (SELECT count(*) FROM public.orders WHERE session_id = sd) = 1);
+
+  r := public.create_table_order_batch(v_store, v_t[6], v_items, 'cash', v_req2, 'cb5-host-d', NULL,
+                                       NULL, NULL, NULL);
+  PERFORM pg_temp.must('stale_app_batch: expected NULL → cũng vào phiên đã chuyển, bàn mới',
+    (r->>'session_id')::uuid = sd AND (r->>'table_id')::uuid = v_t[7]);
+
+  PERFORM pg_temp.expect_fail('stale_app_batch: expected là phiên khác → từ chối',
+    format('SELECT public.create_table_order_batch(%L::uuid, %L::uuid, %L::jsonb, %L, %L::uuid, %L, NULL, NULL, NULL, %L::uuid)',
+           v_store, v_t[6], v_items, 'cash', gen_random_uuid(), 'cb5-host-d', gen_random_uuid()),
+    '%Phiên bàn đã thay đổi%');
+  PERFORM pg_temp.must('stale_app_batch: bàn cũ KHÔNG bị mở phiên mới (không bill ma)',
+    public.open_session_id_for_table(v_t[6]) IS NULL
+    AND (SELECT count(*) FROM public.orders WHERE table_id = v_t[6]) = 0);
+
+  -- =====================================================================
+  -- device_only_member: mâm mở, khách chỉ có device id (không cho Zalo UID) đã gọi món → nhận ra
+  -- =====================================================================
+  se := pg_temp.mk_session(v_store, v_t[8], NULL, true);
+  INSERT INTO public.session_tables (session_id, table_id) VALUES (se, v_t[9]);
+  r := public.create_order(v_store, v_t[8], v_items, 'cash', NULL, NULL, 'dine_in',
+                           NULL, NULL, NULL, NULL, '  cb5-dev-only  ');
+  PERFORM pg_temp.must('device_only_member: create_order ghi orders.device_id (đã btrim)',
+    (r->>'session_id')::uuid = se AND r->>'device_id' = 'cb5-dev-only');
+
+  PERFORM public.pos_move_session_table(se, v_t[8], v_t[10]);
+  r := public.get_table_session_state(v_t[8], NULL, 'cb5-dev-only');
+  PERFORM pg_temp.must('device_only_member: chỉ có device id, hỏi bàn cũ → moved sang bàn mới',
+    r->>'state' = 'moved' AND (r->>'session_id')::uuid = se AND (r->>'table_id')::uuid = v_t[10]);
+  r := public.create_order(v_store, v_t[8], v_items, 'cash', NULL, NULL, 'dine_in',
+                           NULL, NULL, NULL, NULL, 'cb5-dev-only');
+  PERFORM pg_temp.must('device_only_member: gọi thêm ở bàn cũ → vào mâm, bàn mới',
+    (r->>'session_id')::uuid = se AND (r->>'table_id')::uuid = v_t[10]
+    AND public.open_session_id_for_table(v_t[8]) IS NULL);
+  r := public.get_table_session_state(v_t[8], NULL, 'cb5-dev-never-ordered');
+  PERFORM pg_temp.must('device_only_member: giới hạn đã biết — người chưa gọi món lần nào thấy bàn cũ trống',
+    r->>'state' = 'free');
+
+  -- =====================================================================
+  -- state_readded_owner: bàn cũ được thêm lại vào chính phiên đó → không chuyển hướng
+  -- =====================================================================
+  sf := pg_temp.mk_session(v_store, v_t[11], 'cb5-host-f');
+  PERFORM public.pos_move_session_table(sf, v_t[11], v_t[12]);
+  INSERT INTO public.session_tables (session_id, table_id) VALUES (sf, v_t[11]);
+  r := public.get_table_session_state(v_t[11], 'cb5-host-f', NULL);
+  PERFORM pg_temp.must('state_readded_owner: phiên giữ lại bàn cũ → owner, không moved',
+    r->>'state' = 'owner' AND (r->>'session_id')::uuid = sf);
+  r := public.create_order(v_store, v_t[11], v_items, 'cash', 'cb5-host-f', NULL, 'dine_in',
+                           NULL, NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.must('state_readded_owner: create_order giữ nguyên bàn được hỏi',
+    (r->>'session_id')::uuid = sf AND (r->>'table_id')::uuid = v_t[11]);
+
+  RAISE NOTICE 'TẤT CẢ CA ĐÃ PASS — giao dịch sẽ ROLLBACK, không để lại dữ liệu';
+END
+$verify105$;
 
 ROLLBACK;
