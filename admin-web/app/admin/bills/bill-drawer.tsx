@@ -12,8 +12,8 @@ import { formatVND, cn } from '@/lib/utils'
 import { instrumentLabel } from '@/lib/daily-report'
 import { printInPlace } from '@/lib/print/print-in-place'
 import type { BillRow } from '@/lib/bills-report'
-import type { BillDetailOrder } from '@/lib/bill-detail'
-import { collectSessionBill, loadBillDetail, redeemBillSpin, runBillOrderAction, type BillOrderAction } from '@/lib/actions/bill-detail'
+import type { BillDetailOrder, SessionMove } from '@/lib/bill-detail'
+import { collectSessionBill, getSessionMoves, loadBillDetail, redeemBillSpin, runBillOrderAction, type BillOrderAction } from '@/lib/actions/bill-detail'
 
 const time = (iso: string) =>
   iso ? new Date(iso).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -49,6 +49,21 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
     return () => { alive = false }
   }, [orderKey, reloadTick])
   const orders = orderKey ? loaded : []
+
+  // Lịch sử chuyển bàn: chỉ bill có phiên bàn mới gọi (đơn mang về/ship không có phiên). Lỗi thì bỏ qua êm —
+  // khối này chỉ là thông tin phụ, không được che bill chính.
+  const [moves, setMoves] = useState<SessionMove[]>([])
+  const sessionKey = row?.sessionIds.join(',') ?? ''
+  useEffect(() => {
+    if (!sessionKey) return
+    let alive = true
+    getSessionMoves(sessionKey.split(',')).then(
+      (res) => { if (alive && res.ok) setMoves(res.moves) },
+      () => {},
+    )
+    return () => { alive = false }
+  }, [sessionKey])
+  const shownMoves = sessionKey ? moves : []
 
   const act = async (key: string, run: () => Promise<{ ok: boolean; error?: string }>) => {
     setBusy(key)
@@ -142,6 +157,18 @@ Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.`)) return
               </Button>
             </div>
           </div>
+        )}
+        {shownMoves.length > 0 && (
+          <section className="rounded-xl border border-border bg-surface px-3 py-2.5">
+            <h3 className="text-[13px] font-semibold text-foreground">Chuyển bàn</h3>
+            <ul className="mt-1 space-y-0.5">
+              {shownMoves.map((m, i) => (
+                <li key={`${m.moved_at}-${i}`} className="text-[13px] text-muted">
+                  <span className="tabular">{time(m.moved_at)}</span> · {m.from_table} → {m.to_table}{m.moved_by_name ? ` · ${m.moved_by_name}` : ''}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
         {error && <p role="alert" className="rounded-lg border border-critical-border bg-critical-bg px-3 py-2 text-[13px] text-critical">{error}</p>}
 

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requirePosOperatorStoreId } from '@/lib/auth/operator'
-import { parseBillDetail, type BillDetailOrder } from '@/lib/bill-detail'
+import { parseBillDetail, parseSessionMoves, type BillDetailOrder, type SessionMove } from '@/lib/bill-detail'
 import { cancelOrder, completeOrder, confirmManualPayment } from '@/lib/actions/orders'
 import { redeemSpin } from '@/lib/actions/spin'
 import { closeTableSession, closeTableSessionsBulk } from '@/lib/actions/table-session'
@@ -44,7 +44,40 @@ export async function loadBillDetail(orderIds: string[]): Promise<{ ok: true; or
   return { ok: true, orders: parseBillDetail(orders.data, spins.data) }
 }
 
-export type BillOrderAction = 'confirm' | 'complete' | 'cancel'
+// Lịch sử chuyển bàn của các phiên thuộc bill. Đọc bằng client đăng nhập (RLS is_store_scoped_operator) + lọc store_id.
+// Tên người chuyển: mevo_operators chỉ cho đọc dòng CỦA CHÍNH MÌNH (policy operator_read_self) và không được dùng
+// service key để đọc → chỉ tên của người đang xem hiện ra, người khác để null (UI bỏ phần tên).
+export async function getSessionMoves(sessionIds: string[]): Promise<{ ok: true; moves: SessionMove[] } | { ok: false; error: string }> {
+  let storeId: string
+  try {
+    storeId = await requirePosOperatorStoreId()
+  } catch {
+    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân mới xem được hoá đơn' }
+  }
+  const ids = Array.isArray(sessionIds) ? sessionIds.filter((x) => typeof x === 'string' && UUID.test(x)).slice(0, MAX_ORDERS) : []
+  if (ids.length === 0) return { ok: true, moves: [] }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('table_session_moves')
+    .select(`moved_at, moved_by,
+      from:tables!table_session_moves_from_table_id_fkey(table_number),
+      to:tables!table_session_moves_to_table_id_fkey(table_number)`)
+    .in('session_id', ids)
+    .eq('store_id', storeId)
+    .order('moved_at', { ascending: true })
+  if (error) return { ok: false, error: error.message }
+
+  const moverIds = [...new Set((data ?? []).map((r) => r.moved_by).filter((x): x is string => typeof x === 'string'))]
+  const names = new Map<string, string>()
+  if (moverIds.length > 0) {
+    const { data: ops } = await supabase.from('mevo_operators').select('user_id, display_name').in('user_id', moverIds)
+    for (const o of ops ?? []) if (o.display_name) names.set(o.user_id, o.display_name)
+  }
+  return { ok: true, moves: parseSessionMoves(data, names) }
+}
+
+export type BillOrderAction ='confirm' | 'complete' | 'cancel'
 
 // Bọc 3 thao tác của trang Đơn hàng cũ. Quyền (chỉ chủ quán, đúng quán) do chính các hàm đó kiểm — giữ nguyên.
 export async function runBillOrderAction(orderId: string, action: BillOrderAction): Promise<{ ok: true } | { ok: false; error: string }> {

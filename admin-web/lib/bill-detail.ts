@@ -51,6 +51,25 @@ export function orderActions(o: MoneyFields & { status: string }, spin: BillDeta
   }
 }
 
+/** Một lần chuyển bàn của phiên (bảng table_session_moves) — hiện trong ngăn "Xem bill". */
+export type SessionMove = { moved_at: string; from_table: string; to_table: string; moved_by_name: string | null }
+
+/** Dòng thô `{moved_at, moved_by, from, to}` (from/to = quan hệ tables) → danh sách theo thời gian tăng dần.
+ *  `names`: user id → tên hiển thị; thiếu thì null. PostgREST có thể trả quan hệ là object hoặc mảng 1 phần tử. */
+export function parseSessionMoves(rows: unknown, names: Map<string, string>): SessionMove[] {
+  const tableNumber = (v: unknown): string => str(obj(Array.isArray(v) ? v[0] : v).table_number) || '—'
+  return arr(rows)
+    .map(obj)
+    .filter((r) => str(r.moved_at) !== '')
+    .map((r) => ({
+      moved_at: str(r.moved_at),
+      from_table: tableNumber(r.from),
+      to_table: tableNumber(r.to),
+      moved_by_name: names.get(str(r.moved_by)) ?? null,
+    }))
+    .sort((a, b) => Date.parse(a.moved_at) - Date.parse(b.moved_at))
+}
+
 export function parseBillDetail(rows: unknown, spins: unknown): BillDetailOrder[] {
   const spinByOrder = new Map<string, BillDetailSpin>()
   for (const s0 of arr(spins)) {

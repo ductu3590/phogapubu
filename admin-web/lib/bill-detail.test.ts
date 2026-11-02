@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { orderActions, parseBillDetail } from './bill-detail'
+import { orderActions, parseBillDetail, parseSessionMoves } from './bill-detail'
 
 const base = {
   id: '71ecd8a3-d8a4-4ae1-8ba3-6064a9cd3f4b', status: 'confirmed', total_amount: 140000, discount_amount: 0,
@@ -82,5 +82,29 @@ describe('orderActions — giữ đúng luật trang Đơn hàng cũ (A04-2)', (
   it('đổi thưởng chỉ khi là quà hiện vật và còn "won"', () => {
     expect(orderActions(money({}), { id: 's', label: 'Giảm 10%', type: 'voucher', status: 'won' }).redeem).toBe(false)
     expect(orderActions(money({}), { id: 's', label: 'Quà', type: 'gift', status: 'redeemed' }).redeem).toBe(false)
+  })
+})
+
+describe('parseSessionMoves (chuyển bàn)', () => {
+  const raw = [
+    { moved_at: '2026-11-02T09:30:00Z', moved_by: 'u2', from: { table_number: 'Bàn 12' }, to: { table_number: 'Bàn 15' } },
+    { moved_at: '2026-11-02T08:15:00Z', moved_by: 'u1', from: { table_number: 'Bàn 4' }, to: { table_number: 'Bàn 12' } },
+  ]
+
+  it('sắp theo moved_at tăng dần, map đúng bàn đi/đến và tên người', () => {
+    expect(parseSessionMoves(raw, new Map([['u1', 'Lan']]))).toEqual([
+      { moved_at: '2026-11-02T08:15:00Z', from_table: 'Bàn 4', to_table: 'Bàn 12', moved_by_name: 'Lan' },
+      { moved_at: '2026-11-02T09:30:00Z', from_table: 'Bàn 12', to_table: 'Bàn 15', moved_by_name: null },
+    ])
+  })
+
+  it('bỏ dòng thiếu thời gian; dữ liệu rác không ném lỗi', () => {
+    expect(parseSessionMoves([{ moved_by: 'u1' }, null, 5], new Map())).toEqual([])
+    expect(parseSessionMoves(null, new Map())).toEqual([])
+  })
+
+  it('PostgREST có thể trả quan hệ dạng mảng', () => {
+    const [m] = parseSessionMoves([{ moved_at: '2026-11-02T08:15:00Z', moved_by: 'u1', from: [{ table_number: 'Bàn 1' }], to: [{ table_number: 'Bàn 2' }] }], new Map())
+    expect(m).toMatchObject({ from_table: 'Bàn 1', to_table: 'Bàn 2' })
   })
 })
