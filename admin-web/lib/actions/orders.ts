@@ -4,6 +4,14 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 import { revalidatePath } from 'next/cache'
 
+// Lỗi chặn của server đưa thẳng cho người dùng, không kèm tiền tố kỹ thuật. Mig 110: lượt thuộc phiên bàn trả sau
+// (đang mở / hết hạn còn nợ) không được thu lẻ — thu cả bàn ở POS → Thanh toán.
+// KHÔNG export: file 'use server' chỉ được export hàm async.
+const SESSION_PAY_BLOCK = 'Bàn trả sau thu cả bàn một lần ở POS (Thanh toán)'
+function rpcError(prefix: string, message: string): Error {
+  return new Error(message.includes(SESSION_PAY_BLOCK) ? SESSION_PAY_BLOCK : `${prefix}: ${message}`)
+}
+
 // Chủ quán xác nhận ĐÃ NHẬN TIỀN (tiền mặt / chuyển khoản) — gọi RPC confirm_manual_payment
 // (SECURITY DEFINER): chỉ owner đúng quán, ghi payment_received_at + payment_received_by (audit),
 // KHÔNG đổi orders.status (tiến độ bếp tách khỏi thanh toán — §4.3). Idempotent.
@@ -13,7 +21,7 @@ export async function confirmManualPayment(orderId: string) {
   await requireStoreOwnerStoreId() // fail-closed: chỉ chủ quán mới gọi được
   const supabase = await createClient()
   const { error } = await supabase.rpc('confirm_manual_payment', { p_order_id: orderId })
-  if (error) throw new Error(`confirmManualPayment: ${error.message}`)
+  if (error) throw rpcError('confirmManualPayment', error.message)
   revalidatePath('/admin/bills')
 }
 
@@ -41,7 +49,7 @@ export async function completeOrder(orderId: string) {
     (order.payment_method === 'zalo_checkout' && order.payment_instrument !== 'wallet')
   if (canConfirmManual && !order.payment_received_at) {
     const { error: payErr } = await supabase.rpc('confirm_manual_payment', { p_order_id: orderId })
-    if (payErr) throw new Error(`completeOrder(pay): ${payErr.message}`)
+    if (payErr) throw rpcError('completeOrder(pay)', payErr.message)
   }
 
   const { error: closeErr } = await supabase.from('orders').update({ status: 'paid' }).eq('id', orderId)

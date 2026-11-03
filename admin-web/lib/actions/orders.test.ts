@@ -52,6 +52,11 @@ describe('confirmManualPayment', () => {
     mocks.rpc.mockResolvedValue({ data: null, error: { message: 'Đơn thanh toán online không xác nhận tay' } })
     await expect(confirmManualPayment('o1')).rejects.toThrow('không xác nhận tay')
   })
+
+  it('mig 110: lượt của bàn trả sau bị chặn → lỗi tiếng Việt nguyên văn, không tiền tố kỹ thuật', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'Bàn trả sau thu cả bàn một lần ở POS (Thanh toán)' } })
+    await expect(confirmManualPayment('o1')).rejects.toThrow(/^Bàn trả sau thu cả bàn một lần ở POS \(Thanh toán\)$/)
+  })
 })
 
 describe('completeOrder', () => {
@@ -93,6 +98,12 @@ describe('completeOrder', () => {
     await completeOrder('o1')
     expect(mocks.rpc).not.toHaveBeenCalled()
     expect(mocks.updateArgs.value).toEqual({ status: 'paid' })
+  })
+
+  it('mig 110: lượt của bàn trả sau bị chặn thu lẻ → báo lỗi sạch, KHÔNG đóng đơn', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'Bàn trả sau thu cả bàn một lần ở POS (Thanh toán)' } })
+    await expect(completeOrder('o1')).rejects.toThrow(/^Bàn trả sau thu cả bàn một lần ở POS \(Thanh toán\)$/)
+    expect(mocks.updateArgs.value).toBeNull()
   })
 
   it('đơn đã huỷ: không hoàn tất', async () => {
