@@ -125,7 +125,6 @@ export default function PosBillPanel(props: PosBillPanelProps) {
   }
   if (list.length === 0) return null
 
-  const tong = list.reduce((n, s) => n + s.total, 0)
   // Số tiền thu + giảm giá cả bill (mig 107/108): tính bằng cùng hàm với server, trên tiền hàng CHƯA thu của từng mâm
   // (đơn đã nhận tiền trước không dính giảm giá, cũng không thu lại). Giảm giá lỗi → payable giữ số trước giảm.
   const { goods, paid, discount, payable, error: discountError } = billTotals(list)
@@ -139,6 +138,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
       : `Phiên hết hạn không giảm giá được: ${expired.map((s) => name(s)).join(', ')}`
   const pending = list.flatMap((s) => s.orders.filter(isReviewableOrder).map((o) => ({ s, o })))
   const pendingTotal = pending.reduce((n, p) => n + p.o.total_amount, 0)
+  const pendingUnpaid = pending.reduce((n, p) => n + (p.o.payment_received_at ? 0 : p.o.total_amount), 0)
   const title = list.length > 1 ? `Gộp bill ${list.length} mâm` : name(list[0])
   const isTray = list.length > 1 || trayColors.has(list[0].session_id)
 
@@ -257,8 +257,12 @@ export default function PosBillPanel(props: PosBillPanelProps) {
         // Hai ô tiền trong đầu bill tối — bản Stitch P03.
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
-            <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Hoá đơn đã duyệt</p>
-            <p className="text-lg font-bold text-white tabular">{dong(tong - pendingTotal)}</p>
+            {/* Cùng nền với màn Thanh toán: tiền hàng CHƯA thu của các lượt đã duyệt, trước giảm giá. Lượt đã thu trước
+                (dữ liệu cũ, trước mig 110) tách riêng để ô này không lớn hơn số sẽ thu. */}
+            <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Đã duyệt · chưa thu</p>
+            <p className="text-lg font-bold text-white tabular">{dong(goods - pendingUnpaid)}</p>
+            {paid > 0 && <p className="text-[12px] text-slate-400">Đã thu trước {dong(paid)}</p>}
+            {discount > 0 && !discountError && <p className="text-[12px] text-slate-400">Chưa trừ giảm giá {dong(discount)}</p>}
           </div>
           <div className={cn('rounded-lg border px-3 py-2', pending.length > 0 ? 'border-amber-500/70 bg-amber-500/15' : 'border-slate-700 bg-slate-800')}>
             <p className={cn('text-[11px] font-bold tracking-wide uppercase', pending.length > 0 ? 'text-amber-300' : 'text-slate-400')}>Chờ duyệt mới</p>
@@ -780,6 +784,9 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   const items = list.flatMap((s) => s.orders.filter((o) => o.status !== 'cancelled').flatMap((o) => o.items))
   const short = method === 'cash' && change.kind === 'short'
   const blocked = short || !!discountError
+  // Giảm giá ĐANG LƯU trên phiên. Lỗi (vd giảm VNĐ > tiền hàng sau khi bỏ món) thì `discount` = 0 để số thu giữ
+  // nguyên trước giảm, nhưng vẫn phải cho thu ngân thấy mức đã đặt và sửa nó — không hiện "Thêm giảm giá".
+  const storedDiscount = discountError ? combinedDiscount(list) : discount
   const giftCount = items.filter((i) => i.void_type === 'gift').length
 
   return (
@@ -819,16 +826,25 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
         {paid > 0 && <p className="mb-1 flex justify-between text-[13px] text-slate-600"><span>Đã thu trước (không tính vào bill này)</span><span className="tabular">{dong(paid)}</span></p>}
         <p className="flex justify-between text-sm text-slate-700"><span>Tổng tiền hàng</span><span className="font-semibold tabular">{dong(goods)}</span></p>
         <p className="mt-1 flex items-center justify-between gap-2 text-sm text-slate-700">
-          <span>Giảm giá{discountLabel ? ` (${discountLabel})` : ''}</span>
-          {expiredNote ? null : (
+          <span>Giảm giá{discountLabel && !discountError ? ` (${discountLabel})` : ''}</span>
+          {expiredNote ? (
+            // Bill gộp có mâm hết hạn: không sửa được giảm giá, nhưng mâm còn mở vẫn được trừ → hiện số để
+            // Tổng tiền hàng − Giảm giá = Khách cần trả cộng được bằng mắt.
+            storedDiscount > 0 ? (
+              <span className={cn('font-semibold tabular', discountError ? 'text-red-700' : 'text-orange-700')}>−{dong(storedDiscount)}</span>
+            ) : null
+          ) : (
             <button
               type="button"
               onClick={onEditDiscount}
               disabled={busy}
               aria-label="Sửa giảm giá hoá đơn"
-              className="min-h-9 cursor-pointer rounded-md border border-orange-300 bg-white px-2.5 font-semibold text-orange-700 tabular hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className={cn(
+                'min-h-9 cursor-pointer rounded-md border bg-white px-2.5 font-semibold tabular disabled:cursor-not-allowed disabled:opacity-60',
+                discountError ? 'border-red-300 text-red-700 hover:bg-red-50' : 'border-orange-300 text-orange-700 hover:bg-orange-100',
+              )}
             >
-              {discount > 0 ? `−${dong(discount)}` : 'Thêm giảm giá'}
+              {discountError ? `Sửa −${dong(storedDiscount)}` : storedDiscount > 0 ? `−${dong(storedDiscount)}` : 'Thêm giảm giá'}
             </button>
           )}
         </p>

@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import type { SessionsBill } from '@/lib/actions/table-session'
 import { useAutoPrint } from '@/lib/print/use-auto-print'
 
@@ -20,8 +21,41 @@ const gio = (iso: string) =>
     minute: '2-digit',
   })
 
+/** Lỗi in khi giảm giá lớn hơn tiền hàng (của một mâm hoặc cả bill) — tổng in ra sẽ thấp hơn thật hoặc âm. */
+export const LOI_GIAM_GIA_IN = 'Giảm giá lớn hơn tiền hàng — sửa lại giảm giá ở POS'
+
+export function billDiscountError(bill: SessionsBill): string | null {
+  const tongTienHang = bill.sessions.reduce((n, ss) => n + ss.subtotal, 0)
+  const giam = bill.grand_discount ?? bill.sessions.reduce((n, ss) => n + (ss.discount ?? 0), 0)
+  const sai =
+    bill.sessions.some((ss) => (ss.discount ?? 0) > ss.subtotal) || giam > tongTienHang || bill.grand_total < 0
+  return sai ? LOI_GIAM_GIA_IN : null
+}
+
+/** "10%" chỉ khi MỌI mâm trong bill đều giảm cùng một mức %; trộn (mâm % với mâm VNĐ / không giảm) → rỗng. */
+export function billDiscountLabel(bill: SessionsBill): string {
+  if (bill.sessions.length === 0) return ''
+  const nhan = bill.sessions.map((ss) => ((ss.discount ?? 0) > 0 ? ss.discount_label ?? '' : ''))
+  return nhan[0] !== '' && nhan.every((n) => n === nhan[0]) ? nhan[0] : ''
+}
+
 export default function PrintBill({ bill, testMode = false }: { bill: SessionsBill; testMode?: boolean }) {
-  useAutoPrint()
+  // Chặn ở MỌI đường in (POS, /staff/tables, Báo cáo): giảm giá sai thì báo lỗi, không in phiếu, không tự in.
+  const loiGiam = billDiscountError(bill)
+  useAutoPrint(!loiGiam)
+  useEffect(() => {
+    // Trang in thường nạp trong iframe ẩn (printInPlace) → người bấm không thấy trang lỗi; báo bằng hộp thoại.
+    if (loiGiam && window.parent !== window) window.alert(loiGiam)
+  }, [loiGiam])
+
+  if (loiGiam) {
+    return (
+      <div role="alert" style={{ padding: 16, textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
+        <p style={{ fontSize: 16, fontWeight: 700, color: '#b91c1c' }}>Không in được hoá đơn</p>
+        <p style={{ marginTop: 6, fontSize: 14 }}>{loiGiam}</p>
+      </div>
+    )
+  }
 
   const nhieuMam = bill.sessions.length > 1
   // Dòng Bỏ/Tặng (0đ) không tính vào số món khách phải trả.
@@ -31,9 +65,8 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
   const giamGia = bill.grand_discount ?? bill.sessions.reduce((n, ss) => n + (ss.discount ?? 0), 0)
   // grand_total đã là tiền SAU giảm → tiền hàng = grand_total + giảm giá (đúng phép tính ở get_sessions_bill).
   const tienHang = bill.grand_total + giamGia
-  // Nhãn "(10%)" chỉ khi mọi mâm có giảm đều cùng một nhãn phần trăm; còn lại in "Giảm giá" trơn.
-  const nhanGiam = new Set(bill.sessions.filter((ss) => (ss.discount ?? 0) > 0).map((ss) => ss.discount_label ?? ''))
-  const nhan = nhanGiam.size === 1 ? [...nhanGiam][0] : ''
+  // Nhãn "(10%)" chỉ khi MỌI mâm giảm cùng một mức %; còn lại in "Giảm giá" trơn.
+  const nhan = billDiscountLabel(bill)
 
   return (
     <>

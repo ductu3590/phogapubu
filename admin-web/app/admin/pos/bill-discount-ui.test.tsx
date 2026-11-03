@@ -99,6 +99,42 @@ describe('PaymentView', () => {
     expect(html).toContain('Thêm giảm giá')
     expect(html).not.toContain('hết hạn')
   })
+
+  it('M1: giảm giá đang lưu bị lỗi → vẫn hiện mức đã lưu + nút sửa đỏ, KHÔNG hiện "Thêm giảm giá"', () => {
+    const s = session({ unpaid_total: 50_000, total: 50_000, bill_discount_type: 'amount', bill_discount_value: 80_000 })
+    const html = view({ list: [s], goods: 50_000, discount: 0, total: 50_000,
+      discountError: 'Giảm giá lớn hơn tiền hàng — sửa lại giảm giá' })
+    expect(html).not.toContain('Thêm giảm giá')
+    expect(html).toMatch(/<button[^>]*aria-label="Sửa giảm giá hoá đơn"[^>]*text-red-700[^>]*>Sửa −80\.000đ<\/button>/)
+    expect(html).toContain('Giảm giá lớn hơn tiền hàng — sửa lại giảm giá')
+  })
+
+  it('M3: gộp bill có mâm hết hạn + mâm còn mở có giảm giá → hiện số giảm (chữ thường) kèm ghi chú hết hạn', () => {
+    const open = session({ session_id: 'a', unpaid_total: 100_000, total: 100_000, bill_discount_type: 'amount', bill_discount_value: 20_000 })
+    const expired = session({ session_id: 'b', status: 'closed', close_reason: 'expired', needs_review: true, unpaid_total: 50_000, total: 50_000 })
+    const html = view({ list: [open, expired], goods: 150_000, discount: 20_000, total: 130_000,
+      expiredNote: 'Phiên hết hạn không giảm giá được: Bàn 5' })
+    expect(html).toContain('−20.000đ')
+    expect(html).toContain('Phiên hết hạn không giảm giá được')
+    expect(html).not.toContain('aria-label="Sửa giảm giá hoá đơn"')
+    expect(html).toContain('150.000đ')
+    expect(html).toContain('130.000đ')
+  })
+})
+
+describe('ô đầu bill "Đã duyệt · chưa thu"', () => {
+  it('dùng tiền CHƯA thu, lượt đã thu trước tách riêng', () => {
+    const html = panel(session({ total: 200_000, unpaid_total: 155_000 }))
+    expect(html).toContain('Đã duyệt · chưa thu')
+    expect(html).not.toContain('Hoá đơn đã duyệt')
+    expect(html).toMatch(/Đã duyệt · chưa thu<\/p><p[^>]*>155\.000đ<\/p>/)
+    expect(html).toContain('Đã thu trước 45.000đ')
+  })
+
+  it('có giảm giá → ghi rõ số chưa trừ giảm giá', () => {
+    const html = panel(session({ bill_discount_type: 'percent', bill_discount_value: 10 }))
+    expect(html).toContain('Chưa trừ giảm giá 15.500đ')
+  })
 })
 
 describe('DiscountDialog', () => {

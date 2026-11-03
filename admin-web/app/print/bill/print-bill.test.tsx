@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import PrintBill from './print-bill'
+import PrintBill, { billDiscountError, billDiscountLabel, LOI_GIAM_GIA_IN } from './print-bill'
 import { buildTestBill } from '@/lib/print/test-bill'
 
 const now = new Date('2026-10-09T12:00:00.000Z')
@@ -112,5 +112,62 @@ describe('PrintBill (PA-5)', () => {
     const html = renderToStaticMarkup(<PrintBill bill={bill} />)
     expect(html).toContain('-15.000')
     expect(html).toContain('385.000đ')
+  })
+
+  it('M2: giảm giá một mâm lớn hơn tiền hàng → báo lỗi, KHÔNG in hoá đơn', () => {
+    const bill = buildTestBill(store, now)
+    bill.sessions[0].subtotal = 50000
+    bill.sessions[0].discount = 80000
+    bill.grand_discount = 80000
+    bill.grand_total = -30000
+    const html = renderToStaticMarkup(<PrintBill bill={bill} />)
+    expect(html).toContain('Giảm giá lớn hơn tiền hàng — sửa lại giảm giá ở POS')
+    expect(html).toContain('role="alert"')
+    expect(html).not.toContain('HOÁ ĐƠN')
+    expect(html).not.toContain('Khách cần trả')
+    expect(html).not.toContain('TỔNG CỘNG')
+  })
+
+  it('M2: grand_discount lớn hơn tổng tiền hàng (dù từng mâm không thiếu trường) → báo lỗi', () => {
+    const bill = buildTestBill(store, now)
+    const sub = bill.sessions[0].subtotal
+    bill.grand_discount = sub + 1
+    bill.grand_total = 0
+    expect(billDiscountError(bill)).toBe(LOI_GIAM_GIA_IN)
+    expect(renderToStaticMarkup(<PrintBill bill={bill} />)).not.toContain('Khách cần trả')
+  })
+
+  it('M2: giảm giá bằng đúng tiền hàng vẫn in (0đ hợp lệ)', () => {
+    const bill = buildTestBill(store, now)
+    const sub = bill.sessions[0].subtotal
+    bill.sessions[0].discount = sub
+    bill.grand_discount = sub
+    bill.grand_total = 0
+    expect(billDiscountError(bill)).toBeNull()
+    expect(renderToStaticMarkup(<PrintBill bill={bill} />)).toContain('Khách cần trả')
+  })
+
+  it('M4: gộp mâm 10% với mâm KHÔNG giảm → in "Giảm giá" trơn, không "(10%)"', () => {
+    const bill = buildTestBill(store, now)
+    bill.sessions.push({ ...bill.sessions[0], session_id: 'm2', tables: 'Bàn mẫu 2', discount: 0, discount_label: null })
+    bill.sessions[0].discount = 20000
+    bill.sessions[0].discount_label = '10%'
+    bill.grand_discount = 20000
+    bill.grand_total = 2 * bill.sessions[1].subtotal - 20000
+    const html = renderToStaticMarkup(<PrintBill bill={bill} />)
+    expect(html).toContain('Giảm giá')
+    expect(html).not.toContain('Giảm giá (')
+  })
+
+  it('M4: gộp mâm 10% với mâm 5% → nhãn trơn; mọi mâm cùng 10% → "(10%)"', () => {
+    const bill = buildTestBill(store, now)
+    bill.sessions.push({ ...bill.sessions[0], session_id: 'm2', tables: 'Bàn mẫu 2', discount: 10000, discount_label: '5%' })
+    bill.sessions[0].discount = 20000
+    bill.sessions[0].discount_label = '10%'
+    expect(billDiscountLabel(bill)).toBe('')
+    bill.sessions[1].discount_label = '10%'
+    expect(billDiscountLabel(bill)).toBe('10%')
+    bill.sessions[1].discount = 0
+    expect(billDiscountLabel(bill)).toBe('')
   })
 })
