@@ -40,6 +40,7 @@ Thành công = thu ngân Yên Garden làm được hai việc này trên POS **k
 - Bàn đích phải **đang trống** (không thuộc phiên mở nào). Bàn đang có khách không xuất hiện trong danh sách chọn; RPC cũng chặn lại.
 - Mọi thứ của bàn đi theo: lượt đã gọi, lượt chờ duyệt, món Bỏ/Tặng/sửa số lượng, giờ khách bắt đầu ngồi, cờ mâm mở, chủ phiên. Không tính lại gì, không mất gì.
 - Bàn thuộc **mâm nhiều bàn**: đổi **từng bàn một** (mâm Bàn 3 + Bàn 4 → chỉ đổi Bàn 4 sang Bàn 12). Muốn dời cả mâm thì đổi lần lượt.
+  - *Bổ sung Sprint CB-2 (mig 106)*: mâm nhiều bàn có thêm lựa chọn **"Chuyển cả mâm sang một bàn"** — dồn N bàn của mâm vào MỘT bàn trống (N→1) trong một giao dịch, vẫn một phiên/một bill; cùng luật bàn đích (trống, chặn khung giữ đặt bàn, hỏi khi có lịch muộn). Đổi từng bàn một vẫn giữ.
 - Bàn đích **đang trong khung giữ cho khách đặt** (`table_has_current_reservation_hold` = true lúc chuyển): **CHẶN** — không có trong danh sách chọn, RPC cũng từ chối ("Bàn 12 đang giữ cho khách đặt lúc HH:MM"). Lý do: server đang chặn mọi đơn khách gọi vào bàn đang giữ (mig 076/078), cho chuyển vào thì nhóm khách vừa chuyển không gọi thêm được. Luật giữ bàn **không đổi**. *(anh Tú chốt 2026-11-02)*
 - Bàn đích có **lịch đặt muộn hơn trong ngày** nhưng chưa tới khung giữ: vẫn cho chuyển, POS hỏi xác nhận kèm giờ hẹn, cùng tinh thần "Vẫn dùng bàn này" ở màn nhân viên.
 - Không in gì, không báo bếp.

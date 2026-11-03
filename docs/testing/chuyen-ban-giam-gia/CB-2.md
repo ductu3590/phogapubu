@@ -12,7 +12,7 @@ CB-2 gồm hai thay đổi:
 
 - **Mỗi bài dùng bàn riêng** (bảng dưới) và **dọn bàn xong mới sang bài sau**. Bài nào có dòng "Dọn" thì làm đủ dòng đó — nếu bỏ qua, bài sau sẽ báo FAIL oan (bàn đích còn đang có khách).
 - **"Dọn — bỏ bàn"** = POS → mở bill bàn đó → **Thao tác khác** → **Bỏ bàn (không thu tiền)** → bấm **Bỏ bàn** trong hộp thoại.
-- **"Dọn — thu tiền"** = POS → bill bàn đó → **Thanh toán** → **Xác nhận đã nhận** (tiền mặt). Chỉ dùng ở bài 3 (để bài 6 xem lại trong báo cáo). Ghi món rẻ thôi, đơn này sẽ vào báo cáo hôm nay.
+- **"Dọn — thu tiền"** = POS → bill bàn đó → **Thanh toán** → **Xác nhận đã nhận** (tiền mặt). Chỉ dùng ở bài 3 (để bài 7 xem lại trong báo cáo). Ghi món rẻ thôi, đơn này sẽ vào báo cáo hôm nay.
 - **Dựng một bill có món trên POS** (khi bài cần "bàn đang có khách"): nút **Khách lẻ** → chọn bàn → ghi 1 món → gửi.
 - **Dựng mâm**: POS → **Ghép mâm** → chọn các bàn → ghi 1–2 món.
 - **Hai điện thoại khác nhau**: **Điện thoại 1** (khách trong mâm) và **Điện thoại 2** (khách lạ). "Khách lạ" phải là **máy khác hẳn**, KHÔNG phải cùng máy đăng nhập tài khoản Zalo khác — hệ thống nhận khách theo tài khoản Zalo **hoặc** theo máy, nên cùng một máy đổi tài khoản vẫn có thể bị nhận ra.
@@ -22,10 +22,11 @@ CB-2 gồm hai thay đổi:
 |---|---|---|
 | 1 | Bàn 1 | Bàn 12 (có lịch đặt muộn) |
 | 2 | Bàn 2 | — |
-| 3 | Mâm Bàn 6 + Bàn 7 | Bàn 13 |
+| 3 | Mâm Bàn 6 + Bàn 7 | Bàn 13. Bước 6 (chế độ cũ): mâm Bàn 10 + Bàn 11 → Bàn 16 |
 | 4 | Mâm Bàn 8 + Bàn 9 | Bàn 14 |
 | 5 | Mâm Bàn 4 + Bàn 5 | Bàn 3 (đang có khách, phải KHÔNG hiện), Bàn 15 (đang giữ đặt bàn, phải KHÔNG hiện) |
-| 6 | (xem lại bill bài 3) | |
+| 6 | Mâm Bàn 17 + Bàn 18 | Bàn 19 (có lịch đặt đã xác nhận muộn hơn > 60 phút) |
+| 7 | (xem lại bill bài 3) | |
 
 ## 0. Chuẩn bị (làm TRƯỚC khi test)
 
@@ -86,9 +87,9 @@ Ví dụ bây giờ **19:00**.
    - Thông báo nổi xanh kiểu **"Đã chuyển Bàn 6, Bàn 7 → Bàn 13"**.
    - Panel bill vẫn mở trên phiên đó; mâm giờ chỉ còn **một bàn là Bàn 13**. **Bàn 6 và Bàn 7 đều trống**; Bàn 13 có khách (Timeline/sơ đồ).
    - Bill **nguyên vẹn**: cùng các món, **tổng tiền không đổi**.
-   - Vẫn là **mâm** (còn nhãn/màu mâm): ai trong nhóm cũng gọi thêm được qua QR (kiểm ở bài 4).
-6. Dựng thêm một **mâm khác 2 bàn** trong lúc chưa dọn thì bấm "Đổi một bàn" ở mâm đó để chắc chế độ cũ vẫn chạy: hiện lại ô "Bàn cần đổi", chọn một bàn rồi chọn bàn đích → chuyển một bàn như CB-1 bài 5. (Không bắt buộc nếu CB-1 bài 5 đã PASS gần đây; nếu làm thì dọn mâm đó bằng bỏ bàn.)
-7. **Dọn — thu tiền** bill Bàn 13 (để bài 6 xem lại).
+   - Bàn 13 hiện như **một bàn lẻ bình thường** (không còn màu/nhãn mâm) — đúng thiết kế, vì POS chỉ coi phiên từ 2 bàn trở lên là mâm. Cả nhóm vẫn gọi thêm qua QR được (kiểm ở bài 4).
+6. (Không bắt buộc nếu CB-1 bài 5 đã PASS gần đây.) Kiểm chế độ cũ vẫn chạy: dựng thêm mâm **Bàn 10 + Bàn 11** (Ghép mâm), ghi 1 món. Mở bill → Thao tác khác → để nguyên **"Đổi một bàn"** → hiện ô "Bàn cần đổi", chọn **Bàn 11**, rồi chọn bàn đích **Bàn 16** → thông báo "Đã chuyển Bàn 11 → Bàn 16"; mâm giờ là **Bàn 10 + Bàn 16**. **Dọn — bỏ bàn** mâm đó (Bỏ bàn).
+7. **Dọn — thu tiền** bill Bàn 13 (để bài 7 xem lại).
 - [ ] PASS  [ ] FAIL
 
 ### 4. Khách đã gọi món ở bàn cũ thứ hai mở lại app → thấy "đã chuyển", gọi món vào đúng bill
@@ -113,14 +114,24 @@ Luật giữ bàn: như bài 1 (lịch **Đã xác nhận** giữ từ 60 phút 
 6. Không chuyển gì. **Dọn**: huỷ lịch đặt Bàn 15; **bỏ bàn** Bàn 3; **bỏ bàn** mâm Bàn 4 + 5.
 - [ ] PASS  [ ] FAIL
 
+### 6. Chuyển cả mâm vào bàn có lịch đặt muộn → hộp thoại trong app
+Luật như bài 1. Ví dụ bây giờ **19:00**.
+1. Tạo trên POS (Đặt bàn) lịch **Bàn 19, giờ hẹn 21:00** (hôm nay) rồi bấm **Xác nhận** (*Đã xác nhận*). (Cần giờ hẹn cách bây giờ trên 60 phút và vẫn trong hôm nay.)
+2. Dựng mâm **Bàn 17 + Bàn 18** (Ghép mâm), ghi 1 món. Mở bill mâm → **Thao tác khác** → **Chuyển cả mâm sang một bàn**.
+3. Trong danh sách, **Bàn 19** hiện kèm "· có khách đặt lúc 21:00". Chọn **Bàn 19**.
+4. Mong đợi: hộp thoại **trong app** tiêu đề **"Bàn 19 có khách đặt lúc 21:00"**, hai nút **Huỷ** / **Vẫn chuyển**.
+5. Bấm **Huỷ** → hộp đóng, không chuyển gì (mâm vẫn Bàn 17 + 18, Bàn 19 trống). Chọn lại Bàn 19 → **Vẫn chuyển** → thông báo xanh "Đã chuyển Bàn 17, Bàn 18 → Bàn 19"; bill nằm ở Bàn 19; Bàn 17 và 18 trống.
+6. **Dọn**: huỷ lịch đặt Bàn 19; **bỏ bàn** Bàn 19.
+- [ ] PASS  [ ] FAIL
+
 ---
 
 ## Phần 3 — A04
 
-### 6. A04 hiện một dòng chuyển bàn cho mỗi bàn cũ của mâm
+### 7. A04 hiện một dòng chuyển bàn cho mỗi bàn cũ của mâm
 1. Vào `/admin/bills` (hôm nay) → mở ngăn **Xem bill** của bill **Bàn 13** (đã thu tiền ở bài 3).
 2. Mong đợi: khối **"Chuyển bàn"** có **hai dòng**, dạng `HH:mm · Bàn 6 → Bàn 13 · <tên người chuyển>` và `HH:mm · Bàn 7 → Bàn 13 · <tên người chuyển>` — mỗi bàn cũ một dòng, cùng trỏ về bàn đích.
-3. Mở thêm một bill khác (nếu CB-1 còn bill chuyển bàn trong ngày) rồi mở lại bill Bàn 13: lịch sử của bill này **không** được hiện dưới bill kia.
+3. Khối chỉ có **đúng hai dòng** này — không lẫn dòng chuyển bàn của bill khác trong ngày (ví dụ mở thử bill Bàn 6/7 nếu có bill nào khác ở A04, rồi mở lại bill Bàn 13).
 4. Ghi chú đã biết (giống CB-1 bài 12): **tên người chuyển chỉ hiện khi chính người đó đang xem**; người khác xem thì giờ + bàn vẫn đúng, tên có thể trống. Không tính FAIL.
 - [ ] PASS  [ ] FAIL
 
