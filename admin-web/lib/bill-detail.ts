@@ -22,7 +22,10 @@ export type BillDetailActions = { confirm: boolean; complete: boolean; cancel: b
 
 export type BillDetailOrder = {
   id: string; code: string; createdAt: string; status: string; statusLabel: string; tableLabel: string
-  total: number; discount: number; voucherCode: string | null; note: string | null
+  total: number; discount: number
+  /** Mig 108: phần giảm giá cả bill đã chia vào đơn này lúc thu tiền. `total` là tiền SAU khi trừ phần này (dòng món vẫn giá gốc). */
+  billDiscount: number
+  voucherCode: string | null; note: string | null
   customerName: string | null; customerPhone: string | null; deliveryAddress: string | null
   tags: OrderTag[]; payment: PaymentBadge; inSession: boolean
   rejected: boolean; rejectReason: string | null
@@ -91,7 +94,7 @@ export function parseBillDetail(rows: unknown, spins: unknown): BillDetailOrder[
       id, code: billCode([], id ? [id] : []), createdAt: str(r.created_at), status,
       statusLabel: ORDER_STATUS_LABEL[status] ?? status,
       tableLabel: strOrNull(obj(r.tables).table_number) ?? (r.order_type === 'pickup' ? 'Mang về' : r.order_type === 'delivery' ? 'Ship' : '—'),
-      total: num(r.total_amount), discount: num(r.discount_amount), voucherCode: strOrNull(obj(r.vouchers).code),
+      total: num(r.total_amount), discount: num(r.discount_amount), billDiscount: num(r.bill_discount_amount), voucherCode: strOrNull(obj(r.vouchers).code),
       note: strOrNull(r.note), customerName: strOrNull(r.customer_name), customerPhone: strOrNull(r.customer_phone),
       deliveryAddress: strOrNull(r.delivery_address),
       tags: orderTags(strOrNull(r.order_source), strOrNull(r.order_type)),

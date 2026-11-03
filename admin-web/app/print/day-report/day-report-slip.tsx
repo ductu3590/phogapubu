@@ -71,11 +71,12 @@ export default function DayReportSlip({ storeName, date, printedAt, printedBy, t
         <Row name="Số hoá đơn đã thu" value={String(totals.billsCount)} />
         <hr />
         {s.waitingCount > 0 && <Row name={`Còn chưa thu (${s.waitingCount})`} value={dong(s.waitingTotal)} strong />}
+        {s.discountTotal > 0 && <Row name="Giảm giá" value={dong(s.discountTotal)} />}
         {s.cancelledCount > 0 && <Row name={`Đơn huỷ / từ chối (${s.cancelledCount})`} value={dong(s.cancelledTotal)} />}
         {s.giftCount > 0 && <Row name={`Tặng (${s.giftCount} lần)`} value={dong(s.giftTotal)} />}
         {s.voidCount > 0 && <Row name={`Bỏ (${s.voidCount} lần)`} value={dong(s.voidTotal)} />}
         {s.quantityChangeCount > 0 && <Row name="Sửa số lượng" value={`${s.quantityChangeCount} lần`} />}
-        {s.waitingCount + s.cancelledCount + s.giftCount + s.voidCount + s.quantityChangeCount === 0 && (
+        {s.waitingCount + s.cancelledCount + s.discountTotal + s.giftCount + s.voidCount + s.quantityChangeCount === 0 && (
           <div style={{ fontSize: 11 }}>Không có khoản chưa thu, huỷ hay điều chỉnh.</div>
         )}
         <hr />

@@ -43,6 +43,15 @@ describe('parseBillDetail (A04-2)', () => {
     expect(v).toMatchObject({ discount: 10000, voucherCode: 'SHIP-ABC123' })
   })
 
+  it('GG-1: giảm giá cả bill (mig 108) — total là tiền SAU giảm, dòng món vẫn gốc; thiếu cột → 0', () => {
+    const [none] = parseBillDetail([base], [])
+    expect(none.billDiscount).toBe(0)
+    const [d] = parseBillDetail([{ ...base, total_amount: 100000, bill_discount_amount: 15500 }], [])
+    expect(d.billDiscount).toBe(15500)
+    expect(d.total).toBe(100000)
+    expect(parseBillDetail([{ ...base, bill_discount_amount: 'rác' }], [])[0].billDiscount).toBe(0)
+  })
+
   it('gắn kết quả vòng quay theo order_id', () => {
     const [w] = parseBillDetail([base], [{ id: 'sp1', order_id: base.id, reward_label: 'Tặng 1 đĩa lạc', reward_type: 'gift', status: 'won' }])
     expect(w.spin).toEqual({ id: 'sp1', label: 'Tặng 1 đĩa lạc', type: 'gift', status: 'won' })

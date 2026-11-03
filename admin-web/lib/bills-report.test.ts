@@ -30,7 +30,7 @@ const raw = {
     },
     {
       key: 'O:y', paid_at: '2026-10-12T12:10:00Z', opened_at: '2026-10-12T12:00:00Z', session_ids: [], order_ids: ['aaaaaaaa-0000-0000-0000-0000001234ab'],
-      merged: false, tables_count: 0, total: 100000, discount_total: 10000, instrument: 'bank', order_type: 'pickup',
+      merged: false, tables_count: 0, total: 100000, discount_total: 10000, bill_discount: 4000, instrument: 'bank', order_type: 'pickup',
       items_count: 2, table_label: 'Mang về', customer_name: 'Chị Hoa', party_size: null, adjustments_count: 0, received_by_name: null,
     },
   ],
@@ -64,6 +64,8 @@ describe('parseBillsReport (A04-1)', () => {
     expect(report.totals).toEqual({ revenue: 300000, cash: 200000, bank: 100000, other: 0, billsCount: 2 })
     expect(report.open).toEqual({ tablesCount: 1, provisionalTotal: 150000 })
     expect(report.bills[0].sessionIds).toEqual([S1, S2])
+    expect(report.bills[0].billDiscount).toBe(0)
+    expect(report.bills[1]).toMatchObject({ discountTotal: 10000, billDiscount: 4000 })
     expect(report.waiting[0].expired).toBe(true)
     expect(report.cancelled[0].kind).toBe('rejected')
     expect(report.adjustments[0]).toMatchObject({ type: 'quantity', oldQuantity: 6, newQuantity: 4, amount: -24000 })
@@ -180,12 +182,24 @@ describe('daySummary — số liệu phụ cho phiếu cuối ngày + Excel (A04
     expect(daySummary(r)).toEqual({
       waitingCount: 2, waitingTotal: 155000, cancelledCount: 2, cancelledTotal: 50000,
       giftCount: 2, giftTotal: 60000, voidCount: 1, voidTotal: 40000, quantityChangeCount: 1,
+      discountTotal: 0, billDiscountTotal: 0,
     })
+  })
+  it('GG-1: cộng giảm giá các bill đã thu (discount_total đã gồm giảm giá bill); thiếu bill_discount → 0', () => {
+    const r = parseBillsReport({
+      bills: [
+        { key: 'a', total: 139500, discount_total: 15500, bill_discount: 15500 },
+        { key: 'b', total: 90000, discount_total: 10000, bill_discount: 4000 },
+        { key: 'c', total: 50000 },
+      ],
+    })
+    expect(daySummary(r)).toMatchObject({ discountTotal: 25500, billDiscountTotal: 19500 })
   })
   it('báo cáo rỗng → toàn 0', () => {
     expect(daySummary(parseBillsReport(null))).toEqual({
       waitingCount: 0, waitingTotal: 0, cancelledCount: 0, cancelledTotal: 0,
       giftCount: 0, giftTotal: 0, voidCount: 0, voidTotal: 0, quantityChangeCount: 0,
+      discountTotal: 0, billDiscountTotal: 0,
     })
   })
 })

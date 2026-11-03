@@ -27,6 +27,14 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
   // Dòng Bỏ/Tặng (0đ) không tính vào số món khách phải trả.
   const soMon = bill.sessions.reduce((n, ss) => n + ss.items.filter((it) => !it.void_type && !it.is_gift).reduce((m, it) => m + it.quantity, 0), 0)
 
+  // Giảm giá bill (mig 108). Server cũ không trả trường → coi như 0 và in như trước.
+  const giamGia = bill.grand_discount ?? bill.sessions.reduce((n, ss) => n + (ss.discount ?? 0), 0)
+  // grand_total đã là tiền SAU giảm → tiền hàng = grand_total + giảm giá (đúng phép tính ở get_sessions_bill).
+  const tienHang = bill.grand_total + giamGia
+  // Nhãn "(10%)" chỉ khi mọi mâm có giảm đều cùng một nhãn phần trăm; còn lại in "Giảm giá" trơn.
+  const nhanGiam = new Set(bill.sessions.filter((ss) => (ss.discount ?? 0) > 0).map((ss) => ss.discount_label ?? ''))
+  const nhan = nhanGiam.size === 1 ? [...nhanGiam][0] : ''
+
   return (
     <>
       {/* Khổ 80mm: vùng in rộng ~72mm. Đặt @page để không dính lề mặc định của trình duyệt. */}
@@ -136,8 +144,20 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
           <span className="name">Tổng số món</span>
           <span className="num">{soMon}</span>
         </div>
+        {giamGia > 0 && (
+          <>
+            <div className="row" style={{ marginTop: 2 }}>
+              <span className="name">Tổng tiền hàng</span>
+              <span className="num">{dong(tienHang)}</span>
+            </div>
+            <div className="row">
+              <span className="name">Giảm giá{nhan ? ` (${nhan})` : ''}</span>
+              <span className="num">-{dong(giamGia)}</span>
+            </div>
+          </>
+        )}
         <div className="row" style={{ fontSize: 15, fontWeight: 700, marginTop: 2 }}>
-          <span className="name">TỔNG CỘNG</span>
+          <span className="name">{giamGia > 0 ? 'Khách cần trả' : 'TỔNG CỘNG'}</span>
           <span className="num">{dong(bill.grand_total)}đ</span>
         </div>
 

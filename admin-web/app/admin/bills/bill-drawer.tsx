@@ -251,6 +251,12 @@ function OrderBlock({ o, index, canManage, busy, onAction, onRedeem }: {
             <span className="tabular">−{formatVND(o.discount)}</span>
           </p>
         )}
+        {o.billDiscount > 0 && (
+          <p className="flex justify-between text-sm text-success">
+            <span>Giảm giá bill</span>
+            <span className="tabular">−{formatVND(o.billDiscount)}</span>
+          </p>
+        )}
         <p className="flex justify-between border-t border-border pt-2 text-sm font-semibold text-foreground">
           <span>Cộng lượt</span><span className="tabular">{formatVND(o.total)}</span>
         </p>

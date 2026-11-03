@@ -64,4 +64,53 @@ describe('PrintBill (PA-5)', () => {
     expect(html).toContain('Tổng số món')
     expect(html).toContain('Ngồi 1g 20p')
   })
+  it('GG-1: bill có giảm giá in Tổng tiền hàng, Giảm giá (10%) -15.500 và Khách cần trả (đã trừ)', () => {
+    const bill = buildTestBill(store, now)
+    bill.sessions[0].subtotal = 155000
+    bill.sessions[0].discount = 15500
+    bill.sessions[0].discount_label = '10%'
+    bill.grand_total = 139500
+    bill.grand_discount = 15500
+    const html = renderToStaticMarkup(<PrintBill bill={bill} />)
+    expect(html).toContain('Tổng tiền hàng')
+    expect(html).toContain('155.000')
+    expect(html).toContain('Giảm giá (10%)')
+    expect(html).toContain('-15.500')
+    expect(html).toContain('Khách cần trả')
+    expect(html).toContain('139.500đ')
+  })
+
+  it('GG-1: giảm giá VNĐ (không nhãn %) vẫn in dòng Giảm giá', () => {
+    const bill = buildTestBill(store, now)
+    bill.sessions[0].discount = 20000
+    bill.grand_total = 180000
+    bill.grand_discount = 20000
+    const html = renderToStaticMarkup(<PrintBill bill={bill} />)
+    expect(html).toContain('Giảm giá')
+    expect(html).not.toContain('Giảm giá (')
+    expect(html).toContain('-20.000')
+    expect(html).toContain('200.000')
+    expect(html).toContain('180.000đ')
+  })
+
+  it('GG-1: không giảm giá (hoặc server cũ không trả trường) → không có chữ "Giảm giá"', () => {
+    const bill = buildTestBill(store, now)
+    expect(renderToStaticMarkup(<PrintBill bill={bill} />)).not.toContain('Giảm giá')
+    bill.sessions[0].discount = 0
+    bill.sessions[0].discount_label = null
+    bill.grand_discount = 0
+    const html = renderToStaticMarkup(<PrintBill bill={bill} />)
+    expect(html).not.toContain('Giảm giá')
+    expect(html).toContain('TỔNG CỘNG')
+  })
+
+  it('GG-1: gộp nhiều mâm — grand_discount thiếu thì cộng discount từng mâm', () => {
+    const bill = buildTestBill(store, now)
+    bill.sessions.push({ ...bill.sessions[0], session_id: 'm2', tables: 'Bàn mẫu 2', discount: 5000, discount_label: null })
+    bill.sessions[0].discount = 10000
+    bill.grand_total = 400000 - 15000
+    const html = renderToStaticMarkup(<PrintBill bill={bill} />)
+    expect(html).toContain('-15.000')
+    expect(html).toContain('385.000đ')
+  })
 })

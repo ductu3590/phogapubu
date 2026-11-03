@@ -11,6 +11,7 @@ const base = {
   summary: {
     waitingCount: 1, waitingTotal: 150000, cancelledCount: 14, cancelledTotal: 2100000,
     giftCount: 1, giftTotal: 135000, voidCount: 0, voidTotal: 0, quantityChangeCount: 2,
+    discountTotal: 0, billDiscountTotal: 0,
   },
 }
 
@@ -42,6 +43,14 @@ describe('Phiếu báo cáo cuối ngày 80mm (A04-3)', () => {
     expect(html).toContain('Tặng')
     expect(html).toContain('Sửa số lượng')
     expect(html).not.toContain('>Bỏ ')
+  })
+
+  it('GG-1: có giảm giá thì in dòng "Giảm giá" (gồm cả giảm giá bill), không có thì ẩn', () => {
+    expect(renderToStaticMarkup(<DayReportSlip {...base} />)).not.toContain('Giảm giá')
+    const html = renderToStaticMarkup(<DayReportSlip {...base} summary={{ ...base.summary, discountTotal: 25500, billDiscountTotal: 15500 }} />)
+    expect(html).toContain('Giảm giá')
+    expect(html).toContain('25.500')
+    expect(html).not.toContain('Voucher')
   })
 
   it('nhắc đối chiếu chuyển khoản với app ngân hàng (không ghi "đã khớp") + chỗ ký bàn giao; KHÔNG quảng cáo MEVO', () => {

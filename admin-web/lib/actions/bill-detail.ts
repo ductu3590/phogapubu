@@ -30,7 +30,7 @@ export async function loadBillDetail(orderIds: string[]): Promise<{ ok: true; or
   const [orders, spins] = await Promise.all([
     supabase
       .from('orders')
-      .select(`id, status, total_amount, discount_amount, payment_method, payment_instrument, payment_received_at,
+      .select(`id, status, total_amount, discount_amount, bill_discount_amount, payment_method, payment_instrument, payment_received_at,
         zalopay_trans_id, bank_handoff_at, session_id, order_source, order_type, created_at, note, customer_name,
         customer_phone, delivery_address, rejected_at, rejection_reason_code, rejection_reason_note,
         tables(table_number), vouchers(code),

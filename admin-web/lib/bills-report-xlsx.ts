@@ -41,6 +41,9 @@ export function buildBillsWorkbook(report: BillsReport, meta: BillsWorkbookMeta)
   line('Chuyển khoản', report.totals.bank, true)
   line('Ví / khác', report.totals.other, true)
   line('Số hoá đơn đã thu', report.totals.billsCount)
+  // Doanh thu ở trên đã là tiền SAU giảm giá; hai dòng này chỉ để chủ quán thấy đã giảm bao nhiêu.
+  line('Giảm giá (tổng)', s.discountTotal, true)
+  line('Trong đó giảm giá bill', s.billDiscountTotal, true)
   sum.addRow([])
   line('Chờ thu (bàn / đơn)', s.waitingCount)
   line('Tạm tính chưa thu', s.waitingTotal, true)
@@ -61,7 +64,7 @@ export function buildBillsWorkbook(report: BillsReport, meta: BillsWorkbookMeta)
     { header: 'Mã', width: 11 }, { header: 'Trạng thái', width: 17 }, { header: 'Bàn', width: 18 },
     { header: 'Khách', width: 20 }, { header: 'Số khách', width: 9 }, { header: 'Vào', width: 12 },
     { header: 'Thu / huỷ lúc', width: 13 }, { header: 'Số món', width: 8 }, { header: 'Phương thức', width: 16 },
-    { header: 'Giảm giá', width: 11, style: { numFmt: MONEY } }, { header: 'Số tiền', width: 13, style: { numFmt: MONEY } },
+    { header: 'Giảm giá', width: 11, style: { numFmt: MONEY } }, { header: 'Giảm giá bill', width: 13, style: { numFmt: MONEY } }, { header: 'Số tiền', width: 13, style: { numFmt: MONEY } },
     { header: 'Người thu', width: 22 }, { header: 'Ghi chú', width: 28 },
   ]
   bills.getRow(1).font = { bold: true }
@@ -70,7 +73,7 @@ export function buildBillsWorkbook(report: BillsReport, meta: BillsWorkbookMeta)
       r.code, statusText(r), r.tableLabel, r.customerName ?? '', r.partySize ?? null,
       startedLabel(r.startedAt, meta.date), r.kind === 'waiting' ? '' : startedLabel(r.at, meta.date), r.itemsCount,
       r.kind === 'paid' && r.instrument ? instrumentLabel(r.instrument) : r.kind === 'waiting' ? 'Tạm tính' : '',
-      r.discountTotal > 0 ? r.discountTotal : null, r.amount, r.receivedByName ?? '',
+      r.discountTotal > 0 ? r.discountTotal : null, r.billDiscount > 0 ? r.billDiscount : null, r.amount, r.receivedByName ?? '',
       r.kind === 'cancelled' ? (r.reasonText ?? '') : r.adjustmentsCount > 0 ? `${r.adjustmentsCount} điều chỉnh` : '',
     ])
   }

@@ -9,7 +9,7 @@ const report = parseBillsReport({
   open: { tables_count: 0, provisional_total: 0 },
   bills: [
     { key: 'C:1', paid_at: '2026-10-09T04:15:00Z', opened_at: '2026-10-09T02:22:00Z', session_ids: ['00000000-0000-0000-0000-00000000b30a'],
-      order_ids: ['o1'], merged: true, tables_count: 2, total: 587000, discount_total: 0, instrument: 'cash', order_type: 'dine_in',
+      order_ids: ['o1'], merged: true, tables_count: 2, total: 587000, discount_total: 15500, bill_discount: 15500, instrument: 'cash', order_type: 'dine_in',
       items_count: 5, table_label: 'Bàn 8, Bàn 9', customer_name: 'Anh Tú', party_size: 8, adjustments_count: 0, received_by_name: 'Thu ngân Lan' },
   ],
   waiting: [],
@@ -49,6 +49,8 @@ describe('Excel báo cáo ngày (A04-3)', () => {
     expect(find('Tiền mặt').value).toBe(992000)
     expect(find('Chuyển khoản').value).toBe(289000)
     expect(find('Số hoá đơn đã thu').value).toBe(3)
+    expect(find('Giảm giá (tổng)').value).toBe(15500)
+    expect(find('Trong đó giảm giá bill').value).toBe(15500)
     expect(find('Quán').value).toBe('Bia lẩu Bảo Lương')
     expect(find('Ngày').value).toBe('09/10/2026')
     expect(find('Xuất lúc').value).toBe('09/10/2026 22:00')
@@ -61,6 +63,14 @@ describe('Excel báo cáo ngày (A04-3)', () => {
     const all = [values(2), values(3)]
     const paid = all.find((v) => v[1] === 'Đã thanh toán')!
     expect(paid).toEqual(expect.arrayContaining(['Bàn 8, Bàn 9', 'Anh Tú', 8, '09:22', '11:15', 5, 'Tiền mặt', 587000, 'Thu ngân Lan']))
+    // GG-1: cột Giảm giá (tổng, gồm voucher) và Giảm giá bill tách riêng.
+    const header = (ws.getRow(1).values as unknown[]).slice(1)
+    const iBill = header.indexOf('Giảm giá bill')
+    expect(iBill).toBeGreaterThan(-1)
+    expect(paid[header.indexOf('Giảm giá')]).toBe(15500)
+    expect(paid[iBill]).toBe(15500)
+    const cancelledRow = all.find((v) => v[1] === 'Từ chối')!
+    expect(cancelledRow[iBill] == null || cancelledRow[iBill] === '').toBe(true)
     const cancelled = all.find((v) => v[1] === 'Từ chối')!
     expect(cancelled).toEqual(expect.arrayContaining(['#DA5382', 'Bàn 9', 274000, 'Hết đồ']))
   })

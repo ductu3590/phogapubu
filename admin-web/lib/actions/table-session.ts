@@ -371,12 +371,19 @@ export type BillSession = {
   items: BillLine[]
   /** Mig 098: lịch sử thu ngân sửa số lượng — in ra cho khách đối chiếu. */
   qty_changes?: BillQtyChange[]
+  /** Mig 108: giảm giá cả bill của mâm này (đã tính sẵn ở server); thiếu = 0. subtotal vẫn là tiền hàng TRƯỚC giảm. */
+  discount?: number
+  /** Mig 108: "10%" khi giảm theo phần trăm; null khi giảm VNĐ hoặc không giảm. */
+  discount_label?: string | null
 }
 export type SessionsBill = {
   store: { name: string; address: string | null; phone: string | null }
   printed_at: string
   sessions: BillSession[]
+  /** Mig 108: tiền khách cần trả SAU giảm giá. */
   grand_total: number
+  /** Mig 108: tổng giảm giá các mâm; server cũ không trả (coi như 0). */
+  grand_discount?: number
 }
 
 export async function getSessionsBill(

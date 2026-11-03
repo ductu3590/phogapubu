@@ -5,7 +5,10 @@ import { rejectReasonLabel } from '@/lib/pos-bill-history'
 
 export type BillsReportBill = {
   key: string; paidAt: string; openedAt: string; sessionIds: string[]; orderIds: string[]; merged: boolean
-  tablesCount: number; total: number; discountTotal: number; instrument: ReportInstrument; orderType: string
+  tablesCount: number; total: number; discountTotal: number
+  /** Mig 108: phần giảm giá cả bill nằm trong discountTotal (tiền đã trừ sẵn trong total — KHÔNG trừ lại). */
+  billDiscount: number
+  instrument: ReportInstrument; orderType: string
   itemsCount: number; tableLabel: string; customerName: string | null; partySize: number | null
   adjustmentsCount: number; receivedByName: string | null
 }
@@ -65,7 +68,7 @@ export function parseBillsReport(raw: unknown): BillsReport {
       return {
         key: str(b.key), paidAt: str(b.paid_at), openedAt: str(b.opened_at), sessionIds: strArr(b.session_ids),
         orderIds: strArr(b.order_ids), merged: b.merged === true, tablesCount: num(b.tables_count), total: num(b.total),
-        discountTotal: num(b.discount_total), instrument: instrument(b.instrument), orderType: str(b.order_type) || 'dine_in',
+        discountTotal: num(b.discount_total), billDiscount: num(b.bill_discount), instrument: instrument(b.instrument), orderType: str(b.order_type) || 'dine_in',
         itemsCount: num(b.items_count), tableLabel: label(b.table_label), customerName: strOrNull(b.customer_name),
         partySize: numOrNull(b.party_size), adjustmentsCount: num(b.adjustments_count), receivedByName: strOrNull(b.received_by_name),
       }
@@ -135,6 +138,8 @@ export type BillRow = {
   adjusted: boolean
   adjustmentsCount: number
   discountTotal: number
+  /** Mig 108: phần giảm giá cả bill (đã nằm trong discountTotal). */
+  billDiscount: number
   expired: boolean
   rejected: boolean
   reasonText: string | null
@@ -150,20 +155,20 @@ export function buildBillRows(report: BillsReport): BillRow[] {
     key: `W:${w.key}`, kind: 'waiting', code: billCode(w.sessionIds, w.orderIds), tableLabel: w.tableLabel,
     grouped: w.tablesCount > 1, orderType: w.orderType, customerName: w.customerName, partySize: w.partySize,
     startedAt: w.openedAt, at: w.openedAt, itemsCount: w.itemsCount, amount: w.provisionalTotal, instrument: null,
-    adjusted: false, adjustmentsCount: 0, discountTotal: 0, expired: w.expired, rejected: false, reasonText: null,
+    adjusted: false, adjustmentsCount: 0, discountTotal: 0, billDiscount: 0, expired: w.expired, rejected: false, reasonText: null,
     receivedByName: null, sessionIds: w.sessionIds, orderIds: w.orderIds,
   }))
   const paid: BillRow[] = report.bills.map((b) => ({
     key: b.key, kind: 'paid', code: billCode(b.sessionIds, b.orderIds), tableLabel: b.tableLabel,
     grouped: b.merged || b.tablesCount > 1, orderType: b.orderType, customerName: b.customerName, partySize: b.partySize,
     startedAt: b.openedAt, at: b.paidAt, itemsCount: b.itemsCount, amount: b.total, instrument: b.instrument,
-    adjusted: b.adjustmentsCount > 0 || b.discountTotal > 0, adjustmentsCount: b.adjustmentsCount, discountTotal: b.discountTotal,
+    adjusted: b.adjustmentsCount > 0 || b.discountTotal > 0, adjustmentsCount: b.adjustmentsCount, discountTotal: b.discountTotal, billDiscount: b.billDiscount,
     expired: false, rejected: false, reasonText: null, receivedByName: b.receivedByName, sessionIds: b.sessionIds, orderIds: b.orderIds,
   }))
   const cancelled: BillRow[] = report.cancelled.map((c) => ({
     key: `X:${c.orderId}`, kind: 'cancelled', code: billCode([], [c.orderId]), tableLabel: c.tableLabel, grouped: false,
     orderType: c.orderType, customerName: c.customerName, partySize: null, startedAt: c.createdAt, at: c.at, itemsCount: null,
-    amount: c.total, instrument: null, adjusted: false, adjustmentsCount: 0, discountTotal: 0, expired: false,
+    amount: c.total, instrument: null, adjusted: false, adjustmentsCount: 0, discountTotal: 0, billDiscount: 0, expired: false,
     rejected: c.kind === 'rejected', reasonText: rejectReasonLabel(c.reasonCode, c.reasonNote), receivedByName: null,
     sessionIds: c.sessionId ? [c.sessionId] : [], orderIds: [c.orderId],
   }))
@@ -236,6 +241,10 @@ export type DaySummary = {
   giftCount: number; giftTotal: number
   voidCount: number; voidTotal: number
   quantityChangeCount: number
+  /** Tổng giảm giá các bill đã thu (voucher + giảm giá bill, mig 108). Doanh thu đã là tiền SAU giảm — chỉ để đối chiếu. */
+  discountTotal: number
+  /** Phần giảm giá cả bill nằm trong discountTotal. */
+  billDiscountTotal: number
 }
 
 /** Số liệu phụ cho phiếu cuối ngày + Excel (A04-3): chỉ ĐẾM và cộng các dòng server đã tính sẵn — doanh thu vẫn lấy `totals`. */
@@ -253,6 +262,8 @@ export function daySummary(report: BillsReport): DaySummary {
     voidCount: voids.length,
     voidTotal: sum(voids.map((a) => a.amount)),
     quantityChangeCount: report.adjustments.filter((a) => a.type === 'quantity').length,
+    discountTotal: sum(report.bills.map((b) => b.discountTotal)),
+    billDiscountTotal: sum(report.bills.map((b) => b.billDiscount)),
   }
 }
 
