@@ -65,10 +65,13 @@ export function moveTargets(
 }
 
 /**
- * Câu hỏi xác nhận khi chuyển vào bàn có lịch đặt muộn hơn. Nói rõ mốc khách mất quyền tự gọi món qua QR:
+ * Nội dung hộp thoại xác nhận khi chuyển vào bàn có lịch đặt muộn hơn. Nói rõ mốc khách mất quyền tự gọi món qua QR:
  * từ (giờ hẹn − PREARRIVAL_HOLD_MINUTES) server chặn đơn khách vào bàn đang giữ cho khách đặt.
  */
-export function laterReservationConfirmText(tableNumber: string, arrivalIso: string): string {
+export function laterReservationDialog(tableNumber: string, arrivalIso: string): { title: string; description: string } {
   const arrival = new Date(arrivalIso).getTime()
-  return `${tableNumber} có khách đặt lúc ${clock(arrival)}. Từ ${clock(arrival - PREARRIVAL_HOLD_MINUTES * MIN)} khách không tự gọi món qua QR được. Vẫn chuyển?`
+  return {
+    title: `${tableNumber} có khách đặt lúc ${clock(arrival)}`,
+    description: `Từ ${clock(arrival - PREARRIVAL_HOLD_MINUTES * MIN)} khách không tự gọi món qua QR được.`,
+  }
 }

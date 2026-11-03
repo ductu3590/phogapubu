@@ -20,6 +20,7 @@ import {
   createTraySession,
   mergeSessionIntoTray,
   moveSessionTable,
+  moveSessionToTable,
   releaseTableSessionHost,
   type OpenTableSession,
 } from '@/lib/actions/table-session'
@@ -39,7 +40,7 @@ import BellVolumeControl from '@/components/bell-volume-control'
 import { PosLockButton } from '@/components/pos-lock'
 import type { FloorSnapshot } from '@/lib/area-layout'
 import { assignTrayColors } from '@/lib/tray-colors'
-import { laterReservationConfirmText, moveTargets as buildMoveTargets } from '@/lib/table-move'
+import { laterReservationDialog, moveTargets as buildMoveTargets } from '@/lib/table-move'
 import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { serviceRequestSession } from '@/lib/service-request-queue'
 import { buildWorkQueue, isReviewableOrder, type WorkFilter } from '@/lib/pos-work-queue'
@@ -92,6 +93,7 @@ import { useOnline } from './use-online'
 import { useServiceRequests } from './use-service-requests'
 import WorkQueue from './work-queue'
 import PosBillPanel from './bill-panel'
+import ConfirmDialog from './confirm-dialog'
 
 type View = 'timeline' | 'floor' | 'list'
 
@@ -175,6 +177,14 @@ export default function PosClient({
   // Một client Supabase trình duyệt cho cả trang: realtime + đọc định kỳ (lib/pos-browser-reads.ts).
   const supabase = useMemo(() => createClient(), [])
   const toast = useToast()
+  // Hộp xác nhận trong app (thay window.confirm). `run` chỉ chạy khi thu ngân bấm nút xác nhận.
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    title: string
+    description?: string
+    confirmLabel: string
+    tone?: 'default' | 'danger'
+    run: () => Promise<void>
+  } | null>(null)
   const floor = useFloorLayout(storeId, initialFloor, initialFloorError)
   const placed = floor.draft.tables
   const arrange = floor.arrange
@@ -422,11 +432,10 @@ export default function PosClient({
   }
 
   // Chuyển bàn: panel bill GIỮ NGUYÊN phiên (không dùng sauKhiXong vì nó bỏ chọn phiên).
-  const onMoveTable = async (sessionId: string, fromTableId: string, toTableId: string) => {
-    const target = moveTargets.find((t) => t.id === toTableId)
-    if (target?.laterReservationAt && !confirm(laterReservationConfirmText(target.table_number, target.laterReservationAt))) return
+  // Chạy xong (thành công hay lỗi) thì hộp xác nhận tự đóng; huỷ hộp thì không làm gì.
+  const runMove = async (action: () => ReturnType<typeof moveSessionTable>) => {
     setBusy(true)
-    const res = await moveSessionTable(sessionId, fromTableId, toTableId)
+    const res = await action()
     setBusy(false)
     if (!res.ok) {
       reportActionError(res.error)
@@ -437,8 +446,24 @@ export default function PosClient({
     await reload()
   }
 
-  const onReset = async (s: OpenTableSession) => {
-    if (!confirm(`Bỏ bàn ${s.table_number}? Đơn chưa nấu và chưa thu tiền sẽ bị huỷ.`)) return
+  // Bàn đích có khách đặt muộn hơn thì hỏi lại trong app; không thì chạy luôn.
+  const askMove = (toTableId: string, action: () => ReturnType<typeof moveSessionTable>) => {
+    const target = moveTargets.find((t) => t.id === toTableId)
+    if (target?.laterReservationAt) {
+      const { title, description } = laterReservationDialog(target.table_number, target.laterReservationAt)
+      setPendingConfirm({ title, description, confirmLabel: 'Vẫn chuyển', run: () => runMove(action) })
+      return
+    }
+    void runMove(action)
+  }
+
+  const onMoveTable = (sessionId: string, fromTableId: string, toTableId: string) =>
+    askMove(toTableId, () => moveSessionTable(sessionId, fromTableId, toTableId))
+
+  const onMoveTray = (sessionId: string, toTableId: string) =>
+    askMove(toTableId, () => moveSessionToTable(sessionId, toTableId))
+
+  const doReset = async (s: OpenTableSession) => {
     setBusy(true)
     const res = await closeTableSession(s.session_id, 'staff_reset', null)
     if (!res.ok) {
@@ -449,6 +474,16 @@ export default function PosClient({
     await sauKhiXong(res.ordersLeftInKitchen > 0
       ? `Đã bỏ bàn. Còn ${res.ordersLeftInKitchen} món đã vào bếp — vẫn nằm ở màn bếp, xử lý tay.`
       : undefined)
+  }
+
+  const onReset = (s: OpenTableSession) => {
+    setPendingConfirm({
+      title: `Bỏ bàn ${s.table_number}?`,
+      description: 'Đơn chưa nấu và chưa thu tiền sẽ bị huỷ.',
+      confirmLabel: 'Bỏ bàn',
+      tone: 'danger',
+      run: () => doReset(s),
+    })
   }
 
   const onPrintOrder = (orderId: string) => {
@@ -1253,12 +1288,13 @@ export default function PosClient({
           onVoidOrderItem={(itemId, type, reason) => void onVoidOrderItem(itemId, type, reason)}
           onSetItemQuantity={onSetItemQuantity}
           onRestoreOrderItem={(itemId) => void onRestoreOrderItem(itemId)}
-          onReset={(s) => void onReset(s)}
+          onReset={onReset}
           onCreateTray={() => void chay(() => createTraySession([...pickedTableIds]))}
           onAddTable={(sid, tid) => void chay(() => addTableToSession(sid, tid))}
           moveTargets={moveTargets}
           moveAreas={floor.draft.areas.map((a) => ({ id: a.id, name: a.name, color: a.color ?? null }))}
-          onMoveTable={(sid, from, to) => void onMoveTable(sid, from, to)}
+          onMoveTable={onMoveTable}
+          onMoveTray={onMoveTray}
           onMergeInto={(sid, target) => void chay(() => mergeSessionIntoTray(sid, target))}
           onReleaseHost={(sid) => void chay(() => releaseTableSessionHost(sid))}
           onClearPick={() => {
@@ -1266,6 +1302,18 @@ export default function PosClient({
             setPickedTableIds(new Set())
           }}
           onDismiss={dongBill}
+        />
+      )}
+      {pendingConfirm && (
+        <ConfirmDialog
+          open
+          title={pendingConfirm.title}
+          description={pendingConfirm.description}
+          confirmLabel={pendingConfirm.confirmLabel}
+          tone={pendingConfirm.tone}
+          busy={busy}
+          onCancel={() => { if (!busy) setPendingConfirm(null) }}
+          onConfirm={() => { void pendingConfirm.run().finally(() => setPendingConfirm(null)) }}
         />
       )}
       {manualSessionId && (() => {

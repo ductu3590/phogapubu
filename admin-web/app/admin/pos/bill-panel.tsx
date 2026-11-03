@@ -61,6 +61,8 @@ export type PosBillPanelProps = {
   moveTargets: MoveTarget[]
   moveAreas: StaffArea[]
   onMoveTable: (sessionId: string, fromTableId: string, toTableId: string) => void
+  /** Chuyển CẢ mâm (mọi bàn của phiên) sang một bàn trống (mig 106). */
+  onMoveTray: (sessionId: string, toTableId: string) => void
   onMergeInto: (sessionId: string, targetSessionId: string) => void
   onReleaseHost: (sessionId: string) => void
   onConfirmOrder: (orderId: string) => void
@@ -561,7 +563,7 @@ function QtyDialog({ item, busy, onClose, onSubmit }: {
 
 const QTY_REASONS = ['Khách gọi nhầm', 'Nhân viên bấm nhầm', 'Khách gọi thêm', 'Bếp báo hết bớt phần']
 
-function OtherActions({ list, freeTables, otherSessions, busy, onReset, onAddTable, onMergeInto, onReleaseHost, onClearPick, picked, moveTargets, moveAreas, onMoveTable }: PosBillPanelProps & { list: OpenTableSession[] }) {
+function OtherActions({ list, freeTables, otherSessions, busy, onReset, onAddTable, onMergeInto, onReleaseHost, onClearPick, picked, moveTargets, moveAreas, onMoveTable, onMoveTray }: PosBillPanelProps & { list: OpenTableSession[] }) {
   if (list.length > 1) {
     return picked.length > 0 ? <Button variant="ghost" onClick={onClearPick} className="mt-3 w-full">Bỏ chọn {picked.length} mâm</Button> : null
   }
@@ -569,7 +571,7 @@ function OtherActions({ list, freeTables, otherSessions, busy, onReset, onAddTab
   return (
     <details className="mt-4 rounded-xl border border-slate-200 p-3">
       <summary className="cursor-pointer text-sm font-semibold text-slate-700">Thao tác khác</summary>
-      <MoveTableControl session={s} targets={moveTargets} areas={moveAreas} busy={busy} onMove={onMoveTable} />
+      <MoveTableControl session={s} targets={moveTargets} areas={moveAreas} busy={busy} onMove={onMoveTable} onMoveTray={onMoveTray} />
       <label className="mt-3 block text-[13px] text-slate-500" htmlFor="pos-bill-add-table">Thêm bàn trống vào mâm này</label>
       <div className="mt-1">
         <Select id="pos-bill-add-table" disabled={busy || freeTables.length === 0} defaultValue=""
@@ -594,22 +596,47 @@ function OtherActions({ list, freeTables, otherSessions, busy, onReset, onAddTab
   )
 }
 
-/** Chuyển một bàn của phiên sang bàn trống. Mâm nhiều bàn: chọn bàn cần đổi trước (đổi từng bàn một). */
-function MoveTableControl({ session, targets, areas, busy, onMove }: {
+/** Chuyển bàn. Phiên 1 bàn: chọn bàn đích. Mâm nhiều bàn: chọn "Đổi một bàn" (chọn bàn cần đổi rồi bàn đích,
+ *  đổi từng bàn một) hoặc "Chuyển cả mâm sang một bàn" (mọi bàn của mâm dồn vào MỘT bàn trống). */
+function MoveTableControl({ session, targets, areas, busy, onMove, onMoveTray }: {
   session: OpenTableSession
   targets: MoveTarget[]
   areas: StaffArea[]
   busy: boolean
   onMove: (sessionId: string, fromTableId: string, toTableId: string) => void
+  onMoveTray: (sessionId: string, toTableId: string) => void
 }) {
   const [fromId, setFromId] = useState('')
+  const [mode, setMode] = useState<'one' | 'tray'>('one')
   const multi = session.tables.length > 1
+  const tray = multi && mode === 'tray'
   // Sau khi chuyển, bàn vừa đổi không còn trong mâm → bỏ lựa chọn cũ, không để lại id lạc.
   const from = multi ? (session.tables.some((t) => t.id === fromId) ? fromId : '') : session.tables[0]?.id ?? session.table_id
   const groups = groupTablesByArea(targets, areas)
+  const needFrom = multi && !tray && !from
   return (
     <div>
       {multi && (
+        <div role="radiogroup" aria-label="Cách chuyển bàn" className="mt-3 grid grid-cols-2 gap-1.5">
+          {([['one', 'Đổi một bàn'], ['tray', 'Chuyển cả mâm sang một bàn']] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={mode === value}
+              disabled={busy}
+              onClick={() => setMode(value)}
+              className={cn(
+                'min-h-10 cursor-pointer rounded-lg border px-2 py-1.5 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-60',
+                mode === value ? 'border-orange-600 bg-orange-50 text-orange-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {multi && !tray && (
         <>
           <label className="mt-3 block text-[13px] text-slate-500" htmlFor="pos-bill-move-from">Bàn cần đổi</label>
           <div className="mt-1">
@@ -620,11 +647,19 @@ function MoveTableControl({ session, targets, areas, busy, onMove }: {
           </div>
         </>
       )}
-      <label className="mt-3 block text-[13px] text-slate-500" htmlFor="pos-bill-move-to">Chuyển sang bàn trống</label>
+      <label className="mt-3 block text-[13px] text-slate-500" htmlFor="pos-bill-move-to">
+        {tray ? `Chuyển cả mâm (${session.table_number}) sang bàn trống` : 'Chuyển sang bàn trống'}
+      </label>
       <div className="mt-1">
-        <Select id="pos-bill-move-to" disabled={busy || !from || targets.length === 0} defaultValue=""
-          onChange={(e) => { const v = e.target.value; e.target.value = ''; if (v && from) onMove(session.session_id, from, v) }}>
-          <option value="">{multi && !from ? '— chọn bàn cần đổi trước —' : targets.length === 0 ? '— không còn bàn trống —' : '— chọn bàn đích —'}</option>
+        <Select id="pos-bill-move-to" disabled={busy || needFrom || targets.length === 0} defaultValue=""
+          onChange={(e) => {
+            const v = e.target.value
+            e.target.value = ''
+            if (!v) return
+            if (tray) onMoveTray(session.session_id, v)
+            else if (from) onMove(session.session_id, from, v)
+          }}>
+          <option value="">{needFrom ? '— chọn bàn cần đổi trước —' : targets.length === 0 ? '— không còn bàn trống —' : '— chọn bàn đích —'}</option>
           {groups.map((g) => (
             <optgroup key={g.area?.id ?? 'none'} label={g.area?.name ?? (areas.length > 0 ? 'Chưa phân khu' : 'Bàn trống')}>
               {g.tables.map((t) => (

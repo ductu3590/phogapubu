@@ -222,6 +222,29 @@ export async function moveSessionTable(
   return { ok: true, from: r?.from_table_number ?? '', to: r?.to_table_number ?? '' }
 }
 
+// Chuyển CẢ mâm (mọi bàn của phiên) sang MỘT bàn trống (mig 106). Cùng luật và quyền như moveSessionTable;
+// lỗi RPC trả nguyên văn tiếng Việt. `from` có thể là nhiều bàn: "Bàn 6, Bàn 7".
+export async function moveSessionToTable(
+  sessionId: string,
+  toTableId: string,
+): Promise<{ ok: true; from: string; to: string } | { ok: false; error: string }> {
+  const { operator, supabase, error } = await staffClient()
+  if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được chuyển bàn' }
+  }
+
+  const { data, error: rpcErr } = await supabase.rpc('pos_move_session_to_table', {
+    p_session_id: sessionId,
+    p_to_table_id: toTableId,
+  })
+  if (rpcErr) return { ok: false, error: rpcErr.message }
+
+  const r = data as { from_table_numbers?: string[] | string; to_table_number?: string } | null
+  const from = Array.isArray(r?.from_table_numbers) ? r.from_table_numbers.join(', ') : (r?.from_table_numbers ?? '')
+  return { ok: true, from, to: r?.to_table_number ?? '' }
+}
+
 // Khách quét QR trước khi nhân viên kịp ghép bàn → phiên lẻ lạc. Gom nó vào mâm:
 // chuyển cả đơn lẫn bàn sang mâm rồi đóng phiên lẻ với close_reason='merged'.
 export async function mergeSessionIntoTray(
