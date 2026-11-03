@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireOperator } from '@/lib/auth/operator'
 import { isPosRole } from '@/lib/auth/roles'
+import type { BillDiscount } from '@/lib/bill-discount'
 
 // Bọc 3 RPC phiên bàn (mig 039). Luôn dùng createClient() — phiên đăng nhập của nhân viên —
 // chứ KHÔNG createAdminClient(): RPC cần auth.uid() để ghi payment_received_by, đó là dấu vết
@@ -61,6 +62,11 @@ export type OpenTableSession = {
   total: number
   unpaid_total: number
   cooking_count: number
+  // mig 108: ý định giảm giá cả bill của phiên ĐANG MỞ; null = không giảm (phiên hết hạn luôn null —
+  // close_table_session bỏ qua giảm giá của nó). Số tiền thật tính bằng lib/bill-discount.ts trên unpaid_total.
+  // Optional: server trước 108 không trả.
+  bill_discount_type?: 'amount' | 'percent' | null
+  bill_discount_value?: number | null
   // Nguồn từ store_workflow_settings; null chỉ khi server cũ chưa trả cấu hình hợp lệ.
   idle_timeout_minutes: number | null
   orders: SessionOrderRow[]
@@ -257,6 +263,45 @@ export async function mergeSessionIntoTray(
   const { error: rpcErr } = await supabase.rpc('merge_session_into_tray', {
     p_session_id: sessionId,
     p_target_session_id: targetSessionId,
+  })
+  if (rpcErr) return { ok: false, error: rpcErr.message }
+  return { ok: true }
+}
+
+// ─── Giảm giá cả bill (mig 107) ──────────────────────────────────────────────
+// Chỉ lưu "ý định" trên phiên; tiền thật sự trừ vào đơn lúc close_table_session(paid). null = bỏ giảm giá.
+// Mọi luật (số nguyên không âm, % ≤ 100, VNĐ ≤ tiền hàng, phiên còn mở) do RPC kiểm; lỗi trả nguyên văn tiếng Việt.
+
+// Một phiên.
+export async function setSessionDiscount(sessionId: string, d: BillDiscount): Promise<SimpleResult> {
+  const { operator, supabase, error } = await staffClient()
+  if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được giảm giá hoá đơn' }
+  }
+
+  const { error: rpcErr } = await supabase.rpc('pos_set_session_discount', {
+    p_session_id: sessionId,
+    p_type: d ? d.type : null,
+    p_value: d ? d.value : 0,
+  })
+  if (rpcErr) return { ok: false, error: rpcErr.message }
+  return { ok: true }
+}
+
+// Gộp bill: MỘT dòng giảm giá cho N mâm trong một giao dịch (VNĐ chia theo tiền hàng từng mâm, % áp từng mâm).
+export async function setSessionsDiscount(sessionIds: string[], d: BillDiscount): Promise<SimpleResult> {
+  const { operator, supabase, error } = await staffClient()
+  if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được giảm giá hoá đơn' }
+  }
+  if (sessionIds.length === 0) return { ok: false, error: 'Chưa chọn mâm nào' }
+
+  const { error: rpcErr } = await supabase.rpc('pos_set_sessions_discount', {
+    p_session_ids: sessionIds,
+    p_type: d ? d.type : null,
+    p_value: d ? d.value : 0,
   })
   if (rpcErr) return { ok: false, error: rpcErr.message }
   return { ok: true }

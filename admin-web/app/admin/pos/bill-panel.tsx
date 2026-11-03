@@ -9,6 +9,7 @@ import type { OpenTableSession, SessionOrderItem, SessionOrderRow } from '@/lib/
 import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
 import { cashChange, cashSuggestions, formatVndInput, parseVnd } from '@/lib/cash-change'
+import { combinedDiscount, firstDiscountError, sessionDiscountOf, type BillDiscount } from '@/lib/bill-discount'
 import { isReviewableOrder, orderRound } from '@/lib/pos-work-queue'
 import { clock } from '@/lib/pos-timeline'
 import { tableVisualState } from '@/lib/table-status'
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils'
 import { billHistory, rejectReasonLabel } from '@/lib/pos-bill-history'
 import type { MoveTarget } from '@/lib/table-move'
 import { groupTablesByArea, type StaffArea } from '@/lib/staff-area-groups'
+import DiscountDialog from './discount-dialog'
 
 // Bill của /admin/pos theo bản Stitch P01 (bill dạng tab) + P03 (lượt gọi mới) + P04 (thanh toán một nút).
 // Mọi con số tiền là của server (OpenTableSession.total, order.total_amount); bill KHÔNG tự cộng tổng.
@@ -73,6 +75,8 @@ export type PosBillPanelProps = {
   /** Mig 098: sửa số lượng có lý do. Trả true khi lưu xong để hộp thoại tự đóng. */
   onSetItemQuantity: (orderItemId: string, quantity: number, reason: string) => Promise<boolean>
   onRestoreOrderItem: (orderItemId: string) => void
+  /** Giảm giá cả bill (mig 107). 1 phiên → RPC một phiên, gộp bill → RPC nhiều phiên. null = bỏ giảm giá. Trả true khi lưu xong. */
+  onSetDiscount: (sessionIds: string[], d: BillDiscount) => Promise<boolean>
   onClearPick: () => void
   onDismiss: () => void
   /** Hàng chờ món đặt trước — để in phiếu món đặt trước ngay trong bill khi khách đã đến. */
@@ -99,6 +103,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
   const [tab, setTab] = useState<Tab>('bill')
   const [paying, setPaying] = useState(false)
   const [qtyItem, setQtyItem] = useState<SessionOrderItem | null>(null)
+  const [discountOpen, setDiscountOpen] = useState(false)
 
   const list = picked.length > 0 ? picked : selected ? [selected] : []
   const name = (s: OpenTableSession) => {
@@ -121,6 +126,11 @@ export default function PosBillPanel(props: PosBillPanelProps) {
   if (list.length === 0) return null
 
   const tong = list.reduce((n, s) => n + s.total, 0)
+  // Giảm giá cả bill (mig 107/108): tính bằng cùng hàm với server, trên tiền hàng CHƯA thu của từng mâm.
+  const discount = combinedDiscount(list)
+  const discountError = firstDiscountError(list)
+  const payable = Math.max(0, tong - discount)
+  const discountLabel = discountLabelOf(list)
   const pending = list.flatMap((s) => s.orders.filter(isReviewableOrder).map((o) => ({ s, o })))
   const pendingTotal = pending.reduce((n, p) => n + p.o.total_amount, 0)
   const title = list.length > 1 ? `Gộp bill ${list.length} mâm` : name(list[0])
@@ -163,6 +173,20 @@ export default function PosBillPanel(props: PosBillPanelProps) {
     />
   )
 
+  const discountDialog = discountOpen && (
+    <DiscountDialog
+      current={currentDiscountOf(list)}
+      subtotals={list.map((s) => s.unpaid_total)}
+      busy={busy}
+      onClose={() => setDiscountOpen(false)}
+      onSave={async (d) => {
+        const ok = await props.onSetDiscount(list.map((s) => s.session_id), d)
+        if (ok) setDiscountOpen(false)
+        return ok
+      }}
+    />
+  )
+
   const dieuChinh = (itemId: string, type: 'cancelled' | 'gift') => {
     const label = type === 'cancelled' ? 'bỏ món này' : 'tặng món này'
     if (!confirm(`Xác nhận ${label}? Tổng bill sẽ được tính lại.`)) return
@@ -174,10 +198,16 @@ export default function PosBillPanel(props: PosBillPanelProps) {
     return (
       <>
       {qtyDialog}
+      {discountDialog}
       <PaymentView
         title={title}
         list={list}
-        total={tong}
+        goods={tong}
+        discount={discount}
+        discountLabel={discountLabel}
+        discountError={discountError}
+        onEditDiscount={() => setDiscountOpen(true)}
+        total={payable}
         busy={busy}
         onAdjust={dieuChinh}
         onQty={suaSoLuong}
@@ -208,6 +238,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
   return (
     <>
     {qtyDialog}
+    {discountDialog}
     <Khung
       icon={isTray ? <Link2 /> : <Receipt />}
       tieuDe={title}
@@ -254,13 +285,18 @@ export default function PosBillPanel(props: PosBillPanelProps) {
       }
       footer={
         <>
+          {discountError && (
+            <p role="alert" className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-semibold text-red-700">
+              {discountError}. Mở Thanh toán để sửa giảm giá.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-2">
             {list.length === 1 ? (
               <Button icon={<Plus className="text-orange-600" />} onClick={() => props.onOpenManualOrder(list[0].session_id)} disabled={busy} className="font-semibold">
                 Gọi thêm món
               </Button>
             ) : <span />}
-            <Button icon={<Printer className="text-blue-600" />} onClick={() => props.onPrint(list)} disabled={busy} className="font-semibold">In tạm tính</Button>
+            <Button icon={<Printer className="text-blue-600" />} onClick={() => props.onPrint(list)} disabled={busy || !!discountError} className="font-semibold">In tạm tính</Button>
           </div>
           {pending.length > 0 ? (
             <button
@@ -272,7 +308,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
             </button>
           ) : (
             <Button variant="primary" size="touch" icon={<Receipt />} disabled={busy} onClick={() => setPaying(true)} className="mt-2 w-full text-base font-bold">
-              Thanh toán · {dong(tong)}
+              Thanh toán · {dong(payable)}
             </Button>
           )}
         </>
@@ -324,6 +360,13 @@ export default function PosBillPanel(props: PosBillPanelProps) {
                 </section>
               ))}
             </div>
+          )}
+
+          {discount > 0 && !discountError && (
+            <p className="mt-3 flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm">
+              <span className="font-semibold text-slate-700">Giảm giá{discountLabel ? ` (${discountLabel})` : ''}</span>
+              <b className="font-bold text-orange-700 tabular">−{dong(discount)}</b>
+            </p>
           )}
 
           <OtherActions {...props} list={list} />
@@ -675,10 +718,36 @@ function MoveTableControl({ session, targets, areas, busy, onMove, onMoveTray }:
   )
 }
 
+/** "10%" khi mọi mâm đang giảm cùng một mức %; còn lại (VNĐ, mỗi mâm một mức, không giảm) → rỗng. */
+function discountLabelOf(list: OpenTableSession[]): string {
+  const ds = list.map(sessionDiscountOf)
+  const first = ds[0]
+  if (!first || first.type !== 'percent') return ''
+  return ds.every((d) => d?.type === 'percent' && d.value === first.value) ? `${first.value}%` : ''
+}
+
+/** Giảm giá đang áp, để mở sẵn trong hộp: 1 mâm → đúng ý định của nó; gộp bill đồng đều % → % đó; còn lại → tổng VNĐ. */
+function currentDiscountOf(list: OpenTableSession[]): BillDiscount {
+  if (list.length === 1) return sessionDiscountOf(list[0])
+  if (discountLabelOf(list)) return sessionDiscountOf(list[0])
+  const sum = combinedDiscount(list)
+  return sum > 0 ? { type: 'amount', value: sum } : null
+}
+
 /** Màn Thanh toán & đóng mâm — bản Stitch P04. */
-function PaymentView({ title, list, total, busy, onAdjust, onQty, onRestore, onBack, onDismiss, onPay, onPrint }: {
+function PaymentView({ title, list, goods, discount, discountLabel, discountError, onEditDiscount, total, busy, onAdjust, onQty, onRestore, onBack, onDismiss, onPay, onPrint }: {
   title: string
   list: OpenTableSession[]
+  /** Tổng tiền hàng (trước giảm giá). */
+  goods: number
+  /** Số tiền giảm cả bill (0 = không giảm). */
+  discount: number
+  /** "10%" khi giảm theo %, rỗng khi giảm VNĐ / không giảm. */
+  discountLabel: string
+  /** validateDiscount khác null → khoá nút thu + in, hiện chữ đỏ. */
+  discountError: string | null
+  onEditDiscount: () => void
+  /** Khách cần trả = tiền hàng − giảm giá. */
   total: number
   busy: boolean
   onAdjust: (itemId: string, type: 'cancelled' | 'gift') => void
@@ -695,6 +764,7 @@ function PaymentView({ title, list, total, busy, onAdjust, onQty, onRestore, onB
   const change = cashChange(total, given)
   const items = list.flatMap((s) => s.orders.filter((o) => o.status !== 'cancelled').flatMap((o) => o.items))
   const short = method === 'cash' && change.kind === 'short'
+  const blocked = short || !!discountError
   const giftCount = items.filter((i) => i.void_type === 'gift').length
 
   return (
@@ -712,10 +782,10 @@ function PaymentView({ title, list, total, busy, onAdjust, onQty, onRestore, onB
       onDismiss={onDismiss}
       footer={
         <>
-          <Button variant="primary" size="touch" icon={<Banknote />} isLoading={busy} disabled={short} onClick={() => onPay(method)} className="w-full text-base font-bold whitespace-nowrap">
+          <Button variant="primary" size="touch" icon={<Banknote />} isLoading={busy} disabled={blocked} onClick={() => onPay(method)} className="w-full text-base font-bold whitespace-nowrap">
             Xác nhận đã nhận {dong(total)}
           </Button>
-          <Button icon={<Printer className="text-blue-600" />} onClick={onPrint} disabled={busy} className="mt-2 w-full font-semibold">In tạm tính / hoá đơn</Button>
+          <Button icon={<Printer className="text-blue-600" />} onClick={onPrint} disabled={busy || !!discountError} className="mt-2 w-full font-semibold">In tạm tính / hoá đơn</Button>
           <p className="mt-2 text-[12px] text-slate-500">Máy in lỗi vẫn thu tiền bình thường — in hoá đơn sau cũng được.</p>
         </>
       }
@@ -731,10 +801,24 @@ function PaymentView({ title, list, total, busy, onAdjust, onQty, onRestore, onB
       </section>
 
       <section className="mt-3 rounded-xl border border-orange-200 bg-orange-50 p-3">
-        {giftCount > 0 && <p className="mb-1 flex justify-between text-[13px] text-slate-600"><span>Món tặng (tính 0đ)</span><span className="tabular">{giftCount} món</span></p>}
-        <p className="flex items-end justify-between gap-2">
+        <p className="flex justify-between text-sm text-slate-700"><span>Tổng tiền hàng</span><span className="font-semibold tabular">{dong(goods)}</span></p>
+        <p className="mt-1 flex items-center justify-between gap-2 text-sm text-slate-700">
+          <span>Giảm giá{discountLabel ? ` (${discountLabel})` : ''}</span>
+          <button
+            type="button"
+            onClick={onEditDiscount}
+            disabled={busy}
+            aria-label="Sửa giảm giá hoá đơn"
+            className="min-h-9 cursor-pointer rounded-md border border-orange-300 bg-white px-2.5 font-semibold text-orange-700 tabular hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {discount > 0 ? `−${dong(discount)}` : 'Thêm giảm giá'}
+          </button>
+        </p>
+        {discountError && <p role="alert" className="mt-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[13px] font-semibold text-red-700">{discountError}</p>}
+        {giftCount > 0 && <p className="mt-1 flex justify-between text-[13px] text-slate-600"><span>Món tặng (tính 0đ)</span><span className="tabular">{giftCount} món</span></p>}
+        <p className="mt-2 flex items-end justify-between gap-2 border-t border-orange-200 pt-2">
           <span>
-            <span className="block text-sm font-bold text-slate-900 uppercase">Tổng thanh toán</span>
+            <span className="block text-sm font-bold text-slate-900 uppercase">Khách cần trả</span>
             <span className="text-[12px] text-slate-500">{list.length > 1 ? `Gộp ${list.length} mâm · đóng cả loạt sau khi thu` : 'Thu xong bàn tự trống, đơn chuyển Hoàn tất'}</span>
           </span>
           <span className="text-2xl font-bold text-orange-600 tabular">{dong(total)}</span>

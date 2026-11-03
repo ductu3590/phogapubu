@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { allocateDiscount, discountAmount, validateDiscount } from './bill-discount'
+import {
+  allocateDiscount,
+  combinedDiscount,
+  discountAmount,
+  firstDiscountError,
+  sessionDiscountOf,
+  validateDiscount,
+} from './bill-discount'
 
 describe('discountAmount', () => {
   it('giảm theo phần trăm, làm tròn', () => {
@@ -168,5 +175,49 @@ describe('allocateDiscount', () => {
     for (const total of [1, 99, 12_345, 99_999, 248_035]) {
       expect(sum(allocateDiscount(total, parts))).toBe(total)
     }
+  })
+})
+
+describe('sessionDiscountOf', () => {
+  it('đổi cột của phiên sang BillDiscount', () => {
+    expect(sessionDiscountOf({ bill_discount_type: 'percent', bill_discount_value: 10 })).toEqual({ type: 'percent', value: 10 })
+    expect(sessionDiscountOf({ bill_discount_type: 'amount', bill_discount_value: 5_000 })).toEqual({ type: 'amount', value: 5_000 })
+  })
+
+  it('không giảm giá (cả hai null hoặc thiếu trường) → null', () => {
+    expect(sessionDiscountOf({ bill_discount_type: null, bill_discount_value: null })).toBeNull()
+    expect(sessionDiscountOf({})).toBeNull()
+  })
+})
+
+describe('combinedDiscount', () => {
+  it('tổng giảm giá từng phiên trên tiền hàng chưa thu của chính nó', () => {
+    const sessions = [
+      { bill_discount_type: 'percent' as const, bill_discount_value: 10, unpaid_total: 155_000 }, // 15.500
+      { bill_discount_type: 'amount' as const, bill_discount_value: 5_000, unpaid_total: 80_000 }, // 5.000
+      { bill_discount_type: null, bill_discount_value: null, unpaid_total: 40_000 }, // 0
+    ]
+    expect(combinedDiscount(sessions)).toBe(20_500)
+  })
+
+  it('làm tròn % từng phiên rồi mới cộng (đúng cách server lưu)', () => {
+    const s = { bill_discount_type: 'percent' as const, bill_discount_value: 10, unpaid_total: 155_005 } // 15.501
+    expect(combinedDiscount([s, s])).toBe(31_002)
+  })
+
+  it('không phiên nào → 0', () => {
+    expect(combinedDiscount([])).toBe(0)
+  })
+})
+
+describe('firstDiscountError', () => {
+  it('trả lỗi của phiên đầu tiên không hợp lệ', () => {
+    const ok = { bill_discount_type: 'amount' as const, bill_discount_value: 5_000, unpaid_total: 80_000 }
+    const bad = { bill_discount_type: 'amount' as const, bill_discount_value: 90_000, unpaid_total: 80_000 }
+    expect(firstDiscountError([ok, bad])).toBe('Giảm giá lớn hơn tiền hàng — sửa lại giảm giá')
+  })
+
+  it('mọi phiên hợp lệ hoặc không giảm giá → null', () => {
+    expect(firstDiscountError([{ bill_discount_type: null, bill_discount_value: null, unpaid_total: 0 }])).toBeNull()
   })
 })

@@ -22,8 +22,11 @@ import {
   moveSessionTable,
   moveSessionToTable,
   releaseTableSessionHost,
+  setSessionDiscount,
+  setSessionsDiscount,
   type OpenTableSession,
 } from '@/lib/actions/table-session'
+import type { BillDiscount } from '@/lib/bill-discount'
 import {
   addManualItems,
   confirmOrder,
@@ -599,6 +602,42 @@ export default function PosClient({
     } finally {
       setBusy(false)
     }
+  }
+
+  // Giảm giá cả bill (mig 107). Panel bill GIỮ NGUYÊN phiên (giống onSetItemQuantity): lưu xong chỉ tải lại.
+  // Một phiên → RPC một phiên; gộp bill → RPC nhiều phiên trong một giao dịch. Lỗi RPC (giảm quá tiền hàng,
+  // phiên đã đóng...) hiện nguyên văn tiếng Việt qua banner lỗi chung.
+  const onSetDiscount = async (sessionIds: string[], d: BillDiscount): Promise<boolean> => {
+    setBusy(true)
+    try {
+      const res = sessionIds.length === 1
+        ? await setSessionDiscount(sessionIds[0], d)
+        : await setSessionsDiscount(sessionIds, d)
+      if (!res.ok) { reportActionError(res.error); return false }
+      await reload()
+      return true
+    } catch {
+      reportActionError('Lỗi kết nối. Kiểm tra lại bill trước khi thao tác tiếp.')
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Nhập bàn vào mâm khác: server xoá giảm giá của phiên nguồn (mig 108) → báo trước, đặt lại ở mâm đích.
+  const onMergeInto = (sessionId: string, targetSessionId: string) => {
+    const merge = () => chay(() => mergeSessionIntoTray(sessionId, targetSessionId))
+    const source = sessions.find((s) => s.session_id === sessionId)
+    if (source?.bill_discount_type) {
+      setPendingConfirm({
+        title: `Nhập ${source.table_number} vào mâm khác?`,
+        description: 'Giảm giá của bàn này sẽ bị bỏ — đặt lại ở mâm đích.',
+        confirmLabel: 'Vẫn nhập',
+        run: merge,
+      })
+      return
+    }
+    void merge()
   }
 
   const onRestoreOrderItem = async (orderItemId: string) => {
@@ -1301,7 +1340,8 @@ export default function PosClient({
           moveAreas={floor.draft.areas.map((a) => ({ id: a.id, name: a.name, color: a.color ?? null }))}
           onMoveTable={onMoveTable}
           onMoveTray={onMoveTray}
-          onMergeInto={(sid, target) => void chay(() => mergeSessionIntoTray(sid, target))}
+          onMergeInto={onMergeInto}
+          onSetDiscount={onSetDiscount}
           onReleaseHost={(sid) => void chay(() => releaseTableSessionHost(sid))}
           onClearPick={() => {
             setPickedSessionIds(new Set())

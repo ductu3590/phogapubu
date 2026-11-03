@@ -85,3 +85,35 @@ export function allocateDiscount(
   out[winner.id] += rem
   return out
 }
+
+/** Phần cột giảm giá của một phiên bàn (list_open_table_sessions, mig 108). */
+export type SessionDiscountColumns = {
+  bill_discount_type?: 'amount' | 'percent' | null
+  bill_discount_value?: number | null
+}
+
+/** Phiên + tiền hàng CHƯA thu của nó (OpenTableSession.unpaid_total) — nền tính giảm giá của server. */
+export type DiscountedSession = SessionDiscountColumns & { unpaid_total: number }
+
+/** Cột của phiên → BillDiscount; chưa giảm giá (type hoặc value thiếu) → null. */
+export function sessionDiscountOf(s: SessionDiscountColumns): BillDiscount {
+  if (!s.bill_discount_type || s.bill_discount_value == null) return null
+  return { type: s.bill_discount_type, value: s.bill_discount_value }
+}
+
+/**
+ * Tổng tiền giảm của các phiên (gộp bill): mỗi phiên một `discountAmount` trên tiền hàng chưa thu của
+ * CHÍNH nó — đúng cách server lưu/trừ (mỗi mâm giữ phần riêng, % làm tròn từng mâm rồi mới cộng).
+ */
+export function combinedDiscount(sessions: DiscountedSession[]): number {
+  return sessions.reduce((n, s) => n + discountAmount(s.unpaid_total, sessionDiscountOf(s)), 0)
+}
+
+/** Lỗi giảm giá đầu tiên trong các phiên (vd. giảm VNĐ lớn hơn tiền hàng sau khi bỏ món), hoặc null. */
+export function firstDiscountError(sessions: DiscountedSession[]): string | null {
+  for (const s of sessions) {
+    const err = validateDiscount(s.unpaid_total, sessionDiscountOf(s))
+    if (err) return err
+  }
+  return null
+}
