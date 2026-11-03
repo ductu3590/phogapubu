@@ -43,7 +43,7 @@ Nếu CB-1 vẫn đang chạy `npm run dev` thì **tắt đi chạy lại** đ�
 CB-2 **không có code Mini App mới**. Bản Mini App đã `zmp deploy` ở CB-1 (mục 0.B) đã biết chuyển hướng khách sang bàn mới — dùng lại đúng QR/link Development của bản đó. Không cần deploy thêm.
 
 **C. Dữ liệu cần có**
-Bàn 1–15 của Bảo Lương đang trống (hoặc bạn tự dọn trước).
+Bàn 1–19 của Bảo Lương đang trống (hoặc bạn tự dọn trước).
 
 ---
 
