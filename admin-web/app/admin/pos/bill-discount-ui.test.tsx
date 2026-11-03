@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { OpenTableSession } from '@/lib/actions/table-session'
-import PosBillPanel from './bill-panel'
+import PosBillPanel, { PaymentView } from './bill-panel'
 import DiscountDialog from './discount-dialog'
 
 const session = (over: Partial<OpenTableSession>): OpenTableSession => ({
@@ -57,6 +57,47 @@ describe('bill có giảm giá', () => {
     expect(html).toContain('Giảm giá lớn hơn tiền hàng — sửa lại giảm giá')
     expect(html).toMatch(/<button[^>]*disabled[^>]*>(?:(?!<\/button>).)*In tạm tính/)
     expect(html).not.toContain('Giảm giá (')
+  })
+})
+
+describe('bill có đơn đã thu trước', () => {
+  it('nút Thanh toán dùng tiền chưa thu, không phải tổng mọi đơn', () => {
+    const html = panel(session({ total: 200_000, unpaid_total: 155_000, bill_discount_type: 'percent', bill_discount_value: 10 }))
+    expect(html).toContain('Thanh toán · 139.500đ')
+    expect(html).not.toContain('Thanh toán · 155.000đ')
+  })
+
+  it('giảm giá lỗi → nút Thanh toán giữ số trước giảm, không kẹp về 0đ', () => {
+    const html = panel(session({ unpaid_total: 100_000, total: 100_000, bill_discount_type: 'amount', bill_discount_value: 120_000 }))
+    expect(html).toContain('Thanh toán · 100.000đ')
+    expect(html).not.toContain('Thanh toán · 0đ')
+  })
+})
+
+describe('PaymentView', () => {
+  const view = (over: Partial<Parameters<typeof PaymentView>[0]>) =>
+    renderToStaticMarkup(
+      <PaymentView title="Bàn 5" list={[session({})]} goods={155_000} paid={0} expiredNote={null} discount={0} discountLabel=""
+        discountError={null} onEditDiscount={vi.fn()} total={155_000} busy={false} onAdjust={vi.fn()} onQty={vi.fn()}
+        onRestore={vi.fn()} onBack={vi.fn()} onDismiss={vi.fn()} onPay={vi.fn()} onPrint={vi.fn()} {...over} />,
+    )
+
+  it('có đơn đã thu trước → hiện dòng "Đã thu trước" riêng', () => {
+    const html = view({ paid: 45_000 })
+    expect(html).toContain('Đã thu trước')
+    expect(html).toContain('45.000đ')
+  })
+
+  it('phiên hết hạn → ẩn nút giảm giá, hiện ghi chú', () => {
+    const html = view({ expiredNote: 'Phiên hết hạn không giảm giá được' })
+    expect(html).toContain('Phiên hết hạn không giảm giá được')
+    expect(html).not.toContain('Thêm giảm giá')
+  })
+
+  it('bình thường → có nút Thêm giảm giá, không có ghi chú', () => {
+    const html = view({})
+    expect(html).toContain('Thêm giảm giá')
+    expect(html).not.toContain('hết hạn')
   })
 })
 

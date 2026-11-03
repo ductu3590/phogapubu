@@ -109,6 +109,27 @@ export function combinedDiscount(sessions: DiscountedSession[]): number {
   return sessions.reduce((n, s) => n + discountAmount(s.unpaid_total, sessionDiscountOf(s)), 0)
 }
 
+/**
+ * Các con số của một bill (1 phiên hoặc gộp N mâm) khớp với những gì server thu/ghi:
+ * - goods: tiền hàng CHƯA thu (Σ unpaid_total) — nền của giảm giá và của số tiền thu;
+ * - paid: phần các đơn đã nhận tiền trước (Σ total − Σ unpaid_total), hiện riêng để phép tính nhìn thấy được;
+ * - discount: tổng giảm giá; payable: Khách cần trả = goods − discount.
+ * Giảm giá đang lỗi → `error` có chữ, discount = 0 và payable = goods (số TRƯỚC giảm, không kẹp về 0đ).
+ */
+export function billTotals(sessions: (DiscountedSession & { total: number })[]): {
+  goods: number
+  paid: number
+  discount: number
+  payable: number
+  error: string | null
+} {
+  const goods = sessions.reduce((n, s) => n + s.unpaid_total, 0)
+  const paid = sessions.reduce((n, s) => n + s.total, 0) - goods
+  const error = firstDiscountError(sessions)
+  const discount = error ? 0 : combinedDiscount(sessions)
+  return { goods, paid, discount, payable: goods - discount, error }
+}
+
 /** Lỗi giảm giá đầu tiên trong các phiên (vd. giảm VNĐ lớn hơn tiền hàng sau khi bỏ món), hoặc null. */
 export function firstDiscountError(sessions: DiscountedSession[]): string | null {
   for (const s of sessions) {

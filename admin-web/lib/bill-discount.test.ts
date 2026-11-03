@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   allocateDiscount,
+  billTotals,
   combinedDiscount,
   discountAmount,
   firstDiscountError,
@@ -207,6 +208,36 @@ describe('combinedDiscount', () => {
 
   it('không phiên nào → 0', () => {
     expect(combinedDiscount([])).toBe(0)
+  })
+})
+
+describe('billTotals', () => {
+  it('tiền hàng = tổng chưa thu; phần đã thu trước tách riêng; giảm giá tính trên tiền chưa thu', () => {
+    const t = billTotals([
+      { total: 200_000, unpaid_total: 155_000, bill_discount_type: 'percent', bill_discount_value: 10 },
+    ])
+    expect(t).toEqual({ goods: 155_000, paid: 45_000, discount: 15_500, payable: 139_500, error: null })
+  })
+
+  it('gộp nhiều mâm: cộng từng mâm', () => {
+    const t = billTotals([
+      { total: 100_000, unpaid_total: 100_000, bill_discount_type: 'amount', bill_discount_value: 5_000 },
+      { total: 60_000, unpaid_total: 60_000 },
+    ])
+    expect(t).toEqual({ goods: 160_000, paid: 0, discount: 5_000, payable: 155_000, error: null })
+  })
+
+  it('giảm giá lỗi → báo lỗi, giữ số TRƯỚC giảm (không kẹp về 0đ)', () => {
+    const t = billTotals([
+      { total: 100_000, unpaid_total: 100_000, bill_discount_type: 'amount', bill_discount_value: 120_000 },
+    ])
+    expect(t.error).toBe('Giảm giá lớn hơn tiền hàng — sửa lại giảm giá')
+    expect(t.payable).toBe(100_000)
+    expect(t.discount).toBe(0)
+  })
+
+  it('không phiên nào → toàn 0', () => {
+    expect(billTotals([])).toEqual({ goods: 0, paid: 0, discount: 0, payable: 0, error: null })
   })
 })
 

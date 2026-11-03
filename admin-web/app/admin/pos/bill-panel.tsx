@@ -9,7 +9,7 @@ import type { OpenTableSession, SessionOrderItem, SessionOrderRow } from '@/lib/
 import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
 import { cashChange, cashSuggestions, formatVndInput, parseVnd } from '@/lib/cash-change'
-import { combinedDiscount, firstDiscountError, sessionDiscountOf, type BillDiscount } from '@/lib/bill-discount'
+import { billTotals, combinedDiscount, sessionDiscountOf, type BillDiscount } from '@/lib/bill-discount'
 import { isReviewableOrder, orderRound } from '@/lib/pos-work-queue'
 import { clock } from '@/lib/pos-timeline'
 import { tableVisualState } from '@/lib/table-status'
@@ -126,11 +126,17 @@ export default function PosBillPanel(props: PosBillPanelProps) {
   if (list.length === 0) return null
 
   const tong = list.reduce((n, s) => n + s.total, 0)
-  // Giảm giá cả bill (mig 107/108): tính bằng cùng hàm với server, trên tiền hàng CHƯA thu của từng mâm.
-  const discount = combinedDiscount(list)
-  const discountError = firstDiscountError(list)
-  const payable = Math.max(0, tong - discount)
+  // Số tiền thu + giảm giá cả bill (mig 107/108): tính bằng cùng hàm với server, trên tiền hàng CHƯA thu của từng mâm
+  // (đơn đã nhận tiền trước không dính giảm giá, cũng không thu lại). Giảm giá lỗi → payable giữ số trước giảm.
+  const { goods, paid, discount, payable, error: discountError } = billTotals(list)
   const discountLabel = discountLabelOf(list)
+  // Phiên hết hạn (còn nợ) bị RPC từ chối giảm giá ("Phiên đã đóng") — nói rõ thay vì lặng lẽ bỏ qua.
+  const expired = list.filter(isExpiredSession)
+  const expiredNote = expired.length === 0
+    ? null
+    : list.length === 1
+      ? 'Phiên hết hạn không giảm giá được'
+      : `Phiên hết hạn không giảm giá được: ${expired.map((s) => name(s)).join(', ')}`
   const pending = list.flatMap((s) => s.orders.filter(isReviewableOrder).map((o) => ({ s, o })))
   const pendingTotal = pending.reduce((n, p) => n + p.o.total_amount, 0)
   const title = list.length > 1 ? `Gộp bill ${list.length} mâm` : name(list[0])
@@ -202,7 +208,9 @@ export default function PosBillPanel(props: PosBillPanelProps) {
       <PaymentView
         title={title}
         list={list}
-        goods={tong}
+        goods={goods}
+        paid={paid}
+        expiredNote={expiredNote}
         discount={discount}
         discountLabel={discountLabel}
         discountError={discountError}
@@ -718,6 +726,9 @@ function MoveTableControl({ session, targets, areas, busy, onMove, onMoveTray }:
   )
 }
 
+/** Phiên đã hết hạn (đóng nhưng còn nợ): server không nhận giảm giá cho nó. */
+const isExpiredSession = (s: OpenTableSession) => s.needs_review || s.status === 'closed'
+
 /** "10%" khi mọi mâm đang giảm cùng một mức %; còn lại (VNĐ, mỗi mâm một mức, không giảm) → rỗng. */
 function discountLabelOf(list: OpenTableSession[]): string {
   const ds = list.map(sessionDiscountOf)
@@ -735,11 +746,15 @@ function currentDiscountOf(list: OpenTableSession[]): BillDiscount {
 }
 
 /** Màn Thanh toán & đóng mâm — bản Stitch P04. */
-function PaymentView({ title, list, goods, discount, discountLabel, discountError, onEditDiscount, total, busy, onAdjust, onQty, onRestore, onBack, onDismiss, onPay, onPrint }: {
+export function PaymentView({ title, list, goods, paid, expiredNote, discount, discountLabel, discountError, onEditDiscount, total, busy, onAdjust, onQty, onRestore, onBack, onDismiss, onPay, onPrint }: {
   title: string
   list: OpenTableSession[]
-  /** Tổng tiền hàng (trước giảm giá). */
+  /** Tổng tiền hàng CHƯA thu (trước giảm giá) — nền của giảm giá và của số tiền thu. */
   goods: number
+  /** Các đơn đã nhận tiền trước (không thu lại) — hiện riêng để phép tính nhìn thấy được. */
+  paid: number
+  /** Có phiên hết hạn trong bill → không giảm giá được; null = giảm giá bình thường. */
+  expiredNote: string | null
   /** Số tiền giảm cả bill (0 = không giảm). */
   discount: number
   /** "10%" khi giảm theo %, rỗng khi giảm VNĐ / không giảm. */
@@ -801,19 +816,23 @@ function PaymentView({ title, list, goods, discount, discountLabel, discountErro
       </section>
 
       <section className="mt-3 rounded-xl border border-orange-200 bg-orange-50 p-3">
+        {paid > 0 && <p className="mb-1 flex justify-between text-[13px] text-slate-600"><span>Đã thu trước (không tính vào bill này)</span><span className="tabular">{dong(paid)}</span></p>}
         <p className="flex justify-between text-sm text-slate-700"><span>Tổng tiền hàng</span><span className="font-semibold tabular">{dong(goods)}</span></p>
         <p className="mt-1 flex items-center justify-between gap-2 text-sm text-slate-700">
           <span>Giảm giá{discountLabel ? ` (${discountLabel})` : ''}</span>
-          <button
-            type="button"
-            onClick={onEditDiscount}
-            disabled={busy}
-            aria-label="Sửa giảm giá hoá đơn"
-            className="min-h-9 cursor-pointer rounded-md border border-orange-300 bg-white px-2.5 font-semibold text-orange-700 tabular hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {discount > 0 ? `−${dong(discount)}` : 'Thêm giảm giá'}
-          </button>
+          {expiredNote ? null : (
+            <button
+              type="button"
+              onClick={onEditDiscount}
+              disabled={busy}
+              aria-label="Sửa giảm giá hoá đơn"
+              className="min-h-9 cursor-pointer rounded-md border border-orange-300 bg-white px-2.5 font-semibold text-orange-700 tabular hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {discount > 0 ? `−${dong(discount)}` : 'Thêm giảm giá'}
+            </button>
+          )}
         </p>
+        {expiredNote && <p className="mt-1 text-[13px] text-slate-600">{expiredNote}</p>}
         {discountError && <p role="alert" className="mt-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[13px] font-semibold text-red-700">{discountError}</p>}
         {giftCount > 0 && <p className="mt-1 flex justify-between text-[13px] text-slate-600"><span>Món tặng (tính 0đ)</span><span className="tabular">{giftCount} món</span></p>}
         <p className="mt-2 flex items-end justify-between gap-2 border-t border-orange-200 pt-2">
