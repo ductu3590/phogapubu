@@ -44,14 +44,14 @@ test('helper vá: chuỗi neo phải xuất hiện ĐÚNG MỘT lần (không v�
 
 test('chuỗi neo khớp nguyên văn định nghĩa prod đã lưu (prod-defs)', async () => {
   const sql = await load(migration)
-  const defs = new URL('../../.superpowers/sdd/2026-11-02-chuyen-ban-giam-gia-bill/prod-defs/', import.meta.url)
+  const defs = new URL('./prod-defs/', import.meta.url)
   for (const [sig, file] of [
     [SIG_STATE, 'get_table_session_state.sql'],
     [SIG_BATCH, 'create_table_order_batch.sql'],
     [SIG_ORDER, 'create_order.sql'],
   ]) {
     let def
-    try { def = await load(new URL(file, defs)) } catch { continue } // bản lưu chỉ có trong worktree làm việc
+    def = await load(new URL(file, defs)) // bản chụp prod lúc viết mig (supabase/tests/prod-defs) — thiếu file là FAIL
     // Áp tuần tự như migration: neo sau có thể nằm trong phần neo trước vừa thay.
     for (const { from, to } of patches(sql, sig)) {
       const n = def.split(from).length - 1

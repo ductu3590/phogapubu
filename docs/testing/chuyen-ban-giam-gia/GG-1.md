@@ -220,5 +220,17 @@ Lý do: một lượt thu riêng trước khi chốt bill làm hoá đơn in "Kh
 
 ---
 
+## Phần 9 — Thu tiền ngoài POS cũng trừ giảm giá (vá sau review cả nhánh)
+
+### 13. A04 và màn nhân viên hiện đúng số SAU giảm giá
+Lý do: thu ở ngăn kéo A04 hoặc `/staff/tables` thì server vẫn trừ giảm giá đặt ở POS, nhưng trước đây hai chỗ này hiện số TRƯỚC giảm → thu ngân thu đủ, báo cáo ghi ít hơn, két lệch. **Bài này KHÔNG thu tiền thật** — chỉ xem số rồi bấm Huỷ/đóng.
+1. Dựng bill **Bàn 12** (Khách lẻ, 2 món, ví dụ tổng 100.000đ). POS → Thanh toán → Giảm giá **10%** → Lưu. Mong đợi POS: Khách cần trả **90.000đ**. Đóng màn Thanh toán (KHÔNG thu).
+2. `/admin/bills` → dòng **Chờ thu** Bàn 12 → **Xem bill** → bấm **Đã nhận tiền mặt**. Mong đợi hộp xác nhận ghi: **"Đã nhận 90.000đ (tạm tính 100.000đ, đã trừ giảm giá 10.000đ) bằng TIỀN MẶT…"**. Bấm **Huỷ** (Cancel) — KHÔNG thu.
+3. Mở `/staff/tables` bằng tài khoản chủ quán/thu ngân. Mong đợi thẻ Bàn 12 hiện **90.000đ**. Bấm **Thu tiền & đóng bàn** → tiêu đề "Thu **90.000đ** — Bàn 12", có dòng nhỏ **"Tiền hàng 100.000đ · Giảm giá −10.000đ (đặt ở POS)"**. Đóng tấm (KHÔNG bấm Tiền mặt/Chuyển khoản).
+4. Dọn: POS → Giảm giá → **Bỏ giảm giá**, rồi **Bỏ bàn** Bàn 12.
+- [ ] PASS  [ ] FAIL
+
+---
+
 ## Sau khi PASS
 Merge nhánh vào `main` + push để Vercel deploy admin-web. Mini App đã `zmp deploy` ở mục 0.B (nhớ deploy bản **Testing** nếu muốn release thật cho khách, thay vì Development; Zalo giới hạn số lần deploy/tháng). Nhớ ghi lại 229.500đ doanh thu test (bài 1 + bài 6) để đối chiếu báo cáo.

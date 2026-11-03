@@ -81,10 +81,10 @@ test('điều kiện trước: thiếu đối tượng mig 107 thì dừng', asy
 
 test('chuỗi neo khớp nguyên văn định nghĩa prod đã lưu (prod-defs/108), áp tuần tự', async () => {
   const sql = await load(migration)
-  const defs = new URL('../../.superpowers/sdd/2026-11-02-chuyen-ban-giam-gia-bill/prod-defs/108/', import.meta.url)
+  const defs = new URL('./prod-defs/108/', import.meta.url)
   for (const key of Object.keys(SIG)) {
     let def
-    try { def = await loadRaw(new URL(FILE[key], defs)) } catch { continue } // bản lưu chỉ có trong worktree làm việc
+    def = await loadRaw(new URL(FILE[key], defs)) // bản chụp prod lúc viết mig (supabase/tests/prod-defs) — thiếu file là FAIL
     for (const { from, to } of patches(sql, SIG[key])) {
       const n = def.split(from).length - 1
       assert.equal(n, 1, `${SIG[key]}: chuỗi neo phải khớp đúng 1 lần, đang khớp ${n}:\n${from}`)
@@ -117,9 +117,9 @@ test('close_table_session(paid): kiểm giảm giá > tiền hàng, bỏ qua phi
   // Khối giảm giá nằm trong nhánh paid, SAU kiểm phương tiện, TRƯỚC UPDATE ghi payment_received_*
   assert.ok(hook.from.includes("Phương tiện thanh toán không hợp lệ"), 'neo phải là khối kiểm phương tiện (chỉ có ở nhánh paid)')
   assert.ok(hook.to.indexOf('Phương tiện thanh toán không hợp lệ') < hook.to.indexOf('Giảm giá lớn hơn tiền hàng'))
-  const defs = new URL('../../.superpowers/sdd/2026-11-02-chuyen-ban-giam-gia-bill/prod-defs/108/', import.meta.url)
+  const defs = new URL('./prod-defs/108/', import.meta.url)
   let def
-  try { def = await loadRaw(new URL(FILE.close, defs)) } catch { return }
+  def = await loadRaw(new URL(FILE.close, defs))
   for (const { from, to } of ps) def = def.replace(from, () => to)
   const iDisc = def.indexOf('Giảm giá lớn hơn tiền hàng')
   const iPaid = def.indexOf('SET payment_received_at = now()')

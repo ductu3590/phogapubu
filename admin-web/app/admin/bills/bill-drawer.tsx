@@ -14,6 +14,7 @@ import { printInPlace } from '@/lib/print/print-in-place'
 import type { BillRow } from '@/lib/bills-report'
 import type { BillDetailOrder, SessionMove } from '@/lib/bill-detail'
 import { collectSessionBill, getSessionMoves, loadBillDetail, redeemBillSpin, runBillOrderAction, type BillOrderAction } from '@/lib/actions/bill-detail'
+import { getSessionsBill } from '@/lib/actions/table-session'
 
 const time = (iso: string) =>
   iso ? new Date(iso).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -85,7 +86,28 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
   const onCollect = async (instrument: 'cash' | 'bank') => {
     if (!row) return
     const how = instrument === 'cash' ? 'TIỀN MẶT' : 'CHUYỂN KHOẢN'
-    if (!window.confirm(`Đã nhận ${formatVND(row.amount)} bằng ${how} cho ${row.tableLabel}?
+    // Giảm giá đặt ở POS nằm trên phiên; close_table_session trừ nó lúc thu (mig 108) → hỏi đúng số SAU giảm,
+    // không thì thu ngân thu đủ tạm tính mà báo cáo ghi ít hơn (két lệch). Phiên hết hạn: server trả 0.
+    setBusy(`collect:${instrument}`)
+    let discount = 0
+    try {
+      const bill = await getSessionsBill(row.sessionIds)
+      if (!bill.ok) { setError(bill.error); return }
+      discount = bill.bill.grand_discount ?? 0
+    } catch {
+      setError('Lỗi kết nối. Thử lại sau.')
+      return
+    } finally {
+      setBusy(null)
+    }
+    if (discount > row.amount) {
+      setError('Giảm giá lớn hơn tiền hàng. Sửa giảm giá ở POS → Thanh toán rồi thu lại.')
+      return
+    }
+    const amountText = discount > 0
+      ? `${formatVND(row.amount - discount)} (tạm tính ${formatVND(row.amount)}, đã trừ giảm giá ${formatVND(discount)})`
+      : formatVND(row.amount)
+    if (!window.confirm(`Đã nhận ${amountText} bằng ${how} cho ${row.tableLabel}?
 Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.`)) return
     setBusy(`collect:${instrument}`)
     try {

@@ -26,6 +26,8 @@ export function validateDiscount(subtotal: number, d: BillDiscount): string | nu
 }
 
 /**
+ * BẢN THAM CHIẾU của cách chia server làm trong close_table_session / pos_set_sessions_discount
+ * (mig 107/108) — lúc chạy thật server tự chia, hàm này để test giữ hai bên khớp nhau; đổi một bên phải đổi cả hai.
  * Chia `total` tiền giảm cho các phần (mâm) theo tỉ lệ `amount` của từng phần.
  * - Mỗi phần: Math.floor(total * amount / tổng amount).
  * - Phần dư (do làm tròn xuống) chia lần lượt theo thứ tự `amount` giảm dần, hoà thì `id` nhỏ nhất

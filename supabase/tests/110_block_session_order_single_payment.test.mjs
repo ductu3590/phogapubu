@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const migration = new URL('../migrations/110_block_session_order_single_payment.sql', import.meta.url)
-const defs = new URL('../../.superpowers/sdd/2026-11-02-chuyen-ban-giam-gia-bill/prod-defs/110/', import.meta.url)
+const defs = new URL('./prod-defs/110/', import.meta.url)
 
 // core.autocrlf: bản checkout trên Windows có thể là CRLF; helper SQL cũng đổi CRLF → LF trước khi so.
 const load = async (url) => (await readFile(url, 'utf8')).replace(/\r\n/g, '\n')
@@ -46,7 +46,7 @@ test('chuỗi neo khớp nguyên văn định nghĩa prod đã lưu (prod-defs/1
   const sql = await load(migration)
   for (const key of Object.keys(SIG)) {
     let def
-    try { def = await loadRaw(new URL(FILE[key], defs)) } catch { continue } // bản lưu chỉ có trong worktree làm việc
+    def = await loadRaw(new URL(FILE[key], defs)) // bản chụp prod lúc viết mig (supabase/tests/prod-defs) — thiếu file là FAIL
     const ps = patches(sql, SIG[key])
     assert.equal(ps.length, 1, `${SIG[key]}: cần đúng 1 lời vá`)
     for (const { from, to } of ps) {

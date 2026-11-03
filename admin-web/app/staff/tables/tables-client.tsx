@@ -23,6 +23,7 @@ import {
   type SessionTable,
 } from '@/lib/actions/table-session'
 import { assignTrayColors } from '@/lib/tray-colors'
+import { billTotals } from '@/lib/bill-discount'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
 import { areaColorClasses } from '@/lib/area-colors'
 import { groupTablesByArea, type StaffArea } from '@/lib/staff-area-groups'
@@ -148,7 +149,8 @@ export default function TablesClient({
   const liveSessions = sessions.filter((s) => !s.needs_review)
   const reviewSessions = sessions.filter((s) => s.needs_review)
   const pickedSessions = sessions.filter((s) => picked.has(s.session_id))
-  const pickedTotal = pickedSessions.reduce((n, s) => n + s.total, 0)
+  // Số tiền thu = phần chưa thu trừ giảm giá đặt ở POS — đúng số close_table_session ghi (mig 108).
+  const pickedTotal = billTotals(pickedSessions).payable
 
   const finish = async (msg?: string) => {
     setBusy(false)
@@ -219,7 +221,7 @@ export default function TablesClient({
 
   const sheetTitle =
     sheet.kind === 'pay'
-      ? `Thu ${dong(sheet.sessions.reduce((n, s) => n + s.total, 0))}${sheet.sessions.length === 1 ? ` — ${sheet.sessions[0].table_number}` : ` — ${sheet.sessions.length} mâm`}`
+      ? `Thu ${dong(billTotals(sheet.sessions).payable)}${sheet.sessions.length === 1 ? ` — ${sheet.sessions[0].table_number}` : ` — ${sheet.sessions.length} mâm`}`
       : sheet.kind === 'more'
         ? sheet.session.table_number
         : sheet.kind === 'reset'
@@ -274,7 +276,7 @@ export default function TablesClient({
                 {!s.is_open_ordering && !s.has_host && ' · chưa có máy giữ bàn'}
               </p>
             </div>
-            <span className="shrink-0 font-semibold text-foreground tabular">{dong(s.total)}</span>
+            <span className="shrink-0 font-semibold text-foreground tabular">{dong(billTotals([s]).payable)}</span>
           </div>
 
           {s.orders.length > 0 && (
@@ -380,14 +382,22 @@ export default function TablesClient({
           dismissible={!busy}
           className="md:inset-x-0 md:top-auto md:bottom-0 md:mx-auto md:h-auto md:max-h-[85dvh] md:w-full md:max-w-md md:rounded-none md:rounded-t-2xl"
         >
-            {canClose && sheet.kind === 'pay' && (
+            {canClose && sheet.kind === 'pay' && (() => {
+              const t = billTotals(sheet.sessions)
+              return (
               <>
+                {t.error && <Banner tone="error" title={t.error} className="mb-3">Sửa giảm giá ở POS → Thanh toán rồi thu lại.</Banner>}
+                {!t.error && t.discount > 0 && (
+                  <p className="mb-3 text-[13px] text-muted">
+                    Tiền hàng <span className="tabular">{dong(t.goods)}</span> · Giảm giá <span className="tabular">−{dong(t.discount)}</span> (đặt ở POS)
+                  </p>
+                )}
                 <p className="text-sm text-muted">Khách trả bằng gì?</p>
                 <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Button variant="primary" size="touch" icon={<Banknote />} onClick={() => void doClose(sheet.sessions, 'paid', 'cash')} disabled={busy}>
+                  <Button variant="primary" size="touch" icon={<Banknote />} onClick={() => void doClose(sheet.sessions, 'paid', 'cash')} disabled={busy || !!t.error}>
                     Tiền mặt
                   </Button>
-                  <Button size="touch" icon={<Landmark />} onClick={() => void doClose(sheet.sessions, 'paid', 'bank')} disabled={busy}>
+                  <Button size="touch" icon={<Landmark />} onClick={() => void doClose(sheet.sessions, 'paid', 'bank')} disabled={busy || !!t.error}>
                     Chuyển khoản
                   </Button>
                 </div>
@@ -395,7 +405,8 @@ export default function TablesClient({
                   Chuyển khoản: cho khách quét mã QR của quán, nghe loa báo tiền về rồi mới bấm.
                 </p>
               </>
-            )}
+              )
+            })()}
 
             {sheet.kind === 'more' && (
               <div className="space-y-2">
