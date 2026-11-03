@@ -206,10 +206,10 @@
 - [ ] **Step 4:** Test → PASS.
 - [ ] **Step 5: Commit** `feat: hàm tính và chia giảm giá bill`.
 
-### Task 9: Migration 106 — schema giảm giá + RPC đặt giảm giá
+### Task 9: Migration 107 — schema giảm giá + RPC đặt giảm giá
 
 **Files:**
-- Create: `supabase/migrations/106_bill_discount.sql`, `supabase/tests/106_bill_discount.test.mjs`
+- Create: `supabase/migrations/107_bill_discount.sql`, `supabase/tests/107_bill_discount.test.mjs`
 - Create: `docs/testing/chuyen-ban-giam-gia/sql/gg-verify.sql`
 
 **Interfaces:**
@@ -222,16 +222,16 @@
   - `public.pos_set_session_discount(p_session_id uuid, p_type text, p_value integer) RETURNS jsonb` — `p_type IS NULL OR p_value = 0` = bỏ giảm giá; quyền `is_store_pos_operator`; phiên `open`; kiểm như `validateDiscount`; ghi nhật ký; trả `{ok, subtotal, discount}`.
   - `public.pos_set_sessions_discount(p_session_ids uuid[], p_type text, p_value integer) RETURNS jsonb` — percent: cùng % cho mọi phiên; amount: chia theo `session_unpaid_subtotal` bằng đúng thuật toán `allocateDiscount` (dư vào phiên lớn nhất, hoà thì id nhỏ nhất), lưu mỗi phiên dạng `amount`; khoá phiên theo id tăng dần; một giao dịch.
 - [ ] **Step 1: Test tĩnh**: có 2 `ADD COLUMN`, bảng nhật ký, 4 hàm với đúng chữ ký trên, `is_store_pos_operator(` trong 2 RPC, `'Giảm giá lớn hơn tiền hàng — sửa lại giảm giá'`.
-- [ ] **Step 2:** `node --test supabase/tests/106_bill_discount.test.mjs` → FAIL.
-- [ ] **Step 3:** Viết migration 106 (toàn hàm MỚI, không vá hàm sống).
+- [ ] **Step 2:** `node --test supabase/tests/107_bill_discount.test.mjs` → FAIL.
+- [ ] **Step 3:** Viết migration 107 (toàn hàm MỚI, không vá hàm sống).
 - [ ] **Step 4:** Test tĩnh → PASS.
 - [ ] **Step 5:** `gg-verify.sql` (BEGIN…ROLLBACK) case: `set_percent`, `set_amount_over_subtotal` (lỗi), `clear_discount`, `combined_amount_split` (2 phiên 30k/70k, giảm 10.001 → 3.000 / 7.001), `log_written`.
-- [ ] **Step 6: Commit** `feat: mig 106 giảm giá bill - ý định trên phiên + RPC đặt giảm giá`.
+- [ ] **Step 6: Commit** `feat: mig 107 giảm giá bill - ý định trên phiên + RPC đặt giảm giá`.
 
-### Task 10: Migration 107 — vá RPC sống cho giảm giá; áp prod
+### Task 10: Migration 108 — vá RPC sống cho giảm giá; áp prod
 
 **Files:**
-- Create: `supabase/migrations/107_bill_discount_patch_rpcs.sql`, `supabase/tests/107_bill_discount_patch_rpcs.test.mjs`
+- Create: `supabase/migrations/108_bill_discount_patch_rpcs.sql`, `supabase/tests/108_bill_discount_patch_rpcs.test.mjs`
 - Modify: `docs/testing/chuyen-ban-giam-gia/sql/gg-verify.sql`
 
 **Interfaces:**
@@ -245,10 +245,10 @@
   - `get_bills_report`: `discount_total` cộng `bill_discount_amount`; mỗi bill thêm `bill_discount`.
   - `get_table_session_bill` + `get_table_session_state(owner)`: thêm `bill_discount` (số tiền, tính như `get_sessions_bill`).
 - [ ] **Step 1: Test tĩnh**: có `mevo_patch` cho đúng 8 chữ ký (lấy chữ ký thật trên prod bằng `pg_get_function_identity_arguments`), có chuỗi lỗi giảm giá trong vá `close_table_session`, có `'expired'`, không có `CREATE OR REPLACE FUNCTION public.close_table_session`.
-- [ ] **Step 2:** → FAIL. **Step 3:** viết 107 với chuỗi neo lấy từ `pg_get_functiondef` prod. **Step 4:** → PASS.
+- [ ] **Step 2:** → FAIL. **Step 3:** viết 108 với chuỗi neo lấy từ `pg_get_functiondef` prod. **Step 4:** → PASS.
 - [ ] **Step 5:** Thêm vào `gg-verify.sql`: `pay_with_percent` (tổng thu = tiền hàng − giảm, các đơn có `bill_discount_amount` cộng = số giảm), `discount_after_new_round` (thêm lượt sau khi đặt % → số giảm theo tiền mới), `discount_skips_paid_order`, `void_after_amount_blocks_pay` (lỗi khi thu), `expired_ignores_discount`, `merge_drops_source_discount`, `bulk_pay_split`, `bills_report_revenue` (doanh thu = tổng `total_amount` sau giảm, `discount_total` gồm giảm giá bill), `recompute_keeps_discount`.
-- [ ] **Step 6:** Áp 106 + 107 lên prod (như Task 3), chạy `gg-verify.sql` → toàn `PASS`.
-- [ ] **Step 7: Commit** `feat: mig 107 trừ giảm giá bill lúc thu tiền + trả giảm giá cho POS, in, A04, Mini App`.
+- [ ] **Step 6:** Áp 107 + 108 lên prod (như Task 3), chạy `gg-verify.sql` → toàn `PASS`.
+- [ ] **Step 7: Commit** `feat: mig 108 trừ giảm giá bill lúc thu tiền + trả giảm giá cho POS, in, A04, Mini App`.
 
 ### Task 11: POS — hộp "Giảm giá hoá đơn"
 
@@ -296,3 +296,65 @@
 - [ ] **Step 1:** GG-1.md trên Bảo Lương: (1) giảm 10% → tạm tính in dòng giảm, (2) giảm VNĐ, sửa, bỏ, (3) gợi ý tiền khách đưa theo số sau giảm, (4) bỏ món sau khi giảm VNĐ lớn → không cho thu, (5) đặt % rồi khách gọi thêm → số giảm tăng theo, (6) gộp 2 mâm giảm VNĐ → hoá đơn tổng đúng, A04 mỗi mâm đúng phần, (7) thu xong → A04 doanh thu = tiền thật, cột giảm giá đúng, Excel + in báo cáo ngày, (8) nhập bàn có giảm giá vào mâm → cảnh báo + giảm giá mất, (9) Mini App tab Đơn gọi hiện giảm giá, (10) thu ngân (không phải chủ quán) làm được hết.
 - [ ] **Step 2: Commit** `docs: checklist test GG-1 giảm giá bill + ghi quyết định vào CLAUDE.md`.
 - [ ] **Step 3: DỪNG.** Nói: *"Xong Sprint GG rồi anh, test theo docs/testing/chuyen-ban-giam-gia/GG-1.md nhé"*. Chờ "PASS". Sau PASS mới bàn chuyện merge `main` + `zmp deploy`.
+
+---
+
+## Sprint CB-2 — Bổ sung sau CB-1 PASS (2026-11-03, anh Tú duyệt trong chat)
+
+Hai yêu cầu của anh Tú sau khi test CB-1: (a) xác nhận "bàn có lịch đặt muộn" phải là **hộp thoại trong app**, không phải `confirm()` của trình duyệt — đổi luôn hộp "Bỏ bàn (không thu tiền)" cho đồng bộ; (b) **chuyển cả mâm (N bàn) sang MỘT bàn trống** (vd mâm Bàn 6 + Bàn 7 → Bàn 13). Đích luôn là bàn TRỐNG; dồn vào mâm đang có khách vẫn dùng "Nhập vào mâm khác". Chỉ làm N → 1. Migration chuyển cả mâm là **106** (giảm giá dời 107/108). Chạy trước Sprint GG; xong thì DỪNG chờ test CB-2.
+
+### Task 15: Migration 106 — RPC chuyển cả mâm sang một bàn
+
+**Files:**
+- Create: `supabase/migrations/106_move_tray_to_one_table.sql`, `supabase/tests/106_move_tray_to_one_table.test.mjs`
+- Create: `docs/testing/chuyen-ban-giam-gia/sql/cb2-verify.sql`
+
+**Interfaces:**
+- Consumes: bảng `table_session_moves`, helper `moved_session_for_caller`, `lock_table_for_session`, `table_has_current_reservation_hold`, `is_store_pos_operator` (mig 104 — đọc file 104 để theo đúng nếp: khoá, lỗi, service_requests, revoke).
+- Produces: `public.pos_move_session_to_table(p_session_id uuid, p_to_table_id uuid) RETURNS jsonb` → `{ok:true, from_table_numbers text (vd "Bàn 6, Bàn 7"), to_table_number text, tables_moved int}`; grant `authenticated`, revoke `PUBLIC, anon`. Hàm MỚI (không vá hàm sống).
+
+Hành vi (một giao dịch):
+1. Khoá: lấy danh sách bàn đang mở của phiên + bàn đích, `lock_table_for_session` theo `table_id` tăng dần cho TẤT CẢ, rồi `FOR UPDATE` phiên. Quyền `is_store_pos_operator` kiểm trước khi khoá (như 104).
+2. Kiểm: phiên `open`; đích cùng quán, `is_active`, KHÔNG thuộc phiên này và `open_session_id_for_table(đích) IS NULL` (lỗi `'% đang có khách'`), không trong khung giữ (`'% đang giữ cho khách đặt trước'`).
+3. `session_tables`: giữ đúng MỘT dòng mở của phiên và đổi `table_id` thành đích; XOÁ các dòng mở còn lại của phiên (lịch sử nằm ở `table_session_moves`). Unique index `session_tables_one_open_per_table` là chốt chặn cuối.
+4. `table_sessions.table_id` (bàn gốc) = đích; `is_open_ordering` GIỮ NGUYÊN (mâm vẫn là mâm mở dù chỉ còn 1 bàn); `last_activity_at = now()`.
+5. `orders.table_id` của phiên thuộc các bàn cũ → đích.
+6. `service_requests` chưa xử lý của các bàn cũ (theo đúng điều kiện 104) → đích; nếu dồn về làm trùng unique index "một yêu cầu mở / bàn / loại" thì giữ yêu cầu MỚI NHẤT, các yêu cầu trùng còn lại đánh dấu đã xử lý (cùng cột 104 dùng) — không để lỗi tiếng Anh.
+7. Ghi MỖI bàn cũ một dòng `table_session_moves(from = bàn cũ, to = đích)`.
+8. Phiên chỉ có 1 bàn → vẫn chạy được (tương đương chuyển một bàn).
+
+- [ ] **Step 1: Test tĩnh** (mẫu `104_table_session_moves.test.mjs`): có `FUNCTION public.pos_move_session_to_table(\s*p_session_id uuid,\s*p_to_table_id uuid`; `is_store_pos_operator(`; `table_has_current_reservation_hold(`; `DELETE FROM public.session_tables`; `INSERT INTO public.table_session_moves`; `REVOKE ALL ON FUNCTION public.pos_move_session_to_table(uuid, uuid) FROM PUBLIC, anon`; không có `rerun-safe`; không có `CREATE OR REPLACE FUNCTION public.create_order`.
+- [ ] **Step 2:** `node --test supabase/tests/106_move_tray_to_one_table.test.mjs` → FAIL.
+- [ ] **Step 3:** Viết 106.
+- [ ] **Step 4:** → PASS (chạy kèm test 104, 105).
+- [ ] **Step 5:** `cb2-verify.sql` (BEGIN…ROLLBACK, fixture lỗi phải `RAISE 'FAIL …'`, mẫu `cb-verify.sql`): `tray_to_one` (mâm 2 bàn → 1 bàn: còn đúng 1 dòng session_tables mở = đích, bàn gốc = đích, `is_open_ordering` vẫn true, đơn của cả 2 bàn cũ có `table_id` = đích, 2 dòng nhật ký, 2 bàn cũ trống), `tray_to_one_busy` (đích có khách → lỗi), `tray_to_one_own_table` (đích là một bàn của chính mâm → lỗi "đang có khách"), `tray_to_one_held` (lỗi giữ đặt bàn), `tray_to_one_redirect` (khách đã gọi ở bàn cũ thứ 2 → `get_table_session_state(bàn cũ 2)` trả `moved` về đích), `tray_to_one_service_dupe` (2 bàn cũ cùng có yêu cầu gọi NV mở → còn đúng 1 yêu cầu mở ở đích, không lỗi), `single_table_session` (phiên 1 bàn → chạy như chuyển 1 bàn), `privileges` (anon không gọi được, authenticated gọi được).
+- [ ] **Step 6: Commit** `feat: mig 106 chuyển cả mâm sang một bàn trống`.
+
+### Task 16: POS — hộp thoại trong app + chế độ "Chuyển cả mâm sang một bàn"
+
+**Files:**
+- Create: `admin-web/app/admin/pos/confirm-dialog.tsx` (hộp thoại xác nhận dùng lại `Dialog` chung, như `QtyDialog` trong `bill-panel.tsx`)
+- Modify: `admin-web/lib/actions/table-session.ts` (action mới), `admin-web/app/admin/pos/bill-panel.tsx` (`MoveTableControl`), `admin-web/app/admin/pos/pos-client.tsx` (`onMoveTable`, `onReset` — bỏ `window.confirm`), `admin-web/lib/table-move.ts` (+ test) nếu cần hàm thuần cho nội dung hộp thoại.
+
+**Interfaces:**
+- Consumes: RPC `pos_move_session_to_table` (Task 15); `laterReservationConfirmText` / `moveTargets` (đã có trong `lib/table-move.ts`).
+- Produces: `moveSessionToTable(sessionId: string, toTableId: string): Promise<{ ok: true; from: string; to: string } | { ok: false; error: string }>` (kiểm `isPosRole`, `createClient()`, trả lỗi không ném — như `moveSessionTable`). Hộp thoại: `ConfirmDialog({ open, title, description, confirmLabel, tone?: 'default' | 'danger', busy, onConfirm, onCancel })`.
+
+- [ ] **Step 1: Test** `lib/table-move.test.ts`: hàm thuần `laterReservationDialog(tableNumber, arrivalAt)` → `{ title: 'Bàn 16 có khách đặt lúc 21:00', description: 'Từ 20:00 khách không tự gọi món qua QR được.' }` (giờ VN; dùng lại logic `laterReservationConfirmText`, bỏ hàm cũ nếu không còn chỗ dùng).
+- [ ] **Step 2–4:** FAIL → viết → PASS (`cd admin-web && npx vitest run lib/table-move.test.ts`).
+- [ ] **Step 5: UI.**
+  - Mọi chỗ `window.confirm` của luồng chuyển bàn và "Bỏ bàn (không thu tiền)" → `ConfirmDialog` trong app. Chuyển bàn: nút **Huỷ** / **Vẫn chuyển** (cam). Bỏ bàn: giữ nguyên câu chữ của confirm cũ làm nội dung, nút **Huỷ** / **Bỏ bàn** (tone danger). Huỷ thì không làm gì, ô chọn trở về trống.
+  - `MoveTableControl` khi phiên có ≥2 bàn: hai lựa chọn rõ ràng **"Đổi một bàn"** (luồng hiện có) và **"Chuyển cả mâm sang một bàn"** (chọn bàn đích từ cùng danh sách `moveTargets` → gọi `moveSessionToTable`). Phiên 1 bàn: giữ nguyên như hiện tại, không hiện lựa chọn mới.
+  - Thành công → toast thành công như hiện có: `Đã chuyển ${from} → ${to}` (from có thể là "Bàn 6, Bàn 7"). Lỗi → lỗi nguyên văn từ server.
+- [ ] **Step 6:** `npx vitest run && npx tsc --noEmit && npx eslint <file đã sửa>`.
+- [ ] **Step 7: Commit** `feat: POS hộp thoại xác nhận trong app + chuyển cả mâm sang một bàn`.
+
+### Task 17: Áp 106 lên prod + checklist CB-2 + CLAUDE.md — rồi DỪNG
+
+**Files:**
+- Create: `docs/testing/chuyen-ban-giam-gia/CB-2.md`
+- Modify: `CLAUDE.md` (thêm 1 dòng 2026-11-03: chuyển cả mâm N→1 bằng `pos_move_session_to_table`, xoá dòng `session_tables` thừa, mâm vẫn mở; xác nhận dùng hộp thoại trong app)
+- [ ] **Step 1:** Như Task 3: kiểm `list_migrations` (chưa có 106), chạy thử 106 + `cb2-verify.sql` trong BEGIN…ROLLBACK, xác nhận không còn gì sót lại, rồi `apply_migration` tên theo nếp (`106_move_tray_to_one_table`), chạy lại `cb2-verify.sql`, kiểm quyền.
+- [ ] **Step 2:** CB-2.md trên Bảo Lương (cùng nếp CB-1: điện thoại khác cho "khách lạ", bàn riêng từng bài, bước Dọn): (1) bàn có lịch muộn → hộp thoại trong app (không còn khung của Windows), Huỷ → không chuyển, Vẫn chuyển → chuyển; (2) Bỏ bàn → hộp thoại trong app; (3) mâm 2 bàn → "Chuyển cả mâm sang một bàn" → còn 1 bàn, 2 bàn cũ trống, bill nguyên vẹn, khách trong mâm vẫn gọi thêm được; (4) khách đã gọi món ở bàn cũ thứ hai mở app → thấy "đã chuyển sang Bàn X", gọi món vào đúng bill; (5) A04 hiện 2 dòng chuyển bàn; (6) đích là bàn đang có khách / đang giữ đặt bàn → không có trong danh sách.
+- [ ] **Step 3: Commit** `docs: checklist CB-2 + ghi quyết định chuyển cả mâm vào CLAUDE.md`.
+- [ ] **Step 4: DỪNG** — controller cho review cả đợt CB-2, rồi nói: *"Xong CB-2 rồi anh, test theo docs/testing/chuyen-ban-giam-gia/CB-2.md nhé"*.
