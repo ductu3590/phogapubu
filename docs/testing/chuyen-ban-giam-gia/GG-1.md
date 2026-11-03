@@ -1,10 +1,12 @@
 # GG-1 — Giảm giá hoá đơn (VNĐ / %) (2026-11-03)
 
 Nhánh `feat/chuyen-ban-giam-gia-bill` · Spec `docs/superpowers/specs/2026-11-02-chuyen-ban-giam-gia-bill-design.md` §4
-Test trên **Bia lẩu Bảo Lương** (đăng nhập POS bằng chủ quán; bài 10 dùng tài khoản thu ngân). **Migration 107 + 108 đã áp prod** — không cần làm gì thêm về DB.
+Test trên **Bia lẩu Bảo Lương** (đăng nhập POS bằng chủ quán; bài 10 dùng tài khoản thu ngân). **Migration 107 + 108 đã áp prod.** **Migration 110** (chặn thu lẻ từng lượt của bàn trả sau + khoá 2 hàm nội bộ) Claude áp sau khi review xong — bài 12 cần 110 đã áp; các bài khác không phụ thuộc.
 Làm sau khi **CB-1 và CB-2 đã PASS**.
 
 > **ĐÂY LÀ QUÁN THẬT.** Bài 1 và bài 6 thu tiền thật trên POS nên **cộng thêm vào doanh thu hôm nay** (bài 1: 139.500đ, bài 6: 90.000đ — tổng 229.500đ giả). Hoá đơn đã thu **không xoá được** khỏi báo cáo. Cách giảm thiệt hại: test **ngoài giờ mở cửa**, hoặc test xong ghi lại 229.500đ này để trừ khi đối chiếu két / báo cáo ngày. Các bài còn lại đều kết thúc bằng **Bỏ bàn** (không vào doanh thu). Nhớ dọn hết bill test trước khi quán mở cửa kẻo nhân viên thấy bàn lạ.
+>
+> **Giảm doanh thu giả:** ở bài 1 và bài 6 (hai bài thu tiền thật) nên chọn **món rẻ nhất** của menu (vd vài món đồ nhắm/nước rẻ) thay vì ra đúng 155.000đ / 100.000đ — các con số mẫu trong bài chỉ để minh hoạ, điều cần kiểm là phép tính khớp (xem "Chọn món cho ra đúng tổng tiền" bên dưới). Ghi lại số thật đã thu để trừ khi đối chiếu.
 
 ## Cách làm cho khỏi nhầm
 
@@ -29,6 +31,7 @@ Làm sau khi **CB-1 và CB-2 đã PASS**.
 | 9 (Mini App) | Bàn 10 |
 | 10 (thu ngân) | Bàn 11 |
 | 11 | (không bắt buộc) |
+| 12 | Bàn 12 (bỏ bàn, cần mig 110 đã áp) |
 
 ## 0. Chuẩn bị (làm TRƯỚC khi test)
 
@@ -54,7 +57,7 @@ zmp deploy
 - Chưa deploy được thì **bỏ qua bài 9** (ghi "chưa test"), các bài khác không phụ thuộc. Bản cũ vẫn tính đúng bill, chỉ không hiện dòng giảm giá.
 
 **C. Dữ liệu cần có**
-Bàn 1–11 của Bảo Lương đang trống (hoặc bạn tự dọn trước). Có sẵn tài khoản **thu ngân** (không phải chủ quán) để làm bài 10.
+Bàn 1–12 của Bảo Lương đang trống (hoặc bạn tự dọn trước). Có sẵn tài khoản **thu ngân** (không phải chủ quán) để làm bài 10.
 
 ---
 
@@ -69,7 +72,7 @@ Bàn 1–11 của Bảo Lương đang trống (hoặc bạn tự dọn trước)
    - **KHÁCH CẦN TRẢ 139.500đ** (số lớn màu cam)
    - Góc phải đầu màn: **Cần thu 139.500đ**; nút xanh dưới cùng: **Xác nhận đã nhận 139.500đ**.
    - Không có dòng "Đã thu trước" (chưa ai trả trước gì).
-4. Quay lại bill (mũi tên trái): ở tab bill có dải cam **"Giảm giá (10%)  −15.500đ"**; nút dưới cùng ghi **Thanh toán · 139.500đ**.
+4. Quay lại bill (mũi tên trái): ở tab bill có dải cam **"Giảm giá (10%)  −15.500đ"**; nút dưới cùng ghi **Thanh toán · 139.500đ**. Ô tiền xám ở đầu bill (nền xanh than) ghi **"ĐÃ DUYỆT · CHƯA THU 155.000đ"** kèm dòng nhỏ **"Chưa trừ giảm giá 15.500đ"** (ô này là tiền hàng chưa thu TRƯỚC giảm giá — số khách trả là ở nút Thanh toán).
 5. Bấm **In tạm tính / hoá đơn** (hoặc **In tạm tính** ở bill) → xem bản in (xem trước hộp thoại in, hoặc mở được tờ in thì xem). Mong đợi các dòng ở cuối tờ: **Tổng số món** → **Tổng tiền hàng 155.000** → **Giảm giá (10%)  -15.500** → **Khách cần trả 139.500đ** (chữ "TỔNG CỘNG" KHÔNG xuất hiện khi có giảm giá).
 6. Ghi chú đã biết, **không tính FAIL**: nếu lúc này mở `/admin/bills` thì dòng **Chờ thu** của Bàn 1 vẫn hiện **155.000đ "Tạm tính"** — số chờ thu của bill còn mở tính **trước giảm giá** (cố ý, chỉ khi thu xong mới ra số sau giảm — kiểm ở bài 7).
 7. **Dọn — thu tiền** bill Bàn 1 (tiền mặt, để vào bài 7): nhập tiền khách đưa tuỳ ý ≥ 139.500đ.
@@ -80,6 +83,7 @@ Bàn 1–11 của Bảo Lương đang trống (hoặc bạn tự dọn trước)
 2. Mong đợi: hàng Giảm giá ghi **Giảm giá** (KHÔNG có "%") với nút **−20.000đ**; **Khách cần trả 80.000đ**.
 3. Bấm nút **−20.000đ** để sửa. Mong đợi: hộp mở sẵn kiểu **VNĐ** với **20.000** trong ô; có nút đỏ **Bỏ giảm giá** bên trái. Đổi thành **30.000** → **Lưu** → **Khách cần trả 70.000đ**.
 4. Mở lại → bấm **Bỏ giảm giá**. Mong đợi: hộp đóng, hàng giảm giá trở lại **Thêm giảm giá**, **Khách cần trả 100.000đ**, tab bill không còn dải cam giảm giá.
+   - **Kiểm hồi quy bill KHÔNG giảm giá:** bấm **In tạm tính / hoá đơn**. Mong đợi tờ in như trước khi có tính năng giảm giá: dòng cuối **TỔNG CỘNG 100.000đ**; **KHÔNG** có dòng "Tổng tiền hàng", "Giảm giá" hay "Khách cần trả".
 5. Mở hộp lần nữa, gõ thử **200000** (lớn hơn tiền hàng 100.000). Mong đợi: khung đỏ **"Giảm giá lớn hơn tiền hàng — sửa lại giảm giá"**, nút **Lưu** xám không bấm được. Bấm **Bỏ qua** — không có gì thay đổi.
 6. **Dọn — bỏ bàn** Bàn 2.
 - [ ] PASS  [ ] FAIL
@@ -87,6 +91,7 @@ Bàn 1–11 của Bảo Lương đang trống (hoặc bạn tự dọn trước)
 ### 3. Gợi ý tiền khách đưa theo số SAU giảm
 1. Dựng bill **Bàn 3**, tổng hàng **155.000đ**, giảm **10%** (như bài 1) → **Khách cần trả 139.500đ**. Vẫn ở màn Thanh toán, chọn **Tiền mặt**.
 2. Mong đợi: ô "Tiền khách đưa" gợi ý (placeholder xám) **139.500**; hàng **Gợi ý nhanh** có bốn nút: **Vừa đủ 139.500đ · 150.000đ · 200.000đ · 500.000đ** (tính theo 139.500, không phải 155.000).
+   - Các nút gợi ý **phụ thuộc số Khách cần trả**: nút đầu = vừa đủ, các nút sau = làm tròn LÊN tới bội 50.000 / 100.000 / 500.000 / 1.000.000 (bỏ trùng, tối đa 4 nút). Nếu tổng của bạn khác 155.000đ thì tự tính lại theo quy tắc đó — điều cần kiểm là nút được tính từ số SAU giảm. Ví dụ tổng hàng 80.000đ giảm 10% → cần trả 72.000đ → **72.000 · 100.000 · 500.000 · 1.000.000**.
 3. Bấm **200.000đ** → hiện khung xanh **"Tiền thối lại cho khách 60.500đ"**.
 4. Gõ tay **100000** vào ô → hiện khung đỏ **"Khách đưa còn thiếu 39.500đ"** và nút **Xác nhận đã nhận 139.500đ** bị khoá (xám).
 5. **Dọn — bỏ bàn** Bàn 3 (không thu).
@@ -97,10 +102,11 @@ Bàn 1–11 của Bảo Lương đang trống (hoặc bạn tự dọn trước)
 2. Thanh toán → **Thêm giảm giá** → VNĐ **80000** (≤ 100.000 nên hợp lệ) → **Lưu** → **Khách cần trả 20.000đ**.
 3. Trong danh sách "Món đã dùng & điều chỉnh", bấm menu **⋮** của **món B** → **Bỏ món** (nhập lý do, xác nhận). Mong đợi, tiền hàng còn **60.000đ** nhỏ hơn giảm giá 80.000đ:
    - Trong khung cam hiện **khung đỏ** chữ **"Giảm giá lớn hơn tiền hàng — sửa lại giảm giá"**.
+   - Hàng **Giảm giá** vẫn hiện mức đang lưu: nút viền đỏ chữ đỏ **"Sửa −80.000đ"** (KHÔNG phải "Thêm giảm giá"), không còn nhãn "(…%)".
    - **Khách cần trả** quay về số TRƯỚC giảm (**60.000đ**), không phải 0đ hay số âm.
    - Nút xanh **Xác nhận đã nhận …** bị **khoá**; nút **In tạm tính / hoá đơn** bị **khoá**.
 4. Bấm **Quay lại bill** (mũi tên). Mong đợi: ở chân bill hiện khung đỏ **"Giảm giá lớn hơn tiền hàng — sửa lại giảm giá. Mở Thanh toán để sửa giảm giá."**, nút **In tạm tính** bị khoá, và dải cam giảm giá ở tab bill **không hiện**.
-5. Mở Thanh toán → bấm nút giảm giá → đổi thành **50.000** → **Lưu**. Mong đợi: khung đỏ biến mất, **Khách cần trả 10.000đ**, hai nút thu và in sáng lại.
+5. Mở Thanh toán → bấm nút đỏ **Sửa −80.000đ** → hộp **Giảm giá hoá đơn** mở sẵn VNĐ **80.000** → đổi thành **50.000** → **Lưu**. Mong đợi: khung đỏ biến mất, nút giảm giá trở lại màu cam **−50.000đ**, **Khách cần trả 10.000đ**, hai nút thu và in sáng lại.
 6. **Dọn — bỏ bàn** Bàn 4.
 - [ ] PASS  [ ] FAIL
 
@@ -133,6 +139,7 @@ Dựng **hai bill riêng** (mỗi bill Khách lẻ một bàn, KHÔNG dùng Ghé
 Làm sau bài 1 và 6 (hoặc ngay sau bài 6). Ghi lại **Tổng thực thu** của hôm nay **trước** khi test nếu bạn muốn trừ về sau.
 1. Vào `/admin/bills` (hôm nay). Tìm dòng bill **Bàn 1** (bài 1). Mong đợi: cột số tiền **139.500đ**, dòng phụ nhỏ **"Tiền mặt · giảm 15.500đ"** (số tiền thật khách trả, KHÔNG phải 155.000đ).
 2. Bấm biểu tượng **Xem bill** của dòng Bàn 1 → ngăn kéo hiện món, trên dòng **Cộng lượt 139.500đ** có dòng xanh **"Giảm giá bill  −15.500đ"**.
+   - **In lại sau khi đã thu:** trong ngăn kéo bấm **In lại hoá đơn**. Mong đợi tờ in VẪN có **Tổng tiền hàng 155.000** → **Giảm giá (10%)  -15.500** → **Khách cần trả 139.500đ** (đúng số đã thu, giảm giá không mất sau khi thu).
 3. Dòng bill **gộp Bàn 6 + Bàn 7** (bài 6): hiện **MỘT dòng** (nhãn Ghép), số tiền **90.000đ**, phụ **"giảm 10.000đ"**. Mở **Xem bill**: hai lượt, lượt Bàn 6 (30.000đ) có **"Giảm giá bill −3.000đ"**, lượt Bàn 7 (70.000đ) có **"Giảm giá bill −7.000đ"** (10.000 chia theo tỉ lệ 30:70). Cộng hai lượt sau giảm: 27.000đ + 63.000đ = **90.000đ**.
 4. Thẻ **Tổng thực thu** đã **tăng đúng 139.500 + 90.000 = 229.500đ** so với trước test (KHÔNG phải 255.000đ), và **Tiền mặt** cũng tăng đúng 229.500đ.
 5. Bấm **Xuất Excel**, mở file. Mong đợi:
@@ -152,9 +159,10 @@ Làm sau bài 1 và 6 (hoặc ngay sau bài 6). Ghi lại **Tổng thực thu** 
 2. Mở bill **Bàn 8** → **Thao tác khác** → ô **"Nhập bàn này vào một mâm khác (gộp cả đơn)"** → chọn mâm đích **Bàn 9**.
 3. Mong đợi: hộp thoại **trong app** (nền mờ), tiêu đề **"Nhập Bàn 8 vào mâm khác?"**, dòng chữ **"Giảm giá của bàn này sẽ bị bỏ — đặt lại ở mâm đích."**, hai nút **Huỷ** / **Vẫn nhập**.
 4. Bấm **Huỷ** → không có gì thay đổi: Bàn 8 vẫn là bill riêng, vẫn giảm 5.000đ (Khách cần trả 45.000đ).
-5. Làm lại bước 2, bấm **Vẫn nhập**. Mong đợi: mâm giờ gồm **Bàn 8 và Bàn 9**, tổng hàng **90.000đ**, **KHÔNG còn giảm giá** (hàng giảm giá ghi **Thêm giảm giá**, Khách cần trả 90.000đ — giảm 5.000đ cũ biến mất).
+5. Làm lại bước 2, bấm **Vẫn nhập**. Bảng bill có thể **tự đóng** (Bàn 8 không còn là bill riêng) — nếu vậy **mở lại bill Bàn 9** trên POS. Mong đợi: mâm giờ gồm **Bàn 8 và Bàn 9**, tổng hàng **90.000đ**, **KHÔNG còn giảm giá** (Thanh toán → hàng giảm giá ghi **Thêm giảm giá**, Khách cần trả 90.000đ — giảm 5.000đ cũ biến mất).
 6. Đặt lại ở mâm đích: **Thêm giảm giá** → **%** → **10** → **Lưu** → Giảm giá (10%) **−9.000đ**, Khách cần trả **81.000đ**.
 7. (Thêm, không bắt buộc) nhập một bàn KHÔNG có giảm giá vào mâm khác thì **không** hiện hộp cảnh báo.
+   - **Đã biết, không tính FAIL:** nhân viên chạy bàn nhập bàn vào mâm ở màn `/staff` (Ghép mâm trên điện thoại) thì giảm giá của bàn nguồn **cũng bị bỏ** nhưng **không có hộp cảnh báo** — cảnh báo hiện chỉ có ở POS. Thu ngân nên kiểm lại giảm giá ở mâm đích trước khi thu.
 8. **Dọn — bỏ bàn** mâm Bàn 9 + Bàn 8.
 - [ ] PASS  [ ] FAIL
 
@@ -164,7 +172,9 @@ Làm sau bài 1 và 6 (hoặc ngay sau bài 6). Ghi lại **Tổng thực thu** 
 
 ### 9. Khách thấy giảm giá và tạm tính sau giảm
 Bỏ qua bài này nếu chưa `zmp deploy` (ghi "chưa test").
-1. **Điện thoại** quét QR **Bàn 10** (bản Development vừa deploy), gọi món tổng **100.000đ**. Thu ngân **Xác nhận** lượt đó trên POS (để món vào bill).
+> **Cảnh báo — IN PHIẾU THẬT:** Bảo Lương dùng chế độ "thu ngân xác nhận rồi in" — bấm **Xác nhận** lượt khách gọi ở bước 1 sẽ **in PHIẾU BẾP + PHIẾU BÀN ra máy in thật** (và có thể kêu chuông/loa). Trước khi bấm: **báo bếp** đây là đơn test (đừng làm món), hoặc **tắt / rút giấy máy in** bếp. Xong bài nhớ vứt 2 tờ phiếu.
+
+1. **Điện thoại** quét QR **Bàn 10** (bản Development vừa deploy), gọi món tổng **100.000đ** (nên chọn món rẻ, tự tính lại số theo công thức). Thu ngân **Xác nhận** lượt đó trên POS (để món vào bill) — xem cảnh báo in phiếu ở trên.
 2. Trên POS: bill Bàn 10 → Thanh toán → giảm **10%** → **Lưu** (Khách cần trả 90.000đ). Không cần thu tiền.
 3. Trên điện thoại mở tab **Đơn gọi** (nếu đang mở thì chờ vài giây hoặc thoát vào lại). Mong đợi ở **thẻ đầu tiên**: **Tổng tạm tính 100.000đ**, kế dưới dòng xanh **"Giảm giá  -10.000đ"**, rồi **"Tạm tính sau giảm"** với **90.000đ**.
 4. Trên POS bỏ giảm giá (Bỏ giảm giá) → điện thoại mở lại tab Đơn gọi: **không còn** dòng Giảm giá và "Tạm tính sau giảm", chỉ còn **Tổng tạm tính 100.000đ**.
@@ -195,6 +205,18 @@ Không dựng bằng tay được trong buổi test (phải chờ phiên mở qu
 2. Mong đợi: hàng Giảm giá **không có** nút bấm, thay bằng dòng chữ **"Phiên hết hạn không giảm giá được"**.
 3. **KHÔNG thu tiền** bill này (là nợ thật của quán) — chỉ xem rồi đóng.
 - [ ] PASS  [ ] FAIL  [ ] Bỏ qua (không có phiên hết hạn)
+
+---
+
+## Phần 8 — Không cho thu lẻ từng lượt của bàn trả sau (mig 110)
+
+### 12. Bàn đang mở chỉ thu được cả bàn ở POS
+Lý do: một lượt thu riêng trước khi chốt bill làm hoá đơn in "Khách cần trả" lớn hơn số POS thu (cả khi không giảm giá). Quy tắc đã chốt 2026-10-13: bàn trả sau thu **cả bàn một lần** ở POS → Thanh toán.
+**Không có đường bấm trên giao diện để thử** — mọi nút thu từng lượt đã ẩn cho lượt thuộc bàn (A04 ngăn kéo Xem bill không có "Đã nhận tiền"/"Hoàn tất" cho lượt của bàn; màn bếp chỉ có nút "Đã nhận tiền" cho đơn khách chuyển khoản của quán trả trước). Server chặn thêm một lớp, đã kiểm bằng SQL tự động `docs/testing/chuyen-ban-giam-gia/sql/gg2-verify.sql` (chạy trong giao dịch rồi ROLLBACK, không để lại dữ liệu). Bài này chỉ cần nhìn:
+1. Dựng bill **Bàn 12** (Khách lẻ, 1 món rẻ). Vào `/admin/bills` → dòng **Chờ thu** của Bàn 12 → **Xem bill**. Mong đợi: lượt của Bàn 12 **không có** nút "Đã nhận tiền" / "Hoàn tất" riêng; chỉ có khung vàng "Thu **cả bàn một lần**" với hai nút **Đã nhận tiền mặt** / **Đã nhận chuyển khoản** (= thu cả bill như POS).
+2. Không bấm thu. **Dọn — bỏ bàn** Bàn 12.
+3. Nếu có cách nào khác bấm được "đã nhận tiền" cho MỘT lượt của bàn đang mở (vd bản cũ còn mở ở máy khác): mong đợi báo lỗi **"Bàn trả sau thu cả bàn một lần ở POS (Thanh toán)"** và lượt đó vẫn chưa thu.
+- [ ] PASS  [ ] FAIL
 
 ---
 
