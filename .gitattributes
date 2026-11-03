@@ -1,0 +1,2 @@
+# Bản chụp hàm prod (pg_get_functiondef) — giữ nguyên byte, có hàm lẫn CRLF trong thân; test so neo nguyên văn
+supabase/tests/prod-defs/** -text
