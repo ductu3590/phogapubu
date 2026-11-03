@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { OpenTableSession } from '@/lib/actions/table-session'
@@ -53,6 +54,40 @@ describe('ConfirmDialog', () => {
     )
     expect(html).toMatch(/<button[^>]*disabled[^>]*>(?:(?!<\/button>).)*Huỷ/)
     expect(html).toContain('aria-busy="true"')
+  })
+})
+
+describe('ConfirmDialog khi đang xử lý', () => {
+  // ConfirmDialog không dùng hook nên gọi thẳng như hàm để lấy cây element (không cần DOM).
+  const dialogOf = (busy: boolean, onConfirm: () => void, onCancel: () => void) => {
+    const el = ConfirmDialog({ open: true, title: 'T', confirmLabel: 'Xác nhận', busy, onConfirm, onCancel }) as ReactElement<{
+      onClose: () => void
+      dismissible: boolean
+      footer: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }>
+    }>
+    const [cancelBtn, confirmBtn] = el.props.footer.props.children
+    return { el, cancelBtn, confirmBtn }
+  }
+
+  it('busy: đóng bằng X / Esc / nền (onClose) và nút xác nhận đều không gọi gì', () => {
+    const onConfirm = vi.fn()
+    const onCancel = vi.fn()
+    const { el, confirmBtn } = dialogOf(true, onConfirm, onCancel)
+    expect(el.props.dismissible).toBe(false)
+    el.props.onClose()
+    confirmBtn.props.onClick()
+    expect(onCancel).not.toHaveBeenCalled()
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('không busy: onClose gọi onCancel, nút xác nhận gọi onConfirm', () => {
+    const onConfirm = vi.fn()
+    const onCancel = vi.fn()
+    const { el, confirmBtn } = dialogOf(false, onConfirm, onCancel)
+    el.props.onClose()
+    confirmBtn.props.onClick()
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 })
 

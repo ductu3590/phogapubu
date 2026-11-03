@@ -185,6 +185,10 @@ export default function PosClient({
     tone?: 'default' | 'danger'
     run: () => Promise<void>
   } | null>(null)
+  // Mỗi lần mở hộp xác nhận chỉ cho bấm xác nhận MỘT lần: giữa lúc `busy=false` và lúc hộp đóng (sau reload)
+  // nút sẽ bấm lại được, lần bấm thứ hai gửi lại và báo lỗi sai ngay sau toast thành công.
+  const confirmFiredRef = useRef(false)
+  useEffect(() => { confirmFiredRef.current = false }, [pendingConfirm])
   const floor = useFloorLayout(storeId, initialFloor, initialFloorError)
   const placed = floor.draft.tables
   const arrange = floor.arrange
@@ -437,6 +441,7 @@ export default function PosClient({
     setBusy(true)
     const res = await action()
     setBusy(false)
+    setPendingConfirm(null) // đóng hộp ngay khi có kết quả, không đợi reload
     if (!res.ok) {
       reportActionError(res.error)
       return
@@ -466,6 +471,7 @@ export default function PosClient({
   const doReset = async (s: OpenTableSession) => {
     setBusy(true)
     const res = await closeTableSession(s.session_id, 'staff_reset', null)
+    setPendingConfirm(null) // đóng hộp ngay khi có kết quả, không đợi reload
     if (!res.ok) {
       setBusy(false)
       reportActionError(res.error)
@@ -1313,7 +1319,11 @@ export default function PosClient({
           tone={pendingConfirm.tone}
           busy={busy}
           onCancel={() => { if (!busy) setPendingConfirm(null) }}
-          onConfirm={() => { void pendingConfirm.run().finally(() => setPendingConfirm(null)) }}
+          onConfirm={() => {
+            if (confirmFiredRef.current) return
+            confirmFiredRef.current = true
+            void pendingConfirm.run().finally(() => setPendingConfirm(null))
+          }}
         />
       )}
       {manualSessionId && (() => {

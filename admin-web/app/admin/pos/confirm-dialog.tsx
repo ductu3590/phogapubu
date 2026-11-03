@@ -22,13 +22,14 @@ export default function ConfirmDialog({ open, title, description, confirmLabel, 
   return (
     <Dialog
       open={open}
-      onClose={onCancel}
+      // Header X / Esc / nền đều đi qua onClose: chặn ở đây để không phụ thuộc người gọi.
+      onClose={() => { if (!busy) onCancel() }}
       dismissible={!busy}
       title={title}
       footer={
         <>
           <Button onClick={onCancel} disabled={busy}>Huỷ</Button>
-          <Button variant={tone === 'danger' ? 'danger' : 'primary'} isLoading={busy} onClick={onConfirm}>{confirmLabel}</Button>
+          <Button variant={tone === 'danger' ? 'danger' : 'primary'} isLoading={busy} onClick={() => { if (!busy) onConfirm() }}>{confirmLabel}</Button>
         </>
       }
     >
