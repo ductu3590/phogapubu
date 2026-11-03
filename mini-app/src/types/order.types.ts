@@ -68,6 +68,8 @@ export type TableSessionState =
       // mig 040 — mâm đoàn: phiên chiếm nhiều bàn và KHÔNG khoá chủ phiên
       is_open_ordering?: boolean;
       table_names?: string;
+      // mig 108 — giảm giá bill (đồng) thu ngân đặt, tính trên tiền chưa thu; 0/thiếu = không giảm
+      bill_discount?: number;
     };
 
 export interface TableSessionBillItem {
@@ -103,6 +105,8 @@ export type TableSessionBill =
       session_id: string;
       opened_at: string;
       total: number;
+      // mig 108 — giảm giá bill (đồng); server cũ không trả trường này → coi như 0
+      bill_discount?: number;
       orders: TableSessionBillOrder[];
     };
 

@@ -11,6 +11,7 @@ import { formatCurrency } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import { lineLabel, reconcileRounds, rejectionReasonLabel, roundDiscount, roundNumbers, roundSourceLabel, roundStatus, type RoundContext, type RoundTone } from "@/utils/round-status";
 import { canOrderInEntry } from "@/utils/entry-context";
+import { billTotals } from "@/utils/bill-total";
 import { getBookingAccesses } from "@/services/reservation/reservation-storage";
 import SectionCard from "@/components/ui/section-card";
 import StatusPill, { type PillTone } from "@/components/ui/status-pill";
@@ -159,6 +160,8 @@ function DineInOrdersView() {
   const sums = reconcileRounds(rounds.map((r) => ({ status: r.status, total_amount: r.total, source: r.source })), ctx);
   // Trả sau: tổng lấy thẳng từ phiên (server tính) để không lệch với số thu ngân thu.
   const grandTotal = isPostpay && bill && bill.found ? bill.total : sums.total;
+  // Giảm giá bill của thu ngân (mig 108): chỉ có ở trả sau, tính trên đúng tạm tính này.
+  const totals = billTotals(grandTotal, isPostpay && bill && bill.found ? bill.bill_discount : undefined);
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -197,7 +200,17 @@ function DineInOrdersView() {
                 </div>
               </div>
               <p className="mt-3 text-xxsmall font-semibold uppercase tracking-wide text-text-secondary">Tổng tạm tính</p>
-              <p className="mt-0.5 text-2xl font-extrabold text-primary">{formatCurrency(grandTotal)}đ</p>
+              <p className="mt-0.5 text-2xl font-extrabold text-primary">{formatCurrency(totals.subtotal)}đ</p>
+              {totals.discount > 0 && (
+                <>
+                  <p className="mt-2 flex items-center justify-between text-small text-text-secondary">
+                    <span>Giảm giá</span>
+                    <span className="font-semibold text-success">-{formatCurrency(totals.discount)}đ</span>
+                  </p>
+                  <p className="mt-2 text-xxsmall font-semibold uppercase tracking-wide text-text-secondary">Tạm tính sau giảm</p>
+                  <p className="mt-0.5 text-2xl font-extrabold text-primary">{formatCurrency(totals.payable)}đ</p>
+                </>
+              )}
               {/* Tổng tạm tính CHỈ hiện ở đây (anh Tú 2026-10-09): khối "Đối soát tạm tính" cuối trang đã bỏ —
                   một con số lặp 3 lần là thừa. */}
               <p className="mt-2 flex items-start gap-1.5 text-xxsmall text-text-secondary">
