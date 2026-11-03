@@ -16,6 +16,13 @@
 --     combined_amount_split (30k/70k, giảm 10.001 → 3.000 / 7.001) · combined_tie_remainder (hoà → id nhỏ nhất) ·
 --     combined_percent · combined_overwrite_and_clear · combined_over_total · combined_guards
 --     (rỗng, khác quán, phiên đóng, không có quyền, trùng id).
+--
+-- Mig 108 (cần áp SAU 107): readers_open (list_open_table_sessions, get_sessions_bill, get_table_session_bill,
+--     get_table_session_state trả giảm giá khi phiên đang mở) · pay_with_percent (chia 10% vào 3 đơn, dư 1đ vào
+--     đơn lớn nhất) · discount_skips_paid_order · readers_paid_bill · pay_idempotent · discount_after_new_round ·
+--     void_after_amount_blocks_pay (lỗi khi thu, sửa lại rồi thu được) · recompute_keeps_discount ·
+--     expired_ignores_discount · staff_reset_ignores_discount · merge_drops_source_discount · bulk_pay_split ·
+--     bills_report_revenue (doanh thu = tổng total_amount SAU giảm, discount_total gồm giảm giá bill).
 
 BEGIN;
 
@@ -70,6 +77,17 @@ BEGIN
   RETURN v_id;
 END $f$;
 
+-- Thêm một món vào đơn (mig 108: recompute_order_total cần món thật để tính lại tổng).
+CREATE FUNCTION pg_temp.mk_item(p_order uuid, p_price int, p_qty int DEFAULT 1)
+RETURNS uuid LANGUAGE plpgsql AS $f$
+DECLARE v_id uuid;
+BEGIN
+  INSERT INTO public.order_items (order_id, item_name, item_price, quantity)
+  VALUES (p_order, 'ZZ-GG món ' || p_price, p_price, p_qty)
+  RETURNING id INTO v_id;
+  RETURN v_id;
+END $f$;
+
 DO $verify$
 DECLARE
   v_store   uuid;
@@ -83,6 +101,13 @@ DECLARE
   s1 uuid; s1b uuid; sa uuid; sb uuid; sc uuid; sd uuid; sx uuid; sz uuid; so uuid;
   v_ida uuid := 'a0000000-0000-0000-0000-0000000000a1';
   v_idb uuid := 'b0000000-0000-0000-0000-0000000000b1';
+  -- mig 108
+  v_t2      uuid[] := '{}';
+  v_today   date;
+  v_rev0    bigint;
+  v_paid    uuid[];
+  p1 uuid; p2 uuid; p3 uuid; p4 uuid; p5 uuid; m1 uuid; m2 uuid; b1 uuid; b2 uuid;
+  o1 uuid; o2 uuid; o3 uuid; o4 uuid; o5 uuid; o6 uuid; i40 uuid;
 BEGIN
   -- ---------- chọn quán + thu ngân ----------
   SELECT id INTO v_store FROM public.stores WHERE name ILIKE '%Bảo Lương%' ORDER BY created_at LIMIT 1;
@@ -400,6 +425,237 @@ BEGIN
     format('SELECT public.pos_set_sessions_discount(%L::uuid[], %L, %s)', ARRAY[sa, sb], 'percent', 5), '%Không có quyền%');
   PERFORM pg_temp.must('combined_guards: người không có quyền không làm đổi gì',
     (SELECT bill_discount_value FROM public.table_sessions WHERE id = s1b) = 10);
+
+  -- #####################################################################
+  -- MIG 108 — trừ giảm giá lúc thu tiền + đọc giảm giá ở POS / in / A04 / Mini App
+  -- #####################################################################
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_op, 'role', 'authenticated')::text, true);
+
+  FOR v_i IN 10..19 LOOP
+    INSERT INTO public.tables (store_id, table_number) VALUES (v_store, 'ZZ-GG' || v_i)
+    RETURNING id INTO v_tid;
+    v_t2 := v_t2 || v_tid;
+  END LOOP;
+
+  v_today := (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date;
+  -- Doanh thu hôm nay TRƯỚC mọi lần thu của phần 108 (đơn fixture đã thu ở phần 107 nằm sẵn trong số này)
+  v_rev0 := (public.get_bills_report(v_store, v_today)->'totals'->>'revenue')::bigint;
+  IF v_rev0 IS NULL THEN RAISE EXCEPTION 'FAIL fixture — get_bills_report không trả totals.revenue'; END IF;
+
+  -- =====================================================================
+  -- readers_open: phiên đang mở 33.333 + 33.333 + 33.334 chưa thu, 20.000 đã thu, 50.000 huỷ; giảm 10%
+  -- =====================================================================
+  p1 := pg_temp.mk_session(v_store, v_t2[1]);
+  o1 := pg_temp.mk_order(v_store, v_t2[1], p1, 33333);
+  o2 := pg_temp.mk_order(v_store, v_t2[1], p1, 33333);
+  o3 := pg_temp.mk_order(v_store, v_t2[1], p1, 33334);
+  o4 := pg_temp.mk_order(v_store, v_t2[1], p1, 20000, 'paid');
+  o5 := pg_temp.mk_order(v_store, v_t2[1], p1, 50000, 'cancelled');
+  PERFORM public.pos_set_session_discount(p1, 'percent', 10);
+
+  r := public.list_open_table_sessions(v_store);
+  PERFORM pg_temp.must('readers_open: list_open_table_sessions trả bill_discount_type/value của phiên',
+    EXISTS (SELECT 1 FROM jsonb_array_elements(r) e
+             WHERE (e->>'session_id')::uuid = p1
+               AND e->>'bill_discount_type' = 'percent' AND (e->>'bill_discount_value')::int = 10));
+  PERFORM pg_temp.must('readers_open: phiên không giảm giá → bill_discount_type null',
+    EXISTS (SELECT 1 FROM jsonb_array_elements(r) e
+             WHERE (e->>'session_id')::uuid = sz AND e ? 'bill_discount_type' AND e->'bill_discount_type' = 'null'::jsonb));
+
+  r := public.get_sessions_bill(ARRAY[p1]);
+  PERFORM pg_temp.must('readers_open: get_sessions_bill subtotal 120.000, discount 10.000 (10% tiền CHƯA thu), nhãn 10%, grand_total 110.000',
+    (r->'sessions'->0->>'subtotal')::bigint = 120000
+    AND (r->'sessions'->0->>'discount')::bigint = 10000
+    AND r->'sessions'->0->>'discount_label' = '10%'
+    AND (r->>'grand_discount')::bigint = 10000
+    AND (r->>'grand_total')::bigint = 110000);
+
+  r := public.get_table_session_bill(v_t2[1], 'gg-host-' || p1, NULL);
+  PERFORM pg_temp.must('readers_open: get_table_session_bill (Mini App) trả bill_discount 10.000',
+    (r->>'found')::boolean AND (r->>'session_id')::uuid = p1 AND (r->>'bill_discount')::bigint = 10000);
+  r := public.get_table_session_state(v_t2[1], 'gg-host-' || p1, NULL);
+  PERFORM pg_temp.must('readers_open: get_table_session_state nhánh owner trả bill_discount 10.000',
+    r->>'state' = 'owner' AND (r->>'bill_discount')::bigint = 10000);
+
+  -- =====================================================================
+  -- pay_with_percent + discount_skips_paid_order
+  --   10.000 chia theo 33.333/33.333/33.334: floor = 3.333 ×3 = 9.999, dư 1 → đơn lớn nhất (33.334) = 3.334
+  -- =====================================================================
+  r := public.close_table_session(p1, 'paid', 'cash');
+  PERFORM pg_temp.must('pay_with_percent: tổng thu = 120.000 − 10.000 = 110.000',
+    (r->>'ok')::boolean AND NOT (r->>'already')::boolean AND (r->>'total')::bigint = 110000
+    AND (r->>'orders_settled')::int = 3);
+  PERFORM pg_temp.must('pay_with_percent: bill_discount_amount 3.333 / 3.333 / 3.334, cộng = 10.000',
+    (SELECT bill_discount_amount FROM public.orders WHERE id = o1) = 3333
+    AND (SELECT bill_discount_amount FROM public.orders WHERE id = o2) = 3333
+    AND (SELECT bill_discount_amount FROM public.orders WHERE id = o3) = 3334
+    AND (SELECT sum(bill_discount_amount) FROM public.orders WHERE session_id = p1) = 10000);
+  PERFORM pg_temp.must('pay_with_percent: total_amount = payment_amount = tiền SAU giảm (30.000 mỗi đơn), đã ghi nhận tiền',
+    NOT EXISTS (SELECT 1 FROM public.orders WHERE id IN (o1, o2, o3)
+                 AND (total_amount <> 30000 OR payment_amount <> 30000 OR payment_received_at IS NULL
+                      OR payment_received_via <> 'owner' OR payment_instrument <> 'cash')));
+  PERFORM pg_temp.must('discount_skips_paid_order: đơn đã thu trước (20.000) và đơn huỷ (50.000) không dính giảm giá',
+    (SELECT total_amount FROM public.orders WHERE id = o4) = 20000
+    AND (SELECT bill_discount_amount FROM public.orders WHERE id = o4) = 0
+    AND (SELECT total_amount FROM public.orders WHERE id = o5) = 50000
+    AND (SELECT bill_discount_amount FROM public.orders WHERE id = o5) = 0);
+
+  r := public.get_sessions_bill(ARRAY[p1]);
+  PERFORM pg_temp.must('readers_paid_bill: phiên đã thu → subtotal TRƯỚC giảm 120.000, discount = tổng đã chia 10.000, nhãn 10%, grand 110.000',
+    (r->'sessions'->0->>'subtotal')::bigint = 120000
+    AND (r->'sessions'->0->>'discount')::bigint = 10000
+    AND r->'sessions'->0->>'discount_label' = '10%'
+    AND (r->>'grand_discount')::bigint = 10000
+    AND (r->>'grand_total')::bigint = 110000);
+
+  r := public.close_table_session(p1, 'paid', 'cash');
+  PERFORM pg_temp.must('pay_idempotent: thu lần 2 → already, total vẫn 110.000, không chia thêm',
+    (r->>'already')::boolean AND (r->>'total')::bigint = 110000
+    AND (SELECT sum(bill_discount_amount) FROM public.orders WHERE session_id = p1) = 10000);
+
+  -- =====================================================================
+  -- discount_after_new_round: đặt 10% lúc tiền hàng 50.000 rồi khách gọi thêm 50.000 → giảm theo tiền MỚI
+  -- =====================================================================
+  p2 := pg_temp.mk_session(v_store, v_t2[2]);
+  PERFORM pg_temp.mk_order(v_store, v_t2[2], p2, 50000);
+  r := public.pos_set_session_discount(p2, 'percent', 10);
+  PERFORM pg_temp.must('discount_after_new_round: lúc đặt giảm 5.000', (r->>'discount')::bigint = 5000);
+  PERFORM pg_temp.mk_order(v_store, v_t2[2], p2, 50000);
+  r := public.get_sessions_bill(ARRAY[p2]);
+  PERFORM pg_temp.must('discount_after_new_round: bill hiện giảm 10.000 sau lượt mới',
+    (r->'sessions'->0->>'discount')::bigint = 10000 AND (r->>'grand_total')::bigint = 90000);
+  r := public.close_table_session(p2, 'paid', 'cash');
+  PERFORM pg_temp.must('discount_after_new_round: thu 90.000, đã chia 10.000 (5.000 mỗi đơn)',
+    (r->>'total')::bigint = 90000
+    AND (SELECT sum(bill_discount_amount) FROM public.orders WHERE session_id = p2) = 10000
+    AND NOT EXISTS (SELECT 1 FROM public.orders WHERE session_id = p2 AND bill_discount_amount <> 5000));
+
+  -- =====================================================================
+  -- void_after_amount_blocks_pay: giảm 70.000 VNĐ trên 100.000, bỏ món 40.000 → tiền hàng 60.000 < giảm
+  -- =====================================================================
+  p3 := pg_temp.mk_session(v_store, v_t2[3]);
+  o6 := pg_temp.mk_order(v_store, v_t2[3], p3, 100000);
+  PERFORM pg_temp.mk_item(o6, 60000);
+  i40 := pg_temp.mk_item(o6, 40000);
+  PERFORM public.pos_set_session_discount(p3, 'amount', 70000);
+  UPDATE public.order_items SET void_type = 'cancelled', voided_at = now(), voided_by = v_op, void_reason = 'gg'
+   WHERE id = i40;
+  PERFORM pg_temp.must('void_after_amount_blocks_pay: recompute trả 60.000 (đơn chưa thu, chưa có giảm giá bill)',
+    public.recompute_order_total(o6) = 60000);
+  PERFORM pg_temp.expect_fail('void_after_amount_blocks_pay: thu tiền bị chặn',
+    format('SELECT public.close_table_session(%L, %L, %L)', p3, 'paid', 'cash'),
+    '%Giảm giá lớn hơn tiền hàng — sửa lại giảm giá%');
+  PERFORM pg_temp.must('void_after_amount_blocks_pay: phiên vẫn mở, đơn chưa ghi nhận tiền, chưa trừ gì',
+    (SELECT status FROM public.table_sessions WHERE id = p3) = 'open'
+    AND (SELECT payment_received_at FROM public.orders WHERE id = o6) IS NULL
+    AND (SELECT bill_discount_amount FROM public.orders WHERE id = o6) = 0
+    AND (SELECT total_amount FROM public.orders WHERE id = o6) = 60000);
+  PERFORM public.pos_set_session_discount(p3, 'amount', 50000);
+  r := public.close_table_session(p3, 'paid', 'cash');
+  PERFORM pg_temp.must('void_after_amount_blocks_pay: sửa giảm giá còn 50.000 → thu được 10.000',
+    (r->>'total')::bigint = 10000
+    AND (SELECT bill_discount_amount FROM public.orders WHERE id = o6) = 50000
+    AND (SELECT payment_amount FROM public.orders WHERE id = o6) = 10000);
+
+  -- =====================================================================
+  -- recompute_keeps_discount: tính lại đơn đã chia giảm giá không cộng ngược tiền đã giảm
+  -- =====================================================================
+  PERFORM pg_temp.must('recompute_keeps_discount: trả 10.000 (60.000 − 50.000), total/payment giữ 10.000',
+    public.recompute_order_total(o6) = 10000
+    AND (SELECT total_amount FROM public.orders WHERE id = o6) = 10000
+    AND (SELECT payment_amount FROM public.orders WHERE id = o6) = 10000
+    AND (SELECT bill_discount_amount FROM public.orders WHERE id = o6) = 50000);
+
+  -- =====================================================================
+  -- expired_ignores_discount: phiên hết hạn còn nợ → thu đúng tiền đang ghi
+  -- =====================================================================
+  p4 := pg_temp.mk_session(v_store, v_t2[4]);
+  PERFORM pg_temp.mk_order(v_store, v_t2[4], p4, 80000);
+  PERFORM public.pos_set_session_discount(p4, 'percent', 50);
+  UPDATE public.table_sessions SET status = 'closed', closed_at = now(), close_reason = 'expired' WHERE id = p4;
+  r := public.get_sessions_bill(ARRAY[p4]);
+  PERFORM pg_temp.must('expired_ignores_discount: bill phiên hết hạn hiện discount 0, không nhãn, grand 80.000',
+    (r->'sessions'->0->>'discount')::bigint = 0
+    AND r->'sessions'->0->'discount_label' = 'null'::jsonb
+    AND (r->>'grand_total')::bigint = 80000);
+  r := public.close_table_session(p4, 'paid', 'cash');
+  PERFORM pg_temp.must('expired_ignores_discount: thu 80.000, không chia giảm giá',
+    (r->>'total')::bigint = 80000
+    AND NOT EXISTS (SELECT 1 FROM public.orders WHERE session_id = p4 AND (bill_discount_amount <> 0 OR total_amount <> 80000)));
+
+  -- =====================================================================
+  -- staff_reset_ignores_discount: Bỏ bàn không thu tiền → giảm giá bỏ qua
+  -- =====================================================================
+  p5 := pg_temp.mk_session(v_store, v_t2[5]);
+  PERFORM pg_temp.mk_order(v_store, v_t2[5], p5, 30000);
+  PERFORM public.pos_set_session_discount(p5, 'percent', 10);
+  r := public.close_table_session(p5, 'staff_reset', NULL);
+  PERFORM pg_temp.must('staff_reset_ignores_discount: đơn bị huỷ, không chia giảm giá',
+    (r->>'orders_cancelled')::int = 1
+    AND NOT EXISTS (SELECT 1 FROM public.orders WHERE session_id = p5 AND (bill_discount_amount <> 0 OR total_amount <> 30000)));
+
+  -- =====================================================================
+  -- merge_drops_source_discount: nhập phiên (giảm 5.000) vào mâm (giảm 10%) → bỏ giảm giá nguồn, mâm giữ 10%
+  -- =====================================================================
+  m1 := pg_temp.mk_session(v_store, v_t2[6]);
+  PERFORM pg_temp.mk_order(v_store, v_t2[6], m1, 40000);
+  PERFORM public.pos_set_session_discount(m1, 'amount', 5000);
+  m2 := pg_temp.mk_session(v_store, v_t2[7]);
+  PERFORM pg_temp.mk_order(v_store, v_t2[7], m2, 60000);
+  PERFORM public.pos_set_session_discount(m2, 'percent', 10);
+  PERFORM public.merge_session_into_tray(m1, m2);
+  PERFORM pg_temp.must('merge_drops_source_discount: phiên nguồn đóng merged, ý định giảm giá bị xoá',
+    EXISTS (SELECT 1 FROM public.table_sessions
+             WHERE id = m1 AND status = 'closed' AND close_reason = 'merged'
+               AND bill_discount_type IS NULL AND bill_discount_value IS NULL
+               AND bill_discount_set_by IS NULL AND bill_discount_set_at IS NULL));
+  PERFORM pg_temp.must('merge_drops_source_discount: nhật ký amount 5.000 → NULL, đúng người đổi',
+    (SELECT count(*) FROM public.table_session_discount_changes WHERE session_id = m1) = 2
+    AND EXISTS (SELECT 1 FROM public.table_session_discount_changes
+                 WHERE session_id = m1 AND old_type = 'amount' AND old_value = 5000
+                   AND new_type IS NULL AND new_value IS NULL AND changed_by = v_op AND store_id = v_store));
+  r := public.get_sessions_bill(ARRAY[m2]);
+  PERFORM pg_temp.must('merge_drops_source_discount: mâm đích giữ 10%, áp lên cả đơn mới nhập (10% × 100.000)',
+    EXISTS (SELECT 1 FROM public.table_sessions WHERE id = m2 AND bill_discount_type = 'percent' AND bill_discount_value = 10)
+    AND (r->'sessions'->0->>'discount')::bigint = 10000);
+
+  -- =====================================================================
+  -- bulk_pay_split: gộp bill 30.000 + 70.000, giảm 10.001 VNĐ → 3.000 / 7.001, thu một lần
+  -- =====================================================================
+  b1 := pg_temp.mk_session(v_store, v_t2[8]);
+  b2 := pg_temp.mk_session(v_store, v_t2[9]);
+  PERFORM pg_temp.mk_order(v_store, v_t2[8], b1, 30000);
+  PERFORM pg_temp.mk_order(v_store, v_t2[9], b2, 70000);
+  PERFORM public.pos_set_sessions_discount(ARRAY[b1, b2], 'amount', 10001);
+  r := public.get_sessions_bill(ARRAY[b1, b2]);
+  PERFORM pg_temp.must('bulk_pay_split: hoá đơn gộp grand_discount 10.001, grand_total 89.999',
+    (r->>'grand_discount')::bigint = 10001 AND (r->>'grand_total')::bigint = 89999);
+  r := public.close_table_sessions_bulk(ARRAY[b1, b2], 'paid', 'bank');
+  PERFORM pg_temp.must('bulk_pay_split: thu 89.999; mâm 30k trừ 3.000, mâm 70k trừ 7.001',
+    (r->>'total')::bigint = 89999 AND (r->>'sessions')::int = 2
+    AND (SELECT sum(bill_discount_amount) FROM public.orders WHERE session_id = b1) = 3000
+    AND (SELECT sum(bill_discount_amount) FROM public.orders WHERE session_id = b2) = 7001
+    AND (SELECT sum(total_amount) FROM public.orders WHERE session_id IN (b1, b2)) = 89999);
+
+  -- =====================================================================
+  -- bills_report_revenue: doanh thu tăng đúng tổng total_amount SAU giảm của các phiên vừa thu
+  --   p1 110.000 (gồm 20.000 đã thu trước) + p2 90.000 + p3 10.000 + p4 80.000 + b1/b2 89.999 = 379.999
+  --   giảm giá bill: 10.000 + 10.000 + 50.000 + 0 + 10.001 = 80.001
+  -- =====================================================================
+  v_paid := ARRAY[p1, p2, p3, p4, b1, b2];
+  r := public.get_bills_report(v_store, v_today);
+  PERFORM pg_temp.must('bills_report_revenue: doanh thu tăng 379.999 (tiền SAU giảm, không phải 460.000)',
+    (r->'totals'->>'revenue')::bigint - v_rev0 = 379999);
+  PERFORM pg_temp.must('bills_report_revenue: các bill của phiên vừa thu — total 379.999, bill_discount 80.001, discount_total gồm giảm giá bill',
+    (SELECT sum((b->>'total')::bigint) FROM jsonb_array_elements(r->'bills') b
+      WHERE EXISTS (SELECT 1 FROM jsonb_array_elements_text(b->'session_ids') x WHERE x::uuid = ANY(v_paid))) = 379999
+    AND (SELECT sum((b->>'bill_discount')::bigint) FROM jsonb_array_elements(r->'bills') b
+      WHERE EXISTS (SELECT 1 FROM jsonb_array_elements_text(b->'session_ids') x WHERE x::uuid = ANY(v_paid))) = 80001
+    AND (SELECT sum((b->>'discount_total')::bigint) FROM jsonb_array_elements(r->'bills') b
+      WHERE EXISTS (SELECT 1 FROM jsonb_array_elements_text(b->'session_ids') x WHERE x::uuid = ANY(v_paid))) = 80001);
+  PERFORM pg_temp.must('bills_report_revenue: mọi bill đều có trường bill_discount',
+    NOT EXISTS (SELECT 1 FROM jsonb_array_elements(r->'bills') b WHERE NOT b ? 'bill_discount'));
 
   RAISE NOTICE 'TẤT CẢ CA ĐÃ PASS — giao dịch sẽ ROLLBACK, không để lại dữ liệu';
 END
