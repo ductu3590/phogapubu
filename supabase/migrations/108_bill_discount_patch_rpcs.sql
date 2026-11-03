@@ -15,7 +15,8 @@
 --                                   close_table_sessions_bulk gọi lại hàm này nên tự đúng (không vá).
 --   2) recompute_order_total      — tổng = món còn hiệu lực − bill_discount_amount (không cộng ngược tiền đã giảm)
 --   3) merge_session_into_tray    — nhập phiên vào mâm khác: bỏ giảm giá của phiên nguồn + ghi nhật ký
---   4) list_open_table_sessions   — mỗi phiên thêm bill_discount_type / bill_discount_value (POS vẽ bill)
+--   4) list_open_table_sessions   — mỗi phiên thêm bill_discount_type / bill_discount_value (POS vẽ bill);
+--                                   phiên hết hạn còn nợ trả null (server không áp giảm giá cho nó)
 --   5) get_sessions_bill          — mỗi phiên thêm discount, discount_label; subtotal là tiền hàng TRƯỚC giảm;
 --                                   grand_total = sau giảm; thêm grand_discount
 --   6) get_bills_report           — discount_total gồm cả giảm giá bill; mỗi bill thêm bill_discount
@@ -77,8 +78,10 @@ $patch$;
 -- ============================================================
 -- 1) close_table_session
 --    Chia giảm giá đúng thuật toán allocateDiscount (admin-web/lib/bill-discount.ts), phần = đơn chưa thu:
---      mỗi đơn = floor(giảm * total_amount / tổng) (div() trên numeric); phần dư dồn vào đơn total_amount lớn
---      nhất, hoà thì id nhỏ nhất theo so sánh CHUỖI (id::text COLLATE "C"); tổng = 0 → dồn hết vào đơn thắng.
+--      mỗi đơn = floor(giảm * total_amount / tổng) (div() trên numeric); phần dư chia lần lượt theo
+--      total_amount giảm dần, hoà thì id nhỏ nhất theo so sánh CHUỖI (id::text COLLATE "C"), mỗi đơn nhận thêm
+--      min(dư còn lại, total_amount − phần đã chia) → không đơn nào bị giảm quá tiền của nó (total_amount không
+--      âm: 3 × 1.000đ giảm 2.999 → 1.000 / 1.000 / 999, không phải 999/999/1.001).
 --    Đặt TRƯỚC UPDATE ghi payment_received_*: tập "đơn chưa thu" lúc chia đúng bằng tập sắp được ghi nhận tiền.
 --    Dòng phiên đã khoá FOR UPDATE ở đầu hàm nên không ai đổi giảm giá/chen đơn giữa lúc chia.
 -- ============================================================
@@ -113,19 +116,30 @@ $b$      RAISE EXCEPTION 'Phương tiện thanh toán không hợp lệ: %', COA
              AND o.payment_received_at IS NULL
         ),
         tot AS (SELECT coalesce(sum(amt), 0) AS total FROM parts),
-        win AS (
-          SELECT id FROM parts ORDER BY amt DESC, id::text COLLATE "C" LIMIT 1
-        ),
         shares AS (
-          SELECT p.id,
+          SELECT p.id, p.amt,
                  CASE WHEN t.total = 0 THEN 0::numeric
                       ELSE div(v_disc::numeric * p.amt, t.total) END AS share
             FROM parts p CROSS JOIN tot t
         ),
+        -- Thứ tự nhận dư: total_amount giảm dần, hoà → id nhỏ nhất (so chuỗi). room = chỗ còn trống của đơn.
+        ranked AS (
+          SELECT sh.id, sh.amt, sh.share,
+                 v_disc - sum(sh.share) OVER () AS rem,
+                 coalesce(sum(GREATEST(sh.amt - sh.share, 0)) OVER (
+                   ORDER BY sh.amt DESC, sh.id::text COLLATE "C"
+                   ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0) AS room_before,
+                 sum(GREATEST(sh.amt - sh.share, 0)) OVER () AS room_total,
+                 row_number() OVER (ORDER BY sh.amt DESC, sh.id::text COLLATE "C") AS rn
+            FROM shares sh
+        ),
         alloc AS (
-          SELECT sh.id,
-                 (sh.share + CASE WHEN sh.id = w.id THEN v_disc - sum(sh.share) OVER () ELSE 0 END)::integer AS part
-            FROM shares sh CROSS JOIN win w
+          SELECT rk.id,
+                 (rk.share
+                  + GREATEST(0, LEAST(GREATEST(rk.amt - rk.share, 0), rk.rem - rk.room_before))
+                  -- chỉ còn dư khi giảm > tổng tiền hàng (không xảy ra: đã RAISE ở trên) → đơn đứng đầu
+                  + CASE WHEN rk.rn = 1 THEN GREATEST(rk.rem - rk.room_total, 0) ELSE 0 END)::integer AS part
+            FROM ranked rk
         )
         UPDATE public.orders o
            SET bill_discount_amount = o.bill_discount_amount + a.part,
@@ -184,8 +198,10 @@ $b$  -- mig 108: phiên nguồn đang có giảm giá → bỏ, ghi nhật ký (
 SELECT pg_temp.mevo_patch('public.list_open_table_sessions(uuid)',
 $a$           (s.host_zalo_user_id IS NOT NULL OR s.host_device_id IS NOT NULL) AS has_host,$a$,
 $b$           (s.host_zalo_user_id IS NOT NULL OR s.host_device_id IS NOT NULL) AS has_host,
-           s.bill_discount_type,
-           s.bill_discount_value,$b$);
+           -- mig 108: chỉ phiên ĐANG MỞ mới có giảm giá. Phiên hết hạn còn nợ cũng nằm trong danh sách này
+           -- nhưng close_table_session bỏ qua giảm giá của nó → trả null để POS không thu thiếu.
+           CASE WHEN s.status = 'open' THEN s.bill_discount_type END AS bill_discount_type,
+           CASE WHEN s.status = 'open' THEN s.bill_discount_value END AS bill_discount_value,$b$);
 
 -- ============================================================
 -- 5) get_sessions_bill — thân hàm trên prod lẫn CRLF: neo một dòng.

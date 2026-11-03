@@ -28,8 +28,13 @@ export function validateDiscount(subtotal: number, d: BillDiscount): string | nu
 /**
  * Chia `total` tiền giảm cho các phần (mâm) theo tỉ lệ `amount` của từng phần.
  * - Mỗi phần: Math.floor(total * amount / tổng amount).
- * - Phần dư (do làm tròn xuống) cộng hết vào phần có `amount` lớn nhất; hoà thì lấy `id` nhỏ nhất
- *   theo so sánh chuỗi — kết quả không phụ thuộc thứ tự mảng đầu vào. Tổng kết quả luôn === total.
+ * - Phần dư (do làm tròn xuống) chia lần lượt theo thứ tự `amount` giảm dần, hoà thì `id` nhỏ nhất
+ *   theo so sánh chuỗi: mỗi phần nhận thêm min(dư còn lại, amount − phần đã chia) — không phần nào
+ *   bị giảm quá tiền hàng của nó (3 × 1.000đ giảm 2.999 → 1.000 / 1.000 / 999, không phải 999/999/1.001).
+ *   Khi phần lớn nhất còn chỗ, kết quả y như "dồn hết dư vào phần lớn nhất". Kết quả không phụ thuộc
+ *   thứ tự mảng đầu vào. Tổng kết quả luôn === total.
+ * - total > tổng amount (không đủ chỗ chứa, chỉ xảy ra khi bỏ qua validateDiscount) → phần còn dư sau
+ *   khi đã lấp đầy dồn vào phần lớn nhất.
  * - total = 0 → mọi phần 0.
  * - Mọi phần đều amount 0 mà total > 0 (tổng tỉ lệ = 0, không chia được) → dồn hết vào `id` nhỏ nhất,
  *   để vẫn giữ đúng tổng thay vì làm rơi tiền giảm.
@@ -63,6 +68,20 @@ export function allocateDiscount(
     out[p.id] = share
     allocated += share
   }
-  out[winner.id] += total - allocated
+
+  // Phần dư: đi lần lượt từ phần lớn nhất (hoà → id nhỏ nhất), mỗi phần chỉ nhận tới khi đầy
+  // (không vượt amount của chính nó) — không phần nào bị giảm quá tiền hàng của nó.
+  let rem = total - allocated
+  const order = [...parts].sort(
+    (a, b) => b.amount - a.amount || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+  )
+  for (const p of order) {
+    if (rem === 0) break
+    const add = Math.min(rem, Math.max(0, p.amount - out[p.id]))
+    out[p.id] += add
+    rem -= add
+  }
+  // Chỉ còn dư khi total > tổng amount (không có chỗ chứa) → dồn vào phần lớn nhất để giữ đúng tổng.
+  out[winner.id] += rem
   return out
 }

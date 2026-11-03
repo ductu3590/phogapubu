@@ -106,6 +106,9 @@ test('close_table_session(paid): kiểm giảm giá > tiền hàng, bỏ qua phi
   // Chia theo total_amount, hoà → id nhỏ nhất theo chuỗi; trừ cả total_amount lẫn payment_amount
   assert.match(all, /ORDER BY [\s\S]*DESC, [\s\S]*id::text COLLATE "C"/)
   assert.match(all, /div\(/)
+  // Phần dư lấp lần lượt, mỗi đơn không nhận quá total_amount của nó (không còn "dồn hết vào đơn thắng")
+  assert.match(all, /LEAST\(GREATEST\(rk\.amt - rk\.share, 0\), rk\.rem - rk\.room_before\)/)
+  assert.doesNotMatch(all, /CASE WHEN sh\.id = w\.id/)
   assert.match(all, /bill_discount_amount = o\.bill_discount_amount \+/)
   assert.match(all, /total_amount = o\.total_amount -/)
   assert.match(all, /payment_amount = o\.total_amount -/)
@@ -155,8 +158,9 @@ test('merge_session_into_tray: bỏ ý định giảm giá của phiên nguồn 
 test('đọc: POS, in bill, A04, Mini App nhận trường giảm giá mới', async () => {
   const sql = await load(migration)
   const list = allTo(patches(sql, SIG.list))
-  assert.match(list, /s\.bill_discount_type/)
-  assert.match(list, /s\.bill_discount_value/)
+  // Phiên hết hạn còn nợ cũng được liệt kê nhưng server bỏ qua giảm giá → chỉ phiên open mới trả ý định
+  assert.match(list, /CASE WHEN s\.status = 'open' THEN s\.bill_discount_type END AS bill_discount_type/)
+  assert.match(list, /CASE WHEN s\.status = 'open' THEN s\.bill_discount_value END AS bill_discount_value/)
 
   const bill = patches(sql, SIG.bill)
   for (const p of bill) assert.ok(!p.from.includes('\n'), `neo get_sessions_bill phải 1 dòng (prod CRLF): ${p.from}`)

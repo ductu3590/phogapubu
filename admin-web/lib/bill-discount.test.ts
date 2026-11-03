@@ -89,6 +89,27 @@ describe('allocateDiscount', () => {
     expect(r2.b).toBe(1_428)
   })
 
+  it('phần dư không làm phần nào vượt tiền hàng của nó (3 × 1.000đ giảm 2.999)', () => {
+    // floor 999 × 3, dư 2 → a (đầy 1.000), b (đầy 1.000); c giữ 999. Cách cũ cho c 1.001 > 1.000.
+    const r = allocateDiscount(2_999, [
+      { id: 'c', amount: 1_000 },
+      { id: 'a', amount: 1_000 },
+      { id: 'b', amount: 1_000 },
+    ])
+    expect(r).toEqual({ a: 1_000, b: 1_000, c: 999 })
+  })
+
+  it('phần lớn nhất đầy thì dư tràn sang phần kế tiếp theo tiền giảm dần', () => {
+    // floor: x 0, y 1, z 1 (= 2), dư 2; thứ tự y(2), z(2) hoà → id nhỏ trước, x(1) cuối:
+    // y còn chỗ 1 → 2, z còn chỗ 1 → 2, hết dư; x giữ 0
+    const r = allocateDiscount(4, [
+      { id: 'x', amount: 1 },
+      { id: 'z', amount: 2 },
+      { id: 'y', amount: 2 },
+    ])
+    expect(r).toEqual({ x: 0, y: 2, z: 2 })
+  })
+
   it('hoà tiền → phần dư vào id nhỏ nhất', () => {
     const r = allocateDiscount(10_001, [
       { id: 'a', amount: 1 },

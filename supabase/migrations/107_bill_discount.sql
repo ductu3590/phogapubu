@@ -201,9 +201,12 @@ GRANT EXECUTE ON FUNCTION public.pos_set_session_discount(uuid, text, integer) T
 --    percent: đặt cùng % cho từng phiên.
 --    amount : chia p_value về từng phiên theo tỉ lệ session_unpaid_subtotal đúng thuật toán allocateDiscount:
 --      mỗi phiên = floor(p_value * tiền_hàng / tổng tiền_hàng) (div() trên numeric: chia nguyên đúng,
---      không rủi ro làm tròn của phép chia thập phân); phần dư dồn vào phiên có tiền hàng lớn nhất,
---      hoà thì id nhỏ nhất theo so sánh CHUỖI (id::text COLLATE "C" = so sánh chuỗi của JS);
---      tổng tiền hàng = 0 thì dồn hết vào phiên thắng. Mỗi phiên lưu dạng amount; phần chia = 0 → phiên không giảm.
+--      không rủi ro làm tròn của phép chia thập phân); phần dư chia lần lượt theo tiền hàng giảm dần,
+--      hoà thì id nhỏ nhất theo so sánh CHUỖI (id::text COLLATE "C" = so sánh chuỗi của JS), mỗi phiên
+--      nhận thêm min(dư còn lại, tiền hàng − phần đã chia) → không phiên nào được giảm quá tiền hàng của nó
+--      (3 mâm × 1.000đ giảm 2.999 → 1.000 / 1.000 / 999; cách cũ 999/999/1.001 làm mâm đó không thu được).
+--      Dư còn lại sau khi lấp đầy (chỉ khi p_value > tổng tiền hàng — đã chặn trước) → phiên đứng đầu.
+--      Mỗi phiên lưu dạng amount; phần chia = 0 → phiên không giảm.
 --    Ghi đè giảm giá riêng từng phiên (nếu có). Khoá phiên theo id tăng dần (cùng quy ước
 --    close_table_sessions_bulk / merge_session_into_tray mig 040 → hai máy gộp chéo nhau không deadlock).
 -- ============================================================
@@ -276,19 +279,30 @@ BEGIN
         FROM unnest(v_ids) AS s(id)
     ),
     tot AS (SELECT coalesce(sum(amt), 0) AS total FROM parts),
-    win AS (
-      SELECT id FROM parts ORDER BY amt DESC, id::text COLLATE "C" LIMIT 1
-    ),
     shares AS (
       SELECT p.id, p.amt,
              CASE WHEN t.total = 0 THEN 0::numeric
                   ELSE div(p_value::numeric * p.amt, t.total) END AS share
         FROM parts p CROSS JOIN tot t
+    ),
+    -- Thứ tự nhận dư: tiền hàng giảm dần, hoà → id nhỏ nhất (so chuỗi). room = chỗ còn trống của phiên.
+    ranked AS (
+      SELECT sh.id, sh.amt, sh.share,
+             p_value - sum(sh.share) OVER () AS rem,
+             coalesce(sum(GREATEST(sh.amt - sh.share, 0)) OVER (
+               ORDER BY sh.amt DESC, sh.id::text COLLATE "C"
+               ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0) AS room_before,
+             sum(GREATEST(sh.amt - sh.share, 0)) OVER () AS room_total,
+             row_number() OVER (ORDER BY sh.amt DESC, sh.id::text COLLATE "C") AS rn
+        FROM shares sh
     )
-    SELECT sh.id, sh.amt,
-           (sh.share + CASE WHEN sh.id = w.id THEN p_value - sum(sh.share) OVER () ELSE 0 END)::bigint AS alloc
-      FROM shares sh CROSS JOIN win w
-     ORDER BY sh.id
+    SELECT rk.id, rk.amt,
+           (rk.share
+            + GREATEST(0, LEAST(GREATEST(rk.amt - rk.share, 0), rk.rem - rk.room_before))
+            -- chỉ còn dư khi p_value > tổng tiền hàng (không xảy ra: đã chặn ở trên) → phiên đứng đầu
+            + CASE WHEN rk.rn = 1 THEN GREATEST(rk.rem - rk.room_total, 0) ELSE 0 END)::bigint AS alloc
+      FROM ranked rk
+     ORDER BY rk.id
   LOOP
     IF v_clear THEN
       v_new_type := NULL;

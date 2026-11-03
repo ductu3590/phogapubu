@@ -98,6 +98,9 @@ test('pos_set_sessions_discount: khoá id tăng dần, chia dư vào phiên lớ
   assert.match(fn, /id::text COLLATE "C"/)
   // chia nguyên bằng div() trên numeric, không dùng phép chia làm tròn
   assert.match(fn, /div\(p_value::numeric \* /)
+  // phần dư lấp lần lượt theo tiền giảm dần, mỗi phiên không nhận quá tiền hàng của nó
+  assert.match(fn, /LEAST\(GREATEST\(rk\.amt - rk\.share, 0\), rk\.rem - rk\.room_before\)/)
+  assert.doesNotMatch(fn, /CASE WHEN sh\.id = w\.id/)
   assert.match(fn, /INSERT INTO public\.table_session_discount_changes/)
   assert.match(fn, /clock_timestamp\(\)/)
   // loại có + giá trị NULL cho ra NULL: phải coalesce để không lọt qua bước kiểm giá trị
