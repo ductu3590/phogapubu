@@ -51,7 +51,6 @@ import {
   snoozeReservationReminders,
   type ReservationRow,
 } from '@/lib/actions/reservations'
-import type { ReservationFormSubmit } from '../reservations/reservation-form'
 import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
 import { createReservationReminderCoordinator, type ReminderStorage } from '@/lib/reservation-reminders'
 import { resolveReservationCustomerCall, type ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
@@ -83,7 +82,7 @@ import {
 import TimelineView from './timeline-view'
 import ListView from './list-view'
 import ReservationDetail from './reservation-detail'
-import NewReservationSheet from './new-reservation-sheet'
+import NewReservationSheet, { type NewReservationSubmit } from './new-reservation-sheet'
 import { useNow } from './use-now'
 import { useOnline } from './use-online'
 import { useServiceRequests } from './use-service-requests'
@@ -659,9 +658,9 @@ export default function PosClient({
 
   const dueReminders = reminders.due(reservations)
 
-  // Đặt bàn tạo tay luôn ở trạng thái chờ duyệt; có bàn đã bấm thì xác nhận giữ bàn đó ngay.
+  // Đặt bàn tạo tay luôn ở trạng thái chờ duyệt; có chọn bàn trong form thì xác nhận giữ các bàn đó ngay.
   // Bước 2 lỗi (bàn vừa bị giữ ở máy khác…) → đặt bàn vẫn nằm ở "Chưa xếp bàn", báo rõ cho thu ngân.
-  const submitNewBooking = async (values: ReservationFormSubmit) => {
+  const submitNewBooking = async ({ tableIds, ...values }: NewReservationSubmit) => {
     if (!newBooking) return
     setBookingBusy(true)
     setBookingError(null)
@@ -670,9 +669,10 @@ export default function PosClient({
       if (!created.ok) { setBookingError(created.error); return }
       const id = created.reservation.reservationId
       let warning: string | null = null
-      if (newBooking.table) {
-        const confirmed = await confirmReservation(id, [newBooking.table.id])
-        if (!confirmed.ok) warning = `Đã tạo đặt bàn nhưng chưa giữ được ${newBooking.table.table_number}: ${confirmed.error}. Đặt bàn đang ở hàng Chưa xếp bàn.`
+      if (tableIds.length > 0) {
+        const confirmed = await confirmReservation(id, tableIds)
+        const names = tableIds.map((tableId) => tableNames.get(tableId) ?? 'bàn').join(', ')
+        if (!confirmed.ok) warning = `Đã tạo đặt bàn nhưng chưa giữ được ${names}: ${confirmed.error}. Đặt bàn đang ở hàng Chưa xếp bàn.`
       }
       await reloadReservations()
       setNewBooking(null)
@@ -1278,6 +1278,10 @@ export default function PosClient({
         <NewReservationSheet
           table={newBooking.table}
           arrivalAt={newBooking.arrivalAt}
+          floor={floor.draft}
+          sessions={sessions}
+          reservations={reservations}
+          planningHoldMinutes={planningHoldMinutes}
           busy={bookingBusy}
           error={bookingError}
           onClose={() => setNewBooking(null)}

@@ -477,7 +477,10 @@ function TableDecision({ operation, floor, sessions, busy, actionError, otherRes
     {operation.kind === 'resolve_change' && <p className="text-sm text-warning">Khách yêu cầu: {operation.reservation.changeNote ?? 'đổi thông tin đặt bàn'}</p>}
     <ReservationTablePicker floor={floor} sessions={sessions} selectedTableIds={operation.selectedTableIds}
       currentReservationTableIds={new Set(operation.reservation.tableIds)} otherReservationTableIds={otherReservationTableIds}
-      suggestedTableCount={operation.reservation.suggestedTableCount} onToggle={onToggle} />
+      suggestedTableCount={operation.reservation.suggestedTableCount} onToggle={onToggle}
+      arrivalAt={operation.kind === 'resolve_change'
+        ? operation.reservation.requestedArrivalAt ?? operation.reservation.arrivalAt
+        : operation.reservation.arrivalAt} />
     {actionError && <p className="rounded-lg bg-critical-bg px-3 py-2 text-sm text-critical">{actionError}</p>}
     {canRejectChange && <label className="block text-sm font-semibold text-foreground/80">Ghi chú từ chối (không bắt buộc)<textarea value={rejectNote} onChange={(event) => setRejectNote(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-border-strong px-3 py-2 font-normal" /></label>}
     <div className="flex gap-2"><button type="button" disabled={busy} onClick={onCancel} className="min-h-11 flex-1 rounded-lg border border-border-strong font-bold">Hủy</button>{canRejectChange && <button type="button" disabled={busy} onClick={() => onReject(rejectNote.trim() || null)} className="min-h-11 flex-1 rounded-lg border border-critical-border bg-surface font-bold text-danger">Từ chối thay đổi</button>}<button type="button" disabled={busy} onClick={onSubmit} className="min-h-11 flex-1 rounded-lg bg-primary font-bold text-white disabled:opacity-50">{busy ? 'Đang lưu…' : operation.kind === 'confirm' ? 'Xác nhận' : 'Chấp nhận thay đổi'}</button></div>

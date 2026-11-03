@@ -94,6 +94,8 @@ export function ReservationForm({
   onCancel,
   busy,
   actionError,
+  fixedReason,
+  onArrivalChange,
 }: {
   mode: 'manual' | 'reschedule'
   initial?: Partial<{
@@ -110,6 +112,10 @@ export function ReservationForm({
   onCancel: () => void
   busy: boolean
   actionError: string | null
+  /** Có giá trị → ẩn ô lý do, ghi lý do này vào nhật ký (POS tạo đặt bàn không bắt gõ lý do). */
+  fixedReason?: string
+  /** Báo giờ đến mới (ISO, null khi chưa hợp lệ) để màn cha khoá đúng bàn theo khung giờ. */
+  onArrivalChange?: (arrivalAt: string | null) => void
 }) {
   const [customerName, setCustomerName] = useState(initial?.customerName ?? '')
   const [customerPhone, setCustomerPhone] = useState(initial?.customerPhone ?? '')
@@ -118,7 +124,7 @@ export function ReservationForm({
     initial?.arrivalAt ? reservationIsoToVietnamLocalInput(initial.arrivalAt) ?? '' : '',
   )
   const [note, setNote] = useState(initial?.note ?? '')
-  const [reason, setReason] = useState('')
+  const [reason, setReason] = useState(fixedReason ?? '')
   const [errors, setErrors] = useState<ReservationFormErrors>({})
   const manual = mode === 'manual'
 
@@ -156,15 +162,20 @@ export function ReservationForm({
         <input type="number" min="1" inputMode="numeric" value={partySize} onChange={(event) => setPartySize(event.target.value)} className={fieldClass} />
       </Field>
       <Field label="Giờ đến" error={errors.arrivalLocal}>
-        <input type="datetime-local" value={arrivalLocal} onChange={(event) => setArrivalLocal(event.target.value)} className={fieldClass} />
+        <input type="datetime-local" value={arrivalLocal} onChange={(event) => {
+          setArrivalLocal(event.target.value)
+          onArrivalChange?.(vietnamLocalInputToReservationIso(event.target.value))
+        }} className={fieldClass} />
       </Field>
       <Field label="Ghi chú (không bắt buộc)">
         <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className={fieldClass} />
       </Field>
       {children}
-      <Field label={manual ? 'Lý do tạo tay' : 'Lý do đổi lịch/bàn'} error={errors.reason}>
-        <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} className={fieldClass} />
-      </Field>
+      {fixedReason === undefined && (
+        <Field label={manual ? 'Lý do tạo tay' : 'Lý do đổi lịch/bàn'} error={errors.reason}>
+          <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} className={fieldClass} />
+        </Field>
+      )}
       {errors.tableIds && <p className="text-sm font-medium text-danger">{errors.tableIds}</p>}
       {actionError && <p className="rounded-lg bg-critical-bg px-3 py-2 text-sm text-critical">{actionError}</p>}
       <div className="flex gap-2">
