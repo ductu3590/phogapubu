@@ -153,8 +153,15 @@ describe('nextBookableSlot', () => {
     expect(nextBookableSlot({ bars: [], now: at('19:00'), window, slotMinutes: 30, holdMinutes: 120 })).toBe(at('19:00'))
   })
 
-  it('bàn đang có khách: sau thanh phiên', () => {
-    expect(nextBookableSlot({ bars: [bar('session', '18:00', '19:40')], now: NOW, window, slotMinutes: 30, holdMinutes: 120 })).toBe(at('20:00'))
+  it('bàn đang có khách: sau thanh phiên VÀ cách giờ hiện tại hơn 60 phút (+10 phút điền form) — mig 109', () => {
+    // 19:15 + 70 phút = 20:25 → làm tròn bước 30 phút = 20:30 (phiên kết thúc 19:40 không còn quyết định)
+    expect(nextBookableSlot({ bars: [bar('session', '18:00', '19:40')], now: NOW, window, slotMinutes: 30, holdMinutes: 120 })).toBe(at('20:30'))
+    // Phiên hiển thị kéo dài quá mốc 70 phút thì vẫn lấy sau thanh phiên
+    expect(nextBookableSlot({ bars: [bar('session', '18:00', '21:10')], now: NOW, window, slotMinutes: 30, holdMinutes: 120 })).toBe(at('21:30'))
+  })
+
+  it('bàn trống không bị đẩy 60 phút', () => {
+    expect(nextBookableSlot({ bars: [bar('reservation', '22:00', '23:00')], now: NOW, window, slotMinutes: 30, holdMinutes: 60 })).toBe(at('19:30'))
   })
 
   it('không đè lên đặt bàn khác trong khoảng giữ bàn 2 giờ', () => {

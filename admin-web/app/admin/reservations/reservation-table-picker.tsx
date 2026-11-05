@@ -48,21 +48,31 @@ export function heldTableIdsForReservationWindow(
     .flatMap((reservation) => reservation.tableIds))
 }
 
+/** Khoá trước giờ hẹn (mig 075/109): bàn đang có khách chỉ bị chặn khi giờ hẹn đã vào khung 60 phút này. */
+export const OCCUPIED_TABLE_LEAD_MINUTES = 60
+
 export function buildReservationTableGroups({
   floor,
   sessions,
   selectedTableIds,
   currentReservationTableIds,
   otherReservationTableIds,
+  arrivalAt,
+  now = Date.now(),
 }: {
   floor: FloorSnapshot
   sessions: OpenTableSession[]
   selectedTableIds: Set<string>
   currentReservationTableIds: Set<string>
   otherReservationTableIds: Set<string>
+  /** Giờ hẹn; bỏ trống thì coi như sắp tới (chặn mọi bàn đang có khách như trước). */
+  arrivalAt?: string | null
+  now?: number
 }): ReservationTableGroup[] {
-  const sessionTableIds = new Set(sessions.filter((session) => session.status === 'open')
-    .flatMap((session) => session.tables.map((table) => table.id)))
+  const arrival = arrivalAt ? new Date(arrivalAt).getTime() : Number.NaN
+  const occupiedBlocks = !Number.isFinite(arrival) || arrival - OCCUPIED_TABLE_LEAD_MINUTES * 60_000 <= now
+  const sessionTableIds = new Set(occupiedBlocks ? sessions.filter((session) => session.status === 'open')
+    .flatMap((session) => session.tables.map((table) => table.id)) : [])
   const orderedAreaIds = [...floor.areas.map((area) => area.id), null]
 
   return orderedAreaIds.map((areaId) => {
@@ -93,8 +103,10 @@ export function buildReservationTableGroups({
   }).filter((group) => group.tables.length > 0)
 }
 
-export function reservationSelectionHint(selectedTableIds: Set<string>, suggestedTableCount: number): string {
-  return `Đã chọn ${selectedTableIds.size} bàn · gợi ý ${suggestedTableCount} bàn`
+export function reservationSelectionHint(selectedTableIds: Set<string>, suggestedTableCount?: number): string {
+  return suggestedTableCount === undefined
+    ? `Đã chọn ${selectedTableIds.size} bàn`
+    : `Đã chọn ${selectedTableIds.size} bàn · gợi ý ${suggestedTableCount} bàn`
 }
 
 export default function ReservationTablePicker({
@@ -104,6 +116,7 @@ export default function ReservationTablePicker({
   currentReservationTableIds,
   otherReservationTableIds,
   suggestedTableCount,
+  arrivalAt,
   onToggle,
 }: {
   floor: FloorSnapshot
@@ -111,11 +124,12 @@ export default function ReservationTablePicker({
   selectedTableIds: Set<string>
   currentReservationTableIds: Set<string>
   otherReservationTableIds: Set<string>
-  suggestedTableCount: number
+  suggestedTableCount?: number
+  arrivalAt?: string | null
   onToggle: (tableId: string) => void
 }) {
   const groups = buildReservationTableGroups({
-    floor, sessions, selectedTableIds, currentReservationTableIds, otherReservationTableIds,
+    floor, sessions, selectedTableIds, currentReservationTableIds, otherReservationTableIds, arrivalAt,
   })
 
   return (

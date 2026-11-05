@@ -19,6 +19,8 @@ export const LATE_GRACE_MINUTES = 0
  * "Vẫn dùng bàn này" thì POS phải thấy xung đột NGAY để chủ quán đổi bàn cho khách đặt.
  */
 export const CONFLICT_LEAD_MINUTES = 60
+/** Thời gian ước chừng để thu ngân điền form đặt bàn — nút "+ Đặt lúc" của bàn đang có khách chừa thêm khoảng này. */
+const FORM_FILL_MINUTES = 10
 /**
  * Phiên vừa mở vẫn vẽ dài tối thiểu ngần này (≈176px trên thước 132px/giờ) để đọc được tên bàn / mâm
  * và trạng thái. Chỉ là độ dài HIỂN THỊ: thanh có thể vượt vạch "bây giờ", không có nghĩa bàn đã đặt trước.
@@ -273,7 +275,11 @@ export function nextBookableSlot(input: {
   const hold = Math.max(15, input.holdMinutes) * MIN
   const up = (t: number) => Math.ceil(t / slot) * slot
   let t = up(input.now)
-  for (const b of input.bars) if (b.kind === 'session') t = Math.max(t, up(b.end))
+  // Bàn đang có khách: server chỉ cho giữ khi giờ hẹn còn cách hơn CONFLICT_LEAD_MINUTES (mig 109) —
+  // gợi ý sớm hơn thì đặt bàn tạo xong không giữ được bàn, rơi về "Chưa xếp bàn". Cộng thêm
+  // FORM_FILL_MINUTES vì từ lúc bấm nút tới lúc bấm "Tạo đặt bàn" đồng hồ vẫn chạy.
+  const occupiedFrom = up(input.now + (CONFLICT_LEAD_MINUTES + FORM_FILL_MINUTES) * MIN)
+  for (const b of input.bars) if (b.kind === 'session') t = Math.max(t, up(b.end), occupiedFrom)
   const reservations = input.bars.filter((b) => b.kind === 'reservation').sort((a, b) => a.start - b.start)
   for (const r of reservations) {
     if (t + hold <= r.start || t >= r.end) continue

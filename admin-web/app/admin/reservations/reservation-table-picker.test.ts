@@ -61,9 +61,27 @@ describe('reservation table picker model', () => {
     expect(tables.get('t3')).toMatchObject({ disabled: true, reason: 'Đang có khách' })
   })
 
+  it('bàn đang có khách vẫn chọn được khi giờ hẹn còn cách hơn 60 phút (mig 109)', () => {
+    const now = Date.parse('2026-09-20T11:00:00.000Z')
+    const pick = (arrivalAt: string | null) => new Map(buildReservationTableGroups({
+      floor,
+      sessions: [session('t3')],
+      selectedTableIds: new Set(),
+      currentReservationTableIds: new Set(),
+      otherReservationTableIds: new Set(),
+      arrivalAt,
+      now,
+    }).flatMap((group) => group.tables).map((table) => [table.id, table]))
+
+    expect(pick('2026-09-20T12:01:00.000Z').get('t3')).toMatchObject({ disabled: false, reason: null })
+    expect(pick('2026-09-20T12:00:00.000Z').get('t3')).toMatchObject({ disabled: true, reason: 'Đang có khách' })
+    expect(pick(null).get('t3')).toMatchObject({ disabled: true, reason: 'Đang có khách' })
+  })
+
   it('chỉ coi số bàn gợi ý là nhắc việc, không biến nó thành điều kiện submit', () => {
     expect(reservationSelectionHint(new Set(['t1']), 2)).toBe('Đã chọn 1 bàn · gợi ý 2 bàn')
     expect(reservationSelectionHint(new Set(['t1', 't2', 't3']), 2)).toBe('Đã chọn 3 bàn · gợi ý 2 bàn')
+    expect(reservationSelectionHint(new Set(['t1']))).toBe('Đã chọn 1 bàn')
   })
 
   it('không khóa bàn của booking ngày khác khi hai khoảng giữ không chồng nhau', () => {

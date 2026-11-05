@@ -25,6 +25,20 @@ describe('reservation form rules', () => {
     expect(html).not.toContain('Đã chọn 0 bàn')
   })
 
+  it('POS truyền lý do cố định: ẩn ô lý do, không bắt thu ngân gõ', () => {
+    const html = renderToStaticMarkup(createElement(ReservationForm, {
+      mode: 'manual',
+      fixedReason: 'Thu ngân tạo tại POS',
+      onSubmit: () => undefined,
+      onCancel: () => undefined,
+      busy: false,
+      actionError: null,
+    }))
+
+    expect(html).toContain('Tên khách')
+    expect(html).not.toContain('Lý do tạo tay')
+  })
+
   it('round-trip datetime-local theo Asia/Ho_Chi_Minh thay vì timezone máy', () => {
     const iso = vietnamLocalInputToReservationIso('2026-09-21T19:15')
     expect(iso).toBe('2026-09-21T12:15:00.000Z')
