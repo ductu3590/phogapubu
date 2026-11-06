@@ -19,6 +19,9 @@ interface StoreRow {
   serving_hours: { open: string; close: string }[]
   delivery_area_note: string | null
   terms_of_use: string | null
+  bank_bin: string | null
+  bank_account_number: string | null
+  bank_account_name: string | null
   spin_enabled: boolean
   is_active: boolean
   created_at: string

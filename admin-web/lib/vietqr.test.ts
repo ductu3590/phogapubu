@@ -81,6 +81,10 @@ describe('parseBankAccountInput', () => {
     expect(parseBankAccountInput({ bin: '970436', accountNumber: '', accountName: 'A' }))
       .toEqual({ ok: false, error: 'Cần nhập đủ ngân hàng, số tài khoản và tên chủ tài khoản' })
   })
+  it('tên toàn ký tự lạ thì coi là thiếu ô', () => {
+    expect(parseBankAccountInput({ bin: '970436', accountNumber: '0011001234567', accountName: '?!#' }))
+      .toEqual({ ok: false, error: 'Cần nhập đủ ngân hàng, số tài khoản và tên chủ tài khoản' })
+  })
   it('ngân hàng ngoài danh sách', () => {
     expect(parseBankAccountInput({ bin: '999999', accountNumber: '123456', accountName: 'A' }))
       .toEqual({ ok: false, error: 'Ngân hàng không hợp lệ' })

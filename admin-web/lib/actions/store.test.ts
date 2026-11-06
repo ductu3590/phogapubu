@@ -30,7 +30,32 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
-const { saveBellStyle, updateStoreSettings } = await import('./store')
+const { saveBellStyle, saveBankAccount, updateStoreSettings } = await import('./store')
+
+describe('saveBankAccount', () => {
+  beforeEach(() => { vi.clearAllMocks(); mocks.patch.value = null })
+
+  it('lưu bản đã chuẩn hoá', async () => {
+    await expect(saveBankAccount({ bin: '970436', accountNumber: '0011 0012-34567', accountName: 'Đỗ Đức Tú' })).resolves.toEqual({ ok: true })
+    expect(mocks.patch.value).toEqual({ bank_bin: '970436', bank_account_number: '0011001234567', bank_account_name: 'DO DUC TU' })
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin', 'layout')
+  })
+  it('trống cả ba thì ghi null', async () => {
+    await saveBankAccount({ bin: '', accountNumber: '', accountName: '' })
+    expect(mocks.patch.value).toEqual({ bank_bin: null, bank_account_number: null, bank_account_name: null })
+  })
+  it('dữ liệu sai thì trả lỗi, không ghi', async () => {
+    const res = await saveBankAccount({ bin: '970436', accountNumber: '', accountName: 'A' })
+    expect(res.ok).toBe(false)
+    expect(mocks.update).not.toHaveBeenCalled()
+  })
+  it('không phải chủ quán thì trả lỗi, không ném, không ghi', async () => {
+    mocks.requireStoreOwnerStoreId.mockRejectedValueOnce(new Error('Chỉ chủ quán mới thao tác được ở đây'))
+    await expect(saveBankAccount({ bin: '970436', accountNumber: '0011001234567', accountName: 'A' }))
+      .resolves.toEqual({ ok: false, error: 'Chỉ chủ quán mới thao tác được ở đây' })
+    expect(mocks.update).not.toHaveBeenCalled()
+  })
+})
 
 describe('updateStoreSettings', () => {
   beforeEach(() => {
