@@ -62,3 +62,14 @@ describe('Phiếu báo cáo cuối ngày 80mm (A04-3)', () => {
     expect(html).not.toContain('mevo.vn<')
   })
 })
+
+describe('DayReportSlip — autoPrint', () => {
+  it('autoPrint=false: không vẽ khối .no-print', () => {
+    const html = renderToStaticMarkup(<DayReportSlip {...base} autoPrint={false} />)
+    expect(html).not.toContain('no-print')
+    expect(html).toContain('BÁO CÁO CUỐI NGÀY')
+  })
+  it('mặc định vẫn có nút In lại', () => {
+    expect(renderToStaticMarkup(<DayReportSlip {...base} />)).toContain('no-print')
+  })
+})

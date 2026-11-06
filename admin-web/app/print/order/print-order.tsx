@@ -38,12 +38,10 @@ const gio = (iso: string) =>
 
 const donGia = (it: SlipItem) => it.isGift ? 0 : it.price + it.toppings.reduce((s, t) => s + t.price, 0)
 
-export default function PrintOrder({ slip }: { slip: OrderSlip }) {
-  useAutoPrint()
-
+// CSS dùng chung cho cả hai liên (trình duyệt in cả hai; phần mềm in mỗi liên một việc).
+export function SlipStyles() {
   return (
-    <>
-      <style>{`
+    <style>{`
         @page { size: 80mm auto; margin: 3mm; }
         @media print {
           .no-print { display: none !important; }
@@ -63,6 +61,113 @@ export default function PrintOrder({ slip }: { slip: OrderSlip }) {
         .ghichu { font-style: italic; }
         .diachi { text-align: center; overflow-wrap: anywhere; }
       `}</style>
+  )
+}
+
+// ── LIÊN 1: PHIẾU BẾP — chữ to, chỉ thứ bếp cần. Mặc định vẫn in giá (quyết định 2026-09-23 để hai liên
+//    cùng nội dung tiền); showPrices=false dùng cho chế độ phần mềm in, nơi bếp không cần thấy tiền.
+//    Món tặng vẫn in vì bếp vẫn phải làm. ──
+export function KitchenSlip({
+  slip,
+  stationName,
+  showPrices = true,
+}: {
+  slip: OrderSlip
+  stationName?: string | null
+  showPrices?: boolean
+}) {
+  const tieuDe =
+    slip.preorderPrintKind === 'adjustment' ? 'PHIẾU ĐIỀU CHỈNH' : slip.preorderPrintKind === 'reprint' ? 'PHIẾU BẾP · IN LẠI' : 'PHIẾU BẾP'
+  return (
+    <div className="lien">
+      <p className="tieude">{stationName ? `${tieuDe} · ${stationName}` : tieuDe}</p>
+      <p className="ban">{slip.tableLabel}</p>
+      <div className="row">
+        <span>{gio(slip.createdAt)}</span>
+        <span>{slip.preorderRevision ? `Đặt trước · v${slip.preorderRevision}` : slip.orderSource === 'staff' ? 'NV đặt hộ' : 'Khách tự gọi'}</span>
+      </div>
+      <hr />
+      {slip.items.map((it, i) => (
+        <div key={i} style={{ marginBottom: 4 }}>
+          <div className="row to">
+            <span className="name">{it.name}</span>
+            <span className="num">{showPrices ? `x${it.quantity} · ${dong(donGia(it) * it.quantity)}` : `x${it.quantity}`}</span>
+          </div>
+          {it.toppings.length > 0 && (
+            <div style={{ paddingLeft: 8 }}>+ {it.toppings.map((t) => t.name).join(', ')}</div>
+          )}
+          {it.note && <div className="ghichu" style={{ paddingLeft: 8 }}>* {it.note}</div>}
+        </div>
+      ))}
+      {slip.orderNote && (
+        <>
+          <hr />
+          <p className="ghichu">Ghi chú đơn: {slip.orderNote}</p>
+        </>
+      )}
+      {showPrices && (
+        <>
+          <hr />
+          <div className="row to">
+            <span>Tổng phiếu</span>
+            <span className="num">{dong(slip.orderTotal)}</span>
+          </div>
+        </>
+      )}
+      <hr />
+      <p style={{ textAlign: 'center' }}>— hết phiếu bếp —</p>
+    </div>
+  )
+}
+
+// ── LIÊN 2: PHIẾU BÀN — đặt ở bàn khách, THẬT NGẮN: tên quán, bàn, món (có ô tick để nhân viên
+//    gạch khi bưng ra), tiền. Địa chỉ/SĐT/lời dặn dài nằm ở hoá đơn thanh toán, không ở đây. ──
+export function TableSlip({ slip }: { slip: OrderSlip }) {
+  return (
+    <div className="lien">
+      <p className="tieude">{slip.storeName}{slip.preorderPrintKind === 'reprint' ? ' · IN LẠI' : ''}</p>
+      <div className="row to">
+        <span>{slip.tableLabel}</span>
+        <span className="num">{gio(slip.createdAt)}</span>
+      </div>
+      <hr />
+      {slip.items.map((it, i) => (
+        <div key={i} style={{ marginBottom: 2 }}>
+          <div className="row">
+            <span className="name">
+              ☐ {it.name} x{it.quantity}
+              {it.isGift && ' (Tặng)'}
+            </span>
+            <span className="num">{dong(donGia(it) * it.quantity)}</span>
+          </div>
+          {it.toppings.length > 0 && (
+            <div style={{ paddingLeft: 12 }}>+ {it.toppings.map((t) => t.name).join(', ')}</div>
+          )}
+          {it.note && <div className="ghichu" style={{ paddingLeft: 12 }}>* {it.note}</div>}
+        </div>
+      ))}
+      <hr />
+      <div className="row to">
+        <span>Lần này</span>
+        <span className="num">{dong(slip.orderTotal)}</span>
+      </div>
+      <div className="row">
+        <span>Cả bàn (tạm tính)</span>
+        <span className="num">{dong(slip.sessionTotal)}</span>
+      </div>
+      <hr />
+      <p style={{ textAlign: 'center', fontSize: 11 }}>Chưa thanh toán · gạch ☐ khi đã bưng ra</p>
+      <p style={{ textAlign: 'center', fontSize: 11 }}>MEVO · mevo.vn</p>
+    </div>
+  )
+}
+
+export default function PrintOrder({ slip }: { slip: OrderSlip }) {
+  useAutoPrint()
+
+  return (
+    <>
+      <SlipStyles />
 
       <div className="no-print" style={{ padding: 12, textAlign: 'center' }}>
         <button
@@ -81,79 +186,8 @@ export default function PrintOrder({ slip }: { slip: OrderSlip }) {
         </button>
       </div>
 
-      {/* ── LIÊN 1: PHIẾU BẾP — không giá, chữ to, chỉ thứ bếp cần ── */}
-      <div className="lien">
-        <p className="tieude">{slip.preorderPrintKind === 'adjustment' ? 'PHIẾU ĐIỀU CHỈNH' : slip.preorderPrintKind === 'reprint' ? 'PHIẾU BẾP · IN LẠI' : 'PHIẾU BẾP'}</p>
-        <p className="ban">{slip.tableLabel}</p>
-        <div className="row">
-          <span>{gio(slip.createdAt)}</span>
-          <span>{slip.preorderRevision ? `Đặt trước · v${slip.preorderRevision}` : slip.orderSource === 'staff' ? 'NV đặt hộ' : 'Khách tự gọi'}</span>
-        </div>
-        <hr />
-        {slip.items.map((it, i) => (
-          <div key={i} style={{ marginBottom: 4 }}>
-            <div className="row to">
-              <span className="name">{it.name}</span>
-              <span className="num">x{it.quantity} · {dong(donGia(it) * it.quantity)}</span>
-            </div>
-            {it.toppings.length > 0 && (
-              <div style={{ paddingLeft: 8 }}>+ {it.toppings.map((t) => t.name).join(', ')}</div>
-            )}
-            {it.note && <div className="ghichu" style={{ paddingLeft: 8 }}>* {it.note}</div>}
-          </div>
-        ))}
-        {slip.orderNote && (
-          <>
-            <hr />
-            <p className="ghichu">Ghi chú đơn: {slip.orderNote}</p>
-          </>
-        )}
-        <hr />
-        <div className="row to">
-          <span>Tổng phiếu</span>
-          <span className="num">{dong(slip.orderTotal)}</span>
-        </div>
-        <hr />
-        <p style={{ textAlign: 'center' }}>— hết phiếu bếp —</p>
-      </div>
-
-      {/* ── LIÊN 2: PHIẾU BÀN — đặt ở bàn khách, THẬT NGẮN: tên quán, bàn, món (có ô tick để nhân viên
-            gạch khi bưng ra), tiền. Địa chỉ/SĐT/lời dặn dài nằm ở hoá đơn thanh toán, không ở đây. ── */}
-      <div className="lien">
-        <p className="tieude">{slip.storeName}{slip.preorderPrintKind === 'reprint' ? ' · IN LẠI' : ''}</p>
-        <div className="row to">
-          <span>{slip.tableLabel}</span>
-          <span className="num">{gio(slip.createdAt)}</span>
-        </div>
-        <hr />
-        {slip.items.map((it, i) => (
-          <div key={i} style={{ marginBottom: 2 }}>
-            <div className="row">
-              <span className="name">
-                ☐ {it.name} x{it.quantity}
-                {it.isGift && ' (Tặng)'}
-              </span>
-              <span className="num">{dong(donGia(it) * it.quantity)}</span>
-            </div>
-            {it.toppings.length > 0 && (
-              <div style={{ paddingLeft: 12 }}>+ {it.toppings.map((t) => t.name).join(', ')}</div>
-            )}
-            {it.note && <div className="ghichu" style={{ paddingLeft: 12 }}>* {it.note}</div>}
-          </div>
-        ))}
-        <hr />
-        <div className="row to">
-          <span>Lần này</span>
-          <span className="num">{dong(slip.orderTotal)}</span>
-        </div>
-        <div className="row">
-          <span>Cả bàn (tạm tính)</span>
-          <span className="num">{dong(slip.sessionTotal)}</span>
-        </div>
-        <hr />
-        <p style={{ textAlign: 'center', fontSize: 11 }}>Chưa thanh toán · gạch ☐ khi đã bưng ra</p>
-        <p style={{ textAlign: 'center', fontSize: 11 }}>MEVO · mevo.vn</p>
-      </div>
+      <KitchenSlip slip={slip} />
+      <TableSlip slip={slip} />
     </>
   )
 }

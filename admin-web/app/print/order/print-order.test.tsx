@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import PrintOrder, { type OrderSlip } from './print-order'
+import PrintOrder, { KitchenSlip, type OrderSlip } from './print-order'
 
 const slip: OrderSlip = {
   storeName: 'Bia lẩu Bảo Lương', storePhone: null, tableLabel: 'Bàn 2',
@@ -41,5 +41,24 @@ describe('PrintOrder — phiếu bàn ngắn gọn (2026-10-12, thay quyết đ�
 
   it('phiếu bếp không có quảng cáo MEVO', () => {
     expect(lienBep(day)).not.toContain('mevo.vn')
+  })
+})
+
+describe('KitchenSlip — tuỳ chọn giá và tên trạm (chế độ phần mềm in)', () => {
+  it('showPrices=false: không in giá, không in Tổng phiếu, vẫn có số lượng', () => {
+    const bep = renderToStaticMarkup(<KitchenSlip slip={slip} showPrices={false} />)
+    expect(bep).not.toContain('120.000')
+    expect(bep).not.toContain('Tổng phiếu')
+    expect(bep).toContain('x1')
+  })
+  it('mặc định vẫn in giá như quyết định 2026-09-23', () => {
+    expect(renderToStaticMarkup(<KitchenSlip slip={slip} />)).toContain('120.000')
+  })
+  it('có stationName thì in tên trạm ở tiêu đề', () => {
+    expect(renderToStaticMarkup(<KitchenSlip slip={slip} stationName="Bếp nướng" />)).toContain('Bếp nướng')
+  })
+  it('món tặng vẫn in trên phiếu bếp khi không in giá', () => {
+    const tang = { ...slip, items: [{ ...slip.items[0], name: 'Lạc rang', isGift: true }] }
+    expect(renderToStaticMarkup(<KitchenSlip slip={tang} showPrices={false} />)).toContain('Lạc rang')
   })
 })

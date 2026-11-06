@@ -39,10 +39,19 @@ export function billDiscountLabel(bill: SessionsBill): string {
   return nhan[0] !== '' && nhan.every((n) => n === nhan[0]) ? nhan[0] : ''
 }
 
-export default function PrintBill({ bill, testMode = false }: { bill: SessionsBill; testMode?: boolean }) {
+// autoPrint=false: phần mềm in ở quầy tự in (không cần nút In lại, không gọi window.print() từ trang).
+export default function PrintBill({
+  bill,
+  testMode = false,
+  autoPrint = true,
+}: {
+  bill: SessionsBill
+  testMode?: boolean
+  autoPrint?: boolean
+}) {
   // Chặn ở MỌI đường in (POS, /staff/tables, Báo cáo): giảm giá sai thì báo lỗi, không in phiếu, không tự in.
   const loiGiam = billDiscountError(bill)
-  useAutoPrint(!loiGiam)
+  useAutoPrint(!loiGiam && autoPrint)
   useEffect(() => {
     // Trang in thường nạp trong iframe ẩn (printInPlace) → người bấm không thấy trang lỗi; báo bằng hộp thoại.
     if (loiGiam && window.parent !== window) window.alert(loiGiam)
@@ -74,7 +83,7 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
       <style>{`
         @page { size: 80mm auto; margin: 3mm; }
         @media print {
-          .no-print { display: none !important; }
+          ${autoPrint ? '.no-print { display: none !important; }' : ''}
           html, body { background: #fff; }
         }
         .bill { width: 72mm; margin: 0 auto; color: #000;
@@ -88,6 +97,7 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
         .mevo { text-align: center; font-size: 11px; line-height: 1.3; }
       `}</style>
 
+      {autoPrint && (
       <div className="no-print" style={{ padding: 12, textAlign: 'center' }}>
         <button
           onClick={() => window.print()}
@@ -106,6 +116,7 @@ export default function PrintBill({ bill, testMode = false }: { bill: SessionsBi
           Chọn máy in bill 80mm trong hộp thoại in.
         </p>
       </div>
+      )}
 
       <div className="bill">
         <div style={{ textAlign: 'center' }}>
