@@ -2,7 +2,8 @@
 
 import { requireOperator } from '@/lib/auth/operator'
 import { isPosRole } from '@/lib/auth/roles'
-import { clampReportDate } from '@/lib/daily-report'
+import { loadBusinessDayStart } from '@/lib/actions/bills-report'
+import { businessToday, clampReportDate } from '@/lib/daily-report'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { loadOrderSlip } from '@/lib/print/load-order-slip'
 import { planDocumentJob, planOrderJobs, type PlannedJob } from '@/lib/print/print-plan'
@@ -108,8 +109,10 @@ export async function enqueuePrint(req: PrintRequest): Promise<Result> {
       const cleaned: PrintRequest = { kind: 'bill', sessionIds: ids }
       planned = [planDocumentJob(cleaned, pos.id, ids.length > 1 ? `Hoá đơn tổng · ${ids.length} mâm` : 'Hoá đơn', crypto.randomUUID())]
     } else if (req.kind === 'day_report') {
-      // Cùng luật với clampReportDate: ngày không tồn tại hoặc ở tương lai (giờ VN) thì từ chối, không tự sửa
-      if (clampReportDate(req.date, new Date()) !== req.date) return fail('Ngày báo cáo không hợp lệ')
+      // Cùng luật với trang in trình duyệt nhưng từ chối chứ không tự sửa: ngày không tồn tại hoặc sau NGÀY KINH
+      // DOANH hiện tại của quán. Quán 05:00 lúc 01:00 sáng vẫn đang ở ngày hôm trước, ngày lịch mới bị từ chối.
+      const today = businessToday(await loadBusinessDayStart(storeId), new Date())
+      if (clampReportDate(req.date, today) !== req.date) return fail('Ngày báo cáo không hợp lệ')
       const cleaned: PrintRequest = { kind: 'day_report', date: req.date }
       planned = [planDocumentJob(cleaned, pos.id, `Báo cáo cuối ngày · ${vnDate(req.date)}`, crypto.randomUUID())]
     } else {

@@ -40,6 +40,20 @@ describe('loadDayReport', () => {
     }
   })
 
+  it('quán 05:00: props có rangeLabel khoảng giờ của ngày kinh doanh, y như bản trình duyệt', async () => {
+    // 22:00Z = 05:00 giờ VN
+    const raw = { ...reportRaw, day_from: '2026-11-04T22:00:00Z', day_to: '2026-11-05T22:00:00Z' }
+    const r = await run(fakeClient({ data: raw, error: null }, { data: { name: 'Q' }, error: null }), '2026-11-05')
+    expect(r.ok && r.props.rangeLabel).toBe('05:00 05/11 – 05:00 06/11')
+  })
+
+  it('quán 00:00: rangeLabel null, phiếu không có dòng khoảng giờ', async () => {
+    // 17:00Z = 00:00 giờ VN
+    const raw = { ...reportRaw, day_from: '2026-11-04T17:00:00Z', day_to: '2026-11-05T17:00:00Z' }
+    const r = await run(fakeClient({ data: raw, error: null }, { data: { name: 'Q' }, error: null }), '2026-11-05')
+    expect(r.ok && r.props.rangeLabel).toBeNull()
+  })
+
   it('quán không tồn tại (store null, không lỗi): báo lỗi vĩnh viễn, không in tên quán rỗng', async () => {
     const c = fakeClient({ data: reportRaw, error: null }, { data: null, error: null })
     expect(await run(c, '2026-11-05')).toEqual({ ok: false, error: 'Không tìm thấy quán' })

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Giả lập Supabase theo bảng: mỗi bảng trả dữ liệu cấu hình sẵn, ghi lại các lệnh lọc (.eq/.in) để kiểm store_id.
 const mocks = vi.hoisted(() => {
@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
     sessions: [] as Array<{ id: string }>,
     upsertError: null as null | { message: string },
     upsertReturn: undefined as undefined | Array<{ id: string }>,
+    businessDayStart: '00:00:00',
   }
   const calls = {
     upsert: [] as Array<{ rows: Array<Record<string, unknown>>; opts: unknown }>,
@@ -33,6 +34,10 @@ const mocks = vi.hoisted(() => {
       calls.upsert.push({ rows: r, opts })
       return b
     })
+    b.maybeSingle = vi.fn(async () => ({
+      data: table === 'store_workflow_settings' ? { business_day_start: state.businessDayStart } : null,
+      error: null,
+    }))
     b.then = (resolve: (v: unknown) => void) => {
       if (table === 'print_jobs') {
         resolve({
@@ -99,6 +104,7 @@ describe('enqueuePrint', () => {
       sessions: [{ id: 's1' }],
       upsertError: null,
       upsertReturn: undefined,
+      businessDayStart: '00:00:00',
       stations: [
         { id: 'st-pos', name: 'Quầy', is_pos: true, is_default_kitchen: false },
         { id: 'st-bep', name: 'Bếp', is_pos: false, is_default_kitchen: true },
@@ -269,6 +275,30 @@ describe('enqueuePrint', () => {
     expect((await enqueuePrint({ kind: 'day_report', date: '2999-01-01' })).ok).toBe(false)
     expect(mocks.calls.upsert).toHaveLength(0)
     expect((await enqueuePrint({ kind: 'day_report', date: '2026-11-05' })).ok).toBe(true)
+  })
+
+  describe('day_report theo ngày kinh doanh của quán', () => {
+    // 18:00Z ngày 05/11 = 01:00 sáng 06/11 giờ VN
+    beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-05T18:00:00Z') }) })
+    afterEach(() => { vi.useRealTimers() })
+
+    it('quán 05:00 lúc 01:00 sáng: ngày lịch mới bị từ chối, ngày kinh doanh hiện tại được nhận', async () => {
+      mocks.state.businessDayStart = '05:00:00'
+      expect(await enqueuePrint({ kind: 'day_report', date: '2026-11-06' })).toEqual({ ok: false, error: 'Ngày báo cáo không hợp lệ' })
+      expect(mocks.calls.upsert).toHaveLength(0)
+      expect((await enqueuePrint({ kind: 'day_report', date: '2026-11-05' })).ok).toBe(true)
+      expect(mocks.calls.upsert).toHaveLength(1)
+    })
+
+    it('quán 00:00 cùng thời điểm: ngày lịch mới chính là ngày kinh doanh, được nhận', async () => {
+      expect((await enqueuePrint({ kind: 'day_report', date: '2026-11-06' })).ok).toBe(true)
+    })
+
+    it('giờ bắt đầu đọc đúng quán của người đang đăng nhập', async () => {
+      mocks.state.operator = { userId: 'u1', role: 'store_cashier', storeId: 'store-2' }
+      await enqueuePrint({ kind: 'day_report', date: '2026-11-05' })
+      expect(mocks.calls.filters).toContainEqual({ table: 'store_workflow_settings', col: 'store_id', val: 'store-2' })
+    })
   })
 
   it('ref.request của bill lưu bản đã làm sạch (kind + sessionIds không trùng), không lưu req thô', async () => {

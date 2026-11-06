@@ -186,13 +186,14 @@ describe('/print/agent/[jobId]', () => {
     mocks.loadDayReport.mockResolvedValue({
       ok: true,
       props: {
-        storeName: 'Quán', date: '2026-11-05', printedAt: '2026-11-05T15:00:00Z', printedBy: 'Lan · Thu ngân',
+        storeName: 'Quán', date: '2026-11-05', rangeLabel: '05:00 05/11 – 05:00 06/11', printedAt: '2026-11-05T15:00:00Z', printedBy: 'Lan · Thu ngân',
         totals: { revenue: 1, cash: 1, bank: 0, other: 0, billsCount: 1 },
         summary: { waitingCount: 0, waitingTotal: 0, cancelledCount: 0, cancelledTotal: 0, giftCount: 0, giftTotal: 0, voidCount: 0, voidTotal: 0, quantityChangeCount: 0, discountTotal: 0, billDiscountTotal: 0 },
       },
     })
     const html = await render()
     expect(html).toContain('BÁO CÁO CUỐI NGÀY')
+    expect(html).toContain('05:00 05/11 – 05:00 06/11')
     expect(html).not.toContain('no-print')
     expect(mocks.loadDayReport.mock.calls[0][1]).toBe('store-1')
     expect(mocks.loadDayReport.mock.calls[0][2]).toBe('2026-11-05')

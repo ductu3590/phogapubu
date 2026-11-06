@@ -12,8 +12,9 @@ import PrintReady from './print-ready'
 
 // Trang in cho PHẦN MỀM IN ở quầy (Electron mở trong cửa sổ ẩn, rồi in thẳng ra máy đã gán).
 // proxy.ts cho trang này đi thẳng, KHÔNG có cookie đăng nhập: token trang in (?t=) là lớp bảo vệ DUY NHẤT.
-// Token sai/hết hạn thì không đọc gì khác. Dữ liệu đọc bằng JWT sống 120 giây mang danh người tạo phiếu,
-// nên mọi thay đổi ở RPC in (giảm giá, ngày kinh doanh...) phiếu tự nhận mà không sửa gì thêm.
+// Token sai/hết hạn thì không đọc gì khác. Dữ liệu đọc bằng JWT sống 120 giây mang danh người tạo phiếu.
+// Số liệu do RPC in tính (giảm giá, mốc cắt ngày kinh doanh...) phiếu tự nhận; còn dòng hiển thị mới như khoảng giờ
+// của ngày kinh doanh thì phải đi qua props của loader (rangeLabel ở loadDayReport), không tự có.
 // Tín hiệu cho phần mềm: <html data-print-ready="1"> khi xong, data-print-error="<lý do>" khi lỗi (xem PrintReady).
 const READ_FAILED = 'Không đọc được dữ liệu phiếu'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -134,6 +135,7 @@ export default async function PrintAgentPage({
       return (
         <>
           <PrintReady jobId={jobId} />
+          {/* res.props gồm cả rangeLabel: quán có giờ bắt đầu khác 00:00 thì phiếu có dòng khoảng giờ */}
           <DayReportSlip {...res.props} autoPrint={false} />
         </>
       )

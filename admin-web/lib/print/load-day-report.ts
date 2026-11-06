@@ -1,9 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DayReportSlipProps } from '@/app/print/day-report/day-report-slip'
-import { daySummary, parseBillsReport } from '@/lib/bills-report'
+import { businessDayRangeLabel, daySummary, parseBillsReport } from '@/lib/bills-report'
 
 // Dựng props phiếu báo cáo cuối ngày cho trang /print/agent (không có cookie → không dùng loadBillsReport).
-// Cố ý chép vài dòng từ /print/day-report/page.tsx thay vì dùng chung: plan B sửa file đó cùng đợt.
+// Hai nơi dựng cùng một bộ props với /print/day-report/page.tsx: thêm dòng nào trên phiếu thì sửa cả hai.
 export async function loadDayReport(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: SupabaseClient<any>,
@@ -33,6 +33,7 @@ export async function loadDayReport(
     props: {
       storeName: (store.name as string | null) ?? '',
       date: day,
+      rangeLabel: businessDayRangeLabel(report),
       printedAt: now.toISOString(),
       printedBy,
       totals: report.totals,
