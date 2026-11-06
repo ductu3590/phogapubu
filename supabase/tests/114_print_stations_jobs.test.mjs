@@ -418,6 +418,34 @@ test('printing quá 2 phút: failed "Không rõ đã in chưa", KHÔNG về queu
   assert.equal((await jobRow(j)).status, 'failed')
 })
 
+test('report cũng làm mới last_seen_at khi cũ hơn 10 giây (job kẹt chặn poll vẫn không bị báo mất kết nối)', async () => {
+  await resetPrint()
+  const { token, agentId } = await pairNew()
+  const j = await addJob()
+  await poll(token)
+  const seen = async () => (await admin(`SELECT last_seen_at FROM print_agents WHERE id = $1`, [agentId])).rows[0].last_seen_at
+  // Cũ 11 giây -> được làm mới
+  await admin(`UPDATE print_agents SET last_seen_at = now() - interval '11 seconds' WHERE id = $1`, [agentId])
+  await report(token, j, true)
+  assert.ok(Date.now() - (await seen()).getTime() < 5000)
+  // Mới 5 giây -> giữ nguyên (không ghi mỗi lần)
+  await admin(`UPDATE print_agents SET last_seen_at = now() - interval '5 seconds' WHERE id = $1`, [agentId])
+  const before = (await seen()).getTime()
+  const j2 = await addJob()
+  await poll(token)
+  await report(token, j2, true)
+  assert.equal((await seen()).getTime(), before)
+  // Báo cho job không còn printing vẫn là dấu hiệu máy còn sống
+  await admin(`UPDATE print_agents SET last_seen_at = now() - interval '40 seconds' WHERE id = $1`, [agentId])
+  assert.equal((await report(token, j2, true)).ok, false)
+  assert.ok(Date.now() - (await seen()).getTime() < 5000)
+  // Token đã bị gỡ thì không ghi gì
+  await rpc(owner, `SELECT revoke_print_agent($1)`, [agentId])
+  await admin(`UPDATE print_agents SET last_seen_at = now() - interval '40 seconds' WHERE id = $1`, [agentId])
+  assert.deepEqual(await report(token, j2, true), { ok: false, error: 'revoked' })
+  assert.ok(Date.now() - (await seen()).getTime() > 30000)
+})
+
 test('report ok: done + printed_at', async () => {
   await resetPrint()
   const { token } = await pairNew()

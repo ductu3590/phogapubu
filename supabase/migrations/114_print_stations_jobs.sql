@@ -421,6 +421,11 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'revoked');
   END IF;
 
+  -- Báo kết quả cũng là dấu hiệu máy còn sống (cùng ngưỡng 10 giây như poll): một job kẹt chặn tick poll
+  -- 20-65 giây sẽ làm POS báo sai "Máy in chưa kết nối".
+  UPDATE print_agents SET last_seen_at = now()
+   WHERE id = a.id AND (last_seen_at IS NULL OR last_seen_at < now() - interval '10 seconds');
+
   SELECT * INTO j FROM print_jobs
    WHERE id = p_job_id AND store_id = a.store_id AND status = 'printing'
    FOR UPDATE;
