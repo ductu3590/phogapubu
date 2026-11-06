@@ -199,7 +199,7 @@ menu_categories.print_station_id (null)
 - Gán theo danh mục, không gán theo từng món **[em]**. Đồ uống ở Yên Garden gán trạm Quầy hay Bếp là do quán chọn.
 - Danh mục chưa gán, hoặc món không còn danh mục, ra trạm `is_default_kitchen`.
 - Đặt món trước (`?job=`) tra trạm theo `menu_item_id` trong snapshot.
-- Phiếu bếp **bỏ giá**: code đang in giá, trái với quyết định 2026-09-04 **[em]**. Sửa cho cả hai chế độ.
+- Phiếu chế biến **bỏ giá khi in hai nơi** **[anh Tú]**. Chế độ `browser` giữ nguyên hai liên cùng có giá theo quyết định 2026-09-23, Bảo Lương không đổi.
 - Lúc nào in không đổi: khi thu ngân bấm "Duyệt & in bếp". Yên Garden chạy `kitchen_release_policy='pos_confirmation'` như Bảo Lương **[anh Tú]**. Cài đặt không cho bật `print_mode='agent'` khi quán để `automatic`, vì khi đó không có gì kích hoạt in **[em]**.
 
 ### C3. Hàng đợi in
@@ -279,6 +279,7 @@ Cài đặt → In ấn: chọn chế độ, trạm, máy in cho trạm, trạng
 - Bill **đã thu** không in QR, để khách không chuyển nhầm lần hai **[em]**.
 - Tờ tạm tính đã in có thể cũ nếu khách gọi thêm hoặc đổi giảm giá. Thu ngân đối chiếu số tiền trên app ngân hàng như hôm nay. Tờ in ghi rõ giờ in.
 - QR trên giấy in rộng tối thiểu 35mm, phải quét được bằng app ngân hàng thật sau khi in nhiệt.
+- Mục Tài khoản nhận tiền có mã "Quét thử" 10.000đ để kiểm tra khai đúng bằng app ngân hàng, quét xem không cần chuyển **[anh Tú]**.
 - Không đụng Zalo Checkout, không đụng Mini App.
 
 ## 7. Ràng buộc kỹ thuật
@@ -293,7 +294,7 @@ Cài đặt → In ấn: chọn chế độ, trạm, máy in cho trạm, trạng
 - Công thức tiền ở TS và SQL phải giống nhau; `billTotals()` là bản tham chiếu.
 - Không `window.confirm`, dùng `ConfirmDialog`.
 - Test cần sửa cùng: `supabase/tests/100_*`, `108_*`, `110_*`, `bl4-postgres.integration.mjs`, `lib/bills-report.test.ts`, `bills-report-xlsx.test.ts`, `gg-verify.sql`.
-- `@electric-sql/pglite` không có trong repo: chạy test `100_*` phải đặt `PGLITE_MODULE`.
+- `@electric-sql/pglite` nằm trong devDependencies của `admin-web`: chạy `npm ci` rồi đặt `PGLITE_MODULE` trỏ vào đó khi chạy test SQL.
 
 ## 8. Cách kiểm thử
 
@@ -318,7 +319,7 @@ Bốn mục đụng chung ba điểm nóng: `PaymentView`, `close_table_session`
 | 3 | **VietQR ghép** | QR ở `PaymentView` và `/print/bill` | không | `PaymentView`, `/print/bill` |
 | 3 | **In ghép** | Đổi mọi nơi gọi in sang lớp mới | không | Các màn gọi in |
 
-- Agent **In** chạy dài nhất và độc lập, nên bắt đầu ngay từ đầu; **đợt 2 không chờ** nó xong.
+- Agent **In** chạy dài nhất và độc lập, nên bắt đầu ngay từ đầu; **đợt 2 không chờ** nó xong. Mig 114 áp sớm hơn 112, 113 vì không phụ thuộc chúng; số migration chỉ là nhãn **[em]**.
 - Đợt 2 chỉ một agent vì đây là phần tiền. Đợt 3 bắt đầu sau khi anh Tú PASS đợt 2.
 - Mỗi agent code có một agent review độc lập trước khi báo xong.
 - Migration baseline `103b` phải được anh Tú duyệt và merge trước **đợt 2**: test tiền cần chạy trên DB sạch, mà thiếu nó thì DB sạch lỗi ở mig 105/110. `103b` chỉ dành cho DB mới, không áp lên prod.
