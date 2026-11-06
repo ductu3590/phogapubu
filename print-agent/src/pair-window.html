@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+    />
+    <title>MEVO In - Ghép máy</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #0f172a;
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 14px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+      p {
+        margin: 0 0 16px;
+        color: #475569;
+        line-height: 1.45;
+      }
+      input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        background: #fff;
+        font-size: 24px;
+        letter-spacing: 8px;
+        text-align: center;
+      }
+      input:focus {
+        outline: 2px solid #ea580c;
+        outline-offset: 1px;
+      }
+      button {
+        width: 100%;
+        margin-top: 12px;
+        padding: 10px 12px;
+        border: 0;
+        border-radius: 8px;
+        background: #ea580c;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      #message {
+        min-height: 20px;
+        margin-top: 12px;
+      }
+      #message.error {
+        color: #dc2626;
+      }
+      #message.success {
+        color: #15803d;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Ghép máy in</h1>
+    <p>Trên web quản lý, vào Cài đặt, mục In ấn, bấm "Thêm máy" rồi nhập mã 6 số vào đây.</p>
+    <form id="form">
+      <input id="code" inputmode="numeric" maxlength="6" autocomplete="off" autofocus aria-label="Mã ghép 6 số" />
+      <button id="submit" type="submit">Ghép máy</button>
+    </form>
+    <div id="message" role="status"></div>
+    <script>
+      const form = document.getElementById('form')
+      const code = document.getElementById('code')
+      const submit = document.getElementById('submit')
+      const message = document.getElementById('message')
+
+      function show(text, kind) {
+        message.textContent = text
+        message.className = kind
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault()
+        const value = code.value.trim()
+        if (!/^\d{6}$/.test(value)) {
+          show('Nhập đủ 6 số', 'error')
+          return
+        }
+        submit.disabled = true
+        show('Đang ghép...', '')
+        const res = await window.mevoPair.submit(value)
+        if (res.ok) {
+          show(res.storeName ? `Đã ghép với quán ${res.storeName}` : 'Đã ghép máy', 'success')
+          setTimeout(() => window.close(), 1500)
+          return
+        }
+        submit.disabled = false
+        show(res.error, 'error')
+      })
+    </script>
+  </body>
+</html>

@@ -4,12 +4,14 @@
   "private": true,
   "engines": { "node": ">=22.12" },
   "description": "Phan mem in ngam cho MEVO (quay)",
+  "author": "MEVO",
   "main": "out/main.js",
   "scripts": {
     "build": "tsc",
     "start": "npm run build && electron .",
     "spike": "npm run build && electron out/spike/print-spike.js",
     "test": "vitest run",
+    "predist": "node scripts/check-config.js",
     "dist": "npm run build && electron-builder"
   },
   "devDependencies": {

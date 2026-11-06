@@ -1,0 +1,26 @@
+appId: vn.mevo.printagent
+productName: MEVO In
+directories:
+  output: dist
+# Chỉ đóng gói đúng thứ cần chạy. out/spike và src/spike là bài thử, không đưa cho quán.
+files:
+  - out/**/*
+  - '!out/spike/**'
+  - src/pair-window.html
+  - assets/**/*
+  - package.json
+extraResources:
+  - from: agent.config.json
+    to: agent.config.json
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+# Không tự cập nhật: phiên bản đầu MEVO cài tay
+publish: null
+npmRebuild: false
