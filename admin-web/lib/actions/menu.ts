@@ -55,6 +55,27 @@ async function assertCategoryInStore(categoryId: string, storeId: string): Promi
   if (data.store_id !== storeId) throw new Error('Danh mục không thuộc quán của bạn')
 }
 
+// Ném lỗi nếu trạm in không thuộc store của user (mig 114) → chống gán trạm quán khác cho danh mục
+async function assertStationInStore(stationId: string, storeId: string): Promise<void> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('print_stations')
+    .select('id, store_id')
+    .eq('id', stationId)
+    .single()
+  if (error || !data) throw new Error('Không tìm thấy trạm in')
+  if (data.store_id !== storeId) throw new Error('Trạm in không thuộc quán của bạn')
+}
+
+// Trạm in của danh mục: undefined = form không gửi trường (không đụng cột); null = để trống (về trạm bếp mặc định)
+async function readPrintStation(formData: FormData, storeId: string): Promise<string | null | undefined> {
+  if (!formData.has('print_station_id')) return undefined
+  const raw = String(formData.get('print_station_id') ?? '').trim()
+  if (!raw) return null
+  await assertStationInStore(raw, storeId)
+  return raw
+}
+
 // Ném lỗi nếu topping không thuộc store của user (kho topping dùng chung)
 async function assertToppingInStore(toppingId: string, storeId: string): Promise<void> {
   const admin = createAdminClient()
@@ -318,6 +339,7 @@ async function addCategoryImpl(formData: FormData): Promise<void> {
   const storeId = await getStoreId()
   const admin = createAdminClient()
   const prefix = readPrefix(formData) // trống → DB tự sinh từ tên (trigger mig 095)
+  const printStation = await readPrintStation(formData, storeId)
   const { data: maxRow } = await admin
     .from('menu_categories')
     .select('sort_order')
@@ -332,6 +354,7 @@ async function addCategoryImpl(formData: FormData): Promise<void> {
     sort_order: nextSort,
     is_active: true,
     ...(prefix ? { sku_prefix: prefix } : {}),
+    ...(printStation ? { print_station_id: printStation } : {}),
   })
   if (error?.code === '23505' && prefix) throw await friendlyUniqueError(admin, storeId, 'prefix', prefix)
   if (error) throw new Error(`addCategory: ${error.message}`)
@@ -343,9 +366,14 @@ async function updateCategoryImpl(categoryId: string, formData: FormData): Promi
   const storeId = await getStoreId()
   const admin = createAdminClient()
   const prefix = readPrefix(formData) // trống → giữ tiền tố cũ; đổi tiền tố KHÔNG đổi mã các món cũ
+  const printStation = await readPrintStation(formData, storeId)
   const { error } = await admin
     .from('menu_categories')
-    .update({ name: formData.get('name') as string, ...(prefix ? { sku_prefix: prefix } : {}) })
+    .update({
+      name: formData.get('name') as string,
+      ...(prefix ? { sku_prefix: prefix } : {}),
+      ...(printStation !== undefined ? { print_station_id: printStation } : {}),
+    })
     .eq('id', categoryId)
     .eq('store_id', storeId)
   if (error?.code === '23505' && prefix) throw await friendlyUniqueError(admin, storeId, 'prefix', prefix)

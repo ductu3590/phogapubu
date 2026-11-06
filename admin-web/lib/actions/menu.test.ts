@@ -150,3 +150,48 @@ describe('mã món + nhãn + tiền tố (PA-4)', () => {
     await expect(addCategory(form({ name: 'Bia', sku_prefix: 'DU' }))).resolves.toEqual({ ok: false, error: 'Tiền tố đã dùng cho danh mục «Đồ uống»' })
   })
 })
+
+// Trạm in của danh mục (mig 114): chủ quán gán trạm bếp cho danh mục; trạm quán khác bị từ chối.
+describe('trạm in của danh mục (Đợt 1 C, Task 9)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.state.writes = []
+    mocks.state.uniqueError = false
+    mocks.state.conflict = null
+    mocks.state.rows.print_stations = { id: 'st1', store_id: 'store-1' }
+  })
+
+  it('updateCategory có print_station_id: ghi đúng trạm, lọc store_id', async () => {
+    await expect(updateCategory('c1', form({ name: 'Bia', print_station_id: 'st1' }))).resolves.toEqual({ ok: true })
+    const w = lastWrite('menu_categories')
+    expect(w.payload).toMatchObject({ name: 'Bia', print_station_id: 'st1' })
+    expect(w.eq).toEqual(expect.arrayContaining([['id', 'c1'], ['store_id', 'store-1']]))
+  })
+
+  it('updateCategory print_station_id rỗng: ghi null (về trạm bếp mặc định)', async () => {
+    await updateCategory('c1', form({ name: 'Bia', print_station_id: '' }))
+    expect(lastWrite('menu_categories').payload).toMatchObject({ print_station_id: null })
+  })
+
+  it('updateCategory không gửi trường này: không đụng cột', async () => {
+    await updateCategory('c1', form({ name: 'Bia' }))
+    expect(lastWrite('menu_categories').payload).not.toHaveProperty('print_station_id')
+  })
+
+  it('trạm của quán khác: {ok:false}, không ghi', async () => {
+    mocks.state.rows.print_stations = { id: 'st-x', store_id: 'store-2' }
+    await expect(updateCategory('c1', form({ name: 'Bia', print_station_id: 'st-x' }))).resolves.toEqual({
+      ok: false,
+      error: 'Trạm in không thuộc quán của bạn',
+    })
+    await expect(addCategory(form({ name: 'Lẩu', print_station_id: 'st-x' }))).resolves.toMatchObject({ ok: false })
+    expect(mocks.state.writes).toEqual([])
+  })
+
+  it('addCategory có trạm: insert kèm print_station_id; không có trạm thì không có trường', async () => {
+    await expect(addCategory(form({ name: 'Nướng', print_station_id: 'st1' }))).resolves.toMatchObject({ ok: true })
+    expect(lastWrite('menu_categories').payload).toMatchObject({ name: 'Nướng', print_station_id: 'st1', store_id: 'store-1' })
+    await addCategory(form({ name: 'Nước', print_station_id: '' }))
+    expect(lastWrite('menu_categories').payload).not.toHaveProperty('print_station_id')
+  })
+})
