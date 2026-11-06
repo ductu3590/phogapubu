@@ -5,7 +5,8 @@ Báo cáo A04, Excel và phiếu cuối ngày cắt theo giờ bắt đầu ngà
 ## Trước khi test
 
 - **Controller áp mig 111 (`supabase/migrations/111_business_day.sql`) lên prod và deploy Vercel trước.** Chưa áp thì nút lưu ở bài 2 báo lỗi và không có nhãn khoảng giờ.
-- Test trên **Bia lẩu Bảo Lương**, làm **buổi sáng trước 12:00**, vì giờ bắt đầu chỉ chọn được tới 12:00.
+- Test trên **Bia lẩu Bảo Lương**, bắt đầu **sau 05:30 và trước 11:00**: giờ bắt đầu chỉ chọn được tới 12:00, và bài 3 cần một giờ sớm hơn hiện tại mà khác 00:00.
+- **Bài 2 đặt giờ cách hiện tại ít nhất 1 giờ** (đang trước 11:00 thì đặt 12:00). Làm bài 2–7 **liền một mạch, xong trước giờ đã đặt**. Qua giờ đó thì "Hôm nay" nhảy về ngày lịch và bài 5, 6 sẽ FAIL oan.
 - Cần hai tài khoản: chủ quán và thu ngân.
 - **Xong phải đặt lại 00:00 (bài 8).**
 
@@ -14,23 +15,23 @@ Giờ bắt đầu ngày nằm ở ⚙ Cài đặt → Cài đặt chung → kh�
 ## Bài 1. Quán để 00:00
 
 1. Khối Ngày kinh doanh hiện `00:00`, nút Lưu đang tắt.
-2. Mở Báo cáo (A04): số tiền và số bill hôm nay đúng như trước khi áp mig. Ghi lại Tổng thực thu để so ở bài 4.
+2. Mở Báo cáo (A04): số tiền và số bill hôm nay đúng như trước khi áp mig (số khớp nếu không phát sinh bill mới trong lúc test). Ghi lại Tổng thực thu để so ở bài 8.
 3. Đầu trang chỉ có ngày và "Hôm nay", **không có** dòng khoảng giờ.
 4. Xuất Excel: sheet Tổng hợp **không có** dòng "Khoảng giờ", số khớp màn hình.
 5. In báo cáo cuối ngày: **không có** dòng khoảng giờ dưới "Ngày …", số khớp màn hình.
 
 ## Bài 2. Đặt giờ muộn hơn giờ hiện tại
 
-Ví dụ đang 10:20 thì đặt 11:00.
+Ví dụ đang 10:20 thì đặt 12:00. Giờ đặt phải cách hiện tại ít nhất 1 giờ.
 
 1. Chọn giờ, bấm **Lưu giờ bắt đầu ngày**. Không báo lỗi, nút Lưu tắt lại.
 2. Mở A04: tiêu đề là **ngày hôm trước**, vẫn có nhãn "Hôm nay".
-3. Cạnh tiêu đề có nhãn khoảng giờ, ví dụ `11:00 05/11 – 11:00 06/11`.
+3. Cạnh tiêu đề có nhãn khoảng giờ, ví dụ `12:00 05/11 – 12:00 06/11`.
 4. Ô chọn ngày **không chọn được** ngày lịch hôm nay.
 
 ## Bài 3. Đặt giờ sớm hơn giờ hiện tại
 
-Ví dụ đang 10:20 thì đặt 05:00.
+Cần làm sau 05:30 để chọn được giờ sớm hơn hiện tại mà khác 00:00. Ví dụ đang 10:20 thì đặt 05:00.
 
 1. Lưu, mở lại A04: tiêu đề về **ngày lịch hôm nay**, có nhãn "Hôm nay" và nhãn khoảng giờ `05:00 … – 05:00 …`.
 2. Quay lại đặt giờ như bài 2 để làm tiếp bài 4, 5, 6.
@@ -67,4 +68,4 @@ Giữ cài đặt của bài 2.
 ## Bài 8. Đặt lại 00:00
 
 1. Chọn `00:00`, lưu.
-2. Mở A04: về ngày lịch, không còn nhãn khoảng giờ, số khớp với bài 1.
+2. Mở A04: về ngày lịch, không còn nhãn khoảng giờ, số khớp với bài 1 nếu không phát sinh bill mới trong lúc test.
