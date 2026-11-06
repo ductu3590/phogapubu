@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DayReportSlipProps } from '@/app/print/day-report/day-report-slip'
 import { daySummary, parseBillsReport } from '@/lib/bills-report'
-import { clampReportDate } from '@/lib/daily-report'
 
 // Dựng props phiếu báo cáo cuối ngày cho trang /print/agent (không có cookie → không dùng loadBillsReport).
 // Cố ý chép vài dòng từ /print/day-report/page.tsx thay vì dùng chung: plan B sửa file đó cùng đợt.
@@ -12,13 +11,21 @@ export async function loadDayReport(
   date: string,
   printedBy: string,
   now: Date,
-): Promise<{ ok: true; props: DayReportSlipProps } | { ok: false; error: string }> {
-  const day = clampReportDate(date, now)
-  const [{ data, error }, { data: store }] = await Promise.all([
+): Promise<{ ok: true; props: DayReportSlipProps } | { ok: false; error: string; transient?: true }> {
+  // Ngày đã được kiểm lúc xếp hàng (enqueuePrint). Ở đây chỉ kiểm định dạng: thiếu/sai thì BÁO LỖI, không âm thầm
+  // in báo cáo hôm nay (phiếu in nhầm ngày là lỗi nặng hơn không in).
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(date ?? '') ? new Date(`${date}T00:00:00Z`) : null
+  if (!parsed || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+    return { ok: false, error: 'Ngày báo cáo không hợp lệ' }
+  }
+  const day = date
+  const [{ data, error }, { data: store, error: storeErr }] = await Promise.all([
     client.rpc('get_bills_report', { p_store_id: storeId, p_date: day }),
     client.from('stores').select('name').eq('id', storeId).maybeSingle(),
   ])
-  if (error) return { ok: false, error: `Không lấy được báo cáo: ${error.message}` }
+  if (error) return { ok: false, error: `Không lấy được báo cáo: ${error.message}`, transient: true }
+  // Tên quán không đọc được thì báo lỗi (tạm thời), không in phiếu thiếu tên quán
+  if (storeErr) return { ok: false, error: storeErr.message, transient: true }
   const report = parseBillsReport(data)
   return {
     ok: true,

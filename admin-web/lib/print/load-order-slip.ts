@@ -8,7 +8,8 @@ import { cleanStoreText } from './store-lines'
 // quyền ở caller); nhánh đặt trước đối chiếu store_id RPC trả về với storeId. Không nhận con số nào từ query string.
 // Lỗi DB ở bất kỳ truy vấn nào → {ok:false}: phần mềm in không có người nhìn, nên KHÔNG được biến lỗi mạng
 // thành "Đơn không còn món" hay tạm tính 0đ. Riêng bảng `stores` giữ fallback (tên quán 'Quán').
-type SlipResult = { ok: true; slip: OrderSlip } | { ok: false; error: string }
+// transient=true: lỗi đọc tạm thời (DB/mạng) — phiếu có thể in được nếu thử lại; không có cờ = lỗi vĩnh viễn.
+type SlipResult = { ok: true; slip: OrderSlip } | { ok: false; error: string; transient?: true }
 
 export async function loadOrderSlip(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,9 +21,8 @@ export async function loadOrderSlip(
   // thể đã sửa revision khác ngay sau lúc chủ quán bấm in.
   if ('preorderJobId' in source) {
     const { data, error } = await supabase.rpc('get_reservation_preorder_print_job', { p_print_job_id: source.preorderJobId })
-    if (error || !data || typeof data !== 'object') {
-      return { ok: false, error: error?.message ?? 'Không tìm thấy phiếu in của quán này.' }
-    }
+    if (error) return { ok: false, error: error.message, transient: true }
+    if (!data || typeof data !== 'object') return { ok: false, error: 'Không tìm thấy phiếu in của quán này.' }
     const printJob = data as { store_id?: string; kind: string; revision: number; snapshot: unknown; requested_at: string }
     // RPC chỉ kiểm quyền theo người gọi; đối chiếu quán để phiếu của quán khác không bao giờ ra máy in này
     if (printJob.store_id !== storeId) return { ok: false, error: 'Không tìm thấy phiếu in của quán này.' }
@@ -62,15 +62,17 @@ export async function loadOrderSlip(
     .eq('id', source.orderId)
     .eq('store_id', storeId)
     .maybeSingle()
-  if (orderErr) return { ok: false, error: orderErr.message }
+  if (orderErr) return { ok: false, error: orderErr.message, transient: true }
 
   if (!order) return { ok: false, error: 'Không tìm thấy đơn của quán này.' }
+  // Đơn đã huỷ (vd. thu ngân bỏ bàn lúc phần mềm in mất mạng) thì không in phiếu bếp/bàn
+  if (order.status === 'cancelled') return { ok: false, error: 'Đơn đã huỷ' }
 
   const { data: items, error: itemsErr } = await supabase
     .from('order_items')
     .select('id, menu_item_id, item_name, quantity, item_price, note, selected_toppings, void_type')
     .eq('order_id', order.id)
-  if (itemsErr) return { ok: false, error: itemsErr.message }
+  if (itemsErr) return { ok: false, error: itemsErr.message, transient: true }
 
   const { data: store } = await supabase
     .from('stores')
@@ -85,7 +87,7 @@ export async function loadOrderSlip(
       .from('session_tables')
       .select('is_open, tables(table_number)')
       .eq('session_id', order.session_id)
-    if (rowsErr) return { ok: false, error: rowsErr.message }
+    if (rowsErr) return { ok: false, error: rowsErr.message, transient: true }
     tableLabel = (rows ?? [])
       .filter((r: { is_open: boolean }) => r.is_open)
       .map((r: { tables: unknown }) => (r.tables as unknown as { table_number: string } | null)?.table_number ?? '')
@@ -99,7 +101,7 @@ export async function loadOrderSlip(
       .select('table_number')
       .eq('id', order.table_id)
       .maybeSingle()
-    if (tErr) return { ok: false, error: tErr.message }
+    if (tErr) return { ok: false, error: tErr.message, transient: true }
     tableLabel = t?.table_number ?? ''
   }
 
@@ -110,7 +112,7 @@ export async function loadOrderSlip(
       .from('orders')
       .select('total_amount, status')
       .eq('session_id', order.session_id)
-    if (sessErr) return { ok: false, error: sessErr.message }
+    if (sessErr) return { ok: false, error: sessErr.message, transient: true }
     sessionTotal = (sessionOrders ?? [])
       .filter((o: { status: string }) => o.status !== 'cancelled')
       .reduce((n: number, o: { total_amount: number }) => n + o.total_amount, 0)

@@ -16,4 +16,11 @@ describe('printSignal', () => {
   it('không lỗi, không alert: sẵn sàng', () => {
     expect(printSignal({ alertText: null })).toEqual({ ready: true })
   })
+  it('retryable chỉ đi kèm lỗi từ server, không áp cho lỗi alert', () => {
+    expect(printSignal({ error: 'Không đọc được dữ liệu phiếu', retryable: true, alertText: null })).toEqual({
+      error: 'Không đọc được dữ liệu phiếu', retryable: true,
+    })
+    expect(printSignal({ error: 'Phiếu đã hết hạn', alertText: null })).toEqual({ error: 'Phiếu đã hết hạn' })
+    expect(printSignal({ retryable: true, alertText: 'giảm giá sai' })).toEqual({ error: 'giảm giá sai' })
+  })
 })

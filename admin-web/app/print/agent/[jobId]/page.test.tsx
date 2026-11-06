@@ -19,8 +19,8 @@ vi.mock('@/lib/print/load-order-slip', () => ({ loadOrderSlip: mocks.loadOrderSl
 vi.mock('@/lib/print/load-day-report', () => ({ loadDayReport: mocks.loadDayReport }))
 // PrintReady là client component dùng effect: thay bằng thẻ đánh dấu để kiểm props
 vi.mock('./print-ready', () => ({
-  default: ({ jobId, error }: { jobId: string; error?: string }) => (
-    <i data-ready={jobId} data-error={error ?? ''} />
+  default: ({ jobId, error, retryable }: { jobId: string; error?: string; retryable?: boolean }) => (
+    <i data-ready={jobId} data-error={error ?? ''} data-retryable={retryable ? '1' : ''} />
   ),
 }))
 
@@ -65,9 +65,20 @@ describe('/print/agent/[jobId]', () => {
     expect(mocks.adminRpc).not.toHaveBeenCalled()
   })
 
-  it('RPC kiểm token lỗi: coi như hết hạn', async () => {
+  it('token sai (RPC trả NULL): hết hạn, KHÔNG retryable', async () => {
+    mocks.adminRpc.mockResolvedValue({ data: null, error: null })
+    const html = await render()
+    expect(html).toContain('data-error="Phiếu đã hết hạn"')
+    expect(html).toContain('data-retryable=""')
+  })
+
+  it('RPC kiểm token lỗi (mạng/DB): "Không đọc được dữ liệu phiếu" và retryable, khác nhánh NULL', async () => {
     mocks.adminRpc.mockResolvedValue({ data: null, error: { message: 'boom' } })
-    expect(await render()).toContain('Phiếu đã hết hạn')
+    const html = await render()
+    expect(html).toContain('Không đọc được dữ liệu phiếu')
+    expect(html).not.toContain('Phiếu đã hết hạn')
+    expect(html).toContain('data-retryable="1"')
+    expect(mocks.createPrintUserClient).not.toHaveBeenCalled()
   })
 
   it('gọi print_job_for_render đúng tham số', async () => {
@@ -105,6 +116,26 @@ describe('/print/agent/[jobId]', () => {
     expect(mocks.loadOrderSlip).toHaveBeenCalledWith(expect.anything(), 'store-1', { preorderJobId: 'pj1' })
   })
 
+  it('đơn đã huỷ (kitchen_ticket và table_slip): báo lỗi vĩnh viễn, không retryable, không vẽ phiếu', async () => {
+    mocks.loadOrderSlip.mockResolvedValue({ ok: false, error: 'Đơn đã huỷ' })
+    for (const kind of ['kitchen_ticket', 'table_slip']) {
+      mocks.adminRpc.mockResolvedValue({ data: job({ kind, ref: { source: 'order:o1', itemKeys: ['k1'] } }), error: null })
+      const html = await render()
+      expect(html).toContain('data-error="Đơn đã huỷ"')
+      expect(html).toContain('data-retryable=""')
+      expect(html).not.toContain('PHIẾU BẾP')
+      expect(html).not.toContain('☐')
+    }
+  })
+
+  it('loadOrderSlip lỗi đọc tạm thời: câu riêng + retryable (không lộ lỗi kỹ thuật)', async () => {
+    mocks.loadOrderSlip.mockResolvedValue({ ok: false, error: 'fetch failed', transient: true })
+    const html = await render()
+    expect(html).toContain('data-error="Không đọc được dữ liệu phiếu"')
+    expect(html).toContain('data-retryable="1"')
+    expect(html).not.toContain('fetch failed')
+  })
+
   it('đơn không đọc được: hiện lỗi từ loadOrderSlip', async () => {
     mocks.loadOrderSlip.mockResolvedValue({ ok: false, error: 'Không tìm thấy đơn của quán này.' })
     const html = await render()
@@ -138,19 +169,19 @@ describe('/print/agent/[jobId]', () => {
     expect(html).not.toContain('no-print')
   })
 
-  it('RPC đọc bill lỗi: hiện lỗi, không vẽ phiếu', async () => {
+  it('RPC đọc bill lỗi: "Không đọc được dữ liệu phiếu", retryable, không vẽ phiếu', async () => {
     mocks.adminRpc.mockResolvedValue({ data: job({ kind: 'bill', ref: { request: { kind: 'bill', sessionIds: ['s1'] } } }), error: null })
-    mocks.userRpc.mockResolvedValue({ data: null, error: { message: 'Không có quyền' } })
+    mocks.userRpc.mockResolvedValue({ data: null, error: { message: 'timeout' } })
     const html = await render()
-    expect(html).toContain('Không có quyền')
-    expect(html).toContain('data-error=')
+    expect(html).toContain('data-error="Không đọc được dữ liệu phiếu"')
+    expect(html).toContain('data-retryable="1"')
     expect(html).not.toContain('HOÁ ĐƠN')
   })
 
   it('day_report: dùng loadDayReport, autoPrint tắt', async () => {
     mocks.adminRpc.mockResolvedValue({ data: job({ kind: 'day_report', ref: { request: { kind: 'day_report', date: '2026-11-05' } } }), error: null })
     mocks.adminFrom.mockReturnValue({
-      select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { display_name: 'Lan', role: 'store_cashier' } }) }) }) }),
+      select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { display_name: 'Lan', role: 'store_cashier' }, error: null }) }) }) }),
     })
     mocks.loadDayReport.mockResolvedValue({
       ok: true,
@@ -168,10 +199,36 @@ describe('/print/agent/[jobId]', () => {
     expect(mocks.loadDayReport.mock.calls[0][3]).toBe('Lan · Thu ngân')
   })
 
+  it('day_report: loadDayReport lỗi tạm thời thì retryable; lỗi vĩnh viễn (ngày sai) thì không', async () => {
+    mocks.adminRpc.mockResolvedValue({ data: job({ kind: 'day_report', ref: { request: { kind: 'day_report', date: '2026-11-05' } } }), error: null })
+    mocks.adminFrom.mockReturnValue({
+      select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { display_name: 'Lan', role: 'store_cashier' }, error: null }) }) }) }),
+    })
+    mocks.loadDayReport.mockResolvedValue({ ok: false, error: 'rpc lỗi', transient: true })
+    let html = await render()
+    expect(html).toContain('data-error="Không đọc được dữ liệu phiếu"')
+    expect(html).toContain('data-retryable="1"')
+    mocks.loadDayReport.mockResolvedValue({ ok: false, error: 'Ngày báo cáo không hợp lệ' })
+    html = await render()
+    expect(html).toContain('data-error="Ngày báo cáo không hợp lệ"')
+    expect(html).toContain('data-retryable=""')
+  })
+
+  it('test: quán không đọc được (lỗi DB) thì retryable', async () => {
+    mocks.adminRpc.mockResolvedValue({ data: job({ kind: 'test', ref: {} }), error: null })
+    mocks.userFrom.mockReturnValue({
+      select: () => ({ eq: () => ({ single: async () => ({ data: null, error: { message: 'down' } }) }) }),
+    })
+    const html = await render()
+    expect(html).toContain('data-error="Không đọc được dữ liệu phiếu"')
+    expect(html).toContain('data-retryable="1"')
+    expect(html).not.toContain('PHIẾU IN THỬ')
+  })
+
   it('test: PHIẾU IN THỬ, không có no-print', async () => {
     mocks.adminRpc.mockResolvedValue({ data: job({ kind: 'test', ref: {} }), error: null })
     mocks.userFrom.mockReturnValue({
-      select: () => ({ eq: () => ({ single: async () => ({ data: { name: 'Quán A', address: null, phone: null } }) }) }),
+      select: () => ({ eq: () => ({ single: async () => ({ data: { name: 'Quán A', address: null, phone: null }, error: null }) }) }),
     })
     const html = await render()
     expect(html).toContain('PHIẾU IN THỬ')
@@ -183,9 +240,10 @@ describe('/print/agent/[jobId]', () => {
     expect(await render()).toContain('Chưa hỗ trợ')
   })
 
-  it('lỗi bất ngờ (vd thiếu secret) trả lỗi, không ném', async () => {
+  it('lỗi bất ngờ (vd thiếu secret) trả lỗi, không ném; coi là retryable', async () => {
     mocks.createPrintUserClient.mockRejectedValue(new Error('Thiếu SUPABASE_JWT_SECRET'))
     const html = await render()
     expect(html).toContain('Thiếu SUPABASE_JWT_SECRET')
+    expect(html).toContain('data-retryable="1"')
   })
 })

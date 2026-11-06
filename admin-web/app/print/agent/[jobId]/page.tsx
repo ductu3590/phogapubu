@@ -15,6 +15,7 @@ import PrintReady from './print-ready'
 // Token sai/hết hạn thì không đọc gì khác. Dữ liệu đọc bằng JWT sống 120 giây mang danh người tạo phiếu,
 // nên mọi thay đổi ở RPC in (giảm giá, ngày kinh doanh...) phiếu tự nhận mà không sửa gì thêm.
 // Tín hiệu cho phần mềm: <html data-print-ready="1"> khi xong, data-print-error="<lý do>" khi lỗi (xem PrintReady).
+const READ_FAILED = 'Không đọc được dữ liệu phiếu'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 type RenderJob = {
@@ -36,12 +37,19 @@ export default async function PrintAgentPage({
   const { jobId } = await params
   const { t } = await searchParams
 
-  const fail = (message: string) => (
+  // retryable=true: lỗi đọc tạm thời (mạng/DB) — phần mềm in được phép thử lại; còn lại là lỗi vĩnh viễn.
+  const fail = (message: string, retryable = false) => (
     <>
-      <PrintReady jobId={jobId} error={message} />
+      <PrintReady jobId={jobId} error={message} retryable={retryable} />
       <p className="p-6 text-sm text-red-600">{message}</p>
     </>
   )
+  // Lỗi đọc DB/RPC luôn báo MỘT câu riêng (không lộ lỗi kỹ thuật, không nhầm với "hết hạn" hay lỗi dữ liệu)
+  const readFail = (detail?: string) => {
+    if (detail) console.error(`[print/agent ${jobId}] ${detail}`)
+    return fail(READ_FAILED, true)
+  }
+  const fromLoader = (res: { error: string; transient?: true }) => (res.transient ? readFail(res.error) : fail(res.error))
 
   try {
     // Token thiếu / sai định dạng thì không chạm DB
@@ -51,7 +59,9 @@ export default async function PrintAgentPage({
       p_job_id: jobId,
       p_render_token: t,
     })
-    if (error || !data) return fail('Phiếu đã hết hạn')
+    // Hai nhánh KHÁC nhau: RPC lỗi (mạng/DB) thì thử lại được; NULL (token sai/hết hạn/job không còn printing) thì không
+    if (error) return readFail(error.message)
+    if (!data) return fail('Phiếu đã hết hạn')
     const job = data as RenderJob
     const ref = job.ref ?? {}
 
@@ -66,7 +76,7 @@ export default async function PrintAgentPage({
       const id = source.slice(sep + 1)
       if (sep < 0 || !id || (type !== 'order' && type !== 'preorder')) return fail('Phiếu thiếu nguồn đơn')
       const res = await loadOrderSlip(client, job.store_id, type === 'order' ? { orderId: id } : { preorderJobId: id })
-      if (!res.ok) return fail(res.error)
+      if (!res.ok) return fromLoader(res)
 
       if (job.kind === 'table_slip') {
         if (res.slip.items.length === 0) return fail('Đơn không còn món để in')
@@ -97,7 +107,8 @@ export default async function PrintAgentPage({
       const ids = request.sessionIds ?? []
       if (ids.length === 0) return fail('Phiếu thiếu phiên hoá đơn')
       const { data: bill, error: billErr } = await client.rpc('get_sessions_bill', { p_session_ids: ids })
-      if (billErr || !bill) return fail(billErr?.message ?? 'Không lấy được hoá đơn')
+      if (billErr) return readFail(billErr.message)
+      if (!bill) return fail('Không lấy được hoá đơn')
       return (
         <>
           <PrintReady jobId={jobId} />
@@ -109,16 +120,17 @@ export default async function PrintAgentPage({
     if (job.kind === 'day_report') {
       const request = (ref.request ?? {}) as { date?: string }
       // Người in: tên hiển thị + vai của người tạo phiếu (lọc đúng quán)
-      const { data: op } = await createAdminClient()
+      const { data: op, error: opErr } = await createAdminClient()
         .from('mevo_operators')
         .select('display_name, role')
         .eq('user_id', job.created_by)
         .eq('store_id', job.store_id)
         .maybeSingle()
+      if (opErr) return readFail(opErr.message)
       const roleLabel = op?.role ? ROLE_LABEL[op.role as OperatorRole] ?? '' : ''
       const printedBy = [op?.display_name?.trim() || 'Không rõ', roleLabel].filter(Boolean).join(' · ')
       const res = await loadDayReport(client, job.store_id, request.date ?? '', printedBy, new Date())
-      if (!res.ok) return fail(res.error)
+      if (!res.ok) return fromLoader(res)
       return (
         <>
           <PrintReady jobId={jobId} />
@@ -128,7 +140,9 @@ export default async function PrintAgentPage({
     }
 
     if (job.kind === 'test') {
-      const { data: store } = await client.from('stores').select('name, address, phone').eq('id', job.store_id).single()
+      const { data: store, error: storeErr } = await client.from('stores').select('name, address, phone').eq('id', job.store_id).single()
+      if (storeErr) return readFail(storeErr.message)
+      if (!store) return fail('Không tìm thấy quán')
       const bill = buildTestBill(
         {
           name: (store?.name as string | null) ?? null,
@@ -147,6 +161,7 @@ export default async function PrintAgentPage({
 
     return fail('Loại phiếu không hợp lệ')
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Không dựng được phiếu')
+    // Ngoại lệ bất ngờ (mạng đứt, thiếu secret…): giữ nội dung để dễ dò, coi là có thể thử lại
+    return fail(e instanceof Error ? e.message : 'Không dựng được phiếu', true)
   }
 }

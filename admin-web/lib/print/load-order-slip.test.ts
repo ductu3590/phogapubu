@@ -96,23 +96,28 @@ describe('loadOrderSlip — nhánh đơn thường', () => {
 
   it('lỗi DB khi đọc đơn: trả lỗi thật, không nhầm với "không tìm thấy"', async () => {
     cfg.orderOne = err('network down')
-    expect(await load({ orderId: 'o1' })).toEqual({ ok: false, error: 'network down' })
+    expect(await load({ orderId: 'o1' })).toEqual({ ok: false, error: 'network down', transient: true })
   })
 
   it('lỗi DB khi đọc món: trả lỗi, không ra phiếu rỗng', async () => {
     cfg.items = err('timeout')
-    expect(await load({ orderId: 'o1' })).toEqual({ ok: false, error: 'timeout' })
+    expect(await load({ orderId: 'o1' })).toEqual({ ok: false, error: 'timeout', transient: true })
   })
 
   it('lỗi DB khi đọc bàn của phiên: trả lỗi', async () => {
     cfg.sessionTables = err('boom bàn')
-    expect(await load({ orderId: 'o1' })).toEqual({ ok: false, error: 'boom bàn' })
+    expect(await load({ orderId: 'o1' })).toEqual({ ok: false, error: 'boom bàn', transient: true })
   })
 
   it('lỗi DB khi đọc đơn của phiên: trả lỗi, KHÔNG ra tạm tính 0đ', async () => {
     cfg.orderMany = err('boom phiên')
     const r = await load({ orderId: 'o1' })
-    expect(r).toEqual({ ok: false, error: 'boom phiên' })
+    expect(r).toEqual({ ok: false, error: 'boom phiên', transient: true })
+  })
+
+  it('đơn đã huỷ: {ok:false,"Đơn đã huỷ"}, không phải lỗi tạm thời', async () => {
+    cfg.orderOne = ok({ ...order, status: 'cancelled' })
+    expect(await load({ orderId: 'o1' })).toEqual({ ok: false, error: 'Đơn đã huỷ' })
   })
 
   it('đơn không có phiên: lấy tên bàn từ table_id, tạm tính = tổng đơn, không đọc session_tables', async () => {
@@ -173,6 +178,6 @@ describe('loadOrderSlip — nhánh đặt trước', () => {
 
   it('RPC lỗi: trả đúng câu lỗi', async () => {
     cfg.rpc = err('Chỉ chủ quán được xem phiếu in')
-    expect(await load({ preorderJobId: 'pj1' })).toEqual({ ok: false, error: 'Chỉ chủ quán được xem phiếu in' })
+    expect(await load({ preorderJobId: 'pj1' })).toEqual({ ok: false, error: 'Chỉ chủ quán được xem phiếu in', transient: true })
   })
 })
