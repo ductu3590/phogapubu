@@ -1,0 +1,6 @@
+{
+  "supabaseUrl": "https://YOUR-PROJECT.supabase.co",
+  "anonKey": "YOUR-SUPABASE-ANON-KEY",
+  "webOrigin": "https://YOUR-ADMIN-WEB-DOMAIN",
+  "pageSizeMode": "measured"
+}

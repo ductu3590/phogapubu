@@ -49,6 +49,29 @@ Chỉ áp dụng nếu máy in nối LAN.
 - [ ] Tên việc có chứa `MEVO-spike-short` không: Có / Không
 - [ ] Cắm lại dây mạng: phiếu có in muộn không: Có / Không (mấy phút sau: ____)
 
+### Tên việc dài 41 ký tự
+
+Phần mềm in nhận ra phiếu trong hàng đợi Windows qua tên việc `MEVO-<uuid>`, dài 41 ký tự. Driver cắt tên quá ngắn thì phần mềm không thấy phiếu kẹt và báo in xong dù giấy chưa ra. Bài này áp dụng cả máy USB: thay vì rút dây, mở hàng đợi của máy in trong Windows rồi chọn Printer > Pause Printing để việc đứng lại.
+
+- [ ] Rút dây mạng (hoặc Pause Printing), rồi chạy:
+
+```
+npm run spike -- --printer "<tên máy in>" --mode <mode đạt> --fixture short --title MEVO-11111111-2222-3333-4444-555555555555
+```
+
+- [ ] Xem tên thật trong hàng đợi:
+
+```
+Get-PrintJob -PrinterName "<tên máy in>" | Select-Object Id,DocumentName,JobStatus
+```
+
+- [ ] Chép nguyên văn `DocumentName`: ______________________
+- [ ] Chép nguyên văn `JobStatus`: ______________________
+- [ ] Đạt khi `DocumentName` chứa đủ `11111111-2222-3333-4444-555555555555`, hoặc bắt đầu bằng `MEVO-` và phần sau là đoạn đầu của mã đó, dài ít nhất 8 ký tự: Đạt / Không đạt
+- [ ] Xoá việc này khỏi hàng đợi trước khi cắm lại dây hoặc bỏ Pause Printing, để phiếu không in ra.
+
+Không đạt: dừng, báo anh Tú. Phần mềm không canh được hàng đợi trên model này.
+
 ## 5. Kết luận
 
 - pageSizeMode được chọn: `measured` / `printer-default`
