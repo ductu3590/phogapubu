@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>qr</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .lien { width: 72mm; margin: 0 auto; color: #000;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 12px; line-height: 1.35; }
+  .lien hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+  .row { display: flex; justify-content: space-between; gap: 6px; }
+  .row .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .row .num { flex-shrink: 0; text-align: right; }
+  .tieude { text-align: center; font-weight: 700; font-size: 15px; }
+  .ban { text-align: center; font-weight: 700; font-size: 20px; margin: 4px 0; }
+  .qr { display: block; width: 35mm; height: 35mm; margin: 6px auto; }
+</style>
+</head><body>
+<div class="lien">
+  <div class="tieude">Bia lẩu Bảo Lương</div>
+  <div class="ban">Bàn 3</div>
+  <hr>
+  <div class="row"><span class="name">Phở gà đặc biệt</span><span class="num">x1</span></div>
+  <div class="row"><span class="name">Nước cam tươi</span><span class="num">x1</span></div>
+  <hr>
+  <div style="text-align:center">Quét mã để thanh toán</div>
+  <!-- qr.png là QR thật (https://mevo.vn/spike-qr-test) sinh bằng thư viện qrcode, rộng 35mm -->
+  <img class="qr" alt="QR" src="qr.png">
+  <div style="text-align:center">QR rộng 35mm</div>
+</div>
+</body></html>
