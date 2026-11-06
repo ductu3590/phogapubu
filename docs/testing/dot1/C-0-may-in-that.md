@@ -44,7 +44,7 @@ Riêng `long`: phiếu phải đủ 60 món, dòng cuối "Hết phiếu — mó
 
 Chỉ áp dụng nếu máy in nối LAN.
 
-- [ ] Rút dây mạng máy in, in `short` (mode đã chọn ở mục 5).
+- [ ] Rút dây mạng máy in, in `short` (mode nào đạt ở bảng mục 2).
 - [ ] Ghi lại `Get-PrintJob -PrinterName "<tên>"` thấy gì: ______________________
 - [ ] Tên việc có chứa `MEVO-spike-short` không: Có / Không
 - [ ] Cắm lại dây mạng: phiếu có in muộn không: Có / Không (mấy phút sau: ____)
