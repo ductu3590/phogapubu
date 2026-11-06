@@ -19,6 +19,7 @@ import { canUseAgentMode, printerNames, type PrintSettings, type PrintStation } 
 import { cn } from '@/lib/utils'
 
 const POLL_MS = 5000
+const MAX_EMPTY_LIST_REFRESHES = 3
 
 const hhmm = (iso: string) =>
   new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' })
@@ -67,12 +68,17 @@ function PrintSettingsBody({ storeId, settings }: { storeId: string; settings: P
     start(async () => {
       setError(null)
       setNotice(null)
-      const res = await fn()
-      always?.()
-      if (!res.ok) { setError(res.error ?? 'Không thực hiện được'); return }
-      if (okNotice) setNotice(okNotice)
-      after?.()
-      router.refresh()
+      try {
+        const res = await fn()
+        if (!res.ok) { setError(res.error ?? 'Không thực hiện được'); return }
+        if (okNotice) setNotice(okNotice)
+        after?.()
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Không thực hiện được')
+      } finally {
+        always?.()
+      }
     })
 
   return (
@@ -245,15 +251,24 @@ function AgentPanel({ storeId, settings, pending, onSaveStation, onTest, onDelet
 
   // Máy vừa kết nối (online false -> true, thường sau khi ghép): làm mới dữ liệu máy chủ để ô chọn máy in có
   // danh sách máy in phần mềm báo lên và hiện đúng tên máy.
+  const printers = printerNames(agent)
   const lastOnline = useRef(agent?.online === true)
+  const emptyListRefreshes = useRef(0)
   useEffect(() => {
     if (!status) return
-    if (status.agent_online && !lastOnline.current) router.refresh()
+    if (status.agent_online && !lastOnline.current) {
+      router.refresh()
+    } else if (status.agent_online && printers.length === 0 && emptyListRefreshes.current < MAX_EMPTY_LIST_REFRESHES) {
+      // Đã kết nối mà danh sách máy in còn rỗng (phần mềm chưa kịp báo lên lúc refresh trước): refresh tiếp,
+      // tối đa vài lần để không refresh mãi khi máy thật sự không có máy in nào.
+      emptyListRefreshes.current += 1
+      router.refresh()
+    }
+    if (printers.length > 0) emptyListRefreshes.current = 0
     lastOnline.current = status.agent_online
-  }, [status, router])
+  }, [status, router, printers.length])
 
   const online = status ? status.agent_online : agent?.online === true
-  const printers = printerNames(agent)
   const [newName, setNewName] = useState('')
 
   return (

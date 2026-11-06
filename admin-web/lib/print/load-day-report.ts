@@ -26,11 +26,12 @@ export async function loadDayReport(
   if (error) return { ok: false, error: `Không lấy được báo cáo: ${error.message}`, transient: true }
   // Tên quán không đọc được thì báo lỗi (tạm thời), không in phiếu thiếu tên quán
   if (storeErr) return { ok: false, error: storeErr.message, transient: true }
+  if (!store) return { ok: false, error: 'Không tìm thấy quán' }
   const report = parseBillsReport(data)
   return {
     ok: true,
     props: {
-      storeName: (store?.name as string | null) ?? '',
+      storeName: (store.name as string | null) ?? '',
       date: day,
       printedAt: now.toISOString(),
       printedBy,

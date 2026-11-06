@@ -40,6 +40,11 @@ describe('loadDayReport', () => {
     }
   })
 
+  it('quán không tồn tại (store null, không lỗi): báo lỗi vĩnh viễn, không in tên quán rỗng', async () => {
+    const c = fakeClient({ data: reportRaw, error: null }, { data: null, error: null })
+    expect(await run(c, '2026-11-05')).toEqual({ ok: false, error: 'Không tìm thấy quán' })
+  })
+
   it('RPC báo cáo lỗi: transient', async () => {
     const c = fakeClient({ data: null, error: { message: 'timeout' } }, { data: { name: 'Q' }, error: null })
     expect(await run(c, '2026-11-05')).toMatchObject({ ok: false, transient: true })

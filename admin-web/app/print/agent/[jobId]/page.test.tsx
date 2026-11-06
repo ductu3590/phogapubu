@@ -217,7 +217,7 @@ describe('/print/agent/[jobId]', () => {
   it('test: quán không đọc được (lỗi DB) thì retryable', async () => {
     mocks.adminRpc.mockResolvedValue({ data: job({ kind: 'test', ref: {} }), error: null })
     mocks.userFrom.mockReturnValue({
-      select: () => ({ eq: () => ({ single: async () => ({ data: null, error: { message: 'down' } }) }) }),
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: { message: 'down' } }) }) }),
     })
     const html = await render()
     expect(html).toContain('data-error="Không đọc được dữ liệu phiếu"')
@@ -225,10 +225,21 @@ describe('/print/agent/[jobId]', () => {
     expect(html).not.toContain('PHIẾU IN THỬ')
   })
 
+  it('test: quán không tồn tại (store null, không lỗi): báo lỗi KHÔNG retryable, không in tên rỗng', async () => {
+    mocks.adminRpc.mockResolvedValue({ data: job({ kind: 'test', ref: {} }), error: null })
+    mocks.userFrom.mockReturnValue({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+    })
+    const html = await render()
+    expect(html).toContain('data-error="Không tìm thấy quán"')
+    expect(html).toContain('data-retryable=""')
+    expect(html).not.toContain('PHIẾU IN THỬ')
+  })
+
   it('test: PHIẾU IN THỬ, không có no-print', async () => {
     mocks.adminRpc.mockResolvedValue({ data: job({ kind: 'test', ref: {} }), error: null })
     mocks.userFrom.mockReturnValue({
-      select: () => ({ eq: () => ({ single: async () => ({ data: { name: 'Quán A', address: null, phone: null }, error: null }) }) }),
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { name: 'Quán A', address: null, phone: null }, error: null }) }) }),
     })
     const html = await render()
     expect(html).toContain('PHIẾU IN THỬ')

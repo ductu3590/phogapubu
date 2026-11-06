@@ -140,7 +140,7 @@ export default async function PrintAgentPage({
     }
 
     if (job.kind === 'test') {
-      const { data: store, error: storeErr } = await client.from('stores').select('name, address, phone').eq('id', job.store_id).single()
+      const { data: store, error: storeErr } = await client.from('stores').select('name, address, phone').eq('id', job.store_id).maybeSingle()
       if (storeErr) return readFail(storeErr.message)
       if (!store) return fail('Không tìm thấy quán')
       const bill = buildTestBill(
