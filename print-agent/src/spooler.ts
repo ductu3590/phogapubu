@@ -4,12 +4,18 @@ export type SpoolEntry = { id: number; documentName: string; status: string }
 export type ListFn = (printer: string) => Promise<SpoolEntry[]>
 export type RemoveFn = (printer: string, id: number) => Promise<void>
 export type SleepFn = (ms: number) => Promise<void>
+// stuck_remaining: đã xoá mà việc vẫn còn (hoặc không xác nhận được), phiếu có thể in muộn nếu không ai xoá tay
+export type SpoolResult = 'clear' | 'stuck' | 'stuck_remaining'
 
 const SPOOL_POLL_MS = 500
 const POWERSHELL_TIMEOUT_MS = 10_000
+const JOB_NAME_PREFIX = 'mevo-'
+// Ngắn hơn thì một tiền tố có thể trùng phiếu khác, xoá nhầm việc đang in bình thường
+const MIN_TRUNCATED_ID_LENGTH = 8
 
 export function parsePrintJobs(json: string): SpoolEntry[] {
-  const text = json.replace(/^﻿/, '').trim()
+  // trim() của JS bỏ luôn BOM mà PowerShell 5.1 có thể in ra đầu chuỗi
+  const text = json.trim()
   if (!text) return []
   const parsed: unknown = JSON.parse(text)
   const rows = (Array.isArray(parsed) ? parsed : [parsed]) as Record<string, unknown>[]
@@ -18,6 +24,16 @@ export function parsePrintJobs(json: string): SpoolEntry[] {
     documentName: String(row.DocumentName ?? ''),
     status: String(row.JobStatus ?? ''),
   }))
+}
+
+/** Tên việc có phải của phiếu này không. Driver có thể cắt ngắn tên, nên nhận cả tiền tố đủ dài của jobId. */
+export function matchesJob(documentName: string, jobId: string): boolean {
+  const name = documentName.toLowerCase()
+  const id = jobId.toLowerCase()
+  if (name.includes(id)) return true
+  if (!name.startsWith(JOB_NAME_PREFIX)) return false
+  const rest = name.slice(JOB_NAME_PREFIX.length)
+  return rest.length >= MIN_TRUNCATED_ID_LENGTH && id.startsWith(rest)
 }
 
 /**
@@ -31,31 +47,37 @@ export async function waitForSpool(input: {
   list: ListFn
   remove: RemoveFn
   sleep: SleepFn
-}): Promise<'clear' | 'stuck'> {
-  const { printer, timeoutMs, list, remove, sleep } = input
-  const needle = input.jobId.toLowerCase()
+  onWatchFailed?: (error: unknown) => void
+}): Promise<SpoolResult> {
+  const { printer, jobId, timeoutMs, list, remove, sleep } = input
   const deadline = Date.now() + timeoutMs
+  const pendingIn = (jobs: SpoolEntry[]) =>
+    // Máy bật "Keep printed documents" giữ lại việc đã in xong với trạng thái Printed
+    jobs.filter((job) => matchesJob(job.documentName, jobId) && !/\bPrinted\b/.test(job.status))
 
   for (;;) {
-    let jobs: SpoolEntry[]
+    let pending: SpoolEntry[] | null = null
+    let failure: unknown
     try {
-      jobs = await list(printer)
-    } catch {
-      // Không đọc được hàng đợi thì không có bằng chứng kẹt; kết luận kẹt sẽ xoá nhầm một phiếu đang in
-      return 'clear'
+      pending = pendingIn(await list(printer))
+    } catch (e) {
+      failure = e
     }
 
-    const pending = jobs.filter(
-      // Máy bật "Keep printed documents" giữ lại việc đã in xong với trạng thái Printed
-      (job) => job.documentName.toLowerCase().includes(needle) && !/\bPrinted\b/.test(job.status),
-    )
-    if (pending.length === 0) return 'clear'
+    if (pending?.length === 0) return 'clear'
 
     if (Date.now() >= deadline) {
+      if (pending === null) {
+        // Hết hạn mà vẫn không đọc được: không có bằng chứng kẹt, xoá bừa sẽ mất phiếu đang in.
+        // Bên gọi phải cảnh báo, vì từ giờ phiếu kẹt không còn ai phát hiện.
+        input.onWatchFailed?.(failure)
+        return 'clear'
+      }
       for (const job of pending) {
         await remove(printer, job.id).catch(() => undefined)
       }
-      return 'stuck'
+      const left = await list(printer).then(pendingIn, () => null)
+      return left?.length === 0 ? 'stuck' : 'stuck_remaining'
     }
     await sleep(SPOOL_POLL_MS)
   }

@@ -14,12 +14,37 @@ export interface PrintWindow {
   destroy(): void
 }
 
+export interface LockableWindow {
+  webContents: {
+    setWindowOpenHandler(handler: () => { action: 'deny' }): void
+    on(event: 'will-navigate', listener: (event: { preventDefault(): void }, url: string) => void): unknown
+  }
+}
+
+export const SECURE_WEB_PREFERENCES = { nodeIntegration: false, contextIsolation: true, sandbox: true }
+
 // Rộng 302px ~ 80mm. Tắt throttle: cửa sổ ẩn bị bóp timer thì trang không báo tín hiệu kịp, đo sai chiều cao.
 export const PRINT_WINDOW_OPTIONS = {
   show: false,
   width: 302,
   height: 100,
-  webPreferences: { backgroundThrottling: false },
+  webPreferences: { ...SECURE_WEB_PREFERENCES, backgroundThrottling: false },
+}
+
+function sameOrigin(url: string, origin: string): boolean {
+  try {
+    return new URL(url).origin === new URL(origin).origin
+  } catch {
+    return false
+  }
+}
+
+/** Cấm mở cửa sổ mới và cấm tự điều hướng ra ngoài `allowedOrigin`. Truyền null để cấm mọi điều hướng. */
+export function lockDownWindow(win: LockableWindow, allowedOrigin: string | null): void {
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.on('will-navigate', (event, url) => {
+    if (allowedOrigin === null || !sameOrigin(url, allowedOrigin)) event.preventDefault()
+  })
 }
 
 const SIGNAL_TIMEOUT_MS = 20_000
@@ -83,13 +108,14 @@ function print(win: PrintWindow, options: WebContentsPrintOptions): Promise<Prin
 }
 
 export function createPrintJob(deps: {
-  createWindow(): PrintWindow
+  createWindow(): PrintWindow & LockableWindow
   webOrigin: string
   pageSizeMode: PageSizeMode
 }): (job: AgentJob) => Promise<PrintOutcome> {
   return async (job) => {
     const url = `${deps.webOrigin}/print/agent/${job.id}?t=${encodeURIComponent(job.render_token)}`
     const win = deps.createWindow()
+    lockDownWindow(win, deps.webOrigin)
     try {
       const signal = await waitForSignal(win, url)
       if ('outcome' in signal) return signal.outcome

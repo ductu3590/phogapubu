@@ -3,8 +3,9 @@ import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { createApi, type Api, type PrinterEntry } from './api'
 import { loadConfig } from './config'
+import { createFileLog } from './file-log'
 import { createJobLoop } from './job-loop'
-import { createPrintJob, PRINT_WINDOW_OPTIONS } from './print-page'
+import { createPrintJob, lockDownWindow, PRINT_WINDOW_OPTIONS, SECURE_WEB_PREFERENCES } from './print-page'
 import { createSpoolCommands, waitForSpool } from './spooler'
 import { orTimeout, sleep } from './timeout'
 import { createTokenStore } from './token-store'
@@ -21,7 +22,10 @@ const STATUS_LABEL: Record<Status, string> = {
   needs_pair: 'Cần ghép máy',
 }
 
+const SPOOL_WARNING = 'Cảnh báo: không đọc được hàng đợi Windows, phiếu kẹt sẽ không bị phát hiện'
+
 let status: Status = 'offline'
+let spoolWarning = false
 let tray: Tray | null = null
 let pairWindow: BrowserWindow | null = null
 let stopCurrentLoop: (() => void) | null = null
@@ -32,12 +36,19 @@ function setStatus(next: Status) {
   renderTray()
 }
 
+function setSpoolWarning(next: boolean) {
+  if (spoolWarning === next) return
+  spoolWarning = next
+  renderTray()
+}
+
 function renderTray() {
   if (!tray) return
-  tray.setToolTip(`MEVO In: ${STATUS_LABEL[status]}`)
+  tray.setToolTip(spoolWarning ? `MEVO In: ${SPOOL_WARNING}` : `MEVO In: ${STATUS_LABEL[status]}`)
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: STATUS_LABEL[status], enabled: false },
+      ...(spoolWarning ? [{ label: SPOOL_WARNING, enabled: false }] : []),
       { type: 'separator' },
       { label: 'Ghép lại', click: openPairWindow },
       { label: 'Thoát', click: () => app.quit() },
@@ -58,8 +69,9 @@ function openPairWindow() {
     minimizable: false,
     maximizable: false,
     title: 'MEVO In - Ghép máy',
-    webPreferences: { preload: join(__dirname, 'pair-preload.js') },
+    webPreferences: { ...SECURE_WEB_PREFERENCES, preload: join(__dirname, 'pair-preload.js') },
   })
+  lockDownWindow(pairWindow, null)
   pairWindow.setMenu(null)
   pairWindow.on('closed', () => {
     pairWindow = null
@@ -84,6 +96,7 @@ async function start() {
   const api: Api = createApi(config)
   const version = app.getVersion()
   const tokenStore = createTokenStore(app.getPath('userData'), safeStorage)
+  const log = createFileLog(join(app.getPath('userData'), 'agent.log'))
   const spool = createSpoolCommands()
   const printJob = createPrintJob({
     createWindow: () => new BrowserWindow(PRINT_WINDOW_OPTIONS),
@@ -91,12 +104,29 @@ async function start() {
     pageSizeMode: config.pageSizeMode,
   })
   // Cửa sổ ẩn sống suốt để hỏi danh sách máy in, API này chỉ có trên webContents
-  const printerProbe = new BrowserWindow({ show: false, width: 1, height: 1 })
+  const printerProbe = new BrowserWindow({ show: false, width: 1, height: 1, webPreferences: SECURE_WEB_PREFERENCES })
 
   async function listPrinters(): Promise<PrinterEntry[]> {
     const printers = await orTimeout(printerProbe.webContents.getPrintersAsync(), LIST_PRINTERS_TIMEOUT_MS)
     if (!printers) throw new Error('Đọc danh sách máy in quá hạn')
     return printers.map((p) => ({ name: p.name }))
+  }
+
+  async function watchSpool(input: { printer: string; jobId: string; timeoutMs: number }) {
+    let watchFailed = false
+    const result = await waitForSpool({
+      ...input,
+      list: spool.list,
+      remove: spool.remove,
+      sleep,
+      onWatchFailed: (error) => {
+        watchFailed = true
+        const reason = error instanceof Error ? error.message : String(error)
+        log(`Không đọc được hàng đợi máy in "${input.printer}", phiếu ${input.jobId}: ${reason}`)
+      },
+    })
+    setSpoolWarning(watchFailed)
+    return result
   }
 
   function startLoop(token: string) {
@@ -107,7 +137,7 @@ async function start() {
       version,
       listPrinters,
       printJob,
-      waitForSpool: (input) => waitForSpool({ ...input, list: spool.list, remove: spool.remove, sleep }),
+      waitForSpool: watchSpool,
       onRevoked: () => {
         stopCurrentLoop?.()
         stopCurrentLoop = null

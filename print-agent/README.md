@@ -19,7 +19,7 @@ Sửa `agent.config.json` (xem mục dưới), rồi:
 npm run dist
 ```
 
-File cài nằm ở `dist/MEVO In Setup <phiên bản>.exe`. Thiếu `agent.config.json` thì lệnh dừng ngay, không ra bản cài.
+File cài nằm ở `dist/MEVO In Setup <phiên bản>.exe`. Thiếu `agent.config.json`, hoặc file còn giá trị mẫu `YOUR-...`, thì lệnh dừng ngay, không ra bản cài.
 
 Lệnh kiểm tra khi sửa code:
 
@@ -57,6 +57,10 @@ Phiên bản này không tự cập nhật. Muốn lên bản mới thì chạy 
 ## Khi in lỗi
 
 Phần mềm không báo xong chỉ vì Windows đã nhận việc. Nó canh hàng đợi Windows tối đa 15 giây. Việc còn kẹt (máy in bị rút dây, hết giấy) sẽ bị xoá khỏi hàng đợi và báo "Máy in không phản hồi" lên POS, để phiếu không tự in muộn khi cắm lại. Người ở quầy kiểm tra máy in rồi bấm In lại.
+
+POS báo "phiếu còn trong hàng đợi Windows" nghĩa là phần mềm không xoá được việc đó. Mở hàng đợi của máy in trong Windows, xoá tay rồi mới bấm In lại, không thì sẽ ra hai phiếu.
+
+Biểu tượng ở khay hiện "Cảnh báo: không đọc được hàng đợi Windows" nghĩa là phần mềm vẫn in nhưng không phát hiện được phiếu kẹt. Chi tiết ở `%APPDATA%\MEVO In\agent.log`. File này không chứa token.
 
 Hàng đợi Windows phải đọc được tên việc (`MEVO-<mã phiếu>`) thì bước canh này mới có tác dụng. Lần đầu lắp máy in mới, chạy lại mục 4 của `docs/testing/dot1/C-0-may-in-that.md`.
 

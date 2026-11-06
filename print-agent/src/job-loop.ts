@@ -1,5 +1,5 @@
 import type { AgentJob, Api, PrinterEntry } from './api'
-import type { SleepFn } from './spooler'
+import type { SleepFn, SpoolResult } from './spooler'
 
 export type PrintOutcome =
   | { status: 'printed' }
@@ -15,7 +15,7 @@ export interface JobLoopDeps {
   version: string
   listPrinters(): Promise<PrinterEntry[]>
   printJob(job: AgentJob): Promise<PrintOutcome>
-  waitForSpool(input: { printer: string; jobId: string; timeoutMs: number }): Promise<'clear' | 'stuck'>
+  waitForSpool(input: { printer: string; jobId: string; timeoutMs: number }): Promise<SpoolResult>
   onRevoked(): void
   onOffline(): void
   onOnline(): void
@@ -28,6 +28,10 @@ const PRINTERS_RESEND_MS = 60_000
 const REPORT_RETRIES = 3
 const REPORT_RETRY_DELAY_MS = 1_000
 const UNKNOWN_RESULT = 'Không rõ đã in chưa, kiểm tra máy in rồi bấm In lại'
+const SPOOL_ERROR: Record<Exclude<SpoolResult, 'clear'>, string> = {
+  stuck: 'Máy in không phản hồi',
+  stuck_remaining: 'Máy in không phản hồi, phiếu còn trong hàng đợi Windows, xoá tay trước khi In lại',
+}
 
 export function createJobLoop(deps: JobLoopDeps): { tick(): Promise<void>; stop(): void } {
   const now = deps.now ?? Date.now
@@ -35,6 +39,8 @@ export function createJobLoop(deps: JobLoopDeps): { tick(): Promise<void>; stop(
   let stopped = false
   let sentFingerprint: string | null = null
   let sentAt = 0
+  // Danh sách đọc được gần nhất. Đọc lỗi một lần không phải lý do đốt một lượt thử của job đã nhận.
+  let knownPrinters: PrinterEntry[] | null = null
 
   async function report(jobId: string, ok: boolean, error: string | null, retryable: boolean) {
     for (let attempt = 0; ; attempt += 1) {
@@ -49,12 +55,9 @@ export function createJobLoop(deps: JobLoopDeps): { tick(): Promise<void>; stop(
     }
   }
 
-  async function handleJob(job: AgentJob, printers: PrinterEntry[] | null) {
-    if (printers === null) {
-      await report(job.id, false, 'Không đọc được danh sách máy in', true)
-      return
-    }
-    if (!printers.some((p) => p.name === job.printer_name)) {
+  async function handleJob(job: AgentJob) {
+    // Chưa từng đọc được danh sách thì cứ in: máy sai thì chính lệnh in sẽ báo
+    if (knownPrinters && !knownPrinters.some((p) => p.name === job.printer_name)) {
       await report(job.id, false, `Không tìm thấy máy in "${job.printer_name}" trên máy quầy`, false)
       return
     }
@@ -66,33 +69,40 @@ export function createJobLoop(deps: JobLoopDeps): { tick(): Promise<void>; stop(
       outcome = { status: 'unknown' }
     }
 
+    // Hai ca này chưa gọi lệnh in nên hàng đợi không có gì để canh
+    if (outcome.status === 'page_error') {
+      await report(job.id, false, outcome.reason, outcome.retryable)
+      return
+    }
+    if (outcome.status === 'signal_timeout') {
+      await report(job.id, false, 'Trang phiếu không phản hồi', true)
+      return
+    }
+
+    // Ba ca còn lại đều có thể đã để lại việc trong hàng đợi, kể cả khi print báo lỗi hoặc không trả lời.
+    // Không canh thì phiếu tự in lúc cắm lại máy, và thử lại sẽ ra hai phiếu.
+    const spool = await deps.waitForSpool({ printer: job.printer_name, jobId: job.id, timeoutMs: SPOOL_TIMEOUT_MS })
+    if (spool !== 'clear') {
+      await report(job.id, false, SPOOL_ERROR[spool], false)
+      return
+    }
+
     switch (outcome.status) {
+      case 'printed':
+        await report(job.id, true, null, false)
+        return
       case 'print_failed':
         await report(job.id, false, `In thất bại: ${outcome.reason}`, true)
-        return
-      case 'page_error':
-        await report(job.id, false, outcome.reason, outcome.retryable)
-        return
-      case 'signal_timeout':
-        await report(job.id, false, 'Trang phiếu không phản hồi', true)
         return
       case 'unknown':
         await report(job.id, false, UNKNOWN_RESULT, false)
         return
-      case 'printed':
-        break
     }
-
-    const spool = await deps.waitForSpool({ printer: job.printer_name, jobId: job.id, timeoutMs: SPOOL_TIMEOUT_MS })
-    if (spool === 'stuck') {
-      await report(job.id, false, 'Máy in không phản hồi', false)
-      return
-    }
-    await report(job.id, true, null, false)
   }
 
   async function runOnce() {
     const printers = await deps.listPrinters().catch(() => null)
+    if (printers) knownPrinters = printers
     const fingerprint = printers && JSON.stringify(printers)
     const shouldSend =
       fingerprint !== null && (fingerprint !== sentFingerprint || now() - sentAt >= PRINTERS_RESEND_MS)
@@ -117,7 +127,7 @@ export function createJobLoop(deps: JobLoopDeps): { tick(): Promise<void>; stop(
       sentFingerprint = fingerprint
       sentAt = now()
     }
-    if (res.job) await handleJob(res.job, printers)
+    if (res.job) await handleJob(res.job)
   }
 
   return {

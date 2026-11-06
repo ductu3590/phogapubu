@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createPrintJob, type PrintWindow } from './print-page'
+import { createPrintJob, lockDownWindow, PRINT_WINDOW_OPTIONS, SECURE_WEB_PREFERENCES, type PrintWindow } from './print-page'
 import { pxToMicrons } from './slip-size'
 import type { AgentJob } from './api'
 
@@ -27,6 +27,8 @@ function fakeWindow(over: {
     webContents: {
       executeJavaScript: vi.fn(over.signal ?? (async () => READY)),
       print,
+      setWindowOpenHandler: vi.fn(),
+      on: vi.fn(),
     },
     destroy: vi.fn(),
   }
@@ -139,6 +141,53 @@ describe('print-page', () => {
     })
     await expect(run(win)).resolves.toEqual({ status: 'print_failed', reason: 'Invalid deviceName' })
     expect(win.destroy).toHaveBeenCalledTimes(1)
+  })
+
+  describe('khoá cửa sổ', () => {
+    type WillNavigate = (event: { preventDefault(): void }, url: string) => void
+
+    function navigate(win: ReturnType<typeof fakeWindow>, url: string) {
+      const call = win.webContents.on.mock.calls.find((c) => c[0] === 'will-navigate') as unknown as [
+        string,
+        WillNavigate,
+      ]
+      const event = { preventDefault: vi.fn() }
+      call[1](event, url)
+      return event.preventDefault
+    }
+
+    it('webPreferences ghi rõ, cửa sổ in giữ tắt throttle', () => {
+      expect(SECURE_WEB_PREFERENCES).toEqual({ nodeIntegration: false, contextIsolation: true, sandbox: true })
+      expect(PRINT_WINDOW_OPTIONS.webPreferences).toEqual({ ...SECURE_WEB_PREFERENCES, backgroundThrottling: false })
+    })
+
+    it('cửa sổ in từ chối mở cửa sổ mới', async () => {
+      const win = fakeWindow()
+      await run(win)
+      const [handler] = win.webContents.setWindowOpenHandler.mock.calls[0] as unknown as [() => { action: string }]
+      expect(handler()).toEqual({ action: 'deny' })
+    })
+
+    it('cửa sổ in chặn điều hướng ra ngoài webOrigin, cho đi trong webOrigin', async () => {
+      const win = fakeWindow()
+      await run(win)
+      expect(navigate(win, 'https://evil.test/x')).toHaveBeenCalled()
+      expect(navigate(win, 'https://admin.test.evil.test/x')).toHaveBeenCalled()
+      expect(navigate(win, 'http://admin.test/print')).toHaveBeenCalled()
+      expect(navigate(win, 'https://admin.test/print/agent/1')).not.toHaveBeenCalled()
+    })
+
+    it('không truyền origin (cửa sổ ghép máy): chặn mọi điều hướng', () => {
+      const win = fakeWindow()
+      lockDownWindow(win as unknown as Parameters<typeof lockDownWindow>[0], null)
+      expect(navigate(win, 'https://admin.test/')).toHaveBeenCalled()
+    })
+
+    it('URL hỏng: chặn, không ném', () => {
+      const win = fakeWindow()
+      lockDownWindow(win as unknown as Parameters<typeof lockDownWindow>[0], 'https://admin.test')
+      expect(navigate(win, 'không phải url')).toHaveBeenCalled()
+    })
   })
 
   it('print không bao giờ gọi lại: unknown sau 30 giây, không để vòng lặp treo', async () => {

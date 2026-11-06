@@ -11,6 +11,7 @@ const job: AgentJob = {
 }
 
 const UNKNOWN = 'Không rõ đã in chưa, kiểm tra máy in rồi bấm In lại'
+const STUCK_REMAINING = 'Máy in không phản hồi, phiếu còn trong hàng đợi Windows, xoá tay trước khi In lại'
 
 function setup(over: Partial<JobLoopDeps> = {}, firstPoll: PollResult = { ok: true, job }) {
   const poll = vi.fn<JobLoopDeps['api']['poll']>()
@@ -105,8 +106,28 @@ describe('job-loop', () => {
       printJob: outcome({ status: 'print_failed', reason: 'Print job failed' }),
     })
     await loop.tick()
+    expect(deps.waitForSpool).toHaveBeenCalledWith({ printer: 'XP-80', jobId: 'job-1', timeoutMs: 15000 })
+    expect(report).toHaveBeenCalledTimes(1)
     expect(report).toHaveBeenCalledWith('tok', 'job-1', false, 'In thất bại: Print job failed', true)
-    expect(deps.waitForSpool).not.toHaveBeenCalled()
+  })
+
+  it('print thất bại mà việc còn kẹt hàng đợi: không cho thử lại, tránh ra hai phiếu', async () => {
+    const { loop, report } = setup({
+      printJob: outcome({ status: 'print_failed', reason: 'Print job failed' }),
+      waitForSpool: vi.fn<JobLoopDeps['waitForSpool']>().mockResolvedValue('stuck'),
+    })
+    await loop.tick()
+    expect(report).toHaveBeenCalledTimes(1)
+    expect(report).toHaveBeenCalledWith('tok', 'job-1', false, 'Máy in không phản hồi', false)
+  })
+
+  it('print thất bại, xoá không hết khỏi hàng đợi: báo xoá tay', async () => {
+    const { loop, report } = setup({
+      printJob: outcome({ status: 'print_failed', reason: 'Print job failed' }),
+      waitForSpool: vi.fn<JobLoopDeps['waitForSpool']>().mockResolvedValue('stuck_remaining'),
+    })
+    await loop.tick()
+    expect(report).toHaveBeenCalledWith('tok', 'job-1', false, STUCK_REMAINING, false)
   })
 
   it('trang báo data-print-error: report(ok=false, retryable=false, lý do)', async () => {
@@ -141,6 +162,14 @@ describe('job-loop', () => {
     expect(report).toHaveBeenCalledWith('tok', 'job-1', false, 'Máy in không phản hồi', false)
   })
 
+  it('hàng đợi kẹt, xoá không hết: báo xoá tay trước khi In lại', async () => {
+    const waitForSpool = vi.fn<JobLoopDeps['waitForSpool']>().mockResolvedValue('stuck_remaining')
+    const { loop, report } = setup({ waitForSpool })
+    await loop.tick()
+    expect(report).toHaveBeenCalledTimes(1)
+    expect(report).toHaveBeenCalledWith('tok', 'job-1', false, STUCK_REMAINING, false)
+  })
+
   it('không tìm thấy máy in: report(ok=false, retryable=false), không gọi print', async () => {
     const listPrinters = vi.fn<JobLoopDeps['listPrinters']>().mockResolvedValue([{ name: 'Máy khác' }])
     const { loop, deps, report } = setup({ listPrinters })
@@ -149,26 +178,81 @@ describe('job-loop', () => {
     expect(report).toHaveBeenCalledWith('tok', 'job-1', false, 'Không tìm thấy máy in "XP-80" trên máy quầy', false)
   })
 
-  it('đọc danh sách máy in lỗi khi có job: không in, báo để thử lại', async () => {
-    const listPrinters = vi.fn<JobLoopDeps['listPrinters']>().mockRejectedValue(new Error('spooler'))
-    const { loop, deps, report } = setup({ listPrinters })
-    await loop.tick()
-    expect(deps.printJob).not.toHaveBeenCalled()
-    expect(report).toHaveBeenCalledWith('tok', 'job-1', false, 'Không đọc được danh sách máy in', true)
+  describe('đọc danh sách máy in lỗi đúng lúc có job', () => {
+    function secondTickFails(firstList: { name: string }[]) {
+      const listPrinters = vi.fn<JobLoopDeps['listPrinters']>()
+      listPrinters.mockResolvedValueOnce(firstList).mockRejectedValue(new Error('spooler'))
+      const ctx = setup({ listPrinters }, { ok: true, job: null })
+      ctx.poll.mockResolvedValueOnce({ ok: true, job })
+      return ctx
+    }
+
+    it('dùng danh sách gần nhất: máy có trong đó thì in bình thường, không đốt lượt thử', async () => {
+      const { loop, deps, report } = secondTickFails([{ name: 'XP-80' }])
+      await loop.tick()
+      await loop.tick()
+      expect(deps.printJob).toHaveBeenCalledWith(job)
+      expect(report).toHaveBeenCalledWith('tok', 'job-1', true, null, false)
+    })
+
+    it('máy không có trong danh sách gần nhất: báo không tìm thấy, không in', async () => {
+      const { loop, deps, report } = secondTickFails([{ name: 'Máy khác' }])
+      await loop.tick()
+      await loop.tick()
+      expect(deps.printJob).not.toHaveBeenCalled()
+      expect(report).toHaveBeenCalledWith('tok', 'job-1', false, 'Không tìm thấy máy in "XP-80" trên máy quầy', false)
+    })
+
+    it('chưa từng đọc được danh sách: vẫn thử in, để lệnh in tự báo nếu máy sai', async () => {
+      const listPrinters = vi.fn<JobLoopDeps['listPrinters']>().mockRejectedValue(new Error('spooler'))
+      const { loop, deps, report } = setup({ listPrinters })
+      await loop.tick()
+      expect(deps.printJob).toHaveBeenCalledWith(job)
+      expect(report).toHaveBeenCalledWith('tok', 'job-1', true, null, false)
+    })
   })
 
-  it('in treo không rõ kết quả: không tự in lại', async () => {
-    const { loop, deps, report } = setup({ printJob: outcome({ status: 'unknown' }) })
-    await loop.tick()
-    expect(deps.waitForSpool).not.toHaveBeenCalled()
-    expect(report).toHaveBeenCalledWith('tok', 'job-1', false, UNKNOWN, false)
-  })
+  describe('không rõ đã in chưa', () => {
+    const spool = (r: 'clear' | 'stuck' | 'stuck_remaining') =>
+      vi.fn<JobLoopDeps['waitForSpool']>().mockResolvedValue(r)
 
-  it('printJob ném bất ngờ: coi như không rõ, không ném ra ngoài, không tự in lại', async () => {
-    const printJob = vi.fn<JobLoopDeps['printJob']>().mockRejectedValue(new Error('crash'))
-    const { loop, report } = setup({ printJob })
-    await expect(loop.tick()).resolves.toBeUndefined()
-    expect(report).toHaveBeenCalledWith('tok', 'job-1', false, UNKNOWN, false)
+    it('in treo, hàng đợi sạch: vẫn canh hàng đợi, giữ câu không rõ, không tự in lại', async () => {
+      const { loop, deps, report } = setup({ printJob: outcome({ status: 'unknown' }), waitForSpool: spool('clear') })
+      await loop.tick()
+      expect(deps.waitForSpool).toHaveBeenCalledWith({ printer: 'XP-80', jobId: 'job-1', timeoutMs: 15000 })
+      expect(report).toHaveBeenCalledTimes(1)
+      expect(report).toHaveBeenCalledWith('tok', 'job-1', false, UNKNOWN, false)
+    })
+
+    it('in treo, việc kẹt hàng đợi: báo máy in không phản hồi, phiếu không in muộn', async () => {
+      const { loop, report } = setup({ printJob: outcome({ status: 'unknown' }), waitForSpool: spool('stuck') })
+      await loop.tick()
+      expect(report).toHaveBeenCalledWith('tok', 'job-1', false, 'Máy in không phản hồi', false)
+    })
+
+    it('in treo, xoá không hết: báo xoá tay', async () => {
+      const { loop, report } = setup({
+        printJob: outcome({ status: 'unknown' }),
+        waitForSpool: spool('stuck_remaining'),
+      })
+      await loop.tick()
+      expect(report).toHaveBeenCalledWith('tok', 'job-1', false, STUCK_REMAINING, false)
+    })
+
+    it('printJob ném bất ngờ: canh hàng đợi như trên, không ném ra ngoài, không tự in lại', async () => {
+      const printJob = vi.fn<JobLoopDeps['printJob']>().mockRejectedValue(new Error('crash'))
+      const { loop, deps, report } = setup({ printJob })
+      await expect(loop.tick()).resolves.toBeUndefined()
+      expect(deps.waitForSpool).toHaveBeenCalledTimes(1)
+      expect(report).toHaveBeenCalledWith('tok', 'job-1', false, UNKNOWN, false)
+    })
+
+    it('printJob ném, việc kẹt hàng đợi: báo máy in không phản hồi', async () => {
+      const printJob = vi.fn<JobLoopDeps['printJob']>().mockRejectedValue(new Error('crash'))
+      const { loop, report } = setup({ printJob, waitForSpool: spool('stuck') })
+      await loop.tick()
+      expect(report).toHaveBeenCalledWith('tok', 'job-1', false, 'Máy in không phản hồi', false)
+    })
   })
 
   it('report lỗi mạng: thử lại 3 lần rồi bỏ, không in lại', async () => {

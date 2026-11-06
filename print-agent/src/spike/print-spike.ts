@@ -1,4 +1,5 @@
 // Bài thử in ngầm 80mm. Chạy: npm run spike -- --printer "<tên>" --mode measured|printer-default --fixture short|long|qr
+// Thêm --title "<tên việc>" để đặt tên việc trong hàng đợi Windows (mặc định MEVO-spike-<fixture>).
 // Không có --printer thì chỉ liệt kê máy in rồi thoát.
 import { app, BrowserWindow } from 'electron'
 import * as path from 'path'
@@ -45,7 +46,8 @@ async function run(): Promise<number> {
 
   // Fixture nằm trong src/ (không được tsc chép sang out/)
   await win.loadFile(path.join(__dirname, '..', '..', 'src', 'spike', `fixture-${fixture}.html`))
-  win.webContents.executeJavaScript(`document.title = 'MEVO-spike-${fixture}'`)
+  const title = arg('title') ?? `MEVO-spike-${fixture}`
+  await win.webContents.executeJavaScript(`document.title = ${JSON.stringify(title)}`)
   const heightPx: number = await win.webContents.executeJavaScript(
     'document.documentElement.scrollHeight',
   )
