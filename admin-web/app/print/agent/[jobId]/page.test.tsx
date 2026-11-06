@@ -153,6 +153,23 @@ describe('/print/agent/[jobId]', () => {
     expect(html).not.toContain('PHIẾU BẾP')
   })
 
+  it('phiếu in lại (request.reprint hoặc retried) có chữ IN LẠI, cả phiếu bếp lẫn phiếu bàn; phiếu đầu thì không', async () => {
+    mocks.loadOrderSlip.mockResolvedValue(slip([{ key: 'k1', name: 'Bia hơi' }]))
+    const cases: Array<[string, Record<string, unknown>, boolean]> = [
+      ['kitchen_ticket', { source: 'order:o1', itemKeys: ['k1'], request: { reprint: true } }, true],
+      ['kitchen_ticket', { source: 'order:o1', itemKeys: ['k1'], retried: true }, true],
+      ['kitchen_ticket', { source: 'order:o1', itemKeys: ['k1'], request: {} }, false],
+      ['table_slip', { source: 'order:o1', request: { reprint: true } }, true],
+      ['table_slip', { source: 'order:o1', retried: true }, true],
+      ['table_slip', { source: 'order:o1' }, false],
+    ]
+    for (const [kind, ref, expected] of cases) {
+      mocks.adminRpc.mockResolvedValue({ data: job({ kind, ref }), error: null })
+      const html = await render()
+      expect(html.includes('IN LẠI'), `${kind} ${JSON.stringify(ref)}`).toBe(expected)
+    }
+  })
+
   it('bill không có khối no-print', async () => {
     mocks.adminRpc.mockResolvedValue({ data: job({ kind: 'bill', ref: { request: { kind: 'bill', sessionIds: ['s1'] } } }), error: null })
     mocks.userRpc.mockResolvedValue({

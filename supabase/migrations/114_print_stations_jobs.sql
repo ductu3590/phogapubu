@@ -534,6 +534,7 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'Phiếu này chưa lỗi, không cần in lại');
   END IF;
 
+  -- Job mới mang dấu retried để phiếu in ra có chữ IN LẠI (bếp không làm món hai lần)
   -- Job mất trạm (trạm đã xoá) thì chép trạm thay thế, không chép NULL (sẽ lặp lỗi mãi)
   v_station := j.station_id;
   IF v_station IS NULL THEN
@@ -544,7 +545,7 @@ BEGIN
   END IF;
 
   INSERT INTO print_jobs (store_id, station_id, kind, ref, dedupe_key, created_by)
-  VALUES (j.store_id, v_station, j.kind, j.ref, j.dedupe_key || ':r' || gen_random_uuid()::text, auth.uid())
+  VALUES (j.store_id, v_station, j.kind, j.ref || '{"retried":true}'::jsonb, j.dedupe_key || ':r' || gen_random_uuid()::text, auth.uid())
   RETURNING id INTO v_new;
 
   UPDATE print_jobs SET resolved_at = now(), resolved_by = auth.uid() WHERE id = j.id;

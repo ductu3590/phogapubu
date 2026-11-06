@@ -1,6 +1,6 @@
 # C-Part1 — In hai nơi: trạm in, hàng đợi, phần mềm in (Đợt 1 mục C, Part 1)
 
-Nhánh `feat/dot1-in-hai-noi` (+ phần mềm in ở nhánh `feat/dot1-print-agent`, được gộp trước khi test) · Plan `docs/superpowers/plans/2026-11-05-dot1-c-in-hai-noi.md` · Spec `docs/superpowers/specs/2026-11-05-dot1-thanh-toan-ca-in-vietqr-design.md` §5, §7, §9
+Code đã gộp vào nhánh phiên `claude/mevo-vs-kiosviet-features-c14e43` (không dùng các nhánh `feat/dot1-*`) · Plan `docs/superpowers/plans/2026-11-05-dot1-c-in-hai-noi.md` · Spec `docs/superpowers/specs/2026-11-05-dot1-thanh-toan-ca-in-vietqr-design.md` §5, §7, §9
 Test trên **quán thử** (khuyến nghị) hoặc Bia lẩu Bảo Lương. **Migration 114 phải được áp lên prod TRƯỚC** (việc của người quản lý hệ thống, không phải của người test).
 
 > **Quan trọng — đọc trước khi làm:**
@@ -14,8 +14,8 @@ Test trên **quán thử** (khuyến nghị) hoặc Bia lẩu Bảo Lương. **M
 
 **A. Admin-web** chạy bản của nhánh (local: `cd admin-web && npm run dev`, mở `http://localhost:3000/admin/pos`) hoặc domain nếu đã deploy. Đăng nhập **chủ quán** của quán thử. Biến môi trường admin-web có `SUPABASE_JWT_SECRET` và `SUPABASE_SERVICE_ROLE_KEY` (thiếu thì trang in của phần mềm báo lỗi).
 
-**B. Phần mềm in (`print-agent`, nhánh `feat/dot1-print-agent`)** — máy Windows ở quầy, Node 22.12 trở lên:
-1. `cd print-agent`, chạy `npm ci`.
+**B. Phần mềm in (`print-agent`, cùng nhánh phiên)** — máy Windows ở quầy, Node 22.12 trở lên:
+1. `cd print-agent`, chạy `npm ci` (worktree chưa có `node_modules`, bắt buộc cài trước), rồi `npm start` ở bước 3.
 2. Chép `agent.config.example.json` thành `agent.config.json` rồi sửa:
    ```json
    {
@@ -28,7 +28,9 @@ Test trên **quán thử** (khuyến nghị) hoặc Bia lẩu Bảo Lương. **M
    (`webOrigin` là địa chỉ admin-web đang chạy ở bước A, không có dấu `/` cuối; `pageSizeMode` lấy theo kết quả `C-0-may-in-that.md`, chưa thử thì để `measured`.)
 3. Chạy `npm start`. Phần mềm hiện ở khay hệ thống cạnh đồng hồ và mở cửa sổ ghép máy. Chuột phải icon khay để xem trạng thái (Đang chạy, Mất kết nối, Cần ghép máy), **Ghép lại** hoặc thoát.
 
-**C. Máy in ảo "MEVO PDF"** (xuất thẳng ra file, không hộp thoại Lưu): chạy `print-agent/scripts/setup-pdf-printer.ps1` bằng PowerShell **quyền Admin**. Máy in này **ghi đè** cùng một file `C:\mevo-print-test\out.pdf` mỗi lần in (không phải mỗi lần một file).
+**C. Máy in ảo "MEVO PDF"** (xuất thẳng ra file, không hộp thoại Lưu): **tạo máy in này bằng** `print-agent/scripts/setup-pdf-printer.ps1`, chạy bằng PowerShell **quyền Admin** (không có quyền Admin thì không tạo được). Máy in này **ghi đè** cùng một file `C:\mevo-print-test\out.pdf` mỗi lần in (không phải mỗi lần một file).
+
+> **Lưu ý:** đây là **lần đầu phần mềm in chạy nối thật với server** (trước đó chỉ có test tự động). Gặp lỗi ở Bài 4 (ghép máy) hoặc Bài 6 (in thử) thì **báo lại chi tiết** (thông báo lỗi, dòng `print_jobs`, log phần mềm), **chưa kết luận FAIL cả mục** — có thể là lỗi môi trường/cấu hình cần dò.
 
 **D. Dữ liệu:** có sẵn **một đơn khách** đang chờ thu ngân duyệt (cho bài 1) và **ít nhất 2 danh mục món**.
 
@@ -79,6 +81,7 @@ Sau khi bài 4 đã ghép xong, cửa sổ ghép đã đóng. Muốn nhập mã 
 1. Gán máy in **MEVO PDF** cho trạm Quầy và trạm Bếp (chọn rồi bấm **Lưu**).
 2. Bấm **In thử** ở trạm Quầy. Mở `C:\mevo-print-test\out.pdf`: đúng **tên quán**, khổ phiếu 80mm. **Đóng file PDF** (và đổi tên/chép sang chỗ khác) trước khi làm tiếp.
 3. Bấm **In thử** ở trạm Bếp, xem lại file như trên.
+- Driver ảo có thể xuất ra **khổ A4** thay vì 80mm: **không tính FAIL**. Khổ 80mm chỉ kiểm ở bài máy in nhiệt thật `C-0-may-in-that.md`.
 - Máy in ảo ghi đè cùng một file, và không in được nếu file đang mở trong trình xem PDF — nên **không mở sẵn PDF khi bấm In thử**.
 - Kiểm: hai dòng mới nhất của `print_jobs` có `kind = 'test'`, `status = 'done'`.
 
@@ -88,6 +91,18 @@ Nút **In thử** bị khoá khi trạm chưa có máy in, nên dựng tình hu�
 2. **Tắt phần mềm in**, bấm **In thử** ở trạm Bar (job nằm chờ).
 3. Đổi trạm Bar về **Chưa chọn máy in**, **Lưu**. Bật phần mềm in.
 - **Mong đợi:** job in thử của Bar thành `status = 'failed'`, `error = 'Trạm chưa chọn máy in'`; phiếu khác vẫn in bình thường.
+
+## Bài 7b — In lại một job lỗi: phiếu có chữ "IN LẠI"
+Dùng job `failed` đã tạo ở **Bài 7** (nếu đã xử lý rồi thì tạo lại một job lỗi như bài 7).
+1. **Chưa nối POS** (Part 1 chưa có màn xem phiếu lỗi): không bấm In lại trên giao diện được. Kiểm qua dữ liệu: thử lại job lỗi bằng RPC `retry_print_job(<id job lỗi>)` (SQL editor, đăng nhập chủ quán/thu ngân) rồi chạy:
+   ```sql
+   SELECT id, status, ref->'retried' AS retried, ref->>'source' AS source
+   FROM print_jobs WHERE store_id = '<id quán test>' ORDER BY created_at DESC LIMIT 2;
+   ```
+   - **Mong đợi:** job mới nhất có `retried = true`; job lỗi cũ không có `retried` và đã bị ẩn khỏi danh sách lỗi.
+2. Nếu job lỗi là phiếu bếp/phiếu bàn của một đơn thật và phần mềm in chạy: phiếu in ra (hoặc `out.pdf` với MEVO PDF) có chữ **IN LẠI** ở tiêu đề. Job `test` không có chữ này (không phải phiếu đơn).
+3. Phiếu in lần đầu (không `retried`) **không** có chữ IN LẠI.
+- Khi POS được nối ở Part 2: bấm **In lại** trên phiếu lỗi ở POS và kiểm lại bằng mắt.
 
 ## Bài 8 — Tắt phần mềm 40 giây
 1. Tắt phần mềm in, đợi ~40 giây. **Mong đợi:** Cài đặt báo **Chưa kết nối**.
@@ -135,6 +150,7 @@ Nút **In thử** bị khoá khi trạm chưa có máy in, nên dựng tình hu�
 | 5 | | |
 | 6 | | |
 | 7 | | |
+| 7b | | |
 | 8 | | |
 | 9 | | |
 | 10 | | |

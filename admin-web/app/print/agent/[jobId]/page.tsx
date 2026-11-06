@@ -78,27 +78,32 @@ export default async function PrintAgentPage({
       if (sep < 0 || !id || (type !== 'order' && type !== 'preorder')) return fail('Phiếu thiếu nguồn đơn')
       const res = await loadOrderSlip(client, job.store_id, type === 'order' ? { orderId: id } : { preorderJobId: id })
       if (!res.ok) return fromLoader(res)
+      // Phiếu in lại (bấm In lại ở POS, hoặc thử lại job lỗi) phải có chữ IN LẠI: phiếu xuống thẳng bếp,
+      // trông như mới thì bếp làm món hai lần. Phiếu điều chỉnh của đặt trước giữ nguyên tiêu đề riêng.
+      const isReprint = (ref.request as { reprint?: unknown } | undefined)?.reprint === true || ref.retried === true
+      const slipData =
+        isReprint && res.slip.preorderPrintKind !== 'adjustment' ? { ...res.slip, preorderPrintKind: 'reprint' as const } : res.slip
 
       if (job.kind === 'table_slip') {
-        if (res.slip.items.length === 0) return fail('Đơn không còn món để in')
+        if (slipData.items.length === 0) return fail('Đơn không còn món để in')
         return (
           <>
             <PrintReady jobId={jobId} />
             <SlipStyles />
-            <TableSlip slip={res.slip} />
+            <TableSlip slip={slipData} />
           </>
         )
       }
 
       // Phiếu bếp chỉ gồm món của trạm này (itemKeys lúc xếp hàng); món đã bị bỏ sau đó tự rơi khỏi phiếu
       const keys = new Set(Array.isArray(ref.itemKeys) ? (ref.itemKeys as unknown[]).map(String) : [])
-      const items = res.slip.items.filter((it) => keys.has(it.key))
+      const items = slipData.items.filter((it) => keys.has(it.key))
       if (items.length === 0) return fail('Các món trên phiếu đã bị bỏ')
       return (
         <>
           <PrintReady jobId={jobId} />
           <SlipStyles />
-          <KitchenSlip slip={{ ...res.slip, items }} stationName={job.station_name} showPrices={false} />
+          <KitchenSlip slip={{ ...slipData, items }} stationName={job.station_name} showPrices={false} />
         </>
       )
     }

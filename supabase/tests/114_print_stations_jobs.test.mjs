@@ -635,6 +635,9 @@ test('retry_print_job: job mới queued, job cũ ẩn khỏi problem_jobs, gọi
   assert.equal(nj.kind, 'kitchen_ticket')
   assert.equal(nj.station_id, (await jobRow(f)).station_id)
   assert.match(nj.dedupe_key, /^k\d+:r[0-9a-f-]{36}$/)
+  // Phiếu in lại phải có dấu để bếp không làm món hai lần; ref cũ giữ nguyên
+  assert.equal(nj.ref.retried, true)
+  assert.equal(nj.ref.source, (await jobRow(f)).ref.source)
   assert.ok((await jobRow(f)).resolved_at)
   const r2 = (await rpc(cashier, `SELECT retry_print_job($1) AS r`, [f])).r
   assert.deepEqual(r2, { ok: true, already: true })
