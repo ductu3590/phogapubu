@@ -93,16 +93,7 @@ Nút **In thử** bị khoá khi trạm chưa có máy in, nên dựng tình hu�
 - **Mong đợi:** job in thử của Bar thành `status = 'failed'`, `error = 'Trạm chưa chọn máy in'`; phiếu khác vẫn in bình thường.
 
 ## Bài 7b — In lại một job lỗi: phiếu có chữ "IN LẠI"
-Dùng job `failed` đã tạo ở **Bài 7** (nếu đã xử lý rồi thì tạo lại một job lỗi như bài 7).
-1. **Chưa nối POS** (Part 1 chưa có màn xem phiếu lỗi): không bấm In lại trên giao diện được. Kiểm qua dữ liệu: thử lại job lỗi bằng RPC `retry_print_job(<id job lỗi>)` (SQL editor, đăng nhập chủ quán/thu ngân) rồi chạy:
-   ```sql
-   SELECT id, status, ref->'retried' AS retried, ref->>'source' AS source
-   FROM print_jobs WHERE store_id = '<id quán test>' ORDER BY created_at DESC LIMIT 2;
-   ```
-   - **Mong đợi:** job mới nhất có `retried = true`; job lỗi cũ không có `retried` và đã bị ẩn khỏi danh sách lỗi.
-2. Nếu job lỗi là phiếu bếp/phiếu bàn của một đơn thật và phần mềm in chạy: phiếu in ra (hoặc `out.pdf` với MEVO PDF) có chữ **IN LẠI** ở tiêu đề. Job `test` không có chữ này (không phải phiếu đơn).
-3. Phiếu in lần đầu (không `retried`) **không** có chữ IN LẠI.
-- Khi POS được nối ở Part 2: bấm **In lại** trên phiếu lỗi ở POS và kiểm lại bằng mắt.
+Chuyển sang Part 2: nút In lại nằm ở POS, Part 1 chưa nối nên chưa bấm được. Hàm `retry_print_job` cũng không gọi được từ SQL editor vì cần phiên đăng nhập. Phần này đã có test tự động (`retried` trong test SQL 114, tiêu đề IN LẠI trong test trang `/print/agent`). Không tính FAIL.
 
 ## Bài 8 — Tắt phần mềm 40 giây
 1. Tắt phần mềm in, đợi ~40 giây. **Mong đợi:** Cài đặt báo **Chưa kết nối**.
@@ -150,7 +141,7 @@ Dùng job `failed` đã tạo ở **Bài 7** (nếu đã xử lý rồi thì t�
 | 5 | | |
 | 6 | | |
 | 7 | | |
-| 7b | | |
+| 7b | Part 2 | |
 | 8 | | |
 | 9 | | |
 | 10 | | |
