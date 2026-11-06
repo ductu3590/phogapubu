@@ -62,7 +62,7 @@ export default function BankAccountSection({ initial }: { initial: BankAccountFi
     <div className="grid gap-6 md:grid-cols-2">
       <form onSubmit={submit} className="space-y-4">
         <Field label="Ngân hàng" htmlFor="bank-bin">
-          <Select id="bank-bin" value={bin} onChange={(e) => setBin(e.target.value)}>
+          <Select id="bank-bin" value={bin} onChange={(e) => { setBin(e.target.value); setSaved(false) }}>
             <option value="">Chọn ngân hàng</option>
             {VIETQR_BANKS.map((b) => (
               <option key={b.bin} value={b.bin}>{b.name}</option>
@@ -75,7 +75,7 @@ export default function BankAccountSection({ initial }: { initial: BankAccountFi
             inputMode="numeric"
             autoComplete="off"
             value={accountNumber}
-            onChange={(e) => setAccountNumber(e.target.value)}
+            onChange={(e) => { setAccountNumber(e.target.value); setSaved(false) }}
           />
         </Field>
         <Field
@@ -87,7 +87,7 @@ export default function BankAccountSection({ initial }: { initial: BankAccountFi
             id="bank-name"
             autoComplete="off"
             value={accountName}
-            onChange={(e) => setAccountName(e.target.value)}
+            onChange={(e) => { setAccountName(e.target.value); setSaved(false) }}
           />
         </Field>
         <div className="flex items-center gap-3">

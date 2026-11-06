@@ -6,7 +6,8 @@
 
 ## Checklist mới tách riêng
 
-- ⏳ [Đợt 1 B1 — Ngày kinh doanh](docs/testing/dot1/B1-ngay-kinh-doanh.md) — chờ test, cần áp mig 111 lên prod trước, nhánh `feat/dot1-ngay-kd`
+- ⏳ [Đợt 1 B1 — Ngày kinh doanh](docs/testing/dot1/B1-ngay-kinh-doanh.md) — chờ test, mig 111 đã áp prod 2026-11-06
+- ⏳ [Đợt 1 — VietQR nền](docs/testing/dot1/vietqr-nen.md) — chờ test
 
 - [Bảo Lương — Ảnh menu còn lại](docs/testing/bao-luong/MENU-IMAGES-REMAINING.md) — đã dừng theo yêu cầu, chờ Test 1 (2026-10-05)
 

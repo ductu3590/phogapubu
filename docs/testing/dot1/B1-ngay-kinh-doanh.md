@@ -4,13 +4,13 @@ Báo cáo A04, Excel và phiếu cuối ngày cắt theo giờ bắt đầu ngà
 
 ## Trước khi test
 
-- **Controller áp mig 111 (`supabase/migrations/111_business_day.sql`) lên prod và deploy Vercel trước.** Chưa áp thì nút lưu ở bài 2 báo lỗi và không có nhãn khoảng giờ.
+- Test ở http://localhost:3000 (dev server trên nhánh phiên, trỏ DB prod). Mig 111 đã áp prod.
 - Test trên **Bia lẩu Bảo Lương**, bắt đầu **sau 05:30 và trước 11:00**: giờ bắt đầu chỉ chọn được tới 12:00, và bài 3 cần một giờ sớm hơn hiện tại mà khác 00:00.
 - **Bài 2 đặt giờ cách hiện tại ít nhất 1 giờ** (đang trước 11:00 thì đặt 12:00). Làm bài 2–7 **liền một mạch, xong trước giờ đã đặt**. Qua giờ đó thì "Hôm nay" nhảy về ngày lịch và bài 5, 6 sẽ FAIL oan.
 - Cần hai tài khoản: chủ quán và thu ngân.
 - **Xong phải đặt lại 00:00 (bài 8).**
 
-Giờ bắt đầu ngày nằm ở ⚙ Cài đặt → Cài đặt chung → khối **Ngày kinh doanh**, ngay trên "Quy trình vận hành".
+Giờ bắt đầu ngày nằm ở ⚙ Cài đặt → Cài đặt chung → khối **Ngày kinh doanh**, ngay trên khối **Tài khoản nhận tiền**.
 
 ## Bài 1. Quán để 00:00
 
@@ -24,7 +24,7 @@ Giờ bắt đầu ngày nằm ở ⚙ Cài đặt → Cài đặt chung → kh�
 
 Ví dụ đang 10:20 thì đặt 12:00. Giờ đặt phải cách hiện tại ít nhất 1 giờ.
 
-1. Chọn giờ, bấm **Lưu giờ bắt đầu ngày**. Không báo lỗi, nút Lưu tắt lại.
+1. Chọn giờ, bấm **Lưu giờ bắt đầu ngày**. Không báo lỗi, nút Lưu tắt lại và cạnh nút hiện chữ **Đã lưu**. Đổi lại lựa chọn khác thì chữ Đã lưu biến mất.
 2. Mở A04: tiêu đề là **ngày hôm trước**, vẫn có nhãn "Hôm nay".
 3. Cạnh tiêu đề có nhãn khoảng giờ, ví dụ `12:00 05/11 – 12:00 06/11`.
 4. Ô chọn ngày **không chọn được** ngày lịch hôm nay.

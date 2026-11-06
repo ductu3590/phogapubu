@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { requirePosOperatorStoreId } from '@/lib/auth/operator'
 import { parseBillsReport, type BillsReport } from '@/lib/bills-report'
 import { businessToday, clampReportDate, normalizeBusinessDayStart } from '@/lib/daily-report'
@@ -13,12 +13,19 @@ export async function loadBillsReport(date: string): Promise<{ ok: true; report:
   return { ok: true, report: parseBillsReport(data) }
 }
 
-// Đọc qua get_public_store_workflow vì thu ngân không gọi được get_store_workflow_settings.
-// Lỗi thì coi như 00:00: giờ này chỉ dùng để chọn ngày mặc định, mốc cắt thật vẫn do server tính.
+// Giờ bắt đầu ngày kinh doanh: quyết định ngày mặc định, kẹp ngày, nhãn "Hôm nay", `max` của ô chọn ngày
+// và giá trị hiện ở Cài đặt (mốc cắt thật của báo cáo do get_bills_report tính ở server).
+// Đọc thẳng bảng bằng service key, KHÔNG qua get_public_store_workflow vì hàm đó lọc is_active = true
+// nên quán chưa bật luôn ra 00:00 trong khi báo cáo cắt theo giờ thật. Hàm này không được gọi từ client
+// (file không có 'use server'); `storeId` phải luôn lấy từ operator đã kiểm quyền ở nơi gọi.
+// Lỗi hoặc thiếu dòng thì coi như 00:00.
 export async function loadBusinessDayStart(storeId: string): Promise<string> {
   try {
-    const supabase = await createClient()
-    const { data, error } = await supabase.rpc('get_public_store_workflow', { p_store_id: storeId })
+    const { data, error } = await createAdminClient()
+      .from('store_workflow_settings')
+      .select('business_day_start')
+      .eq('store_id', storeId)
+      .maybeSingle()
     if (error || !data) return '00:00'
     return normalizeBusinessDayStart((data as { business_day_start?: unknown }).business_day_start)
   } catch {
