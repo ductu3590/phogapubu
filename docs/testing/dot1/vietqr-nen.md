@@ -9,4 +9,5 @@ Test trên Bảo Lương, đăng nhập bằng tài khoản chủ quán. Bài 4 
 | 3 | Xoá trống ô số tài khoản (hai ô kia còn chữ) rồi Lưu. | Báo lỗi tiếng Việt "Cần nhập đủ ngân hàng, số tài khoản và tên chủ tài khoản". Chữ đang gõ ở các ô còn nguyên, không bị xoá. Tài khoản đã lưu trước đó không đổi. |
 | 4 | Quét mã Quét thử bằng **3 app ngân hàng khác nhau**. Chỉ xem, **không chuyển tiền**. | Mỗi app điền sẵn đúng ngân hàng nhận, đúng số tài khoản, số tiền 10.000đ, nội dung `MEVO QUET THU`. App nào không đọc được hoặc điền sai thì ghi lại tên app. |
 | 5 | Đăng nhập tài khoản thu ngân, thử vào Cài đặt. | Không vào được Cài đặt chung (thu ngân chỉ có Bảo mật của mình). |
-| 6 | **Làm cuối cùng nếu quán chưa muốn bật.** Đăng nhập chủ quán, để trống cả ba ô (chọn "Chọn ngân hàng", xoá số và tên) rồi Lưu. | Hiện "Đã lưu". Khối Quét thử và mã QR biến mất, ba ô trống. |
+| 6 | Đăng nhập chủ quán, chỉ sửa riêng ô tên: gõ có dấu (vd `Đỗ Đức Tú`) khi đã lưu `DO DUC TU` (hoặc đổi sang tên khác có dấu), bấm Lưu tài khoản. | Ô tên đổi sang bản chuẩn hoá không dấu, in hoa, khớp với tên ở khối Quét thử. Vẫn hiện "Đã lưu". |
+| 7 | **Làm cuối cùng nếu quán chưa muốn bật.** Đăng nhập chủ quán, để trống cả ba ô (chọn "Chọn ngân hàng", xoá số và tên) rồi Lưu. | Hiện "Đã lưu". Khối Quét thử và mã QR biến mất, ba ô trống. |
