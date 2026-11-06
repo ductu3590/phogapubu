@@ -221,6 +221,25 @@ describe('enqueuePrint', () => {
     ])
   })
 
+  it('ref.request của order/preorder_job lưu bản sạch {kind, id, reprint}, không lưu req thô', async () => {
+    const raw = { kind: 'order', orderId: 'o1', reprint: true, extra: 'x' } as unknown as Parameters<typeof enqueuePrint>[0]
+    await enqueuePrint(raw)
+    const req1 = (mocks.calls.upsert[0].rows[0].ref as { request: object }).request
+    expect(req1).toEqual({ kind: 'order', orderId: 'o1', reprint: true })
+    await enqueuePrint({ kind: 'preorder_job', jobId: 'pj1' })
+    const req2 = (mocks.calls.upsert[1].rows[0].ref as { request: object }).request
+    expect(req2).toEqual({ kind: 'preorder_job', jobId: 'pj1' })
+  })
+
+  it('orderId/jobId không phải chuỗi hoặc rỗng: từ chối, không đọc đơn', async () => {
+    for (const bad of [{ kind: 'order', orderId: 123 }, { kind: 'order', orderId: '' }, { kind: 'preorder_job', jobId: null }]) {
+      const r = await enqueuePrint(bad as unknown as Parameters<typeof enqueuePrint>[0])
+      expect(r.ok).toBe(false)
+    }
+    expect(mocks.loadOrderSlip).not.toHaveBeenCalled()
+    expect(mocks.calls.upsert).toHaveLength(0)
+  })
+
   it('reprint: khoá có hậu tố riêng mỗi lần', async () => {
     await enqueuePrint({ kind: 'order', orderId: 'o1', reprint: true })
     await enqueuePrint({ kind: 'order', orderId: 'o1', reprint: true })

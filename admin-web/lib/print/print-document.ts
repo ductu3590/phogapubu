@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { enqueuePrint } from '@/lib/actions/print-jobs'
 import { printInPlace } from './print-in-place'
-import { AGENT_KINDS, browserPrintUrl, type PrintRequest } from './print-request'
+import { AGENT_KINDS, browserPrintUrl, PRINT_AGENT_MODE_OFF_ERROR, type PrintRequest } from './print-request'
 
 export type { PrintRequest } from './print-request'
 
@@ -38,7 +38,7 @@ async function run(req: PrintRequest): Promise<{ ok: true } | { ok: false; error
     try {
       const res = await enqueuePrint(req)
       // Server nói quán không còn ở chế độ phần mềm in (đổi ở máy khác): bỏ cache để lần sau đọc lại và in bằng trình duyệt
-      if (!res.ok && res.error === 'Quán chưa bật phần mềm in') modeCache = null
+      if (!res.ok && res.error === PRINT_AGENT_MODE_OFF_ERROR) modeCache = null
       return res.ok ? { ok: true } : { ok: false, error: res.error }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : 'Không xếp được phiếu in' }

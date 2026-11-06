@@ -62,11 +62,13 @@ function PrintSettingsBody({ storeId, settings }: { storeId: string; settings: P
   const agentAllowed = canUseAgentMode(settings)
 
   // Chạy một action rồi làm mới dữ liệu máy chủ. Mọi lỗi hiện tại chỗ; không ném.
-  const run = (fn: () => Promise<{ ok: boolean; error?: string }>, okNotice?: string, after?: () => void) =>
+  // always: chạy dù thành công hay lỗi (vd. đóng hộp xác nhận để lỗi không nằm dưới lớp phủ).
+  const run = (fn: () => Promise<{ ok: boolean; error?: string }>, okNotice?: string, after?: () => void, always?: () => void) =>
     start(async () => {
       setError(null)
       setNotice(null)
       const res = await fn()
+      always?.()
       if (!res.ok) { setError(res.error ?? 'Không thực hiện được'); return }
       if (okNotice) setNotice(okNotice)
       after?.()
@@ -162,6 +164,7 @@ function PrintSettingsBody({ storeId, settings }: { storeId: string; settings: P
           run(
             () => (c.kind === 'delete' ? deletePrintStation(c.station.id) : revokePrintAgent(settings.agent!.id)),
             c.kind === 'delete' ? 'Đã xoá trạm' : 'Đã gỡ máy',
+            undefined,
             () => setConfirm(null),
           )
         }}
@@ -215,6 +218,7 @@ function AgentPanel({ storeId, settings, pending, onSaveStation, onTest, onDelet
   // Trạng thái phần mềm: đọc từ TRÌNH DUYỆT mỗi 5 giây (không qua server action — server action xếp chung hàng
   // đợi với điều hướng của Next, xem CLAUDE.md 2026-10-04). Không mở kênh realtime nên không có kênh trùng tên
   // khi trang cài đặt xuất hiện cả trong hộp thoại lẫn trang thường; hai bản thì chỉ poll hai lần, vô hại.
+  const router = useRouter()
   const client = useMemo(() => createClient(), [])
   const [status, setStatus] = useState<PrintStatus | null>(null)
   const inflight = useRef(false)
@@ -238,6 +242,16 @@ function AgentPanel({ storeId, settings, pending, onSaveStation, onTest, onDelet
   }, [client, storeId])
 
   const agent = settings.agent
+
+  // Máy vừa kết nối (online false -> true, thường sau khi ghép): làm mới dữ liệu máy chủ để ô chọn máy in có
+  // danh sách máy in phần mềm báo lên và hiện đúng tên máy.
+  const lastOnline = useRef(agent?.online === true)
+  useEffect(() => {
+    if (!status) return
+    if (status.agent_online && !lastOnline.current) router.refresh()
+    lastOnline.current = status.agent_online
+  }, [status, router])
+
   const online = status ? status.agent_online : agent?.online === true
   const printers = printerNames(agent)
   const [newName, setNewName] = useState('')

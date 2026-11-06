@@ -18,17 +18,15 @@ const cfg = {
 const filters: Array<{ table: string; col: string; val: unknown }> = []
 
 function builder(table: string) {
-  let ordersOne = false
   const b: Record<string, unknown> = {}
   b.select = () => b
   b.eq = (col: string, val: unknown) => { filters.push({ table, col, val }); return b }
   b.maybeSingle = async () => {
-    if (table === 'orders') { ordersOne = true; return cfg.orderOne }
+    if (table === 'orders') return cfg.orderOne
     return table === 'tables' ? cfg.table : cfg.store
   }
   b.single = async () => cfg.store
   b.then = (resolve: (v: R) => void) => {
-    void ordersOne
     resolve(
       table === 'orders' ? cfg.orderMany
         : table === 'order_items' ? cfg.items

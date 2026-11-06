@@ -67,4 +67,17 @@ describe('WorkflowSettingsForm', () => {
     )
     expect(html).not.toContain('Đang dùng phần mềm in')
   })
+
+  it('printMode agent mà initial còn automatic: ô policy hiện pos_confirmation (đồng bộ draft), không để automatic đi vào lúc lưu', () => {
+    const html = renderToStaticMarkup(
+      createElement(WorkflowSettingsForm, {
+        initial: { ...PUBU_PRESET, kitchenReleasePolicy: 'automatic', staffOrderReleasePolicy: 'automatic' },
+        context: 'owner',
+        printMode: 'agent',
+        onSave: vi.fn(async () => undefined),
+      }),
+    )
+    expect(html).not.toMatch(/<option value="automatic" selected/)
+    expect((html.match(/<option value="pos_confirmation" selected/g) ?? []).length).toBeGreaterThanOrEqual(2)
+  })
 })

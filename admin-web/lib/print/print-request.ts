@@ -30,3 +30,6 @@ export const AGENT_KINDS: ReadonlySet<PrintRequest['kind']> = new Set<PrintReque
   'bill',
   'day_report',
 ])
+
+/** Câu server trả khi quán không ở chế độ phần mềm in; client so sánh bằng hằng số này, không chép chuỗi. */
+export const PRINT_AGENT_MODE_OFF_ERROR = 'Quán chưa bật phần mềm in'

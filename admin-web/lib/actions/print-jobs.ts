@@ -6,7 +6,7 @@ import { clampReportDate } from '@/lib/daily-report'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { loadOrderSlip } from '@/lib/print/load-order-slip'
 import { planDocumentJob, planOrderJobs, type PlannedJob } from '@/lib/print/print-plan'
-import { AGENT_KINDS, type PrintRequest } from '@/lib/print/print-request'
+import { AGENT_KINDS, PRINT_AGENT_MODE_OFF_ERROR, type PrintRequest } from '@/lib/print/print-request'
 
 type Result = { ok: true; queued: number } | { ok: false; error: string }
 const fail = (error: string): Result => ({ ok: false, error })
@@ -29,7 +29,7 @@ export async function enqueuePrint(req: PrintRequest): Promise<Result> {
     const supabase = await createClient()
     const { data: mode, error: modeErr } = await supabase.rpc('get_print_mode')
     if (modeErr) return fail(modeErr.message)
-    if (mode !== 'agent') return fail('Quán chưa bật phần mềm in')
+    if (mode !== 'agent') return fail(PRINT_AGENT_MODE_OFF_ERROR)
     if (!AGENT_KINDS.has(req.kind)) return fail('Loại phiếu này chưa in qua phần mềm in được')
 
     const admin = createAdminClient()
@@ -46,8 +46,15 @@ export async function enqueuePrint(req: PrintRequest): Promise<Result> {
 
     let planned: PlannedJob[]
     if (req.kind === 'order' || req.kind === 'preorder_job') {
-      const source = req.kind === 'order' ? { orderId: req.orderId } : { preorderJobId: req.jobId }
-      const sourceKey = req.kind === 'order' ? `order:${req.orderId}` : `preorder:${req.jobId}`
+      // Dựng request sạch {kind, id, reprint} (không lưu req thô từ client) và kiểm kiểu chuỗi
+      const rawId = req.kind === 'order' ? req.orderId : req.jobId
+      if (typeof rawId !== 'string' || rawId.trim() === '') return fail('Thiếu mã phiếu cần in')
+      const cleaned: PrintRequest =
+        req.kind === 'order'
+          ? { kind: 'order', orderId: rawId, ...(req.reprint === true ? { reprint: true } : {}) }
+          : { kind: 'preorder_job', jobId: rawId, ...(req.reprint === true ? { reprint: true } : {}) }
+      const source = req.kind === 'order' ? { orderId: rawId } : { preorderJobId: rawId }
+      const sourceKey = req.kind === 'order' ? `order:${rawId}` : `preorder:${rawId}`
       // Đọc đơn bằng phiên đăng nhập (RLS + auth.uid() cho get_reservation_preorder_print_job), lọc storeId
       const loaded = await loadOrderSlip(supabase, storeId, source)
       if (!loaded.ok) return fail(loaded.error)
@@ -79,14 +86,14 @@ export async function enqueuePrint(req: PrintRequest): Promise<Result> {
       }
 
       planned = planOrderJobs({
-        request: req,
+        request: cleaned,
         sourceKey,
         items: slip.items.map((i) => ({ key: i.key, stationId: i.menuItemId ? stationOfItem.get(i.menuItemId) ?? null : null })),
         posStationId: pos.id,
         defaultKitchenStationId: kitchen.id,
         stationNames,
         tableLabel: slip.tableLabel,
-        reprintToken: req.reprint ? crypto.randomUUID() : null,
+        reprintToken: cleaned.reprint ? crypto.randomUUID() : null,
       })
       if (planned.length === 0) return fail('Đơn không còn món để in')
     } else if (req.kind === 'bill') {

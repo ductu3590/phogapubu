@@ -32,6 +32,14 @@ function cloneSettings(value: StoreWorkflowSettings): StoreWorkflowSettings {
   }
 }
 
+// Đang dùng phần mềm in thì hai ô policy PHẢI là pos_confirmation (trigger DB từ chối 'automatic', action lưu ném lỗi
+// mà Next production giấu nội dung). Ép ở mọi đường: giá trị khởi tạo, khi mode đổi sang agent, và lúc gửi đi.
+function lockPoliciesForPrintMode(value: StoreWorkflowSettings, printMode?: 'browser' | 'agent'): StoreWorkflowSettings {
+  return printMode === 'agent'
+    ? { ...value, kitchenReleasePolicy: 'pos_confirmation', staffOrderReleasePolicy: 'pos_confirmation' }
+    : value
+}
+
 function snapshotForSave(value: StoreWorkflowSettings): StoreWorkflowSettings {
   const settings = { ...normalizeWorkflowSettings(value) }
   delete (settings as Partial<typeof settings>).effectiveReservationPreorderEnabled
@@ -40,12 +48,18 @@ function snapshotForSave(value: StoreWorkflowSettings): StoreWorkflowSettings {
 
 export default function WorkflowSettingsForm({ initial, context, printMode, onSave }: Props) {
   const [baseline, setBaseline] = useState(() => cloneSettings(initial))
-  const [draft, setDraft] = useState(() => cloneSettings(initial))
+  const [draft, setDraft] = useState(() => lockPoliciesForPrintMode(cloneSettings(initial), printMode))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
-  const valueToSave = useMemo(() => snapshotForSave(draft), [draft])
+  const valueToSave = useMemo(() => lockPoliciesForPrintMode(snapshotForSave(draft), printMode), [draft, printMode])
+
+  // Chủ quán vừa bật "Nhiều nơi" (printMode đổi sau router.refresh) khi draft còn policy 'automatic' chưa lưu:
+  // đồng bộ draft để ô hiển thị đúng giá trị sẽ được gửi đi.
+  useEffect(() => {
+    if (printMode === 'agent') setDraft((current) => lockPoliciesForPrintMode(current, printMode))
+  }, [printMode])
   const changes = useMemo(
     () => getWorkflowSettingsChanges(baseline, valueToSave),
     [baseline, valueToSave],
@@ -77,9 +91,8 @@ export default function WorkflowSettingsForm({ initial, context, printMode, onSa
   const applyPreset = (key: 'pubu' | 'bao_luong') => {
     const label = key === 'pubu' ? 'Trả trước như Pubu' : 'POS kiểm soát như Bảo Lương'
     if (!window.confirm(`Điền nhanh cấu hình “${label}”? Bạn vẫn cần bấm Lưu để áp dụng.`)) return
-    const next = applyWorkflowPreset(key)
     // Đang dùng phần mềm in thì preset không được đưa policy về 'automatic' (DB sẽ từ chối khi lưu)
-    setDraft(printMode === 'agent' ? { ...next, kitchenReleasePolicy: 'pos_confirmation', staffOrderReleasePolicy: 'pos_confirmation' } : next)
+    setDraft(lockPoliciesForPrintMode(applyWorkflowPreset(key), printMode))
     setError('')
     setSaved(false)
   }
