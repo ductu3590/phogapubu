@@ -327,6 +327,7 @@ DECLARE
   a print_agents%ROWTYPE;
   j print_jobs%ROWTYPE;
   v_printer text;
+  v_station uuid;
   v_render text;
   v_attempts integer;
 BEGIN
@@ -362,10 +363,23 @@ BEGIN
       RETURN jsonb_build_object('ok', true, 'job', NULL);
     END IF;
 
+    -- Trạm đã bị xoá (FK đặt station_id về NULL) thì tra trạm thay thế của ĐÚNG quán:
+    -- phiếu bếp về trạm bếp mặc định, loại khác về Quầy; rồi ghi lại station_id cho job.
+    v_station := j.station_id;
+    IF v_station IS NULL THEN
+      SELECT id INTO v_station FROM print_stations
+       WHERE store_id = j.store_id
+         AND CASE WHEN j.kind = 'kitchen_ticket' THEN is_default_kitchen ELSE is_pos END
+       LIMIT 1;
+      IF v_station IS NOT NULL THEN
+        UPDATE print_jobs SET station_id = v_station WHERE id = j.id;
+      END IF;
+    END IF;
+
     v_printer := NULL;
-    IF j.station_id IS NOT NULL THEN
+    IF v_station IS NOT NULL THEN
       SELECT printer_name INTO v_printer FROM print_stations
-       WHERE id = j.station_id AND store_id = j.store_id;
+       WHERE id = v_station AND store_id = j.store_id;
     END IF;
 
     IF v_printer IS NULL OR btrim(v_printer) = '' THEN
@@ -502,6 +516,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   j print_jobs%ROWTYPE;
   v_new uuid;
+  v_station uuid;
 BEGIN
   SELECT * INTO j FROM print_jobs WHERE id = p_job_id FOR UPDATE;
   IF NOT FOUND OR NOT is_store_pos_operator(j.store_id) THEN
@@ -514,8 +529,17 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'Phiếu này chưa lỗi, không cần in lại');
   END IF;
 
+  -- Job mất trạm (trạm đã xoá) thì chép trạm thay thế, không chép NULL (sẽ lặp lỗi mãi)
+  v_station := j.station_id;
+  IF v_station IS NULL THEN
+    SELECT id INTO v_station FROM print_stations
+     WHERE store_id = j.store_id
+       AND CASE WHEN j.kind = 'kitchen_ticket' THEN is_default_kitchen ELSE is_pos END
+     LIMIT 1;
+  END IF;
+
   INSERT INTO print_jobs (store_id, station_id, kind, ref, dedupe_key, created_by)
-  VALUES (j.store_id, j.station_id, j.kind, j.ref, j.dedupe_key || ':r' || gen_random_uuid()::text, auth.uid())
+  VALUES (j.store_id, v_station, j.kind, j.ref, j.dedupe_key || ':r' || gen_random_uuid()::text, auth.uid())
   RETURNING id INTO v_new;
 
   UPDATE print_jobs SET resolved_at = now(), resolved_by = auth.uid() WHERE id = j.id;
@@ -534,8 +558,12 @@ BEGIN
   IF v_store IS NULL OR NOT is_store_pos_operator(v_store) THEN
     RAISE EXCEPTION 'Không có quyền';
   END IF;
+  -- Chỉ phiếu lỗi mới bỏ qua được (như retry_print_job); phiếu đang chờ/đang in không bị ẩn
   UPDATE print_jobs SET resolved_at = now(), resolved_by = auth.uid()
-   WHERE id = p_job_id AND resolved_at IS NULL;
+   WHERE id = p_job_id AND resolved_at IS NULL AND status IN ('failed', 'expired');
+  IF NOT FOUND AND EXISTS (SELECT 1 FROM print_jobs WHERE id = p_job_id AND status NOT IN ('failed', 'expired')) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'Phiếu này chưa lỗi, không cần bỏ qua');
+  END IF;
   RETURN jsonb_build_object('ok', true);
 END $$;
 REVOKE ALL ON FUNCTION dismiss_print_job(uuid) FROM PUBLIC, anon, authenticated;
