@@ -1,8 +1,7 @@
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { ROLE_LABEL } from '@/lib/auth/roles'
-import { loadBillsReport } from '@/lib/actions/bills-report'
-import { clampReportDate } from '@/lib/daily-report'
-import { daySummary } from '@/lib/bills-report'
+import { loadBillsReport, resolveReportDay } from '@/lib/actions/bills-report'
+import { businessDayRangeLabel, daySummary } from '@/lib/bills-report'
 import { createClient } from '@/lib/supabase/server'
 import DayReportSlip from './day-report-slip'
 
@@ -13,7 +12,7 @@ export default async function PrintDayReportPage({ searchParams }: { searchParam
   const operator = await requireAdminPageOrRedirect('pos')
   const now = new Date()
   const { date: rawDate } = await searchParams
-  const date = clampReportDate(rawDate, now)
+  const { date } = await resolveReportDay(rawDate, now)
 
   const supabase = await createClient()
   const [res, { data: store }, { data: auth }] = await Promise.all([
@@ -28,6 +27,7 @@ export default async function PrintDayReportPage({ searchParams }: { searchParam
     <DayReportSlip
       storeName={(store?.name as string | null) ?? ''}
       date={date}
+      rangeLabel={businessDayRangeLabel(res.report)}
       printedAt={now.toISOString()}
       printedBy={`${meta.full_name?.trim() || auth.user?.email || 'Không rõ'} · ${ROLE_LABEL[operator.role]}`}
       totals={res.report.totals}

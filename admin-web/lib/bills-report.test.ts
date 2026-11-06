@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   billCode,
   buildBillRows,
+  businessDayRangeLabel,
   chipCounts,
   filterBillRows,
   normalizeSearch,
@@ -59,6 +60,25 @@ const raw = {
 const report: BillsReport = parseBillsReport(raw)
 const rows = buildBillRows(report)
 
+describe('businessDayRangeLabel', () => {
+  it('quán 05:00: hiện khoảng giờ theo giờ VN', () => {
+    expect(businessDayRangeLabel({ dayFrom: '2026-10-31T22:00:00+00:00', dayTo: '2026-11-01T22:00:00+00:00' }))
+      .toBe('05:00 01/11 – 05:00 02/11')
+  })
+  it('qua tháng, giờ lẻ 30 phút', () => {
+    expect(businessDayRangeLabel({ dayFrom: '2026-11-29T22:30:00+00:00', dayTo: '2026-11-30T22:30:00+00:00' }))
+      .toBe('05:30 30/11 – 05:30 01/12')
+  })
+  it('quán 00:00: không hiện, kể cả khi server trả múi giờ khác', () => {
+    expect(businessDayRangeLabel({ dayFrom: '2026-10-31T17:00:00+00:00', dayTo: '2026-11-01T17:00:00+00:00' })).toBeNull()
+    expect(businessDayRangeLabel({ dayFrom: '2026-11-01T00:00:00+07:00', dayTo: '2026-11-02T00:00:00+07:00' })).toBeNull()
+  })
+  it('rỗng hoặc hỏng (server chưa áp mig): không hiện', () => {
+    expect(businessDayRangeLabel({ dayFrom: '', dayTo: '' })).toBeNull()
+    expect(businessDayRangeLabel({ dayFrom: 'abc', dayTo: 'xyz' })).toBeNull()
+  })
+})
+
 describe('parseBillsReport (A04-1)', () => {
   it('đổi tên trường + giữ số liệu server, không tự cộng trừ', () => {
     expect(report.totals).toEqual({ revenue: 300000, cash: 200000, bank: 100000, other: 0, billsCount: 2 })
@@ -69,6 +89,14 @@ describe('parseBillsReport (A04-1)', () => {
     expect(report.waiting[0].expired).toBe(true)
     expect(report.cancelled[0].kind).toBe('rejected')
     expect(report.adjustments[0]).toMatchObject({ type: 'quantity', oldQuantity: 6, newQuantity: 4, amount: -24000 })
+  })
+
+  it('đọc mốc cắt day_from, day_to; server chưa áp mig 111 thì rỗng', () => {
+    const r = parseBillsReport({ day_from: '2026-10-31T22:00:00+00:00', day_to: '2026-11-01T22:00:00+00:00' })
+    expect(r.dayFrom).toBe('2026-10-31T22:00:00+00:00')
+    expect(r.dayTo).toBe('2026-11-01T22:00:00+00:00')
+    expect(report.dayFrom).toBe('')
+    expect(report.dayTo).toBe('')
   })
 
   it('dữ liệu hỏng / thiếu → giá trị an toàn, không ném lỗi', () => {

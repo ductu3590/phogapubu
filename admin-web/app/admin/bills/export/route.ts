@@ -1,8 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { requireOperator } from '@/lib/auth/operator'
 import { isPosRole, ROLE_LABEL } from '@/lib/auth/roles'
-import { loadBillsReport } from '@/lib/actions/bills-report'
-import { clampReportDate } from '@/lib/daily-report'
+import { loadBillsReport, resolveReportDay } from '@/lib/actions/bills-report'
 import { buildBillsWorkbook, billsWorkbookFileName } from '@/lib/bills-report-xlsx'
 import { createClient } from '@/lib/supabase/server'
 
@@ -19,7 +18,7 @@ export async function GET(request: NextRequest) {
   if (!isPosRole(operator.role) || !operator.storeId) return new Response('Không có quyền', { status: 403 })
 
   const now = new Date()
-  const date = clampReportDate(request.nextUrl.searchParams.get('date') ?? undefined, now)
+  const { date } = await resolveReportDay(request.nextUrl.searchParams.get('date') ?? undefined, now)
   const res = await loadBillsReport(date)
   if (!res.ok) return new Response(`Không tải được báo cáo: ${res.error}`, { status: 500 })
 

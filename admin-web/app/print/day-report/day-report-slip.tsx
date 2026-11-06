@@ -9,6 +9,7 @@ const vnDate = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.sl
 export type DayReportSlipProps = {
   storeName: string
   date: string
+  rangeLabel?: string | null
   printedAt: string
   printedBy: string
   totals: { revenue: number; cash: number; bank: number; other: number; billsCount: number }
@@ -25,8 +26,8 @@ function Row({ name, value, strong = false }: { name: string; value: string; str
 }
 
 // Phiếu báo cáo cuối ngày 80mm (A04-3) — phiếu NỘI BỘ để đối chiếu két / bàn giao, không quảng cáo MEVO.
-// Số tiền lấy nguyên từ RPC get_bills_report (qua props), không tính lại. Theo NGÀY (chưa có ca làm việc).
-export default function DayReportSlip({ storeName, date, printedAt, printedBy, totals, summary: s }: DayReportSlipProps) {
+// Số tiền lấy nguyên từ RPC get_bills_report (qua props), không tính lại. Theo NGÀY KINH DOANH (chưa có ca làm việc).
+export default function DayReportSlip({ storeName, date, rangeLabel, printedAt, printedBy, totals, summary: s }: DayReportSlipProps) {
   useAutoPrint()
   return (
     <>
@@ -56,6 +57,7 @@ export default function DayReportSlip({ storeName, date, printedAt, printedBy, t
           <div style={{ fontSize: 15, fontWeight: 700 }}>{storeName}</div>
           <div style={{ fontWeight: 700, marginTop: 2 }}>BÁO CÁO CUỐI NGÀY</div>
           <div>Ngày {vnDate(date)}</div>
+          {rangeLabel && <div>{rangeLabel}</div>}
         </div>
         <hr />
         <Row name="In lúc" value={vnDateTimeLabel(new Date(printedAt))} />

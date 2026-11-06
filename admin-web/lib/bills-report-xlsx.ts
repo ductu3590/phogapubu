@@ -2,7 +2,7 @@
 // Tiền là SỐ (định dạng #,##0) để chủ quán cộng/lọc tiếp trong Excel — không ghi thành chữ "1.281.000đ".
 import ExcelJS from 'exceljs'
 import { instrumentLabel } from '@/lib/daily-report'
-import { buildBillRows, daySummary, normalizeSearch, startedLabel, vnDateTimeLabel, type BillRow, type BillsReport } from '@/lib/bills-report'
+import { buildBillRows, businessDayRangeLabel, daySummary, normalizeSearch, startedLabel, vnDateTimeLabel, type BillRow, type BillsReport } from '@/lib/bills-report'
 
 const MONEY = '#,##0'
 
@@ -33,6 +33,8 @@ export function buildBillsWorkbook(report: BillsReport, meta: BillsWorkbookMeta)
   sum.addRow(['BÁO CÁO NGÀY']).font = { bold: true, size: 14 }
   line('Quán', meta.storeName)
   line('Ngày', vnDate(meta.date))
+  const range = businessDayRangeLabel(report)
+  if (range) line('Khoảng giờ', range)
   line('Xuất lúc', vnDateTimeLabel(meta.exportedAt))
   line('Người xuất', meta.exportedBy)
   sum.addRow([])

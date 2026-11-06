@@ -25,6 +25,13 @@ describe('Phiếu báo cáo cuối ngày 80mm (A04-3)', () => {
     expect(html).toContain('baoluong@mevo.vn · Chủ quán')
   })
 
+  it('có rangeLabel thì hiện khoảng giờ của ngày kinh doanh, null thì không', () => {
+    const label = '05:00 01/11 – 05:00 02/11'
+    expect(renderToStaticMarkup(<DayReportSlip {...base} rangeLabel={label} />)).toContain(label)
+    expect(renderToStaticMarkup(<DayReportSlip {...base} rangeLabel={null} />)).not.toContain('05:00')
+    expect(renderToStaticMarkup(<DayReportSlip {...base} />)).not.toContain('05:00')
+  })
+
   it('tiền mặt / chuyển khoản / tổng thực thu + số hoá đơn; ẩn dòng ví khi 0đ', () => {
     const html = renderToStaticMarkup(<DayReportSlip {...base} />)
     expect(html).toContain('992.000')

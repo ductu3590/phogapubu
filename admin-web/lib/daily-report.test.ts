@@ -1,29 +1,67 @@
 import { describe, expect, it } from 'vitest'
-import { clampReportDate, instrumentLabel, isViewingToday, vnToday } from './daily-report'
+import {
+  BUSINESS_DAY_START_OPTIONS,
+  businessToday,
+  clampReportDate,
+  instrumentLabel,
+  normalizeBusinessDayStart,
+} from './daily-report'
 
-// 2026-10-07 23:30 giờ VN = 16:30 UTC
-const lateNight = new Date('2026-10-07T16:30:00Z')
-// 2026-10-08 00:30 giờ VN = 2026-10-07 17:30 UTC
-const afterMidnight = new Date('2026-10-07T17:30:00Z')
+describe('businessToday', () => {
+  it('05:00: 04:59:59 VN còn ngày cũ, 05:00:00 sang ngày mới', () => {
+    expect(businessToday('05:00', new Date('2026-11-01T21:59:59Z'))).toBe('2026-11-01')
+    expect(businessToday('05:00', new Date('2026-11-01T22:00:00Z'))).toBe('2026-11-02')
+  })
+  it('01:00 sáng vẫn là hôm trước', () => {
+    expect(businessToday('05:00', new Date('2026-11-01T18:00:00Z'))).toBe('2026-11-01')
+  })
+  it('00:00 giống ngày lịch giờ VN', () => {
+    expect(businessToday('00:00', new Date('2026-10-07T16:30:00Z'))).toBe('2026-10-07')
+    expect(businessToday('00:00', new Date('2026-10-07T17:30:00Z'))).toBe('2026-10-08')
+  })
+  it('qua tháng, qua năm', () => {
+    expect(businessToday('05:00', new Date('2026-11-30T21:00:00Z'))).toBe('2026-11-30')
+    expect(businessToday('05:00', new Date('2026-12-31T21:00:00Z'))).toBe('2026-12-31')
+  })
+  it('12:00 và dạng HH:MM:SS', () => {
+    expect(businessToday('12:00', new Date('2026-11-02T04:59:00Z'))).toBe('2026-11-01')
+    expect(businessToday('05:00:00', new Date('2026-11-01T22:00:00Z'))).toBe('2026-11-02')
+  })
+  it('giờ lẻ 30 phút, giờ sai coi như 00:00', () => {
+    expect(businessToday('05:30', new Date('2026-11-01T22:29:59Z'))).toBe('2026-11-01')
+    expect(businessToday('05:30', new Date('2026-11-01T22:30:00Z'))).toBe('2026-11-02')
+    expect(businessToday('abc', new Date('2026-10-07T17:30:00Z'))).toBe('2026-10-08')
+  })
+})
 
-describe('ngày báo cáo theo giờ Việt Nam', () => {
-  it('hôm nay tính theo VN, không theo UTC', () => {
-    expect(vnToday(lateNight)).toBe('2026-10-07')
-    expect(vnToday(afterMidnight)).toBe('2026-10-08')
+describe('normalizeBusinessDayStart', () => {
+  it('nhận HH:MM và HH:MM:SS', () => {
+    expect(normalizeBusinessDayStart('05:30')).toBe('05:30')
+    expect(normalizeBusinessDayStart('05:30:00')).toBe('05:30')
   })
-  it('rỗng / sai định dạng / ngày tương lai → hôm nay', () => {
-    expect(clampReportDate(undefined, lateNight)).toBe('2026-10-07')
-    expect(clampReportDate('abc', lateNight)).toBe('2026-10-07')
-    expect(clampReportDate('2026-13-40', lateNight)).toBe('2026-10-07')
-    expect(clampReportDate('2026-10-09', lateNight)).toBe('2026-10-07')
+  it('giờ sai coi như 00:00', () => {
+    expect(normalizeBusinessDayStart('abc')).toBe('00:00')
+    expect(normalizeBusinessDayStart('25:00')).toBe('00:00')
+    expect(normalizeBusinessDayStart('5:00')).toBe('00:00')
+    expect(normalizeBusinessDayStart(null)).toBe('00:00')
+    expect(normalizeBusinessDayStart(undefined)).toBe('00:00')
+    expect(normalizeBusinessDayStart(500)).toBe('00:00')
   })
-  it('ngày cũ hợp lệ giữ nguyên', () => {
-    expect(clampReportDate('2026-09-30', lateNight)).toBe('2026-09-30')
-  })
-  it('thẻ "Đang mở" chỉ khi xem hôm nay', () => {
-    expect(isViewingToday('2026-10-07', lateNight)).toBe(true)
-    expect(isViewingToday('2026-10-06', lateNight)).toBe(false)
-  })
+})
+
+it('25 lựa chọn, bước 30 phút', () => {
+  expect(BUSINESS_DAY_START_OPTIONS).toHaveLength(25)
+  expect(BUSINESS_DAY_START_OPTIONS[0]).toBe('00:00')
+  expect(BUSINESS_DAY_START_OPTIONS[1]).toBe('00:30')
+  expect(BUSINESS_DAY_START_OPTIONS.at(-1)).toBe('12:00')
+})
+
+it('clampReportDate: rỗng, sai, tương lai về today; ngày cũ giữ nguyên', () => {
+  expect(clampReportDate(undefined, '2026-11-01')).toBe('2026-11-01')
+  expect(clampReportDate('abc', '2026-11-01')).toBe('2026-11-01')
+  expect(clampReportDate('2026-13-40', '2026-11-01')).toBe('2026-11-01')
+  expect(clampReportDate('2026-11-02', '2026-11-01')).toBe('2026-11-01')
+  expect(clampReportDate('2026-10-30', '2026-11-01')).toBe('2026-10-30')
 })
 
 describe('nhãn phương thức', () => {

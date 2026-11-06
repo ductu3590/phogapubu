@@ -56,6 +56,20 @@ describe('Excel báo cáo ngày (A04-3)', () => {
     expect(find('Xuất lúc').value).toBe('09/10/2026 22:00')
   })
 
+  it('Tổng hợp: quán có giờ bắt đầu ngày thì thêm dòng Khoảng giờ ngay sau Ngày, quán 00:00 thì không', () => {
+    const labels = (r: typeof report) => {
+      const ws = buildBillsWorkbook(r, meta).getWorksheet('Tổng hợp')!
+      const out: unknown[][] = []
+      ws.eachRow((row) => out.push([row.getCell(1).value, row.getCell(2).value]))
+      return out
+    }
+    const shifted = { ...report, dayFrom: '2026-10-08T22:00:00+00:00', dayTo: '2026-10-09T22:00:00+00:00' }
+    const rows = labels(shifted)
+    const i = rows.findIndex((x) => x[0] === 'Ngày')
+    expect(rows[i + 1]).toEqual(['Khoảng giờ', '05:00 09/10 – 05:00 10/10'])
+    expect(labels(report).some((x) => x[0] === 'Khoảng giờ')).toBe(false)
+  })
+
   it('Hoá đơn: tiêu đề + mỗi dòng bảng một hàng, giờ theo VN, lý do huỷ', async () => {
     const ws = (await roundTrip()).getWorksheet('Hoá đơn')!
     expect(ws.getRow(1).getCell(1).value).toBe('Mã')

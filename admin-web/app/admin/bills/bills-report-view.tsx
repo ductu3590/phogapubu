@@ -9,6 +9,7 @@ import { formatVND, cn } from '@/lib/utils'
 import { instrumentLabel } from '@/lib/daily-report'
 import {
   buildBillRows,
+  businessDayRangeLabel,
   chipCounts,
   filterBillRows,
   paginate,
@@ -62,16 +63,19 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
   // Giữ theo KEY (không giữ object): sau router.refresh dòng được dựng lại, ngăn kéo vẫn bám đúng dòng.
   const openRow = openKey ? rows.find((r) => r.key === openKey) ?? null : null
 
+  const rangeLabel = businessDayRangeLabel(report)
+
   const pickChip = (id: BillChip) => { setChip(id); setPage(1) }
 
   return (
     <div className="@container space-y-5">
-      {/* Đầu trang: ngày đang xem + người đăng nhập. Chưa có "ca" — báo cáo theo NGÀY (spec §2). */}
+      {/* Đầu trang: ngày đang xem + người đăng nhập. Chưa có "ca" — báo cáo theo NGÀY KINH DOANH, quán có giờ bắt đầu ngày thì hiện thêm khoảng giờ. */}
       <div className="flex flex-col gap-3 @2xl:flex-row @2xl:items-start @2xl:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold text-foreground md:text-2xl">Hoá đơn &amp; Báo cáo</h1>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
             <span className="font-medium text-foreground first-letter:uppercase">{dateTitle}</span>
+            {rangeLabel && <span>{rangeLabel}</span>}
             {today && <Badge tone="success" withDot>Hôm nay</Badge>}
           </p>
           <p className="mt-1 text-[13px] text-muted">Đang xem: <strong className="font-medium text-foreground">{viewer}</strong></p>

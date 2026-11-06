@@ -1,14 +1,13 @@
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { ROLE_LABEL } from '@/lib/auth/roles'
-import { loadBillsReport } from '@/lib/actions/bills-report'
-import { clampReportDate, isViewingToday, vnToday } from '@/lib/daily-report'
+import { loadBillsReport, resolveReportDay } from '@/lib/actions/bills-report'
 import { createClient } from '@/lib/supabase/server'
 import { ErrorState } from '@/components/ui/feedback'
 import BillsReportView from './bills-report-view'
 import OrdersRealtime from './orders-realtime'
 
 // "Hoá đơn & Báo cáo" (bản Stitch A04) — thay 2 trang Đơn hàng + Báo cáo ngày (xoá ở A04-4, 2026-10-13).
-// Mọi con số lấy nguyên từ RPC get_bills_report; trang này chỉ hiển thị. Theo NGÀY giờ VN (ca làm việc: để sau).
+// Mọi con số lấy nguyên từ RPC get_bills_report; trang này chỉ hiển thị. Theo NGÀY KINH DOANH của quán (ca làm việc: để sau).
 // Dùng chung cho trang đầy đủ (page.tsx) và bản hộp thoại đè lên POS (@modal/(.)bills): `inModal` quyết định cách
 // đổi ngày — xem ReportDatePicker.
 export default async function BillsScreen({ searchParams, inModal }: { searchParams: Promise<{ date?: string }>; inModal: boolean }) {
@@ -16,8 +15,7 @@ export default async function BillsScreen({ searchParams, inModal }: { searchPar
 
   const now = new Date()
   const { date: rawDate } = await searchParams
-  const date = clampReportDate(rawDate, now)
-  const today = isViewingToday(date, now)
+  const { date, today: todayDate, isToday } = await resolveReportDay(rawDate, now)
 
   const supabase = await createClient()
   // Như trang Đơn hàng cũ: lazy-quét huỷ đơn khách tự đặt online bỏ dở > 30'. RPC chỉ cho chủ quán; lỗi không chặn trang.
@@ -41,8 +39,8 @@ export default async function BillsScreen({ searchParams, inModal }: { searchPar
           <BillsReportView
             report={res.report}
             date={date}
-            maxDate={vnToday(now)}
-            today={today}
+            maxDate={todayDate}
+            today={isToday}
             dateTitle={title}
             viewer={viewer}
             updatedAt={now.toISOString()}

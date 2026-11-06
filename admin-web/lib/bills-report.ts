@@ -33,6 +33,9 @@ export type BillsReportAdjustment = {
 
 export type BillsReport = {
   date: string
+  /** Mig 111: mốc cắt của ngày kinh doanh. Rỗng khi server chưa áp mig. */
+  dayFrom: string
+  dayTo: string
   totals: { revenue: number; cash: number; bank: number; other: number; billsCount: number }
   open: { tablesCount: number; provisionalTotal: number }
   bills: BillsReportBill[]
@@ -61,6 +64,8 @@ export function parseBillsReport(raw: unknown): BillsReport {
   const o = obj(r.open)
   return {
     date: str(r.date),
+    dayFrom: str(r.day_from),
+    dayTo: str(r.day_to),
     totals: { revenue: num(t.revenue), cash: num(t.cash), bank: num(t.bank), other: num(t.other), billsCount: num(t.bills_count) },
     open: { tablesCount: num(o.tables_count), provisionalTotal: num(o.provisional_total) },
     bills: arr(r.bills).map((b0) => {
@@ -224,6 +229,8 @@ export function paginate<T>(items: T[], page: number, size = BILLS_PAGE_SIZE) {
 
 const VN_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' })
 const VN_TIME = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false })
+const VN_OFFSET_MS = 7 * 3_600_000
+const DAY_MS = 86_400_000
 
 /** Giờ khách vào: chỉ HH:MM nếu cùng ngày đang xem (giờ VN), khác ngày thì "dd/mm HH:MM" — bill vào hôm trước, thu hôm nay. */
 export function startedLabel(iso: string, reportDate: string): string {
@@ -233,6 +240,20 @@ export function startedLabel(iso: string, reportDate: string): string {
   const hm = VN_TIME.format(d)
   const ymd = VN_DATE.format(d)
   return ymd === reportDate ? hm : `${ymd.slice(8, 10)}/${ymd.slice(5, 7)} ${hm}`
+}
+
+/** "05:00 01/11 – 05:00 02/11" cho quán có giờ bắt đầu ngày; null ở quán 00:00 (ngày lịch, không cần giải thích) hoặc khi server chưa áp mig 111. */
+export function businessDayRangeLabel(report: Pick<BillsReport, 'dayFrom' | 'dayTo'>): string | null {
+  const from = new Date(report.dayFrom)
+  const to = new Date(report.dayTo)
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return null
+  const isVnMidnight = (from.getTime() + VN_OFFSET_MS) % DAY_MS === 0
+  if (isVnMidnight) return null
+  const at = (d: Date) => {
+    const ymd = VN_DATE.format(d)
+    return `${VN_TIME.format(d)} ${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`
+  }
+  return `${at(from)} – ${at(to)}`
 }
 
 export type DaySummary = {
