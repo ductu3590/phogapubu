@@ -20,6 +20,21 @@ export default function BankAccountSection({ initial }: { initial: BankAccountFi
   const [saved, setSaved] = useState(false)
   const [pending, start] = useTransition()
 
+  // Đồng bộ ba ô từ bản đã lưu khi prop `initial` đổi (sau router.refresh()), bằng cách so prop cũ
+  // ngay trong lúc render: không remount nên không mất "Đã lưu". Lưu lỗi thì `initial` không đổi
+  // nên chữ đang gõ không bị đè.
+  const [prev, setPrev] = useState(initial)
+  if (
+    prev.bank_bin !== initial.bank_bin ||
+    prev.bank_account_number !== initial.bank_account_number ||
+    prev.bank_account_name !== initial.bank_account_name
+  ) {
+    setPrev(initial)
+    setBin(initial.bank_bin ?? '')
+    setAccountNumber(initial.bank_account_number ?? '')
+    setAccountName(initial.bank_account_name ?? '')
+  }
+
   // onSubmit + preventDefault (không dùng action): React 19 tự reset form sau action, mất chữ đang gõ khi báo lỗi.
   const submit = (e: FormEvent) => {
     e.preventDefault()

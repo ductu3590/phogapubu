@@ -80,9 +80,8 @@ export default async function SettingsPage() {
             <p className="mb-4 text-sm text-muted">
               Khai báo để hiện mã VietQR ở màn Thanh toán và trên tờ tạm tính.
             </p>
-            {/* key theo dữ liệu đã lưu để sau router.refresh() form nhận giá trị mới */}
+            {/* Không đặt key: section tự đồng bộ ba ô khi `initial` đổi, để giữ trạng thái "Đã lưu" */}
             <BankAccountSection
-              key={`${store?.bank_bin ?? ''}:${store?.bank_account_number ?? ''}`}
               initial={{
                 bank_bin: (store?.bank_bin as string | null) ?? null,
                 bank_account_number: (store?.bank_account_number as string | null) ?? null,
