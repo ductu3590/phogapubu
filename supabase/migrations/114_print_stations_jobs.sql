@@ -261,4 +261,282 @@ END $$;
 REVOKE ALL ON FUNCTION revoke_print_agent(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION revoke_print_agent(uuid) TO authenticated;
 
+-- ===== 7. RPC của phần mềm in (gọi bằng khoá công khai + token thiết bị) =====
+-- Hash dùng chung: encode(sha256(convert_to(x,'UTF8')),'hex') — có sẵn, không cần pgcrypto.
+
+-- Hết hạn kiểu lười (prod không có pg_cron): gọi ở đầu poll và get_print_status. Nội bộ, không GRANT ai.
+--  * queued quá 30 phút        -> expired (không in muộn một phiếu đã lỗi thời)
+--  * printing quá 2 phút       -> failed, KHÔNG về queued: phần mềm có thể đã in rồi mà chưa kịp báo,
+--                                 tự in lại sẽ ra hai phiếu; để người bấm "In lại" quyết định.
+CREATE OR REPLACE FUNCTION expire_print_jobs(p_store_id uuid) RETURNS void
+LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  UPDATE print_jobs SET status = 'expired'
+   WHERE store_id = p_store_id AND status = 'queued' AND created_at < now() - interval '30 minutes';
+  UPDATE print_jobs SET status = 'failed',
+         error = 'Không rõ đã in chưa, kiểm tra máy in rồi bấm In lại'
+   WHERE store_id = p_store_id AND status = 'printing' AND claimed_at < now() - interval '2 minutes';
+$$;
+REVOKE ALL ON FUNCTION expire_print_jobs(uuid) FROM PUBLIC, anon, authenticated;
+
+-- Ghép máy: lỗi trả {ok:false}, KHÔNG RAISE (RAISE sẽ huỷ luôn bộ đếm sai mã).
+-- Sai mã thì cộng bộ đếm cho MỌI mã đang sống của mọi quán (lần đoán sai không biết nhắm mã nào);
+-- mã nào chạm 20 thì huỷ → không dò nổi 1 triệu tổ hợp bằng khoá công khai.
+CREATE OR REPLACE FUNCTION print_agent_pair(p_code text, p_name text, p_version text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_hash text;
+  a print_agents%ROWTYPE;
+  v_token text;
+  v_store_name text;
+BEGIN
+  v_hash := encode(sha256(convert_to(btrim(COALESCE(p_code, '')), 'UTF8')), 'hex');
+
+  SELECT * INTO a FROM print_agents
+   WHERE pair_code_hash = v_hash AND pair_expires_at > now() AND token_hash IS NULL
+   FOR UPDATE;
+
+  IF NOT FOUND THEN
+    UPDATE print_agents SET pair_fail_count = pair_fail_count + 1
+     WHERE pair_code_hash IS NOT NULL AND pair_expires_at > now() AND token_hash IS NULL;
+    UPDATE print_agents SET pair_code_hash = NULL, pair_expires_at = NULL
+     WHERE pair_code_hash IS NOT NULL AND token_hash IS NULL AND pair_fail_count >= 20;
+    RETURN jsonb_build_object('ok', false, 'error', 'Mã không đúng hoặc đã hết hạn');
+  END IF;
+
+  -- Máy cũ cùng quán mất quyền ngay
+  UPDATE print_agents SET token_hash = NULL WHERE store_id = a.store_id AND token_hash IS NOT NULL;
+
+  v_token := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
+  UPDATE print_agents
+     SET token_hash = encode(sha256(convert_to(v_token, 'UTF8')), 'hex'),
+         pair_code_hash = NULL, pair_expires_at = NULL, pair_fail_count = 0,
+         version = p_version, last_seen_at = now(),
+         name = COALESCE(NULLIF(btrim(p_name), ''), name)
+   WHERE id = a.id;
+
+  SELECT name INTO v_store_name FROM stores WHERE id = a.store_id;
+  RETURN jsonb_build_object('ok', true, 'agent_id', a.id, 'token', v_token, 'store_name', v_store_name);
+END $$;
+REVOKE ALL ON FUNCTION print_agent_pair(text, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION print_agent_pair(text, text, text) TO anon;
+
+-- Nhận việc. Thứ tự: tra token -> hết hạn -> cập nhật last_seen -> khoá job queued cũ nhất -> giao.
+CREATE OR REPLACE FUNCTION print_agent_poll(p_token text, p_version text, p_printers jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  a print_agents%ROWTYPE;
+  j print_jobs%ROWTYPE;
+  v_printer text;
+  v_render text;
+  v_attempts integer;
+BEGIN
+  IF p_token IS NULL OR p_token = '' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'revoked');
+  END IF;
+  SELECT * INTO a FROM print_agents
+   WHERE token_hash = encode(sha256(convert_to(p_token, 'UTF8')), 'hex');
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'revoked');
+  END IF;
+
+  PERFORM expire_print_jobs(a.store_id);
+
+  -- Chỉ ghi khi cũ hơn 10 giây (đỡ ghi mỗi 2 giây; ngưỡng online 30 giây vẫn đúng)
+  UPDATE print_agents
+     SET last_seen_at = CASE WHEN last_seen_at IS NULL OR last_seen_at < now() - interval '10 seconds'
+                             THEN now() ELSE last_seen_at END,
+         version = COALESCE(p_version, version),
+         printers = COALESCE(p_printers, printers)
+   WHERE id = a.id
+     AND (last_seen_at IS NULL OR last_seen_at < now() - interval '10 seconds'
+          OR version IS DISTINCT FROM COALESCE(p_version, version)
+          OR printers IS DISTINCT FROM COALESCE(p_printers, printers));
+
+  LOOP
+    SELECT * INTO j FROM print_jobs
+     WHERE store_id = a.store_id AND status = 'queued'
+     ORDER BY created_at, id
+     LIMIT 1
+     FOR UPDATE SKIP LOCKED;
+    IF NOT FOUND THEN
+      RETURN jsonb_build_object('ok', true, 'job', NULL);
+    END IF;
+
+    v_printer := NULL;
+    IF j.station_id IS NOT NULL THEN
+      SELECT printer_name INTO v_printer FROM print_stations
+       WHERE id = j.station_id AND store_id = j.store_id;
+    END IF;
+
+    IF v_printer IS NULL OR btrim(v_printer) = '' THEN
+      UPDATE print_jobs SET status = 'failed', error = 'Trạm chưa chọn máy in' WHERE id = j.id;
+      CONTINUE;
+    END IF;
+
+    v_render := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
+    UPDATE print_jobs
+       SET status = 'printing', attempts = attempts + 1, claimed_at = now(),
+           render_token_hash = encode(sha256(convert_to(v_render, 'UTF8')), 'hex'),
+           render_token_expires_at = now() + interval '2 minutes'
+     WHERE id = j.id
+    RETURNING attempts INTO v_attempts;
+
+    RETURN jsonb_build_object('ok', true, 'job', jsonb_build_object(
+      'id', j.id, 'kind', j.kind, 'printer_name', v_printer,
+      'render_token', v_render, 'attempts', v_attempts));
+  END LOOP;
+END $$;
+REVOKE ALL ON FUNCTION print_agent_poll(text, text, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION print_agent_poll(text, text, jsonb) TO anon;
+
+-- Báo kết quả. Chỉ nhận job đang printing của đúng quán.
+CREATE OR REPLACE FUNCTION print_agent_report(
+  p_token text, p_job_id uuid, p_ok boolean, p_error text, p_retryable boolean
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  a print_agents%ROWTYPE;
+  j print_jobs%ROWTYPE;
+BEGIN
+  IF p_token IS NULL OR p_token = '' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'revoked');
+  END IF;
+  SELECT * INTO a FROM print_agents
+   WHERE token_hash = encode(sha256(convert_to(p_token, 'UTF8')), 'hex');
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'revoked');
+  END IF;
+
+  SELECT * INTO j FROM print_jobs
+   WHERE id = p_job_id AND store_id = a.store_id AND status = 'printing'
+   FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'not_printing');
+  END IF;
+
+  IF p_ok THEN
+    UPDATE print_jobs SET status = 'done', printed_at = now(), error = NULL,
+           render_token_hash = NULL, render_token_expires_at = NULL
+     WHERE id = j.id;
+  ELSIF COALESCE(p_retryable, false) AND j.attempts < 3 THEN
+    UPDATE print_jobs SET status = 'queued', error = p_error, claimed_at = NULL,
+           render_token_hash = NULL, render_token_expires_at = NULL
+     WHERE id = j.id;
+  ELSE
+    UPDATE print_jobs SET status = 'failed', error = COALESCE(p_error, 'Lỗi không rõ'),
+           render_token_hash = NULL, render_token_expires_at = NULL
+     WHERE id = j.id;
+  END IF;
+  RETURN jsonb_build_object('ok', true);
+END $$;
+REVOKE ALL ON FUNCTION print_agent_report(text, uuid, boolean, text, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION print_agent_report(text, uuid, boolean, text, boolean) TO anon;
+
+-- Trang /print/agent đọc job bằng token trang in: đúng job, còn hạn, đang printing. Chỉ service_role.
+CREATE OR REPLACE FUNCTION print_job_for_render(p_job_id uuid, p_render_token text) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT jsonb_build_object(
+           'id', j.id, 'store_id', j.store_id, 'kind', j.kind, 'ref', j.ref,
+           'created_by', j.created_by, 'station_name', s.name)
+    FROM print_jobs j
+    LEFT JOIN print_stations s ON s.id = j.station_id AND s.store_id = j.store_id
+   WHERE j.id = p_job_id
+     AND p_render_token IS NOT NULL
+     AND j.status = 'printing'
+     AND j.render_token_hash = encode(sha256(convert_to(p_render_token, 'UTF8')), 'hex')
+     AND j.render_token_expires_at > now()
+$$;
+REVOKE ALL ON FUNCTION print_job_for_render(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION print_job_for_render(uuid, text) TO service_role;
+
+-- ===== 8. RPC trạng thái in cho POS =====
+CREATE OR REPLACE FUNCTION get_print_status(p_store_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_mode text;
+  v_seen timestamptz;
+  v_queued integer;
+  v_problems jsonb;
+BEGIN
+  IF NOT is_store_pos_operator(p_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền';
+  END IF;
+  PERFORM expire_print_jobs(p_store_id);
+
+  SELECT print_mode INTO v_mode FROM store_workflow_settings WHERE store_id = p_store_id;
+  SELECT last_seen_at INTO v_seen FROM print_agents
+   WHERE store_id = p_store_id AND token_hash IS NOT NULL;
+  SELECT count(*)::int INTO v_queued FROM print_jobs WHERE store_id = p_store_id AND status = 'queued';
+
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'id', id, 'kind', kind, 'status', status, 'error', error, 'created_at', created_at,
+           'label', CASE kind
+                      WHEN 'kitchen_ticket' THEN 'Phiếu bếp'
+                      WHEN 'table_slip' THEN 'Phiếu bàn'
+                      WHEN 'bill' THEN 'Hoá đơn'
+                      WHEN 'day_report' THEN 'Báo cáo ngày'
+                      WHEN 'shift_report' THEN 'Báo cáo ca'
+                      ELSE 'In thử' END,
+           'request', jsonb_build_object('kind', kind, 'ref', ref))
+           ORDER BY created_at DESC), '[]'::jsonb)
+    INTO v_problems
+    FROM (SELECT * FROM print_jobs
+           WHERE store_id = p_store_id AND status IN ('failed', 'expired') AND resolved_at IS NULL
+           ORDER BY created_at DESC LIMIT 50) pj;
+
+  RETURN jsonb_build_object(
+    'mode', COALESCE(v_mode, 'browser'),
+    'agent_online', COALESCE(v_seen > now() - interval '30 seconds', false),
+    'last_seen_at', v_seen,
+    'queued_count', v_queued,
+    'problem_jobs', v_problems);
+END $$;
+REVOKE ALL ON FUNCTION get_print_status(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION get_print_status(uuid) TO authenticated;
+
+-- In lại: tạo job MỚI cùng kind/ref/trạm, đánh dấu job cũ đã xử lý. Gọi lại lần hai không tạo thêm.
+CREATE OR REPLACE FUNCTION retry_print_job(p_job_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  j print_jobs%ROWTYPE;
+  v_new uuid;
+BEGIN
+  SELECT * INTO j FROM print_jobs WHERE id = p_job_id FOR UPDATE;
+  IF NOT FOUND OR NOT is_store_pos_operator(j.store_id) THEN
+    RAISE EXCEPTION 'Không có quyền';
+  END IF;
+  IF j.resolved_at IS NOT NULL THEN
+    RETURN jsonb_build_object('ok', true, 'already', true);
+  END IF;
+  IF j.status NOT IN ('failed', 'expired') THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'Phiếu này chưa lỗi, không cần in lại');
+  END IF;
+
+  INSERT INTO print_jobs (store_id, station_id, kind, ref, dedupe_key, created_by)
+  VALUES (j.store_id, j.station_id, j.kind, j.ref, j.dedupe_key || ':r' || gen_random_uuid()::text, auth.uid())
+  RETURNING id INTO v_new;
+
+  UPDATE print_jobs SET resolved_at = now(), resolved_by = auth.uid() WHERE id = j.id;
+  RETURN jsonb_build_object('ok', true, 'job_id', v_new);
+END $$;
+REVOKE ALL ON FUNCTION retry_print_job(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION retry_print_job(uuid) TO authenticated;
+
+-- Bỏ qua phiếu lỗi (vd. đã in bằng trình duyệt thay thế)
+CREATE OR REPLACE FUNCTION dismiss_print_job(p_job_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_store uuid;
+BEGIN
+  SELECT store_id INTO v_store FROM print_jobs WHERE id = p_job_id;
+  IF v_store IS NULL OR NOT is_store_pos_operator(v_store) THEN
+    RAISE EXCEPTION 'Không có quyền';
+  END IF;
+  UPDATE print_jobs SET resolved_at = now(), resolved_by = auth.uid()
+   WHERE id = p_job_id AND resolved_at IS NULL;
+  RETURN jsonb_build_object('ok', true);
+END $$;
+REVOKE ALL ON FUNCTION dismiss_print_job(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION dismiss_print_job(uuid) TO authenticated;
+
 NOTIFY pgrst, 'reload schema';

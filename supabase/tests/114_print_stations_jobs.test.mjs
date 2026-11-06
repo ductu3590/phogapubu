@@ -213,3 +213,401 @@ test('revoke_print_agent: chỉ chủ quán, đặt token_hash NULL', async () =
   await rpc(owner, `SELECT revoke_print_agent('${a}')`)
   assert.equal((await admin(`SELECT token_hash FROM print_agents WHERE id = '${a}'`)).rows[0].token_hash, null)
 })
+
+// ===================== Task 3: RPC của phần mềm in =====================
+let keySeq = 0
+async function resetPrint() {
+  await admin(`DELETE FROM print_jobs`)
+  await admin(`DELETE FROM print_agents`)
+  await admin(`UPDATE print_stations SET printer_name = 'XP-80' WHERE is_default_kitchen OR is_pos`)
+}
+async function stationId(sid, flag = 'is_default_kitchen') {
+  return (await admin(`SELECT id FROM print_stations WHERE store_id = $1 AND ${flag}`, [sid])).rows[0].id
+}
+async function anonRpc(sql, params = []) {
+  await asAnon()
+  try {
+    return (await db.query(sql, params)).rows[0].r
+  } finally {
+    await db.exec('RESET ROLE')
+  }
+}
+async function pairNew(sid = store, uid = owner, name = 'Máy quầy') {
+  const { code } = (await rpc(uid, `SELECT create_print_pair_code($1, $2) AS r`, [sid, name])).r
+  const r = await anonRpc(`SELECT print_agent_pair($1, $2, $3) AS r`, [code, name, '1.0.0'])
+  assert.equal(r.ok, true, JSON.stringify(r))
+  return { token: r.token, agentId: r.agent_id, code, r }
+}
+async function addJob({ sid = store, station, kind = 'kitchen_ticket', minsAgo = 0 } = {}) {
+  const st = station === undefined ? await stationId(sid) : station
+  const jid = (await admin(
+    `INSERT INTO print_jobs(store_id, station_id, kind, ref, dedupe_key, created_by, created_at)
+     VALUES ($1, $2, $3, '{"orderId":"o1"}', $4, $5, now() - ($6 || ' minutes')::interval) RETURNING id`,
+    [sid, st, kind, `k${++keySeq}`, owner, String(minsAgo)])).rows[0].id
+  return jid
+}
+const poll = (token, printers = null) =>
+  anonRpc(`SELECT print_agent_poll($1, '1.0.0', $2::jsonb) AS r`, [token, printers && JSON.stringify(printers)])
+const report = (token, jobId, ok, error = null, retryable = false) =>
+  anonRpc(`SELECT print_agent_report($1, $2, $3, $4, $5) AS r`, [token, jobId, ok, error, retryable])
+const jobRow = async (jid) => (await admin(`SELECT * FROM print_jobs WHERE id = $1`, [jid])).rows[0]
+
+test('ghép đúng mã trả token, DB chỉ giữ hash; mã không dùng lại được', async () => {
+  await resetPrint()
+  const { token, code, r } = await pairNew()
+  assert.match(token, /^[0-9a-f]{64}$/)
+  assert.equal(r.store_name, 'Quán A')
+  const rows = (await admin(`SELECT token_hash, pair_code_hash FROM print_agents WHERE store_id = $1`, [store])).rows
+  assert.equal(rows.length, 1)
+  assert.notEqual(rows[0].token_hash, token)
+  assert.equal(rows[0].pair_code_hash, null)
+  const again = await anonRpc(`SELECT print_agent_pair($1, 'x', '1') AS r`, [code])
+  assert.equal(again.ok, false)
+})
+
+test('ghép máy mới: token máy cũ bị từ chối', async () => {
+  await resetPrint()
+  const a = await pairNew()
+  assert.equal((await poll(a.token)).ok, true)
+  const b = await pairNew()
+  assert.deepEqual(await poll(a.token), { ok: false, error: 'revoked' })
+  assert.equal((await poll(b.token)).ok, true)
+  assert.deepEqual(await poll('khong-ton-tai'), { ok: false, error: 'revoked' })
+  assert.deepEqual(await poll(''), { ok: false, error: 'revoked' })
+})
+
+test('sai 20 lần thì mã đang sống bị huỷ', async () => {
+  await resetPrint()
+  const { code } = (await rpc(owner, `SELECT create_print_pair_code($1, 'M') AS r`, [store])).r
+  const wrong = code === '000000' ? '111111' : '000000'
+  for (let i = 0; i < 20; i++) {
+    const r = await anonRpc(`SELECT print_agent_pair($1, 'x', '1') AS r`, [wrong])
+    assert.equal(r.ok, false)
+  }
+  const r = await anonRpc(`SELECT print_agent_pair($1, 'x', '1') AS r`, [code])
+  assert.equal(r.ok, false)
+  assert.equal((await admin(`SELECT count(*)::int n FROM print_agents WHERE token_hash IS NOT NULL`)).rows[0].n, 0)
+})
+
+test('sai mã cộng bộ đếm cho mã của quán khác (không biết nhắm mã nào)', async () => {
+  await resetPrint()
+  await rpc(otherOwner, `SELECT create_print_pair_code($1, 'B') AS r`, [otherStore])
+  await anonRpc(`SELECT print_agent_pair('abcdef', 'x', '1') AS r`)
+  const n = (await admin(`SELECT pair_fail_count n FROM print_agents WHERE store_id = $1`, [otherStore])).rows[0].n
+  assert.equal(n, 1)
+  await admin(`DELETE FROM print_agents`)
+})
+
+test('poll: một job chỉ giao một lần', async () => {
+  await resetPrint()
+  const { token } = await pairNew()
+  const j = await addJob()
+  const r1 = await poll(token)
+  assert.equal(r1.job.id, j)
+  assert.equal(r1.job.kind, 'kitchen_ticket')
+  assert.equal(r1.job.printer_name, 'XP-80')
+  assert.equal(r1.job.attempts, 1)
+  assert.match(r1.job.render_token, /^[0-9a-f]{64}$/)
+  const r2 = await poll(token)
+  assert.equal(r2.ok, true)
+  assert.equal(r2.job, null)
+  assert.equal((await jobRow(j)).status, 'printing')
+})
+
+test('poll: FIFO theo created_at, đúng quán', async () => {
+  await resetPrint()
+  const { token } = await pairNew()
+  const late = await addJob({ minsAgo: 1 })
+  const early = await addJob({ minsAgo: 5 })
+  const foreign = await addJob({ sid: otherStore, station: null, minsAgo: 20 })
+  assert.equal((await poll(token)).job.id, early)
+  assert.equal((await poll(token)).job.id, late)
+  assert.equal((await poll(token)).job, null)
+  assert.equal((await jobRow(foreign)).status, 'queued')
+})
+
+test('poll: trạm chưa có máy thì job failed, lấy job kế tiếp', async () => {
+  await resetPrint()
+  const { token } = await pairNew()
+  const bar = (await admin(`INSERT INTO print_stations(store_id, name) VALUES ($1, 'Bar') RETURNING id`, [store])).rows[0].id
+  const noPrinter = await addJob({ station: bar, minsAgo: 5 })
+  const noStation = await addJob({ station: null, minsAgo: 4 })
+  const ok = await addJob({ minsAgo: 3 })
+  const r = await poll(token)
+  assert.equal(r.job.id, ok)
+  assert.equal((await jobRow(noPrinter)).status, 'failed')
+  assert.equal((await jobRow(noPrinter)).error, 'Trạm chưa chọn máy in')
+  assert.equal((await jobRow(noStation)).status, 'failed')
+  await admin(`DELETE FROM print_stations WHERE id = $1`, [bar])
+})
+
+test('job chờ quá 30 phút: expired, không giao cho phần mềm', async () => {
+  await resetPrint()
+  const { token } = await pairNew()
+  const j = await addJob({ minsAgo: 31 })
+  const r = await poll(token)
+  assert.equal(r.job, null)
+  assert.equal((await jobRow(j)).status, 'expired')
+})
+
+test('job chờ 29 phút vẫn được giao', async () => {
+  await resetPrint()
+  const { token } = await pairNew()
+  const j = await addJob({ minsAgo: 29 })
+  assert.equal((await poll(token)).job.id, j)
+})
+
+test('printing quá 2 phút: failed "Không rõ đã in chưa", KHÔNG về queued', async () => {
+  await resetPrint()
+  const { token } = await pairNew()
+  const j = await addJob()
+  assert.equal((await poll(token)).job.id, j)
+  await admin(`UPDATE print_jobs SET claimed_at = now() - interval '3 minutes' WHERE id = $1`, [j])
+  const r = await poll(token)
+  assert.equal(r.job, null)
+  const row = await jobRow(j)
+  assert.equal(row.status, 'failed')
+  assert.equal(row.error, 'Không rõ đã in chưa, kiểm tra máy in rồi bấm In lại')
+  // Báo cáo trễ sau khi đã bị coi là lỗi không được lật lại thành done
+  const late = await report(token, j, true)
+  assert.equal(late.ok, false)
+  assert.equal((await jobRow(j)).status, 'failed')
+})
+
+test('report ok: done + printed_at', async () => {
+  await resetPrint()
+  const { token } = await pairNew()
+  const j = await addJob()
+  await poll(token)
+  assert.equal((await report(token, j, true)).ok, true)
+  const row = await jobRow(j)
+  assert.equal(row.status, 'done')
+  assert.ok(row.printed_at)
+})
+
+test('report lỗi retryable: lần 1, 2 về queued, lần 3 thành failed', async () => {
+  await resetPrint()
+  const { token } = await pairNew()
+  const j = await addJob()
+  for (const n of [1, 2]) {
+    assert.equal((await poll(token)).job.attempts, n)
+    await report(token, j, false, 'Máy in bận', true)
+    assert.equal((await jobRow(j)).status, 'queued')
+  }
+  assert.equal((await poll(token)).job.attempts, 3)
+  await report(token, j, false, 'Máy in bận', true)
+  const row = await jobRow(j)
+  assert.equal(row.status, 'failed')
+  assert.equal(row.error, 'Máy in bận')
+})
+
+test('report không retryable: failed ngay', async () => {
+  await resetPrint()
+  const { token } = await pairNew()
+  const j = await addJob()
+  await poll(token)
+  await report(token, j, false, 'Không tìm thấy máy in', false)
+  const row = await jobRow(j)
+  assert.equal(row.status, 'failed')
+  assert.equal(row.error, 'Không tìm thấy máy in')
+})
+
+test('report của quán khác không đổi job', async () => {
+  await resetPrint()
+  const a = await pairNew()
+  const b = await pairNew(otherStore, otherOwner, 'Máy B')
+  const j = await addJob()
+  await poll(a.token)
+  const r = await report(b.token, j, true)
+  assert.equal(r.ok, false)
+  assert.equal((await jobRow(j)).status, 'printing')
+  // job chưa nhận (queued) cũng không báo được
+  const j2 = await addJob()
+  assert.equal((await report(a.token, j2, true)).ok, false)
+  assert.equal((await jobRow(j2)).status, 'queued')
+})
+
+test('token trang in: đúng job được, job khác NULL, quá 2 phút NULL', async () => {
+  await resetPrint()
+  const { token } = await pairNew()
+  const j1 = await addJob({ minsAgo: 2 })
+  const j2 = await addJob({ minsAgo: 1 })
+  const p1 = (await poll(token)).job
+  const p2 = (await poll(token)).job
+  assert.equal(p1.id, j1)
+  assert.equal(p2.id, j2)
+  const render = async (jid, tk) => {
+    await asRole('service_role')
+    try {
+      return (await db.query(`SELECT print_job_for_render($1, $2) AS r`, [jid, tk])).rows[0].r
+    } finally {
+      await db.exec('RESET ROLE')
+    }
+  }
+  const ok = await render(j1, p1.render_token)
+  assert.equal(ok.id, j1)
+  assert.equal(ok.store_id, store)
+  assert.equal(ok.kind, 'kitchen_ticket')
+  assert.equal(ok.created_by, owner)
+  assert.equal(ok.station_name, 'Bếp')
+  assert.deepEqual(ok.ref, { orderId: 'o1' })
+  assert.equal(await render(j2, p1.render_token), null)
+  assert.equal(await render(j1, 'sai-token'), null)
+  assert.equal(await render(j1, null), null)
+  await admin(`UPDATE print_jobs SET render_token_expires_at = now() - interval '1 second' WHERE id = $1`, [j1])
+  assert.equal(await render(j1, p1.render_token), null)
+  // Sau khi báo xong, token trang in cũng hết dùng
+  await report(token, j2, true)
+  assert.equal(await render(j2, p2.render_token), null)
+})
+
+test('print_job_for_render: anon và authenticated không gọi được', async () => {
+  const j = await addJob()
+  for (const role of ['anon', 'authenticated']) {
+    await asRole(role)
+    await assert.rejects(db.query(`SELECT print_job_for_render($1, 'x')`, [j]), /permission denied/)
+  }
+  await db.exec('RESET ROLE')
+})
+
+test('expire_print_jobs nội bộ: anon và authenticated không gọi được', async () => {
+  await asRole('anon')
+  await assert.rejects(db.query(`SELECT expire_print_jobs($1)`, [store]), /permission denied/)
+  await login(owner)
+  await assert.rejects(db.query(`SELECT expire_print_jobs($1)`, [store]), /permission denied/)
+  await db.exec('RESET ROLE')
+})
+
+test('get_print_status: thu ngân đọc được, quán khác và nhân viên bị từ chối', async () => {
+  await resetPrint()
+  await pairNew()
+  await addJob()
+  const r = (await rpc(cashier, `SELECT get_print_status($1) AS r`, [store])).r
+  assert.equal(r.mode, 'agent')
+  assert.equal(r.queued_count, 1)
+  assert.equal(r.problem_jobs.length, 0)
+  for (const uid of [staff, otherOwner]) {
+    await login(uid)
+    await assert.rejects(db.query(`SELECT get_print_status($1)`, [store]), /Không có quyền/)
+  }
+  await db.exec('RESET ROLE')
+  assert.ok(!/hash/i.test(JSON.stringify(r)))
+})
+
+test('agent_online: last_seen 29 giây true, 31 giây false', async () => {
+  await resetPrint()
+  const { agentId } = await pairNew()
+  await admin(`UPDATE print_agents SET last_seen_at = now() - interval '29 seconds' WHERE id = $1`, [agentId])
+  assert.equal((await rpc(owner, `SELECT get_print_status($1) AS r`, [store])).r.agent_online, true)
+  await admin(`UPDATE print_agents SET last_seen_at = now() - interval '31 seconds' WHERE id = $1`, [agentId])
+  const r = (await rpc(owner, `SELECT get_print_status($1) AS r`, [store])).r
+  assert.equal(r.agent_online, false)
+  assert.ok(r.last_seen_at)
+})
+
+test('poll: last_seen_at chỉ ghi khi cũ hơn 10 giây', async () => {
+  await resetPrint()
+  const { token, agentId } = await pairNew()
+  await poll(token)
+  const t1 = (await admin(`SELECT last_seen_at FROM print_agents WHERE id = $1`, [agentId])).rows[0].last_seen_at
+  await poll(token)
+  const t2 = (await admin(`SELECT last_seen_at FROM print_agents WHERE id = $1`, [agentId])).rows[0].last_seen_at
+  assert.equal(t1.getTime(), t2.getTime())
+  await admin(`UPDATE print_agents SET last_seen_at = now() - interval '11 seconds' WHERE id = $1`, [agentId])
+  await poll(token, [{ name: 'XP-80' }])
+  const row = (await admin(`SELECT last_seen_at, printers FROM print_agents WHERE id = $1`, [agentId])).rows[0]
+  assert.ok(Date.now() - row.last_seen_at.getTime() < 5000)
+  assert.deepEqual(row.printers, [{ name: 'XP-80' }])
+  // printers NULL = không đổi
+  await poll(token, null)
+  assert.deepEqual((await admin(`SELECT printers FROM print_agents WHERE id = $1`, [agentId])).rows[0].printers, [{ name: 'XP-80' }])
+})
+
+test('get_print_status chỉ liệt kê failed/expired chưa xử lý', async () => {
+  await resetPrint()
+  await pairNew()
+  const f = await addJob({ minsAgo: 1 })
+  const e = await addJob({ minsAgo: 40 })
+  await addJob({ minsAgo: 0 })
+  await admin(`UPDATE print_jobs SET status = 'failed', error = 'lỗi' WHERE id = $1`, [f])
+  const r = (await rpc(owner, `SELECT get_print_status($1) AS r`, [store])).r
+  const ids = r.problem_jobs.map((p) => p.id).sort()
+  assert.deepEqual(ids, [f, e].sort())
+  assert.equal(r.queued_count, 1)
+  const p = r.problem_jobs.find((x) => x.id === f)
+  assert.equal(p.kind, 'kitchen_ticket')
+  assert.equal(p.status, 'failed')
+  assert.equal(p.error, 'lỗi')
+  assert.ok(p.label)
+  assert.deepEqual(p.request, { kind: 'kitchen_ticket', ref: { orderId: 'o1' } })
+})
+
+test('retry_print_job: job mới queued, job cũ ẩn khỏi problem_jobs, gọi lại không tạo thêm', async () => {
+  await resetPrint()
+  const f = await addJob()
+  await admin(`UPDATE print_jobs SET status = 'failed', error = 'lỗi' WHERE id = $1`, [f])
+  const r1 = (await rpc(cashier, `SELECT retry_print_job($1) AS r`, [f])).r
+  assert.equal(r1.ok, true)
+  const nj = await jobRow(r1.job_id)
+  assert.equal(nj.status, 'queued')
+  assert.equal(nj.created_by, cashier)
+  assert.equal(nj.kind, 'kitchen_ticket')
+  assert.equal(nj.station_id, (await jobRow(f)).station_id)
+  assert.match(nj.dedupe_key, /^k\d+:r[0-9a-f-]{36}$/)
+  assert.ok((await jobRow(f)).resolved_at)
+  const r2 = (await rpc(cashier, `SELECT retry_print_job($1) AS r`, [f])).r
+  assert.deepEqual(r2, { ok: true, already: true })
+  assert.equal((await admin(`SELECT count(*)::int n FROM print_jobs`)).rows[0].n, 2)
+  const st = (await rpc(owner, `SELECT get_print_status($1) AS r`, [store])).r
+  assert.equal(st.problem_jobs.length, 0)
+})
+
+test('retry_print_job: nhân viên và quán khác bị từ chối; job chưa lỗi không in lại được', async () => {
+  await resetPrint()
+  const f = await addJob()
+  await admin(`UPDATE print_jobs SET status = 'failed' WHERE id = $1`, [f])
+  for (const uid of [staff, otherOwner]) {
+    await login(uid)
+    await assert.rejects(db.query(`SELECT retry_print_job($1)`, [f]), /Không có quyền/)
+    await assert.rejects(db.query(`SELECT dismiss_print_job($1)`, [f]), /Không có quyền/)
+  }
+  await db.exec('RESET ROLE')
+  const q = await addJob()
+  const r = (await rpc(owner, `SELECT retry_print_job($1) AS r`, [q])).r
+  assert.equal(r.ok, false)
+  assert.equal((await admin(`SELECT count(*)::int n FROM print_jobs`)).rows[0].n, 2)
+})
+
+test('dismiss_print_job: ẩn khỏi problem_jobs, không tạo job mới', async () => {
+  await resetPrint()
+  const f = await addJob()
+  await admin(`UPDATE print_jobs SET status = 'failed' WHERE id = $1`, [f])
+  assert.equal((await rpc(cashier, `SELECT dismiss_print_job($1) AS r`, [f])).r.ok, true)
+  assert.equal((await rpc(owner, `SELECT get_print_status($1) AS r`, [store])).r.problem_jobs.length, 0)
+  assert.equal((await admin(`SELECT count(*)::int n FROM print_jobs`)).rows[0].n, 1)
+})
+
+test('dedupe: INSERT trùng (store_id, dedupe_key) ON CONFLICT DO NOTHING không tạo dòng thứ hai', async () => {
+  await resetPrint()
+  const ins = () => admin(
+    `INSERT INTO print_jobs(store_id, kind, dedupe_key, created_by) VALUES ($1, 'bill', 'same', $2)
+     ON CONFLICT (store_id, dedupe_key) DO NOTHING`, [store, owner])
+  await ins()
+  await ins()
+  assert.equal((await admin(`SELECT count(*)::int n FROM print_jobs`)).rows[0].n, 1)
+  // Quán khác dùng cùng khoá thì vẫn được
+  await admin(`INSERT INTO print_jobs(store_id, kind, dedupe_key, created_by) VALUES ($1, 'bill', 'same', $2)`, [otherStore, owner])
+})
+
+test('tĩnh: có FOR UPDATE SKIP LOCKED; mọi hàm mới có REVOKE ... FROM PUBLIC, anon, authenticated', () => {
+  assert.match(migrationSql, /FOR UPDATE SKIP LOCKED/)
+  const names = [...migrationSql.matchAll(/CREATE OR REPLACE FUNCTION\s+(\w+)\s*\(/g)].map((m) => m[1])
+  assert.ok(names.length >= 14, names.join(','))
+  for (const n of names) {
+    assert.match(migrationSql, new RegExp(`REVOKE ALL ON FUNCTION ${n}\\([^)]*\\) FROM PUBLIC, anon, authenticated;`), n)
+  }
+  // Chỉ 3 hàm của phần mềm được GRANT cho anon (khoá công khai)
+  const anonGrants = [...migrationSql.matchAll(/GRANT EXECUTE ON FUNCTION\s+(\w+)\([^)]*\)\s+TO anon/g)].map((m) => m[1]).sort()
+  assert.deepEqual(anonGrants, ['print_agent_pair', 'print_agent_poll', 'print_agent_report'])
+  assert.match(migrationSql, /GRANT EXECUTE ON FUNCTION print_job_for_render\(uuid, text\) TO service_role;/)
+})
