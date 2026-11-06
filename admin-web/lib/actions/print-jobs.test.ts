@@ -244,9 +244,19 @@ describe('enqueuePrint', () => {
     expect(row.dedupe_key).toMatch(/^bill:/)
   })
 
-  it('day_report: ngày sai định dạng bị từ chối', async () => {
+  it('day_report: ngày sai định dạng, không tồn tại (2026-02-31) hoặc ở tương lai bị từ chối', async () => {
     expect((await enqueuePrint({ kind: 'day_report', date: '05/11/2026' })).ok).toBe(false)
+    expect((await enqueuePrint({ kind: 'day_report', date: '2026-02-31' })).ok).toBe(false)
+    expect((await enqueuePrint({ kind: 'day_report', date: '2999-01-01' })).ok).toBe(false)
+    expect(mocks.calls.upsert).toHaveLength(0)
     expect((await enqueuePrint({ kind: 'day_report', date: '2026-11-05' })).ok).toBe(true)
+  })
+
+  it('ref.request của bill lưu bản đã làm sạch (kind + sessionIds không trùng), không lưu req thô', async () => {
+    const raw = { kind: 'bill', sessionIds: ['s1', 's1', ''], reprint: true, extra: 'x' } as unknown as Parameters<typeof enqueuePrint>[0]
+    expect((await enqueuePrint(raw)).ok).toBe(true)
+    expect(mocks.calls.upsert[0].rows[0].ref).toMatchObject({ request: { kind: 'bill', sessionIds: ['s1'] } })
+    expect((mocks.calls.upsert[0].rows[0].ref as { request: object }).request).toEqual({ kind: 'bill', sessionIds: ['s1'] })
   })
 
   it('lỗi DB trả {ok:false}, không ném', async () => {

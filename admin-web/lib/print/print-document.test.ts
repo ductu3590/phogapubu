@@ -102,4 +102,15 @@ describe('printDocument', () => {
     await printDocument(order)
     expect(mocks.printInPlace).toHaveBeenCalledTimes(2)
   })
+
+  it('enqueuePrint báo "Quán chưa bật phần mềm in" thì xoá cache mode: lần sau đọc lại và in bằng trình duyệt', async () => {
+    mocks.rpc.mockResolvedValue({ data: 'agent', error: null })
+    mocks.enqueuePrint.mockResolvedValue({ ok: false, error: 'Quán chưa bật phần mềm in' })
+    expect((await printDocument(order)).ok).toBe(false)
+    await vi.advanceTimersByTimeAsync(2100)
+    mocks.rpc.mockResolvedValue({ data: 'browser', error: null })
+    expect(await printDocument(order)).toEqual({ ok: true })
+    expect(mocks.rpc).toHaveBeenCalledTimes(2)
+    expect(mocks.printInPlace).toHaveBeenCalledTimes(1)
+  })
 })

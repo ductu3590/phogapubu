@@ -1,6 +1,8 @@
 'use server'
 
 import { requireOperator } from '@/lib/auth/operator'
+import { isPosRole } from '@/lib/auth/roles'
+import { clampReportDate } from '@/lib/daily-report'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { loadOrderSlip } from '@/lib/print/load-order-slip'
 import { planDocumentJob, planOrderJobs, type PlannedJob } from '@/lib/print/print-plan'
@@ -9,7 +11,6 @@ import { AGENT_KINDS, type PrintRequest } from '@/lib/print/print-request'
 type Result = { ok: true; queued: number } | { ok: false; error: string }
 const fail = (error: string): Result => ({ ok: false, error })
 
-const NGAY = /^\d{4}-\d{2}-\d{2}$/
 const vnDate = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`
 
 // Xếp phiếu vào hàng đợi cho phần mềm in ở quầy (chế độ `agent`). Server action: PHẢI tự kiểm quyền và
@@ -22,7 +23,7 @@ export async function enqueuePrint(req: PrintRequest): Promise<Result> {
     const storeId = operator.storeId
 
     // Nhân viên phục vụ chỉ in được hoá đơn (màn chốt bàn); đơn, đặt trước, báo cáo là việc thu ngân/chủ quán.
-    const posRole = operator.role === 'store_owner' || operator.role === 'store_cashier'
+    const posRole = isPosRole(operator.role)
     if (!posRole && req.kind !== 'bill') return fail('Bạn không có quyền in phiếu này')
 
     const supabase = await createClient()
@@ -96,10 +97,14 @@ export async function enqueuePrint(req: PrintRequest): Promise<Result> {
         .from('table_sessions').select('id').eq('store_id', storeId).in('id', ids)
       if (sErr) return fail(sErr.message)
       if ((owned ?? []).length !== ids.length) return fail('Không tìm thấy phiên của quán này')
-      planned = [planDocumentJob(req, pos.id, ids.length > 1 ? `Hoá đơn tổng · ${ids.length} mâm` : 'Hoá đơn', crypto.randomUUID())]
+      // Lưu bản đã làm sạch (không trùng, không rỗng), không lưu req thô từ client
+      const cleaned: PrintRequest = { kind: 'bill', sessionIds: ids }
+      planned = [planDocumentJob(cleaned, pos.id, ids.length > 1 ? `Hoá đơn tổng · ${ids.length} mâm` : 'Hoá đơn', crypto.randomUUID())]
     } else if (req.kind === 'day_report') {
-      if (!NGAY.test(req.date)) return fail('Ngày báo cáo không hợp lệ')
-      planned = [planDocumentJob(req, pos.id, `Báo cáo cuối ngày · ${vnDate(req.date)}`, crypto.randomUUID())]
+      // Cùng luật với clampReportDate: ngày không tồn tại hoặc ở tương lai (giờ VN) thì từ chối, không tự sửa
+      if (clampReportDate(req.date, new Date()) !== req.date) return fail('Ngày báo cáo không hợp lệ')
+      const cleaned: PrintRequest = { kind: 'day_report', date: req.date }
+      planned = [planDocumentJob(cleaned, pos.id, `Báo cáo cuối ngày · ${vnDate(req.date)}`, crypto.randomUUID())]
     } else {
       return fail('Loại phiếu này chưa in qua phần mềm in được')
     }

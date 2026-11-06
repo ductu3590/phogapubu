@@ -37,6 +37,8 @@ async function run(req: PrintRequest): Promise<{ ok: true } | { ok: false; error
     // Lỗi xếp hàng báo thẳng cho người bấm (còn nút in lại), KHÔNG tự rơi về trình duyệt in trùng.
     try {
       const res = await enqueuePrint(req)
+      // Server nói quán không còn ở chế độ phần mềm in (đổi ở máy khác): bỏ cache để lần sau đọc lại và in bằng trình duyệt
+      if (!res.ok && res.error === 'Quán chưa bật phần mềm in') modeCache = null
       return res.ok ? { ok: true } : { ok: false, error: res.error }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : 'Không xếp được phiếu in' }

@@ -4,8 +4,10 @@ import { cleanStoreText } from './store-lines'
 
 // Dựng dữ liệu phiếu bếp + phiếu bàn cho MỘT đơn (hoặc một lần in đặt trước).
 // KHÔNG gọi requireOperator ở đây: trang /print/agent (Task 6) gọi hàm này mà không có cookie,
-// bằng client mang JWT ngắn hạn của người tạo phiếu. Mọi truy vấn đều lọc theo storeId do CALLER truyền
-// (đã kiểm quyền ở caller) — không nhận con số nào từ query string.
+// bằng client mang JWT ngắn hạn của người tạo phiếu. Truy vấn đơn lọc theo storeId do CALLER truyền (đã kiểm
+// quyền ở caller); nhánh đặt trước đối chiếu store_id RPC trả về với storeId. Không nhận con số nào từ query string.
+// Lỗi DB ở bất kỳ truy vấn nào → {ok:false}: phần mềm in không có người nhìn, nên KHÔNG được biến lỗi mạng
+// thành "Đơn không còn món" hay tạm tính 0đ. Riêng bảng `stores` giữ fallback (tên quán 'Quán').
 type SlipResult = { ok: true; slip: OrderSlip } | { ok: false; error: string }
 
 export async function loadOrderSlip(
@@ -21,7 +23,9 @@ export async function loadOrderSlip(
     if (error || !data || typeof data !== 'object') {
       return { ok: false, error: error?.message ?? 'Không tìm thấy phiếu in của quán này.' }
     }
-    const printJob = data as { kind: string; revision: number; snapshot: unknown; requested_at: string }
+    const printJob = data as { store_id?: string; kind: string; revision: number; snapshot: unknown; requested_at: string }
+    // RPC chỉ kiểm quyền theo người gọi; đối chiếu quán để phiếu của quán khác không bao giờ ra máy in này
+    if (printJob.store_id !== storeId) return { ok: false, error: 'Không tìm thấy phiếu in của quán này.' }
     const { data: store } = await supabase.from('stores').select('name, phone, address').eq('id', storeId).single()
     const snapshot = printJob.snapshot as {
       total_amount?: number
@@ -52,19 +56,21 @@ export async function loadOrderSlip(
     }
   }
 
-  const { data: order } = await supabase
+  const { data: order, error: orderErr } = await supabase
     .from('orders')
     .select('id, created_at, note, total_amount, session_id, table_id, order_source, status')
     .eq('id', source.orderId)
     .eq('store_id', storeId)
     .maybeSingle()
+  if (orderErr) return { ok: false, error: orderErr.message }
 
   if (!order) return { ok: false, error: 'Không tìm thấy đơn của quán này.' }
 
-  const { data: items } = await supabase
+  const { data: items, error: itemsErr } = await supabase
     .from('order_items')
     .select('id, menu_item_id, item_name, quantity, item_price, note, selected_toppings, void_type')
     .eq('order_id', order.id)
+  if (itemsErr) return { ok: false, error: itemsErr.message }
 
   const { data: store } = await supabase
     .from('stores')
@@ -75,10 +81,11 @@ export async function loadOrderSlip(
   // Tên bàn: mâm chiếm nhiều bàn nên lấy qua session_tables, không chỉ mỗi table_id.
   let tableLabel = ''
   if (order.session_id) {
-    const { data: rows } = await supabase
+    const { data: rows, error: rowsErr } = await supabase
       .from('session_tables')
       .select('is_open, tables(table_number)')
       .eq('session_id', order.session_id)
+    if (rowsErr) return { ok: false, error: rowsErr.message }
     tableLabel = (rows ?? [])
       .filter((r: { is_open: boolean }) => r.is_open)
       .map((r: { tables: unknown }) => (r.tables as unknown as { table_number: string } | null)?.table_number ?? '')
@@ -87,21 +94,23 @@ export async function loadOrderSlip(
       .join(', ')
   }
   if (!tableLabel && order.table_id) {
-    const { data: t } = await supabase
+    const { data: t, error: tErr } = await supabase
       .from('tables')
       .select('table_number')
       .eq('id', order.table_id)
       .maybeSingle()
+    if (tErr) return { ok: false, error: tErr.message }
     tableLabel = t?.table_number ?? ''
   }
 
   // Tạm tính cả phiên để phiếu bàn nói được "từ đầu bữa tới giờ hết bao nhiêu".
   let sessionTotal = order.total_amount as number
   if (order.session_id) {
-    const { data: sessionOrders } = await supabase
+    const { data: sessionOrders, error: sessErr } = await supabase
       .from('orders')
       .select('total_amount, status')
       .eq('session_id', order.session_id)
+    if (sessErr) return { ok: false, error: sessErr.message }
     sessionTotal = (sessionOrders ?? [])
       .filter((o: { status: string }) => o.status !== 'cancelled')
       .reduce((n: number, o: { total_amount: number }) => n + o.total_amount, 0)
