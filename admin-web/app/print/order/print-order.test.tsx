@@ -6,7 +6,7 @@ const slip: OrderSlip = {
   storeName: 'Bia lẩu Bảo Lương', storePhone: null, tableLabel: 'Bàn 2',
   createdAt: '2026-09-23T12:00:00.000Z', orderNote: null, orderTotal: 120000,
   sessionTotal: 120000, orderSource: 'reservation_preorder',
-  items: [{ name: 'Lẩu gà', quantity: 1, price: 120000, note: null, toppings: [], isGift: false }],
+  items: [{ key: 'i1', menuItemId: 'm1', name: 'Lẩu gà', quantity: 1, price: 120000, note: null, toppings: [], isGift: false }],
 }
 
 describe('PrintOrder — phiếu preorder Bảo Lương', () => {

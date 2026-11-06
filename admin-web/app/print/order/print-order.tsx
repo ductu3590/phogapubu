@@ -3,6 +3,10 @@
 import { useAutoPrint } from '@/lib/print/use-auto-print'
 
 export type SlipItem = {
+  // key: order_items.id (đơn thường) hoặc chỉ số trong snapshot ('0','1'…) với đặt trước — để chia phiếu theo trạm.
+  key: string
+  // Món đã xoá khỏi menu thì null → phiếu bếp ra trạm mặc định.
+  menuItemId: string | null
   name: string
   quantity: number
   price: number
