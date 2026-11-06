@@ -14,6 +14,9 @@ export async function proxy(request: NextRequest) {
       : NextResponse.next()
   }
   if (path === '/sitemap.xml' || path === '/robots.txt') return NextResponse.next()
+  // /print/agent/<jobId>?t=<token>: phần mềm in ở quầy mở trang này KHÔNG có cookie đăng nhập. Đi thẳng, không
+  // getUser (đỡ 1 chặng mạng mỗi phiếu); lớp bảo vệ duy nhất là token trang in kiểm trong page.tsx.
+  if (path.startsWith('/print/agent/')) return NextResponse.next()
 
   let supabaseResponse = NextResponse.next({ request })
 

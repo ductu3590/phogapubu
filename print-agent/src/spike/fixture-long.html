@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>long</title>
+<style>
+  @page { size: 80mm auto; margin: 3mm; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .lien { width: 72mm; margin: 0 auto; color: #000;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 12px; line-height: 1.35; }
+  .lien hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+  .row { display: flex; justify-content: space-between; gap: 6px; }
+  .row .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .row .num { flex-shrink: 0; text-align: right; }
+  .tieude { text-align: center; font-weight: 700; font-size: 15px; }
+  .ban { text-align: center; font-weight: 700; font-size: 20px; margin: 4px 0; }
+</style>
+</head><body>
+<div class="lien">
+  <div class="tieude">Bia lẩu Bảo Lương</div>
+  <div class="ban">Bàn 7 — 60 món</div>
+  <hr>
+  <div id="list"></div>
+  <hr>
+  <div style="text-align:center">Hết phiếu — món cuối cùng là số 60</div>
+</div>
+<script>
+  // Sinh 60 món có dấu tiếng Việt để thử phiếu dài
+  var names = ['Phở gà đặc biệt', 'Nước cam tươi', 'Bún chả Hà Nội', 'Cơm rang dương châu', 'Gỏi ngó sen tôm thịt'];
+  var html = '';
+  for (var i = 1; i <= 60; i++) {
+    html += '<div class="row"><span class="name">' + i + '. ' + names[i % names.length] + '</span><span class="num">x' + ((i % 4) + 1) + '</span></div>';
+  }
+  document.getElementById('list').innerHTML = html;
+</script>
+</body></html>

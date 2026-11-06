@@ -1,0 +1,5 @@
+dist/
+out/
+agent.config.json
+spike-output/
+node_modules/

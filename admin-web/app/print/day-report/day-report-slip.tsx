@@ -14,6 +14,8 @@ export type DayReportSlipProps = {
   printedBy: string
   totals: { revenue: number; cash: number; bank: number; other: number; billsCount: number }
   summary: DaySummary
+  // false: phần mềm in tự in — không vẽ nút In lại, không gọi window.print() từ trang
+  autoPrint?: boolean
 }
 
 function Row({ name, value, strong = false }: { name: string; value: string; strong?: boolean }) {
@@ -27,13 +29,13 @@ function Row({ name, value, strong = false }: { name: string; value: string; str
 
 // Phiếu báo cáo cuối ngày 80mm (A04-3) — phiếu NỘI BỘ để đối chiếu két / bàn giao, không quảng cáo MEVO.
 // Số tiền lấy nguyên từ RPC get_bills_report (qua props), không tính lại. Theo NGÀY KINH DOANH (chưa có ca làm việc).
-export default function DayReportSlip({ storeName, date, rangeLabel, printedAt, printedBy, totals, summary: s }: DayReportSlipProps) {
-  useAutoPrint()
+export default function DayReportSlip({ storeName, date, rangeLabel, printedAt, printedBy, totals, summary: s, autoPrint = true }: DayReportSlipProps) {
+  useAutoPrint(autoPrint)
   return (
     <>
       <style>{`
         @page { size: 80mm auto; margin: 3mm; }
-        @media print { .no-print { display: none !important; } html, body { background: #fff; } }
+        @media print { ${autoPrint ? '.no-print { display: none !important; }' : ''} html, body { background: #fff; } }
         .slip { width: 72mm; margin: 0 auto; color: #000;
                 font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.4; }
         .slip hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
@@ -44,6 +46,7 @@ export default function DayReportSlip({ storeName, date, rangeLabel, printedAt, 
         .sign div { flex: 1; padding-bottom: 36px; }
       `}</style>
 
+      {autoPrint && (
       <div className="no-print" style={{ padding: 12, textAlign: 'center' }}>
         <button onClick={() => window.print()}
           style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: '#f97316', color: '#fff', fontWeight: 600 }}>
@@ -51,6 +54,7 @@ export default function DayReportSlip({ storeName, date, rangeLabel, printedAt, 
         </button>
         <p style={{ marginTop: 8, fontSize: 12, color: '#666' }}>Chọn máy in bill 80mm trong hộp thoại in.</p>
       </div>
+      )}
 
       <div className="slip">
         <div style={{ textAlign: 'center' }}>

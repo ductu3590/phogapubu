@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import MenuClient from './menu-client'
 import MenuAvailabilityClient from './menu-availability-client'
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
+import { parsePrintSettings } from '@/lib/print/print-settings'
 
 export default async function MenuPage() {
   const operator = await requireAdminPageOrRedirect('pos')
@@ -43,6 +44,13 @@ export default async function MenuPage() {
     .select('id, name, price, is_available, sort_order')
     .eq('store_id', storeId)
     .order('sort_order')
+
+  // Trạm in (mig 114) cho ô "Trạm in" của danh mục. RPC lỗi (vd. mig chưa áp) → [] → không vẽ ô chọn, trang vẫn chạy.
+  const stations = await Promise.resolve(supabase.rpc('get_print_settings', { p_store_id: storeId }))
+    .then(({ data, error }) => (error ? null : parsePrintSettings(data)))
+    .catch(() => null)
+    .then((settings) => (settings?.stations ?? []).map((st) => ({ id: st.id, name: st.name })))
+
   const menuVersion = (categories ?? [])
     .map((category) => `${category.id}:${category.sort_order}:${category.name}:${category.menu_items?.length ?? 0}`)
     .join('|')
@@ -53,7 +61,7 @@ export default async function MenuPage() {
         <h1 className="text-xl font-bold text-foreground">Quản lý menu</h1>
         <p className="text-sm text-muted">Toggle hết hàng, thêm/sửa/xóa món</p>
       </div>
-      <MenuClient key={menuVersion} categories={categories ?? []} toppings={toppings ?? []} storeId={storeId} />
+      <MenuClient key={menuVersion} categories={categories ?? []} toppings={toppings ?? []} stations={stations} storeId={storeId} />
     </div>
   )
 }

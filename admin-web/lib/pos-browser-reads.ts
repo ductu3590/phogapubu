@@ -12,6 +12,7 @@ import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import type { ListReservationsResult, ReservationQueueRange } from '@/lib/actions/reservations'
 import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
 import type { ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
+import type { PrintRequest } from '@/lib/print/print-request'
 import { toCustomerCallTask, toPreorderRow, toReservationRow, type PreorderRpcRow, type ReservationRpcRow } from './reservation-rows'
 
 type BrowserClient = ReturnType<typeof createClient>
@@ -72,4 +73,40 @@ export async function readCustomerCalls(client: BrowserClient, storeId: string):
   const { data, error } = await client.rpc('list_reservation_customer_calls', { p_store_id: storeId })
   if (error || !Array.isArray(data)) return { ok: false, error: error?.message ?? 'Dữ liệu việc gọi nhắc khách không hợp lệ' }
   return { ok: true, value: data.map((item) => toCustomerCallTask(item as Record<string, unknown>)) }
+}
+
+export type PrintProblemJob = {
+  id: string
+  kind: string
+  status: 'failed' | 'expired'
+  error: string | null
+  created_at: string
+  label: string
+  request: PrintRequest | null
+}
+export type PrintStatus = {
+  mode: 'browser' | 'agent'
+  agent_online: boolean
+  last_seen_at: string | null
+  queued_count: number
+  problem_jobs: PrintProblemJob[]
+}
+
+/** Trạng thái phần mềm in + phiếu lỗi (get_print_status, mig 114). Chủ quán + thu ngân; RPC tự kiểm quyền. */
+export async function readPrintStatus(client: BrowserClient, storeId: string): Promise<
+  { ok: true; status: PrintStatus } | { ok: false; error: string }
+> {
+  const { data, error } = await client.rpc('get_print_status', { p_store_id: storeId })
+  if (error || !data || typeof data !== 'object') return { ok: false, error: error?.message ?? 'Dữ liệu trạng thái in không hợp lệ' }
+  const r = data as Partial<PrintStatus>
+  return {
+    ok: true,
+    status: {
+      mode: r.mode === 'agent' ? 'agent' : 'browser',
+      agent_online: r.agent_online === true,
+      last_seen_at: r.last_seen_at ?? null,
+      queued_count: typeof r.queued_count === 'number' ? r.queued_count : 0,
+      problem_jobs: Array.isArray(r.problem_jobs) ? r.problem_jobs : [],
+    },
+  }
 }

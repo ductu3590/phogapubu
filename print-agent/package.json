@@ -1,0 +1,21 @@
+{
+  "name": "mevo-print-agent",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": ">=22.12" },
+  "description": "Phan mem in ngam cho MEVO (quay)",
+  "main": "out/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && electron .",
+    "spike": "npm run build && electron out/spike/print-spike.js",
+    "test": "vitest run",
+    "dist": "npm run build && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "44.9.3",
+    "electron-builder": "26.18.0",
+    "typescript": "^5",
+    "vitest": "^4.1.9"
+  }
+}

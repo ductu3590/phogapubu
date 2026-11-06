@@ -5,7 +5,7 @@ import { SignJWT } from 'jose'
 
 const ONE_YEAR = 60 * 60 * 24 * 365
 
-function secretKey(): Uint8Array {
+export function supabaseJwtSecret(): Uint8Array {
   const s = process.env.SUPABASE_JWT_SECRET
   if (!s) {
     throw new Error(
@@ -28,5 +28,5 @@ export async function signKitchenToken(storeId: string, kv: number): Promise<str
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setIssuedAt(now)
     .setExpirationTime(now + ONE_YEAR)
-    .sign(secretKey())
+    .sign(supabaseJwtSecret())
 }

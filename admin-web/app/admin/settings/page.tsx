@@ -4,6 +4,8 @@ import WorkflowSettingsForm from './workflow-settings-form'
 import BellSettingsSection from './bell-settings-section'
 import BusinessDaySection from './business-day-section'
 import BankAccountSection from './bank-account-section'
+import PrintSettingsSection from './print-settings-section'
+import { parsePrintSettings } from '@/lib/print/print-settings'
 import { parseBellStyle } from '@/lib/bell-settings'
 import { loadBusinessDayStart } from '@/lib/actions/bills-report'
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
@@ -18,7 +20,12 @@ export default async function SettingsPage() {
 
   const supabase = await createClient()
 
-  const [{ data: store }, workflowSettings, businessDayStart] = await Promise.all([
+  // Cài đặt in (mig 114). RPC lỗi (vd. mig chưa áp) thì null → khối In ấn hiện như trước, không văng trang.
+  const printSettingsPromise = Promise.resolve(supabase.rpc('get_print_settings', { p_store_id: storeId }))
+    .then(({ data, error }) => (error ? null : parsePrintSettings(data)))
+    .catch(() => null)
+
+  const [{ data: store }, workflowSettings, businessDayStart, printSettings] = await Promise.all([
     supabase
       .from('stores')
       .select('name, logo_url, zalo_oa_url, address, google_maps_url, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, delivery_area_note, terms_of_use, bell_style, bank_bin, bank_account_number, bank_account_name')
@@ -26,6 +33,7 @@ export default async function SettingsPage() {
       .single(),
     loadOwnerWorkflowSettings(),
     loadBusinessDayStart(storeId),
+    printSettingsPromise,
   ])
 
   return (
@@ -54,29 +62,15 @@ export default async function SettingsPage() {
             />
           </section>
 
-          {/* PC: Âm thanh (2/3) + In ấn (1/3) chung một hàng cho đỡ phải cuộn */}
-          <div className="grid items-start gap-6 lg:grid-cols-3">
-            <section className="rounded-xl border border-border bg-surface p-5 sm:p-6 lg:col-span-2">
-              <h2 className="mb-4 text-lg font-semibold text-foreground">Âm thanh thông báo</h2>
-              <BellSettingsSection initial={parseBellStyle(store?.bell_style)} />
-            </section>
+          <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Âm thanh thông báo</h2>
+            <BellSettingsSection initial={parseBellStyle(store?.bell_style)} />
+          </section>
 
-            <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
-              <h2 className="mb-1 text-lg font-semibold text-foreground">In ấn</h2>
-              <p className="mb-4 text-sm text-muted">
-                In một phiếu mẫu 80mm có tên, địa chỉ, SĐT quán để canh máy in. Không tạo đơn.
-              </p>
-              {/* Thẻ a thường (không Link): mở tab mới, trang in tự gọi hộp thoại in. */}
-              <a
-                href="/print/test-slip"
-                target="_blank"
-                rel="noopener"
-                className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
-              >
-                In thử
-              </a>
-            </section>
-          </div>
+          <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">In ấn</h2>
+            <PrintSettingsSection storeId={storeId} initial={printSettings} />
+          </section>
 
           <BusinessDaySection initial={businessDayStart} />
 
@@ -101,6 +95,7 @@ export default async function SettingsPage() {
               key={storeId}
               initial={workflowSettings}
               context="owner"
+              printMode={printSettings?.mode}
               onSave={saveOwnerWorkflowSettings}
             />
           </section>

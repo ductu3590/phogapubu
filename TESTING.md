@@ -8,6 +8,8 @@
 
 - ⏳ [Đợt 1 B1 — Ngày kinh doanh](docs/testing/dot1/B1-ngay-kinh-doanh.md) — chờ test, mig 111 đã áp prod 2026-11-06
 - ⏳ [Đợt 1 — VietQR nền](docs/testing/dot1/vietqr-nen.md) — chờ test
+- ⏳ [Đợt 1 C Part 1 — In hai nơi](docs/testing/dot1/C-part1-in-hai-noi.md) — chờ test, mig 114 chưa áp prod
+- ⏳ [Đợt 1 C-0 — Máy in thật](docs/testing/dot1/C-0-may-in-that.md) — chờ test
 
 - [Bảo Lương — Ảnh menu còn lại](docs/testing/bao-luong/MENU-IMAGES-REMAINING.md) — đã dừng theo yêu cầu, chờ Test 1 (2026-10-05)
 

@@ -171,3 +171,14 @@ describe('PrintBill (PA-5)', () => {
     expect(billDiscountLabel(bill)).toBe('')
   })
 })
+
+describe('PrintBill — autoPrint', () => {
+  it('autoPrint=false: không vẽ khối .no-print (phần mềm in tự in, không cần nút In lại)', () => {
+    const html = renderToStaticMarkup(<PrintBill bill={buildTestBill(store, now)} autoPrint={false} />)
+    expect(html).not.toContain('no-print')
+    expect(html).toContain('HOÁ ĐƠN')
+  })
+  it('mặc định vẫn có nút In lại', () => {
+    expect(renderToStaticMarkup(<PrintBill bill={buildTestBill(store, now)} />)).toContain('no-print')
+  })
+})
