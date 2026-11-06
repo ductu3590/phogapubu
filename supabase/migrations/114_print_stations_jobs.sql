@@ -470,14 +470,16 @@ BEGIN
 
   SELECT COALESCE(jsonb_agg(jsonb_build_object(
            'id', id, 'kind', kind, 'status', status, 'error', error, 'created_at', created_at,
-           'label', CASE kind
+           -- ref của mọi job có sẵn label + request (PrintRequest) do lớp enqueue ghi.
+           -- label thiếu thì rơi về nhãn theo kind; request có thể null (vd. job in thử).
+           'label', COALESCE(NULLIF(ref->>'label', ''), CASE kind
                       WHEN 'kitchen_ticket' THEN 'Phiếu bếp'
                       WHEN 'table_slip' THEN 'Phiếu bàn'
                       WHEN 'bill' THEN 'Hoá đơn'
                       WHEN 'day_report' THEN 'Báo cáo ngày'
                       WHEN 'shift_report' THEN 'Báo cáo ca'
-                      ELSE 'In thử' END,
-           'request', jsonb_build_object('kind', kind, 'ref', ref))
+                      ELSE 'In thử' END),
+           'request', ref->'request')
            ORDER BY created_at DESC), '[]'::jsonb)
     INTO v_problems
     FROM (SELECT * FROM print_jobs

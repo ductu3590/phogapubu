@@ -538,8 +538,17 @@ test('get_print_status chỉ liệt kê failed/expired chưa xử lý', async ()
   assert.equal(p.kind, 'kitchen_ticket')
   assert.equal(p.status, 'failed')
   assert.equal(p.error, 'lỗi')
-  assert.ok(p.label)
-  assert.deepEqual(p.request, { kind: 'kitchen_ticket', ref: { orderId: 'o1' } })
+  // ref không có label/request: label rơi về nhãn theo kind, request null
+  assert.equal(p.label, 'Phiếu bếp')
+  assert.equal(p.request, null)
+  // ref có sẵn label + request (PrintRequest) thì lấy nguyên văn
+  const req = { kind: 'order', orderId: 'o1' }
+  await admin(`UPDATE print_jobs SET ref = $2::jsonb WHERE id = $1`,
+    [f, JSON.stringify({ label: 'Phiếu bếp Bàn 5', request: req })])
+  const r2 = (await rpc(owner, `SELECT get_print_status($1) AS r`, [store])).r
+  const p2 = r2.problem_jobs.find((x) => x.id === f)
+  assert.equal(p2.label, 'Phiếu bếp Bàn 5')
+  assert.deepEqual(p2.request, req)
 })
 
 test('retry_print_job: job mới queued, job cũ ẩn khỏi problem_jobs, gọi lại không tạo thêm', async () => {
