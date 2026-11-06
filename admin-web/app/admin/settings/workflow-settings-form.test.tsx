@@ -45,4 +45,26 @@ describe('WorkflowSettingsForm', () => {
     )
     expect(html).toContain('Bạn đang cấu hình thay mặt quán')
   })
+
+  it('printMode agent: hai ô policy bị khoá kèm lời giải thích', () => {
+    const html = renderToStaticMarkup(
+      createElement(WorkflowSettingsForm, {
+        initial: { ...PUBU_PRESET, kitchenReleasePolicy: 'pos_confirmation', staffOrderReleasePolicy: 'pos_confirmation' },
+        context: 'owner',
+        printMode: 'agent',
+        onSave: vi.fn(async () => undefined),
+      }),
+    )
+    expect(html).toContain('Đang dùng phần mềm in, phải giữ thu ngân xác nhận')
+    const selects = html.match(/<select[^>]*>/g) ?? []
+    const policySelects = selects.filter((tag) => /disabled=""/.test(tag))
+    expect(policySelects.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('không có printMode: ô policy không bị khoá, không có lời giải thích', () => {
+    const html = renderToStaticMarkup(
+      createElement(WorkflowSettingsForm, { initial: PUBU_PRESET, context: 'owner', onSave: vi.fn(async () => undefined) }),
+    )
+    expect(html).not.toContain('Đang dùng phần mềm in')
+  })
 })

@@ -15,6 +15,9 @@ import { Switch } from '@/components/ui/switch'
 type Props = {
   initial: StoreWorkflowSettings
   context: 'owner' | 'mevo'
+  // 'agent': đang dùng phần mềm in → khoá hai ô policy (trigger DB chặn 'automatic'; action lưu ném lỗi
+  // mà Next production giấu nội dung lỗi ném, nên phải khoá từ giao diện).
+  printMode?: 'browser' | 'agent'
   onSave: (value: StoreWorkflowSettings) => Promise<void>
 }
 
@@ -35,7 +38,7 @@ function snapshotForSave(value: StoreWorkflowSettings): StoreWorkflowSettings {
   return settings
 }
 
-export default function WorkflowSettingsForm({ initial, context, onSave }: Props) {
+export default function WorkflowSettingsForm({ initial, context, printMode, onSave }: Props) {
   const [baseline, setBaseline] = useState(() => cloneSettings(initial))
   const [draft, setDraft] = useState(() => cloneSettings(initial))
   const [saving, setSaving] = useState(false)
@@ -74,7 +77,9 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
   const applyPreset = (key: 'pubu' | 'bao_luong') => {
     const label = key === 'pubu' ? 'Trả trước như Pubu' : 'POS kiểm soát như Bảo Lương'
     if (!window.confirm(`Điền nhanh cấu hình “${label}”? Bạn vẫn cần bấm Lưu để áp dụng.`)) return
-    setDraft(applyWorkflowPreset(key))
+    const next = applyWorkflowPreset(key)
+    // Đang dùng phần mềm in thì preset không được đưa policy về 'automatic' (DB sẽ từ chối khi lưu)
+    setDraft(printMode === 'agent' ? { ...next, kitchenReleasePolicy: 'pos_confirmation', staffOrderReleasePolicy: 'pos_confirmation' } : next)
     setError('')
     setSaved(false)
   }
@@ -310,14 +315,19 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
             <PolicySelect
               label="Đơn khách xuống bếp"
               value={draft.kitchenReleasePolicy}
+              disabled={printMode === 'agent'}
               onChange={(value) => update('kitchenReleasePolicy', value)}
             />
             <PolicySelect
               label="Đơn nhân viên xuống bếp"
               value={draft.staffOrderReleasePolicy}
+              disabled={printMode === 'agent'}
               onChange={(value) => update('staffOrderReleasePolicy', value)}
             />
           </div>
+          {printMode === 'agent' && (
+            <p className="text-sm text-muted">Đang dùng phần mềm in, phải giữ thu ngân xác nhận.</p>
+          )}
         </WorkflowSection>
 
         <WorkflowSection
@@ -649,16 +659,19 @@ function SelectInput({
 function PolicySelect({
   label,
   value,
+  disabled = false,
   onChange,
 }: {
   label: string
   value: ReleasePolicy
+  disabled?: boolean
   onChange: (value: ReleasePolicy) => void
 }) {
   return (
     <SelectInput
       label={label}
       value={value}
+      disabled={disabled}
       onChange={(next) => onChange(next as ReleasePolicy)}
       options={[
         ['automatic', 'Tự động chuyển cho bếp'],
