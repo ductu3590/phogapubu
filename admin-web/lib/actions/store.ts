@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 import { normalizeMapsUrl } from '@/lib/maps-url'
 import { parseBellStyle, type BellStyle } from '@/lib/bell-settings'
+import { parseBankAccountInput, type BankAccountInput } from '@/lib/vietqr'
 
 // Dùng chung bucket ảnh với menu (public read, service-role ghi)
 const ASSET_BUCKET = 'menu-images'
@@ -98,6 +99,23 @@ export async function saveBellStyle(style: BellStyle): Promise<{ ok: true } | { 
   const storeId = await getStoreId()
   if (parseBellStyle(style) !== style) return { ok: false, error: 'Kiểu chuông không hợp lệ' }
   const { error } = await createAdminClient().from('stores').update({ bell_style: style }).eq('id', storeId)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/admin', 'layout')
+  return { ok: true }
+}
+
+// Tài khoản nhận tiền cho mã VietQR (Đợt 1 mục D). Chỉ chủ quán; lỗi người dùng TRẢ {ok,error}, không ném
+// (Next prod giấu nội dung lỗi ném). Trống cả ba ô = xoá tài khoản.
+export async function saveBankAccount(input: BankAccountInput): Promise<{ ok: true } | { ok: false; error: string }> {
+  let storeId: string
+  try {
+    storeId = await getStoreId()
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Không có quyền' }
+  }
+  const parsed = parseBankAccountInput(input)
+  if (!parsed.ok) return { ok: false, error: parsed.error }
+  const { error } = await createAdminClient().from('stores').update(parsed.value).eq('id', storeId)
   if (error) return { ok: false, error: error.message }
   revalidatePath('/admin', 'layout')
   return { ok: true }

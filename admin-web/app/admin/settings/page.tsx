@@ -3,6 +3,7 @@ import SettingsClient from './settings-client'
 import WorkflowSettingsForm from './workflow-settings-form'
 import BellSettingsSection from './bell-settings-section'
 import BusinessDaySection from './business-day-section'
+import BankAccountSection from './bank-account-section'
 import { parseBellStyle } from '@/lib/bell-settings'
 import { loadBusinessDayStart } from '@/lib/actions/bills-report'
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
@@ -20,7 +21,7 @@ export default async function SettingsPage() {
   const [{ data: store }, workflowSettings, businessDayStart] = await Promise.all([
     supabase
       .from('stores')
-      .select('name, logo_url, zalo_oa_url, address, google_maps_url, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, delivery_area_note, terms_of_use, bell_style')
+      .select('name, logo_url, zalo_oa_url, address, google_maps_url, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, delivery_area_note, terms_of_use, bell_style, bank_bin, bank_account_number, bank_account_name')
       .eq('id', storeId)
       .single(),
     loadOwnerWorkflowSettings(),
@@ -78,6 +79,21 @@ export default async function SettingsPage() {
           </div>
 
           <BusinessDaySection initial={businessDayStart} />
+
+          <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
+            <h2 className="mb-1 text-lg font-semibold text-foreground">Tài khoản nhận tiền</h2>
+            <p className="mb-4 text-sm text-muted">
+              Khai báo để hiện mã VietQR ở màn Thanh toán và trên tờ tạm tính.
+            </p>
+            {/* Không đặt key: section tự đồng bộ ba ô khi `initial` đổi, để giữ trạng thái "Đã lưu" */}
+            <BankAccountSection
+              initial={{
+                bank_bin: (store?.bank_bin as string | null) ?? null,
+                bank_account_number: (store?.bank_account_number as string | null) ?? null,
+                bank_account_name: (store?.bank_account_name as string | null) ?? null,
+              }}
+            />
+          </section>
 
           <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
             <h2 className="mb-4 text-lg font-semibold text-foreground">Quy trình vận hành</h2>
