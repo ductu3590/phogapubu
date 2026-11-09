@@ -92,6 +92,28 @@ export function parseShiftCash(text: string): number | null {
   return v
 }
 
+/** Câu server báo khi quán bật ca mà chưa có ca mở (require_open_cash_shift, mig 122). */
+export const NO_OPEN_SHIFT_ERROR = 'Chưa mở ca'
+
+export function isNoOpenShiftError(error: string | null | undefined): boolean {
+  return !!error && error.includes(NO_OPEN_SHIFT_ERROR)
+}
+
+/** Giờ mở ca "HH:MM" theo giờ Việt Nam. */
+export function shiftTimeLabel(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+/** "HH:MM dd/MM" theo giờ Việt Nam (banner ca quên kết, panel ca). */
+export function shiftDateTimeLabel(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const date = d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' })
+  return `${shiftTimeLabel(iso)} ${date}`
+}
+
 /** Chênh lệch = đếm được − dự kiến (âm = thiếu). */
 export function differenceLabel(difference: number): string {
   if (difference === 0) return 'Khớp'
