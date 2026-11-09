@@ -27,7 +27,7 @@ export async function savePrintMode(mode: 'browser' | 'agent'): Promise<{ ok: tr
   const who = await ownerStoreId()
   if (isFail(who)) return who
   const supabase = await createClient()
-  // RPC kiểm lại is_store_owner_of; trigger DB chặn bật `agent` khi policy còn 'automatic' — giữ nguyên câu lỗi
+  // RPC kiểm lại is_store_owner_of — giữ nguyên câu lỗi RPC
   const { error } = await supabase.rpc('set_print_mode', { p_store_id: who.storeId, p_mode: mode })
   if (error) return fail(error.message)
   refresh()

@@ -21,6 +21,16 @@ import type { OperatorRole } from '@/lib/auth/roles'
 //   (kitchen_release_policy = pos_confirmation, mô hình Bảo Lương) không có màn bếp nào để mở.
 // - Đặt bàn chỉ hiện khi quán bật đặt bàn.
 export function adminRailItems(kitchenEnabled = true, reservationsEnabled = false, role: OperatorRole = 'store_owner'): AppNavItem[] {
+  // Quản lý (QL, mig 116): POS · Đặt bàn · Món (chỉ bật/tắt Tạm hết) · Báo cáo; không Bếp, không Bàn QR.
+  // Module KHO / CA / NO / BC thêm mục của mình vào nhánh này VÀ nhánh chủ quán bên dưới.
+  if (role === 'store_manager') {
+    return [
+      { href: '/admin/pos', label: 'POS', icon: <LayoutGrid /> },
+      ...(reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []),
+      { href: '/admin/menu', label: 'Món', icon: <UtensilsCrossed /> },
+      { href: '/admin/bills', label: 'Báo cáo', icon: <ReceiptText /> },
+    ]
+  }
   // Thu ngân (PA-2): POS · Món (chỉ bật/tắt Tạm hết) · Báo cáo; Cài đặt ở chân rail.
   // /admin/reports (báo cáo bán hàng) thêm vào nhánh này cùng lúc với CASHIER_ADMIN_PATHS khi gộp nhánh Quản lý.
   if (role === 'store_cashier') {
@@ -43,9 +53,9 @@ export function adminRailItems(kitchenEnabled = true, reservationsEnabled = fals
 
 // Nút ⚙ Cài đặt ở chân rail, ngay trên Đăng xuất.
 // - Chủ quán: Cài đặt chung · Nhân viên · Ưu đãi · Bảo mật (tab trong hộp thoại) → sáng ở cả 4 trang.
-// - Thu ngân: không sửa được cài đặt quán → ⚙ là cấu hình tài khoản của chính mình (Bảo mật).
+// - Thu ngân, quản lý: không sửa được cài đặt quán → ⚙ là cấu hình tài khoản của chính mình (Bảo mật).
 export function adminBottomItems(role: OperatorRole = 'store_owner'): AppNavItem[] {
-  if (role === 'store_cashier') return [{ href: '/admin/account', label: 'Cài đặt', icon: <Settings /> }]
+  if (role !== 'store_owner') return [{ href: '/admin/account', label: 'Cài đặt', icon: <Settings /> }]
   return [{ href: '/admin/settings', label: 'Cài đặt', icon: <Settings />, alsoActive: ['/admin/staff', '/admin/vouchers', '/admin/account'] }]
 }
 

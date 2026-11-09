@@ -10,8 +10,9 @@ export default async function MenuPage() {
 
   const supabase = await createClient()
 
-  // Thu ngân (PA-2): chỉ bật/tắt "Tạm hết" — không tải kho topping, không có màn sửa món.
-  if (operator.role === 'store_cashier') {
+  // Thu ngân (PA-2) + quản lý (mig 116): chỉ bật/tắt "Tạm hết" — không tải kho topping, không có màn sửa món.
+  // RLS menu_items vẫn chỉ cho chủ quán sửa (is_store_owner_or_admin). Ô "Trừ kho" cho quản lý do module KHO thêm.
+  if (operator.role !== 'store_owner') {
     const { data: cashierCategories } = await supabase
       .from('menu_categories')
       .select('id, name, sort_order, menu_items(id, name, price, is_available, sort_order, sku)')
