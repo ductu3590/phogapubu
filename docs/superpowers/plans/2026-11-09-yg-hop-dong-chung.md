@@ -52,6 +52,19 @@ cash_shift_totals(p_shift_id uuid) RETURNS jsonb
   -- {opening_cash, cash_sales, cash_receipts, cash_payments, debt_cash, expected_cash, bills_count, bank_sales}
   -- debt_cash = 0 cho tới khi mig 123 vá
 
+cash_book_void_internal(p_entry_id uuid, p_reason text, p_actor uuid)       -- nội bộ
+-- cash_shift_totals giữ dòng neo: `  v_debt_cash := 0; -- mevo-anchor:123 cash_shift_totals.debt_cash`
+-- JSON phiếu ca dùng tên: cash_sales, cash_payments, entries (KHÔNG dùng cash_collected/expense_total/expenses của plan B cũ)
+
+-- mig 118 (KHO) phải để sẵn cho 122b:
+--   inventory_documents.paid_method ('cash'|'bank') null, cash_book_entry_id uuid (chưa FK)
+--   dòng neo `  -- mevo-anchor:122b inventory_post_document.cash_book(v_doc_id)` (sau khi chèn dòng phiếu, sau nhánh gọi lại)
+--   dòng neo `  -- mevo-anchor:122b inventory_void_document.cash_book(v_doc_id)` (sau kiểm quyền, sau nhánh "đã huỷ")
+-- mig 122b (CA): inventory_receipt_cash_book(p_doc_id uuid), inventory_receipt_cash_book_void(p_doc_id uuid, p_reason text)
+
+-- mig 112a (THU): câu INSERT INTO public.bill_payments của collect_table_bill giữ phần values(...) trên MỘT dòng,
+--   chữ NULL ở vị trí cash_shift_id, sau mọi nhánh trả already (122 neo vào đây)
+
 -- mig 123 (NO): bill_payment_lines.instrument thêm 'debt'; vá cash_shift_totals.debt_cash;
 --   get_bills_report totals thêm 'debt'
 ```
