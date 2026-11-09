@@ -16,6 +16,9 @@
 --   6) Sổ thu chi: RPC cash_book_create (manual | pos_drawer), cash_book_void, cash_book_list,
 --      cash_book_save_category, cash_book_set_category_active. Thu ngân chỉ ghi tiền mặt tại két, không huỷ,
 --      chỉ xem phiếu mình ghi; danh mục hệ thống "Nhập hàng" không ghi tay, không sửa, không ẩn.
+--   7) Vá tại chỗ collect_table_bill, confirm_manual_payment, kitchen_confirm_payment: cash_shift_id =
+--      require_open_cash_shift(store). Neo chép từ file 112a (chưa áp prod lúc viết): controller đối chiếu
+--      pg_get_functiondef trên prod trước khi áp.
 --
 -- ⚠️ Không chặn ở RLS: thu ngân đọc thẳng bill_payments vẫn tính được tiền dự kiến — quy tắc "đếm trước thấy sau"
 --    chỉ ở giao diện, chấp nhận (spec B2: A04 vốn cho thu ngân xem tiền mặt theo ngày).
@@ -41,6 +44,8 @@ BEGIN
   END IF;
   FOREACH v_sig IN ARRAY ARRAY[
     'public.collect_table_bill(uuid[],jsonb,integer,uuid)',
+    'public.confirm_manual_payment(uuid)',
+    'public.kitchen_confirm_payment(uuid)',
     'public.current_business_date(uuid)',
     'public.is_store_back_office(uuid)',
     'public.is_store_pos_operator(uuid)',
@@ -1327,6 +1332,28 @@ GRANT EXECUTE ON FUNCTION public.cash_book_void(uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cash_book_list(uuid, date, date, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cash_book_save_category(uuid, uuid, text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cash_book_set_category_active(uuid, boolean) TO authenticated;
+
+-- ============================================================
+-- 13) Gác ba RPC thu tiền: quán bật ca thì mọi khoản thu ở quầy (TM lẫn CK, giống KiotViet) phải gắn ca đang mở;
+--     không có ca → "Chưa mở ca", cả giao dịch huỷ (phiên vẫn mở, đơn chưa ghi nhận tiền).
+--     Vá đúng chữ NULL ở vị trí cash_shift_id của dòng values (...) câu INSERT bill_payments. Câu INSERT đứng SAU
+--     mọi nhánh trả 'already' (gửi lại sau khi ca đóng vẫn nhận kết quả cũ). require_open_cash_shift khoá ca
+--     FOR SHARE tới hết giao dịch: Kết ca (FOR UPDATE) chờ lần thu này xong rồi mới cộng két.
+--     Đơn ví Zalo trả trước (checkout-notify) không đi qua ba hàm này nên không bị gác.
+--     ⚠️ Neo chép nguyên văn từ supabase/migrations/112a_collect_table_bill.sql (112a chưa áp prod lúc viết):
+--        controller đối chiếu pg_get_functiondef trên prod trước khi áp 122.
+-- ============================================================
+SELECT pg_temp.mevo_patch('public.collect_table_bill(uuid[],jsonb,integer,uuid)',
+$a$    VALUES (v_store, NULL, p_client_request_id, v_sum, p_cash_given, v_change, v_uid, 'pos')$a$,
+$b$    VALUES (v_store, public.require_open_cash_shift(v_store), p_client_request_id, v_sum, p_cash_given, v_change, v_uid, 'pos')$b$);
+
+SELECT pg_temp.mevo_patch('public.confirm_manual_payment(uuid)',
+$a$    values (v_order.store_id, NULL, v_order.total_amount, auth.uid(), 'manual_order')$a$,
+$b$    values (v_order.store_id, public.require_open_cash_shift(v_order.store_id), v_order.total_amount, auth.uid(), 'manual_order')$b$);
+
+SELECT pg_temp.mevo_patch('public.kitchen_confirm_payment(uuid)',
+$a$    values (v_order.store_id, NULL, v_order.total_amount, NULL, 'kitchen')$a$,
+$b$    values (v_order.store_id, public.require_open_cash_shift(v_order.store_id), v_order.total_amount, NULL, 'kitchen')$b$);
 
 NOTIFY pgrst, 'reload schema';
 

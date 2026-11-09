@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { openCashShiftDb } from './helpers/cash-shift-db.mjs'
+import { openCollectDb } from './helpers/collect-bill-db.mjs'
 
 const h = await openCashShiftDb({ through: '122' })
 const { db, ids, one, count, as, setShiftRequired, setDayStart, insertShift, category } = h
@@ -1060,6 +1061,182 @@ describe('122 sổ', () => {
     assert.ok(d.indexOf('FOR UPDATE') < d.indexOf('FOR SHARE'))
     assert.match(await def('cash_book_void(uuid,text)'), /cash_book_void_internal\(/)
     assert.match(await def('cash_book_create(text,text,uuid,bigint,text,text,uuid,text)'), /cash_book_create_internal_result\(/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Task 4: gác ba RPC thu tiền
+// ---------------------------------------------------------------------------
+const CASH = (amount) => ({ instrument: 'cash', amount })
+const BANK = (amount) => ({ instrument: 'bank', amount })
+const paymentsOf = () => db.query('SELECT * FROM bill_payments ORDER BY collected_at').then((r) => r.rows)
+const orderRow = (id) => one('SELECT * FROM orders WHERE id = $1', [id])
+const sessionRow = (id) => one('SELECT * FROM table_sessions WHERE id = $1', [id])
+
+describe('122 gác thu', () => {
+  test('công tắc tắt: cả 3 RPC thu như cũ, cash_shift_id NULL (kể cả khi đang có ca mở)', async () => {
+    await insertShift()
+    const s = await h.session(); await h.order(s, 1000)
+    assert.equal((await h.collect([s], [CASH(1000)], null, randomUUID())).already, false)
+    const o1 = await h.order(null, 2000, { method: 'cash' })
+    assert.equal((await h.confirm(o1)).already, false)
+    const o2 = await h.order(null, 3000, { method: 'bank_transfer' })
+    assert.equal((await h.kitchenConfirm(o2)).ok, true)
+    const rows = await paymentsOf()
+    assert.deepEqual(rows.map((r) => [Number(r.total_amount), r.source, r.cash_shift_id]),
+      [[1000, 'pos', null], [2000, 'manual_order', null], [3000, 'kitchen', null]])
+  })
+
+  test('bật, không ca: collect báo Chưa mở ca; không có dòng bill_payments; phiên vẫn mở; payment_received_at NULL', async () => {
+    await setShiftRequired(ids.store, true)
+    await insertShift({ status: 'closed' })
+    const s = await h.session(); const o = await h.order(s, 1000)
+    await assert.rejects(h.collect([s], [CASH(1000)], 1000, randomUUID()), /Chưa mở ca/)
+    assert.equal(await count('bill_payments'), 0)
+    assert.equal(await count('bill_payment_lines'), 0)
+    assert.equal((await sessionRow(s)).status, 'open')
+    assert.equal((await orderRow(o)).payment_received_at, null)
+    const o1 = await h.order(null, 2000, { method: 'cash' })
+    await assert.rejects(h.confirm(o1), /Chưa mở ca/)
+    assert.equal((await orderRow(o1)).payment_received_at, null)
+    const o2 = await h.order(null, 3000, { method: 'bank_transfer' })
+    await assert.rejects(h.kitchenConfirm(o2), /Chưa mở ca/)
+    assert.equal((await orderRow(o2)).payment_received_at, null)
+    assert.equal(await count('bill_payments'), 0)
+  })
+
+  test('bật, có ca: cash_shift_id = ca; kết ca thấy cash_sales đúng phần TM, bank_sales đúng phần CK của bill kết hợp', async () => {
+    await setShiftRequired(ids.store, true)
+    const { shift_id: shift } = await rpc(ids.cashier, 'open_cash_shift', ids.store, 100000, null)
+    const s = await h.session(); await h.order(s, 300000); await h.order(s, 200000)
+    await h.collect([s], [CASH(300000), BANK(200000)], 500000, randomUUID())
+    const o1 = await h.order(null, 40000, { method: 'cash' })
+    await h.confirm(o1)
+    const o2 = await h.order(null, 60000, { method: 'bank_transfer' })
+    await h.kitchenConfirm(o2)
+    const rows = await paymentsOf()
+    assert.equal(rows.length, 3)
+    assert.ok(rows.every((r) => r.cash_shift_id === shift))
+    const r = await rpc(ids.cashier, 'close_cash_shift', shift, 440000, null)
+    assert.deepEqual([r.cash_sales, r.expected_cash, r.difference], [340000, 440000, 0])
+    const rep = await rpc(ids.owner, 'get_cash_shift_report', shift)
+    assert.deepEqual([rep.cash_sales, rep.bank_sales, rep.bills_count], [340000, 260000, 3])
+  })
+
+  test('thu chuyển khoản cũng phải có ca', async () => {
+    await setShiftRequired(ids.store, true)
+    const s = await h.session(); await h.order(s, 5000)
+    await assert.rejects(h.collect([s], [BANK(5000)], null, randomUUID()), /Chưa mở ca/)
+    const shift = await insertShift()
+    await h.collect([s], [BANK(5000)], null, randomUUID())
+    assert.equal((await paymentsOf())[0].cash_shift_id, shift)
+  })
+
+  test('replay client_request_id sau khi ca đã đóng: trả kết quả cũ, không báo Chưa mở ca', async () => {
+    await setShiftRequired(ids.store, true)
+    const shift = await insertShift()
+    const s = await h.session(); await h.order(s, 7000)
+    const req = randomUUID()
+    const first = await h.collect([s], [CASH(7000)], null, req)
+    await rpc(ids.cashier, 'close_cash_shift', shift, 7000, null)
+    const again = await h.collect([s], [CASH(7000)], null, req)
+    assert.deepEqual([again.already, again.payment_id], [true, first.payment_id])
+    // Máy khác (mã khác) bấm thu đúng nhóm đã thu: nhánh already "đã thu hết" cũng đứng trước cổng ca.
+    const other = await h.collect([s], [CASH(7000)], null, randomUUID())
+    assert.equal(other.already, true)
+    assert.equal(await count('bill_payments'), 1)
+  })
+
+  test('confirm_manual_payment đơn đã thu: vẫn already, không báo Chưa mở ca', async () => {
+    await setShiftRequired(ids.store, true)
+    const o = await h.order(null, 2000, { method: 'cash', paid: true })
+    assert.equal((await h.confirm(o)).already, true)
+    const k = await h.order(null, 2000, { method: 'bank_transfer', paid: true })
+    assert.equal((await h.kitchenConfirm(k)).already, true)
+    assert.equal(await count('bill_payments'), 0)
+  })
+
+  test('kitchen_confirm_payment không có auth.uid(): gác vẫn chạy', async () => {
+    await setShiftRequired(ids.store, true)
+    const o = await h.order(null, 3000, { method: 'bank_transfer' })
+    await assert.rejects(h.kitchenConfirm(o), /Chưa mở ca/)
+    const shift = await insertShift()
+    assert.equal((await h.kitchenConfirm(o)).ok, true)
+    const [p] = await paymentsOf()
+    assert.deepEqual([p.cash_shift_id, p.collected_by, p.source], [shift, null, 'kitchen'])
+  })
+
+  test('gộp bill N mâm: một bill_payments, một cash_shift_id', async () => {
+    await setShiftRequired(ids.store, true)
+    const shift = await insertShift()
+    const a = await h.session({ table: ids.t1 }); await h.order(a, 1000)
+    const b = await h.session({ table: ids.t2 }); await h.order(b, 2000)
+    const c = await h.session({ table: ids.t3 }); await h.order(c, 3000)
+    await h.collect([a, b, c], [CASH(6000)], null, randomUUID())
+    const rows = await paymentsOf()
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].cash_shift_id, shift)
+    assert.equal(await count('table_sessions WHERE bill_payment_id = $1', [rows[0].id]), 3)
+  })
+
+  test('ca stale vẫn nhận tiền; thu ở ca mới không ăn vào ca cũ đã đóng', async () => {
+    await setShiftRequired(ids.store, true)
+    const df = await dayFrom()
+    const stale = await insertShift({ openedAt: new Date(df.getTime() - 2 * 86400_000) })
+    assert.equal((await rpc(ids.cashier, 'get_open_cash_shift', ids.store)).shift.stale, true)
+    const s1 = await h.session(); await h.order(s1, 1000)
+    await h.collect([s1], [CASH(1000)], null, randomUUID())
+    await rpc(ids.cashier, 'close_cash_shift', stale, 1000, null)
+    const { shift_id: fresh } = await rpc(ids.cashier, 'open_cash_shift', ids.store, 0, null)
+    const s2 = await h.session({ table: ids.t2 }); await h.order(s2, 5000)
+    await h.collect([s2], [CASH(5000)], null, randomUUID())
+    assert.equal((await totals(stale)).cash_sales, 1000)
+    assert.equal((await totals(fresh)).cash_sales, 5000)
+    assert.deepEqual((await paymentsOf()).map((p) => p.cash_shift_id), [stale, fresh])
+  })
+
+  test('đơn lẻ 0đ không tạo khoản thu nên không bị gác (đúng hợp đồng plan A)', async () => {
+    await setShiftRequired(ids.store, true)
+    const o = await h.order(null, 0, { method: 'cash' })
+    assert.equal((await h.confirm(o)).already, false)
+    const k = await h.order(null, 0, { method: 'bank_transfer' })
+    assert.equal((await h.kitchenConfirm(k)).ok, true)
+    assert.equal(await count('bill_payments'), 0)
+    assert.ok((await orderRow(o)).payment_received_at)
+  })
+
+  test('neo values của 3 hàm khớp đúng 1 lần trên pg_get_functiondef sau 112a+112b; cổng đứng sau mọi nhánh already', async () => {
+    const src112a = (await readFile(new URL('../migrations/112a_collect_table_bill.sql', import.meta.url), 'utf8'))
+      .replace(/\r\n/g, '\n')
+    const anchors = [
+      ['collect_table_bill(uuid[],jsonb,integer,uuid)',
+        "    VALUES (v_store, NULL, p_client_request_id, v_sum, p_cash_given, v_change, v_uid, 'pos')",
+        "    VALUES (v_store, public.require_open_cash_shift(v_store), p_client_request_id, v_sum, p_cash_given, v_change, v_uid, 'pos')"],
+      ['confirm_manual_payment(uuid)',
+        "    values (v_order.store_id, NULL, v_order.total_amount, auth.uid(), 'manual_order')",
+        "    values (v_order.store_id, public.require_open_cash_shift(v_order.store_id), v_order.total_amount, auth.uid(), 'manual_order')"],
+      ['kitchen_confirm_payment(uuid)',
+        "    values (v_order.store_id, NULL, v_order.total_amount, NULL, 'kitchen')",
+        "    values (v_order.store_id, public.require_open_cash_shift(v_order.store_id), v_order.total_amount, NULL, 'kitchen')"],
+    ]
+    // Bản 112a + 112b chưa vá (DB riêng, không nạp 122): neo phải khớp đúng 1 lần trên pg_get_functiondef.
+    const pre = await openCollectDb({ lock: true })
+    try {
+      for (const [sig, from, to] of anchors) {
+        assert.equal(countOf(src112a, from), 1, `neo ${sig} phải có đúng 1 lần trong 112a`)
+        const raw = (await pre.one(`SELECT pg_get_functiondef('public.${sig}'::regprocedure) AS d`)).d
+        assert.equal(countOf(raw.replace(/\r\n/g, '\n'), from), 1, `neo ${sig} phải khớp 1 lần sau 112a+112b`)
+        const d = await def(sig)
+        assert.equal(countOf(d, to), 1, `${sig} đã vá`)
+        assert.equal(countOf(d, from), 0, `${sig} còn dòng NULL`)
+        // Cổng ca đứng SAU mọi nhánh trả already.
+        const gate = d.indexOf('require_open_cash_shift(')
+        const lastAlready = Math.max(d.lastIndexOf("'already', true"), d.lastIndexOf("return jsonb_build_object('ok', true, 'already', true"))
+        assert.ok(lastAlready > 0 && gate > lastAlready, `${sig}: cổng ca phải đứng sau nhánh already`)
+      }
+    } finally {
+      await pre.db.close()
+    }
   })
 })
 
