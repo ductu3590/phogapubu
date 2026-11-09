@@ -65,7 +65,7 @@ function payments(v: unknown): PaymentLine[] {
   return arr(v).flatMap((p0) => {
     const p = obj(p0)
     const i = p.instrument
-    return typeof i === 'string' && i in INSTRUMENT_LABELS ? [{ instrument: i as Instrument, amount: num(p.amount) }] : []
+    return typeof i === 'string' && Object.hasOwn(INSTRUMENT_LABELS, i) ? [{ instrument: i as Instrument, amount: num(p.amount) }] : []
   })
 }
 
@@ -220,6 +220,17 @@ export function billCashBank(row: BillRow): { cash: number | null; bank: number 
   if (row.instrument === 'cash') return { cash: row.amount, bank: null }
   if (row.instrument === 'bank') return { cash: null, bank: row.amount }
   return { cash: null, bank: null }
+}
+
+/**
+ * Phần của bill đã thu KHÔNG nằm ở cột Tiền mặt / Chuyển khoản (ví, bill cũ trộn nhiều phương tiện). Tính là phần
+ * còn lại để mỗi dòng Tiền mặt + Chuyển khoản + Khác = Số tiền. 0 hoặc không phải dòng đã thu → null (ô trống).
+ */
+export function billOther(row: BillRow): number | null {
+  if (row.kind !== 'paid') return null
+  const { cash, bank } = billCashBank(row)
+  const rest = row.amount - (cash ?? 0) - (bank ?? 0)
+  return rest !== 0 ? rest : null
 }
 
 export type BillChip = 'all' | 'paid' | 'adjusted' | 'waiting'

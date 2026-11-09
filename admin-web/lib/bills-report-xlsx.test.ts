@@ -113,6 +113,38 @@ describe('Excel báo cáo ngày (A04-3)', () => {
     expect(cashRow[header.indexOf('Chuyển khoản')] ?? null).toBeNull()
   })
 
+  it('Hoá đơn: cột Khác sau Chuyển khoản; mọi dòng đã thu Tiền mặt + Chuyển khoản + Khác = Số tiền', async () => {
+    const r = parseBillsReport({
+      date: '2026-10-09',
+      bills: [
+        { key: 'P:1', paid_at: '2026-10-09T05:00:00Z', total: 1000, instrument: 'mixed', table_label: 'Bàn A',
+          payments: [{ instrument: 'cash', amount: 400 }, { instrument: 'bank', amount: 600 }] },
+        { key: 'C:2', paid_at: '2026-10-09T05:10:00Z', total: 700, instrument: 'cash', table_label: 'Bàn B' },
+        { key: 'C:3', paid_at: '2026-10-09T05:20:00Z', total: 300, instrument: 'mixed', table_label: 'Bàn C' }, // bill cũ trộn
+        { key: 'O:4', paid_at: '2026-10-09T05:30:00Z', total: 90, instrument: 'other', table_label: 'Bàn D' }, // ví
+      ],
+    })
+    const buf = await buildBillsWorkbook(r, meta).xlsx.writeBuffer()
+    const wb = new ExcelJS.Workbook()
+    await wb.xlsx.load(buf)
+    const ws = wb.getWorksheet('Hoá đơn')!
+    const header = (ws.getRow(1).values as unknown[]).slice(1)
+    const iCash = header.indexOf('Tiền mặt'), iBank = header.indexOf('Chuyển khoản'), iOther = header.indexOf('Khác')
+    expect(iOther).toBe(iBank + 1)
+    expect(iBank).toBe(iCash + 1)
+    const n = (v: unknown) => (typeof v === 'number' ? v : 0)
+    const byTable: Record<string, number[]> = {}
+    for (let row = 2; row <= ws.rowCount; row++) {
+      const v = (ws.getRow(row).values as unknown[]).slice(1)
+      byTable[v[header.indexOf('Bàn')] as string] = [n(v[iCash]), n(v[iBank]), n(v[iOther])]
+      expect(n(v[iCash]) + n(v[iBank]) + n(v[iOther])).toBe(v[header.indexOf('Số tiền')])
+    }
+    expect(byTable['Bàn A']).toEqual([400, 600, 0])
+    expect(byTable['Bàn B']).toEqual([700, 0, 0])
+    expect(byTable['Bàn C']).toEqual([0, 0, 300])
+    expect(byTable['Bàn D']).toEqual([0, 0, 90])
+  })
+
   it('Điều chỉnh: loại tiếng Việt, số lượng cũ → mới, tiền âm khi bớt', async () => {
     const ws = (await roundTrip()).getWorksheet('Điều chỉnh')!
     const v = (ws.getRow(2).values as unknown[]).slice(1)

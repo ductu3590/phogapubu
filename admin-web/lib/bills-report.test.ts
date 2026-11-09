@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   billCashBank,
   billCode,
+  billOther,
   buildBillRows,
   businessDayRangeLabel,
   chipCounts,
@@ -148,6 +149,19 @@ describe('mig 112a: từng khoản thu', () => {
     expect(billCashBank(row({ kind: 'waiting', instrument: null }))).toEqual({ cash: null, bank: null })
     // Có khoản nhưng chỉ chuyển khoản: cột tiền mặt trống, không phải 0
     expect(billCashBank(row({ instrument: 'bank', payments: [{ instrument: 'bank', amount: 1000 }] }))).toEqual({ cash: null, bank: 1000 })
+  })
+
+  it('billOther: phần còn lại của bill đã thu không tách được thành TM/CK; null khi bằng 0 hoặc không phải dòng đã thu', () => {
+    const row = (over: Partial<BillRow>) => ({ kind: 'paid', amount: 1000, instrument: 'cash', payments: [], ...over }) as BillRow
+    expect(billOther(row({}))).toBeNull()
+    expect(billOther(row({ instrument: 'mixed' }))).toBe(1000)
+    expect(billOther(row({ instrument: 'other' }))).toBe(1000)
+    expect(billOther(row({ instrument: 'mixed', payments: [{ instrument: 'cash', amount: 400 }, { instrument: 'bank', amount: 600 }] }))).toBeNull()
+    expect(billOther(row({ kind: 'waiting', instrument: null }))).toBeNull()
+  })
+
+  it('payments: khoá kế thừa từ Object.prototype không lọt qua bộ lọc phương tiện', () => {
+    expect(parseBillsReport({ bills: [{ payments: [{ instrument: 'toString', amount: 1 }, { instrument: 'constructor', amount: 2 }] }] }).bills[0].payments).toEqual([])
   })
 })
 
