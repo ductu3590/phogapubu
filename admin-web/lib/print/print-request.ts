@@ -5,6 +5,8 @@ export type PrintRequest = (
   | { kind: 'bill'; sessionIds: string[] }
   | { kind: 'day_report'; date: string }
   | { kind: 'shift_report'; shiftId: string }
+  // Bảng kê công nợ một khách (mig 123). Chỉ in bằng trình duyệt (không có trong AGENT_KINDS).
+  | { kind: 'debt_statement'; customerId: string }
 ) & { reprint?: boolean }
 
 /** URL trang in ở chế độ trình duyệt — giữ nguyên các URL mà POS/staff/báo cáo đang dùng. */
@@ -20,6 +22,8 @@ export function browserPrintUrl(req: PrintRequest): string {
       return `/print/day-report?date=${encodeURIComponent(req.date)}`
     case 'shift_report':
       return `/print/shift-report?id=${encodeURIComponent(req.shiftId)}`
+    case 'debt_statement':
+      return `/print/debt-statement?customer=${encodeURIComponent(req.customerId)}`
   }
 }
 

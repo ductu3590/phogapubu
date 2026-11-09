@@ -11,7 +11,7 @@ const all = (reservations: boolean, kitchen = true, role: OperatorRole = 'store_
 describe('rail chủ quán — thanh icon dọc, không còn ô Thêm (2026-10-13)', () => {
   it('POS đứng đầu, mục hằng ngày trên rail; Nhân viên · Ưu đãi · Bảo mật nằm trong ⚙ Cài đặt', () => {
     expect(hrefs(adminRailItems(true, true))).toEqual([
-      '/admin/pos', '/admin/kitchen', '/admin/reservations', '/admin/menu', '/admin/tables', '/admin/bills', '/admin/reports',
+      '/admin/pos', '/admin/kitchen', '/admin/reservations', '/admin/menu', '/admin/tables', '/admin/bills', '/admin/debts', '/admin/reports',
       '/admin/cashbook', '/admin/inventory',
     ])
     expect(adminRailItems(true, true).find((i) => i.href === '/admin/cashbook')?.label).toBe('Thu chi')
@@ -41,7 +41,7 @@ describe('rail chủ quán — thanh icon dọc, không còn ô Thêm (2026-10-1
   it('không mất trang nào: rail + tab trong ⚙ Cài đặt phủ đủ mọi trang (quán bật đặt bàn + dùng màn bếp)', () => {
     expect(new Set([...all(true), ...settingsTabs('store_owner').map((t) => t.href)])).toEqual(new Set([
       '/admin/pos', '/admin/kitchen', '/admin/reservations', '/admin/menu', '/admin/tables',
-      '/admin/bills', '/admin/reports', '/admin/cashbook', '/admin/inventory', '/admin/staff', '/admin/vouchers', '/admin/account', '/admin/settings',
+      '/admin/bills', '/admin/debts', '/admin/reports', '/admin/cashbook', '/admin/inventory', '/admin/staff', '/admin/vouchers', '/admin/account', '/admin/settings',
     ]))
   })
 
@@ -69,8 +69,8 @@ describe('rail chủ quán — thanh icon dọc, không còn ô Thêm (2026-10-1
 
 describe('thu ngân (PA-2)', () => {
   it('rail: POS · Món · Hoá đơn · Báo cáo · Thu chi (phiếu của mình) · Kho (chỉ xem tồn); ⚙ Cài đặt = tài khoản của chính mình', () => {
-    expect(hrefs(adminRailItems(true, true, 'store_cashier'))).toEqual(['/admin/pos', '/admin/menu', '/admin/bills', '/admin/reports', '/admin/cashbook', '/admin/inventory'])
-    expect(adminRailItems(true, true, 'store_cashier').map((i) => i.label)).toEqual(['POS', 'Món', 'Hoá đơn', 'Báo cáo', 'Thu chi', 'Kho'])
+    expect(hrefs(adminRailItems(true, true, 'store_cashier'))).toEqual(['/admin/pos', '/admin/menu', '/admin/bills', '/admin/debts', '/admin/reports', '/admin/cashbook', '/admin/inventory'])
+    expect(adminRailItems(true, true, 'store_cashier').map((i) => i.label)).toEqual(['POS', 'Món', 'Hoá đơn', 'Công nợ', 'Báo cáo', 'Thu chi', 'Kho'])
     expect(adminBottomItems('store_cashier')).toMatchObject([{ href: '/admin/account', label: 'Cài đặt' }])
   })
 
@@ -81,10 +81,10 @@ describe('thu ngân (PA-2)', () => {
 
 describe('quản lý (QL)', () => {
   it('rail: POS · Đặt bàn · Món · Hoá đơn · Báo cáo · Thu chi · Kho; không có Bếp, Bàn QR', () => {
-    expect(hrefs(adminRailItems(true, true, 'store_manager'))).toEqual(['/admin/pos', '/admin/reservations', '/admin/menu', '/admin/bills', '/admin/reports', '/admin/cashbook', '/admin/inventory'])
-    expect(hrefs(adminRailItems(true, false, 'store_manager'))).toEqual(['/admin/pos', '/admin/menu', '/admin/bills', '/admin/reports', '/admin/cashbook', '/admin/inventory'])
-    expect(hrefs(adminRailItems(false, true, 'store_manager'))).toEqual(['/admin/pos', '/admin/reservations', '/admin/menu', '/admin/bills', '/admin/reports', '/admin/cashbook', '/admin/inventory'])
-    expect(adminRailItems(true, true, 'store_manager').slice(-4).map((i) => i.label)).toEqual(['Hoá đơn', 'Báo cáo', 'Thu chi', 'Kho'])
+    expect(hrefs(adminRailItems(true, true, 'store_manager'))).toEqual(['/admin/pos', '/admin/reservations', '/admin/menu', '/admin/bills', '/admin/debts', '/admin/reports', '/admin/cashbook', '/admin/inventory'])
+    expect(hrefs(adminRailItems(true, false, 'store_manager'))).toEqual(['/admin/pos', '/admin/menu', '/admin/bills', '/admin/debts', '/admin/reports', '/admin/cashbook', '/admin/inventory'])
+    expect(hrefs(adminRailItems(false, true, 'store_manager'))).toEqual(['/admin/pos', '/admin/reservations', '/admin/menu', '/admin/bills', '/admin/debts', '/admin/reports', '/admin/cashbook', '/admin/inventory'])
+    expect(adminRailItems(true, true, 'store_manager').slice(-5).map((i) => i.label)).toEqual(['Hoá đơn', 'Công nợ', 'Báo cáo', 'Thu chi', 'Kho'])
     expect(adminBottomItems('store_manager')).toMatchObject([{ href: '/admin/account', label: 'Cài đặt' }])
   })
 
@@ -95,5 +95,21 @@ describe('quản lý (QL)', () => {
   it('nút ⚙ của quản lý sáng ở Bảo mật, không trỏ Cài đặt quán', () => {
     expect(findActiveHref('/admin/account', adminNavGroups(true, true, 'store_manager'))).toBe('/admin/account')
     expect(all(true, true, 'store_manager')).not.toContain('/admin/settings')
+  })
+})
+
+describe('Công nợ (mig 123)', () => {
+  it('cả ba vai: /admin/debts nhãn "Công nợ" đứng ngay sau /admin/bills', () => {
+    for (const role of ['store_owner', 'store_manager', 'store_cashier'] as const) {
+      const items = adminRailItems(true, true, role)
+      const i = items.findIndex((x) => x.href === '/admin/bills')
+      expect(items[i + 1], role).toMatchObject({ href: '/admin/debts', label: 'Công nợ' })
+      expect(adminPathAllowed(role, '/admin/debts'), role).toBe(true)
+    }
+  })
+  it('CONFIG_TABS có /admin/debts ngay sau /admin/bills, không thuộc nhóm Cài đặt', () => {
+    const i = CONFIG_TABS.findIndex((t) => t.href === '/admin/bills')
+    expect(CONFIG_TABS[i + 1]).toMatchObject({ href: '/admin/debts', label: 'Công nợ' })
+    expect(settingsTabs('store_owner').map((t) => t.href)).not.toContain('/admin/debts')
   })
 })

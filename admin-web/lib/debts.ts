@@ -234,3 +234,32 @@ export function allocateDebt(
 export function debtKindLabel(kind: DebtCustomerKind): string {
   return kind === 'company' ? 'Cơ quan' : 'Cá nhân'
 }
+
+const VN_YMD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' })
+const isYmd = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s)
+
+/** Ngày giờ VN của một mốc ISO → 'YYYY-MM-DD'; không đọc được → null. */
+export function vnYmd(iso: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? null : VN_YMD.format(d)
+}
+
+/** 'YYYY-MM-DD' → 'dd/mm/yyyy' (sai dạng → chuỗi rỗng). */
+export function debtDateLabel(ymd: string | null): string {
+  return ymd && isYmd(ymd) ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}` : ''
+}
+
+/** Mốc ISO → 'dd/mm' theo giờ VN (cột "Bill nợ cũ nhất"); không có → chuỗi rỗng. */
+export function debtDayMonth(iso: string | null): string {
+  const ymd = vnYmd(iso)
+  return ymd ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}` : ''
+}
+
+/**
+ * Link A04 của một bill nợ: ngày KINH DOANH của bill (server tính business_date_of lúc thu, mig 111) — bill thu lúc
+ * 1 giờ sáng nằm ở ngày hôm trước như trên A04. Ngày sai dạng → A04 ngày hiện tại.
+ */
+export function debtBillHref(businessDate: string): string {
+  return isYmd(businessDate) ? `/admin/bills?date=${businessDate}` : '/admin/bills'
+}
