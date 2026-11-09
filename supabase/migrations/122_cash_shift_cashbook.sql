@@ -135,7 +135,7 @@ CREATE TABLE public.cash_book_entries (
   source text NOT NULL CHECK (source IN ('manual', 'pos_drawer', 'inventory_receipt')),
   source_ref uuid,
   client_request_id uuid NOT NULL,
-  created_by uuid,
+  created_by uuid NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   voided_by uuid,
   voided_at timestamptz,
@@ -152,6 +152,8 @@ CREATE TABLE public.cash_book_entries (
   CONSTRAINT cash_book_entries_shift_cash_only CHECK (method = 'cash' OR cash_shift_id IS NULL),
   CONSTRAINT cash_book_entries_drawer_cash_only CHECK (source <> 'pos_drawer' OR method = 'cash'),
   CONSTRAINT cash_book_entries_source_ref_pair CHECK ((source = 'inventory_receipt') = (source_ref IS NOT NULL)),
+  -- Phiếu nhập kho chỉ sinh phiếu CHI.
+  CONSTRAINT cash_book_entries_inventory_payment_only CHECK (source <> 'inventory_receipt' OR kind = 'payment'),
   CONSTRAINT cash_book_entries_void_pair CHECK ((voided_at IS NULL) = (void_reason IS NULL)),
   CONSTRAINT cash_book_entries_store_request_unique UNIQUE (store_id, client_request_id)
 );
@@ -335,6 +337,9 @@ BEGIN
   IF p_client_request_id IS NULL THEN
     RAISE EXCEPTION 'Thiếu mã chống ghi trùng';
   END IF;
+  IF p_actor IS NULL THEN
+    RAISE EXCEPTION 'Thiếu người ghi phiếu';
+  END IF;
 
   -- Vòng thứ hai chỉ chạy khi một lần gửi song song cùng mã vừa ghi xong (ON CONFLICT DO NOTHING không ra id).
   FOR v_try IN 1..2 LOOP
@@ -346,7 +351,9 @@ BEGIN
       IF v_existing.kind IS DISTINCT FROM p_kind
          OR v_existing.method IS DISTINCT FROM p_method
          OR v_existing.category_id IS DISTINCT FROM p_category_id
-         OR v_existing.amount IS DISTINCT FROM p_amount THEN
+         OR v_existing.amount IS DISTINCT FROM p_amount
+         OR v_existing.source IS DISTINCT FROM p_source
+         OR v_existing.source_ref IS DISTINCT FROM p_source_ref THEN
         RAISE EXCEPTION 'Mã chống ghi trùng đã dùng cho phiếu khác';
       END IF;
       RETURN v_existing.id;
@@ -367,6 +374,9 @@ BEGIN
     END IF;
     IF (p_source = 'inventory_receipt') <> (p_source_ref IS NOT NULL) THEN
       RAISE EXCEPTION 'Chỉ phiếu chi từ phiếu nhập kho mới gắn phiếu nhập';
+    END IF;
+    IF p_source = 'inventory_receipt' AND p_kind <> 'payment' THEN
+      RAISE EXCEPTION 'Phiếu nhập kho chỉ sinh phiếu chi';
     END IF;
     IF p_amount IS NULL OR p_amount < 1 OR p_amount > 2000000000 THEN
       RAISE EXCEPTION 'Số tiền phải từ 1đ đến 2.000.000.000đ';

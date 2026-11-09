@@ -117,6 +117,16 @@ const ROLES_116 = (ids) => `
 
 export async function openCashShiftDb({ through = '122', lock = true } = {}) {
   const base = await openCollectDb({ lock })
+  try {
+    return await extend(base, through)
+  } catch (err) {
+    // Dựng hỏng (vd. $pre$ của mig dừng): đóng DB để không treo tiến trình test.
+    await base.db.close()
+    throw err
+  }
+}
+
+async function extend(base, through) {
   const { db, ids, login, rid, one } = base
   ids.manager = fixedId(5)
 

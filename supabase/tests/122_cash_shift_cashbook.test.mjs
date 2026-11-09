@@ -129,8 +129,12 @@ describe('122 nền', () => {
     await assert.rejects(insertShift(), /duplicate key/)
     await insertShift({ storeId: ids.otherStore, openedBy: ids.otherOwner })
     await assert.rejects(insertShift({ storeId: ids.otherStore, status: 'closed', openingCash: -1 }), /check/)
+    // Quán chưa có ca mở: chỉ CHECK trạng thái mới chặn được (không lẫn với unique một-ca-mở).
+    const fresh = await newStore()
     await assert.rejects(db.query(`INSERT INTO cash_shifts(store_id, status, opened_by, closed_at)
-      VALUES ($1, 'open', $2, now())`, [ids.otherStore, ids.otherOwner]), /check|duplicate key/)
+      VALUES ($1, 'open', $2, now())`, [fresh, ids.owner]), /cash_shifts_closed_state/)
+    await assert.rejects(db.query(`INSERT INTO cash_shifts(store_id, status, opened_by, closed_at, closed_by)
+      VALUES ($1, 'closed', $2, now(), $2)`, [fresh, ids.owner]), /cash_shifts_closed_numbers/)
     await assert.rejects(db.query(`INSERT INTO cash_shifts(store_id, status, opened_by)
       VALUES ($1, 'closed', $2)`, [ids.otherStore, ids.otherOwner]), /check/)
   })
@@ -227,6 +231,20 @@ describe('122 nền', () => {
     await assert.rejects(internal({ requestId: null }), /Thiếu mã chống ghi trùng/)
     const ok = await entry(await internal({ source: 'pos_drawer' }))
     assert.equal(ok.source, 'pos_drawer')
+    // Phiếu nhập kho chỉ sinh phiếu chi: hàm chặn, CHECK chặn cả khi ghi thẳng.
+    await assert.rejects(internal({ kind: 'receipt', category: await category(ids.store, 'Nộp thêm vào két'),
+      source: 'inventory_receipt', sourceRef: randomUUID() }), /Phiếu nhập kho chỉ sinh phiếu chi/)
+    await assert.rejects(db.query(`INSERT INTO cash_book_entries(store_id, kind, method, category_id, amount,
+        business_date, source, source_ref, client_request_id, created_by)
+      VALUES ($1, 'receipt', 'bank', $2, 1, current_date, 'inventory_receipt', $3, $3, $4)`,
+    [ids.store, await category(ids.store, 'Nộp thêm vào két'), randomUUID(), ids.owner]),
+    /cash_book_entries_inventory_payment_only/)
+    // Người ghi bắt buộc.
+    await assert.rejects(internal({ actor: null }), /Thiếu người ghi phiếu/)
+    await assert.rejects(db.query(`INSERT INTO cash_book_entries(store_id, kind, method, category_id, amount,
+        business_date, source, client_request_id)
+      VALUES ($1, 'payment', 'bank', $2, 1, current_date, 'manual', $3)`,
+    [ids.store, await category(ids.store, 'Đá'), randomUUID()]), /created_by/)
   })
 
   test('create_internal: danh mục sai loại thu/chi, danh mục quán khác, danh mục ẩn đều bị chặn', async () => {
@@ -265,6 +283,18 @@ describe('122 nền', () => {
     assert.equal(await count('cash_book_entries'), 1)
     await assert.rejects(internal({ requestId, amount: 31000 }), /Mã chống ghi trùng đã dùng cho phiếu khác/)
     await assert.rejects(internal({ requestId, amount: 30000, method: 'bank' }), /Mã chống ghi trùng đã dùng cho phiếu khác/)
+    await assert.rejects(internal({ requestId, amount: 30000, source: 'pos_drawer' }),
+      /Mã chống ghi trùng đã dùng cho phiếu khác/)
+    // Phiếu từ phiếu nhập kho: cùng mã nhưng khác phiếu nhập là phiếu khác.
+    const nhap = await category(ids.store, 'Nhập hàng')
+    const docReq = randomUUID(), doc = randomUUID()
+    const d = await internal({ requestId: docReq, category: nhap, method: 'bank', source: 'inventory_receipt', sourceRef: doc })
+    assert.equal(await internal({ requestId: docReq, category: nhap, method: 'bank', source: 'inventory_receipt',
+      sourceRef: doc }), d)
+    await assert.rejects(internal({ requestId: docReq, category: nhap, method: 'bank', source: 'inventory_receipt',
+      sourceRef: randomUUID() }), /Mã chống ghi trùng đã dùng cho phiếu khác/)
+    await assert.rejects(internal({ requestId: docReq, category: nhap, method: 'bank' }),
+      /Mã chống ghi trùng đã dùng cho phiếu khác/)
     // Cùng mã ở quán khác là phiếu khác.
     const other = await internal({ requestId, store: ids.otherStore, actor: ids.otherOwner, amount: 30000 })
     assert.notEqual(other, a)
