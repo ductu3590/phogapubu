@@ -194,6 +194,33 @@ BEGIN
 END;
 $$;
 
+-- SĐT đã thuộc khách khác cùng quán (kể cả khách đã ngừng) → RAISE câu báo thân thiện; không trùng thì không làm gì.
+-- Khách đã ngừng: báo riêng để thu ngân nhờ quản lý bật lại, không tạo bản thứ hai.
+CREATE FUNCTION public.debt_customer_phone_clash(p_store_id uuid, p_phone text, p_except uuid)
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+SET search_path = public
+AS $$
+DECLARE
+  v_name text;
+  v_active boolean;
+BEGIN
+  IF p_phone IS NULL THEN
+    RETURN;
+  END IF;
+  SELECT c.name, c.is_active INTO v_name, v_active FROM public.debt_customers c
+   WHERE c.store_id = p_store_id AND c.phone = p_phone AND c.id IS DISTINCT FROM p_except;
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+  IF v_active THEN
+    RAISE EXCEPTION 'SĐT % đã có khách %, chọn khách đó', p_phone, v_name;
+  END IF;
+  RAISE EXCEPTION 'SĐT % thuộc khách % đã ngừng theo dõi — nhờ quản lý bật lại', p_phone, v_name;
+END;
+$$;
+
 -- Tạo một khách nợ. Không kiểm quyền: người gọi (RPC SECURITY DEFINER) đã kiểm.
 CREATE FUNCTION public.debt_customer_create_internal(
   p_store_id uuid, p_name text, p_phone text, p_kind text, p_note text, p_actor uuid
@@ -207,19 +234,12 @@ DECLARE
   v_kind text := COALESCE(p_kind, 'person');
   v_note text := NULLIF(btrim(COALESCE(p_note, '')), '');
   v_phone text;
-  v_old_name text;
   v_id uuid;
 BEGIN
   PERFORM public.debt_customer_validate(v_name, v_kind, v_note);
   v_phone := public.debt_normalize_phone(p_phone);
 
-  IF v_phone IS NOT NULL THEN
-    SELECT c.name INTO v_old_name FROM public.debt_customers c
-     WHERE c.store_id = p_store_id AND c.phone = v_phone;
-    IF FOUND THEN
-      RAISE EXCEPTION 'SĐT % đã có khách %, chọn khách đó', v_phone, v_old_name;
-    END IF;
-  END IF;
+  PERFORM public.debt_customer_phone_clash(p_store_id, v_phone, NULL);
 
   -- Hai máy tạo cùng SĐT cùng lúc: cả hai lọt qua kiểm trên, máy sau vấp unique index → cùng câu báo.
   BEGIN
@@ -227,9 +247,8 @@ BEGIN
     VALUES (p_store_id, v_name, v_phone, v_kind, v_note, p_actor)
     RETURNING id INTO v_id;
   EXCEPTION WHEN unique_violation THEN
-    SELECT c.name INTO v_old_name FROM public.debt_customers c
-     WHERE c.store_id = p_store_id AND c.phone = v_phone;
-    RAISE EXCEPTION 'SĐT % đã có khách %, chọn khách đó', v_phone, v_old_name;
+    PERFORM public.debt_customer_phone_clash(p_store_id, v_phone, NULL);
+    RAISE;
   END;
   RETURN v_id;
 END;
@@ -259,6 +278,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.debt_normalize_phone(text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.debt_customer_validate(text, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.debt_customer_phone_clash(uuid, text, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.debt_customer_create_internal(uuid, text, text, text, text, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.debt_customer_bills(uuid) FROM PUBLIC, anon, authenticated;
 
@@ -655,7 +675,6 @@ DECLARE
   v_kind text;
   v_note text := NULLIF(btrim(COALESCE(p_note, '')), '');
   v_phone text;
-  v_old_name text;
 BEGIN
   IF auth.uid() IS NULL OR NOT public.is_store_back_office(p_store_id) THEN
     RAISE EXCEPTION 'Chỉ chủ quán hoặc quản lý được làm việc này';
@@ -673,22 +692,15 @@ BEGIN
   END IF;
   PERFORM public.debt_customer_validate(v_name, v_kind, v_note);
   v_phone := public.debt_normalize_phone(p_phone);
-  IF v_phone IS NOT NULL THEN
-    SELECT c.name INTO v_old_name FROM public.debt_customers c
-     WHERE c.store_id = p_store_id AND c.phone = v_phone AND c.id <> p_customer_id;
-    IF FOUND THEN
-      RAISE EXCEPTION 'SĐT % đã có khách %, chọn khách đó', v_phone, v_old_name;
-    END IF;
-  END IF;
+  PERFORM public.debt_customer_phone_clash(p_store_id, v_phone, p_customer_id);
 
   BEGIN
     UPDATE public.debt_customers
        SET name = v_name, phone = v_phone, kind = v_kind, note = v_note
      WHERE id = p_customer_id;
   EXCEPTION WHEN unique_violation THEN
-    SELECT c.name INTO v_old_name FROM public.debt_customers c
-     WHERE c.store_id = p_store_id AND c.phone = v_phone AND c.id <> p_customer_id;
-    RAISE EXCEPTION 'SĐT % đã có khách %, chọn khách đó', v_phone, v_old_name;
+    PERFORM public.debt_customer_phone_clash(p_store_id, v_phone, p_customer_id);
+    RAISE;
   END;
   RETURN jsonb_build_object('ok', true, 'customer_id', p_customer_id);
 END;

@@ -63,7 +63,8 @@ test('có dòng nợ mà thiếu khách hoặc khách sai: lỗi, không ghi gì
     [{ customerId: off, newCustomer: { name: 'X' } }, /Chỉ chọn một khách ghi nợ/],
     [{ newCustomer: { name: '   ' } }, /Tên khách nợ không được trống/],
     [{ newCustomer: { name: 'Y', phone: '12ab' } }, /SĐT không hợp lệ/],
-    [{ newCustomer: { name: 'Z', phone: '0988 000 111' } }, /SĐT 0988000111 đã có khách/],
+    // Khách 0988000111 đã ngừng theo dõi: báo riêng để nhờ quản lý bật lại (không tạo bản thứ hai).
+    [{ newCustomer: { name: 'Z', phone: '0988 000 111' } }, /SĐT 0988000111 thuộc khách Cty Hoà Bình đã ngừng theo dõi — nhờ quản lý bật lại/],
   ]
   for (const [who, err] of cases) await assert.rejects(collectDebtBill([s], [debt(100000)], null, rid(), who), err)
   assert.equal(await count('bill_payments'), 0)
@@ -175,7 +176,7 @@ test('debt_customer_create_internal: tên dài, loại sai, trùng SĐT kể c�
   const a = (await mk('Anh A', '0912 000 111', null)).id
   assert.equal((await one('SELECT kind FROM debt_customers WHERE id = $1', [a])).kind, 'person')
   await db.query('UPDATE debt_customers SET is_active = false WHERE id = $1', [a])
-  await assert.rejects(mk('Anh B', '+84912000111', 'person'), /SĐT 0912000111 đã có khách Anh A, chọn khách đó/)
+  await assert.rejects(mk('Anh B', '+84912000111', 'person'), /SĐT 0912000111 thuộc khách Anh A đã ngừng theo dõi — nhờ quản lý bật lại/)
   // Không SĐT: tạo được nhiều khách trùng tên.
   await mk('Khách lẻ', null, null); await mk('Khách lẻ', '', null)
   assert.equal(await count("debt_customers WHERE name = 'Khách lẻ'"), 2)
@@ -533,4 +534,17 @@ test('get_bills_report: WHERE của CTE money giữ nguyên văn (mig 117 chép 
   const { def } = await one("SELECT pg_get_functiondef('public.get_bills_report(uuid,date)'::regprocedure) def")
   assert.ok(before.includes('AND o.status <> \'cancelled\''))
   assert.equal(cut(def), before)
+})
+
+test('trùng SĐT: khách đang dùng → "đã có khách …, chọn khách đó"; khách đã ngừng → "nhờ quản lý bật lại" (cả tạo lẫn sửa)', async () => {
+  const live = await customer({ name: 'Chị Đang', phone: '0901000001' })
+  const off = await customer({ name: 'Anh Ngừng', phone: '0901000002', active: false })
+  const other = await customer({ name: 'Người khác', phone: '0901000003' })
+  const up = (id, phone) => rpc(ids.owner, 'debt_customer_upsert', [ids.store, id, 'Tên', phone, 'person', null])
+  await assert.rejects(up(null, '0901 000 001'), /SĐT 0901000001 đã có khách Chị Đang, chọn khách đó/)
+  await assert.rejects(up(null, '0901000002'), /SĐT 0901000002 thuộc khách Anh Ngừng đã ngừng theo dõi — nhờ quản lý bật lại/)
+  await assert.rejects(up(other, '0901000002'), /thuộc khách Anh Ngừng đã ngừng theo dõi/)
+  // Sửa chính khách đã ngừng giữ SĐT của mình: không coi là trùng
+  assert.equal((await up(off, '0901000002')).customer_id, off)
+  assert.ok(live)
 })
