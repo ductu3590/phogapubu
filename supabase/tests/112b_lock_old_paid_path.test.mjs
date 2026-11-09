@@ -110,6 +110,11 @@ test('khối $pre$: dừng khi thiếu collect_table_bill hoặc có hàm SECURI
   }
 })
 
+test('block_client_money_write phải là SECURITY INVOKER: DEFINER thì current_user luôn là chủ hàm, chặn mất tác dụng', async () => {
+  const r = await one("SELECT prosecdef FROM pg_proc WHERE oid = 'public.block_client_money_write()'::regprocedure")
+  assert.equal(r.prosecdef, false)
+})
+
 test('quyền EXECUTE của close_table_session(s) giữ nguyên sau khi thay thân', async () => {
   const can = async (role, fn) => (await one('SELECT has_function_privilege($1, $2, \'EXECUTE\') v', [role, fn])).v
   assert.equal(await can('authenticated', 'close_table_session(uuid,text,text)'), true)

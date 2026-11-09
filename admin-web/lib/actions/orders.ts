@@ -60,14 +60,20 @@ export async function completeOrder(orderId: string) {
 
 // Huỷ đơn — chỉ chủ quán, chỉ đơn của quán mình. Trước 2026-10-08 action này KHÔNG kiểm quyền: ai đăng
 // nhập và có mã action (nằm trong trang Đơn của mọi chủ quán) cũng huỷ được đơn quán bất kỳ bằng service key.
+// Mig 112a: chỉ huỷ đơn CHƯA thu tiền — lọc ngay trong câu UPDATE (ngăn kéo A04 mở lâu có thể bấm Huỷ cho đơn
+// vừa được thu ở máy khác). Huỷ đơn đã thu thì báo cáo bỏ đơn khỏi doanh thu nhưng khoản thu (bill_payment_lines)
+// vẫn cộng → ngăn "khác" âm.
 export async function cancelOrder(orderId: string) {
   const storeId = await requireStoreOwnerStoreId()
   const admin = createAdminClient()
-  const { error } = await admin
+  const { data, error } = await admin
     .from('orders')
     .update({ status: 'cancelled' })
     .eq('id', orderId)
     .eq('store_id', storeId)
+    .is('payment_received_at', null)
+    .select('id')
   if (error) throw new Error(`cancelOrder: ${error.message}`)
+  if (!data || data.length === 0) throw new Error('Đơn đã thu tiền, không huỷ được')
   revalidatePath('/admin/bills')
 }
