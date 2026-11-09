@@ -362,6 +362,7 @@ BEGIN
     RAISE EXCEPTION 'Không tìm thấy đơn';
   END IF;
   -- Không đọc payment_instrument ghi sẵn trên đơn: chỉ payment_method nói tiền vào két hay vào tài khoản.
+  -- Nhãn họ ví (wallet/momo/vnpay) không tới được đây: callback của ví đã ghi payment_received_at → nhánh already.
   v_instrument := CASE WHEN v_order.payment_method = 'cash' THEN 'cash' ELSE 'bank' END;
   UPDATE public.orders
      SET payment_instrument = v_instrument,
@@ -414,6 +415,88 @@ $b$  -- mig 112a: ghi khoản thu một dòng. Đơn 0đ không có khoản thu.
   end if;
   perform public.attach_order_payment(p_order_id, v_payment_id);
   return jsonb_build_object('ok', true);$b$);
+
+-- ============================================================
+-- 5) Báo cáo A04 (get_bills_report) đọc từng khoản thu
+--   • Bill có bill_payment_id: khoá 'P:<payment_id>' (gộp N mâm thu một lần = MỘT dòng), kèm payments,
+--     cash_given, change_amount. TM/CK của tổng ngày lấy từ bill_payment_lines.
+--   • Bill cũ (chưa có bill_payment_id): khoá và cách chia TM/CK giữ nguyên như trước.
+--   • Bất biến TM + CK + khác = doanh thu: 'other' là phần còn lại (mig công nợ sẽ thêm ngăn 'debt').
+-- ============================================================
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid, date)',
+$a$      SELECT o.id, o.session_id, o.order_type, o.total_amount, o.created_at,$a$,
+$b$      SELECT o.id, o.session_id, o.order_type, o.total_amount, o.created_at,
+             o.bill_payment_id,$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid, date)',
+$a$               WHEN o.payment_instrument = 'cash' THEN 'cash'$a$,
+$b$               WHEN o.payment_instrument = 'mixed' THEN 'mixed'
+               WHEN o.payment_instrument = 'cash' THEN 'cash'$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid, date)',
+$a$               WHEN session_id IS NOT NULL AND close_reason = 'paid' AND session_paid_at IS NOT NULL$a$,
+$b$               WHEN bill_payment_id IS NOT NULL THEN 'P:' || bill_payment_id::text
+               WHEN session_id IS NOT NULL AND close_reason = 'paid' AND session_paid_at IS NOT NULL$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid, date)',
+$a$    bills AS ($a$,
+$b$    pay AS (
+      SELECT bp.id AS payment_id, bp.cash_given, bp.change_amount,
+             COALESCE(SUM(l.amount) FILTER (WHERE l.instrument = 'cash'), 0)::bigint AS cash,
+             COALESCE(SUM(l.amount) FILTER (WHERE l.instrument = 'bank'), 0)::bigint AS bank,
+             COALESCE(jsonb_agg(jsonb_build_object('instrument', l.instrument, 'amount', l.amount)
+                      ORDER BY l.instrument DESC) FILTER (WHERE l.id IS NOT NULL), '[]'::jsonb) AS lines
+      FROM public.bill_payments bp
+      LEFT JOIN public.bill_payment_lines l ON l.payment_id = bp.id
+      WHERE bp.id IN (SELECT bill_payment_id FROM keyed WHERE bill_payment_id IS NOT NULL)
+      GROUP BY bp.id
+    ),
+    bills AS ($b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid, date)',
+$a$             MIN(order_type) AS order_type$a$,
+$b$             MIN(order_type) AS order_type,
+             (array_agg(bill_payment_id))[1] AS payment_id$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid, date)',
+$a$          'cash',    COALESCE(SUM(total_amount) FILTER (WHERE bucket = 'cash'), 0),$a$,
+$b$          'cash',    COALESCE(SUM(total_amount) FILTER (WHERE bucket = 'cash' AND bill_payment_id IS NULL), 0)
+                     + (SELECT COALESCE(SUM(cash), 0) FROM pay),$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid, date)',
+$a$          'bank',    COALESCE(SUM(total_amount) FILTER (WHERE bucket = 'bank'), 0),$a$,
+$b$          'bank',    COALESCE(SUM(total_amount) FILTER (WHERE bucket = 'bank' AND bill_payment_id IS NULL), 0)
+                     + (SELECT COALESCE(SUM(bank), 0) FROM pay),$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid, date)',
+$a$          'other',   COALESCE(SUM(total_amount) FILTER (WHERE bucket = 'other'), 0),$a$,
+$b$          -- Bất biến TM + CK + khác = doanh thu đúng theo cách tính: khác = phần còn lại.
+          'other',   COALESCE(SUM(total_amount), 0)
+                     - COALESCE(SUM(total_amount) FILTER (WHERE bucket IN ('cash', 'bank') AND bill_payment_id IS NULL), 0)
+                     - (SELECT COALESCE(SUM(cash + bank), 0) FROM pay),$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid, date)',
+$a$          'instrument', b.instrument,$a$,
+$b$          'instrument', b.instrument,
+          'payments', COALESCE((SELECT p.lines FROM pay p WHERE p.payment_id = b.payment_id), '[]'::jsonb),
+          'cash_given', (SELECT p.cash_given FROM pay p WHERE p.payment_id = b.payment_id),
+          'change_amount', (SELECT p.change_amount FROM pay p WHERE p.payment_id = b.payment_id),$b$);
+
+-- ============================================================
+-- 6) Hoá đơn in (get_sessions_bill) trả các khoản thu của nhóm phiên: cộng theo phương tiện.
+-- cash_given / change_amount chỉ có nghĩa khi nhóm phiên đúng MỘT khoản thu, không thì NULL.
+-- Hàm này lẫn CRLF trên prod: neo nằm gọn một dòng.
+-- ============================================================
+SELECT pg_temp.mevo_patch('public.get_sessions_bill(uuid[])',
+$a$    'grand_discount', v_discount$a$,
+$b$    'grand_discount', v_discount,
+    'payments', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object('instrument', x.instrument, 'amount', x.amount) ORDER BY x.instrument DESC)
+        FROM (SELECT l.instrument, SUM(l.amount)::bigint AS amount
+                FROM public.bill_payment_lines l
+               WHERE l.payment_id IN (SELECT ts.bill_payment_id FROM public.table_sessions ts
+                                       WHERE ts.id = ANY(p_session_ids))
+               GROUP BY l.instrument) x), '[]'::jsonb),
+    'cash_given', (
+      SELECT CASE WHEN count(*) = 1 THEN max(bp.cash_given) END
+        FROM public.bill_payments bp
+       WHERE bp.id IN (SELECT ts.bill_payment_id FROM public.table_sessions ts WHERE ts.id = ANY(p_session_ids))),
+    'change_amount', (
+      SELECT CASE WHEN count(*) = 1 THEN max(bp.change_amount) END
+        FROM public.bill_payments bp
+       WHERE bp.id IN (SELECT ts.bill_payment_id FROM public.table_sessions ts WHERE ts.id = ANY(p_session_ids)))$b$);
 
 NOTIFY pgrst, 'reload schema';
 

@@ -88,8 +88,11 @@ test('mig 112a: vá 2 hàm bằng mevo_patch; INSERT bill_payments một dòng, 
   const sql = await load(migration)
   assert.doesNotMatch(sql, /^CREATE OR REPLACE FUNCTION public\.(confirm_manual_payment|kitchen_confirm_payment)\b/m)
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.attach_order_payment\(uuid, ?uuid\) FROM PUBLIC, anon, authenticated;/)
+  // Mỗi hàm vá đúng 3 neo (khoá dòng, khai báo biến, khối ghi khoản thu); file còn vá hàm khác ở mục sau.
   const patched = [...sql.matchAll(/pg_temp\.mevo_patch\(\s*'([^']+)'/g)].map((m) => m[1])
-  assert.deepEqual([...new Set(patched)].sort(), ['public.confirm_manual_payment(uuid)', 'public.kitchen_confirm_payment(uuid)'])
+  for (const sig of ['public.confirm_manual_payment(uuid)', 'public.kitchen_confirm_payment(uuid)']) {
+    assert.equal(patched.filter((p) => p === sig).length, 3, sig)
+  }
   assert.ok(sql.indexOf('pg_temp.mevo_patch(') < sql.indexOf('COMMIT;'))
 
   for (const [fn, who, src] of [['confirm_manual_payment(uuid)', 'auth.uid()', 'manual_order'],

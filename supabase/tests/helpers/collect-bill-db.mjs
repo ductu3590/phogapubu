@@ -240,5 +240,59 @@ export async function openCollectDb({ lock = false, businessDay = BUSINESS_DAY_S
     }
   }
 
-  return { db, ids, reset, login, session, order, collect, confirm, kitchenConfirm, rid, one, count }
+  // Báo cáo A04 cho ngày kinh doanh hôm nay (giờ VN), xem dưới quyền chủ quán.
+  async function report(date) {
+    const day = date ?? (await one("SELECT ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)::text AS d")).d
+    await login(ids.owner)
+    try {
+      return (await db.query('SELECT get_bills_report($1, $2::date) AS r', [ids.store, day])).rows[0].r
+    } finally {
+      await db.exec('RESET ROLE')
+    }
+  }
+
+  // Hoá đơn in (/print/bill) cho một nhóm phiên, xem dưới quyền chủ quán.
+  async function sessionsBill(sessionIds) {
+    await login(ids.owner)
+    try {
+      return (await db.query('SELECT get_sessions_bill($1::uuid[]) AS r', [sessionIds])).rows[0].r
+    } finally {
+      await db.exec('RESET ROLE')
+    }
+  }
+
+  // Bill thu trước mig 112a: phiên 'paid', đơn có payment_received_at nhưng KHÔNG có bill_payment_id.
+  async function legacyPaidSession({ amount, instrument = 'cash' }) {
+    const s = rid()
+    await db.query(`INSERT INTO table_sessions(id, store_id, table_id, status, closed_at, closed_by, close_reason)
+      VALUES ($1, $2, $3, 'closed', now(), $4, 'paid')`, [s, ids.store, ids.t2, ids.cashier])
+    await db.query('INSERT INTO session_tables(session_id, table_id, is_open) VALUES ($1, $2, false)', [s, ids.t2])
+    await db.query(`INSERT INTO orders(id, store_id, table_id, session_id, status, total_amount, payment_amount,
+        payment_method, payment_instrument, payment_received_at, payment_received_via, payment_received_by, completed_at)
+      VALUES ($1, $2, $3, $4, 'paid', $5, $5, 'cash', $6, now(), 'owner', $7, now())`,
+    [rid(), ids.store, ids.t2, s, amount, instrument, ids.cashier])
+    return s
+  }
+
+  // Đơn tiền mặt kiểu cũ: status 'paid' mà không có payment_received_at.
+  async function legacyCashPaid(amount) {
+    const id = rid()
+    await db.query(`INSERT INTO orders(id, store_id, status, total_amount, payment_method, completed_at)
+      VALUES ($1, $2, 'paid', $3, 'cash', now())`, [id, ids.store, amount])
+    return id
+  }
+
+  // Đơn ví Zalo: callback tự ghi đã nhận tiền, không qua quầy.
+  async function walletOrder(amount) {
+    const id = rid()
+    await db.query(`INSERT INTO orders(id, store_id, status, total_amount, payment_method, payment_instrument,
+        payment_received_at, payment_received_via)
+      VALUES ($1, $2, 'confirmed', $3, 'zalo_checkout', 'wallet', now(), 'zalo_callback')`, [id, ids.store, amount])
+    return id
+  }
+
+  return {
+    db, ids, reset, login, session, order, collect, confirm, kitchenConfirm, rid, one, count,
+    report, sessionsBill, legacyPaidSession, legacyCashPaid, walletOrder,
+  }
 }
