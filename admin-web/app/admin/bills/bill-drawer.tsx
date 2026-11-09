@@ -16,6 +16,7 @@ import { collectSessionBill, getSessionMoves, loadBillDetail, redeemBillSpin, ru
 import { getSessionsBill } from '@/lib/actions/table-session'
 import ConfirmDialog from '../pos/confirm-dialog'
 import { isAmountMismatch, runCollect } from '@/lib/collect-outcome'
+import { applyCollectOutcome } from './collect-flow'
 import { paymentRows } from '@/lib/collect-payment'
 
 const time = (iso: string) =>
@@ -29,7 +30,13 @@ const CONFIRM_TEXT: Record<BillOrderAction, string> = {
 
 // Ngăn kéo chi tiết một dòng của trang Hoá đơn & Báo cáo (A04-2). Mỗi lượt gọi món = một khối, kèm đúng các nút
 // trang Đơn hàng cũ có (Đã nhận tiền · Hoàn tất · Huỷ đơn · Đã đổi thưởng). Chỉ chủ quán thấy nút (`canManage`).
-export default function BillDrawer({ row, canManage, onClose }: { row: BillRow | null; canManage: boolean; onClose: () => void }) {
+export default function BillDrawer({ row, canManage, onClose, onNotice }: {
+  row: BillRow | null
+  canManage: boolean
+  onClose: () => void
+  /** Thông báo sống ở TRANG (sống qua lần tải lại làm ngăn kéo bị gỡ), vd khoản đã ghi khi thu trùng. */
+  onNotice: (message: string) => void
+}) {
   const router = useRouter()
   const [loaded, setLoaded] = useState<BillDetailOrder[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -40,7 +47,6 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
     { instrument: 'cash' | 'bank'; amount: number; requestId: string; text: string } | null
   >(null)
   const [collectError, setCollectError] = useState<string | null>(null)
-  const [collectNotice, setCollectNotice] = useState<string | null>(null)
 
   // Cha dựng lại component theo key của dòng → state tự về ban đầu khi đổi dòng. Ở đây chỉ tải khi danh sách
   // đơn đổi hoặc sau một thao tác (không theo object `row`: router.refresh dựng lại object mỗi lần → tải thừa, nháy).
@@ -130,13 +136,14 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
     // Bill vừa đổi (số lệch): số trong hộp đã cũ → khoá nút xác nhận, bảo huỷ rồi bấm lại để đọc bill mới.
     const out = await runCollect(() => collectSessionBill(row.sessionIds, instrument, amount, requestId))
     setBusy(null)
-    if (out.kind !== 'done') { setCollectError(out.error); return }
-    setPendingCollect(null)
-    router.refresh()
-    // Đã thu từ trước (mất phản hồi / máy khác): GIỮ ngăn kéo mở để thu ngân đọc khoản ĐÃ GHI (có thể khác
-    // phương tiện vừa chọn). Thu mới bình thường thì đóng ngăn kéo như cũ.
-    if (out.message) { setCollectNotice(out.message); return }
-    onClose()
+    // Đã thu từ trước (mất phản hồi / máy khác): câu nêu khoản ĐÃ GHI đưa lên TRANG (onNotice) — ngăn kéo sẽ bị gỡ
+    // sau khi tải lại vì dòng đổi key 'W:S:…' → 'P:…'.
+    applyCollectOutcome(out, {
+      notify: onNotice,
+      refresh: () => router.refresh(),
+      close: () => { setPendingCollect(null); onClose() },
+      showError: setCollectError,
+    })
   }
 
   const onOrderAction = (orderId: string, action: BillOrderAction) => {
@@ -227,7 +234,6 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
             </ul>
           </section>
         )}
-        {collectNotice && <p role="status" className="rounded-lg border border-warning-border bg-warning-bg px-3 py-2 text-[13px] text-warning">{collectNotice}</p>}
         {error && <p role="alert" className="rounded-lg border border-critical-border bg-critical-bg px-3 py-2 text-[13px] text-critical">{error}</p>}
 
         {orders === null ? (

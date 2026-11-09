@@ -4,7 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { Banknote, Eye, FileSpreadsheet, Gift, Landmark, ListOrdered, Printer, Receipt, Search, Undo2, Users, Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { getButtonClasses } from '@/components/ui/button-classes'
-import { EmptyState } from '@/components/ui/feedback'
+import { Banner, EmptyState } from '@/components/ui/feedback'
 import { formatVND, cn } from '@/lib/utils'
 import {
   billInstrumentLabel,
@@ -52,6 +52,9 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
 }) {
   const [chip, setChip] = useState<BillChip>('all')
   const [openKey, setOpenKey] = useState<string | null>(null)
+  // Thông báo từ ngăn kéo (vd "Bàn đã được thu trước đó: Tiền mặt …đ"). Giữ ở TRANG vì thu xong dòng đổi key
+  // ('W:S:…' → 'P:…') nên ngăn kéo bị gỡ sau khi tải lại.
+  const [notice, setNotice] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
 
@@ -69,6 +72,7 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
 
   return (
     <div className="@container space-y-5">
+      {notice && <Banner tone="warning" title={notice} onClose={() => setNotice(null)} />}
       {/* Đầu trang: ngày đang xem + người đăng nhập. Chưa có "ca" — báo cáo theo NGÀY KINH DOANH, quán có giờ bắt đầu ngày thì hiện thêm khoảng giờ. */}
       <div className="flex flex-col gap-3 @2xl:flex-row @2xl:items-start @2xl:justify-between">
         <div className="min-w-0">
@@ -213,7 +217,7 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
         </section>
       </div>
 
-      {openRow && <BillDrawer key={openRow.key} row={openRow} canManage={canManage} onClose={() => setOpenKey(null)} />}
+      {openRow && <BillDrawer key={openRow.key} row={openRow} canManage={canManage} onClose={() => setOpenKey(null)} onNotice={setNotice} />}
     </div>
   )
 }
