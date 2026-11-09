@@ -15,7 +15,7 @@ import {
   savePrintMode,
   savePrintStation,
 } from '@/lib/actions/print-settings'
-import { canUseAgentMode, printerNames, type PrintSettings, type PrintStation } from '@/lib/print/print-settings'
+import { printerNames, type PrintSettings, type PrintStation } from '@/lib/print/print-settings'
 import { cn } from '@/lib/utils'
 
 const POLL_MS = 5000
@@ -36,7 +36,16 @@ function BrowserTestLink() {
   )
 }
 
-export default function PrintSettingsSection({ storeId, initial }: { storeId: string; initial: PrintSettings | null }) {
+export default function PrintSettingsSection({
+  storeId,
+  initial,
+  paymentTiming = 'postpay',
+}: {
+  storeId: string
+  initial: PrintSettings | null
+  // Quán trả trước chưa có đường in tự động (POS chỉ thấy đơn trong phiên bàn, chỉ quán trả sau có phiên)
+  paymentTiming?: 'prepay' | 'postpay'
+}) {
   // Chưa có dữ liệu (mig 114 chưa áp hoặc RPC lỗi): giữ khối In ấn như trước, không văng trang.
   if (!initial) {
     return (
@@ -48,10 +57,18 @@ export default function PrintSettingsSection({ storeId, initial }: { storeId: st
       </div>
     )
   }
-  return <PrintSettingsBody storeId={storeId} settings={initial} />
+  return <PrintSettingsBody storeId={storeId} settings={initial} paymentTiming={paymentTiming} />
 }
 
-function PrintSettingsBody({ storeId, settings }: { storeId: string; settings: PrintSettings }) {
+function PrintSettingsBody({
+  storeId,
+  settings,
+  paymentTiming,
+}: {
+  storeId: string
+  settings: PrintSettings
+  paymentTiming: 'prepay' | 'postpay'
+}) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +77,9 @@ function PrintSettingsBody({ storeId, settings }: { storeId: string; settings: P
   const [confirm, setConfirm] = useState<null | { kind: 'revoke' } | { kind: 'delete'; station: PrintStation }>(null)
 
   const agentMode = settings.mode === 'agent'
-  const agentAllowed = canUseAgentMode(settings)
+  // Còn đơn vào bếp tự động thì phiếu bếp chỉ ra khi POS đang mở (đường in tự động nằm ở POS)
+  const hasAutoRelease =
+    settings.kitchen_release_policy === 'automatic' || settings.staff_order_release_policy === 'automatic'
 
   // Chạy một action rồi làm mới dữ liệu máy chủ. Mọi lỗi hiện tại chỗ; không ném.
   // always: chạy dù thành công hay lỗi (vd. đóng hộp xác nhận để lỗi không nằm dưới lớp phủ).
@@ -95,17 +114,21 @@ function PrintSettingsBody({ storeId, settings }: { storeId: string; settings: P
         />
         <ModeOption
           checked={agentMode}
-          disabled={pending || (!agentAllowed && !agentMode)}
+          disabled={pending}
           value="agent"
           title="Nhiều nơi (qua phần mềm in)"
-          hint={
-            !agentAllowed && !agentMode
-              ? 'Cần đặt cả “Đơn khách xuống bếp” và “Đơn nhân viên xuống bếp” là “Chờ POS xác nhận” ở mục Quy trình vận hành bên dưới.'
-              : 'Phiếu bếp ra máy in bếp, phiếu quầy ra máy in quầy, qua phần mềm in cài ở quầy.'
-          }
+          hint="Phiếu bếp ra máy in bếp, phiếu quầy ra máy in quầy, qua phần mềm in cài ở quầy."
           onSelect={() => run(() => savePrintMode('agent'))}
         />
       </fieldset>
+
+      {agentMode && hasAutoRelease && (
+        <p className="text-sm text-muted">
+          {paymentTiming === 'prepay'
+            ? 'Quán trả trước chưa tự in được phiếu bếp cho đơn tự vào bếp. Đặt hai mục “xuống bếp” về “Chờ POS xác nhận” ở mục Quy trình vận hành.'
+            : 'Có đơn vào bếp tự động: phiếu bếp của các đơn này chỉ in khi màn POS đang mở ở quầy.'}
+        </p>
+      )}
 
       {error && <p role="status" className="text-sm text-red-600">{error}</p>}
       {notice && <p role="status" className="text-sm text-green-700">{notice}</p>}

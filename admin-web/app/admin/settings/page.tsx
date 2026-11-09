@@ -69,7 +69,7 @@ export default async function SettingsPage() {
 
           <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
             <h2 className="mb-4 text-lg font-semibold text-foreground">In ấn</h2>
-            <PrintSettingsSection storeId={storeId} initial={printSettings} />
+            <PrintSettingsSection storeId={storeId} initial={printSettings} paymentTiming={workflowSettings.paymentTiming} />
           </section>
 
           <BusinessDaySection initial={businessDayStart} />
@@ -95,7 +95,6 @@ export default async function SettingsPage() {
               key={storeId}
               initial={workflowSettings}
               context="owner"
-              printMode={printSettings?.mode}
               onSave={saveOwnerWorkflowSettings}
             />
           </section>
