@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
+import { previewBulkTables } from '@/lib/bulk-tables'
 
 async function getStoreId(): Promise<string> {
   return requireStoreOwnerStoreId()
@@ -65,4 +66,42 @@ export async function deleteTable(tableId: string): Promise<{ error?: string }> 
   if (error) return { error: `Không xoá được bàn: ${error.message}` }
   revalidatePath('/admin/tables')
   return {}
+}
+
+// Tạo nhiều bàn một lần ("A" + 1→20), vào một khu. Tên trùng bàn đang có (kể cả bàn đã Đóng) bị bỏ qua.
+// Lỗi người dùng trả {ok:false}, không ném (Next production giấu nội dung lỗi ném).
+export async function addTablesBulk(input: { areaId: string | null; prefix: string; from: number; to: number }): Promise<
+  { ok: true; created: string[]; skipped: string[] } | { ok: false; error: string }
+> {
+  let storeId: string
+  try {
+    storeId = await getStoreId()
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Không có quyền' }
+  }
+  // Kiểm cỡ lô trước khi chạm DB (tên trùng chưa biết nên so với danh sách rỗng)
+  const shape = previewBulkTables(input, [])
+  if (!shape.ok) return shape
+
+  const admin = createAdminClient()
+  const areaId = input.areaId || null
+  if (areaId) {
+    const { data: area } = await admin.from('table_areas').select('id').eq('id', areaId).eq('store_id', storeId).maybeSingle()
+    if (!area) return { ok: false, error: 'Không tìm thấy khu' }
+  }
+  const { data: existing, error: readErr } = await admin.from('tables').select('table_number').eq('store_id', storeId)
+  if (readErr) return { ok: false, error: `Không đọc được danh sách bàn: ${readErr.message}` }
+  const names = ((existing ?? []) as Array<{ table_number: string }>).map((r) => r.table_number)
+  const plan = previewBulkTables(input, names)
+  if (!plan.ok) return plan
+  if (plan.create.length === 0) return { ok: true, created: [], skipped: plan.skipped }
+
+  // Không đặt pos_x/pos_y: POS tự xếp lưới như bàn thêm lẻ
+  const { error } = await admin.from('tables').insert(
+    plan.create.map((table_number) => ({ store_id: storeId, table_number, is_active: true, area_id: areaId })),
+  )
+  if (error) return { ok: false, error: `Không tạo được bàn: ${error.message}` }
+  revalidatePath('/admin/tables')
+  revalidatePath('/admin/pos')
+  return { ok: true, created: plan.create, skipped: plan.skipped }
 }

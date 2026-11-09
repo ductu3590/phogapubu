@@ -62,9 +62,11 @@ export function createAutoPrintRunner(deps: {
       if (!cfg || !autoPrintBanner(cfg)) return
       const t = now()
       const candidates = autoKitchenPrintCandidates(sessions, cfg, t)
-      for (const c of candidates) labels.set(c.orderId, c.tableLabel)
+      const labelOf = new Map(candidates.map((c) => [c.orderId, c.tableLabel]))
       const ids = tracker.due(candidates.map((c) => c.orderId), t).slice(0, AUTO_PRINT_BATCH_MAX)
       if (ids.length === 0) return
+      // Chỉ nhớ nhãn bàn cho id đến hạn (id đã done không thêm lại nhãn)
+      for (const id of ids) labels.set(id, labelOf.get(id) ?? 'đơn')
       running = true
       try {
         await runBatch(ids)
