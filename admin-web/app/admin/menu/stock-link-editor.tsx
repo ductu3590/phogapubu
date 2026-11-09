@@ -29,7 +29,8 @@ const qtyInput = (n: number) => formatQty(n).replace(/\./g, '')
 function LinkRow({ menuItemId, variantId, label, current, fallback, goods }: {
   menuItemId: string
   variantId: string | null
-  label: string
+  /** null: món không có lựa chọn — tiêu đề khung đã nói "Trừ kho", không lặp nhãn. */
+  label: string | null
   current: Link_ | undefined
   /** Biến thể chưa gắn riêng thì bán theo liên kết của cả món. */
   fallback: Link_ | undefined
@@ -72,23 +73,24 @@ function LinkRow({ menuItemId, variantId, label, current, fallback, goods }: {
   return (
     <li className="space-y-1.5 py-3 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <span className="text-sm font-medium text-foreground">{label}</span>
+        {label ? <span className="text-sm font-medium text-foreground">{label}</span> : null}
         <span className={current ? 'text-[13px] font-medium text-foreground' : 'text-[13px] text-muted'}>{status}</span>
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-2 sm:grid-cols-[minmax(0,1fr)_6rem_auto]">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_5.5rem] items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_6rem_auto]">
         <div className="min-w-0">
-          <label htmlFor={`${id}-item`} className="sr-only">Hàng trừ kho · {label}</label>
+          <label htmlFor={`${id}-item`} className="sr-only">Hàng trừ kho{label ? ` · ${label}` : ''}</label>
           <Select id={`${id}-item`} value={inventoryItemId} disabled={pending} onChange={(e) => setInventoryItemId(e.target.value)}>
             <option value="">— Chọn hàng —</option>
             {goods.map((g) => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
           </Select>
         </div>
+        <span className="text-sm text-muted" aria-hidden>×</span>
         <div className="min-w-0">
-          <label htmlFor={`${id}-qty`} className="sr-only">Số lượng trừ mỗi lần bán · {label}</label>
+          <label htmlFor={`${id}-qty`} className="sr-only">Số lượng trừ mỗi lần bán{label ? ` · ${label}` : ''}</label>
           <Input id={`${id}-qty`} inputMode="decimal" autoComplete="off" value={qty} disabled={pending} aria-describedby={`${id}-msg`}
             onChange={(e) => setQty(e.target.value)} />
         </div>
-        <div className="col-span-2 flex gap-2 sm:col-span-1">
+        <div className="col-span-3 flex gap-2 sm:col-span-1">
           <Button variant="primary" onClick={save} isLoading={pending} className="flex-1 sm:flex-none">Lưu</Button>
           {current ? <Button onClick={unlink} disabled={pending} className="flex-1 sm:flex-none">Gỡ</Button> : null}
         </div>
@@ -127,7 +129,7 @@ export default function StockLinkEditor({ item, stock }: { item: StockLinkItem; 
         </p>
       ) : (
         <ul className="divide-y divide-border">
-          <LinkRow key={rowKey(null)} menuItemId={item.id} variantId={null} label={variants.length > 0 ? 'Cả món' : 'Trừ kho'}
+          <LinkRow key={rowKey(null)} menuItemId={item.id} variantId={null} label={variants.length > 0 ? 'Cả món' : null}
             current={itemLink} fallback={undefined} goods={stock.goods} />
           {variants.map((v) => (
             <LinkRow key={rowKey(v.id)} menuItemId={item.id} variantId={v.id} label={v.name}

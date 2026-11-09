@@ -32,6 +32,11 @@ describe('StockLinkEditor', () => {
     expect(html).toMatch(/inputMode="decimal"[^>]*value="1"|value="1"[^>]*inputMode="decimal"/)
     expect(html).not.toContain('>Gỡ<')
     expect(html).not.toContain('Cả món')
+    // Không lặp nhãn "Trừ kho" dưới tiêu đề khung; có dấu × giữa ô hàng và ô số lượng.
+    expect(html.match(/>Trừ kho</g)).toBeNull()
+    const select = html.indexOf('</select>')
+    expect(html.indexOf('×', select)).toBeGreaterThan(select)
+    expect(html.indexOf('×', select)).toBeLessThan(html.indexOf('<input', select))
   })
 
   it('món có biến thể: dòng "Cả món" + mỗi biến thể; biến thể chưa gắn riêng hiện "Theo cả món (Tiger lon × 3)"', () => {
