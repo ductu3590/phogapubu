@@ -106,22 +106,27 @@ export function parseDebtCustomerDetail(raw: unknown): DebtCustomerDetail | null
   if (!customer) return null
   return {
     customer,
-    bills: arr(r.bills).map((b0) => {
+    // Dòng không có mã thì bỏ (như parseDebtList): không bấm / không phân bổ được vào một bill không có mã.
+    bills: arr(r.bills).flatMap((b0): DebtBill[] => {
       const b = obj(b0)
-      return {
-        billPaymentId: str(b.bill_payment_id), collectedAt: str(b.collected_at), businessDate: str(b.business_date),
+      const billPaymentId = str(b.bill_payment_id)
+      if (!billPaymentId) return []
+      return [{
+        billPaymentId, collectedAt: str(b.collected_at), businessDate: str(b.business_date),
         tableLabel: str(b.table_label) || '—', sessionIds: arr(b.session_ids).filter((x): x is string => typeof x === 'string'),
         billTotal: num(b.bill_total), debtAmount: num(b.debt_amount), paidAmount: num(b.paid_amount), outstanding: num(b.outstanding),
-      }
+      }]
     }),
-    payments: arr(r.payments).map((p0) => {
+    payments: arr(r.payments).flatMap((p0): DebtPaymentRow[] => {
       const p = obj(p0)
-      return {
-        id: str(p.id), amount: num(p.amount), method: p.method === 'bank' ? 'bank' : 'cash', businessDate: str(p.business_date),
+      const id = str(p.id)
+      if (!id) return []
+      return [{
+        id, amount: num(p.amount), method: p.method === 'bank' ? 'bank' : 'cash', businessDate: str(p.business_date),
         createdAt: str(p.created_at), createdByName: strOrNull(p.created_by_name), note: strOrNull(p.note),
         voidedAt: strOrNull(p.voided_at), voidReason: strOrNull(p.void_reason), voidedByName: strOrNull(p.voided_by_name),
         allocations: parseAllocations(p.allocations),
-      }
+      }]
     }),
   }
 }
@@ -192,9 +197,16 @@ export function allocateDebt(
   if (!Number.isSafeInteger(amount) || amount <= 0) return { allocations: [], error: 'Nhập số tiền khách trả' }
   if (selected !== null && selected.length === 0) return { allocations: [], error: 'Chọn ít nhất một bill' }
   const pick = selected === null ? null : new Set(selected)
+  // Bill được tick mà không còn trong danh sách còn nợ (mã lạ / đã trả hết): báo đúng câu server, không lặng lẽ bỏ.
+  if (pick !== null) {
+    const openIds = new Set(bills.filter((b) => b.outstanding > 0).map((b) => b.billPaymentId))
+    if ([...pick].some((id) => !openIds.has(id))) return { allocations: [], error: 'Bill không thuộc khách này hoặc đã trả hết' }
+  }
   const open = bills
     .filter((b) => b.outstanding > 0 && (pick === null || pick.has(b.billPaymentId)))
-    // So chuỗi thô (không localeCompare): mã bill là uuid chữ thường, server so theo byte.
+    // So chuỗi thô (không localeCompare): mã bill là uuid chữ thường, server so theo byte. collectedAt so được
+    // như chuỗi vì mọi dòng đến từ to_jsonb(timestamptz) của CÙNG một lần gọi RPC: ISO 8601 cùng múi giờ phiên nên
+    // thứ tự chữ = thứ tự thời gian (kể cả phần lẻ giây). Đọc từ nguồn khác thì phải đổi sang Date trước khi so.
     .sort((a, b) => cmp(a.collectedAt, b.collectedAt) || cmp(a.billPaymentId, b.billPaymentId))
   const total = open.reduce((s, b) => s + b.outstanding, 0)
   if (amount > total) return { allocations: [], error: 'Số tiền trả vượt số nợ: còn nợ ' + formatVND(total) }

@@ -124,3 +124,30 @@ describe('đọc JSON server (thêm ngoài plan)', () => {
     expect([debtKindLabel('company'), debtKindLabel('person')]).toEqual(['Cơ quan', 'Cá nhân'])
   })
 })
+
+describe('fold-in sau review Task 4', () => {
+  const bills = [
+    { billPaymentId: 'b1', collectedAt: '2026-11-01T19:00:00+07:00', outstanding: 200_000 },
+    { billPaymentId: 'b2', collectedAt: '2026-11-02T19:00:00+07:00', outstanding: 0 },
+  ] as DebtBill[]
+  it('allocateDebt: bill tick không có trong danh sách hoặc đã trả hết → câu lỗi của server', () => {
+    const err = 'Bill không thuộc khách này hoặc đã trả hết'
+    expect(allocateDebt(bills, 1000, ['zz'])).toEqual({ allocations: [], error: err })
+    expect(allocateDebt(bills, 1000, ['b1', 'b2'])).toEqual({ allocations: [], error: err })
+    expect(allocateDebt(bills, 1000, ['b1']).allocations).toEqual([{ billPaymentId: 'b1', amount: 1000 }])
+  })
+  it('allocateDebt: giờ có phần lẻ giây vẫn đúng thứ tự', () => {
+    const t = [
+      { billPaymentId: 'x', collectedAt: '2026-11-01T19:00:00.5+07:00', outstanding: 10 },
+      { billPaymentId: 'y', collectedAt: '2026-11-01T19:00:00+07:00', outstanding: 10 },
+    ] as DebtBill[]
+    expect(allocateDebt(t, 10, null).allocations).toEqual([{ billPaymentId: 'y', amount: 10 }])
+  })
+  it('parseDebtCustomerDetail: bỏ bill / lần trả không có mã', () => {
+    const d = parseDebtCustomerDetail({ customer: { id: 'c', name: 'A' },
+      bills: [{ bill_payment_id: '' }, { outstanding: 5 }, { bill_payment_id: 'b', outstanding: 5 }],
+      payments: [{ amount: 1 }, { id: 'p', amount: 2 }] })
+    expect(d?.bills.map((b) => b.billPaymentId)).toEqual(['b'])
+    expect(d?.payments.map((p) => p.id)).toEqual(['p'])
+  })
+})

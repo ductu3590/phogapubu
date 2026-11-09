@@ -5,7 +5,7 @@ import { requireOperator } from '@/lib/auth/operator'
 import { isPosRole } from '@/lib/auth/roles'
 import type { BillDiscount } from '@/lib/bill-discount'
 import { parsePaymentLines, type PaymentLine } from '@/lib/collect-payment'
-import type { NewDebtCustomer } from '@/lib/debts'
+import { debtChoiceError, type DebtCustomerChoice, type NewDebtCustomer } from '@/lib/debts'
 
 // Bọc 3 RPC phiên bàn (mig 039). Luôn dùng createClient() — phiên đăng nhập của nhân viên —
 // chứ KHÔNG createAdminClient(): RPC cần auth.uid() để ghi payment_received_by, đó là dấu vết
@@ -214,10 +214,15 @@ export async function collectTableBill(input: CollectBillInput): Promise<Collect
   const debtCustomerId = input.debtCustomerId ?? null
   const newDebtCustomer = input.newDebtCustomer ?? null
   if (hasDebt) {
-    if (!debtCustomerId && !newDebtCustomer) return { ok: false, error: 'Chọn khách ghi nợ' }
     if (debtCustomerId && (typeof debtCustomerId !== 'string' || !UUID.test(debtCustomerId))) {
       return { ok: false, error: 'Mã khách không hợp lệ' }
     }
+    // Cùng kiểm của màn Thanh toán (thiếu khách, tên trống, SĐT sai) → câu báo thân thiện trước khi gọi server.
+    const choice: DebtCustomerChoice | null = newDebtCustomer
+      ? { kind: 'new', customer: newDebtCustomer }
+      : debtCustomerId ? { kind: 'existing', id: debtCustomerId, name: '' } : null
+    const choiceError = debtChoiceError(choice)
+    if (choiceError) return { ok: false, error: choiceError }
   }
 
   const { data, error: rpcErr } = await supabase.rpc('collect_table_bill', {

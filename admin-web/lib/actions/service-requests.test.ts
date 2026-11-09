@@ -298,6 +298,16 @@ describe('thu ngân ở quầy (PA-2)', () => {
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
+  it('collectTableBill: khách mới tên trống / SĐT sai báo sớm, không gọi RPC (debtChoiceError)', async () => {
+    const id = '11111111-1111-4111-8111-111111111111'
+    const debtLine = [{ instrument: 'debt' as const, amount: 1000 }]
+    mocks.rpc.mockClear()
+    expect(await collectTableBill({ sessionIds: [id], lines: debtLine, cashGiven: null, clientRequestId: id, newDebtCustomer: { name: '  ', phone: null, kind: 'person' } }))
+      .toEqual({ ok: false, error: 'Nhập tên khách' })
+    expect(await collectTableBill({ sessionIds: [id], lines: debtLine, cashGiven: null, clientRequestId: id, newDebtCustomer: { name: 'A', phone: '12', kind: 'person' } }))
+      .toEqual({ ok: false, error: 'SĐT không hợp lệ' })
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
   it('collectTableBill: RPC không lỗi mà không có dữ liệu → báo tải lại, không ném; số đếm ép kiểu số', async () => {
     const id = '11111111-1111-4111-8111-111111111111'
     const input = { sessionIds: [id], lines: [], cashGiven: null, clientRequestId: id }
