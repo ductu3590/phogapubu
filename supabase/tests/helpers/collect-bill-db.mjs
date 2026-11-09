@@ -93,6 +93,10 @@ const BASE_SCHEMA = (ids) => `
     old_quantity integer, new_quantity integer, reason text, changed_by uuid, changed_at timestamptz
   );
 
+  -- Prod: RLS auth_update_orders cho chủ quán UPDATE orders; checkout-notify ghi bằng service_role.
+  -- Fixture không bật RLS, chỉ cấp quyền bảng để thấy trigger chặn ghi tiền của mig 112b.
+  GRANT SELECT, UPDATE ON orders TO authenticated, service_role;
+
   -- Hàm quyền: đúng định nghĩa prod (2026-11-09).
   CREATE FUNCTION public.is_store_pos_operator(p_store_id uuid) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
