@@ -993,4 +993,240 @@ GRANT EXECUTE ON FUNCTION public.inventory_stock_levels(uuid, timestamptz) TO au
 GRANT EXECUTE ON FUNCTION public.inventory_list_documents(uuid, text, date, date) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.inventory_get_document(uuid) TO authenticated;
 
+-- ============================================================
+-- 7) Thẻ kho một hàng
+-- ============================================================
+
+-- Kỳ = ngày kinh doanh p_from tới hết ngày kinh doanh p_to (≤ 93 ngày). Dòng bán gộp theo ngày kinh doanh và tách
+-- ở mỗi phiếu kiểm (at = giờ bán cuối của nhóm). Dòng kiểm: qty_change = SL đếm − tồn chạy trước đó, tồn = SL đếm.
+-- Cùng một thời điểm thì phiếu kiểm đứng trước (sự kiện đúng lúc kiểm tính sau mốc, khớp inventory_stock_at).
+CREATE FUNCTION public.inventory_item_ledger(p_item_id uuid, p_from date, p_to date)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_item public.inventory_items%ROWTYPE;
+  v_f timestamptz;
+  v_t timestamptz;
+  v_open numeric;
+  v_close numeric;
+  v_bal numeric;
+  v_change numeric;
+  v_rows jsonb := '[]'::jsonb;
+  r record;
+BEGIN
+  SELECT * INTO v_item FROM public.inventory_items WHERE id = p_item_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Không tìm thấy hàng hoá';
+  END IF;
+  IF NOT public.is_store_back_office(v_item.store_id) THEN
+    RAISE EXCEPTION 'Không có quyền';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from THEN
+    RAISE EXCEPTION 'Khoảng ngày không hợp lệ';
+  END IF;
+  IF p_to - p_from > 92 THEN
+    RAISE EXCEPTION 'Chỉ xem tối đa 93 ngày';
+  END IF;
+
+  SELECT b.day_from INTO v_f FROM public.business_day_bounds(v_item.store_id, p_from) b;
+  SELECT b.day_to INTO v_t FROM public.business_day_bounds(v_item.store_id, p_to) b;
+  v_open := coalesce((SELECT s.qty FROM public.inventory_stock_at(v_item.store_id, v_f) s
+                       WHERE s.inventory_item_id = p_item_id), 0);
+  v_close := coalesce((SELECT s.qty FROM public.inventory_stock_at(v_item.store_id, v_t) s
+                        WHERE s.inventory_item_id = p_item_id), 0);
+
+  v_bal := v_open;
+  FOR r IN
+    WITH cnt AS (
+      SELECT d.id, d.doc_no, d.effective_at, dl.counted_qty
+        FROM public.inventory_document_lines dl
+        JOIN public.inventory_documents d ON d.id = dl.document_id
+       WHERE dl.inventory_item_id = p_item_id AND d.store_id = v_item.store_id AND d.kind = 'count'
+         AND d.status = 'posted' AND d.effective_at >= v_f AND d.effective_at < v_t
+    ),
+    ev AS (
+      SELECT d.effective_at AS at, d.kind AS type, d.id AS document_id, d.doc_no,
+             CASE d.kind WHEN 'receipt' THEN dl.qty ELSE -dl.qty END AS qty_change,
+             NULL::numeric AS counted_qty, 1 AS ord
+        FROM public.inventory_document_lines dl
+        JOIN public.inventory_documents d ON d.id = dl.document_id
+       WHERE dl.inventory_item_id = p_item_id AND d.store_id = v_item.store_id AND d.kind IN ('receipt', 'writeoff')
+         AND d.status = 'posted' AND d.effective_at >= v_f AND d.effective_at < v_t
+      UNION ALL
+      SELECT c.effective_at, 'count', c.id, c.doc_no, NULL::numeric, c.counted_qty, 0 FROM cnt c
+      UNION ALL
+      SELECT max(g.sold_at), 'sales', NULL::uuid, NULL::text, -sum(g.qty), NULL::numeric, 1
+        FROM (
+          SELECT sl.sold_at, sl.qty, public.business_date_of(v_item.store_id, sl.sold_at) AS bdate,
+                 (SELECT count(*) FROM cnt c WHERE c.effective_at <= sl.sold_at) AS seg
+            FROM public.inventory_sales_lines(v_item.store_id, v_f, v_t) sl
+           WHERE sl.inventory_item_id = p_item_id) g
+       GROUP BY g.bdate, g.seg
+    )
+    SELECT ev.*, public.business_date_of(v_item.store_id, ev.at) AS business_date
+      FROM ev
+     ORDER BY ev.at, ev.ord, ev.doc_no
+  LOOP
+    IF r.type = 'count' THEN
+      v_change := r.counted_qty - v_bal;
+      v_bal := r.counted_qty;
+    ELSE
+      v_change := r.qty_change;
+      v_bal := v_bal + r.qty_change;
+    END IF;
+    v_rows := v_rows || jsonb_build_array(jsonb_build_object(
+      'at', r.at, 'business_date', r.business_date, 'type', r.type, 'document_id', r.document_id,
+      'doc_no', r.doc_no, 'qty_change', v_change, 'counted_qty', r.counted_qty, 'balance', v_bal));
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'item', jsonb_build_object('id', v_item.id, 'name', v_item.name, 'unit', v_item.unit, 'kind', v_item.kind),
+    'from', p_from, 'to', p_to, 'opening_qty', v_open, 'closing_qty', v_close, 'rows', v_rows);
+END;
+$$;
+
+-- ============================================================
+-- 8) Giá vốn theo kỳ (bình quân gia quyền) — cho báo cáo lãi lỗ
+-- ============================================================
+
+-- Kỳ [F, T) từ business_day_bounds, ≤ 366 ngày. Mỗi hàng:
+--   giá đầu kỳ = bình quân (SL × giá) của mọi dòng nhập + dòng kiểm có giá, posted, trước F (không có → null,
+--   phần tồn đầu không vào công thức); giá kỳ = (tồn đầu × giá đầu + giá trị nhập) / (tồn đầu + SL nhập); mẫu ≤ 0 →
+--   giá dòng có giá mới nhất trước T; không có → 0 và thiếu giá (nếu có dùng / huỷ).
+--   goods: SL dùng = SL bán. ingredient: có phiếu kiểm trong kỳ → SL dùng = đầu + nhập − huỷ − cuối; chưa kiểm →
+--   null, giá vốn 0. Có nguyên liệu biến động mà chưa kiểm → ingredient_cogs = 0 cả khối (không cộng dở).
+--   Chênh lệch kiểm kho hàng goods không vào giá vốn. Chia bằng numeric, chỉ làm tròn ở đầu ra.
+CREATE FUNCTION public.inventory_cogs(p_store_id uuid, p_from date, p_to date)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_f timestamptz;
+  v_t timestamptz;
+  v_items jsonb;
+  v_goods numeric;
+  v_ingredient numeric;
+  v_writeoff numeric;
+  v_uncounted boolean;
+  v_missing int;
+BEGIN
+  IF p_store_id IS NULL OR NOT public.is_store_back_office(p_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from THEN
+    RAISE EXCEPTION 'Khoảng ngày không hợp lệ';
+  END IF;
+  IF p_to - p_from > 365 THEN
+    RAISE EXCEPTION 'Chỉ xem tối đa 366 ngày';
+  END IF;
+
+  SELECT b.day_from INTO v_f FROM public.business_day_bounds(p_store_id, p_from) b;
+  SELECT b.day_to INTO v_t FROM public.business_day_bounds(p_store_id, p_to) b;
+
+  WITH op AS (SELECT * FROM public.inventory_stock_at(p_store_id, v_f)),
+  cl AS (SELECT * FROM public.inventory_stock_at(p_store_id, v_t)),
+  sold AS (SELECT * FROM public.inventory_sales_qty(p_store_id, v_f, v_t)),
+  mv AS (
+    SELECT dl.inventory_item_id,
+           sum(dl.qty) FILTER (WHERE d.kind = 'receipt') AS rq,
+           sum(dl.line_amount) FILTER (WHERE d.kind = 'receipt') AS rv,
+           sum(dl.qty) FILTER (WHERE d.kind = 'writeoff') AS wq,
+           bool_or(d.kind = 'count') AS counted
+      FROM public.inventory_document_lines dl
+      JOIN public.inventory_documents d ON d.id = dl.document_id
+     WHERE d.store_id = p_store_id AND d.status = 'posted' AND d.effective_at >= v_f AND d.effective_at < v_t
+     GROUP BY dl.inventory_item_id
+  ),
+  pr AS (
+    SELECT dl.inventory_item_id,
+           sum(CASE d.kind WHEN 'receipt' THEN dl.qty ELSE dl.counted_qty END * dl.unit_cost) AS num,
+           sum(CASE d.kind WHEN 'receipt' THEN dl.qty ELSE dl.counted_qty END) AS den
+      FROM public.inventory_document_lines dl
+      JOIN public.inventory_documents d ON d.id = dl.document_id
+     WHERE d.store_id = p_store_id AND d.status = 'posted' AND d.kind IN ('receipt', 'count')
+       AND dl.unit_cost IS NOT NULL AND d.effective_at < v_f
+     GROUP BY dl.inventory_item_id
+  ),
+  base AS (
+    SELECT i.id, i.name, i.unit, i.kind,
+           coalesce(op.qty, 0) AS open, coalesce(cl.qty, 0) AS close,
+           coalesce(mv.rq, 0) AS rq, coalesce(mv.rv, 0)::numeric AS rv, coalesce(mv.wq, 0) AS wq,
+           coalesce(mv.counted, false) AS counted,
+           CASE WHEN pr.den <> 0 THEN pr.num::numeric / pr.den END AS prior,
+           coalesce(sold.qty, 0) AS sold_qty,
+           (SELECT l.unit_cost
+              FROM public.inventory_document_lines l
+              JOIN public.inventory_documents d ON d.id = l.document_id
+             WHERE l.inventory_item_id = i.id AND d.store_id = p_store_id AND d.status = 'posted'
+               AND d.kind IN ('receipt', 'count') AND l.unit_cost IS NOT NULL AND d.effective_at < v_t
+             ORDER BY d.effective_at DESC, d.created_at DESC
+             LIMIT 1) AS last_cost
+      FROM public.inventory_items i
+      LEFT JOIN op ON op.inventory_item_id = i.id
+      LEFT JOIN cl ON cl.inventory_item_id = i.id
+      LEFT JOIN mv ON mv.inventory_item_id = i.id
+      LEFT JOIN pr ON pr.inventory_item_id = i.id
+      LEFT JOIN sold ON sold.inventory_item_id = i.id
+     WHERE i.store_id = p_store_id
+  ),
+  calc AS (
+    SELECT b.*,
+           CASE WHEN b.kind = 'goods' THEN b.sold_qty
+                WHEN b.counted THEN b.open + b.rq - b.wq - b.close END AS qty_used,
+           CASE WHEN b.prior IS NULL THEN 0 ELSE b.open END AS qo
+      FROM base b
+  ),
+  priced AS (
+    SELECT c.*,
+           CASE WHEN c.qo + c.rq > 0 THEN (c.qo * coalesce(c.prior, 0) + c.rv) / (c.qo + c.rq)
+                ELSE coalesce(c.last_cost, 0)::numeric END AS unit_price,
+           (c.qo + c.rq <= 0 AND c.last_cost IS NULL) AS no_price
+      FROM calc c
+  ),
+  fin AS (
+    SELECT p.*,
+           round(coalesce(p.qty_used, 0) * p.unit_price)::bigint AS cogs,
+           round(p.wq * p.unit_price)::bigint AS writeoff_cost,
+           (p.no_price AND (coalesce(p.qty_used, 0) <> 0 OR p.wq <> 0)) AS missing_cost,
+           (p.kind = 'ingredient' AND NOT p.counted AND (p.open <> 0 OR p.rq > 0 OR p.wq > 0)) AS uncounted
+      FROM priced p
+     -- Bỏ hàng không có gì trong kỳ (nguyên liệu chưa kiểm có biến động luôn có open/rq/wq ≠ 0 nên luôn còn).
+     WHERE NOT (p.open = 0 AND p.rq = 0 AND p.wq = 0 AND coalesce(p.qty_used, 0) = 0 AND p.close = 0)
+  )
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+           'inventory_item_id', f.id, 'name', f.name, 'unit', f.unit, 'kind', f.kind,
+           'qty_used', f.qty_used, 'unit_cost', round(f.unit_price)::bigint, 'cogs', f.cogs,
+           'missing_cost', f.missing_cost, 'writeoff_qty', f.wq, 'writeoff_cost', f.writeoff_cost,
+           'counted', f.counted)
+         ORDER BY (f.kind = 'goods') DESC, lower(f.name), f.id), '[]'::jsonb),
+         coalesce(sum(f.cogs) FILTER (WHERE f.kind = 'goods'), 0),
+         coalesce(sum(f.cogs) FILTER (WHERE f.kind = 'ingredient'), 0),
+         coalesce(sum(f.writeoff_cost), 0),
+         coalesce(bool_or(f.uncounted), false),
+         count(*) FILTER (WHERE f.missing_cost)
+    INTO v_items, v_goods, v_ingredient, v_writeoff, v_uncounted, v_missing
+    FROM fin f;
+
+  RETURN jsonb_build_object(
+    'from', p_from, 'to', p_to, 'items', v_items,
+    'goods_cogs', v_goods::bigint,
+    'ingredient_cogs', CASE WHEN v_uncounted THEN 0 ELSE v_ingredient::bigint END,
+    'writeoff_cost', v_writeoff::bigint,
+    'ingredient_uncounted', v_uncounted,
+    'missing_cost_items', v_missing);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.inventory_item_ledger(uuid, date, date) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.inventory_cogs(uuid, date, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.inventory_item_ledger(uuid, date, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.inventory_cogs(uuid, date, date) TO authenticated;
+
 NOTIFY pgrst, 'reload schema';

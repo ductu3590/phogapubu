@@ -9,6 +9,7 @@ import { as, setupThrough118 } from './helpers/inventory-fixture.mjs'
 // Nhóm B: "bán" + tồn (giờ thật, s1 trả sau, chưa có dòng store_workflow_settings = automatic).
 //   BIA đi 93 → 92 → 90 → 90 → 66 qua B1–B5; B7–B12 dùng hàng riêng nên C4 thấy đúng 66.
 // Nhóm C: phiếu nhập / kiểm / huỷ.
+// Nhóm E (giá vốn) rồi D (thẻ kho): quán s3, ngày kinh doanh bắt đầu 05:00, dữ liệu tháng 9–10/2026 dời mốc tay.
 const pgliteModule = process.env.PGLITE_MODULE
   ? pathToFileURL(process.env.PGLITE_MODULE).href
   : '@electric-sql/pglite'
@@ -16,7 +17,7 @@ const { PGlite } = await import(pgliteModule)
 const db = new PGlite()
 
 const id = (n) => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`
-const owner = id(1), manager = id(2), cashier = id(3), staff = id(4), ownerB = id(5), owner3 = id(6)
+const owner = id(1), manager = id(2), cashier = id(3), staff = id(4), ownerB = id(5), owner3 = id(6), cashier3 = id(7)
 const s1 = id(10), s2 = id(11), s3 = id(12)
 const mBia = id(31), mKet = id(32), mThap = id(33), mSting = id(34), mSting2 = id(35), mB2 = id(36), mHei = id(37)
 const vTo = id(41), vNho = id(42)
@@ -50,7 +51,8 @@ before(async () => {
   await db.query(`INSERT INTO stores(id) VALUES ($1), ($2), ($3)`, [s1, s2, s3])
   await db.query(`INSERT INTO mevo_operators(user_id, store_id, role) VALUES
     ($1, $7, 'store_owner'), ($2, $7, 'store_manager'), ($3, $7, 'store_cashier'), ($4, $7, 'store_staff'),
-    ($5, $8, 'store_owner'), ($6, $9, 'store_owner')`, [owner, manager, cashier, staff, ownerB, owner3, s1, s2, s3])
+    ($5, $8, 'store_owner'), ($6, $9, 'store_owner'), ($10, $9, 'store_cashier')`,
+  [owner, manager, cashier, staff, ownerB, owner3, s1, s2, s3, cashier3])
   await db.query(`INSERT INTO menu_items(id, store_id, name) VALUES
     ($1, $7, 'Bia Hà Nội'), ($2, $7, 'Két Hà Nội'), ($3, $7, 'Bia tháp'), ($4, $7, 'Sting'), ($5, $7, 'Sting lạnh'),
     ($6, $8, 'Bia quán B')`, [mBia, mKet, mThap, mSting, mSting2, mB2, s1, s2])
@@ -877,4 +879,244 @@ test('C13 list_documents: lọc kind + ngày, khoảng > 93 ngày lỗi, supplie
   await fails(listDocs(owner, s1, null, await addDays(t, -93), t), 'Chỉ xem tối đa 93 ngày')
   await fails(listDocs(owner, s1, null, t, await addDays(t, -1)), 'Khoảng ngày không hợp lệ')
   await fails(listDocs(owner, s1, 'abc', t, t), 'Loại phiếu không hợp lệ')
+})
+
+// ─── Nhóm E, D: giá vốn và thẻ kho (quán s3) ─────────────────────────────────
+const k = {} // hàng + món của s3
+const m3 = { bia: id(51), coca: id(52), suoi: id(53) }
+const cogs = (uid, from, to, store = s3) =>
+  one(uid, 'SELECT inventory_cogs($1, $2::date, $3::date) AS r', [store, from, to])
+const ledger = (uid, itemId, from, to) =>
+  one(uid, 'SELECT inventory_item_ledger($1, $2::date, $3::date) AS r', [itemId, from, to])
+const row = (r, itemId) => r.items.find((x) => x.inventory_item_id === itemId)
+// Ghi phiếu bằng RPC (giờ thật, ngày hôm nay) rồi dời mốc về `at` — chỉ là dựng dữ liệu; RPC đọc tự tính từ effective_at.
+async function postAt(kind, at, doc, lines) {
+  const r = await post(owner3, kind, { store_id: s3, ...doc }, lines)
+  await db.query(`UPDATE inventory_documents SET effective_at = $2::timestamptz, doc_date = business_date_of($3, $2::timestamptz)
+    WHERE id = $1`, [r.id, at, s3])
+  return r
+}
+const sell = (menu, qty, at) => order({ store: s3, createdAt: at, items: [{ menu, qty }] })
+
+test('E0 dựng dữ liệu quán s3 (ngày kinh doanh 05:00)', async () => {
+  await db.query(`INSERT INTO store_workflow_settings(store_id, business_day_start) VALUES ($1, '05:00')
+    ON CONFLICT (store_id) DO UPDATE SET business_day_start = '05:00'`, [s3])
+  const mk = async (name, kind, unit) => (await upsert(owner3, { store: s3, name, kind, unit })).id
+  k.bia = await mk('Bia HN', 'goods', 'lon')
+  k.thit = await mk('Thịt ba chỉ', 'ingredient', 'kg')
+  k.coca = await mk('Coca', 'goods', 'lon')
+  k.suoi = await mk('Nước suối', 'goods', 'chai')
+  k.rau = await mk('Rau', 'ingredient', 'kg')
+  await db.query(`INSERT INTO menu_items(id, store_id, name) VALUES ($1, $4, 'Bia HN'), ($2, $4, 'Coca'), ($3, $4, 'Suối')`,
+    [m3.bia, m3.coca, m3.suoi, s3])
+  // Liên kết có hiệu lực từ trước dữ liệu bán (chèn thẳng: RPC luôn mở liên kết từ now()).
+  for (const [menu, item] of [[m3.bia, k.bia], [m3.coca, k.coca], [m3.suoi, k.suoi]]) {
+    await db.query(`INSERT INTO menu_stock_links(store_id, menu_item_id, inventory_item_id, qty_per_sale, valid_from)
+      VALUES ($1, $2, $3, 1, '2026-09-01 00:00+07')`, [s3, menu, item])
+  }
+
+  await postAt('count', '2026-09-30 10:00+07', {}, [
+    { inventory_item_id: k.bia, counted_qty: 100, unit_cost: 10000 },
+    { inventory_item_id: k.thit, counted_qty: 5, unit_cost: 120000 }])
+  k.cocaReceipt = (await postAt('receipt', '2026-09-30 11:00+07', { paid_status: 'unpaid' },
+    [{ inventory_item_id: k.coca, qty: 24, unit_cost: 8000 }])).id
+  await sell(m3.coca, 24, '2026-09-30 20:00+07')
+  await postAt('receipt', '2026-10-01 10:00+07', { paid_status: 'unpaid' }, [
+    { inventory_item_id: k.bia, qty: 200, unit_cost: 11500 },
+    { inventory_item_id: k.thit, qty: 10, unit_cost: 126000 }])
+  await sell(m3.coca, 3, '2026-10-01 20:00+07')
+  await sell(m3.suoi, 5, '2026-10-01 20:00+07')
+  await sell(m3.bia, 119, '2026-10-01 21:00+07')
+  await postAt('writeoff', '2026-10-01 22:00+07', { note: 'Vỡ, ôi' }, [
+    { inventory_item_id: k.bia, qty: 2 }, { inventory_item_id: k.thit, qty: 1 }])
+  await postAt('count', '2026-10-01 23:00+07', {}, [{ inventory_item_id: k.thit, counted_qty: 3 }])
+  await sell(m3.bia, 1, '2026-10-02 02:00+07')
+  await sell(m3.bia, 1, '2026-10-02 05:00+07')
+  await postAt('receipt', '2026-10-02 06:00+07', { paid_status: 'unpaid' }, [{ inventory_item_id: k.rau, qty: 4, unit_cost: 20000 }])
+  await postAt('count', '2026-10-02 23:00+07', {}, [{ inventory_item_id: k.rau, counted_qty: 1 }])
+  assert.equal(await scalar(`SELECT business_date_of($1, '2026-10-02 02:00+07')::text AS v`, [s3]), '2026-10-01')
+})
+
+test('E1 giá vốn 01/10: BIA qty_used 120, unit_cost 11.000, cogs 1.320.000', async () => {
+  const r = await cogs(owner3, '2026-10-01', '2026-10-01')
+  assert.equal(r.from, '2026-10-01')
+  assert.equal(r.to, '2026-10-01')
+  assert.deepEqual(row(r, k.bia), { inventory_item_id: k.bia, name: 'Bia HN', unit: 'lon', kind: 'goods', qty_used: 120,
+    unit_cost: 11000, cogs: 1320000, missing_cost: false, writeoff_qty: 2, writeoff_cost: 22000, counted: false })
+})
+
+test('E2 COCA mẫu số 0 → giá nhập gần nhất: qty_used 3, unit_cost 8.000, cogs 24.000', async () => {
+  const c = row(await cogs(owner3, '2026-10-01', '2026-10-01'), k.coca)
+  assert.equal(c.qty_used, 3)
+  assert.equal(c.unit_cost, 8000)
+  assert.equal(c.cogs, 24000)
+  assert.equal(c.missing_cost, false)
+})
+
+test('E3 SUOI chưa có giá: qty_used 5, cogs 0, missing_cost true; missing_cost_items 1; goods_cogs 1.344.000', async () => {
+  const r = await cogs(owner3, '2026-10-01', '2026-10-01')
+  const s = row(r, k.suoi)
+  assert.equal(s.qty_used, 5)
+  assert.equal(s.unit_cost, 0)
+  assert.equal(s.cogs, 0)
+  assert.equal(s.missing_cost, true)
+  assert.equal(r.missing_cost_items, 1)
+  assert.equal(r.goods_cogs, 1344000)
+  // Hàng không biến động trong kỳ (RAU 01/10, hàng cũ "Bia quán 3") không có dòng.
+  assert.equal(row(r, k.rau), undefined)
+  assert.deepEqual(r.items.map((x) => x.kind), ['goods', 'goods', 'goods', 'ingredient'], 'hàng bán trước, nguyên liệu sau')
+})
+
+test('E4 THIT nguyên liệu: qty_used 11, unit_cost 124.000, cogs 1.364.000, counted true; ingredient_cogs 1.364.000; ingredient_uncounted false', async () => {
+  const r = await cogs(owner3, '2026-10-01', '2026-10-01')
+  assert.deepEqual(row(r, k.thit), { inventory_item_id: k.thit, name: 'Thịt ba chỉ', unit: 'kg', kind: 'ingredient',
+    qty_used: 11, unit_cost: 124000, cogs: 1364000, missing_cost: false, writeoff_qty: 1, writeoff_cost: 124000, counted: true })
+  assert.equal(r.ingredient_cogs, 1364000)
+  assert.equal(r.ingredient_uncounted, false)
+})
+
+test('E5 writeoff_cost 146.000 (BIA 2 × 11.000 + THIT 1 × 124.000)', async () => {
+  const r = await cogs(owner3, '2026-10-01', '2026-10-01')
+  assert.equal(r.writeoff_cost, 146000)
+  assert.deepEqual(Object.keys(r).sort(), ['from', 'goods_cogs', 'ingredient_cogs', 'ingredient_uncounted', 'items',
+    'missing_cost_items', 'to', 'writeoff_cost'])
+})
+
+test('E6 kỳ 02/10: BIA qty_used 1 (bán 05:00), unit_cost 11.000 (tồn đầu 178, giá đầu kỳ bình quân 11.000), goods_cogs 11.000', async () => {
+  const r = await cogs(owner3, '2026-10-02', '2026-10-02')
+  const b = row(r, k.bia)
+  assert.equal(b.qty_used, 1)
+  assert.equal(b.unit_cost, 11000)
+  assert.equal(b.cogs, 11000)
+  assert.equal(r.goods_cogs, 11000)
+  // COCA tồn đầu âm (−3), không bán: vẫn có dòng (tồn đầu ≠ 0), giá vốn 0, không thiếu giá.
+  const c = row(r, k.coca)
+  assert.equal(c.qty_used, 0)
+  assert.equal(c.cogs, 0)
+  assert.equal(c.missing_cost, false)
+  assert.equal(r.missing_cost_items, 0, 'SUOI không bán trong kỳ thì không tính thiếu giá')
+})
+
+test('E6b kỳ 02/10 có nguyên liệu chưa kiểm: ingredient_uncounted true, ingredient_cogs 0 (không cộng dở); THIT vẫn có dòng với counted false, qty_used null, cogs 0; RAU counted true, qty_used 3, cogs 60.000 hiện ở dòng nhưng không vào ingredient_cogs', async () => {
+  const r = await cogs(owner3, '2026-10-02', '2026-10-02')
+  assert.equal(r.ingredient_uncounted, true)
+  assert.equal(r.ingredient_cogs, 0)
+  const t = row(r, k.thit)
+  assert.equal(t.counted, false)
+  assert.equal(t.qty_used, null)
+  assert.equal(t.cogs, 0)
+  assert.equal(t.missing_cost, false)
+  const rau = row(r, k.rau)
+  assert.equal(rau.counted, true)
+  assert.equal(rau.qty_used, 3)
+  assert.equal(rau.unit_cost, 20000)
+  assert.equal(rau.cogs, 60000)
+})
+
+test('E6c kỳ 01/10–02/10 (THIT có kiểm 01/10 23:00, RAU có kiểm 02/10): ingredient_uncounted false, ingredient_cogs 1.424.000 (THIT 11 × 124.000 = 1.364.000 + RAU 3 × 20.000 = 60.000)', async () => {
+  const r = await cogs(owner3, '2026-10-01', '2026-10-02')
+  assert.equal(r.ingredient_uncounted, false)
+  assert.equal(r.ingredient_cogs, 1424000)
+  assert.equal(row(r, k.thit).qty_used, 11)
+  assert.equal(row(r, k.rau).qty_used, 3)
+  // Hàng bán: BIA 121 × 11.000 + COCA 3 × 8.000.
+  assert.equal(r.goods_cogs, 121 * 11000 + 24000)
+})
+
+test('E7 phiếu huỷ (voided) không vào giá vốn: huỷ phiếu nhập COCA → E2 thành missing_cost', async () => {
+  await voidDoc(owner3, k.cocaReceipt, 'Nhập nhầm')
+  const r = await cogs(owner3, '2026-10-01', '2026-10-01')
+  const c = row(r, k.coca)
+  assert.equal(c.qty_used, 3)
+  assert.equal(c.unit_cost, 0)
+  assert.equal(c.cogs, 0)
+  assert.equal(c.missing_cost, true)
+  assert.equal(r.missing_cost_items, 2)
+  assert.equal(r.goods_cogs, 1320000)
+})
+
+test('E8 quyền: thu ngân s3 và owner (s1) gọi inventory_cogs(s3) bị chặn; khoảng > 366 ngày, from > to → lỗi', async () => {
+  for (const uid of [cashier3, owner, ownerB, staff]) await fails(cogs(uid, '2026-10-01', '2026-10-01'), 'Không có quyền')
+  await fails(cogs(owner3, '2026-10-01', '2026-10-01', null), 'Không có quyền')
+  await fails(cogs(owner3, '2026-10-02', '2026-10-01'), 'Khoảng ngày không hợp lệ')
+  await fails(cogs(owner3, '2025-10-01', '2026-10-02'), 'Chỉ xem tối đa 366 ngày')
+  assert.ok((await cogs(owner3, '2025-10-01', '2026-10-01')).items, '366 ngày tính cả hai đầu vẫn được')
+  const priv = async (role, fn) =>
+    (await db.query(`SELECT has_function_privilege($1, $2, 'EXECUTE') AS ok`, [role, fn])).rows[0].ok
+  for (const fn of ['inventory_cogs(uuid,date,date)', 'inventory_item_ledger(uuid,date,date)']) {
+    assert.equal(await priv('anon', fn), false)
+    assert.equal(await priv('authenticated', fn), true)
+  }
+})
+
+const pick = (rows) => rows.map((x) => ({ type: x.type, business_date: x.business_date, qty_change: x.qty_change,
+  counted_qty: x.counted_qty, balance: x.balance }))
+
+test('D1 thẻ kho BIA 01/10–02/10: opening 100; nhập +200; bán ngày 01/10 −120 (gộp 21:00 + 02:00); huỷ −2; bán ngày 02/10 −1; closing 177', async () => {
+  const r = await ledger(owner3, k.bia, '2026-10-01', '2026-10-02')
+  assert.deepEqual(r.item, { id: k.bia, name: 'Bia HN', unit: 'lon', kind: 'goods' })
+  assert.equal(r.from, '2026-10-01')
+  assert.equal(r.to, '2026-10-02')
+  assert.equal(r.opening_qty, 100)
+  assert.equal(r.closing_qty, 177)
+  // Sắp theo giờ: phiếu huỷ 22:00 đứng trước nhóm bán ngày 01/10 (giờ bán cuối 02:00 hôm sau).
+  assert.deepEqual(pick(r.rows), [
+    { type: 'receipt', business_date: '2026-10-01', qty_change: 200, counted_qty: null, balance: 300 },
+    { type: 'writeoff', business_date: '2026-10-01', qty_change: -2, counted_qty: null, balance: 298 },
+    { type: 'sales', business_date: '2026-10-01', qty_change: -120, counted_qty: null, balance: 178 },
+    { type: 'sales', business_date: '2026-10-02', qty_change: -1, counted_qty: null, balance: 177 }])
+  assert.equal(Date.parse(r.rows[2].at), Date.parse('2026-10-02T02:00:00+07:00'))
+  assert.equal(r.rows[2].document_id, null)
+  assert.equal(r.rows[2].doc_no, null)
+  assert.ok(r.rows[0].document_id)
+  assert.match(r.rows[0].doc_no, /^PN-/)
+  assert.deepEqual(Object.keys(r.rows[0]).sort(), ['at', 'balance', 'business_date', 'counted_qty', 'doc_no', 'document_id',
+    'qty_change', 'type'])
+})
+
+test('D2 thẻ kho THIT 01/10: dòng kiểm 23:00 qty_change −11 (từ 14 về 3), balance 3', async () => {
+  const r = await ledger(owner3, k.thit, '2026-10-01', '2026-10-01')
+  assert.equal(r.opening_qty, 5)
+  assert.deepEqual(pick(r.rows), [
+    { type: 'receipt', business_date: '2026-10-01', qty_change: 10, counted_qty: null, balance: 15 },
+    { type: 'writeoff', business_date: '2026-10-01', qty_change: -1, counted_qty: null, balance: 14 },
+    { type: 'count', business_date: '2026-10-01', qty_change: -11, counted_qty: 3, balance: 3 }])
+  assert.match(r.rows[2].doc_no, /^PK-/)
+  assert.equal(r.closing_qty, 3)
+})
+
+test('D3 dòng bán tách ở phiếu kiểm giữa ngày: thêm bán BIA trước và sau một phiếu kiểm ngày 03/10 → 2 dòng bán, balance tại dòng kiểm = SL đếm', async () => {
+  await sell(m3.bia, 2, '2026-10-03 10:00+07')
+  await postAt('count', '2026-10-03 12:00+07', {}, [{ inventory_item_id: k.bia, counted_qty: 170 }])
+  await sell(m3.bia, 3, '2026-10-03 14:00+07')
+  await sell(m3.bia, 1, '2026-10-03 15:00+07')
+  const r = await ledger(owner3, k.bia, '2026-10-03', '2026-10-03')
+  assert.equal(r.opening_qty, 177)
+  assert.deepEqual(pick(r.rows), [
+    { type: 'sales', business_date: '2026-10-03', qty_change: -2, counted_qty: null, balance: 175 },
+    { type: 'count', business_date: '2026-10-03', qty_change: -5, counted_qty: 170, balance: 170 },
+    { type: 'sales', business_date: '2026-10-03', qty_change: -4, counted_qty: null, balance: 166 }])
+  assert.equal(Date.parse(r.rows[2].at), Date.parse('2026-10-03T15:00:00+07:00'))
+  assert.equal(r.closing_qty, 166)
+})
+
+test('D4 closing_qty của thẻ kho = qty của inventory_stock_levels(s3, day_to) cho cùng hàng', async () => {
+  const dayTo = await scalar(`SELECT day_to::text AS v FROM business_day_bounds($1, '2026-10-03')`, [s3])
+  const lv = await levels(owner3, s3, dayTo)
+  for (const itemId of [k.bia, k.thit, k.coca, k.rau, k.suoi]) {
+    const r = await ledger(owner3, itemId, '2026-10-01', '2026-10-03')
+    assert.equal(r.closing_qty, lv.items.find((x) => x.id === itemId).qty, `hàng ${itemId}`)
+    const last = r.rows.length ? r.rows[r.rows.length - 1].balance : r.opening_qty
+    assert.equal(last, r.closing_qty, 'tồn chạy cuối = tồn cuối kỳ')
+  }
+})
+
+test('D5 thu ngân, ownerB gọi thẻ kho hàng s3 bị chặn; khoảng > 93 ngày lỗi', async () => {
+  for (const uid of [cashier3, ownerB, owner, staff]) {
+    await fails(ledger(uid, k.bia, '2026-10-01', '2026-10-01'), 'Không có quyền')
+  }
+  await fails(ledger(owner3, newId(), '2026-10-01', '2026-10-01'), 'Không tìm thấy hàng hoá')
+  await fails(ledger(owner3, k.bia, '2026-07-01', '2026-10-02'), 'Chỉ xem tối đa 93 ngày')
+  assert.ok((await ledger(owner3, k.bia, '2026-07-01', '2026-10-01')).rows, '93 ngày tính cả hai đầu vẫn được')
+  await fails(ledger(owner3, k.bia, '2026-10-02', '2026-10-01'), 'Khoảng ngày không hợp lệ')
 })
