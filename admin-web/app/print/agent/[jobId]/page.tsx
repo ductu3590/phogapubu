@@ -69,7 +69,9 @@ export default async function PrintAgentPage({
     const job = data as RenderJob
     const ref = job.ref ?? {}
 
-    const client = await createPrintUserClient(job.created_by)
+    // Client JWT của người tạo phiếu: dựng khi cần (phiếu bàn giao ca dùng service role + loader tự kiểm, không dùng nó)
+    let clientPromise: ReturnType<typeof createPrintUserClient> | null = null
+    const getClient = () => (clientPromise ??= createPrintUserClient(job.created_by))
 
     if (job.kind === 'kitchen_ticket' || job.kind === 'table_slip') {
       const source = String(ref.source ?? '')
@@ -77,7 +79,7 @@ export default async function PrintAgentPage({
       const type = source.slice(0, sep)
       const id = source.slice(sep + 1)
       if (sep < 0 || !id || (type !== 'order' && type !== 'preorder')) return fail('Phiếu thiếu nguồn đơn')
-      const res = await loadOrderSlip(client, job.store_id, type === 'order' ? { orderId: id } : { preorderJobId: id })
+      const res = await loadOrderSlip(await getClient(), job.store_id, type === 'order' ? { orderId: id } : { preorderJobId: id })
       if (!res.ok) return fromLoader(res)
       // Phiếu in lại (bấm In lại ở POS, hoặc thử lại job lỗi) phải có chữ IN LẠI: phiếu xuống thẳng bếp,
       // trông như mới thì bếp làm món hai lần. Phiếu điều chỉnh của đặt trước giữ nguyên tiêu đề riêng.
@@ -113,10 +115,10 @@ export default async function PrintAgentPage({
       const request = (ref.request ?? {}) as { sessionIds?: string[] }
       const ids = request.sessionIds ?? []
       if (ids.length === 0) return fail('Phiếu thiếu phiên hoá đơn')
-      const { data: bill, error: billErr } = await client.rpc('get_sessions_bill', { p_session_ids: ids })
+      const { data: bill, error: billErr } = await (await getClient()).rpc('get_sessions_bill', { p_session_ids: ids })
       if (billErr) return readFail(billErr.message)
       if (!bill) return fail('Không lấy được hoá đơn')
-      const qr = await loadBillQrWithClient(client, job.store_id, ids)
+      const qr = await loadBillQrWithClient(await getClient(), job.store_id, ids)
       return (
         <>
           <PrintReady jobId={jobId} />
@@ -152,7 +154,7 @@ export default async function PrintAgentPage({
       }
 
       const request = (ref.request ?? {}) as { date?: string }
-      const res = await loadDayReport(client, job.store_id, request.date ?? '', printedBy, new Date())
+      const res = await loadDayReport(await getClient(), job.store_id, request.date ?? '', printedBy, new Date())
       if (!res.ok) return fromLoader(res)
       return (
         <>
@@ -164,7 +166,7 @@ export default async function PrintAgentPage({
     }
 
     if (job.kind === 'test') {
-      const { data: store, error: storeErr } = await client.from('stores').select('name, address, phone').eq('id', job.store_id).maybeSingle()
+      const { data: store, error: storeErr } = await (await getClient()).from('stores').select('name, address, phone').eq('id', job.store_id).maybeSingle()
       if (storeErr) return readFail(storeErr.message)
       if (!store) return fail('Không tìm thấy quán')
       const bill = buildTestBill(

@@ -8,7 +8,8 @@ import { parseCashShiftReport } from '@/lib/cash-shift'
 //
 // ⚠️ `cash_shift_report_json` chạy bằng service_role và KHÔNG tự kiểm quyền/quán (mig 122): admin client nhận
 // shiftId từ job nên PHẢI tự so store_id của ca với store_id của job và chỉ in ca ĐÃ ĐÓNG, TRƯỚC khi vẽ bất kỳ con
-// số nào. Mọi nhánh lỗi trả {ok:false} (fail closed), không bao giờ trả props.
+// số nào. Phán quyết: in lại phiếu ca của thu ngân khác qua retry_print_job là chấp nhận được (cùng quán, người bấm
+// không chọn được shiftId, giấy ra ở quầy). Mọi nhánh lỗi trả {ok:false} (fail closed), không bao giờ trả props.
 export async function loadShiftReportSlip(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: SupabaseClient<any>,
