@@ -69,3 +69,14 @@ describe('loadDayReport', () => {
     expect(await run(c, '2026-11-05')).toMatchObject({ ok: false, transient: true })
   })
 })
+
+describe('loadDayReport — công nợ (mig 123)', () => {
+  it('props trả debtCollections và totals.debt đọc từ RPC; thiếu thì 0', async () => {
+    const raw = { ...reportRaw, totals: { ...reportRaw.totals, debt: 300 }, debt_collections: { cash: 100, bank: 50, count: 2 } }
+    const r = await run(fakeClient({ data: raw, error: null }, { data: { name: 'Q' }, error: null }), '2026-11-05')
+    expect(r.ok && r.props.debtCollections).toEqual({ cash: 100, bank: 50, count: 2 })
+    expect(r.ok && r.props.totals.debt).toBe(300)
+    const r2 = await run(fakeClient({ data: reportRaw, error: null }, { data: { name: 'Q' }, error: null }), '2026-11-05')
+    expect(r2.ok && r2.props.debtCollections).toEqual({ cash: 0, bank: 0, count: 0 })
+  })
+})

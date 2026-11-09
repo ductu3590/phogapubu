@@ -48,18 +48,31 @@ describe('Phiếu bàn giao ca 80mm', () => {
     }
   })
 
-  it('dòng Khách trả nợ (TM) chỉ hiện khi debtCash > 0', () => {
-    expect(render()).not.toContain('Khách trả nợ (TM)')
-    expect(render({ report: { ...report, debtCash: 45000 } })).toContain('Khách trả nợ (TM) + 45.000')
+  it('dòng Thu nợ tiền mặt (từ debt_cash của két) chỉ hiện khi > 0, nằm trong khối tiền mặt', () => {
+    expect(render()).not.toContain('Thu nợ tiền mặt')
+    expect(render({ report: { ...report, debtCash: 45000 } })).toContain('Thu nợ tiền mặt + 45.000')
   })
 
-  it('prop debt (mig 123): Ghi nợ trong ca luôn hiện khi có prop; Khách trả nợ (CK) chỉ khi > 0', () => {
-    expect(render()).not.toContain('Ghi nợ trong ca')
-    const t = render({ debt: { debtRecorded: 120000, debtCash: 0, debtBank: 0 } })
+  it('có debt: Ghi nợ trong ca, Thu nợ tiền mặt, Thu nợ chuyển khoản', () => {
+    const t = render({ report: { ...report, debtCash: 45000 }, debt: { debtRecorded: 120000, debtCash: 45000, debtBank: 70000 } })
     expect(t).toContain('Ghi nợ trong ca 120.000')
-    expect(t).not.toContain('Khách trả nợ (CK)')
-    expect(render({ debt: { debtRecorded: 0, debtCash: 0, debtBank: 70000 } })).toContain('Khách trả nợ (CK) 70.000')
-    expect(render({ debt: null })).not.toContain('Ghi nợ trong ca')
+    expect(t).toContain('Thu nợ tiền mặt + 45.000')
+    expect(t).toContain('Thu nợ chuyển khoản 70.000')
+    // Tiền mặt thu nợ chỉ một dòng (không in lại từ prop debt khi két đã có)
+    expect(t.split('Thu nợ tiền mặt').length - 1).toBe(1)
+  })
+
+  it('debt null hoặc toàn 0: không có dòng nợ', () => {
+    for (const debt of [null, undefined, { debtRecorded: 0, debtCash: 0, debtBank: 0 }]) {
+      const t = render({ debt })
+      for (const l of ['Ghi nợ trong ca', 'Thu nợ tiền mặt', 'Thu nợ chuyển khoản']) expect(t).not.toContain(l)
+    }
+  })
+
+  it('két không có số thu nợ TM mà prop debt có: vẫn một dòng Thu nợ tiền mặt', () => {
+    const t = render({ report: { ...report, debtCash: null as never }, debt: { debtRecorded: 0, debtCash: 30000, debtBank: 0 } })
+    expect(t.split('Thu nợ tiền mặt').length - 1).toBe(1)
+    expect(t).toContain('Thu nợ tiền mặt + 30.000')
   })
 
   it('phiếu thu / chi gom theo danh mục kèm số phiếu, bỏ phiếu đã huỷ', () => {

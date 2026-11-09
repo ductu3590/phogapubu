@@ -113,7 +113,7 @@ describe('Excel báo cáo ngày (A04-3)', () => {
     expect(cashRow[header.indexOf('Chuyển khoản')] ?? null).toBeNull()
   })
 
-  it('Hoá đơn: cột Khác sau Chuyển khoản; mọi dòng đã thu Tiền mặt + Chuyển khoản + Khác = Số tiền', async () => {
+  it('Hoá đơn: cột Khác sau Chuyển khoản + Ghi nợ; mọi dòng đã thu Tiền mặt + Chuyển khoản + Khác = Số tiền', async () => {
     const r = parseBillsReport({
       date: '2026-10-09',
       bills: [
@@ -130,7 +130,8 @@ describe('Excel báo cáo ngày (A04-3)', () => {
     const ws = wb.getWorksheet('Hoá đơn')!
     const header = (ws.getRow(1).values as unknown[]).slice(1)
     const iCash = header.indexOf('Tiền mặt'), iBank = header.indexOf('Chuyển khoản'), iOther = header.indexOf('Khác')
-    expect(iOther).toBe(iBank + 1)
+    // Mig 123: cột Ghi nợ chen giữa Chuyển khoản và Khác.
+    expect(iOther).toBe(iBank + 2)
     expect(iBank).toBe(iCash + 1)
     const n = (v: unknown) => (typeof v === 'number' ? v : 0)
     const byTable: Record<string, number[]> = {}
@@ -163,5 +164,71 @@ describe('Excel báo cáo ngày (A04-3)', () => {
   it('tên file: bao-cao-<slug>-<ngày>.xlsx, slug bỏ dấu', () => {
     expect(billsWorkbookFileName('Bia lẩu Bảo Lương', '2026-10-09')).toBe('bao-cao-bia-lau-bao-luong-2026-10-09.xlsx')
     expect(billsWorkbookFileName('', '2026-10-09')).toBe('bao-cao-2026-10-09.xlsx')
+  })
+})
+
+describe('Excel báo cáo ngày — công nợ (mig 123)', () => {
+  const debtReport = parseBillsReport({
+    date: '2026-11-09',
+    totals: { revenue: 470000, cash: 150000, bank: 70000, debt: 230000, other: 20000, bills_count: 4 },
+    debt_collections: { cash: 100000, bank: 50000, count: 2 },
+    bills: [
+      { key: 'P:a', paid_at: '2026-11-09T05:00:00Z', total: 300000, instrument: 'mixed', table_label: 'Bàn 1',
+        payments: [{ instrument: 'cash', amount: 100000 }, { instrument: 'debt', amount: 200000 }], debt_customer: { id: 'c', name: 'Cty Hoà Bình' } },
+      { key: 'P:b', paid_at: '2026-11-09T06:00:00Z', total: 30000, instrument: 'debt', table_label: 'Bàn 2',
+        payments: [{ instrument: 'debt', amount: 30000 }], debt_customer: { id: 'c', name: 'Cty Hoà Bình' } },
+      { key: 'P:c', paid_at: '2026-11-09T07:00:00Z', total: 50000, instrument: 'cash', table_label: 'Bàn 3', payments: [{ instrument: 'cash', amount: 50000 }] },
+    ],
+  })
+  const open = async (r: typeof debtReport) => {
+    const wb = new ExcelJS.Workbook()
+    await wb.xlsx.load(await buildBillsWorkbook(r, { ...meta, date: '2026-11-09' }).xlsx.writeBuffer())
+    return wb
+  }
+  const finder = (ws: ExcelJS.Worksheet) => (label: string) => {
+    let v: ExcelJS.Cell | undefined
+    ws.eachRow((row) => { if (row.getCell(1).value === label) v = row.getCell(2) })
+    return v as ExcelJS.Cell
+  }
+
+  it('cột Ghi nợ ngay sau Chuyển khoản; Ghi chú "Nợ — <tên>"; Khác không chứa nợ', async () => {
+    const ws = (await open(debtReport)).getWorksheet('Hoá đơn')!
+    const header = (ws.getRow(1).values as unknown[]).slice(1)
+    expect(header).toEqual(expect.arrayContaining(['Tiền mặt', 'Chuyển khoản', 'Ghi nợ']))
+    expect(header.indexOf('Ghi nợ')).toBe(header.indexOf('Chuyển khoản') + 1)
+    expect(header.indexOf('Khác')).toBe(header.indexOf('Ghi nợ') + 1)
+    const rows = Array.from({ length: ws.rowCount - 1 }, (_, i) => (ws.getRow(i + 2).values as unknown[]).slice(1))
+    const debtRow = rows.find((v) => v[header.indexOf('Bàn')] === 'Bàn 1')!
+    expect(debtRow[header.indexOf('Ghi nợ')]).toBe(200000)
+    expect(debtRow[header.indexOf('Tiền mặt')]).toBe(100000)
+    expect(debtRow[header.indexOf('Ghi chú')]).toContain('Nợ — Cty Hoà Bình')
+    const n = (v: unknown) => (typeof v === 'number' ? v : 0)
+    for (const v of rows) {
+      expect(n(v[header.indexOf('Khác')])).toBe(0)
+      expect(n(v[header.indexOf('Tiền mặt')]) + n(v[header.indexOf('Chuyển khoản')]) + n(v[header.indexOf('Ghi nợ')]) + n(v[header.indexOf('Khác')]))
+        .toBe(v[header.indexOf('Số tiền')])
+    }
+    const allDebt = rows.find((v) => v[header.indexOf('Bàn')] === 'Bàn 2')!
+    expect(allDebt[header.indexOf('Phương thức')]).toBe('Ghi nợ')
+    expect(ws.getRow(rows.indexOf(debtRow) + 2).getCell(header.indexOf('Ghi nợ') + 1).numFmt).toBe('#,##0')
+  })
+
+  it('Tổng hợp: Doanh thu (có nợ) + ba dòng nợ sau Chuyển khoản; thu nợ không cộng vào doanh thu', async () => {
+    const ws = (await open(debtReport)).getWorksheet('Tổng hợp')!
+    const find = finder(ws)
+    expect(find('Doanh thu').value).toBe(470000)
+    expect(find('Tổng thực thu')).toBeUndefined()
+    for (const l of ['Ghi nợ hôm nay', 'Thu nợ tiền mặt', 'Thu nợ chuyển khoản']) expect(find(l)).toBeTruthy()
+    expect([find('Ghi nợ hôm nay').value, find('Thu nợ tiền mặt').value, find('Thu nợ chuyển khoản').value]).toEqual([230000, 100000, 50000])
+    const labels: unknown[] = []
+    ws.eachRow((row) => labels.push(row.getCell(1).value))
+    expect(labels.indexOf('Ghi nợ hôm nay')).toBe(labels.indexOf('Chuyển khoản') + 1)
+  })
+
+  it('không nợ, không thu nợ: vẫn "Tổng thực thu", không có ba dòng nợ', async () => {
+    const ws = (await roundTrip()).getWorksheet('Tổng hợp')!
+    const find = finder(ws)
+    expect(find('Tổng thực thu').value).toBe(1281000)
+    for (const l of ['Doanh thu', 'Ghi nợ hôm nay', 'Thu nợ tiền mặt', 'Thu nợ chuyển khoản']) expect(find(l)).toBeUndefined()
   })
 })

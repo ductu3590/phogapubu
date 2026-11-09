@@ -9,7 +9,8 @@ import type { OpenTableSession, SessionOrderItem, SessionOrderRow } from '@/lib/
 import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
 import { cashChange, parseVnd } from '@/lib/cash-change'
-import { cashGivenError, fillOtherSide, paymentDraft, type PayMethod, type PaymentLine } from '@/lib/collect-payment'
+import { cashGivenError, debtRestBoxes, fillOtherSide, payButtonLabel, paymentDraft, type PayMethod, type PaymentLine } from '@/lib/collect-payment'
+import { debtChoiceError, type DebtCustomerChoice, type DebtCustomerSummary } from '@/lib/debts'
 import { billTotals, combinedDiscount, sessionDiscountOf, type BillDiscount } from '@/lib/bill-discount'
 import { isReviewableOrder, orderRound } from '@/lib/pos-work-queue'
 import { clock } from '@/lib/pos-timeline'
@@ -28,14 +29,21 @@ import DiscountDialog from './discount-dialog'
 import { buildBillQr, paymentQrAmount } from '@/lib/bill-qr'
 import type { BankAccountFields } from '@/lib/vietqr'
 import PaymentMethodFields from './payment-method-fields'
+import DebtCustomerPicker from './debt-customer-picker'
 
 // Bill của /admin/pos theo bản Stitch P01 (bill dạng tab) + P03 (lượt gọi mới) + P04 (thanh toán một nút).
 // Mọi con số tiền là của server (OpenTableSession.total, order.total_amount); bill KHÔNG tự cộng tổng.
 // Thành tiền từng dòng món chỉ để đọc (đơn giá snapshot × số lượng). Thu tiền (mig 112a): gửi từng khoản +
 // tiền khách đưa lên collect_table_bill; server tự tính số phải thu và từ chối nếu lệch.
 
-/** Một lần bấm "Xác nhận đã nhận" ở màn Thanh toán → tham số của collectTableBill (trừ sessionIds). */
-export type PosPayment = { lines: PaymentLine[]; cashGiven: number | null; clientRequestId: string }
+/**
+ * Một lần bấm "Xác nhận đã nhận" ở màn Thanh toán → tham số của collectTableBill (trừ sessionIds).
+ * debtCustomer (mig 123): khách nợ khi có phần ghi nợ, không thì null — đổi sang tham số RPC bằng buildCollectPayload.
+ */
+export type PosPayment = { lines: PaymentLine[]; cashGiven: number | null; clientRequestId: string; debtCustomer: DebtCustomerChoice | null }
+
+/** Đọc danh sách khách nợ (readDebtCustomers, đọc từ trình duyệt — không poll bằng server action). */
+export type LoadDebtCustomers = () => Promise<{ ok: true; customers: DebtCustomerSummary[] } | { ok: false; error: string }>
 
 const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 const gio = (iso: string) => clock(new Date(iso).getTime())
@@ -58,6 +66,8 @@ export type PosBillPanelProps = {
   bankAccount?: BankAccountFields | null
   /** Đọc lại tài khoản nhận tiền mới nhất lúc mở màn Thanh toán (máy khác có thể vừa đổi); lỗi thì dùng bankAccount của trang. */
   loadBankAccount?: () => Promise<BankAccountFields | null>
+  /** Mig 123: danh sách khách nợ cho lựa chọn "Ghi nợ"; tải MỘT lần khi chọn Ghi nợ / bật Ghi nợ phần còn lại. */
+  loadDebtCustomers: LoadDebtCustomers
   selected: OpenTableSession | null
   picked: OpenTableSession[]
   freeTables: { id: string; table_number: string }[]
@@ -229,6 +239,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
         total={payable}
         bankAccount={props.bankAccount}
         loadBankAccount={props.loadBankAccount}
+        loadDebtCustomers={props.loadDebtCustomers}
         busy={busy}
         onAdjust={dieuChinh}
         onQty={suaSoLuong}
@@ -763,7 +774,7 @@ function currentDiscountOf(list: OpenTableSession[]): BillDiscount {
 }
 
 /** Màn Thanh toán & đóng mâm — bản Stitch P04. */
-export function PaymentView({ title, list, goods, paid, expiredNote, discount, discountLabel, discountError, onEditDiscount, total, bankAccount: pageBankAccount, loadBankAccount, busy, onAdjust, onQty, onRestore, onBack, onDismiss, onPay, onPrint }: {
+export function PaymentView({ title, list, goods, paid, expiredNote, discount, discountLabel, discountError, onEditDiscount, total, bankAccount: pageBankAccount, loadBankAccount, loadDebtCustomers, busy, onAdjust, onQty, onRestore, onBack, onDismiss, onPay, onPrint }: {
   title: string
   list: OpenTableSession[]
   /** Tổng tiền hàng CHƯA thu (trước giảm giá) — nền của giảm giá và của số tiền thu. */
@@ -783,6 +794,7 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   total: number
   bankAccount?: BankAccountFields | null
   loadBankAccount?: () => Promise<BankAccountFields | null>
+  loadDebtCustomers: LoadDebtCustomers
   busy: boolean
   onAdjust: (itemId: string, type: 'cancelled' | 'gift') => void
   onQty: (item: SessionOrderItem) => void
@@ -811,10 +823,34 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   // Một mã cho cả lần mở màn này, kể cả bấm lại sau lỗi: lần trước lỗi thì server đã huỷ cả giao dịch; lần
   // trước mất mạng mà server đã thu thì cùng mã trả 'already' — bấm hai lần không thành hai khoản thu.
   const [clientRequestId] = useState(() => crypto.randomUUID())
-  // Một nguồn: phần tiền mặt / chuyển khoản lấy từ chính các dòng sẽ gửi khi hợp lệ (paymentDraft).
-  const draft = paymentDraft(total, method, parseVnd(cashText), parseVnd(bankText))
+  // Mig 123 — ghi nợ: Kết hợp + "Ghi nợ phần còn lại", hoặc Ghi nợ cả bill. Khách nợ chọn / thêm ở DebtCustomerPicker.
+  // Đổi khách sau một lần lỗi mạng KHÔNG sinh mã mới: cùng clientRequestId, server trả 'already' nếu đã ghi.
+  const [debtRest, setDebtRest] = useState(false)
+  // Ô Kết hợp thu ngân gõ sau cùng; ô kia là ô tự điền (bật "Ghi nợ phần còn lại" chỉ xoá ô tự điền).
+  const [lastTyped, setLastTyped] = useState<'cash' | 'bank' | null>(null)
+  const [debtChoice, setDebtChoice] = useState<DebtCustomerChoice | null>(null)
+  const [debtCustomers, setDebtCustomers] = useState<{ list: DebtCustomerSummary[] | null; loading: boolean; error: string | null }>(
+    { list: null, loading: false, error: null },
+  )
+  // Một nguồn: phần tiền mặt / chuyển khoản / ghi nợ lấy từ chính các dòng sẽ gửi khi hợp lệ (paymentDraft).
+  // bankPart giữ nghĩa "phần chuyển khoản" (VietQR + nhắc nghe loa đọc số này).
+  const draft = paymentDraft(total, method, parseVnd(cashText), parseVnd(bankText), method === 'mixed' && debtRest)
   const cashPart = draft.cash
   const bankPart = draft.bank
+  const debtPart = draft.debt
+  const draftError = draft.error
+  // Danh sách khách nợ: tải MỘT lần, lúc lần đầu chọn "Ghi nợ" hoặc bật "Ghi nợ phần còn lại" (hai cửa duy nhất sinh
+  // phần ghi nợ). Không poll. Lỗi → nút Thử lại trong picker gọi lại taiKhachNo.
+  const debtLoadStarted = useRef(false)
+  const taiKhachNo = () => {
+    debtLoadStarted.current = true
+    setDebtCustomers({ list: null, loading: true, error: null })
+    loadDebtCustomers().then(
+      (r) => setDebtCustomers(r.ok ? { list: r.customers, loading: false, error: null } : { list: null, loading: false, error: r.error }),
+      () => setDebtCustomers({ list: null, loading: false, error: 'Không tải được danh sách khách nợ' }),
+    )
+  }
+  const canTaiKhachNo = () => { if (!debtLoadStarted.current) taiKhachNo() }
   const given = parseVnd(givenText)
   const change = cashChange(cashPart, given)
   // Mã QR: chuyển khoản = cả số cần thu, kết hợp = phần chuyển khoản. Giảm giá lỗi thì số cần thu chưa chốt → không QR.
@@ -826,29 +862,47 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
     [sessionKey],
   )
   const qr = useMemo(
-    () => (discountError ? null : buildBillQr({ bank: bankAccount, amount: paymentQrAmount({ method, total, bankPart }), sessions: qrSessions })),
-    [discountError, bankAccount, method, total, bankPart, qrSessions],
+    () => (discountError ? null : buildBillQr({ bank: bankAccount, amount: paymentQrAmount({ method, total, bankPart, draftError }), sessions: qrSessions })),
+    [discountError, bankAccount, method, total, bankPart, draftError, qrSessions],
   )
   const items = list.flatMap((s) => s.orders.filter((o) => o.status !== 'cancelled').flatMap((o) => o.items))
   const short = cashPart > 0 && change.kind === 'short'
   // Khách đưa vượt giới hạn integer của server → khoá nút, PaymentMethodFields báo lỗi tiếng Việt.
-  const blocked = short || !!draft.error || !!discountError || (cashPart > 0 && !!cashGivenError(given))
+  // Có phần ghi nợ mà chưa chọn khách hợp lệ → khoá nút thu (server cũng từ chối 'Chọn khách ghi nợ').
+  const debtError = debtPart > 0 ? debtChoiceError(debtChoice) : null
+  const blocked = short || !!draft.error || !!discountError || (cashPart > 0 && !!cashGivenError(given)) || debtError !== null
 
   const chonPhuongThuc = (m: PayMethod) => {
     setMethod(m)
     setGivenText('') // tiền khách đưa so với phần tiền mặt, đổi phương thức thì phần đó đổi
+    if (m !== 'mixed') setDebtRest(false)
+    if (m === 'debt') canTaiKhachNo()
   }
+  // Bật: xoá ô TỰ ĐIỀN (ô không gõ sau cùng), giữ số thu ngân đã gõ → phần thiếu thành nợ. Tắt: ô tự điền lại là
+  // phần còn lại của ô đã gõ. Không bao giờ xoá số thu ngân tự gõ (debtRestBoxes).
+  const doiGhiNoPhanConLai = (on: boolean) => {
+    setDebtRest(on)
+    const boxes = debtRestBoxes({ on, total, cashText, bankText, lastTyped })
+    setCashText(boxes.cashText)
+    setBankText(boxes.bankText)
+    if (on) canTaiKhachNo()
+  }
+  // Ghi nợ phần còn lại: gõ một ô KHÔNG tự điền ô kia (phần thiếu là nợ); tắt thì như cũ.
   const goTienMat = (text: string) => {
     setCashText(text)
+    setLastTyped('cash')
+    if (debtRest) return
     const other = fillOtherSide(total, parseVnd(text))
     setBankText(other === null ? '' : other.toLocaleString('vi-VN'))
   }
   const goChuyenKhoan = (text: string) => {
     setBankText(text)
+    setLastTyped('bank')
+    if (debtRest) return
     const other = fillOtherSide(total, parseVnd(text))
     setCashText(other === null ? '' : other.toLocaleString('vi-VN'))
   }
-  const thu = () => onPay({ lines: draft.lines, cashGiven: cashPart > 0 ? given : null, clientRequestId })
+  const thu = () => onPay({ lines: draft.lines, cashGiven: cashPart > 0 ? given : null, clientRequestId, debtCustomer: debtPart > 0 ? debtChoice : null })
   // Giảm giá ĐANG LƯU trên phiên. Lỗi (vd giảm VNĐ > tiền hàng sau khi bỏ món) thì `discount` = 0 để số thu giữ
   // nguyên trước giảm, nhưng vẫn phải cho thu ngân thấy mức đã đặt và sửa nó — không hiện "Thêm giảm giá".
   const storedDiscount = discountError ? combinedDiscount(list) : discount
@@ -871,11 +925,11 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
         <>
           {method === 'mixed' && !draft.error && total > 0 && (
             <p className="mb-2 text-center text-[13px] text-slate-600 tabular">
-              Tiền mặt {dong(cashPart)} · Chuyển khoản {dong(bankPart)}
+              Tiền mặt {dong(cashPart)} · Chuyển khoản {dong(bankPart)}{debtPart > 0 && ` · Ghi nợ ${dong(debtPart)}`}
             </p>
           )}
           <Button variant="primary" size="touch" icon={<Banknote />} isLoading={busy} disabled={blocked} onClick={thu} className="w-full text-base font-bold whitespace-nowrap">
-            Xác nhận đã nhận {dong(total)}
+            {payButtonLabel(method, total)}
           </Button>
           <Button icon={<Printer className="text-blue-600" />} onClick={onPrint} disabled={busy || !!discountError} className="mt-2 w-full font-semibold">In tạm tính / hoá đơn</Button>
           <p className="mt-2 text-[12px] text-slate-500">Máy in lỗi vẫn thu tiền bình thường — in hoá đơn sau cũng được.</p>
@@ -944,7 +998,20 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
         onCashText={goTienMat}
         onBankText={goChuyenKhoan}
         onGivenText={setGivenText}
+        debtRest={debtRest}
+        debtPart={debtPart}
+        onDebtRest={doiGhiNoPhanConLai}
       />
+      {debtPart > 0 && (
+        <DebtCustomerPicker
+          customers={debtCustomers.list}
+          loading={debtCustomers.loading}
+          error={debtCustomers.error}
+          value={debtChoice}
+          onChange={setDebtChoice}
+          onRetry={taiKhachNo}
+        />
+      )}
     </Khung>
   )
 }

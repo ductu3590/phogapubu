@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { Banknote, Eye, FileSpreadsheet, Gift, Landmark, ListOrdered, Printer, Receipt, Search, Undo2, Users, Wallet } from 'lucide-react'
+import { Banknote, Eye, FileSpreadsheet, Gift, HandCoins, Landmark, ListOrdered, Printer, Receipt, Search, Undo2, Users, Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { getButtonClasses } from '@/components/ui/button-classes'
 import { Banner, EmptyState } from '@/components/ui/feedback'
@@ -11,8 +11,11 @@ import {
   buildBillRows,
   businessDayRangeLabel,
   chipCounts,
+  debtChipVisible,
+  effectiveChip,
   filterBillRows,
   paginate,
+  revenueLabel,
   startedLabel,
   type BillChip,
   type BillRow,
@@ -26,6 +29,7 @@ import BillDrawer from './bill-drawer'
 const CHIPS: { id: BillChip; label: string }[] = [
   { id: 'all', label: 'Tất cả' },
   { id: 'paid', label: 'Đã thanh toán' },
+  { id: 'debt', label: 'Ghi nợ' },
   { id: 'adjusted', label: 'Đã huỷ / giảm trừ' },
   { id: 'waiting', label: 'Chờ thu' },
 ]
@@ -60,7 +64,12 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
 
   const rows = useMemo(() => buildBillRows(report), [report])
   const counts = useMemo(() => chipCounts(rows), [rows])
-  const visible = useMemo(() => filterBillRows(rows, chip, query), [rows, chip, query])
+  const showDebt = report.totals.debt > 0 || report.debtCollections.count > 0
+  const showDebtChip = debtChipVisible(report.totals.debt, report.debtCollections.count, counts.debt)
+  // Đang ở chip Ghi nợ mà đổi sang ngày không nợ: chip biến mất → lọc như Tất cả.
+  const activeChip = effectiveChip(chip, showDebtChip)
+  // Không useMemo: lọc một ngày dữ liệu rất nhẹ, và React Compiler tự giữ kết quả (useMemo tay ở đây bị compiler bỏ qua).
+  const visible = filterBillRows(rows, activeChip, query)
   const paged = paginate(visible, page)
   const expiredDebt = report.waiting.filter((w) => w.expired)
   // Giữ theo KEY (không giữ object): sau router.refresh dòng được dựng lại, ngăn kéo vẫn bám đúng dòng.
@@ -99,13 +108,18 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
         </div>
       </div>
 
-      {/* 4 thẻ số liệu — tiền từ server, không tính lại. */}
-      <div className="grid grid-cols-2 gap-3 @4xl:grid-cols-4">
-        <Stat icon={<Wallet />} tone="accent" label="Tổng thực thu" value={formatVND(report.totals.revenue)}
+      {/* 4 thẻ số liệu (5 khi có nợ / thu nợ) — tiền từ server, không tính lại. */}
+      <div className={cn('grid grid-cols-2 gap-3', showDebt ? '@4xl:grid-cols-5' : '@4xl:grid-cols-4')}>
+        <Stat icon={<Wallet />} tone="accent" label={revenueLabel(report.totals)} value={formatVND(report.totals.revenue)}
           note={`${report.totals.billsCount} hoá đơn đã thanh toán${report.totals.other > 0 ? ` · ${formatVND(report.totals.other)} ví / khác` : ''}`} />
         <Stat icon={<Banknote />} tone="success" label="Tiền mặt" value={formatVND(report.totals.cash)} note="Đối chiếu với két" />
         {/* KHÔNG ghi "khớp tài khoản": hệ thống không xác minh được tiền chuyển khoản đã về (Option A, 2026-07-08). */}
         <Stat icon={<Landmark />} tone="info" label="Chuyển khoản" value={formatVND(report.totals.bank)} note="Đối chiếu app ngân hàng" />
+        {/* Mig 123: phần ghi nợ của doanh thu. Thu nợ hôm nay là tiền vào riêng, KHÔNG cộng vào doanh thu. */}
+        {showDebt && (
+          <Stat icon={<HandCoins />} tone="warning" label="Ghi nợ" value={formatVND(report.totals.debt)}
+            note={`Thu nợ hôm nay ${formatVND(report.debtCollections.cash + report.debtCollections.bank)}`} />
+        )}
         {today ? (
           <Stat icon={<Users />} tone="warning" label="Đang phục vụ · chưa thu" value={`${report.open.tablesCount} bàn`}
             note={`Tạm tính ${formatVND(report.open.provisionalTotal)}${expiredDebt.length > 0 ? ` · ${expiredDebt.length} bàn hết hạn còn nợ` : ''}`}
@@ -119,21 +133,22 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
       {/* Thanh lọc: chip + ô tìm. Lọc ở trình duyệt — dữ liệu một ngày đủ nhỏ. */}
       <div className="flex flex-col gap-3 @3xl:flex-row @3xl:items-center @3xl:justify-between">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Lọc hoá đơn">
-          {CHIPS.map((c) => (
+          {/* Chip Ghi nợ chỉ hiện ở quán / ngày có nợ: quán không dùng công nợ giữ nguyên giao diện cũ. */}
+          {CHIPS.filter((c) => c.id !== 'debt' || showDebtChip).map((c) => (
             <button
               key={c.id}
               type="button"
               role="tab"
-              aria-selected={chip === c.id}
+              aria-selected={activeChip === c.id}
               onClick={() => pickChip(c.id)}
               className={cn(
                 'inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors',
-                chip === c.id ? 'border-primary bg-primary text-white' : 'border-border bg-surface text-foreground hover:bg-item-hover',
+                activeChip === c.id ? 'border-primary bg-primary text-white' : 'border-border bg-surface text-foreground hover:bg-item-hover',
               )}
             >
               {c.label}
               <span className={cn('rounded-md px-1.5 py-0.5 text-xs font-semibold tabular',
-                chip === c.id ? 'bg-white/20 text-white' : 'bg-secondary text-muted')}>
+                activeChip === c.id ? 'bg-white/20 text-white' : 'bg-secondary text-muted')}>
                 {counts[c.id]}
               </span>
             </button>
@@ -248,6 +263,9 @@ function BillTableRow({ row: r, date, onOpen, onError }: { row: BillRow; date: s
           {r.kind === 'paid' ? (billInstrumentLabel(r) ?? '—') : r.kind === 'waiting' ? 'Tạm tính' : '—'}
           {r.kind === 'paid' && r.discountTotal > 0 && <> · giảm {formatVND(r.discountTotal)}</>}
         </span>
+        {r.kind === 'paid' && r.debtCustomerName && (
+          <span className="block text-[12px] font-medium text-orange-700">Nợ — {r.debtCustomerName}</span>
+        )}
       </td>
       <td className="@3xl:px-4 @3xl:py-3">
         <RowStatus row={r} />

@@ -70,5 +70,6 @@ describe('nhãn phương thức', () => {
     expect(instrumentLabel('bank')).toBe('Chuyển khoản')
     expect(instrumentLabel('other')).toBe('Ví / khác')
     expect(instrumentLabel('mixed')).toBe('Nhiều phương thức')
+    expect(instrumentLabel('debt')).toBe('Ghi nợ')
   })
 })

@@ -5,6 +5,7 @@ import { requireOperator } from '@/lib/auth/operator'
 import { isPosRole } from '@/lib/auth/roles'
 import type { BillDiscount } from '@/lib/bill-discount'
 import { parsePaymentLines, type PaymentLine } from '@/lib/collect-payment'
+import { debtChoiceError, type DebtCustomerChoice, type NewDebtCustomer } from '@/lib/debts'
 
 // Bọc 3 RPC phiên bàn (mig 039). Luôn dùng createClient() — phiên đăng nhập của nhân viên —
 // chứ KHÔNG createAdminClient(): RPC cần auth.uid() để ghi payment_received_by, đó là dấu vết
@@ -99,6 +100,10 @@ export type CollectBillInput = {
   cashGiven: number | null
   /** Sinh một lần khi mở màn Thanh toán; bấm lại sau khi mất mạng phải gửi LẠI đúng mã này. */
   clientRequestId: string
+  /** Mig 123: khách nợ đã có (khi lines có dòng 'debt'). Dựng bằng buildCollectPayload (lib/collect-payment.ts). */
+  debtCustomerId?: string | null
+  /** Mig 123: khách nợ tạo mới trong cùng lần thu (khi lines có dòng 'debt'). */
+  newDebtCustomer?: NewDebtCustomer | null
 }
 
 export type CollectBillResult =
@@ -203,11 +208,32 @@ export async function collectTableBill(input: CollectBillInput): Promise<Collect
     return { ok: false, error: 'Mã phiên không hợp lệ' }
   }
 
+  // Mig 123: CHỈ khi có dòng ghi nợ mới gửi thêm khách; không có thì giữ đúng 4 tham số như trước (khách chọn
+  // nhầm rồi đổi sang Tiền mặt không bị server từ chối 'Không có phần ghi nợ để gắn khách').
+  const hasDebt = Array.isArray(input.lines) && input.lines.some((l) => l?.instrument === 'debt')
+  const debtCustomerId = input.debtCustomerId ?? null
+  const newDebtCustomer = input.newDebtCustomer ?? null
+  if (hasDebt) {
+    if (debtCustomerId && (typeof debtCustomerId !== 'string' || !UUID.test(debtCustomerId))) {
+      return { ok: false, error: 'Mã khách không hợp lệ' }
+    }
+    // Cùng kiểm của màn Thanh toán (thiếu khách, tên trống, SĐT sai) → câu báo thân thiện trước khi gọi server.
+    if (newDebtCustomer !== null && (typeof newDebtCustomer !== 'object' || Array.isArray(newDebtCustomer))) {
+      return { ok: false, error: 'Thông tin khách nợ không hợp lệ' }
+    }
+    const choice: DebtCustomerChoice | null = newDebtCustomer
+      ? { kind: 'new', customer: newDebtCustomer }
+      : debtCustomerId ? { kind: 'existing', id: debtCustomerId, name: '' } : null
+    const choiceError = debtChoiceError(choice)
+    if (choiceError) return { ok: false, error: choiceError }
+  }
+
   const { data, error: rpcErr } = await supabase.rpc('collect_table_bill', {
     p_session_ids: input.sessionIds,
     p_lines: input.lines,
     p_cash_given: input.cashGiven,
     p_client_request_id: input.clientRequestId,
+    ...(hasDebt ? { p_debt_customer_id: debtCustomerId, p_new_debt_customer: newDebtCustomer } : {}),
   })
   if (rpcErr) return { ok: false, error: rpcErr.message }
   // Không lỗi mà cũng không có kết quả: không biết đã thu hay chưa → bảo tải lại để xem bill thật, đừng đoán.
@@ -430,6 +456,8 @@ export type SessionsBill = {
   /** Mig 112a: chỉ có khi nhóm phiên đúng MỘT khoản thu, không thì null. */
   cash_given?: number | null
   change_amount?: number | null
+  /** Mig 123: khách ghi nợ của lần thu (dòng 'Ghi nợ — <tên>' trên hoá đơn); không có nợ → null. */
+  debt_customer_name?: string | null
 }
 
 export async function getSessionsBill(

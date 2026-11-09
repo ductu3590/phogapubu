@@ -28,7 +28,7 @@ const session = (over: Partial<OpenTableSession>): OpenTableSession => ({
 
 function panel(s: OpenTableSession) {
   return renderToStaticMarkup(
-    <PosBillPanel selected={s} picked={[]} freeTables={[]} moveTargets={[]} moveAreas={[]}
+    <PosBillPanel loadDebtCustomers={async () => ({ ok: true, customers: [] })} selected={s} picked={[]} freeTables={[]} moveTargets={[]} moveAreas={[]}
       onMoveTable={vi.fn()} onMoveTray={vi.fn()} otherSessions={[]} pickedFreeTables={0} trayColors={new Map()} busy={false}
       onPay={vi.fn()} onPrint={vi.fn()} onReset={vi.fn()} onCreateTray={vi.fn()} onAddTable={vi.fn()}
       onMergeInto={vi.fn()} onReleaseHost={vi.fn()} onConfirmOrder={vi.fn()} onRejectOrder={vi.fn()}
@@ -79,7 +79,7 @@ describe('PaymentView', () => {
     renderToStaticMarkup(
       <PaymentView title="Bàn 5" list={[session({})]} goods={155_000} paid={0} expiredNote={null} discount={0} discountLabel=""
         discountError={null} onEditDiscount={vi.fn()} total={155_000} busy={false} onAdjust={vi.fn()} onQty={vi.fn()}
-        onRestore={vi.fn()} onBack={vi.fn()} onDismiss={vi.fn()} onPay={vi.fn()} onPrint={vi.fn()} {...over} />,
+        onRestore={vi.fn()} onBack={vi.fn()} onDismiss={vi.fn()} onPay={vi.fn()} onPrint={vi.fn()} loadDebtCustomers={vi.fn()} {...over} />,
     )
 
   it('có đơn đã thu trước → hiện dòng "Đã thu trước" riêng', () => {
@@ -94,12 +94,17 @@ describe('PaymentView', () => {
     expect(html).not.toContain('Thêm giảm giá')
   })
 
-  it('ba lựa chọn thu tiền có "Kết hợp"; nút thu vẫn ghi số cần thu', () => {
+  it('bốn lựa chọn thu tiền có "Kết hợp" và "Ghi nợ"; nút thu vẫn ghi số cần thu', () => {
     const html = view({})
     expect(html).toContain('Kết hợp')
+    expect(html).toContain('Ghi nợ')
+    expect(html).not.toContain('id="debt-search"') // chưa chọn Ghi nợ thì chưa có ô chọn khách
     expect(html).toContain('Xác nhận đã nhận 155.000đ')
   })
 
+  it('fix round 1: nút thu bill 0đ giữ chữ thường (không "Xác nhận ghi nợ")', () => {
+    expect(view({ goods: 0, total: 0 })).toContain('Xác nhận đã nhận 0đ')
+  })
   it('bill 0đ (tặng hết món): nút thu vẫn bấm được', () => {
     const html = view({ goods: 0, total: 0 })
     // Lớp tailwind có chữ "disabled:" nên dò thuộc tính disabled="" chứ không dò chữ "disabled"

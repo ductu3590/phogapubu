@@ -45,3 +45,29 @@ describe('loadShiftReportSlip (service role, KHÔNG có kiểm quyền trong RPC
     expect(!r.ok && r.transient).toBeUndefined()
   })
 })
+
+describe('loadShiftReportSlip — công nợ trong ca (mig 123)', () => {
+  const debtClient = (out: { data: unknown; error: { message: string } | null }) => ({ rpc: vi.fn(async () => out) })
+  const runDebt = (getDebtClient: (() => Promise<unknown>) | undefined) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    loadShiftReportSlip(client({ data: raw(), error: null }) as any, 'store-1', 'sh1', 'Lan · Thu ngân', new Date('2026-11-09T15:35:00Z'), getDebtClient as any)
+
+  it('agent: đọc get_debt_shift_summary bằng client người tạo phiếu → props.debt có số', async () => {
+    const u = debtClient({ data: { debt_recorded: 300000, debt_cash: 250000, debt_bank: 100000 }, error: null })
+    const r = await runDebt(async () => u)
+    expect(r.ok && r.props.debt).toEqual({ debtRecorded: 300000, debtCash: 250000, debtBank: 100000 })
+    expect(u.rpc).toHaveBeenCalledWith('get_debt_shift_summary', { p_shift_id: 'sh1' })
+  })
+  it('RPC lỗi / không có quyền / dựng client lỗi: debt null, phiếu vẫn in', async () => {
+    const denied = await runDebt(async () => debtClient({ data: null, error: { message: 'Không có quyền xem ca này' } }))
+    expect(denied.ok && denied.props.debt).toBeNull()
+    const broken = await runDebt(async () => { throw new Error('Thiếu người tạo phiếu') })
+    expect(broken.ok && broken.props.debt).toBeNull()
+  })
+  it('chỉ dựng client người dùng khi ca hợp lệ (ca quán khác: không gọi)', async () => {
+    const getter = vi.fn(async () => debtClient({ data: {}, error: null }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await loadShiftReportSlip(client({ data: raw({ store_id: 'store-2' }), error: null }) as any, 'store-1', 'sh1', 'x', new Date(), getter as any)
+    expect(getter).not.toHaveBeenCalled()
+  })
+})

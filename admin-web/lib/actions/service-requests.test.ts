@@ -275,6 +275,51 @@ describe('thu ngân ở quầy (PA-2)', () => {
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
+  it('collectTableBill có dòng nợ: gửi thêm tham số khách; không có thì giữ 4 tham số', async () => {
+    mocks.rpc.mockResolvedValue({ data: { ok: true, already: false, payment_id: 'p', total: 1000, orders_settled: 1 }, error: null })
+    const id = '11111111-1111-4111-8111-111111111111'
+    await collectTableBill({ sessionIds: [id], lines: [{ instrument: 'debt', amount: 1000 }], cashGiven: null, clientRequestId: id, debtCustomerId: id })
+    expect(mocks.rpc).toHaveBeenLastCalledWith('collect_table_bill', { p_session_ids: [id], p_lines: [{ instrument: 'debt', amount: 1000 }], p_cash_given: null, p_client_request_id: id, p_debt_customer_id: id, p_new_debt_customer: null })
+    expect(await collectTableBill({ sessionIds: [id], lines: [{ instrument: 'debt', amount: 1000 }], cashGiven: null, clientRequestId: id }))
+      .toEqual({ ok: false, error: 'Chọn khách ghi nợ' })
+  })
+
+  it('collectTableBill (thêm ngoài plan): không có dòng nợ thì bỏ khách, đúng 4 tham số; khách mới; mã khách sai', async () => {
+    mocks.rpc.mockResolvedValue({ data: { ok: true, already: false, payment_id: 'p', total: 1000, orders_settled: 1 }, error: null })
+    const id = '11111111-1111-4111-8111-111111111111'
+    await collectTableBill({ sessionIds: [id], lines: [{ instrument: 'cash', amount: 1000 }], cashGiven: null, clientRequestId: id, debtCustomerId: id })
+    expect(mocks.rpc).toHaveBeenLastCalledWith('collect_table_bill', { p_session_ids: [id], p_lines: [{ instrument: 'cash', amount: 1000 }], p_cash_given: null, p_client_request_id: id })
+    const nc = { name: 'Anh Long', phone: null, kind: 'person' as const }
+    await collectTableBill({ sessionIds: [id], lines: [{ instrument: 'cash', amount: 500 }, { instrument: 'debt', amount: 500 }], cashGiven: null, clientRequestId: id, newDebtCustomer: nc })
+    expect(mocks.rpc).toHaveBeenLastCalledWith('collect_table_bill', expect.objectContaining({ p_debt_customer_id: null, p_new_debt_customer: nc }))
+    mocks.rpc.mockClear()
+    expect(await collectTableBill({ sessionIds: [id], lines: [{ instrument: 'debt', amount: 1000 }], cashGiven: null, clientRequestId: id, debtCustomerId: 'x' }))
+      .toEqual({ ok: false, error: 'Mã khách không hợp lệ' })
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('collectTableBill: khách mới tên trống / SĐT sai báo sớm, không gọi RPC (debtChoiceError)', async () => {
+    const id = '11111111-1111-4111-8111-111111111111'
+    const debtLine = [{ instrument: 'debt' as const, amount: 1000 }]
+    mocks.rpc.mockClear()
+    expect(await collectTableBill({ sessionIds: [id], lines: debtLine, cashGiven: null, clientRequestId: id, newDebtCustomer: { name: '  ', phone: null, kind: 'person' } }))
+      .toEqual({ ok: false, error: 'Nhập tên khách' })
+    expect(await collectTableBill({ sessionIds: [id], lines: debtLine, cashGiven: null, clientRequestId: id, newDebtCustomer: { name: 'A', phone: '12', kind: 'person' } }))
+      .toEqual({ ok: false, error: 'SĐT không hợp lệ' })
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+  it('collectTableBill: khách mới dạng lạ (tên số, không phải object) → {ok:false}, không ném, không gọi RPC', async () => {
+    const id = '11111111-1111-4111-8111-111111111111'
+    const debtLine = [{ instrument: 'debt' as const, amount: 1000 }]
+    mocks.rpc.mockClear()
+    expect(await collectTableBill({ sessionIds: [id], lines: debtLine, cashGiven: null, clientRequestId: id, newDebtCustomer: { name: 5, phone: null, kind: 'person' } as never }))
+      .toEqual({ ok: false, error: 'Nhập tên khách' })
+    expect(await collectTableBill({ sessionIds: [id], lines: debtLine, cashGiven: null, clientRequestId: id, newDebtCustomer: 'Anh A' as never }))
+      .toEqual({ ok: false, error: 'Thông tin khách nợ không hợp lệ' })
+    expect(await collectTableBill({ sessionIds: [id], lines: debtLine, cashGiven: null, clientRequestId: id, debtCustomerId: 7 as never }))
+      .toEqual({ ok: false, error: 'Mã khách không hợp lệ' })
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
   it('collectTableBill: RPC không lỗi mà không có dữ liệu → báo tải lại, không ném; số đếm ép kiểu số', async () => {
     const id = '11111111-1111-4111-8111-111111111111'
     const input = { sessionIds: [id], lines: [], cashGiven: null, clientRequestId: id }

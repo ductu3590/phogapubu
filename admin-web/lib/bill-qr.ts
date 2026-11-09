@@ -5,6 +5,7 @@ import { isReviewableOrder } from '@/lib/pos-work-queue'
 import { billCode } from '@/lib/bills-report'
 import { billTransferMemo, buildVietQrPayload, hasBankAccount, type BankAccountFields } from '@/lib/vietqr'
 import { bankName } from '@/lib/vietqr-banks'
+import type { PayMethod } from '@/lib/collect-payment'
 
 export type BillQr = {
   payload: string
@@ -58,8 +59,16 @@ export function buildBillQr(input: {
  * Số tiền đưa vào QR theo cách thu: tiền mặt không cần QR (0), chuyển khoản = cả số cần thu,
  * kết hợp = phần chuyển khoản. Phần chuyển khoản trống hoặc vượt số cần thu → 0 (không có QR).
  */
-export function paymentQrAmount(input: { method: 'cash' | 'bank' | 'mixed'; total: number; bankPart: number }): number {
-  if (input.method === 'cash') return 0
+export function paymentQrAmount(input: {
+  method: PayMethod
+  total: number
+  bankPart: number
+  /** Lỗi chia khoản của màn Thanh toán (paymentDraft.error): số chuyển khoản chưa chốt → không QR. */
+  draftError?: string | null
+}): number {
+  if (input.draftError) return 0
+  // Ghi nợ cả bill (mig 123): không có phần chuyển khoản → không QR.
+  if (input.method === 'cash' || input.method === 'debt') return 0
   if (input.method === 'bank') return input.total
   return input.bankPart > 0 && input.bankPart <= input.total ? input.bankPart : 0
 }

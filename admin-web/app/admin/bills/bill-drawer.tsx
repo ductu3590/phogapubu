@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Banknote, Check, Gift, Landmark, Printer } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
@@ -155,7 +156,7 @@ export default function BillDrawer({ row, canManage, onClose, onNotice }: {
   const sessionPrint = row.sessionIds.length > 0 && row.kind !== 'cancelled'
   // Mig 112a: từng khoản + khách đưa + tiền thối của bill đã thu (bill thu trước 112a thì rỗng → ẩn khối).
   const paidRows = row.kind === 'paid'
-    ? paymentRows({ payments: row.payments, cashGiven: row.cashGiven, changeAmount: row.changeAmount })
+    ? paymentRows({ payments: row.payments, cashGiven: row.cashGiven, changeAmount: row.changeAmount, debtCustomerName: row.debtCustomerName })
     : []
   const amountLabel = row.kind === 'paid' ? 'Đã thu' : row.kind === 'waiting' ? 'Tạm tính' : 'Giá trị đơn huỷ'
 
@@ -220,6 +221,12 @@ export default function BillDrawer({ row, canManage, onClose, onNotice }: {
                 </li>
               ))}
             </ul>
+            {row.debtCustomerId && (
+              // Link (điều hướng mềm): trong hộp thoại đè POS thì mở Công nợ thành hộp thoại, không rời POS.
+              <Link href={`/admin/debts?customer=${encodeURIComponent(row.debtCustomerId)}`} className="mt-1.5 inline-block text-[13px] font-semibold text-primary hover:underline">
+                Xem công nợ của khách
+              </Link>
+            )}
           </section>
         )}
         {shownMoves.length > 0 && (

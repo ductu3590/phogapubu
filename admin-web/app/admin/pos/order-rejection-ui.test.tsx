@@ -58,7 +58,7 @@ describe('nút từ chối đơn chờ xác nhận', () => {
 
   it('bill bàn có lượt chờ duyệt: báo Duyệt ngay và khoá Thanh toán', () => {
     const html = renderToStaticMarkup(
-      <PosBillPanel selected={session} picked={[]} freeTables={[]} moveTargets={[]} moveAreas={[]} onMoveTable={vi.fn()} onMoveTray={vi.fn()} otherSessions={[]} pickedFreeTables={0} trayColors={new Map()} busy={false}
+      <PosBillPanel loadDebtCustomers={async () => ({ ok: true, customers: [] })} selected={session} picked={[]} freeTables={[]} moveTargets={[]} moveAreas={[]} onMoveTable={vi.fn()} onMoveTray={vi.fn()} otherSessions={[]} pickedFreeTables={0} trayColors={new Map()} busy={false}
         onPay={vi.fn()} onPrint={vi.fn()} onReset={vi.fn()} onCreateTray={vi.fn()} onAddTable={vi.fn()}
         onMergeInto={vi.fn()} onReleaseHost={vi.fn()} onConfirmOrder={vi.fn()} onRejectOrder={vi.fn()}
         onPrintOrder={vi.fn()} onOpenManualOrder={vi.fn()} onVoidOrderItem={vi.fn()} onSetItemQuantity={async () => true} onRestoreOrderItem={vi.fn()} onSetDiscount={async () => true} onClearPick={vi.fn()}

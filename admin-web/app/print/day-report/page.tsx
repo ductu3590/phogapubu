@@ -31,6 +31,8 @@ export default async function PrintDayReportPage({ searchParams }: { searchParam
       printedAt={now.toISOString()}
       printedBy={`${meta.full_name?.trim() || auth.user?.email || 'Không rõ'} · ${ROLE_LABEL[operator.role]}`}
       totals={res.report.totals}
+      // Sửa cùng lib/print/load-day-report.ts (bản phần mềm in): hai nơi dựng cùng bộ props.
+      debtCollections={res.report.debtCollections}
       summary={daySummary(res.report)}
     />
   )

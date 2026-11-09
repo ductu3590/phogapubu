@@ -69,7 +69,8 @@ export default async function PrintAgentPage({
     const job = data as RenderJob
     const ref = job.ref ?? {}
 
-    // Client JWT của người tạo phiếu: dựng khi cần (phiếu bàn giao ca dùng service role + loader tự kiểm, không dùng nó)
+    // Client JWT của người tạo phiếu: dựng khi cần (phiếu bàn giao ca dùng service role + loader tự kiểm; chỉ dựng client
+    // này cho phần công nợ trong ca, sau khi loader đã kiểm xong ca)
     let clientPromise: ReturnType<typeof createPrintUserClient> | null = null
     const getClient = () => (clientPromise ??= createPrintUserClient(job.created_by))
 
@@ -143,7 +144,7 @@ export default async function PrintAgentPage({
         const shiftId = (ref.request as { shiftId?: unknown } | undefined)?.shiftId
         if (typeof shiftId !== 'string' || shiftId.trim() === '') return fail('Phiếu thiếu mã ca')
         // Service role không tự lọc quán: loader so store_id của ca với job.store_id và chỉ nhận ca đã đóng
-        const shift = await loadShiftReportSlip(createAdminClient(), job.store_id, shiftId, printedBy, new Date())
+        const shift = await loadShiftReportSlip(createAdminClient(), job.store_id, shiftId, printedBy, new Date(), getClient)
         if (!shift.ok) return fromLoader(shift)
         return (
           <>
