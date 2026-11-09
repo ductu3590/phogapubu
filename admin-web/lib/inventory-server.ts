@@ -34,6 +34,7 @@ export async function readMenuStock(storeId: string): Promise<MenuStockData | nu
 }
 
 /** Ngày kinh doanh hôm nay của quán (YYYY-MM-DD) — mặc định ngày phiếu, mốc lọc danh sách. */
+// storeId PHẢI lấy từ guard (requireAdminPageOrRedirect / require*StoreId): loadBusinessDayStart đọc bằng admin client.
 export async function inventoryToday(storeId: string): Promise<string> {
   return businessToday(await loadBusinessDayStart(storeId))
 }

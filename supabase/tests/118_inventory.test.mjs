@@ -242,7 +242,9 @@ test('A7 gắn vào nguyên liệu, hàng ngừng dùng, hàng quán khác, bi�
   await fails(setLink(owner, mKet, null, it.bia, null), 'Số lượng trừ phải lớn hơn 0')
   await fails(setLink(owner, mKet, null, it.bia, '1000000'), 'Số lượng trừ phải nhỏ hơn 1.000.000')
   await fails(setLink(owner, mKet, null, it.bia, '0.0005'), 'Số lượng trừ tối đa 3 chữ số thập phân')
-  await fails(setLink(owner, newId(), null, it.bia, 1), 'Không tìm thấy món')
+  // Món không tồn tại và món quán khác cùng một lỗi: không lộ id món nào có thật.
+  await fails(setLink(owner, newId(), null, it.bia, 1), 'Không có quyền')
+  await fails(setLink(owner, mB2, null, null, null), 'Không có quyền')
   // Món quán B gắn hàng quán A (ownerB có quyền trên món) → trigger chặn.
   await fails(setLink(ownerB, mB2, null, it.bia, 1), 'Hàng hoá không thuộc quán này')
 

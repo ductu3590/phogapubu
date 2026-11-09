@@ -353,10 +353,8 @@ DECLARE
   v_new_id uuid;
 BEGIN
   SELECT m.store_id INTO v_store_id FROM public.menu_items m WHERE m.id = p_menu_item_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Không tìm thấy món';
-  END IF;
-  IF NOT public.is_store_back_office(v_store_id) THEN
+  -- Món không tồn tại và món quán khác cùng một lỗi (không lộ id món nào có thật).
+  IF NOT FOUND OR NOT public.is_store_back_office(v_store_id) THEN
     RAISE EXCEPTION 'Không có quyền';
   END IF;
 

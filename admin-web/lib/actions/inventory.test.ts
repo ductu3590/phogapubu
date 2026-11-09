@@ -95,7 +95,7 @@ describe('server action kho', () => {
     mocks.state.rpc.inventory_void_document = rpcErr('Không có quyền')
     expect(await actions.voidInventoryDocument(UUID(5), 'Nhầm')).toEqual({ ok: false, error: 'Không có quyền' })
     expect(mocks.revalidatePath).not.toHaveBeenCalled()
-    // Lỗi ngoài dự kiến (createClient ném) cũng thành { ok:false }.
+    // Lỗi ngoài dự kiến (lời gọi rpc ném, vd. mất mạng) cũng thành { ok:false }.
     mocks.session.rpc.mockRejectedValueOnce(new Error('mất mạng'))
     expect(await actions.loadInventoryDocument(UUID(5))).toEqual({ ok: false, error: 'mất mạng' })
   })
@@ -204,6 +204,9 @@ describe('server action kho', () => {
     mocks.state.rpc.inventory_set_item_active = ok({ ok: true, id: UUID(7), is_active: false, links_closed: 2 })
     expect(await actions.setInventoryItemActive(UUID(7), false)).toEqual({ ok: true, linksClosed: 2 })
     expect(rpcCalls('inventory_set_item_active')).toEqual([{ p_id: UUID(7), p_active: false }])
+    // Ngừng dùng đóng liên kết món → ô "Trừ kho" ở trang Món phải làm mới.
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin/menu')
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin/inventory')
   })
 
   it('loadInventoryDocuments / loadInventoryDocument / loadItemLedger gửi store của guard và parse', async () => {
@@ -243,9 +246,16 @@ describe('bộ đọc phía server', () => {
     expect(await server.readStockLevels('store-1')).toEqual({ ok: false, error: 'Không có quyền' })
   })
 
-  it('inventoryToday theo giờ bắt đầu ngày của quán', async () => {
-    const today = await server.inventoryToday('store-1')
-    expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(mocks.loadBusinessDayStart).toHaveBeenCalledWith('store-1')
+  it('inventoryToday theo giờ bắt đầu ngày của quán (05:00): 04:59 vẫn là hôm qua, 05:00 sang ngày mới', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-11-10T04:59:59+07:00'))
+      expect(await server.inventoryToday('store-1')).toBe('2026-11-09')
+      vi.setSystemTime(new Date('2026-11-10T05:00:00+07:00'))
+      expect(await server.inventoryToday('store-1')).toBe('2026-11-10')
+      expect(mocks.loadBusinessDayStart).toHaveBeenCalledWith('store-1')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
