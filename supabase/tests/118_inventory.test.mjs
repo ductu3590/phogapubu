@@ -138,7 +138,8 @@ test('A3 dữ liệu sai: tên rỗng, kind lạ, min_stock âm, sửa hàng c�
   await fails(upsert(owner, { store: s1, itemId: it.b2, name: 'Cướp hàng' }), 'Không tìm thấy hàng hoá')
   await fails(upsert(ownerB, { store: s2, itemId: it.bia, name: 'Cướp hàng' }), 'Không tìm thấy hàng hoá')
   await fails(upsert(owner, { itemId: newId(), name: 'Không có' }), 'Không tìm thấy hàng hoá')
-  await fails(setActive(owner, newId(), false), 'Không tìm thấy hàng hoá')
+  // Hàng không tồn tại và hàng quán khác cùng một lỗi: không lộ id nào có thật.
+  await fails(setActive(owner, newId(), false), 'Không có quyền')
   await fails(setActive(owner, it.b2, false), 'Không có quyền')
   assert.equal((await item(it.b2)).name, 'Bia riêng quán B')
   assert.equal((await item(it.bia)).name, 'Bia Hà Nội lon')
@@ -642,7 +643,8 @@ test('C6 huỷ: lý do rỗng bị chặn; huỷ lần hai → already true; ng�
   const r = await post(owner, 'writeoff', { note: 'Hỏng' }, [{ inventory_item_id: it.tiger, qty: 1 }])
   await fails(voidDoc(owner, r.id, '   '), 'Cần lý do huỷ phiếu')
   await fails(voidDoc(owner, r.id, null), 'Cần lý do huỷ phiếu')
-  await fails(voidDoc(owner, newId(), 'x'), 'Không tìm thấy phiếu')
+  await fails(voidDoc(owner, newId(), 'x'), 'Không có quyền') // không lộ phiếu có tồn tại
+  await fails(getDoc(owner, newId()), 'Không có quyền')
   assert.deepEqual(await voidDoc(manager, r.id, ' Ghi nhầm '), { ok: true, id: r.id, already: false })
   const row = (await db.query('SELECT * FROM inventory_documents WHERE id = $1', [r.id])).rows[0]
   assert.equal(row.status, 'voided')

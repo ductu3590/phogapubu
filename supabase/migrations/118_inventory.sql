@@ -310,13 +310,13 @@ DECLARE
   v_row public.inventory_items%ROWTYPE;
   v_closed int := 0;
 BEGIN
-  SELECT * INTO v_row FROM public.inventory_items WHERE id = p_id FOR UPDATE;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Không tìm thấy hàng hoá';
-  END IF;
-  IF NOT public.is_store_back_office(v_row.store_id) THEN
+  -- Quyền kiểm bằng SELECT không khoá TRƯỚC FOR UPDATE: người không có quyền không giữ khoá dòng nào. Hàng không
+  -- tồn tại và hàng quán khác cùng một lỗi (không lộ id nào có thật).
+  IF NOT EXISTS (SELECT 1 FROM public.inventory_items i
+                  WHERE i.id = p_id AND public.is_store_back_office(i.store_id)) THEN
     RAISE EXCEPTION 'Không có quyền';
   END IF;
+  SELECT * INTO v_row FROM public.inventory_items WHERE id = p_id FOR UPDATE;
   IF p_active IS NULL THEN
     RAISE EXCEPTION 'Thiếu trạng thái hàng hoá';
   END IF;
@@ -810,13 +810,12 @@ DECLARE
   v_doc public.inventory_documents%ROWTYPE;
   v_reason text := btrim(coalesce(p_reason, ''));
 BEGIN
-  SELECT * INTO v_doc FROM public.inventory_documents WHERE id = v_doc_id FOR UPDATE;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Không tìm thấy phiếu';
-  END IF;
-  IF NOT public.is_store_back_office(v_doc.store_id) THEN
+  -- Quyền kiểm bằng SELECT không khoá TRƯỚC FOR UPDATE; phiếu không tồn tại và phiếu quán khác cùng một lỗi.
+  IF NOT EXISTS (SELECT 1 FROM public.inventory_documents d
+                  WHERE d.id = v_doc_id AND public.is_store_back_office(d.store_id)) THEN
     RAISE EXCEPTION 'Không có quyền';
   END IF;
+  SELECT * INTO v_doc FROM public.inventory_documents WHERE id = v_doc_id FOR UPDATE;
   IF v_doc.status = 'voided' THEN
     RETURN jsonb_build_object('ok', true, 'id', v_doc_id, 'already', true);
   END IF;
@@ -957,10 +956,8 @@ DECLARE
   v_store_id uuid;
 BEGIN
   SELECT d.store_id INTO v_store_id FROM public.inventory_documents d WHERE d.id = p_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Không tìm thấy phiếu';
-  END IF;
-  IF NOT public.is_store_back_office(v_store_id) THEN
+  -- Phiếu không tồn tại và phiếu quán khác cùng một lỗi.
+  IF NOT FOUND OR NOT public.is_store_back_office(v_store_id) THEN
     RAISE EXCEPTION 'Không có quyền';
   END IF;
 

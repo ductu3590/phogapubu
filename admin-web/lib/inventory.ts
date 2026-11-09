@@ -212,7 +212,7 @@ export function buildDocumentLines(
     const itemId = d.inventoryItemId.trim()
     if (!itemId) continue
     if (kind === 'count' && d.countedQty.trim() === '') continue
-    if (seen.has(itemId)) return { ok: false, error: 'Một hàng chỉ một dòng trong phiếu' }
+    if (seen.has(itemId)) return { ok: false, error: `${label}: Một hàng chỉ một dòng trong phiếu` }
     seen.add(itemId)
 
     if (kind === 'count') {

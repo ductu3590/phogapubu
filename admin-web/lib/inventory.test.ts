@@ -126,7 +126,7 @@ describe('buildDocumentLines', () => {
     expect(buildDocumentLines('receipt', [
       draft({ inventoryItemId: 'a', qty: '1', unitCost: '1' }),
       draft({ inventoryItemId: 'a', qty: '2', unitCost: '1' }),
-    ])).toEqual({ ok: false, error: 'Một hàng chỉ một dòng trong phiếu' })
+    ])).toEqual({ ok: false, error: 'Dòng 2: Một hàng chỉ một dòng trong phiếu' })
     expect(buildDocumentLines('receipt', [draft({ inventoryItemId: 'a', qty: '0', unitCost: '1' })]))
       .toEqual({ ok: false, error: 'Dòng 1: Số lượng phải lớn hơn 0, tối đa 3 chữ số thập phân' })
     expect(buildDocumentLines('receipt', [draft({ inventoryItemId: 'a', qty: '1', unitCost: '100.000.001' })]))
