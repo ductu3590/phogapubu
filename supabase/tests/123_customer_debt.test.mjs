@@ -69,6 +69,14 @@ test('có dòng nợ mà thiếu khách hoặc khách sai: lỗi, không ghi gì
   assert.equal((await one('SELECT status FROM table_sessions WHERE id = $1', [s])).status, 'open')
 })
 
+test('khách mới bị huỷ cùng giao dịch khi bước sau lỗi (số tiền không khớp bill)', async () => {
+  const s = await session(); await order(s, 80000)
+  await assert.rejects(collectDebtBill([s], [debt(90000)], null, rid(), { newCustomer: { name: 'Anh Long', phone: '0912345678' } }),
+    /Số tiền không khớp/)
+  assert.equal(await count('debt_customers'), 0)
+  assert.equal(await count('bill_payments'), 0)
+})
+
 test('gắn khách mà không có dòng nợ: lỗi', async () => {
   const c = await customer(); const s = await session(); await order(s, 1000)
   await assert.rejects(collectDebtBill([s], [cash(1000)], null, rid(), { customerId: c }), /Không có phần ghi nợ để gắn khách/)

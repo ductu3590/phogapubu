@@ -338,6 +338,7 @@ $b$  -- mig 123: phần ghi nợ. Lỗi ở đây huỷ cả giao dịch, kể c
       END IF;
       UPDATE public.bill_payments SET debt_customer_id = v_cust WHERE id = v_payment_id;
     END IF;
+    -- Thay kết quả bước 8 (bước 8 không biết 'debt'): giá trị dưới đây là giá trị ghi lên đơn.
     -- Phương tiện ghi lên đơn: hơn một dòng → 'mixed'; một dòng → đúng phương tiện đó (kể cả 'debt'); bill 0đ → 'cash'.
     v_instrument := CASE WHEN jsonb_array_length(p_lines) > 1 THEN 'mixed'
                          WHEN jsonb_array_length(p_lines) = 1 THEN p_lines->0->>'instrument'
