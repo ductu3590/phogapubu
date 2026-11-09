@@ -12,6 +12,7 @@ import { getButtonClasses } from '@/components/ui/button-classes'
 import { cn } from '@/lib/utils'
 import QRCode from 'qrcode'
 import AreaDialog, { type EditableArea } from './area-dialog'
+import BulkTablesDialog from './bulk-tables-dialog'
 
 type Table = { id: string; table_number: string; is_active: boolean; area_id: string | null; qrDataUrl: string }
 type Area = GroupArea & { sort_order: number }
@@ -34,6 +35,7 @@ export default function TablesClient({
   const [isPending, startTransition] = useTransition()
   const [showAdd, setShowAdd] = useState<string | null | false>(false) // false = đóng; string/null = khu mặc định
   const [areaDialog, setAreaDialog] = useState<{ mode: 'create' } | { mode: 'edit'; area: EditableArea } | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [generatingQR, setGeneratingQR] = useState<string | null>(null)
   const router = useRouter()
 
@@ -104,6 +106,9 @@ export default function TablesClient({
           </button>
           <button type="button" onClick={() => setShowAdd(null)} className={getButtonClasses('primary')}>
             <Plus className="size-4" aria-hidden />Thêm bàn
+          </button>
+          <button type="button" onClick={() => setBulkOpen(true)} className={getButtonClasses('outline')}>
+            <Plus className="size-4" aria-hidden />Tạo nhiều bàn
           </button>
           <a href={printHref('area=all')} target="_blank" rel="noopener" className={getButtonClasses('outline')}>
             <Printer className="size-4" aria-hidden />In QR cả quán
@@ -283,6 +288,20 @@ export default function TablesClient({
             </form>
           </div>
         </div>
+      )}
+
+      {bulkOpen && (
+        <BulkTablesDialog
+          open
+          areas={areas.map((a) => ({ id: a.id, name: a.name }))}
+          existingNames={tables.map((t) => t.table_number)}
+          // Refresh SAU khi người dùng đọc kết quả: TablesClient có key theo danh sách bàn nên refresh
+          // sớm sẽ dựng lại component và mất hộp thoại.
+          onClose={(changed) => {
+            setBulkOpen(false)
+            if (changed) router.refresh()
+          }}
+        />
       )}
 
       {areaDialog && (

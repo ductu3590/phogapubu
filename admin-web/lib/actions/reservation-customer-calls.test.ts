@@ -25,7 +25,7 @@ describe('reservation customer call actions', () => {
 
   it('staff bị chặn trước khi gọi RPC; resolve chỉ nhận outcome hợp lệ theo type', async () => {
     mocks.operator.value = { role: 'store_staff', storeId: 'store-1' }
-    await expect(listReservationCustomerCalls()).resolves.toEqual({ ok: false, error: 'Chỉ chủ quán hoặc thu ngân được xử lý việc gọi nhắc khách' })
+    await expect(listReservationCustomerCalls()).resolves.toEqual({ ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được xử lý việc gọi nhắc khách' })
     expect(mocks.rpc).not.toHaveBeenCalled()
     mocks.operator.value = { role: 'store_owner', storeId: 'store-1' }
     mocks.rpc.mockResolvedValueOnce({ data: { already: false }, error: null })

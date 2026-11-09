@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { listAllAuthUsers } from '@/lib/supabase/auth-users'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { ROLE_LABEL, type OperatorRole } from '@/lib/auth/roles'
 import {
   updateStoreBasicInfo, updateStoreColor, updateAppConfig, updateCheckoutConfig, updateZaloConfig,
 } from '@/lib/actions/mevo-stores'
@@ -133,7 +134,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
                   {emailById.get(op.user_id) ?? '(không rõ email)'}
                 </span>
                 <span className="rounded-full bg-primary-light px-2 py-0.5 text-xs font-medium text-primary">
-                  {op.role === 'store_owner' ? 'Chủ quán' : op.role === 'store_staff' ? 'Nhân viên' : op.role === 'store_cashier' ? 'Thu ngân' : op.role}
+                  {ROLE_LABEL[op.role as OperatorRole] ?? op.role}
                 </span>
                 {op.is_active === false && (
                   <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted">Đã khoá</span>

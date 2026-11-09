@@ -16,7 +16,7 @@ export async function loadFloorLayout(): Promise<FloorResult> {
     if (!data) return { ok: false, error: 'Không tìm thấy sơ đồ của quán' }
     return { ok: true, snapshot: data as FloorSnapshot }
   } catch {
-    return { ok: false, error: 'Không tải được sơ đồ. Kiểm tra kết nối và quyền chủ quán / thu ngân.' }
+    return { ok: false, error: 'Không tải được sơ đồ. Kiểm tra kết nối và quyền chủ quán, quản lý hoặc thu ngân.' }
   }
 }
 

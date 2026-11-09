@@ -34,7 +34,7 @@ export type PreorderActionResult =
 async function ownerClient() {
   try {
     const operator = await requireOperator()
-    if (!isPosRole(operator.role)) return { operator: null, supabase: null, error: 'Chỉ chủ quán hoặc thu ngân được xử lý món đặt trước' }
+    if (!isPosRole(operator.role)) return { operator: null, supabase: null, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được xử lý món đặt trước' }
     return { operator, supabase: await createClient(), error: null }
   } catch (error) {
     return { operator: null, supabase: null, error: error instanceof Error ? error.message : 'Không có quyền xử lý món đặt trước' }

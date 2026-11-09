@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { findActiveHref } from '@/components/ui/app-shell'
-import { adminPathAllowed } from '@/lib/auth/roles'
+import { adminPathAllowed, type OperatorRole } from '@/lib/auth/roles'
 import { adminBottomItems, adminNavGroups, adminRailItems } from './admin-nav'
 import { CONFIG_TABS, settingsTabs } from './config-dialog'
 
 const hrefs = (items: { href: string }[]) => items.map((i) => i.href)
-const all = (reservations: boolean, kitchen = true, role: 'store_owner' | 'store_cashier' = 'store_owner') =>
+const all = (reservations: boolean, kitchen = true, role: OperatorRole = 'store_owner') =>
   adminNavGroups(reservations, kitchen, role).flatMap((g) => hrefs(g.items))
 
 describe('rail chủ quán — thanh icon dọc, không còn ô Thêm (2026-10-13)', () => {
@@ -65,5 +65,23 @@ describe('thu ngân (PA-2)', () => {
 
   it('mọi mục của thu ngân đều là trang thu ngân được mở', () => {
     expect(all(true, true, 'store_cashier').every((h) => adminPathAllowed('store_cashier', h))).toBe(true)
+  })
+})
+
+describe('quản lý (QL)', () => {
+  it('rail: POS · Đặt bàn · Món · Báo cáo; không có Bếp, Bàn QR', () => {
+    expect(hrefs(adminRailItems(true, true, 'store_manager'))).toEqual(['/admin/pos', '/admin/reservations', '/admin/menu', '/admin/bills'])
+    expect(hrefs(adminRailItems(true, false, 'store_manager'))).toEqual(['/admin/pos', '/admin/menu', '/admin/bills'])
+    expect(hrefs(adminRailItems(false, true, 'store_manager'))).toEqual(['/admin/pos', '/admin/reservations', '/admin/menu', '/admin/bills'])
+    expect(adminBottomItems('store_manager')).toMatchObject([{ href: '/admin/account', label: 'Cài đặt' }])
+  })
+
+  it('mọi mục của quản lý đều là trang quản lý được mở', () => {
+    expect(all(true, true, 'store_manager').every((h) => adminPathAllowed('store_manager', h))).toBe(true)
+  })
+
+  it('nút ⚙ của quản lý sáng ở Bảo mật, không trỏ Cài đặt quán', () => {
+    expect(findActiveHref('/admin/account', adminNavGroups(true, true, 'store_manager'))).toBe('/admin/account')
+    expect(all(true, true, 'store_manager')).not.toContain('/admin/settings')
   })
 })

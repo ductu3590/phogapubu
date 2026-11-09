@@ -9,7 +9,7 @@ export default async function ConfigModal({ children }: { children: ReactNode })
   const supabase = await createClient()
   const { data } = await supabase.from('stores').select('name').eq('id', operator.storeId).maybeSingle()
   return (
-    <ConfigDialog storeName={(data?.name as string | undefined) ?? 'Quán'} role={operator.role === 'store_cashier' ? 'store_cashier' : 'store_owner'}>
+    <ConfigDialog storeName={(data?.name as string | undefined) ?? 'Quán'} role={operator.role}>
       {children}
     </ConfigDialog>
   )

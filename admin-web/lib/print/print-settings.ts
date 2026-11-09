@@ -33,11 +33,6 @@ export function printerNames(agent: PrintAgentInfo | null): string[] {
   return [...new Set(names)]
 }
 
-/** Chế độ phần mềm in chỉ bật được khi cả hai đường đơn xuống bếp đều qua thu ngân xác nhận. */
-export function canUseAgentMode(s: Pick<PrintSettings, 'kitchen_release_policy' | 'staff_order_release_policy'>): boolean {
-  return s.kitchen_release_policy === 'pos_confirmation' && s.staff_order_release_policy === 'pos_confirmation'
-}
-
 export function parsePrintSettings(raw: unknown): PrintSettings | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Partial<PrintSettings>

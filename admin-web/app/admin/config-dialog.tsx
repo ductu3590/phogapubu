@@ -30,9 +30,12 @@ export const CONFIG_TABS = [
 type ConfigTab = (typeof CONFIG_TABS)[number]
 const isSettingsTab = (t: ConfigTab) => 'settings' in t && t.settings
 
-/** Tab trong nhóm ⚙ Cài đặt theo vai trò: thu ngân chỉ có Bảo mật (tài khoản của mình) → không cần hàng tab. */
+/**
+ * Tab trong nhóm ⚙ Cài đặt theo vai trò. Chủ quán thấy mọi tab; vai khác (thu ngân, quản lý) chỉ tab có cờ
+ * `cashier` = "tài khoản của chính mình" (Bảo mật) → một tab nên không cần hàng tab.
+ */
 export function settingsTabs(role: OperatorRole) {
-  return CONFIG_TABS.filter((t) => isSettingsTab(t) && (role !== 'store_cashier' || ('cashier' in t && t.cashier)))
+  return CONFIG_TABS.filter((t) => isSettingsTab(t) && (role === 'store_owner' || ('cashier' in t && t.cashier)))
 }
 
 // Độ dài lịch sử trình duyệt lúc hộp thoại MỞ — đóng là quay về đúng trang nền dù bên trong đã bấm

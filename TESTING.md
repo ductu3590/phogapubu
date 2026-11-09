@@ -6,6 +6,7 @@
 
 ## Checklist mới tách riêng
 
+- ⏳ [Yên Garden — Vai Quản lý](docs/testing/yen-garden/QUAN-LY.md) — chờ test, mig 116 chưa áp prod (Controller áp + deploy trước)
 - ⏳ [Đợt 1 B1 — Ngày kinh doanh](docs/testing/dot1/B1-ngay-kinh-doanh.md) — chờ test, mig 111 đã áp prod 2026-11-06
 - ⏳ [Đợt 1 — VietQR nền](docs/testing/dot1/vietqr-nen.md) — chờ test
 - ⏳ [Đợt 1 C Part 1 — In hai nơi](docs/testing/dot1/C-part1-in-hai-noi.md) — chờ test, mig 114 chưa áp prod
