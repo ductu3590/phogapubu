@@ -3,7 +3,7 @@
 
 import { INSTRUMENT_LABELS } from '@/lib/collect-payment'
 
-export type ReportInstrument = 'cash' | 'bank' | 'other' | 'mixed'
+export type ReportInstrument = 'cash' | 'bank' | 'other' | 'mixed' | 'debt'
 
 const VN_OFFSET_MINUTES = 7 * 60
 

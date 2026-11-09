@@ -62,7 +62,7 @@ const strArr = (v: unknown): string[] => arr(v).filter((x): x is string => typeo
 const label = (v: unknown): string => str(v) || '—'
 
 function instrument(v: unknown): ReportInstrument {
-  return v === 'cash' || v === 'bank' || v === 'mixed' ? v : 'other'
+  return v === 'cash' || v === 'bank' || v === 'mixed' || v === 'debt' ? v : 'other'
 }
 
 export function parseBillsReport(raw: unknown): BillsReport {

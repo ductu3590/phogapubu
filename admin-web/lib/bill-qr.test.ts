@@ -31,6 +31,7 @@ describe('paymentQrAmount', () => {
   it('tiền mặt: 0', () => expect(paymentQrAmount({ method: 'cash', total: 100000, bankPart: 0 })).toBe(0))
   it('chuyển khoản: số cần thu', () => expect(paymentQrAmount({ method: 'bank', total: 100000, bankPart: 0 })).toBe(100000))
   it('kết hợp: phần chuyển khoản', () => expect(paymentQrAmount({ method: 'mixed', total: 100000, bankPart: 40000 })).toBe(40000))
+  it('ghi nợ cả bill: 0', () => expect(paymentQrAmount({ method: 'debt', total: 100000, bankPart: 0 })).toBe(0))
   it.each([0, 100001])('kết hợp, phần CK %s: 0', (bankPart) => {
     expect(paymentQrAmount({ method: 'mixed', total: 100000, bankPart })).toBe(0)
   })

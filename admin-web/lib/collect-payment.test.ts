@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bankPartOf, buildPaymentLines, cashGivenError, cashPartOf, fillOtherSide, INSTRUMENT_LABELS, parsePaymentLines, paymentDraft, paymentRows } from './collect-payment'
+import { bankPartOf, buildCollectPayload, buildPaymentLines, cashGivenError, cashPartOf, debtPartOf, fillOtherSide, INSTRUMENT_LABELS, parsePaymentLines, paymentDraft, paymentRows } from './collect-payment'
 
 describe('fillOtherSide', () => {
   it('gõ một ô, ô kia là phần còn lại, không âm', () => {
@@ -105,6 +105,52 @@ describe('paymentRows', () => {
   })
 
   it('nhãn phương tiện lấy từ một bảng duy nhất (thêm phương tiện mới = thêm một dòng ở đây)', () => {
-    expect(INSTRUMENT_LABELS).toEqual({ cash: 'Tiền mặt', bank: 'Chuyển khoản' })
+    expect(INSTRUMENT_LABELS).toEqual({ cash: 'Tiền mặt', bank: 'Chuyển khoản', debt: 'Ghi nợ' })
+  })
+})
+
+describe('ghi nợ', () => {
+  it('Ghi nợ: một dòng debt đúng tổng', () => {
+    expect(buildPaymentLines(350_000, 'debt', null, null)).toEqual({ lines: [{ instrument: 'debt', amount: 350_000 }], error: null })
+  })
+  it('Kết hợp + nợ phần còn lại', () => {
+    expect(buildPaymentLines(1_200_000, 'mixed', 500_000, null, true).lines).toEqual([{ instrument: 'cash', amount: 500_000 }, { instrument: 'debt', amount: 700_000 }])
+    expect(buildPaymentLines(1_000_000, 'mixed', 200_000, 300_000, true).lines).toHaveLength(3)
+    expect(buildPaymentLines(1_000_000, 'mixed', 1_000_000, null, true).lines).toEqual([{ instrument: 'cash', amount: 1_000_000 }])
+    expect(buildPaymentLines(1_000_000, 'mixed', 800_000, 300_000, true).error).toBe('Tiền mặt và chuyển khoản vượt số cần thu 1.000.000đ')
+  })
+  it('paymentRows: dòng nợ kèm tên khách', () => {
+    expect(paymentRows({ payments: [{ instrument: 'cash', amount: 500_000 }, { instrument: 'debt', amount: 700_000 }], debtCustomerName: 'Cty Hoà Bình' }))
+      .toEqual([{ label: 'Tiền mặt', amount: 500_000 }, { label: 'Ghi nợ — Cty Hoà Bình', amount: 700_000 }])
+  })
+  it('buildCollectPayload bỏ khách khi không có dòng nợ', () => {
+    const choice = { kind: 'existing', id: 'c1', name: 'A' } as const
+    expect(buildCollectPayload([{ instrument: 'cash', amount: 1 }], choice)).toEqual({ debtCustomerId: null, newDebtCustomer: null })
+    expect(buildCollectPayload([{ instrument: 'debt', amount: 1 }], choice)).toEqual({ debtCustomerId: 'c1', newDebtCustomer: null })
+    expect(buildCollectPayload([{ instrument: 'debt', amount: 1 }], { kind: 'new', customer: { name: 'B', phone: null, kind: 'company' } }))
+      .toEqual({ debtCustomerId: null, newDebtCustomer: { name: 'B', phone: null, kind: 'company' } })
+  })
+
+  // ---- thêm ngoài plan ----
+  it('Ghi nợ bill 0đ: không dòng nào; debtRest=false giữ nguyên Kết hợp của plan A', () => {
+    expect(buildPaymentLines(0, 'debt', null, null)).toEqual({ lines: [], error: null })
+    expect(buildPaymentLines(1_000_000, 'mixed', 800_000, 300_000).error).toBe('Tổng hai khoản phải đúng 1.000.000đ')
+    expect(buildPaymentLines(1_000_000, 'mixed', 400_000, 100_000).lines).toEqual([])
+  })
+  it('Kết hợp + nợ: số âm / lẻ bị chặn; chỉ CK + nợ', () => {
+    expect(buildPaymentLines(1_000_000, 'mixed', -1, null, true).lines).toEqual([])
+    expect(buildPaymentLines(1_000_000, 'mixed', 1.5, null, true).lines).toEqual([])
+    expect(buildPaymentLines(1_000_000, 'mixed', null, 400_000, true).lines).toEqual([{ instrument: 'bank', amount: 400_000 }, { instrument: 'debt', amount: 600_000 }])
+  })
+  it('debtPartOf; parsePaymentLines giữ dòng nợ; paymentRows thứ tự TM, CK, nợ, khách đưa, thối', () => {
+    const lines = [{ instrument: 'debt' as const, amount: 3 }, { instrument: 'cash' as const, amount: 1 }, { instrument: 'bank' as const, amount: 2 }]
+    expect(debtPartOf(lines)).toBe(3)
+    expect(debtPartOf([])).toBe(0)
+    expect(parsePaymentLines([{ instrument: 'debt', amount: '700000' }])).toEqual([{ instrument: 'debt', amount: 700_000 }])
+    expect(paymentRows({ payments: lines, cashGiven: 5, changeAmount: 4 }).map((r) => r.label))
+      .toEqual(['Tiền mặt', 'Chuyển khoản', 'Ghi nợ', 'Khách đưa', 'Tiền thối'])
+  })
+  it('paymentDraft với Ghi nợ: phần tiền mặt / chuyển khoản là 0', () => {
+    expect(paymentDraft(500_000, 'debt', null, null)).toEqual({ lines: [{ instrument: 'debt', amount: 500_000 }], error: null, cash: 0, bank: 0 })
   })
 })

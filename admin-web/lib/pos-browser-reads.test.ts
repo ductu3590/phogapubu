@@ -4,6 +4,7 @@ import {
   readCashBookCategories,
   readCashShiftReport,
   readCashShiftState,
+  readDebtCustomers,
   readPrintStatus,
   readStoreBankAccount,
 } from './pos-browser-reads'
@@ -102,5 +103,19 @@ describe('đọc ca + sổ thu chi (mig 122)', () => {
     expect(steps).toContainEqual(['eq', 'store_id', 's1'])
     expect(steps).toContainEqual(['eq', 'is_active', true])
     expect(steps.filter((s) => (s as unknown[])[0] === 'order').map((s) => (s as unknown[])[1])).toEqual(['kind', 'sort_order'])
+  })
+})
+
+describe('readDebtCustomers', () => {
+  it('gọi debt_list(store, false), đọc danh sách; lỗi → {ok:false}', async () => {
+    const calls: unknown[] = []
+    const client = { rpc: async (name: string, args: unknown) => {
+      calls.push([name, args])
+      return { data: { customers: [{ id: 'c1', name: 'Cty', outstanding: '650000', kind: 'company' }] }, error: null }
+    } } as never
+    const r = await readDebtCustomers(client, 's1')
+    expect(calls).toEqual([['debt_list', { p_store_id: 's1', p_only_open: false }]])
+    expect(r.ok && r.customers.map((c) => [c.id, c.outstanding, c.kind])).toEqual([['c1', 650000, 'company']])
+    expect(await readDebtCustomers(fakeClient({ debt_list: { data: null, error: { message: 'x' } } }), 's1')).toEqual({ ok: false, error: 'x' })
   })
 })

@@ -17,6 +17,7 @@ import type { PrintRequest } from '@/lib/print/print-request'
 import type { AutoPrintConfig } from '@/lib/print/auto-kitchen-print'
 import { parseCashShiftReport, parseCashShiftState, type CashShiftReport, type CashShiftState } from '@/lib/cash-shift'
 import { CASH_BOOK_CATEGORY_COLUMNS, parseCashBookCategories, type CashBookCategory } from '@/lib/cash-book'
+import { parseDebtList, type DebtCustomerSummary } from '@/lib/debts'
 import { toCustomerCallTask, toPreorderRow, toReservationRow, type PreorderRpcRow, type ReservationRpcRow } from './reservation-rows'
 
 type BrowserClient = ReturnType<typeof createClient>
@@ -210,4 +211,16 @@ export async function readCashBookCategories(client: BrowserClient, storeId: str
     .order('sort_order')
   if (error) return { ok: false, error: error.message }
   return { ok: true, categories: parseCashBookCategories(data) }
+}
+
+// ---------------------------------------------------------------------------
+// Công nợ (mig 123): danh sách khách nợ cho ô chọn "Ghi nợ" ở màn Thanh toán. Cả khách đã ngừng (lọc ở UI) để
+// thấy số nợ cũ; RPC debt_list tự kiểm quyền (chủ quán, quản lý, thu ngân của đúng quán).
+// ---------------------------------------------------------------------------
+export async function readDebtCustomers(client: BrowserClient, storeId: string): Promise<
+  { ok: true; customers: DebtCustomerSummary[] } | { ok: false; error: string }
+> {
+  const { data, error } = await client.rpc('debt_list', { p_store_id: storeId, p_only_open: false })
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, customers: parseDebtList(data) }
 }

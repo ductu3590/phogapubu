@@ -111,6 +111,8 @@ describe('parseBillsReport (A04-1)', () => {
     const bad = parseBillsReport({ bills: [{ total: 'abc', instrument: 'zzz' }], adjustments: [{ type: 'lạ' }] })
     expect(bad.bills[0].total).toBe(0)
     expect(bad.bills[0].instrument).toBe('other')
+    expect(parseBillsReport({ bills: [{ instrument: 'debt', payments: [{ instrument: 'debt', amount: 80000 }] }] }).bills[0])
+      .toMatchObject({ instrument: 'debt', payments: [{ instrument: 'debt', amount: 80000 }] })
     expect(bad.bills[0].tableLabel).toBe('—')
     expect(bad.adjustments[0].type).toBe('cancelled')
   })
