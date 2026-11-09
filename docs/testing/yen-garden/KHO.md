@@ -29,6 +29,7 @@ Migration: `supabase/migrations/118_inventory.sql` · Kiểm số liệu: `docs/
 - Cần 3 tài khoản của quán đó: **chủ quán**, **quản lý** (tạo ở ⚙ Cài đặt → Nhân viên, xem `QUAN-LY.md`), **thu ngân**.
 - Thực đơn cần có: một món thường "Bia Hà Nội" và một món có lựa chọn (vd. "Bia tháp" với lựa chọn "Tháp to", "Tháp nhỏ").
 - Mỗi bài ghi PASS/FAIL ở ô cuối. FAIL thì chụp màn hình + ghi bước.
+- **Kiểm kho khi không còn đơn chờ duyệt**: đơn đang chờ thu ngân duyệt chưa trừ kho, duyệt sau giờ kiểm thì trừ sau mốc kiểm → số máy lúc đếm thiếu đúng phần đó. Duyệt / từ chối hết đơn chờ rồi mới đếm.
 
 ---
 
@@ -111,7 +112,7 @@ Kết quả: ☐ PASS ☐ FAIL
 ## Bài 8. Bấm Lưu hai lần / mất mạng → chỉ một phiếu
 
 1. Tạo phiếu nhập Tiger 24 × 10.500, bấm **Lưu hai lần thật nhanh** → chỉ **một** phiếu mới trong danh sách.
-2. Tạo phiếu khác, **tắt mạng** (DevTools → Offline) rồi bấm Lưu → lỗi ở chân hộp; **bật mạng**, bấm Lưu lại → lưu được, vẫn **một** phiếu (không có phiếu thứ hai nếu lần đầu thực ra đã tới server).
+2. Tạo phiếu khác, **tắt mạng** (DevTools → Offline) rồi bấm Lưu → lỗi ở chân hộp; **bật mạng**, bấm Lưu lại → lưu được, vẫn **một** phiếu (không có phiếu thứ hai nếu lần đầu thực ra đã tới server). Nếu lần đầu đã tới server: toast **"Phiếu đã lưu trước đó: PN-… — kiểm tra lại nội dung"** thay cho "Đã lưu".
 
 Kết quả: ☐ PASS ☐ FAIL
 
@@ -124,6 +125,7 @@ Kết quả: ☐ PASS ☐ FAIL
 
 ## Bài 10. Kiểm kho — chênh lệch, tồn sau kiểm = số đếm
 
+0. Trước khi đếm: POS không còn lượt gọi **chờ duyệt** (duyệt / từ chối hết).
 1. Tạo phiếu kiểm: các ô đã điền sẵn tồn máy ở cột **Máy**. Bia: đếm ít hơn máy 6 → Chênh **"-6"** đỏ. Một hàng đếm đúng bằng máy → "Khớp".
 2. Gõ "abc" ở một hàng, rồi lọc sang **Nguyên liệu** (ẩn hàng đó) → nút Lưu vẫn tắt, chân hộp ghi **"Số đếm không hợp lệ: <tên hàng>"**. Sửa lại thì lưu được.
 3. Lưu → "Đã chốt PK-0002". Tab Tồn kho: Bia = đúng số vừa đếm.
@@ -179,6 +181,8 @@ Kết quả: ☐ PASS ☐ FAIL
 2. Xác nhận → toast "Đã ngừng dùng Tiger lon" + **"Đã gỡ 2 món đang trừ kho hàng này"**. Trang Món: Bia tháp không còn trừ kho.
 3. Bật "Hiện hàng ngừng dùng" → Tiger hiện xám "Ngừng dùng" cuối danh sách, có nút **Dùng lại**.
 4. Tạo hàng mới tên **Tiger lon** → được (trùng tên chỉ cấm giữa hàng đang dùng). Bấm Dùng lại hàng cũ → lỗi "Đã có hàng hoá tên này".
+5. Ngừng dùng một hàng **còn tồn** (vd. Nước suối đang -3): hộp xác nhận có thêm câu **"Còn tồn -3 chai — nên kiểm kho về 0 trước khi ngừng dùng."**; vẫn bấm Ngừng dùng được.
+6. Sửa hàng **Bia Hà Nội lon** (đã gắn món) đổi Loại sang Nguyên liệu → lỗi **"Hàng đã từng gắn món — không đổi loại được; tạo hàng mới"** (kể cả khi đã gỡ hết liên kết).
 
 Kết quả: ☐ PASS ☐ FAIL
 
@@ -186,7 +190,8 @@ Kết quả: ☐ PASS ☐ FAIL
 
 1. Đăng nhập **thu ngân** → rail có **Kho**. Mở: **chỉ một tab Tồn kho** (không có hàng tab).
 2. Không có nút **Thêm hàng hoá**, **Sửa**, **Ngừng dùng**; bấm tên hàng **không** mở thẻ kho.
-3. Trang **Món** (màn Tạm hết): **không** có nút "Trừ kho" nào, phụ đề như cũ.
+3. **Không** thấy cột Giá vốn gần nhất, Giá trị tồn, dòng Tổng giá trị tồn (thẻ mobile cũng không có) — chỉ tên, đơn vị, loại, số tồn, nhãn Âm kho / Sắp hết.
+4. Trang **Món** (màn Tạm hết): **không** có nút "Trừ kho" nào, phụ đề như cũ.
 
 Kết quả: ☐ PASS ☐ FAIL
 

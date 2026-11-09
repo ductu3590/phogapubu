@@ -25,6 +25,13 @@ const KIND_TABS: { value: KindFilter; label: string }[] = [
 
 const money = (n: number | null) => (n === null ? '—' : formatVND(n))
 
+/** Câu xác nhận ngừng dùng; còn tồn ≠ 0 thì nhắc kiểm về 0 trước (hàng ngừng dùng không kiểm kho được nữa). Vẫn cho ngừng. */
+export function deactivateDescription(row: Pick<StockRow, 'qty' | 'unit'>): string {
+  const base = 'Hàng sẽ ẩn khỏi phiếu mới; món đang trừ kho hàng này sẽ thôi trừ.'
+  if (Math.abs(row.qty) < 0.0005) return base
+  return `Còn tồn ${formatQty(row.qty)} ${row.unit} — nên kiểm kho về 0 trước khi ngừng dùng. ${base}`
+}
+
 /** Màu trạng thái luôn kèm chữ (design system 2026-10-02): đỏ "Âm kho", vàng "Sắp hết". */
 function StockBadges({ row }: { row: StockRow }) {
   const status = stockStatus(row.qty, row.minStock)
@@ -58,6 +65,8 @@ export default function StockTab({ rows, canEdit, onOpenLedger }: {
   onOpenLedger?: (row: StockRow) => void
 }) {
   const toast = useToast()
+  // Giá vốn / giá trị tồn là số liệu hậu cần: chỉ chủ quán + quản lý thấy (thu ngân chỉ xem số lượng).
+  const showMoney = canEdit
   const [list, setList] = useState(rows)
   const [prevRows, setPrevRows] = useState(rows)
   if (rows !== prevRows) {
@@ -188,7 +197,7 @@ export default function StockTab({ rows, canEdit, onOpenLedger }: {
                     <span className="min-w-0">
                       <span className="block font-medium break-words text-foreground">{row.name}</span>
                       <span className="mt-0.5 block text-[13px] text-muted">
-                        {KIND_LABEL[row.kind]} · Giá vốn {money(row.lastUnitCost)} · Giá trị {formatVND(row.stockValue)}
+                        {KIND_LABEL[row.kind]}{showMoney ? ` · Giá vốn ${money(row.lastUnitCost)} · Giá trị ${formatVND(row.stockValue)}` : ''}
                       </span>
                     </span>
                     <Qty row={row} className="shrink-0 text-lg font-semibold" />
@@ -198,7 +207,7 @@ export default function StockTab({ rows, canEdit, onOpenLedger }: {
                     <div className="min-w-0">
                       {nameCell(row, 'block break-words')}
                       <p className="mt-0.5 text-[13px] text-muted">
-                        {KIND_LABEL[row.kind]} · Giá vốn {money(row.lastUnitCost)} · Giá trị {formatVND(row.stockValue)}
+                        {KIND_LABEL[row.kind]}{showMoney ? ` · Giá vốn ${money(row.lastUnitCost)} · Giá trị ${formatVND(row.stockValue)}` : ''}
                       </p>
                     </div>
                     <Qty row={row} className="shrink-0 text-lg font-semibold" />
@@ -229,8 +238,8 @@ export default function StockTab({ rows, canEdit, onOpenLedger }: {
                 <th scope="col" className="px-3 py-2.5 font-medium">Đơn vị</th>
                 <th scope="col" className="px-3 py-2.5 font-medium">Loại</th>
                 <th scope="col" className="px-3 py-2.5 text-right font-medium">Tồn</th>
-                <th scope="col" className="px-3 py-2.5 text-right font-medium">Giá vốn gần nhất</th>
-                <th scope="col" className="px-3 py-2.5 text-right font-medium">Giá trị tồn</th>
+                {showMoney ? <th scope="col" className="px-3 py-2.5 text-right font-medium">Giá vốn gần nhất</th> : null}
+                {showMoney ? <th scope="col" className="px-3 py-2.5 text-right font-medium">Giá trị tồn</th> : null}
                 {canEdit ? <th scope="col" className="px-3 py-2.5"><span className="sr-only">Thao tác</span></th> : null}
               </tr>
             </thead>
@@ -249,8 +258,8 @@ export default function StockTab({ rows, canEdit, onOpenLedger }: {
                   <td className="px-3 py-2.5 text-right font-semibold">
                     <span className={cn('tabular-nums', row.qty < 0 && 'text-critical')}>{formatQty(row.qty)}</span>
                   </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">{money(row.lastUnitCost)}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">{formatVND(row.stockValue)}</td>
+                  {showMoney ? <td className="px-3 py-2.5 text-right tabular-nums">{money(row.lastUnitCost)}</td> : null}
+                  {showMoney ? <td className="px-3 py-2.5 text-right tabular-nums">{formatVND(row.stockValue)}</td> : null}
                   {canEdit ? (
                     <td className="px-2 py-1">
                       <div className="flex justify-end">{actions(row)}</div>
@@ -261,10 +270,12 @@ export default function StockTab({ rows, canEdit, onOpenLedger }: {
             </tbody>
           </table>
 
-          <div className="flex items-center justify-between gap-3 border-t border-border bg-background px-4 py-2.5 text-sm">
-            <span className="text-muted">Tổng giá trị tồn · {visible.length} hàng</span>
-            <span className="font-semibold tabular-nums text-foreground">{formatVND(totalValue)}</span>
-          </div>
+          {showMoney ? (
+            <div className="flex items-center justify-between gap-3 border-t border-border bg-background px-4 py-2.5 text-sm">
+              <span className="text-muted">Tổng giá trị tồn · {visible.length} hàng</span>
+              <span className="font-semibold tabular-nums text-foreground">{formatVND(totalValue)}</span>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -281,7 +292,7 @@ export default function StockTab({ rows, canEdit, onOpenLedger }: {
         <ConfirmDialog
           open
           title={`Ngừng dùng ${deactivating.name}?`}
-          description="Hàng sẽ ẩn khỏi phiếu mới; món đang trừ kho hàng này sẽ thôi trừ."
+          description={deactivateDescription(deactivating)}
           confirmLabel="Ngừng dùng"
           tone="danger"
           busy={busy}

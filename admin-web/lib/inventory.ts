@@ -114,7 +114,8 @@ const QTY_PATTERN = /^\d+(?:[.,]\d{1,3})?$/
 
 /** Đọc ô SL đếm (phiếu kiểm): như parseQty nhưng cho phép 0. null khi sai định dạng hoặc ≥ 1.000.000. */
 export function parseCountedQty(raw: string): number | null {
-  const s = raw.replace(/\s+/g, '')
+  // Chỉ cắt khoảng trắng hai đầu: "2 4" là gõ nhầm, KHÔNG dán thành 24.
+  const s = raw.trim()
   if (!QTY_PATTERN.test(s)) return null
   const n = Number(s.replace(',', '.'))
   if (!Number.isFinite(n) || n < 0 || n >= QTY_MAX) return null
@@ -122,7 +123,7 @@ export function parseCountedQty(raw: string): number | null {
 }
 
 /**
- * Ô số lượng kho: "1,5" = "1.5" = "1.500" = 1,5 · "24" = 24. Rỗng, 0, âm, chữ, quá 3 số lẻ, hai dấu, ≥ 1.000.000
+ * Ô số lượng kho: "1,5" = "1.5" = "1.500" = 1,5 · " 24 " = 24. Rỗng, 0, âm, chữ, khoảng trắng giữa số, quá 3 số lẻ, hai dấu, ≥ 1.000.000
  * → null. Kho không có dấu ngăn nghìn (xem qtyWarning cho chữ cảnh báo dưới ô).
  */
 export function parseQty(raw: string): number | null {
@@ -135,7 +136,7 @@ export function parseQty(raw: string): number | null {
  * dấu chấm/phẩy đứng trước đúng 3 chữ số ("1.500" — ta hiểu là 1,5) và số lượng ≥ 1.000.
  */
 export function qtyWarning(raw: string): string | null {
-  const s = raw.replace(/\s+/g, '')
+  const s = raw.trim()
   const n = parseQty(s)
   if (n === null) return null
   if (/^[1-9]\d{0,2}[.,]\d{3}$/.test(s)) {

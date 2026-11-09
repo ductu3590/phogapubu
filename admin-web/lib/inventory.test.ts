@@ -29,12 +29,11 @@ describe('parseQty', () => {
     expect(parseQty('1.500')).toBe(1.5)
     expect(parseQty(' 24 ')).toBe(24)
     expect(parseQty('0,125')).toBe(0.125)
-    expect(parseQty('2 4')).toBe(24)
     expect(parseQty('999999,999')).toBe(999999.999)
   })
 
   it('chặn rỗng, 0, âm, chữ, quá 3 số lẻ, hai dấu, quá trần', () => {
-    for (const s of ['', '   ', '0', '0,000', '-1', 'abc', '1,2345', '1.2.3', '1,000,5', '1000000', ',5', '5,', '1e3', '+2']) {
+    for (const s of ['', '   ', '2 4', '1 ,5', '0', '0,000', '-1', 'abc', '1,2345', '1.2.3', '1,000,5', '1000000', ',5', '5,', '1e3', '+2']) {
       expect(parseQty(s), s).toBeNull()
     }
   })

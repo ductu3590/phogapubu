@@ -260,9 +260,10 @@ test('A7 gắn vào nguyên liệu, hàng ngừng dùng, hàng quán khác, bi�
   assert.equal((await linkRows(mKet)).length, 0)
 })
 
+const KIND_LOCKED = 'Hàng đã từng gắn món — không đổi loại được; tạo hàng mới'
+
 test('A8 đổi loại goods → ingredient khi đang gắn món bị chặn', async () => {
-  await fails(upsert(owner, { itemId: it.bia, name: 'Bia Hà Nội lon', unit: 'lon', kind: 'ingredient' }),
-    'Hàng đang gắn với món — gỡ liên kết trước khi đổi loại')
+  await fails(upsert(owner, { itemId: it.bia, name: 'Bia Hà Nội lon', unit: 'lon', kind: 'ingredient' }), KIND_LOCKED)
   assert.equal((await item(it.bia)).kind, 'goods')
   // Sửa thứ khác khi đang gắn thì được.
   await upsert(manager, { itemId: it.bia, name: 'Bia Hà Nội lon', unit: 'lon', kind: 'goods', min: 48 })
@@ -274,6 +275,22 @@ test('A8 đổi loại goods → ingredient khi đang gắn món bị chặn', a
   assert.equal((await item(it.thit)).kind, 'ingredient')
 })
 
+test('A8b hàng đã từng gắn món (đã gỡ hết) vẫn không đổi loại được — đổi sẽ viết lại số bán quá khứ', async () => {
+  const pepsi = (await upsert(owner, { name: 'Pepsi lon' })).id
+  const mPepsi = id(38)
+  await db.query(`INSERT INTO menu_items(id, store_id, name) VALUES ($1, $2, 'Pepsi')`, [mPepsi, s1])
+  await setLink(owner, mPepsi, null, pepsi, 1)
+  await setLink(owner, mPepsi, null, null, null) // gỡ: chỉ còn dòng đã đóng
+  assert.equal((await linkRows(mPepsi)).filter((l) => l.valid_to === null).length, 0)
+  await fails(upsert(owner, { itemId: pepsi, name: 'Pepsi lon', unit: 'lon', kind: 'ingredient' }), KIND_LOCKED)
+  assert.equal((await item(pepsi)).kind, 'goods')
+  // Ngừng dùng rồi cũng vậy.
+  await setActive(owner, pepsi, false)
+  await fails(upsert(owner, { itemId: pepsi, name: 'Pepsi lon', unit: 'lon', kind: 'ingredient' }), KIND_LOCKED)
+  // Sửa thứ khác vẫn được.
+  await upsert(owner, { itemId: pepsi, name: 'Pepsi lon', unit: 'lon', kind: 'goods', sku: 'PS' })
+  assert.equal((await item(pepsi)).sku, 'PS')
+})
 test('A9 ngừng dùng hàng đang gắn 2 món → links_closed 2, menu_links rỗng', async () => {
   it.sting = (await upsert(owner, { name: 'Sting chai', unit: 'chai' })).id
   await setLink(owner, mSting, null, it.sting, 1)
@@ -1159,4 +1176,35 @@ test('E10 giá nhập mới nhất hoà mốc thời gian → chọn dòng id l�
     const dayTo = await scalar(`SELECT day_to::text AS v FROM business_day_bounds($1, '2026-10-07')`, [s3])
     assert.equal((await levels(owner3, s3, dayTo)).items.find((x) => x.id === tie).last_unit_cost, 1000)
   }
+})
+
+test('E11 tồn đầu kỳ âm không làm lệch giá bình quân: giá đầu 10.000 (10 × 10.000), đầu kỳ −5, nhập 6 × 8.000 → giá kỳ 8.000', async () => {
+  // Phần tồn âm không có giá trị thật (bán quá tồn) → không đưa vào công thức: qo = max(tồn đầu, 0) = 0.
+  // Bản cũ: (−5 × 10.000 + 48.000) / (−5 + 6) = −2.000đ/lon (giá âm).
+  const am = (await upsert(owner3, { store: s3, name: 'Hàng tồn âm' })).id
+  const mAm = id(55)
+  await db.query(`INSERT INTO menu_items(id, store_id, name) VALUES ($1, $2, 'Hàng tồn âm')`, [mAm, s3])
+  await db.query(`INSERT INTO menu_stock_links(store_id, menu_item_id, inventory_item_id, qty_per_sale, valid_from)
+    VALUES ($1, $2, $3, 1, '2026-09-01 00:00+07')`, [s3, mAm, am])
+  await postAt('receipt', '2026-10-08 10:00+07', { paid_status: 'unpaid' }, [{ inventory_item_id: am, qty: 10, unit_cost: 10000 }])
+  await sell(mAm, 15, '2026-10-08 12:00+07')
+  await postAt('receipt', '2026-10-09 10:00+07', { paid_status: 'unpaid' }, [{ inventory_item_id: am, qty: 6, unit_cost: 8000 }])
+  await sell(mAm, 1, '2026-10-09 12:00+07')
+  const r = row(await cogs(owner3, '2026-10-09', '2026-10-09'), am)
+  assert.equal(r.unit_cost, 8000)
+  assert.equal(r.cogs, 8000)
+  assert.equal(r.missing_cost, false)
+})
+
+test('E12 nguyên liệu đã ngừng dùng, còn tồn, không biến động trong kỳ → không tính "chưa kiểm", không có dòng', async () => {
+  const muoi = (await upsert(owner3, { store: s3, name: 'Muối', kind: 'ingredient', unit: 'kg' })).id
+  await postAt('receipt', '2026-10-10 10:00+07', { paid_status: 'unpaid' }, [{ inventory_item_id: muoi, qty: 3, unit_cost: 1000 }])
+  await setActive(owner3, muoi, false) // ngừng dùng khi còn 3 kg → không kiểm được nữa
+  // Các nguyên liệu đang dùng đều được kiểm trong kỳ 11/10.
+  await postAt('count', '2026-10-11 12:00+07', {}, [{ inventory_item_id: k.thit, counted_qty: 3 }, { inventory_item_id: k.rau, counted_qty: 1 }])
+  const r = await cogs(owner3, '2026-10-11', '2026-10-11')
+  assert.equal(r.ingredient_uncounted, false)
+  assert.equal(row(r, muoi), undefined)
+  // Kỳ có biến động của Muối (10/10, trước khi ngừng dùng) thì vẫn là chưa kiểm — đúng: có nhập mà không kiểm.
+  assert.equal(row(await cogs(owner3, '2026-10-10', '2026-10-10'), muoi).counted, false)
 })

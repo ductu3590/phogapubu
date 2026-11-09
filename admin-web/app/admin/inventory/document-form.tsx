@@ -66,6 +66,26 @@ export function makeDocumentSubmit(deps: {
 }
 
 /**
+ * Toast sau khi lưu phiếu. `replayed` = server trả lại phiếu ĐÃ lưu từ lần bấm trước (cùng clientRequestId, vd. mạng
+ * rớt sau khi server đã ghi) — nội dung đang trên form có thể khác phiếu đã lưu, nên báo rõ để người dùng mở ra xem.
+ */
+export function savedToasts(
+  res: { docNo: string; replayed: boolean; beforeCountDocNo: string | null },
+  successTitle?: (docNo: string) => string,
+): { tone: 'success' | 'info'; title: string; description?: string }[] {
+  if (res.replayed) return [{ tone: 'info', title: `Phiếu đã lưu trước đó: ${res.docNo} — kiểm tra lại nội dung` }]
+  const out: { tone: 'success' | 'info'; title: string; description?: string }[] =
+    [{ tone: 'success', title: successTitle?.(res.docNo) ?? `Đã lưu ${res.docNo}` }]
+  if (res.beforeCountDocNo) {
+    out.push({
+      tone: 'info',
+      title: `Phiếu ghi lùi ngày trước phiếu kiểm ${res.beforeCountDocNo} nên tồn hiện tại không đổi`,
+      description: 'Số đếm ở phiếu kiểm là số thật; phiếu này chỉ hiện trong thẻ kho trước mốc kiểm.',
+    })
+  }
+  return out
+}
+/**
  * Gửi một phiếu từ form. `clientRequestId` sinh MỘT lần khi form mount (mỗi lần mở form là một lần mount) và giữ
  * nguyên qua mọi lần bấm Lưu thất bại; chỉ bỏ khi lưu xong hoặc đóng form (unmount).
  */
@@ -90,14 +110,7 @@ export function useDocumentSubmit(kind: DocKind, today: string, onSaved: () => v
       setError(res.error)
       return
     }
-    toast({ tone: 'success', title: opts?.successTitle?.(res.docNo) ?? `Đã lưu ${res.docNo}` })
-    if (res.beforeCountDocNo) {
-      toast({
-        tone: 'info',
-        title: `Phiếu ghi lùi ngày trước phiếu kiểm ${res.beforeCountDocNo} nên tồn hiện tại không đổi`,
-        description: 'Số đếm ở phiếu kiểm là số thật; phiếu này chỉ hiện trong thẻ kho trước mốc kiểm.',
-      })
-    }
+    for (const t of savedToasts(res, opts?.successTitle)) toast(t)
     onSaved()
   }
 

@@ -17,7 +17,7 @@ const { orderedRange } = await import('./doc-format')
 const { default: LinesEditor } = await import('./lines-editor')
 const { default: ReceiptForm } = await import('./receipt-form')
 const { default: WriteoffForm } = await import('./writeoff-form')
-const { addDaysIso, DocumentFormShell, makeDocumentSubmit } = await import('./document-form')
+const { addDaysIso, DocumentFormShell, makeDocumentSubmit, savedToasts } = await import('./document-form')
 const { escapeHandler } = await import('@/components/ui/dialog')
 
 const html = (el: ReactElement) => renderToStaticMarkup(<ToastProvider>{el}</ToastProvider>)
@@ -208,5 +208,17 @@ describe('Kho — sửa vòng 1 (review Task 7)', () => {
     expect(inside).toContain('567.000đ')
     expect(inside).toContain('Đại lý Hà Nội')
     expect(inside).toContain('Đã trả · Tiền mặt')
+  })
+})
+
+describe('Kho — toast sau khi lưu phiếu', () => {
+  it('gửi lại trả phiếu đã lưu trước đó (replayed): báo rõ để kiểm tra lại nội dung, không báo "Đã lưu"', () => {
+    expect(savedToasts({ docNo: 'PN-0004', replayed: true, beforeCountDocNo: null }))
+      .toEqual([{ tone: 'info', title: 'Phiếu đã lưu trước đó: PN-0004 — kiểm tra lại nội dung' }])
+    expect(savedToasts({ docNo: 'PN-0004', replayed: false, beforeCountDocNo: null }))
+      .toEqual([{ tone: 'success', title: 'Đã lưu PN-0004' }])
+    const back = savedToasts({ docNo: 'PN-0005', replayed: false, beforeCountDocNo: 'PK-0001' }, (n) => `Đã chốt ${n}`)
+    expect(back[0]).toEqual({ tone: 'success', title: 'Đã chốt PN-0005' })
+    expect(back[1].title).toBe('Phiếu ghi lùi ngày trước phiếu kiểm PK-0001 nên tồn hiện tại không đổi')
   })
 })

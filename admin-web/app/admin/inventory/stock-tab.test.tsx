@@ -10,7 +10,7 @@ vi.mock('@/lib/actions/inventory', () => ({
 }))
 
 const { ToastProvider } = await import('@/components/ui/toast')
-const { default: StockTab } = await import('./stock-tab')
+const { default: StockTab, deactivateDescription } = await import('./stock-tab')
 
 const row = (over: Partial<StockRow>): StockRow => ({
   id: 'a', name: 'Bia Hà Nội lon', unit: 'lon', kind: 'goods', sku: null, minStock: null, isActive: true, qty: 10,
@@ -85,5 +85,23 @@ describe('StockTab', () => {
   it('không có hàng: EmptyState "Chưa có hàng hoá nào"', () => {
     expect(render([])).toContain('Chưa có hàng hoá nào')
     expect(render([], false)).toContain('Chưa có hàng hoá nào')
+  })
+})
+
+describe('StockTab — đợt sửa cuối', () => {
+  it('thu ngân không thấy giá vốn, giá trị tồn, tổng giá trị (chỉ hậu cần thấy)', () => {
+    const rows = [row({ qty: 161, lastUnitCost: 11000, stockValue: 1776000 })]
+    const cashier = render(rows, false)
+    expect(cashier).toContain('>161<')
+    for (const s of ['Giá vốn', 'Giá trị', 'Tổng giá trị tồn', '1.776.000đ', '11.000đ']) expect(cashier, s).not.toContain(s)
+    const owner = render(rows, true)
+    for (const s of ['Giá vốn gần nhất', 'Giá trị tồn', 'Tổng giá trị tồn', '1.776.000đ', '11.000đ']) expect(owner, s).toContain(s)
+  })
+
+  it('ngừng dùng hàng còn tồn: nhắc kiểm về 0 trước (vẫn cho ngừng)', () => {
+    expect(deactivateDescription({ qty: 3.5, unit: 'kg' }))
+      .toBe('Còn tồn 3,5 kg — nên kiểm kho về 0 trước khi ngừng dùng. Hàng sẽ ẩn khỏi phiếu mới; món đang trừ kho hàng này sẽ thôi trừ.')
+    expect(deactivateDescription({ qty: -2, unit: 'lon' })).toContain('Còn tồn -2 lon')
+    expect(deactivateDescription({ qty: 0, unit: 'lon' })).toBe('Hàng sẽ ẩn khỏi phiếu mới; món đang trừ kho hàng này sẽ thôi trừ.')
   })
 })

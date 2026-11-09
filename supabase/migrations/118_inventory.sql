@@ -268,10 +268,11 @@ BEGIN
     IF NOT FOUND THEN
       RAISE EXCEPTION 'Không tìm thấy hàng hoá';
     END IF;
-    -- Đơn đã bán tra liên kết theo hàng goods; đổi sang nguyên liệu khi còn liên kết mở thì tồn hàng bán sai.
+    -- "Bán" (inventory_sales_lines) lọc theo loại HIỆN TẠI của hàng: đổi loại một hàng đã từng gắn món (kể cả liên kết
+    -- đã đóng) sẽ viết lại số bán / tồn / giá vốn quá khứ. Chặn hẳn — muốn đổi thì tạo hàng mới.
     IF v_row.kind <> p_kind AND EXISTS (
-      SELECT 1 FROM public.menu_stock_links l WHERE l.inventory_item_id = p_id AND l.valid_to IS NULL) THEN
-      RAISE EXCEPTION 'Hàng đang gắn với món — gỡ liên kết trước khi đổi loại';
+      SELECT 1 FROM public.menu_stock_links l WHERE l.inventory_item_id = p_id) THEN
+      RAISE EXCEPTION 'Hàng đã từng gắn món — không đổi loại được; tạo hàng mới';
     END IF;
   END IF;
 
@@ -1148,7 +1149,7 @@ BEGIN
      GROUP BY dl.inventory_item_id
   ),
   base AS (
-    SELECT i.id, i.name, i.unit, i.kind,
+    SELECT i.id, i.name, i.unit, i.kind, i.is_active,
            coalesce(op.qty, 0) AS open, coalesce(cl.qty, 0) AS close,
            coalesce(mv.rq, 0) AS rq, coalesce(mv.rv, 0)::numeric AS rv, coalesce(mv.wq, 0) AS wq,
            coalesce(mv.counted, false) AS counted,
@@ -1175,7 +1176,8 @@ BEGIN
     SELECT b.*,
            CASE WHEN b.kind = 'goods' THEN b.sold_qty
                 WHEN b.counted THEN b.open + b.rq - b.wq - b.close END AS qty_used,
-           CASE WHEN b.prior IS NULL THEN 0 ELSE b.open END AS qo
+           -- Tồn đầu âm (bán quá tồn) không có giá trị thật: chỉ phần dương mang giá đầu kỳ vào bình quân.
+           CASE WHEN b.prior IS NULL THEN 0 ELSE greatest(b.open, 0) END AS qo
       FROM base b
   ),
   -- Giá kỳ giữ dạng phân số up_num / up_den (không chia trước): tiền = round(SL × tử / mẫu). Chia trước rồi nhân
@@ -1203,6 +1205,9 @@ BEGIN
       FROM priced p
      -- Bỏ hàng không có gì trong kỳ (nguyên liệu chưa kiểm có biến động luôn có open/rq/wq ≠ 0 nên luôn còn).
      WHERE NOT (p.open = 0 AND p.rq = 0 AND p.wq = 0 AND coalesce(p.qty_used, 0) = 0 AND p.close = 0)
+       -- Hàng đã ngừng dùng mà không biến động trong kỳ: không dùng gì, không kiểm được nữa (phiếu kiểm chỉ nhận hàng
+       -- đang dùng) → bỏ, để nó không giữ ingredient_uncounted = true mãi.
+       AND NOT (NOT p.is_active AND p.rq = 0 AND p.wq = 0 AND p.sold_qty = 0 AND NOT p.counted)
   )
   SELECT coalesce(jsonb_agg(jsonb_build_object(
            'inventory_item_id', f.id, 'name', f.name, 'unit', f.unit, 'kind', f.kind,
