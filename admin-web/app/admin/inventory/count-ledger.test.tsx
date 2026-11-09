@@ -15,7 +15,7 @@ vi.mock('@/lib/actions/inventory', () => ({
 }))
 
 const { ToastProvider } = await import('@/components/ui/toast')
-const { default: CountForm, countBlocker } = await import('./count-form')
+const { default: CountForm, countBlocker, countSuccessTitle } = await import('./count-form')
 const { LedgerView } = await import('./ledger-dialog')
 const { default: InventoryTabs } = await import('./inventory-tabs')
 
@@ -90,8 +90,8 @@ describe('CountForm', () => {
     const one = html(<CountForm today="2026-11-09" items={items} onClose={vi.fn()} onSaved={vi.fn()}
       initial={{ counts: { thit: { counted: '0', cost: '' } } }} />)
     expect(saveButton(one)).not.toMatch(DISABLED) // đếm 0 là số hợp lệ
-    expect(countBlocker({})).toBe('Nhập số đếm ít nhất một hàng')
-    expect(countBlocker({ a: { counted: '  ', cost: '' } })).toBe('Nhập số đếm ít nhất một hàng')
+    expect(countBlocker({}, items)).toBe('Nhập số đếm ít nhất một hàng')
+    expect(countBlocker({ bia: { counted: '  ', cost: '' } }, items)).toBe('Nhập số đếm ít nhất một hàng')
   })
 })
 
@@ -155,5 +155,37 @@ describe('nối thẻ kho vào tab Tồn kho', () => {
   it('chủ quán thấy 4 tab, có tab Kiểm kho', () => {
     const markup = html(<InventoryTabs canEdit today="2026-11-09" initialStock={items} />)
     for (const label of ['Tồn kho', 'Nhập hàng', 'Kiểm kho', 'Xuất huỷ']) expect(markup).toContain(`>${label}<`)
+  })
+})
+
+describe('CountForm — sửa sau review Task 8', () => {
+  it('số đếm sai ở hàng đang bị lọc ẩn vẫn chặn Lưu và nêu tên hàng', () => {
+    const counts = { bia: { counted: '60', cost: '' }, thit: { counted: 'abc', cost: '' } }
+    expect(countBlocker(counts, items)).toBe('Số đếm không hợp lệ: Thịt ba chỉ')
+    const markup = html(<CountForm today="2026-11-09" items={items} onClose={vi.fn()} onSaved={vi.fn()}
+      initial={{ kind: 'goods', counts }} />)
+    expect(markup).not.toContain('id="inv-count-qty-thit"') // Thịt đang bị lọc ẩn
+    expect(saveButton(markup)).toMatch(DISABLED)
+    const footer = markup.slice(markup.indexOf('<footer'), markup.indexOf('</footer>'))
+    expect(footer).toContain('Số đếm không hợp lệ: Thịt ba chỉ')
+    // Nhiều hàng sai: nêu tối đa 3 tên rồi "…".
+    const many = Object.fromEntries(['a', 'b', 'c', 'd'].map((id) => [id, { counted: '-1', cost: '' }]))
+    const rows = ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id.toUpperCase() }))
+    expect(countBlocker(many, rows)).toBe('Số đếm không hợp lệ: A, B, C…')
+    // Hàng không còn trong danh sách đang dùng thì bỏ qua (không lưu, không chặn).
+    expect(countBlocker({ bia: { counted: '1', cost: '' }, gone: { counted: 'x', cost: '' } }, items)).toBeNull()
+  })
+
+  it('toast chốt phiếu không đưa con số "điều chỉnh N hàng" (server không trả số đó)', () => {
+    expect(countSuccessTitle('PK-0002')).toBe('Đã chốt PK-0002')
+  })
+
+  it('kiểm đầu kỳ trên mobile: Máy | Đếm một hàng 2 cột, Giá vốn một dòng riêng', () => {
+    const markup = html(<CountForm today="2026-11-09" items={items} onClose={vi.fn()} onSaved={vi.fn()}
+      initial={{ withCost: true }} />)
+    expect(markup).not.toContain('grid-cols-3')
+    const costWrap = markup.slice(markup.lastIndexOf('<div', markup.indexOf('for="inv-count-cost-bia"')), markup.indexOf('for="inv-count-cost-bia"'))
+    expect(costWrap).toMatch(/\bcol-span-2\b/)
+    expect(costWrap).toMatch(/\bmd:col-auto\b/)
   })
 })
