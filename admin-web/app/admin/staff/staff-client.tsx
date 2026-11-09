@@ -127,6 +127,7 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
             <option value="all">Mọi vai trò</option>
             <option value="store_staff">{ROLE_LABEL.store_staff}</option>
             <option value="store_cashier">{ROLE_LABEL.store_cashier}</option>
+            <option value="store_manager">{ROLE_LABEL.store_manager}</option>
           </select>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} aria-label="Lọc trạng thái" className={fieldClass}>
             <option value="all">Mọi trạng thái</option>
@@ -187,7 +188,7 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
                       )}
                     </td>
                     <td className="md:px-4 md:py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.role === 'store_cashier' ? 'bg-orange-50 text-orange-700' : 'bg-secondary text-muted'}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.role === 'store_manager' ? 'bg-orange-600 text-white' : s.role === 'store_cashier' ? 'bg-orange-50 text-orange-700' : 'bg-secondary text-muted'}`}>
                         {ROLE_LABEL[s.role]}
                       </span>
                     </td>
@@ -319,9 +320,10 @@ function AddDialog({ created, error, busy, onSubmit, onClose }: {
         <select name="role" defaultValue="store_staff" className={inputClass}>
           <option value="store_staff">{ROLE_LABEL.store_staff}</option>
           <option value="store_cashier">{ROLE_LABEL.store_cashier}</option>
+          <option value="store_manager">{ROLE_LABEL.store_manager}</option>
         </select>
       </label>
-      <p className="text-xs text-muted">Phục vụ: đặt món hộ khách. Thu ngân: thu tiền, bỏ/tặng món, xem báo cáo ngày.</p>
+      <p className="text-xs text-muted">Phục vụ: đặt món hộ khách. Thu ngân: thu tiền, bỏ/tặng món, xem báo cáo ngày. Quản lý: việc của thu ngân, cộng kho, thu chi, công nợ, báo cáo tài chính.</p>
       <div className="flex gap-2">
         <button type="button" onClick={onClose} className="min-h-10 flex-1 rounded-lg border border-border-strong font-bold">Huỷ</button>
         <button type="submit" disabled={busy} className="min-h-10 flex-1 rounded-lg bg-primary font-bold text-white hover:bg-primary-hover disabled:opacity-50">
@@ -403,17 +405,20 @@ function EditDialog({ staff, error, busy, onSubmit, onClose }: {
         <select name="role" value={role} onChange={(e) => setRole(e.target.value as StaffMember['role'])} className={inputClass}>
           <option value="store_staff">{ROLE_LABEL.store_staff}</option>
           <option value="store_cashier">{ROLE_LABEL.store_cashier}</option>
+          <option value="store_manager">{ROLE_LABEL.store_manager}</option>
         </select>
       </label>
       {roleChanged ? (
         <p className="rounded-lg bg-warning-bg p-3 text-xs text-warning">
-          {role === 'store_cashier'
-            ? 'Người này sẽ thu tiền, bỏ/tặng món và xem doanh thu.'
-            : 'Người này sẽ không thu tiền được nữa.'}
+          {role === 'store_manager'
+            ? 'Người này sẽ làm mọi việc của thu ngân, cộng kho, thu chi, công nợ và xem lãi lỗ.'
+            : role === 'store_cashier'
+              ? 'Người này sẽ thu tiền, bỏ/tặng món và xem doanh thu.'
+              : 'Người này sẽ không thu tiền được nữa.'}
           {' '}Có hiệu lực từ lần tải trang kế tiếp của họ.
         </p>
       ) : (
-        <p className="text-xs text-muted">Phục vụ: đặt món hộ khách. Thu ngân: thu tiền, bỏ/tặng món, xem báo cáo ngày.</p>
+        <p className="text-xs text-muted">Phục vụ: đặt món hộ khách. Thu ngân: thu tiền, bỏ/tặng món, xem báo cáo ngày. Quản lý: việc của thu ngân, cộng kho, thu chi, công nợ, báo cáo tài chính.</p>
       )}
       <div className="flex gap-2">
         <button type="button" onClick={onClose} className="min-h-10 flex-1 rounded-lg border border-border-strong font-bold">Huỷ</button>

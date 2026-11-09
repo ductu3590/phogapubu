@@ -2,15 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { resetOperatorPassword, type AccountGroup, type OperatorAccount } from '@/lib/actions/mevo-accounts'
-
-const ROLE_LABEL: Record<OperatorAccount['role'], string> = {
-  mevo_superadmin: 'MEVO superadmin',
-  store_owner: 'Chủ quán',
-  store_staff: 'Nhân viên',
-  store_cashier: 'Thu ngân',
-  store_manager: 'Quản lý',
-}
+import { resetOperatorPassword, type AccountGroup } from '@/lib/actions/mevo-accounts'
+import { ROLE_LABEL } from '@/lib/auth/roles'
 
 export default function AccountsClient({ groups }: { groups: AccountGroup[] }) {
   const router = useRouter()

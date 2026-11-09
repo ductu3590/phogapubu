@@ -140,6 +140,7 @@ export default function PosClient({
   initialSessions,
   canArrange,
   operatorEmail,
+  operatorRoleLabel,
   initialError,
   initialRequests,
   initialRequestError,
@@ -166,6 +167,8 @@ export default function PosClient({
   canArrange: boolean
   /** Email người đang đăng nhập — hiện cạnh nhãn "Chủ quán" / "Thu ngân". */
   operatorEmail: string | null
+  /** Nhãn vai đang đăng nhập (ROLE_LABEL): Chủ quán / Thu ngân / Quản lý. Thiếu thì suy từ canArrange như cũ. */
+  operatorRoleLabel?: string
   initialError: string | null
   initialRequests: ServiceRequestRow[]
   initialRequestError: string | null
@@ -957,7 +960,7 @@ export default function PosClient({
                   title={operatorEmail ?? undefined}
                 >
                   <UserRound className="size-3.5 shrink-0" aria-hidden />
-                  {canArrange ? 'Chủ quán' : 'Thu ngân'}
+                  {operatorRoleLabel ?? (canArrange ? 'Chủ quán' : 'Thu ngân')}
                   {operatorEmail && <span className="hidden truncate font-normal text-slate-300 lg:inline">· {operatorEmail}</span>}
                 </span>
               </div>

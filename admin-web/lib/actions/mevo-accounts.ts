@@ -2,13 +2,14 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireSuperadmin } from '@/lib/auth/operator'
+import type { OperatorRole } from '@/lib/auth/roles'
 import { listAllAuthUsers } from '@/lib/supabase/auth-users'
 import { revalidatePath } from 'next/cache'
 
 export type OperatorAccount = {
   userId: string
   email: string
-  role: 'mevo_superadmin' | 'store_owner' | 'store_staff' | 'store_cashier' | 'store_manager'
+  role: OperatorRole
   isActive: boolean
   lastSignInText: string
   isSelf: boolean

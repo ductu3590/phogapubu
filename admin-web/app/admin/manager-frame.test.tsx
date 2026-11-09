@@ -46,7 +46,22 @@ vi.mock('@/components/ui/icon-rail-shell', () => ({
   ),
 }))
 
+// Trang POS: chỉ cần biết nhãn vai đưa xuống PosClient (thay PosClient bằng thẻ đánh dấu).
+vi.mock('./pos/pos-client', () => ({
+  default: ({ operatorRoleLabel, canArrange }: { operatorRoleLabel: string; canArrange: boolean }) => (
+    <i data-role-label={operatorRoleLabel} data-can-arrange={String(canArrange)} />
+  ),
+}))
+vi.mock('@/components/ui/toast', () => ({ ToastProvider: ({ children }: { children: ReactNode }) => <>{children}</> }))
+vi.mock('@/lib/actions/table-session', () => ({ listOpenTableSessions: async () => ({ ok: true, sessions: [] }) }))
+vi.mock('@/lib/actions/floor-layout', () => ({ loadFloorLayout: async () => ({ ok: true, snapshot: null }) }))
+vi.mock('@/lib/actions/service-requests', () => ({ listOpenServiceRequests: async () => ({ ok: true, requests: [] }) }))
+vi.mock('@/lib/actions/reservations', () => ({ listReservationQueue: async () => null }))
+vi.mock('@/lib/actions/reservation-preorders', () => ({ listReservationPreorderQueue: async () => null }))
+vi.mock('@/lib/actions/reservation-customer-calls', () => ({ listReservationCustomerCalls: async () => null }))
+
 const ConfigModal = (await import('./config-modal')).default
+const PosPage = (await import('./pos/page')).default
 const MenuPage = (await import('./menu/page')).default
 const AdminLayout = (await import('./layout')).default
 
@@ -83,5 +98,18 @@ describe('khung /admin theo vai', () => {
     html = await render()
     expect(html).toContain('data-subtitle="MEVO · Chủ quán"')
     expect(html).toContain('data-bottom="/admin/settings"')
+  })
+})
+
+describe('POS: nhãn vai trên thanh trên', () => {
+  it('quản lý thấy "Quản lý" (không phải "Thu ngân"), không sắp xếp sơ đồ; chủ quán / thu ngân giữ nhãn cũ', async () => {
+    for (const [role, label, arrange] of [
+      ['store_manager', 'Quản lý', 'false'], ['store_cashier', 'Thu ngân', 'false'], ['store_owner', 'Chủ quán', 'true'],
+    ]) {
+      as(role)
+      const html = renderToStaticMarkup(await PosPage())
+      expect(html, role).toContain(`data-role-label="${label}"`)
+      expect(html, role).toContain(`data-can-arrange="${arrange}"`)
+    }
   })
 })
