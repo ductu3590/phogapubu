@@ -89,6 +89,32 @@ test('gọi lại cùng mã: trả kết quả cũ, không tạo khoản thứ h
   await assert.rejects(collect([other], [cash(1000)], null, id), /đã dùng cho bill khác/)
 })
 
+test('cùng mã, hai nhóm phiên khác nhau, chạy song song: máy sau vấp UNIQUE → lỗi tiếng Việt, không ghi gì', async () => {
+  // PGlite một kết nối nên không chạy song song thật. Giả lập: máy kia commit khoản thu cùng mã đúng lúc
+  // máy này đã qua bước 4 (tra mã) — trigger chèn trước một dòng trùng (store_id, client_request_id).
+  await h.db.exec(`
+    CREATE FUNCTION pg_temp.race_dup() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      IF pg_trigger_depth() = 1 THEN
+        INSERT INTO public.bill_payments (store_id, client_request_id, total_amount, source)
+        VALUES (NEW.store_id, NEW.client_request_id, 0, 'pos');
+      END IF;
+      RETURN NEW;
+    END $$;
+    CREATE TRIGGER race_dup BEFORE INSERT ON public.bill_payments FOR EACH ROW EXECUTE FUNCTION pg_temp.race_dup();
+  `)
+  try {
+    const s = await session(); await order(s, 1000)
+    await assert.rejects(collect([s], [cash(1000)], null, rid()), (e) => {
+      assert.match(e.message, /^Mã thu tiền đã dùng cho bill khác$/)
+      return true
+    })
+  } finally {
+    await h.db.exec('DROP TRIGGER race_dup ON public.bill_payments')
+  }
+  assert.equal(await count('bill_payments'), 0)
+})
+
 test('hai máy: một mâm đã thu thì không thu nửa nhóm; thu hết rồi thì báo already', async () => {
   const a = await session(); await order(a, 1000); const b = await session(); await order(b, 2000)
   await collect([a], [cash(1000)], null, rid())
@@ -215,7 +241,11 @@ test('mig 112a: cấu trúc file — bọc transaction, neo từ prod, INSERT bi
   // close_table_session không đổi ở mig này (chuỗi neo $a$...$a$ không tính: nó không đứng đầu dòng)
   assert.doesNotMatch(sql, /^CREATE OR REPLACE FUNCTION public\.close_table_sessions?\(/m)
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.close_table_session_core\(uuid, ?text, ?text, ?uuid\) FROM PUBLIC, anon, authenticated;/)
-  const body = sql.slice(sql.indexOf('FUNCTION public.collect_table_bill'))
+  // Chỉ thân collect_table_bill: dừng ở $function$; của chính nó, khối nối thêm sau không ảnh hưởng.
+  const start = sql.indexOf('CREATE OR REPLACE FUNCTION public.collect_table_bill(')
+  const end = sql.indexOf('$function$;', start)
+  assert.ok(start > 0 && end > start)
+  const body = sql.slice(start, end)
   const ins = body.match(/INSERT INTO public\.bill_payments \(([^)\n]*)\)\n\s*VALUES \(([^\n]*)\)/)
   assert.ok(ins, 'INSERT INTO public.bill_payments (...) VALUES (...) phải nằm gọn: cột một dòng, giá trị một dòng')
   const cols = ins[1].split(',').map((c) => c.trim())

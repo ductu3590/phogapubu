@@ -147,7 +147,7 @@ export async function openCollectDb({ lock = false, businessDay = BUSINESS_DAY_S
     await db.exec(await readFile(url(`../prod-defs/112/${name}.sql`), 'utf8'))
   }
   await db.exec(await readFile(url('../../migrations/112a_collect_table_bill.sql'), 'utf8'))
-  if (lock) await db.exec(await readFile(url('../../migrations/112b_lock_old_payment_paths.sql'), 'utf8'))
+  if (lock) await db.exec(await readFile(url('../../migrations/112b_lock_old_paid_path.sql'), 'utf8'))
 
   const rid = () => randomUUID()
 

@@ -28,7 +28,8 @@ CREATE TABLE public.bill_payments (
   collected_by uuid,             -- NULL khi bếp xác nhận: token bếp không có auth.uid()
   collected_at timestamptz NOT NULL DEFAULT now(),
   source text NOT NULL CHECK (source IN ('pos','staff','a04','manual_order','kitchen')),
-  UNIQUE (store_id, client_request_id),
+  -- Tên ràng buộc cố định: collect_table_bill bắt unique_violation theo tên này.
+  CONSTRAINT bill_payments_store_id_client_request_id_key UNIQUE (store_id, client_request_id),
   UNIQUE (id, store_id)
 );
 
@@ -173,6 +174,7 @@ DECLARE
   v_res jsonb;
   v_settled integer := 0;
   v_due bigint;
+  v_constraint text;
 BEGIN
   -- 1. Tham số bắt buộc
   IF p_client_request_id IS NULL THEN
@@ -295,9 +297,19 @@ BEGIN
 
   -- 9. Ghi khoản thu. ⚠️ Mig ca làm việc (cash shift) vá tại chỗ câu INSERT này: giữ cột một dòng, giá trị một dòng,
   --    cash_shift_id là chữ NULL, và câu này phải đứng SAU mọi nhánh trả 'already'.
-  INSERT INTO public.bill_payments (store_id, cash_shift_id, client_request_id, total_amount, cash_given, change_amount, collected_by, source)
-  VALUES (v_store, NULL, p_client_request_id, v_sum, p_cash_given, v_change, v_uid, 'pos')
-  RETURNING id INTO v_payment_id;
+  -- Hai máy dùng chung một mã cho HAI nhóm phiên khác nhau: khoá phiên không chặn nhau, cả hai cùng
+  -- lọt qua bước 4 → máy sau vấp UNIQUE (store_id, client_request_id). Đổi lỗi đó sang tiếng Việt.
+  BEGIN
+    INSERT INTO public.bill_payments (store_id, cash_shift_id, client_request_id, total_amount, cash_given, change_amount, collected_by, source)
+    VALUES (v_store, NULL, p_client_request_id, v_sum, p_cash_given, v_change, v_uid, 'pos')
+    RETURNING id INTO v_payment_id;
+  EXCEPTION WHEN unique_violation THEN
+    GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
+    IF v_constraint = 'bill_payments_store_id_client_request_id_key' THEN
+      RAISE EXCEPTION 'Mã thu tiền đã dùng cho bill khác';
+    END IF;
+    RAISE;
+  END;
 
   INSERT INTO public.bill_payment_lines (payment_id, instrument, amount)
   SELECT v_payment_id, l.instrument, l.amount
