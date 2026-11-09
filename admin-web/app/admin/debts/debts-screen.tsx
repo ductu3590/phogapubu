@@ -29,7 +29,7 @@ export default async function DebtsScreen({ searchParams, inModal }: {
           </header>
         )}
         {list.ok ? (
-          <DebtsView customers={list.customers} canManage={canManage} initialCustomerId={initialCustomerId} inModal={inModal} />
+          <DebtsView customers={list.customers} canManage={canManage} initialCustomerId={initialCustomerId} />
         ) : (
           <ErrorState title="Không tải được công nợ" reason={list.error} />
         )}

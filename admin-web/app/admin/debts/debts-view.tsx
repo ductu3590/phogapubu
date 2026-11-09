@@ -33,8 +33,6 @@ export default function DebtsView({ customers, canManage, initialCustomerId }: {
   customers: DebtCustomerSummary[]
   canManage: boolean
   initialCustomerId: string | null
-  /** Trong hộp thoại đè POS hay trang đầy đủ (hiện chưa khác nhau; giữ cho đồng bộ các màn A04 / Thu chi). */
-  inModal: boolean
 }) {
   const router = useRouter()
   const [init] = useState(() => initialDebtsState(customers, initialCustomerId))

@@ -338,7 +338,8 @@ export default function DebtCustomerDrawer({ customer, canManage, onClose }: {
 
   return (
     <>
-      <Dialog open onClose={onClose} placement="side" className="md:w-[520px]" title={customer.name}
+      {/* Đang ghi (huỷ / ngừng / dùng lại): không cho đóng ngăn kéo giữa chừng — kết quả + lỗi phải hiện ra được. */}
+      <Dialog open onClose={() => { if (!busy) onClose() }} dismissible={!busy} placement="side" className="md:w-[520px]" title={customer.name}
         description={customer.phone ?? debtKindLabel(customer.kind)}>
         {notice ? <p role="status" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{notice}</p> : null}
         {error ? (

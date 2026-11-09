@@ -23,7 +23,7 @@ const list = [
   c({ id: Z, name: 'Chị Hết Nợ', phone: '0933333333', kind: 'person', outstanding: 0, openBills: 0, oldestOpenAt: null }),
 ]
 const view = (over: Partial<Parameters<typeof DebtsView>[0]> = {}) => renderToStaticMarkup(
-  <DebtsView customers={list} canManage={false} initialCustomerId={null} inModal={false} {...over} />)
+  <DebtsView customers={list} canManage={false} initialCustomerId={null} {...over} />)
 
 describe('DebtsView', () => {
   it('thẻ tổng: tổng đang nợ, số khách nợ', () => {
