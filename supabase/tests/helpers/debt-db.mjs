@@ -74,16 +74,18 @@ async function extend(base, withDebt) {
     }
   }
 
-  // Gọi RPC theo tham số tên dưới role authenticated, auth.uid() = uid. Object / mảng object → jsonb (chuỗi JSON).
-  async function rpc(uid, name, args = {}) {
-    const keys = Object.keys(args)
+  // Gọi RPC dưới role authenticated, auth.uid() = uid. args là mảng (tham số vị trí) hoặc object (tham số tên).
+  // Giá trị object / mảng object → chuỗi JSON (jsonb); chuỗi JSON truyền sẵn thì giữ nguyên.
+  async function rpc(uid, name, args = []) {
+    const positional = Array.isArray(args)
+    const keys = positional ? args.map((_, i) => i) : Object.keys(args)
     const params = keys.map((k) => {
       const v = args[k]
       const isJson = (v !== null && typeof v === 'object' && !Array.isArray(v))
         || (Array.isArray(v) && v.some((x) => x !== null && typeof x === 'object'))
       return isJson ? JSON.stringify(v) : v
     })
-    const call = keys.map((k, i) => `${k} => $${i + 1}`).join(', ')
+    const call = keys.map((k, i) => (positional ? `$${i + 1}` : `${k} => $${i + 1}`)).join(', ')
     await login(uid)
     try {
       return (await db.query(`SELECT public.${name}(${call}) AS r`, params)).rows[0].r
@@ -102,11 +104,13 @@ async function extend(base, withDebt) {
       VALUES ($1, 'open', $2, $3) RETURNING id`, [ids.store, uid, opening])).id
   }
 
-  // Đóng ca bằng tay (bỏ qua RPC): CHECK cash_shifts_closed_numbers bắt đủ số đếm.
+  // Đóng ca bằng tay (bỏ qua RPC): CHECK cash_shifts_closed_numbers bắt đủ số đếm. Số test đã đặt sẵn (vd.
+  // expected_cash) thì giữ nguyên.
   async function closeShiftRow(id) {
     await db.exec('RESET ROLE')
     await db.query(`UPDATE cash_shifts SET status = 'closed', closed_at = now(), closed_by = $2,
-        counted_cash = 0, expected_cash = 0, difference = 0 WHERE id = $1`, [id, ids.cashier])
+        counted_cash = COALESCE(counted_cash, 0), expected_cash = COALESCE(expected_cash, 0),
+        difference = COALESCE(difference, 0) WHERE id = $1`, [id, ids.cashier])
   }
 
   async function outstanding(customerId) {

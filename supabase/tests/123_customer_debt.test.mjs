@@ -6,7 +6,10 @@ import assert from 'node:assert/strict'
 import { openDebtDb } from './helpers/debt-db.mjs'
 
 const h = await openDebtDb()
-const { db, ids, reset, login, session, order, rid, one, count, debt, customer, collectDebtBill, outstanding } = h
+const {
+  db, ids, reset, login, session, order, collect, rid, one, count, debt, customer, collectDebtBill, outstanding,
+  rpc, enableShift, openShift, closeShiftRow,
+} = h
 after(async () => db.close())
 
 const cash = (amount) => ({ instrument: 'cash', amount })
@@ -208,4 +211,210 @@ test('CHECK: phương tiện lạ vẫn bị chặn ở bảng; khách quán kh�
   await db.exec('RESET ROLE')
   await assert.rejects(db.query("INSERT INTO bill_payment_lines(payment_id, instrument, amount) VALUES ($1, 'momo', 1)", [p]), /bill_payment_lines_instrument_check/)
   await assert.rejects(db.query('UPDATE bill_payments SET debt_customer_id = $1 WHERE id = $2', [c, p]), /foreign key/)
+})
+
+// ============================================================
+// Task 2: RPC thu nợ, huỷ, đọc, khách; két ca
+// ============================================================
+
+// Ba bill nợ của một khách, giờ thu cố định để thứ tự cũ nhất rõ ràng
+async function threeBills(c) {
+  const out = []
+  for (const [amount, at] of [[200000, '2026-11-01 19:00+07'], [300000, '2026-11-02 19:00+07'], [150000, '2026-11-03 19:00+07']]) {
+    const s = await session(); await order(s, amount)
+    const r = await collectDebtBill([s], [debt(amount)], null, rid(), { customerId: c })
+    await db.query('UPDATE bill_payments SET collected_at = $2 WHERE id = $1', [r.payment_id, at])
+    out.push(r.payment_id)
+  }
+  return out
+}
+const pay = (c, amount, method = 'cash', allocations = null, id = rid(), uid = ids.cashier) =>
+  rpc(uid, 'debt_collect', [c, amount, method, allocations && JSON.stringify(allocations), null, id])
+
+test('trả nợ phân bổ bill cũ nhất trước; trả đúng hết; trả quá lỗi', async () => {
+  const c = await customer(); const [b1, b2, b3] = await threeBills(c)
+  const r = await pay(c, 350000)
+  assert.deepEqual(r.allocations, [{ bill_payment_id: b1, amount: 200000 }, { bill_payment_id: b2, amount: 150000 }])
+  assert.equal(r.remaining_debt, 300000)
+  await assert.rejects(pay(c, 300001), /Số tiền trả vượt số nợ: còn nợ 300\.000đ/)
+  assert.equal((await pay(c, 300000)).remaining_debt, 0)
+  await assert.rejects(pay(c, 1), /vượt số nợ/)
+  assert.equal(await count('debt_payments'), 2)
+  assert.ok(b3)
+})
+
+test('chọn bill cụ thể: chỉ phân bổ vào bill được tick', async () => {
+  const c = await customer(); const [b1, , b3] = await threeBills(c)
+  await assert.rejects(pay(c, 200000, 'bank', [b3]), /còn nợ 150\.000đ/)
+  const r = await pay(c, 150000, 'bank', [b3])
+  assert.deepEqual(r.allocations, [{ bill_payment_id: b3, amount: 150000 }])
+  const d = await rpc(ids.cashier, 'debt_customer_detail', [c])
+  assert.equal(d.bills.find((b) => b.bill_payment_id === b1).outstanding, 200000)
+  const other = await customer({ phone: '0911111111' }); const [x] = await threeBills(other)
+  await assert.rejects(pay(c, 1000, 'cash', [x]), /Bill không thuộc khách này hoặc đã trả hết/)
+})
+
+test('đầu vào xấu', async () => {
+  const c = await customer(); await threeBills(c)
+  for (const a of [0, -5, 2000000001]) await assert.rejects(pay(c, a), /Số tiền không hợp lệ/)
+  await assert.rejects(pay(c, 1000, 'wallet'), /Phương thức không hợp lệ/)
+  await assert.rejects(rpc(ids.cashier, 'debt_collect', [c, 1000, 'cash', null, null, null]), /Thiếu mã chống thu trùng/)
+})
+
+test('gọi lại cùng mã: trả kết quả cũ; cùng mã khác số tiền thì lỗi', async () => {
+  const c = await customer(); await threeBills(c); const id = rid()
+  const a = await pay(c, 100000, 'cash', null, id); const b = await pay(c, 100000, 'cash', null, id)
+  assert.deepEqual([b.already, b.debt_payment_id, b.allocations], [true, a.debt_payment_id, a.allocations])
+  await assert.rejects(pay(c, 90000, 'cash', null, id), /Mã thu nợ đã dùng cho lần thu khác/)
+  assert.equal(await count('debt_payments'), 1)
+})
+
+test('hai máy cùng thu nợ: máy sau thấy số đã giảm; hàm khoá khách trước khi tính', async () => {
+  const c = await customer(); await threeBills(c)
+  await pay(c, 600000, 'cash', null, rid(), ids.manager)
+  await assert.rejects(pay(c, 100000), /còn nợ 50\.000đ/)
+  const { def } = await one("SELECT pg_get_functiondef('public.debt_collect(uuid,bigint,text,jsonb,text,uuid)'::regprocedure) def")
+  assert.match(def, /FROM public\.debt_customers[^;]*FOR UPDATE/i)
+})
+
+test('két: bật ca không có ca thì TM lỗi, CK được; có ca thì két tăng đúng', async () => {
+  const c = await customer(); await threeBills(c); await enableShift()
+  await assert.rejects(pay(c, 50000, 'cash'), /Chưa mở ca/)
+  assert.equal((await pay(c, 50000, 'bank')).ok, true)
+  const shift = await openShift(500000)
+  const s = await session(); await order(s, 100000)
+  await collect([s], [cash(100000)], null, rid())               // 100.000 TM bán hàng
+  await pay(c, 250000, 'cash'); await pay(c, 100000, 'bank')
+  const t = (await one('SELECT public.cash_shift_totals($1) v', [shift])).v
+  assert.deepEqual([t.debt_cash, t.expected_cash], [250000, 850000]) // 500k + 100k + 250k
+  const sum = await rpc(ids.cashier, 'get_debt_shift_summary', [shift])
+  assert.deepEqual([sum.debt_cash, sum.debt_bank, sum.debt_recorded], [250000, 100000, 0])
+})
+
+test('get_debt_shift_summary: ghi nợ trong ca; quyền xem ca', async () => {
+  await enableShift(); const shift = await openShift(0)
+  const c = await customer(); const s = await session(); await order(s, 400000)
+  await collectDebtBill([s], [cash(100000), debt(300000)], null, rid(), { customerId: c })
+  assert.equal((await rpc(ids.manager, 'get_debt_shift_summary', [shift])).debt_recorded, 300000)
+  await assert.rejects(rpc(ids.otherOwner, 'get_debt_shift_summary', [shift]), /Không có quyền xem ca này/)
+})
+
+test('huỷ lần trả nợ: nợ bill khôi phục; lý do bắt buộc; thu ngân không huỷ được; lần hai already', async () => {
+  const c = await customer(); await threeBills(c)
+  const r = await pay(c, 350000, 'bank')
+  await assert.rejects(rpc(ids.owner, 'debt_payment_void', [r.debt_payment_id, '  ']), /Nhập lý do huỷ/)
+  await assert.rejects(rpc(ids.cashier, 'debt_payment_void', [r.debt_payment_id, 'nhầm']), /Chỉ chủ quán hoặc quản lý/)
+  assert.equal((await rpc(ids.manager, 'debt_payment_void', [r.debt_payment_id, 'nhầm khách'])).already, false)
+  assert.equal((await rpc(ids.manager, 'debt_payment_void', [r.debt_payment_id, 'nhầm khách'])).already, true)
+  assert.equal(await outstanding(c), 650000)
+})
+
+test('lần trả đã huỷ coi như chưa từng có ở mọi chỗ đọc', async () => {
+  const c = await customer(); await threeBills(c); await enableShift(); const shift = await openShift(0)
+  const r = await pay(c, 200000, 'cash')
+  await rpc(ids.owner, 'debt_payment_void', [r.debt_payment_id, 'nhầm'])
+  const d = await rpc(ids.cashier, 'debt_customer_detail', [c])
+  assert.deepEqual(d.bills.map((b) => b.paid_amount), [0, 0, 0])
+  assert.equal(d.payments[0].voided_at !== null, true)          // vẫn hiện trong lịch sử
+  const row = (await rpc(ids.cashier, 'debt_list', [ids.store, true])).customers[0]
+  assert.deepEqual([row.outstanding, row.last_payment_at], [650000, null])
+  assert.equal((await one('SELECT public.cash_shift_totals($1) v', [shift])).v.debt_cash, 0)
+  assert.equal((await rpc(ids.cashier, 'get_debt_shift_summary', [shift])).debt_cash, 0)
+  // trả lại sau khi huỷ: phân bổ lại từ bill cũ nhất như chưa có lần huỷ
+  assert.deepEqual((await pay(c, 200000, 'cash')).allocations.map((a) => a.amount), [200000])
+})
+
+test('huỷ lần trả TM: ca còn mở thì được, két giảm; ca đã kết thì lỗi, két đã lưu không đổi', async () => {
+  const c = await customer(); await threeBills(c); await enableShift(); const shift = await openShift(0)
+  const a = await pay(c, 100000, 'cash'); const b = await pay(c, 50000, 'cash')
+  await rpc(ids.owner, 'debt_payment_void', [a.debt_payment_id, 'đếm nhầm'])
+  assert.equal((await one('SELECT public.cash_shift_totals($1) v', [shift])).v.debt_cash, 50000)
+  await db.query('UPDATE cash_shifts SET expected_cash = 50000 WHERE id = $1', [shift]); await closeShiftRow(shift)
+  await assert.rejects(rpc(ids.owner, 'debt_payment_void', [b.debt_payment_id, 'x']), /Ca của lần thu này đã kết/)
+  assert.equal(Number((await one('SELECT expected_cash FROM cash_shifts WHERE id = $1', [shift])).expected_cash), 50000)
+})
+
+test('khách: thu ngân không sửa được; ngừng khách còn nợ bị chặn; trả hết thì ngừng được', async () => {
+  const c = await customer(); const s = await session(); await order(s, 90000)
+  await collectDebtBill([s], [debt(90000)], null, rid(), { customerId: c })
+  await assert.rejects(rpc(ids.cashier, 'debt_customer_upsert', [ids.store, c, 'Đổi', null, 'company', null]), /Chỉ chủ quán hoặc quản lý/)
+  assert.equal((await rpc(ids.manager, 'debt_customer_upsert', [ids.store, c, 'Cty Hoà Bình mới', '0901 222 333', 'company', 'kế toán chị Lan'])).customer_id, c)
+  await assert.rejects(rpc(ids.owner, 'debt_customer_set_active', [c, false]), /Khách còn nợ 90\.000đ, không ngừng được/)
+  await pay(c, 90000)
+  assert.equal((await rpc(ids.owner, 'debt_customer_set_active', [c, false])).is_active, false)
+})
+
+test('debt_list và detail: đúng số, lọc còn nợ, tên người thu', async () => {
+  const c = await customer(); await threeBills(c); await customer({ name: 'Không nợ', phone: '0933333333' })
+  await pay(c, 200000)
+  const all = await rpc(ids.cashier, 'debt_list', [ids.store, false])
+  const open = await rpc(ids.cashier, 'debt_list', [ids.store, true])
+  assert.equal(all.customers.length, 2); assert.equal(open.customers.length, 1)
+  const row = open.customers[0]
+  assert.deepEqual([row.outstanding, row.open_bills], [450000, 2])
+  const d = await rpc(ids.cashier, 'debt_customer_detail', [c])
+  assert.deepEqual(d.bills.map((b) => b.outstanding), [0, 300000, 150000])
+  assert.equal(d.payments.length, 1); assert.ok(d.payments[0].created_by_name)
+})
+
+test('quyền + cách ly quán ở mọi RPC công nợ', async () => {
+  const c = await customer(); await threeBills(c)
+  for (const uid of [ids.staff, ids.otherOwner]) {
+    await assert.rejects(pay(c, 1000, 'cash', null, rid(), uid), /Chỉ chủ quán, quản lý hoặc thu ngân/)
+    await assert.rejects(rpc(uid, 'debt_customer_detail', [c]), /Chỉ chủ quán, quản lý hoặc thu ngân/)
+    await assert.rejects(rpc(uid, 'debt_list', [ids.store, false]), /Chỉ chủ quán, quản lý hoặc thu ngân/)
+  }
+  const can = async (fn) => (await one("SELECT has_function_privilege('anon', $1, 'EXECUTE') v", [fn])).v
+  for (const fn of ['debt_customer_upsert(uuid,uuid,text,text,text,text)', 'debt_customer_set_active(uuid,boolean)',
+    'debt_collect(uuid,bigint,text,jsonb,text,uuid)', 'debt_payment_void(uuid,text)', 'debt_list(uuid,boolean)',
+    'debt_customer_detail(uuid)', 'get_debt_shift_summary(uuid)']) assert.equal(await can(fn), false)
+})
+
+// ---- Thêm ngoài plan (Task 2) ----
+
+test('debt_customer_upsert: tạo mới, SĐT trùng khách khác, khách quán khác, sửa giữ SĐT của chính mình', async () => {
+  const a = (await rpc(ids.owner, 'debt_customer_upsert', [ids.store, null, '  Anh Tùng ', '+84 977 000 111', null, null])).customer_id
+  const row = await one('SELECT name, phone, kind, created_by FROM debt_customers WHERE id = $1', [a])
+  assert.deepEqual(Object.values(row), ['Anh Tùng', '0977000111', 'person', ids.owner])
+  const b = await customer({ name: 'Chị Mai', phone: '0977000222' })
+  await assert.rejects(rpc(ids.owner, 'debt_customer_upsert', [ids.store, b, 'Chị Mai', '0977 000 111', 'person', null]),
+    /SĐT 0977000111 đã có khách Anh Tùng, chọn khách đó/)
+  assert.equal((await rpc(ids.owner, 'debt_customer_upsert', [ids.store, a, 'Anh Tùng', '0977000111', 'person', 'quen'])).customer_id, a)
+  const foreign = await customer({ store: ids.otherStore, phone: '0977000333' })
+  await assert.rejects(rpc(ids.owner, 'debt_customer_upsert', [ids.store, foreign, 'X', null, null, null]), /Không tìm thấy khách nợ/)
+  await assert.rejects(rpc(ids.owner, 'debt_customer_upsert', [ids.otherStore, null, 'X', null, null, null]), /Chỉ chủ quán hoặc quản lý/)
+  await assert.rejects(rpc(ids.owner, 'debt_customer_upsert', [ids.store, a, 'Anh Tùng', null, 'person', 'x'.repeat(501)]), /Ghi chú quá dài/)
+})
+
+test('debt_collect: ca CK gắn ca đang mở nếu có; business_date = ngày kinh doanh lúc ghi; ghi chú dài lỗi', async () => {
+  const c = await customer(); await threeBills(c)
+  const shift = await openShift(0)                     // ca mở nhưng quán không bật công tắc
+  await pay(c, 10000, 'bank')
+  const p = await one('SELECT cash_shift_id, business_date::text AS d, (business_date = public.business_date_of(store_id, created_at)) AS ok FROM debt_payments')
+  assert.deepEqual([p.cash_shift_id, p.ok], [shift, true])
+  await assert.rejects(rpc(ids.cashier, 'debt_collect', [c, 1000, 'cash', null, 'x'.repeat(501), rid()]), /Ghi chú quá dài/)
+  await assert.rejects(pay(c, 1000, 'cash', []), /Danh sách bill không hợp lệ/)
+  await assert.rejects(pay(c, 1000, 'cash', ['abc']), /Danh sách bill không hợp lệ/)
+  await assert.rejects(rpc(ids.cashier, 'debt_collect', [rid(), 1000, 'cash', null, null, rid()]), /Không tìm thấy khách nợ/)
+})
+
+test('debt_customer_detail: nhãn bàn, phiên, tên người huỷ, phân bổ của lần đã huỷ vẫn trả về', async () => {
+  const c = await customer(); const [b1] = await threeBills(c)
+  const r = await pay(c, 50000, 'bank')
+  await rpc(ids.owner, 'debt_payment_void', [r.debt_payment_id, 'nhầm'])
+  const d = await rpc(ids.cashier, 'debt_customer_detail', [c])
+  assert.equal(d.customer.id, c)
+  assert.equal(d.bills[0].table_label, 'Bàn 1')
+  assert.equal(d.bills[0].session_ids.length, 1)
+  assert.equal(d.bills[0].business_date, '2026-11-01')
+  const p = d.payments[0]
+  assert.deepEqual([p.void_reason, p.voided_by_name, p.created_by_name], ['nhầm', 'chu@quan.vn', 'Thu ngân Lan'])
+  assert.deepEqual(p.allocations, [{ bill_payment_id: b1, amount: 50000 }])
+})
+
+test('quyền: thu ngân, quản lý xem được ca của mình; thu ngân không xem ca người khác', async () => {
+  await enableShift(); const shift = await openShift(0, ids.owner)
+  await assert.rejects(rpc(ids.cashier, 'get_debt_shift_summary', [shift]), /Không có quyền xem ca này/)
+  assert.equal((await rpc(ids.owner, 'get_debt_shift_summary', [shift])).debt_cash, 0)
+  await assert.rejects(rpc(ids.owner, 'get_debt_shift_summary', [rid()]), /Không tìm thấy ca/)
 })
