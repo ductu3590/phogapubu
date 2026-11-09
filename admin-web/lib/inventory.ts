@@ -41,6 +41,8 @@ export type DocSummary = {
   createdByName: string | null
   voidedAt: string | null
   voidReason: string | null
+  /** Phiếu chi đi kèm trong sổ thu chi (mig 122b trở đi). Mig 118 không trả trường này → luôn null. */
+  cashBookEntryId: string | null
 }
 
 export type DocLine = {
@@ -319,6 +321,7 @@ function parseSummary(r: unknown): DocSummary | null {
     createdByName: str(r.created_by_name),
     voidedAt: str(r.voided_at),
     voidReason: str(r.void_reason),
+    cashBookEntryId: str(r.cash_book_entry_id),
   }
 }
 

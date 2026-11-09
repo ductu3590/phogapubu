@@ -210,6 +210,7 @@ describe('parseLedger, parseDocuments, parseDocument, parseMenuStock', () => {
     id: 'd1', kind: 'receipt', docNo: 'PN-0001', docDate: '2026-11-09', effectiveAt: '2026-11-09T03:00:00+00:00',
     supplierName: 'Đại lý', note: null, totalAmount: 567000, paidStatus: 'paid', paidMethod: 'bank', status: 'posted',
     lineCount: 2, createdAt: '2026-11-09T03:00:00+00:00', createdByName: 'Chị Lan', voidedAt: null, voidReason: null,
+    cashBookEntryId: null,
   }
 
   it('parseDocuments đổi tên trường, bỏ phiếu hỏng', () => {
