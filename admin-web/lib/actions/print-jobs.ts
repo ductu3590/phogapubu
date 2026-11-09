@@ -7,6 +7,8 @@ import { businessToday, clampReportDate } from '@/lib/daily-report'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { loadOrderSlip } from '@/lib/print/load-order-slip'
 import { planDocumentJob, planOrderJobs, type PlannedJob } from '@/lib/print/print-plan'
+import { parseCashShiftReport } from '@/lib/cash-shift'
+import { shiftReportPrintable } from '@/app/print/shift-report/shift-report-slip'
 import { AGENT_KINDS, PRINT_AGENT_MODE_OFF_ERROR, type PrintRequest } from '@/lib/print/print-request'
 
 type Result = { ok: true; queued: number } | { ok: false; error: string }
@@ -115,6 +117,18 @@ export async function enqueuePrint(req: PrintRequest): Promise<Result> {
       if (clampReportDate(req.date, today) !== req.date) return fail('Ngày báo cáo không hợp lệ')
       const cleaned: PrintRequest = { kind: 'day_report', date: req.date }
       planned = [planDocumentJob(cleaned, pos.id, `Báo cáo cuối ngày · ${vnDate(req.date)}`, crypto.randomUUID())]
+    } else if (req.kind === 'shift_report') {
+      if (typeof req.shiftId !== 'string' || req.shiftId.trim() === '') return fail('Thiếu mã ca')
+      // Đọc bằng phiên đăng nhập: get_cash_shift_report tự kiểm quyền (thu ngân chỉ xem ca của mình). Chỉ xếp hàng
+      // ca ĐÃ ĐÓNG của đúng quán; trang in agent còn kiểm lại lần nữa lúc vẽ.
+      const { data, error: shiftErr } = await supabase.rpc('get_cash_shift_report', { p_shift_id: req.shiftId })
+      if (shiftErr) return fail(shiftErr.message)
+      const shift = parseCashShiftReport(data)
+      if (!shift || shift.storeId !== storeId) return fail('Không tìm thấy ca của quán này')
+      if (shift.status !== 'closed') return fail('Ca chưa kết, chưa có phiếu bàn giao')
+      if (!shiftReportPrintable(shift)) return fail('Phiếu ca thiếu số tiền đã chốt, không in được')
+      const cleaned: PrintRequest = { kind: 'shift_report', shiftId: req.shiftId }
+      planned = [planDocumentJob(cleaned, pos.id, 'Phiếu bàn giao ca', crypto.randomUUID())]
     } else {
       return fail('Loại phiếu này chưa in qua phần mềm in được')
     }

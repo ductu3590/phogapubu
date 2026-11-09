@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { createPrintUserClient } from '@/lib/print/agent-user-client'
 import { loadBillQrWithClient } from '@/lib/print/load-bill-qr'
 import { loadDayReport } from '@/lib/print/load-day-report'
+import { loadShiftReportSlip } from '@/lib/print/load-shift-report'
+import ShiftReportSlip from '@/app/print/shift-report/shift-report-slip'
 import { loadOrderSlip } from '@/lib/print/load-order-slip'
 import { buildTestBill } from '@/lib/print/test-bill'
 import { KitchenSlip, SlipStyles, TableSlip } from '@/app/print/order/print-order'
@@ -67,8 +69,6 @@ export default async function PrintAgentPage({
     const job = data as RenderJob
     const ref = job.ref ?? {}
 
-    if (job.kind === 'shift_report') return fail('Chưa hỗ trợ')
-
     const client = await createPrintUserClient(job.created_by)
 
     if (job.kind === 'kitchen_ticket' || job.kind === 'table_slip') {
@@ -125,8 +125,7 @@ export default async function PrintAgentPage({
       )
     }
 
-    if (job.kind === 'day_report') {
-      const request = (ref.request ?? {}) as { date?: string }
+    if (job.kind === 'day_report' || job.kind === 'shift_report') {
       // Người in: tên hiển thị + vai của người tạo phiếu (lọc đúng quán)
       const { data: op, error: opErr } = await createAdminClient()
         .from('mevo_operators')
@@ -137,6 +136,22 @@ export default async function PrintAgentPage({
       if (opErr) return readFail(opErr.message)
       const roleLabel = op?.role ? ROLE_LABEL[op.role as OperatorRole] ?? '' : ''
       const printedBy = [op?.display_name?.trim() || 'Không rõ', roleLabel].filter(Boolean).join(' · ')
+
+      if (job.kind === 'shift_report') {
+        const shiftId = (ref.request as { shiftId?: unknown } | undefined)?.shiftId
+        if (typeof shiftId !== 'string' || shiftId.trim() === '') return fail('Phiếu thiếu mã ca')
+        // Service role không tự lọc quán: loader so store_id của ca với job.store_id và chỉ nhận ca đã đóng
+        const shift = await loadShiftReportSlip(createAdminClient(), job.store_id, shiftId, printedBy, new Date())
+        if (!shift.ok) return fromLoader(shift)
+        return (
+          <>
+            <PrintReady jobId={jobId} />
+            <ShiftReportSlip {...shift.props} autoPrint={false} />
+          </>
+        )
+      }
+
+      const request = (ref.request ?? {}) as { date?: string }
       const res = await loadDayReport(client, job.store_id, request.date ?? '', printedBy, new Date())
       if (!res.ok) return fromLoader(res)
       return (

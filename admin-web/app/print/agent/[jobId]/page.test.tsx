@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   createPrintUserClient: vi.fn(),
   loadOrderSlip: vi.fn(),
   loadDayReport: vi.fn(),
+  loadShiftReportSlip: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -17,6 +18,7 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/print/agent-user-client', () => ({ createPrintUserClient: mocks.createPrintUserClient }))
 vi.mock('@/lib/print/load-order-slip', () => ({ loadOrderSlip: mocks.loadOrderSlip }))
 vi.mock('@/lib/print/load-day-report', () => ({ loadDayReport: mocks.loadDayReport }))
+vi.mock('@/lib/print/load-shift-report', () => ({ loadShiftReportSlip: mocks.loadShiftReportSlip }))
 // PrintReady là client component dùng effect: thay bằng thẻ đánh dấu để kiểm props
 vi.mock('./print-ready', () => ({
   default: ({ jobId, error, retryable }: { jobId: string; error?: string; retryable?: boolean }) => (
@@ -264,9 +266,46 @@ describe('/print/agent/[jobId]', () => {
     expect(html).not.toContain('no-print')
   })
 
-  it('shift_report: Chưa hỗ trợ', async () => {
-    mocks.adminRpc.mockResolvedValue({ data: job({ kind: 'shift_report', ref: {} }), error: null })
-    expect(await render()).toContain('Chưa hỗ trợ')
+  describe('shift_report', () => {
+    const shiftJob = () => job({ kind: 'shift_report', ref: { request: { kind: 'shift_report', shiftId: 'sh1' } } })
+    const opRow = () => mocks.adminFrom.mockReturnValue({
+      select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { display_name: 'Lan', role: 'store_cashier' }, error: null }) }) }) }),
+    })
+    const props = {
+      report: {
+        id: 'sh1', storeId: 'store-1', status: 'closed', openedAt: '2026-11-09T01:00:00Z', closedAt: '2026-11-09T15:30:00Z',
+        openedByName: 'Lan', closedByName: 'Tú', openingCash: 500000, openNote: null, closeNote: null, cashSales: 1, bankSales: 0,
+        cashReceipts: 0, cashPayments: 0, debtCash: 0, expectedCash: 500001, countedCash: 500001, difference: 0, billsCount: 1,
+        carriedDays: 1, continuedAt: null, continuedByName: null, entries: [],
+      },
+      storeName: 'Yên Garden', printedAt: '2026-11-09T15:35:00Z', printedBy: 'Lan · Thu ngân', debt: null,
+    }
+    it('vẽ phiếu bàn giao ca, không có no-print, đọc đúng quán của job', async () => {
+      mocks.adminRpc.mockResolvedValue({ data: shiftJob(), error: null })
+      opRow()
+      mocks.loadShiftReportSlip.mockResolvedValue({ ok: true, props })
+      const html = await render()
+      expect(html).toContain('PHIẾU BÀN GIAO CA')
+      expect(html).not.toContain('no-print')
+      expect(mocks.loadShiftReportSlip.mock.calls[0].slice(1, 4)).toEqual(['store-1', 'sh1', 'Lan · Thu ngân'])
+    })
+    it('loader từ chối (ca quán khác / chưa đóng): lỗi, không vẽ số tiền', async () => {
+      mocks.adminRpc.mockResolvedValue({ data: shiftJob(), error: null })
+      opRow()
+      mocks.loadShiftReportSlip.mockResolvedValue({ ok: false, error: 'Không tìm thấy ca của quán này' })
+      const html = await render()
+      expect(html).toContain('data-error="Không tìm thấy ca của quán này"')
+      expect(html).not.toContain('PHIẾU BÀN GIAO CA')
+      expect(html).toContain('data-retryable=""')
+    })
+    it('loader lỗi tạm thời: retryable; thiếu shiftId: lỗi', async () => {
+      mocks.adminRpc.mockResolvedValue({ data: shiftJob(), error: null })
+      opRow()
+      mocks.loadShiftReportSlip.mockResolvedValue({ ok: false, error: 'down', transient: true })
+      expect(await render()).toContain('data-retryable="1"')
+      mocks.adminRpc.mockResolvedValue({ data: job({ kind: 'shift_report', ref: {} }), error: null })
+      expect(await render()).toContain('Phiếu thiếu mã ca')
+    })
   })
 
   it('lỗi bất ngờ (vd thiếu secret) trả lỗi, không ném; coi là retryable', async () => {

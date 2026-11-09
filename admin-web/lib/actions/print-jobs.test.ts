@@ -105,6 +105,7 @@ describe('enqueuePrint', () => {
       sessions: [{ id: 's1' }],
       upsertError: null,
       upsertReturn: undefined,
+      rpcResult: { data: null, error: null },
       businessDayStart: '00:00:00',
       stations: [
         { id: 'st-pos', name: 'Quầy', is_pos: true, is_default_kitchen: false },
@@ -143,10 +144,27 @@ describe('enqueuePrint', () => {
     expect(mocks.calls.upsert).toHaveLength(0)
   })
 
-  it('shift_report chưa được hỗ trợ ở Part 1', async () => {
-    const r = await enqueuePrint({ kind: 'shift_report', shiftId: 'x' })
-    expect(r.ok).toBe(false)
-    expect(mocks.calls.upsert).toHaveLength(0)
+  describe('shift_report', () => {
+    const shift = (over: Record<string, unknown> = {}) => ({
+      id: 'sh1', store_id: 'store-1', status: 'closed', opened_at: '2026-11-09T01:00:00Z', opening_cash: 0,
+      expected_cash: 10, counted_cash: 10, difference: 0, ...over,
+    })
+    it('ca đã đóng của quán: xếp một phiếu ở trạm Quầy, đọc bằng phiên đăng nhập (RPC tự kiểm quyền)', async () => {
+      mocks.state.rpcResult = { data: shift(), error: null }
+      const r = await enqueuePrint({ kind: 'shift_report', shiftId: 'sh1' })
+      expect(r).toEqual({ ok: true, queued: 1 })
+      expect(mocks.session.rpc).toHaveBeenCalledWith('get_cash_shift_report', { p_shift_id: 'sh1' })
+      expect(mocks.calls.upsert[0].rows[0]).toMatchObject({ kind: 'shift_report', station_id: 'st-pos' })
+    })
+    it('ca của quán khác / chưa đóng / thiếu số / RPC lỗi: từ chối, không insert', async () => {
+      for (const data of [shift({ store_id: 'store-2' }), shift({ status: 'open' }), shift({ counted_cash: null }), 'rác']) {
+        mocks.state.rpcResult = { data, error: null }
+        expect((await enqueuePrint({ kind: 'shift_report', shiftId: 'sh1' })).ok).toBe(false)
+      }
+      mocks.state.rpcResult = { data: null, error: { message: 'Không có quyền xem ca này' } }
+      expect(await enqueuePrint({ kind: 'shift_report', shiftId: 'sh1' })).toEqual({ ok: false, error: 'Không có quyền xem ca này' })
+      expect(mocks.calls.upsert).toHaveLength(0)
+    })
   })
 
   it('đơn của quán khác: loadOrderSlip không thấy → {ok:false}, không insert', async () => {
