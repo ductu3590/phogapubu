@@ -23,12 +23,13 @@ export function browserPrintUrl(req: PrintRequest): string {
   }
 }
 
-/** Loại phiếu phần mềm in xử lý được. Part 1 chưa có 'shift_report' (Task 13 thêm cùng trang in ca). */
+/** Loại phiếu phần mềm in xử lý được. */
 export const AGENT_KINDS: ReadonlySet<PrintRequest['kind']> = new Set<PrintRequest['kind']>([
   'order',
   'preorder_job',
   'bill',
   'day_report',
+  'shift_report',
 ])
 
 /** Câu server trả khi quán không ở chế độ phần mềm in; client so sánh bằng hằng số này, không chép chuỗi. */
