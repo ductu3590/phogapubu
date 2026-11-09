@@ -115,10 +115,12 @@ const ROLES_116 = (ids) => `
   INSERT INTO mevo_operators VALUES ('${ids.manager}', '${ids.store}', 'store_manager', true);
 `
 
-export async function openCashShiftDb({ through = '122', lock = true } = {}) {
+// through '122b': nạp thêm mig 118 (kho) TRƯỚC 122 như thứ tự prod, rồi 122b. `before122b(h)` chạy ngay trước khi nạp
+// 122b (test backfill chèn phiếu nhập cũ ở đây).
+export async function openCashShiftDb({ through = '122', lock = true, before122b = null } = {}) {
   const base = await openCollectDb({ lock })
   try {
-    return await extend(base, through)
+    return await extend(base, through, before122b)
   } catch (err) {
     // Dựng hỏng (vd. $pre$ của mig dừng): đóng DB để không treo tiến trình test.
     await base.db.close()
@@ -126,7 +128,23 @@ export async function openCashShiftDb({ through = '122', lock = true } = {}) {
   }
 }
 
-async function extend(base, through) {
+// Cột / bảng mig 118 đọc mà helper thu tiền không có (theo helpers/inventory-fixture.mjs, đối chiếu prod 2026-11-09).
+const KHO_EXTRAS = `
+  ALTER TABLE mevo_operators ADD COLUMN display_name text;
+  ALTER TABLE orders ADD COLUMN confirmed_at timestamptz;
+  ALTER TABLE order_items ADD COLUMN menu_item_id uuid, ADD COLUMN variant_id uuid, ADD COLUMN variant_name text;
+  CREATE TABLE menu_items(
+    id uuid PRIMARY KEY, store_id uuid NOT NULL REFERENCES stores(id) ON DELETE CASCADE, name text NOT NULL,
+    CONSTRAINT menu_items_id_store_uniq UNIQUE (id, store_id)
+  );
+  CREATE TABLE menu_item_variants(
+    id uuid PRIMARY KEY, store_id uuid NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    menu_item_id uuid NOT NULL, name text NOT NULL,
+    CONSTRAINT miv_item_store_fkey FOREIGN KEY (menu_item_id, store_id) REFERENCES menu_items(id, store_id) ON DELETE CASCADE
+  );
+`
+
+async function extend(base, through, before122b) {
   const { db, ids, login, rid, one } = base
   ids.manager = fixedId(5)
 
@@ -136,13 +154,13 @@ async function extend(base, through) {
   await db.exec(ROLES_116(ids))
   // Supabase cấp sẵn mọi quyền bảng mới cho anon/authenticated: dựng lại để REVOKE của mig 122 được kiểm thật.
   await db.exec('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;')
-  await db.exec(await load(url('../../migrations/122_cash_shift_cashbook.sql')))
+  const migrations = url('../../migrations/')
   if (through === '122b') {
-    const migrations = url('../../migrations/')
+    await db.exec(KHO_EXTRAS)
     const kho = (await readdir(migrations)).filter((f) => /^118_.*\.sql$/.test(f)).sort()
     for (const f of kho) await db.exec(await load(new URL(f, migrations)))
-    await db.exec(await load(new URL('122b_inventory_cashbook.sql', migrations)))
   }
+  await db.exec(await load(url('../../migrations/122_cash_shift_cashbook.sql')))
 
   // Chạy một câu dưới role authenticated với auth.uid() = uid; trả cả kết quả query.
   async function as(uid, sql, params = []) {
@@ -193,6 +211,8 @@ async function extend(base, through) {
   // (test sửa / ẩn / thêm danh mục không lây sang test sau). Id danh mục đổi sau mỗi reset: luôn tra qua category().
   async function reset() {
     await base.reset()
+    // 122b: phiếu nhập trỏ tới phiếu chi (FK) → xoá phiếu kho trước.
+    if (through === '122b') await db.exec('DELETE FROM inventory_document_lines; DELETE FROM inventory_documents;')
     await db.exec(`
       DELETE FROM cash_book_entries; DELETE FROM cash_shifts;
       DELETE FROM cash_book_categories; SELECT seed_cash_book_categories(id) FROM stores;
@@ -200,5 +220,11 @@ async function extend(base, through) {
     `)
   }
 
-  return { ...base, ids, rid, reset, as, setShiftRequired, setDayStart, insertShift, category }
+  const api = { ...base, ids, rid, reset, as, setShiftRequired, setDayStart, insertShift, category }
+  if (through === '122b') {
+    if (before122b) await before122b(api)
+    await db.exec('RESET ROLE')
+    await db.exec(await load(new URL('122b_inventory_cashbook.sql', migrations)))
+  }
+  return api
 }

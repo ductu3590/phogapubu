@@ -122,9 +122,11 @@ export default function ReceiptForm({ today, items, suppliers, onClose, onSaved,
             <Choice label="Phương thức trả tiền" value={form.paidMethod}
               options={[{ value: 'cash', label: 'Tiền mặt' }, { value: 'bank', label: 'Chuyển khoản' }]}
               onChange={(paidMethod) => set({ paidMethod })} />
-            {/* Mig 118 chưa có sổ thu chi: phiếu chỉ lưu đã trả + phương thức.
-                XOÁ dòng chữ này ở mig 122b (khi phiếu chi được tạo thật cùng lúc lưu phiếu nhập). */}
-            <p className="text-[13px] text-muted">Phiếu chi vào sổ thu chi sẽ tự tạo khi có Sổ thu chi.</p>
+            {/* Mig 122b: lưu phiếu nhập đã trả = ghi luôn phiếu chi "Nhập hàng" trong cùng giao dịch. */}
+            <p className="text-[13px] text-muted">
+              Lưu phiếu sẽ ghi luôn một phiếu chi &quot;Nhập hàng&quot; vào Sổ thu chi
+              {form.paidMethod === 'cash' ? ' — tiền mặt lấy từ két, quán bật ca thì cần mở ca trên POS trước.' : '.'}
+            </p>
           </>
         ) : null}
       </Section>

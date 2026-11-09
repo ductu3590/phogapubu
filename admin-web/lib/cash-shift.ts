@@ -99,6 +99,17 @@ export function isNoOpenShiftError(error: string | null | undefined): boolean {
   return !!error && error.includes(NO_OPEN_SHIFT_ERROR)
 }
 
+/** Phiếu nhập kho (mig 122b): câu báo thay "Chưa mở ca" khi lưu phiếu đã trả tiền mặt mà quán bật ca chưa mở ca. */
+export const RECEIPT_NO_SHIFT = 'Chưa mở ca — mở ca trên POS hoặc chọn Chuyển khoản / Chưa trả'
+
+/** Câu server khi huỷ phiếu chi tiền mặt mà ca của nó đã kết (cash_book_void_internal, mig 122). */
+export const SHIFT_CLOSED_VOID_ERROR = 'Ca của phiếu này đã kết'
+export function isShiftClosedVoidError(error: string | null | undefined): boolean {
+  return !!error && error.includes(SHIFT_CLOSED_VOID_ERROR)
+}
+/** Phiếu nhập kho (mig 122b): câu báo khi huỷ phiếu nhập đã trả tiền mặt trong ca đã kết. */
+export const RECEIPT_VOID_SHIFT_CLOSED = 'Phiếu nhập trả tiền mặt trong ca đã kết — không huỷ được (két đã chốt).'
+
 /** POS: băng lỗi đang là "Chưa mở ca" mà trạng thái ca giờ đã có ca mở → bỏ băng. */
 export function shouldClearNoShiftError(
   error: { message: string } | null,
