@@ -81,6 +81,7 @@ test('cả ngày lẫn lộn mọi kiểu thu: bất biến TM + CK + khác = do
   const o = await order(null, 8000, { method: 'cash' }); await confirm(o) // xác nhận tay TM
   const r = await report()
   invariant(r.totals)
+  assert.ok(r.totals.other >= 0, `'khác' là phần còn lại, không được âm: ${r.totals.other}`)
   assert.deepEqual([r.totals.cash, r.totals.bank, r.totals.other, r.totals.revenue],
     [30000 + 5000 + 6000 + 8000, 70000 + 40000, 9000, 168000])
   assert.equal(r.totals.bills_count, 6)
@@ -109,7 +110,8 @@ test('get_sessions_bill nhiều khoản thu: cộng theo phương tiện, tiền
 test('mig 112a: 2 hàm đọc chỉ được vá bằng mevo_patch, không CREATE OR REPLACE', async () => {
   const sql = await load(migration)
   assert.doesNotMatch(sql, /^CREATE OR REPLACE FUNCTION public\.(get_bills_report|get_sessions_bill)\b/m)
-  const patched = new Set([...sql.matchAll(/pg_temp\.mevo_patch\(\s*'([^']+)'/g)].map((m) => m[1]))
-  assert.ok(patched.has('public.get_bills_report(uuid, date)'))
-  assert.ok(patched.has('public.get_sessions_bill(uuid[])'))
+  const patched = [...sql.matchAll(/pg_temp\.mevo_patch\(\s*'([^']+)'/g)].map((m) => m[1])
+  // Ghim số neo: thêm/bớt một lời vá mà quên test là lộ ra ở đây.
+  assert.equal(patched.filter((p) => p === 'public.get_bills_report(uuid, date)').length, 9)
+  assert.equal(patched.filter((p) => p === 'public.get_sessions_bill(uuid[])').length, 1)
 })

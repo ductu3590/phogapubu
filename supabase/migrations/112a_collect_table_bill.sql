@@ -437,7 +437,10 @@ $b$               WHEN bill_payment_id IS NOT NULL THEN 'P:' || bill_payment_id:
                WHEN session_id IS NOT NULL AND close_reason = 'paid' AND session_paid_at IS NOT NULL$b$);
 SELECT pg_temp.mevo_patch('public.get_bills_report(uuid, date)',
 $a$    bills AS ($a$,
-$b$    pay AS (
+$b$    -- mig 112a: pay cộng NGUYÊN các dòng khoản thu, còn doanh thu cộng đơn trong keyed. Hai số chỉ khớp
+    -- vì đơn đã thu không bị huỷ / sửa tiền nữa (chặn ở mig 038 cancel_order, 046 bỏ/tặng món, 098 sửa
+    -- số lượng). Mở đường nào huỷ/sửa đơn đã thu thì phải sửa cả chỗ này, không thì 'other' âm.
+    pay AS (
       SELECT bp.id AS payment_id, bp.cash_given, bp.change_amount,
              COALESCE(SUM(l.amount) FILTER (WHERE l.instrument = 'cash'), 0)::bigint AS cash,
              COALESCE(SUM(l.amount) FILTER (WHERE l.instrument = 'bank'), 0)::bigint AS bank,
