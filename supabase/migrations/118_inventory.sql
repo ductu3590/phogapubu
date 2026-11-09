@@ -184,7 +184,8 @@ BEGIN
   END IF;
 
   SELECT i.store_id, i.kind, i.is_active INTO v_item
-    FROM public.inventory_items i WHERE i.id = NEW.inventory_item_id;
+    FROM public.inventory_items i WHERE i.id = NEW.inventory_item_id
+     FOR SHARE; -- giữ dòng hàng tới hết giao dịch: ngừng dùng / đổi loại song song phải chờ, không lọt liên kết
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Không tìm thấy hàng hoá';
   END IF;

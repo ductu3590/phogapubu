@@ -20,8 +20,10 @@ const url = (path) => new URL(path, import.meta.url)
 export async function setupThrough118(db) {
   await setupThrough111(db)
   await db.exec(`
-    -- Supabase cấp sẵn quyền bảng mới cho anon/authenticated; mô phỏng để test REVOKE của 118 có nghĩa.
+    -- Supabase cấp sẵn quyền bảng + hàm mới cho anon/authenticated; mô phỏng để test REVOKE của 118 có nghĩa
+    -- (setupBefore111 đã cấp EXECUTE trên hàm; dòng ON FUNCTIONS ở đây giữ cho fixture này tự đủ).
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
 
     ALTER TABLE mevo_operators ADD COLUMN display_name text;
     ALTER TABLE orders ADD COLUMN confirmed_at timestamptz;
