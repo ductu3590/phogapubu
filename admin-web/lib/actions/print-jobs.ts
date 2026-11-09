@@ -138,3 +138,36 @@ export async function enqueuePrint(req: PrintRequest): Promise<Result> {
     return fail(e instanceof Error ? e.message : 'Không xếp được phiếu in')
   }
 }
+
+type SimpleResult = { ok: true } | { ok: false; error: string }
+
+// Bấm "In lại" ở băng báo lỗi POS: RPC tự kiểm quyền (thu ngân/chủ quán đúng quán) và tạo job mới có chữ IN LẠI.
+export async function retryPrintJob(jobId: string): Promise<SimpleResult> {
+  return callJobRpc('retry_print_job', jobId)
+}
+
+// "In bằng trình duyệt" xong thì bỏ qua phiếu lỗi (dismiss) để băng đỏ gỡ xuống.
+export async function markPrintedInBrowser(jobId: string): Promise<SimpleResult> {
+  return callJobRpc('dismiss_print_job', jobId)
+}
+
+// "Bỏ qua tất cả": đánh dấu đã xử lý hàng loạt, KHÔNG in. RPC tự kiểm quyền + quán cho từng phiếu.
+export async function dismissPrintJobs(jobIds: string[]): Promise<SimpleResult> {
+  if (!Array.isArray(jobIds) || jobIds.length === 0 || jobIds.length > 100) return { ok: false, error: 'Danh sách phiếu không hợp lệ' }
+  const results = await Promise.all(jobIds.map((id) => callJobRpc('dismiss_print_job', id)))
+  return results.find((r) => !r.ok) ?? { ok: true }
+}
+
+async function callJobRpc(fn: 'retry_print_job' | 'dismiss_print_job', jobId: string): Promise<SimpleResult> {
+  if (typeof jobId !== 'string' || jobId.trim() === '') return { ok: false, error: 'Thiếu mã phiếu' }
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc(fn, { p_job_id: jobId })
+    if (error) return { ok: false, error: error.message }
+    const r = (data ?? {}) as { ok?: boolean; error?: string }
+    if (r.ok === false) return { ok: false, error: r.error ?? 'Không thực hiện được' }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Không thực hiện được' }
+  }
+}

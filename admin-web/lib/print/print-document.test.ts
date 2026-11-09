@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { browserPrintUrl } from './print-request'
 
 const mocks = vi.hoisted(() => ({
   printInPlace: vi.fn(),
@@ -103,14 +104,16 @@ describe('printDocument', () => {
     expect(mocks.printInPlace).toHaveBeenCalledTimes(2)
   })
 
-  it('enqueuePrint báo "Quán chưa bật phần mềm in" thì xoá cache mode: lần sau đọc lại và in bằng trình duyệt', async () => {
+  it('enqueuePrint báo "Quán chưa bật phần mềm in": lần bấm này in luôn bằng trình duyệt, xoá cache mode để lần sau đọc lại', async () => {
     mocks.rpc.mockResolvedValue({ data: 'agent', error: null })
     mocks.enqueuePrint.mockResolvedValue({ ok: false, error: 'Quán chưa bật phần mềm in' })
-    expect((await printDocument(order)).ok).toBe(false)
+    expect(await printDocument(order)).toEqual({ ok: true })
+    expect(mocks.printInPlace).toHaveBeenCalledTimes(1)
+    expect(mocks.printInPlace).toHaveBeenCalledWith(browserPrintUrl(order))
     await vi.advanceTimersByTimeAsync(2100)
     mocks.rpc.mockResolvedValue({ data: 'browser', error: null })
     expect(await printDocument(order)).toEqual({ ok: true })
     expect(mocks.rpc).toHaveBeenCalledTimes(2)
-    expect(mocks.printInPlace).toHaveBeenCalledTimes(1)
+    expect(mocks.printInPlace).toHaveBeenCalledTimes(2)
   })
 })

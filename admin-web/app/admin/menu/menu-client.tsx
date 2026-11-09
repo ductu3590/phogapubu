@@ -30,6 +30,8 @@ import { formatVndTyping, parseVnd } from '@/lib/money'
 import SquareCropper from './square-cropper'
 import { visibleMenuItems, type StatusFilter } from '@/lib/menu/menu-filter'
 import { badgeLabel, MENU_BADGES } from '@/lib/menu/sku'
+import type { MenuStockData } from '@/lib/inventory'
+import StockLinkEditor from './stock-link-editor'
 
 // Topping trong kho dùng chung của quán
 type Topping = {
@@ -68,7 +70,7 @@ function moveArrayItem<T>(items: T[], oldIndex: number, newIndex: number): T[] {
   return next
 }
 
-export default function MenuClient({ categories: initialCategories, toppings, stations = [] }: { categories: Category[]; toppings: Topping[]; stations?: PrintStationOption[]; storeId: string }) {
+export default function MenuClient({ categories: initialCategories, toppings, stations = [], stock = null }: { categories: Category[]; toppings: Topping[]; stations?: PrintStationOption[]; storeId: string; stock?: MenuStockData | null }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [categories, setCategories] = useState<Category[]>(initialCategories)
@@ -460,6 +462,8 @@ export default function MenuClient({ categories: initialCategories, toppings, st
           />
           <ItemToppingPicker item={liveEditItem} toppings={toppings} router={router} />
           <ItemVariantEditor item={liveEditItem} router={router} />
+          {/* Kho (mig 118): gắn món / từng lựa chọn với hàng bán nguyên. stock null (mig chưa áp) → không vẽ. */}
+          {stock && <StockLinkEditor item={liveEditItem} stock={stock} />}
         </Modal>
       )}
 

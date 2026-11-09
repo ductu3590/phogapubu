@@ -4,7 +4,8 @@
 // Thay hẳn /admin/cashier cũ (đã xoá 2026-10-03 sau POS-1..4 PASS; URL cũ chuyển hướng về đây).
 // Logic dữ liệu / thao tác giữ nguyên của POS cũ: cùng server action, cùng watcher realtime, cùng chuông.
 
-import { printInPlace } from '@/lib/print/print-in-place'
+import { printDocument } from '@/lib/print/print-document'
+import { confirmAndPrint } from './print-actions'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeftRight, Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, Layers, ListTodo, TriangleAlert, UserPlus, UserRound, Volume2, X, Zap } from 'lucide-react'
 import { TableStateLegend } from '@/components/ui/badge'
@@ -27,6 +28,7 @@ import {
   type OpenTableSession,
 } from '@/lib/actions/table-session'
 import type { BillDiscount } from '@/lib/bill-discount'
+import type { BankAccountFields } from '@/lib/vietqr'
 import { runCollect } from '@/lib/collect-outcome'
 import {
   addManualItems,
@@ -62,7 +64,7 @@ import {
 import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
 import { createReservationReminderCoordinator, type ReminderStorage } from '@/lib/reservation-reminders'
 import { resolveReservationCustomerCall, type ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
-import { readCustomerCalls, readOpenSessions, readPreorderQueue, readReservationQueue } from '@/lib/pos-browser-reads'
+import { readCustomerCalls, readOpenSessions, readPreorderQueue, readReservationQueue, readStoreBankAccount } from '@/lib/pos-browser-reads'
 import {
   releaseReservationPreorder,
   requestReservationPreorderPrint,
@@ -94,6 +96,9 @@ import NewReservationSheet, { type NewReservationSubmit } from './new-reservatio
 import { useNow } from './use-now'
 import { useOnline } from './use-online'
 import { useAutoKitchenPrint } from './use-auto-kitchen-print'
+import { usePrintStatus } from './use-print-status'
+import PrintStatusBanner from './print-status-banner'
+import { dismissPrintJobs, markPrintedInBrowser, retryPrintJob } from '@/lib/actions/print-jobs'
 import { useServiceRequests } from './use-service-requests'
 import WorkQueue from './work-queue'
 import PosBillPanel, { type PosPayment } from './bill-panel'
@@ -132,6 +137,7 @@ function queueRange() {
 export default function PosClient({
   storeId,
   storeName,
+  bankAccount,
   paymentTiming,
   servingHours,
   slotIntervalMinutes,
@@ -155,6 +161,7 @@ export default function PosClient({
 }: {
   storeId: string
   storeName: string
+  bankAccount?: BankAccountFields | null
   paymentTiming: 'prepay' | 'postpay'
   servingHours: ServingPeriod[]
   /** Bước giờ đặt bàn (Cài đặt quán) — làm tròn giờ đặt bàn mới. */
@@ -244,6 +251,32 @@ export default function PosClient({
     setError(message ? actionError(message) : null)
   }, [])
   const autoPrint = useAutoKitchenPrint({ supabase, storeId, sessions, onGiveUp: reportActionError })
+  const printStatus = usePrintStatus(storeId)
+  // Phiếu đang chạy thao tác: khoá nút của phiếu đó (bấm đúp không tạo hai phiếu in lại)
+  const [busyPrintJobs, setBusyPrintJobs] = useState<ReadonlySet<string>>(new Set())
+  const [dismissingAllPrint, setDismissingAllPrint] = useState(false)
+  const runPrintJobAction = async (jobId: string, run: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>) => {
+    if (busyPrintJobs.has(jobId)) return
+    setBusyPrintJobs((s) => new Set(s).add(jobId))
+    try {
+      const r = await run(jobId).catch(() => ({ ok: false as const, error: 'Lỗi kết nối. Thử lại sau.' }))
+      if (!r.ok) reportActionError(r.error)
+    } finally {
+      setBusyPrintJobs((s) => { const n = new Set(s); n.delete(jobId); return n })
+      await printStatus.reload()
+    }
+  }
+  const onDismissAllPrintJobs = async (jobs: { id: string }[]) => {
+    if (dismissingAllPrint) return
+    setDismissingAllPrint(true)
+    try {
+      const r = await dismissPrintJobs(jobs.map((j) => j.id)).catch(() => ({ ok: false as const, error: 'Lỗi kết nối. Thử lại sau.' }))
+      if (!r.ok) reportActionError(r.error)
+    } finally {
+      setDismissingAllPrint(false)
+      await printStatus.reload()
+    }
+  }
 
   // ─── Tải dữ liệu ─────────────────────────────────────────────────────────
   const reload = useCallback(async () => {
@@ -503,21 +536,26 @@ export default function PosClient({
   }
 
   const onPrintOrder = (orderId: string) => {
-    printInPlace(`/print/order?id=${orderId}`)
+    // In lại phiếu bếp + phiếu bàn; lỗi xếp hàng (chế độ phần mềm in) báo cho thu ngân
+    void printDocument({ kind: 'order', orderId, reprint: true }).then((r) => { if (!r.ok) reportActionError(r.error) })
   }
 
   const onConfirmOrder = async (orderId: string) => {
     setBusy(true)
-    const res = await confirmOrder(orderId)
-    if (!res.ok) {
+    try {
+      const res = await confirmAndPrint(orderId, { confirmOrder, printDocument })
+      if (!res.ok) {
+        reportActionError(res.error)
+        return
+      }
+      if (res.printError) reportActionError(`Đơn đã duyệt nhưng chưa tạo được phiếu in: ${res.printError}. Bấm In lại ở lượt này.`)
+      else if (res.already) reportActionError('Đơn này đã được xác nhận trước đó.')
+      await reload()
+    } catch {
+      reportActionError('Lỗi kết nối. Kiểm tra trạng thái đơn rồi thử lại.')
+    } finally {
       setBusy(false)
-      reportActionError(res.error)
-      return
     }
-    onPrintOrder(orderId)
-    setBusy(false)
-    if (res.already) reportActionError('Đơn này đã được xác nhận trước đó — chỉ in lại phiếu.')
-    await reload()
   }
 
   const onRejectOrder = async (orderId: string, reason: OrderRejectReason, note: string | null) => {
@@ -540,7 +578,7 @@ export default function PosClient({
   }
 
   const onPrint = (list: OpenTableSession[]) => {
-    printInPlace(`/print/bill?ids=${list.map((s) => s.session_id).join(',')}`)
+    void printDocument({ kind: 'bill', sessionIds: list.map((s) => s.session_id) }).then((r) => { if (!r.ok) reportActionError(r.error) })
   }
 
   const onWalkIn = async (tableId: string, items: PosManualItem[], clientRequestId: string) => {
@@ -698,8 +736,10 @@ export default function PosClient({
       ? (fresh.revision > 1 ? 'adjustment' : 'reprint') : kind
     const result = await requestReservationPreorderPrint(fresh.orderId, fresh.releasedRevision, printKind, undefined, reason)
     if (!result.ok) { reportActionError(result.error); return result }
-    if (result.printJobId) printInPlace(`/print/order?job=${result.printJobId}`)
-    else reportActionError('Phiếu đã tạo nhưng chưa có mã in. Mở lại từ POS để in.')
+    if (result.printJobId) {
+      const printed = await printDocument({ kind: 'preorder_job', jobId: result.printJobId })
+      if (!printed.ok) reportActionError(printed.error)
+    } else reportActionError('Phiếu đã tạo nhưng chưa có mã in. Mở lại từ POS để in.')
     await reloadPreorders()
     return result
   }
@@ -1023,6 +1063,15 @@ export default function PosClient({
           </div>
         </div>
 
+        <PrintStatusBanner
+          status={printStatus.status}
+          busyJobIds={busyPrintJobs}
+          dismissingAll={dismissingAllPrint}
+          onRetry={(j) => void runPrintJobAction(j.id, retryPrintJob)}
+          onBrowserPrint={(j) => void runPrintJobAction(j.id, markPrintedInBrowser)}
+          onDismiss={(j) => void runPrintJobAction(j.id, markPrintedInBrowser)}
+          onDismissAll={(jobs) => void onDismissAllPrintJobs(jobs)}
+        />
         {autoPrint.banner && <Banner tone={autoPrint.banner.tone} title={autoPrint.banner.title} className="mx-4 mt-2 md:mx-5" />}
 
         {mergeMode && (
@@ -1323,6 +1372,11 @@ export default function PosClient({
       )}
       {panel === 'bill' && (
         <PosBillPanel
+          bankAccount={bankAccount}
+          loadBankAccount={async () => {
+            const r = await readStoreBankAccount(supabase, storeId)
+            return r.ok ? r.bank : null
+          }}
           // Đổi bàn / gộp bill khác = bill mới: về tab Hoá đơn, thoát màn thanh toán đang dở.
           key={selected?.session_id ?? [...pickedSessionIds].sort().join(',') ?? 'pick'}
           trayColors={trayColors}

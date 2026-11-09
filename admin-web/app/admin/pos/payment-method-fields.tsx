@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/field'
 import { cashChange, cashSuggestions, formatVndInput, parseVnd } from '@/lib/cash-change'
 import { cashGivenError, type PayMethod } from '@/lib/collect-payment'
 import { cn } from '@/lib/utils'
+import type { BillQr } from '@/lib/bill-qr'
+import PaymentVietQr from './payment-vietqr'
 
 // Phần chọn phương thức + ô tiền của màn Thanh toán POS (mig 112a). KHÔNG giữ state: PaymentView giữ chữ
 // đang gõ và dựng p_lines (buildPaymentLines). Tiền khách đưa / tiền thối so với PHẦN TIỀN MẶT, không so
@@ -21,7 +23,7 @@ const METHODS: readonly [PayMethod, string, ReactNode][] = [
 ]
 
 export default function PaymentMethodFields({
-  method, total, cashPart, bankPart, cashText, bankText, givenText, mixedError,
+  method, total, cashPart, bankPart, qr, cashText, bankText, givenText, mixedError,
   onMethod, onCashText, onBankText, onGivenText,
 }: {
   method: PayMethod
@@ -31,6 +33,8 @@ export default function PaymentMethodFields({
   cashPart: number
   /** Phần chuyển khoản hiện tại (paymentDraft). Một nguồn: nhắc nghe loa (và mã QR của Plan D) đọc số này. */
   bankPart: number
+  /** Mã VietQR cho phần chuyển khoản; null/không truyền = không hiện (chưa khai tài khoản, số tiền 0, chia lệch). */
+  qr?: BillQr | null
   cashText: string
   bankText: string
   givenText: string
@@ -151,9 +155,13 @@ export default function PaymentMethodFields({
       )}
 
       {bankAmount > 0 && (
-        <p className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900">
-          Cho khách quét mã QR của quán, <b className="font-bold">nghe loa báo tiền về đủ {dong(bankAmount)}</b> rồi mới bấm xác nhận.
-        </p>
+        <>
+          <PaymentVietQr qr={mixedError ? null : (qr ?? null)} />
+          <p className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900">
+            {qr && !mixedError ? 'Cho khách quét mã này, ' : 'Cho khách quét mã QR của quán, '}
+            <b className="font-bold">nghe loa báo tiền về đủ {dong(bankAmount)}</b> rồi mới bấm xác nhận.
+          </p>
+        </>
       )}
     </>
   )

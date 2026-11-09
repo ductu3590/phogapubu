@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     categories: [] as Array<{ id: string; print_station_id: string | null }>,
     sessions: [] as Array<{ id: string }>,
     upsertError: null as null | { message: string },
+    rpcResult: { data: null, error: null } as { data: unknown; error: null | { message: string } },
     upsertReturn: undefined as undefined | Array<{ id: string }>,
     businessDayStart: '00:00:00',
   }
@@ -61,7 +62,7 @@ const mocks = vi.hoisted(() => {
     }),
   }
   const session = {
-    rpc: vi.fn(async (fn: string) => (fn === 'get_print_mode' ? { data: state.mode, error: null } : { data: null, error: null })),
+    rpc: vi.fn(async (fn: string) => (fn === 'get_print_mode' ? { data: state.mode, error: null } : state.rpcResult)),
     from: vi.fn((table: string) => {
       calls.sessionTables.push(table)
       return builder(table, () => (table === 'table_sessions' ? state.sessions : []))
@@ -78,7 +79,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 vi.mock('@/lib/print/load-order-slip', () => ({ loadOrderSlip: mocks.loadOrderSlip }))
 
-const { enqueuePrint } = await import('./print-jobs')
+const { enqueuePrint, retryPrintJob, markPrintedInBrowser, dismissPrintJobs } = await import('./print-jobs')
 
 const slipWith = (items: Array<{ key: string; menuItemId: string | null }>) => ({
   ok: true as const,
@@ -317,5 +318,51 @@ describe('enqueuePrint', () => {
   it('trùng khoá (đã xếp hàng rồi): ok với queued 0', async () => {
     mocks.state.upsertReturn = []
     expect(await enqueuePrint({ kind: 'order', orderId: 'o1' })).toEqual({ ok: true, queued: 0 })
+  })
+})
+
+describe('retryPrintJob / markPrintedInBrowser', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.state.rpcResult = { data: { ok: true }, error: null }
+  })
+  it('retryPrintJob gọi retry_print_job, ok', async () => {
+    expect(await retryPrintJob('j1')).toEqual({ ok: true })
+    expect(mocks.session.rpc).toHaveBeenCalledWith('retry_print_job', { p_job_id: 'j1' })
+  })
+  it('retryPrintJob trả nguyên lỗi RPC trong {ok:false}', async () => {
+    mocks.state.rpcResult = { data: null, error: { message: 'Không có quyền' } }
+    expect(await retryPrintJob('j1')).toEqual({ ok: false, error: 'Không có quyền' })
+    mocks.state.rpcResult = { data: { ok: false, error: 'Phiếu này chưa lỗi, không cần in lại' }, error: null }
+    expect(await retryPrintJob('j1')).toEqual({ ok: false, error: 'Phiếu này chưa lỗi, không cần in lại' })
+  })
+  it('markPrintedInBrowser gọi dismiss_print_job', async () => {
+    expect(await markPrintedInBrowser('j1')).toEqual({ ok: true })
+    expect(mocks.session.rpc).toHaveBeenCalledWith('dismiss_print_job', { p_job_id: 'j1' })
+  })
+  it('mã phiếu rỗng: lỗi, không gọi RPC', async () => {
+    expect((await markPrintedInBrowser('')).ok).toBe(false)
+    expect(mocks.session.rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('dismissPrintJobs (Bỏ qua tất cả)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.state.rpcResult = { data: { ok: true }, error: null }
+  })
+  it('gọi dismiss_print_job cho từng phiếu, KHÔNG in', async () => {
+    expect(await dismissPrintJobs(['a', 'b'])).toEqual({ ok: true })
+    expect(mocks.session.rpc).toHaveBeenCalledTimes(2)
+    expect(mocks.session.rpc).toHaveBeenCalledWith('dismiss_print_job', { p_job_id: 'a' })
+    expect(mocks.session.rpc).toHaveBeenCalledWith('dismiss_print_job', { p_job_id: 'b' })
+  })
+  it('một phiếu lỗi: trả lỗi đầu tiên', async () => {
+    mocks.state.rpcResult = { data: null, error: { message: 'Không có quyền' } }
+    expect(await dismissPrintJobs(['a'])).toEqual({ ok: false, error: 'Không có quyền' })
+  })
+  it('danh sách rỗng hoặc quá dài: từ chối', async () => {
+    expect((await dismissPrintJobs([])).ok).toBe(false)
+    expect((await dismissPrintJobs(Array.from({ length: 101 }, (_, i) => String(i)))).ok).toBe(false)
   })
 })

@@ -1,6 +1,7 @@
 import { ROLE_LABEL, type OperatorRole } from '@/lib/auth/roles'
 import { createAdminClient } from '@/lib/supabase/server'
 import { createPrintUserClient } from '@/lib/print/agent-user-client'
+import { loadBillQrWithClient } from '@/lib/print/load-bill-qr'
 import { loadDayReport } from '@/lib/print/load-day-report'
 import { loadOrderSlip } from '@/lib/print/load-order-slip'
 import { buildTestBill } from '@/lib/print/test-bill'
@@ -115,10 +116,11 @@ export default async function PrintAgentPage({
       const { data: bill, error: billErr } = await client.rpc('get_sessions_bill', { p_session_ids: ids })
       if (billErr) return readFail(billErr.message)
       if (!bill) return fail('Không lấy được hoá đơn')
+      const qr = await loadBillQrWithClient(client, job.store_id, ids)
       return (
         <>
           <PrintReady jobId={jobId} />
-          <PrintBill bill={bill as unknown as SessionsBill} autoPrint={false} />
+          <PrintBill bill={bill as unknown as SessionsBill} autoPrint={false} qr={qr} />
         </>
       )
     }

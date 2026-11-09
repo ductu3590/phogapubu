@@ -1,5 +1,6 @@
 import { requireStaffAreaOrRedirect } from '@/lib/auth/operator'
 import { getSessionsBill } from '@/lib/actions/table-session'
+import { loadBillQr } from '@/lib/print/load-bill-qr'
 import PrintBill from './print-bill'
 
 // Trang in hoá đơn 80mm. Route /print/bill nằm ngoài khung /staff, nạp vào iframe ẩn bằng printInPlace, in qua máy in đã cài trên PC quầy
@@ -23,5 +24,6 @@ export default async function PrintBillPage({
     )
   }
 
-  return <PrintBill bill={res.bill} />
+  const qr = await loadBillQr(sessionIds)
+  return <PrintBill bill={res.bill} qr={qr} />
 }
