@@ -16,10 +16,27 @@
 --     kitchen_blocks_expired_session (lỗi 'Bàn trả sau thu cả bàn một lần ở POS (Thanh toán)', đơn vẫn chưa thu) ·
 --     owner_already_paid_idempotent (đơn phiên đã thu → vẫn trả already, không lỗi) ·
 --     owner_non_session_ok · kitchen_non_session_ok (đơn không thuộc phiên vẫn thu lẻ được) ·
---     close_session_still_pays (close_table_session thu cả bàn) ·
+--     close_session_still_pays (thu cả bàn qua collect_table_bill) ·
 --     pos_add_manual_items_ok · pos_void_ok · pos_restore_ok · pos_quantity_ok (gọi dưới vai authenticated).
+--
+-- ⚠️ Từ mig 112b: CHỈ chạy được sau khi mig 112a + 112b đã áp. close_table_session(…, 'paid', …) và
+--    close_table_sessions_bulk(…, 'paid', …) bị chặn → mọi lần thu dùng pg_temp.pay (gọi collect_table_bill với đúng số
+--    server tính). Bỏ bàn (staff_reset) vẫn gọi close_table_session như cũ.
 
 BEGIN;
+
+-- ---------- mig 112a/112b: thu tiền chỉ còn qua collect_table_bill ----------
+-- Thu đúng số server tính: tiền chưa thu trừ giảm giá của phiên đang mở.
+CREATE FUNCTION pg_temp.pay(p_ids uuid[], p_instrument text) RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE v_due bigint;
+BEGIN
+  SELECT COALESCE(SUM(public.session_unpaid_subtotal(s.id)
+    - CASE WHEN s.status = 'open' THEN public.bill_discount_amount(public.session_unpaid_subtotal(s.id), s.bill_discount_type, s.bill_discount_value) ELSE 0 END), 0)
+    INTO v_due FROM public.table_sessions s WHERE s.id = ANY(p_ids);
+  RETURN public.collect_table_bill(p_ids,
+    CASE WHEN v_due > 0 THEN jsonb_build_array(jsonb_build_object('instrument', p_instrument, 'amount', v_due)) ELSE '[]'::jsonb END,
+    NULL, gen_random_uuid());
+END $$;
 
 -- ---------- helper (chỉ sống trong phiên này) ----------
 CREATE FUNCTION pg_temp.must(p_label text, p_ok boolean) RETURNS void LANGUAGE plpgsql AS $f$
@@ -201,13 +218,13 @@ BEGIN
                   AND payment_received_via = 'kitchen'));
 
   -- =====================================================================
-  -- close_table_session vẫn thu cả bàn
+  -- thu cả bàn vẫn chạy (mig 112a: qua collect_table_bill)
   -- =====================================================================
   PERFORM set_config('request.jwt.claims', c_cashier, true);
   s_pay := pg_temp.mk_session(v_store, v_t[4]);
   o_pay1 := pg_temp.mk_order(v_store, v_t[4], s_pay, 15000);
   o_pay2 := pg_temp.mk_order(v_store, v_t[4], s_pay, 25000);
-  r := public.close_table_session(s_pay, 'paid', 'cash');
+  r := pg_temp.pay(ARRAY[s_pay], 'cash');
   PERFORM pg_temp.must('close_session_still_pays: 2 lượt đã thu, phiên đóng paid',
     NOT EXISTS (SELECT 1 FROM public.orders WHERE id IN (o_pay1, o_pay2) AND payment_received_at IS NULL)
     AND EXISTS (SELECT 1 FROM public.table_sessions WHERE id = s_pay AND status = 'closed' AND close_reason = 'paid'));

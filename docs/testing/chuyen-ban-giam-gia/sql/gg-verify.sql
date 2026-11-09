@@ -24,10 +24,27 @@
 --     expired_ignores_discount · staff_reset_ignores_discount · merge_drops_source_discount · bulk_pay_split ·
 --     bills_report_revenue (doanh thu = tổng total_amount SAU giảm, discount_total gồm giảm giá bill) ·
 --     pay_remainder_no_negative (3 × 1.000đ giảm 2.999 → 1.000/1.000/999) · bulk_remainder_pays (gộp 3 mâm × 1.000đ
---     giảm 2.999 thu trọn qua close_table_sessions_bulk). expired_ignores_discount kiểm thêm list_open_table_sessions
+--     giảm 2.999 thu trọn trong một lần thu gộp). expired_ignores_discount kiểm thêm list_open_table_sessions
 --     trả type/value null cho phiên hết hạn còn nợ.
+--
+-- ⚠️ Từ mig 112b: CHỈ chạy được sau khi mig 112a + 112b đã áp. close_table_session(…, 'paid', …) và
+--    close_table_sessions_bulk(…, 'paid', …) bị chặn → mọi lần thu dùng pg_temp.pay (gọi collect_table_bill với đúng số
+--    server tính). Bỏ bàn (staff_reset) vẫn gọi close_table_session như cũ.
 
 BEGIN;
+
+-- ---------- mig 112a/112b: thu tiền chỉ còn qua collect_table_bill ----------
+-- Thu đúng số server tính: tiền chưa thu trừ giảm giá của phiên đang mở.
+CREATE FUNCTION pg_temp.pay(p_ids uuid[], p_instrument text) RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE v_due bigint;
+BEGIN
+  SELECT COALESCE(SUM(public.session_unpaid_subtotal(s.id)
+    - CASE WHEN s.status = 'open' THEN public.bill_discount_amount(public.session_unpaid_subtotal(s.id), s.bill_discount_type, s.bill_discount_value) ELSE 0 END), 0)
+    INTO v_due FROM public.table_sessions s WHERE s.id = ANY(p_ids);
+  RETURN public.collect_table_bill(p_ids,
+    CASE WHEN v_due > 0 THEN jsonb_build_array(jsonb_build_object('instrument', p_instrument, 'amount', v_due)) ELSE '[]'::jsonb END,
+    NULL, gen_random_uuid());
+END $$;
 
 -- ---------- helper (chỉ sống trong phiên này) ----------
 CREATE FUNCTION pg_temp.must(p_label text, p_ok boolean) RETURNS void LANGUAGE plpgsql AS $f$
@@ -486,9 +503,10 @@ BEGIN
   -- pay_with_percent + discount_skips_paid_order
   --   10.000 chia theo 33.333/33.333/33.334: floor = 3.333 ×3 = 9.999, dư 1 → đơn lớn nhất (33.334) = 3.334
   -- =====================================================================
-  r := public.close_table_session(p1, 'paid', 'cash');
-  PERFORM pg_temp.must('pay_with_percent: tổng thu = 120.000 − 10.000 = 110.000',
-    (r->>'ok')::boolean AND NOT (r->>'already')::boolean AND (r->>'total')::bigint = 110000
+  r := pg_temp.pay(ARRAY[p1], 'cash');
+  -- collect_table_bill trả số thu LẦN NÀY (100.000 − 10.000), không gồm đơn 20.000 đã thu trước như close_table_session cũ.
+  PERFORM pg_temp.must('pay_with_percent: thu lần này = 100.000 − 10.000 = 90.000 (đơn 20.000 đã thu trước không tính)',
+    (r->>'ok')::boolean AND NOT (r->>'already')::boolean AND (r->>'total')::bigint = 90000
     AND (r->>'orders_settled')::int = 3);
   PERFORM pg_temp.must('pay_with_percent: bill_discount_amount 3.333 / 3.333 / 3.334, cộng = 10.000',
     (SELECT bill_discount_amount FROM public.orders WHERE id = o1) = 3333
@@ -513,7 +531,7 @@ BEGIN
     AND (r->>'grand_discount')::bigint = 10000
     AND (r->>'grand_total')::bigint = 110000);
 
-  r := public.close_table_session(p1, 'paid', 'cash');
+  r := pg_temp.pay(ARRAY[p1], 'cash');
   PERFORM pg_temp.must('pay_idempotent: thu lần 2 → already, total vẫn 110.000, không chia thêm',
     (r->>'already')::boolean AND (r->>'total')::bigint = 110000
     AND (SELECT sum(bill_discount_amount) FROM public.orders WHERE session_id = p1) = 10000);
@@ -529,7 +547,7 @@ BEGIN
   r := public.get_sessions_bill(ARRAY[p2]);
   PERFORM pg_temp.must('discount_after_new_round: bill hiện giảm 10.000 sau lượt mới',
     (r->'sessions'->0->>'discount')::bigint = 10000 AND (r->>'grand_total')::bigint = 90000);
-  r := public.close_table_session(p2, 'paid', 'cash');
+  r := pg_temp.pay(ARRAY[p2], 'cash');
   PERFORM pg_temp.must('discount_after_new_round: thu 90.000, đã chia 10.000 (5.000 mỗi đơn)',
     (r->>'total')::bigint = 90000
     AND (SELECT sum(bill_discount_amount) FROM public.orders WHERE session_id = p2) = 10000
@@ -548,7 +566,7 @@ BEGIN
   PERFORM pg_temp.must('void_after_amount_blocks_pay: recompute trả 60.000 (đơn chưa thu, chưa có giảm giá bill)',
     public.recompute_order_total(o6) = 60000);
   PERFORM pg_temp.expect_fail('void_after_amount_blocks_pay: thu tiền bị chặn',
-    format('SELECT public.close_table_session(%L, %L, %L)', p3, 'paid', 'cash'),
+    format('SELECT pg_temp.pay(ARRAY[%L]::uuid[], %L)', p3, 'cash'),
     '%Giảm giá lớn hơn tiền hàng — sửa lại giảm giá%');
   PERFORM pg_temp.must('void_after_amount_blocks_pay: phiên vẫn mở, đơn chưa ghi nhận tiền, chưa trừ gì',
     (SELECT status FROM public.table_sessions WHERE id = p3) = 'open'
@@ -556,7 +574,7 @@ BEGIN
     AND (SELECT bill_discount_amount FROM public.orders WHERE id = o6) = 0
     AND (SELECT total_amount FROM public.orders WHERE id = o6) = 60000);
   PERFORM public.pos_set_session_discount(p3, 'amount', 50000);
-  r := public.close_table_session(p3, 'paid', 'cash');
+  r := pg_temp.pay(ARRAY[p3], 'cash');
   PERFORM pg_temp.must('void_after_amount_blocks_pay: sửa giảm giá còn 50.000 → thu được 10.000',
     (r->>'total')::bigint = 10000
     AND (SELECT bill_discount_amount FROM public.orders WHERE id = o6) = 50000
@@ -588,7 +606,7 @@ BEGIN
     (r->'sessions'->0->>'discount')::bigint = 0
     AND r->'sessions'->0->'discount_label' = 'null'::jsonb
     AND (r->>'grand_total')::bigint = 80000);
-  r := public.close_table_session(p4, 'paid', 'cash');
+  r := pg_temp.pay(ARRAY[p4], 'cash');
   PERFORM pg_temp.must('expired_ignores_discount: thu 80.000, không chia giảm giá',
     (r->>'total')::bigint = 80000
     AND NOT EXISTS (SELECT 1 FROM public.orders WHERE session_id = p4 AND (bill_discount_amount <> 0 OR total_amount <> 80000)));
@@ -640,9 +658,9 @@ BEGIN
   r := public.get_sessions_bill(ARRAY[b1, b2]);
   PERFORM pg_temp.must('bulk_pay_split: hoá đơn gộp grand_discount 10.001, grand_total 89.999',
     (r->>'grand_discount')::bigint = 10001 AND (r->>'grand_total')::bigint = 89999);
-  r := public.close_table_sessions_bulk(ARRAY[b1, b2], 'paid', 'bank');
+  r := pg_temp.pay(ARRAY[b1, b2], 'bank');
   PERFORM pg_temp.must('bulk_pay_split: thu 89.999; mâm 30k trừ 3.000, mâm 70k trừ 7.001',
-    (r->>'total')::bigint = 89999 AND (r->>'sessions')::int = 2
+    (r->>'total')::bigint = 89999
     AND (SELECT sum(bill_discount_amount) FROM public.orders WHERE session_id = b1) = 3000
     AND (SELECT sum(bill_discount_amount) FROM public.orders WHERE session_id = b2) = 7001
     AND (SELECT sum(total_amount) FROM public.orders WHERE session_id IN (b1, b2)) = 89999);
@@ -676,7 +694,7 @@ BEGIN
   PERFORM pg_temp.mk_order(v_store, v_t2[10], q1, 1000);
   PERFORM pg_temp.mk_order(v_store, v_t2[10], q1, 1000);
   PERFORM public.pos_set_session_discount(q1, 'amount', 2999);
-  r := public.close_table_session(q1, 'paid', 'cash');
+  r := pg_temp.pay(ARRAY[q1], 'cash');
   PERFORM pg_temp.must('pay_remainder_no_negative: thu 1đ, giảm cộng 2.999, không đơn nào âm hay giảm quá tiền của nó',
     (r->>'total')::bigint = 1
     AND (SELECT sum(bill_discount_amount) FROM public.orders WHERE session_id = q1) = 2999
@@ -688,7 +706,7 @@ BEGIN
 
   -- =====================================================================
   -- bulk_remainder_pays: gộp 3 mâm × 1.000đ, giảm 2.999 → 1.000 / 1.000 / 999 (không mâm nào 1.001 > 1.000),
-  --   nên close_table_sessions_bulk thu trọn được (cách cũ: một mâm lỗi "Giảm giá lớn hơn tiền hàng")
+  --   nên thu gộp một lần thu trọn được (cách cũ: một mâm lỗi "Giảm giá lớn hơn tiền hàng")
   -- =====================================================================
   c1 := pg_temp.mk_session(v_store, v_t2[11]);
   c2 := pg_temp.mk_session(v_store, v_t2[12]);
@@ -701,9 +719,9 @@ BEGIN
     (r->>'discount')::bigint = 2999
     AND (SELECT sum(bill_discount_value) FROM public.table_sessions WHERE id IN (c1, c2, c3)) = 2999
     AND NOT EXISTS (SELECT 1 FROM public.table_sessions WHERE id IN (c1, c2, c3) AND bill_discount_value > 1000));
-  r := public.close_table_sessions_bulk(ARRAY[c1, c2, c3], 'paid', 'cash');
+  r := pg_temp.pay(ARRAY[c1, c2, c3], 'cash');
   PERFORM pg_temp.must('bulk_remainder_pays: thu cả 3 mâm, tổng 1đ, không đơn nào âm',
-    (r->>'total')::bigint = 1 AND (r->>'sessions')::int = 3
+    (r->>'total')::bigint = 1
     AND (SELECT sum(bill_discount_amount) FROM public.orders WHERE session_id IN (c1, c2, c3)) = 2999
     AND NOT EXISTS (SELECT 1 FROM public.orders WHERE session_id IN (c1, c2, c3) AND total_amount < 0)
     AND NOT EXISTS (SELECT 1 FROM public.table_sessions WHERE id IN (c1, c2, c3) AND close_reason IS DISTINCT FROM 'paid'));
