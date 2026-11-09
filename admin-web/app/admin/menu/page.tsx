@@ -3,6 +3,8 @@ import MenuClient from './menu-client'
 import MenuAvailabilityClient from './menu-availability-client'
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { parsePrintSettings } from '@/lib/print/print-settings'
+import { isBackOfficeRole } from '@/lib/auth/roles'
+import { readMenuStock } from '@/lib/inventory-server'
 
 export default async function MenuPage() {
   const operator = await requireAdminPageOrRedirect('pos')
@@ -13,20 +15,28 @@ export default async function MenuPage() {
   // Thu ngân (PA-2) + quản lý (mig 116): chỉ bật/tắt "Tạm hết" — không tải kho topping, không có màn sửa món.
   // RLS menu_items vẫn chỉ cho chủ quán sửa (is_store_owner_or_admin). Ô "Trừ kho" cho quản lý do module KHO thêm.
   if (operator.role !== 'store_owner') {
+    // Quản lý (hậu cần): thêm ô Trừ kho → cần lựa chọn của món + dữ liệu kho. Thu ngân giữ nguyên như cũ.
+    const backOffice = isBackOfficeRole(operator.role)
+    const stockPromise = backOffice ? readMenuStock(storeId) : Promise.resolve(null)
     const { data: cashierCategories } = await supabase
       .from('menu_categories')
-      .select('id, name, sort_order, menu_items(id, name, price, is_available, sort_order, sku)')
+      .select(backOffice
+        ? 'id, name, sort_order, menu_items(id, name, price, is_available, sort_order, sku, menu_item_variants(id, name, sort_order))'
+        : 'id, name, sort_order, menu_items(id, name, price, is_available, sort_order, sku)')
       .eq('store_id', storeId)
       .eq('is_active', true)
       .order('sort_order')
       .order('sort_order', { referencedTable: 'menu_items' })
+    const stock = await stockPromise
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
           <h1 className="text-xl font-bold text-foreground">Thực đơn — bật/tắt Tạm hết</h1>
-          <p className="text-sm text-muted">Món tắt sẽ hiện &quot;Tạm hết&quot; trên Mini App ngay. Sửa tên, giá món do chủ quán làm.</p>
+          <p className="text-sm text-muted">
+            {stock ? 'Bật/tắt Tạm hết và gắn trừ kho. ' : ''}Món tắt sẽ hiện &quot;Tạm hết&quot; trên Mini App ngay. Sửa tên, giá món do chủ quán làm.
+          </p>
         </div>
-        <MenuAvailabilityClient categories={cashierCategories ?? []} />
+        <MenuAvailabilityClient categories={cashierCategories ?? []} stock={stock} />
       </div>
     )
   }
@@ -46,11 +56,16 @@ export default async function MenuPage() {
     .eq('store_id', storeId)
     .order('sort_order')
 
+  // Ô "Trừ kho" trong hộp sửa món (mig 118). Chạy song song với trạm in; RPC lỗi (mig chưa áp) → null → không vẽ ô.
+  const stockPromise = readMenuStock(storeId)
+
   // Trạm in (mig 114) cho ô "Trạm in" của danh mục. RPC lỗi (vd. mig chưa áp) → [] → không vẽ ô chọn, trang vẫn chạy.
   const stations = await Promise.resolve(supabase.rpc('get_print_settings', { p_store_id: storeId }))
     .then(({ data, error }) => (error ? null : parsePrintSettings(data)))
     .catch(() => null)
     .then((settings) => (settings?.stations ?? []).map((st) => ({ id: st.id, name: st.name })))
+
+  const stock = await stockPromise
 
   const menuVersion = (categories ?? [])
     .map((category) => `${category.id}:${category.sort_order}:${category.name}:${category.menu_items?.length ?? 0}`)
@@ -62,7 +77,7 @@ export default async function MenuPage() {
         <h1 className="text-xl font-bold text-foreground">Quản lý menu</h1>
         <p className="text-sm text-muted">Toggle hết hàng, thêm/sửa/xóa món</p>
       </div>
-      <MenuClient key={menuVersion} categories={categories ?? []} toppings={toppings ?? []} stations={stations} storeId={storeId} />
+      <MenuClient key={menuVersion} categories={categories ?? []} toppings={toppings ?? []} stations={stations} storeId={storeId} stock={stock} />
     </div>
   )
 }
