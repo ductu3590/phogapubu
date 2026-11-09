@@ -189,11 +189,13 @@ async function extend(base, through) {
     return r.id
   }
 
-  // Xoá dữ liệu giao dịch của helper thu tiền + ca/phiếu; trả công tắc về mặc định. Danh mục giữ nguyên.
+  // Xoá dữ liệu giao dịch của helper thu tiền + ca/phiếu; trả công tắc về mặc định; danh mục về đúng bộ seed
+  // (test sửa / ẩn / thêm danh mục không lây sang test sau). Id danh mục đổi sau mỗi reset: luôn tra qua category().
   async function reset() {
     await base.reset()
     await db.exec(`
       DELETE FROM cash_book_entries; DELETE FROM cash_shifts;
+      DELETE FROM cash_book_categories; SELECT seed_cash_book_categories(id) FROM stores;
       UPDATE store_workflow_settings SET require_cash_shift = false, business_day_start = '00:00';
     `)
   }

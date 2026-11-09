@@ -732,6 +732,292 @@ describe('122 ca', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// Task 3: RPC sổ thu chi
+// ---------------------------------------------------------------------------
+// Gọi cash_book_create dưới uid. Mặc định: phiếu chi TM 10.000đ danh mục Đá, nguồn manual, mã mới.
+async function create(uid, overrides = {}) {
+  const p = {
+    kind: 'payment', method: 'cash', category: null, amount: 10000, note: null, counterparty: null,
+    requestId: randomUUID(), source: 'manual', store: ids.store, ...overrides,
+  }
+  const cat = p.category ?? (await category(p.store, 'Đá'))
+  return rpc(uid, 'cash_book_create', p.kind, p.method, cat, p.amount, p.note, p.counterparty, p.requestId, p.source)
+}
+const list = (uid, from, to, filters = {}, storeId = ids.store) =>
+  rpc(uid, 'cash_book_list', storeId, from, to, JSON.stringify(filters))
+async function today(storeId = ids.store) {
+  await db.exec('RESET ROLE')
+  return (await one('SELECT current_business_date($1)::text AS d', [storeId])).d
+}
+
+describe('122 sổ', () => {
+  test('thu ngân: phiếu chi TM pos_drawer được; CK bị chặn; nguồn manual bị chặn', async () => {
+    await setShiftRequired(ids.store, true)
+    const shift = await insertShift()
+    const r = await create(ids.cashier, { source: 'pos_drawer', note: 'đá cây' })
+    assert.deepEqual(Object.keys(r).sort(), ['already', 'business_date', 'cash_shift_id', 'id', 'ok'])
+    assert.deepEqual([r.ok, r.already, r.cash_shift_id, r.business_date], [true, false, shift, await today()])
+    const row = await entry(r.id)
+    assert.deepEqual([row.created_by, row.source, row.method, row.store_id], [ids.cashier, 'pos_drawer', 'cash', ids.store])
+    await create(ids.cashier, { kind: 'receipt', category: await category(ids.store, 'Nộp thêm vào két'), source: 'pos_drawer' })
+    await assert.rejects(create(ids.cashier, { method: 'bank', source: 'pos_drawer' }), /Thu ngân chỉ ghi thu\/chi tiền mặt ở két/)
+    await assert.rejects(create(ids.cashier, { method: 'cash', source: 'manual' }), /Thu ngân chỉ ghi thu\/chi tiền mặt ở két/)
+    await assert.rejects(create(ids.cashier, { method: 'bank', source: 'manual' }), /Thu ngân chỉ ghi thu\/chi tiền mặt ở két/)
+    assert.equal(await count('cash_book_entries'), 2)
+  })
+
+  test('quản lý: ghi CK không cần ca; ghi TM khi bật ca không có ca báo Chưa mở ca', async () => {
+    await setShiftRequired(ids.store, true)
+    const bank = await create(ids.manager, { method: 'bank', counterparty: 'NCC Bia', amount: 1500000 })
+    assert.equal(bank.cash_shift_id, null)
+    assert.equal((await entry(bank.id)).created_by, ids.manager)
+    await assert.rejects(create(ids.manager), /Chưa mở ca/)
+    await assert.rejects(create(ids.owner, { source: 'pos_drawer' }), /Chưa mở ca/)
+    const shift = await insertShift()
+    assert.equal((await create(ids.owner, { source: 'pos_drawer' })).cash_shift_id, shift)
+    assert.equal((await create(ids.manager)).cash_shift_id, shift)
+  })
+
+  test('gửi lại cùng mã sau khi ca đã đóng: trả phiếu cũ already true, không báo Chưa mở ca', async () => {
+    await setShiftRequired(ids.store, true)
+    const shift = await insertShift()
+    const requestId = randomUUID()
+    const a = await create(ids.cashier, { requestId, source: 'pos_drawer' })
+    await rpc(ids.cashier, 'close_cash_shift', shift, 0, null)
+    const b = await create(ids.cashier, { requestId, source: 'pos_drawer' })
+    assert.deepEqual(b, { ...a, already: true })
+    assert.equal(await count('cash_book_entries'), 1)
+    await assert.rejects(create(ids.cashier, { requestId, source: 'pos_drawer', amount: 9999 }),
+      /Mã chống ghi trùng đã dùng cho phiếu khác/)
+    await assert.rejects(create(ids.cashier, { requestId: null, source: 'pos_drawer' }), /Thiếu mã chống ghi trùng/)
+  })
+
+  test('p_source inventory_receipt từ client bị chặn; danh mục hệ thống Nhập hàng không ghi tay được', async () => {
+    await assert.rejects(create(ids.owner, { source: 'inventory_receipt' }), /Nguồn phiếu không hợp lệ/)
+    await assert.rejects(create(ids.owner, { source: null }), /Nguồn phiếu không hợp lệ/)
+    const nhap = await category(ids.store, 'Nhập hàng')
+    await assert.rejects(create(ids.owner, { category: nhap, method: 'bank' }), /Nhập hàng chỉ ghi qua phiếu nhập kho/)
+    await assert.rejects(create(ids.cashier, { category: nhap, source: 'pos_drawer' }), /Nhập hàng chỉ ghi qua phiếu nhập kho/)
+    // Mặc định nguồn manual khi không truyền p_source.
+    const r = (await as(ids.owner, `SELECT cash_book_create('payment', 'bank', $1, 5000, NULL, NULL, $2) AS v`,
+      [await category(ids.store, 'Đá'), randomUUID()])).rows[0].v
+    assert.equal((await entry(r.id)).source, 'manual')
+    assert.equal(await count("cash_book_entries WHERE category_id = $1", [nhap]), 0)
+  })
+
+  test('quyền ghi: phục vụ, chủ quán khác, danh mục lạ bị chặn; quán suy từ danh mục', async () => {
+    await assert.rejects(create(ids.staff, { source: 'pos_drawer' }), /Không có quyền ghi sổ thu chi/)
+    await assert.rejects(create(ids.otherOwner, { method: 'bank' }), /Không có quyền ghi sổ thu chi/)
+    await assert.rejects(create(ids.owner, { category: randomUUID(), method: 'bank' }), /Danh mục không hợp lệ/)
+    const r = await create(ids.otherOwner, { store: ids.otherStore, method: 'bank' })
+    assert.equal((await entry(r.id)).store_id, ids.otherStore)
+    // Chủ quán A không ghi được vào quán B bằng cách đưa danh mục của B.
+    await assert.rejects(create(ids.owner, { store: ids.otherStore, method: 'bank' }), /Không có quyền ghi sổ thu chi/)
+  })
+
+  test('huỷ: thu ngân bị chặn; quản lý huỷ được; phiếu inventory_receipt báo Phiếu chi của phiếu nhập kho, huỷ ở trang Kho', async () => {
+    const e = await create(ids.cashier, { source: 'pos_drawer' })
+    await assert.rejects(rpc(ids.cashier, 'cash_book_void', e.id, 'nhầm'), /Chỉ chủ quán hoặc quản lý được huỷ phiếu/)
+    await assert.rejects(rpc(ids.staff, 'cash_book_void', e.id, 'nhầm'), /Chỉ chủ quán hoặc quản lý được huỷ phiếu/)
+    await assert.rejects(rpc(ids.otherOwner, 'cash_book_void', e.id, 'nhầm'), /Chỉ chủ quán hoặc quản lý được huỷ phiếu/)
+    await assert.rejects(rpc(ids.manager, 'cash_book_void', e.id, '  '), /Cần ghi lý do huỷ/)
+    assert.deepEqual(await rpc(ids.manager, 'cash_book_void', e.id, 'nhầm'), { ok: true, already: false })
+    assert.equal((await entry(e.id)).voided_by, ids.manager)
+    assert.deepEqual(await rpc(ids.owner, 'cash_book_void', e.id, 'lần hai'), { ok: true, already: true })
+    const inv = await internal({ category: await category(ids.store, 'Nhập hàng'), method: 'bank',
+      source: 'inventory_receipt', sourceRef: randomUUID() })
+    await assert.rejects(rpc(ids.owner, 'cash_book_void', inv, 'x'), /Phiếu chi của phiếu nhập kho, huỷ ở trang Kho/)
+    assert.equal((await entry(inv)).voided_at, null)
+    await assert.rejects(rpc(ids.owner, 'cash_book_void', randomUUID(), 'x'), /Không tìm thấy phiếu/)
+  })
+
+  test('huỷ phiếu TM ca đã đóng: Ca của phiếu này đã kết, không huỷ được; phiếu CK huỷ được bất kỳ lúc nào', async () => {
+    await setShiftRequired(ids.store, true)
+    const shift = await insertShift()
+    const cash = await create(ids.owner)
+    const bank = await create(ids.owner, { method: 'bank' })
+    await rpc(ids.owner, 'close_cash_shift', shift, 0, null)
+    await assert.rejects(rpc(ids.owner, 'cash_book_void', cash.id, 'muộn'), /Ca của phiếu này đã kết, không huỷ được/)
+    assert.deepEqual(await rpc(ids.manager, 'cash_book_void', bank.id, 'sai'), { ok: true, already: false })
+  })
+
+  test('phiếu huỷ không vào két và không vào totals của cash_book_list', async () => {
+    await setShiftRequired(ids.store, true)
+    const shift = await insertShift({ openingCash: 1000 })
+    const keep = await create(ids.owner, { amount: 300 })
+    const gone = await create(ids.owner, { amount: 200 })
+    await create(ids.owner, { kind: 'receipt', category: await category(ids.store, 'Nộp thêm vào két'), amount: 50 })
+    await create(ids.owner, { method: 'bank', amount: 7 })
+    const goneBank = await create(ids.owner, { method: 'bank', kind: 'receipt', note: 'x',
+      category: await category(ids.store, 'Thu khác'), amount: 9 })
+    await rpc(ids.owner, 'cash_book_void', gone.id, 'nhầm')
+    await rpc(ids.owner, 'cash_book_void', goneBank.id, 'nhầm')
+    const t = await totals(shift)
+    assert.deepEqual([t.cash_payments, t.cash_receipts, t.expected_cash], [300, 50, 750])
+    const d = await today()
+    const r = await list(ids.owner, d, d)
+    assert.deepEqual(r.totals, { receipt_cash: 50, receipt_bank: 0, payment_cash: 300, payment_bank: 7 })
+    assert.equal(r.entries.length, 5)
+    const g = r.entries.find((e) => e.id === gone.id)
+    assert.ok(g.voided_at)
+    assert.deepEqual([g.voided_by_name, g.void_reason], ['chu@quan.vn', 'nhầm'])
+    assert.ok(r.entries.find((e) => e.id === keep.id).voided_at === null)
+  })
+
+  test('cash_book_list: dạng JSON, mới nhất trước, có ca và người ghi', async () => {
+    await setShiftRequired(ids.store, true)
+    const shift = await insertShift()
+    const a = await create(ids.cashier, { source: 'pos_drawer', note: 'đá', counterparty: 'Anh Ba' })
+    await db.query("UPDATE cash_book_entries SET created_at = now() - interval '1 minute' WHERE id = $1", [a.id])
+    const b = await create(ids.manager, { method: 'bank' })
+    const d = await today()
+    const r = await list(ids.owner, d, d)
+    assert.deepEqual(Object.keys(r).sort(), ['entries', 'totals', 'truncated'])
+    assert.equal(r.truncated, false)
+    assert.deepEqual(r.entries.map((e) => e.id), [b.id, a.id])
+    const e = r.entries[1]
+    assert.deepEqual(Object.keys(e).sort(), ['amount', 'business_date', 'cash_shift_id', 'category_id', 'category_name',
+      'counterparty', 'created_at', 'created_by_name', 'id', 'kind', 'method', 'note', 'report_group', 'shift_opened_at',
+      'source', 'source_ref', 'void_reason', 'voided_at', 'voided_by_name'])
+    assert.deepEqual([e.kind, e.method, e.category_name, e.report_group, e.amount, e.note, e.counterparty, e.business_date,
+      e.created_by_name, e.cash_shift_id, e.source, e.source_ref, e.voided_at, e.voided_by_name, e.void_reason],
+    ['payment', 'cash', 'Đá', 'operating_expense', 10000, 'đá', 'Anh Ba', d, 'Thu ngân Lan', shift, 'pos_drawer', null,
+      null, null, null])
+    assert.ok(e.shift_opened_at)
+    assert.equal(r.entries[0].shift_opened_at, null)
+  })
+
+  test('cash_book_list: lọc ngày theo business_date, kind, method, category_id; quán khác bị chặn; thu ngân chỉ thấy phiếu mình tạo', async () => {
+    const d = await today()
+    const old = await create(ids.owner, { method: 'bank', amount: 1 })
+    await db.query("UPDATE cash_book_entries SET business_date = business_date - 3 WHERE id = $1", [old.id])
+    const mine = await create(ids.cashier, { source: 'pos_drawer', amount: 2 })
+    const rec = await create(ids.manager, { kind: 'receipt', category: await category(ids.store, 'Nộp thêm vào két'), amount: 4 })
+    const bank = await create(ids.owner, { method: 'bank', category: await category(ids.store, 'Điện nước'), amount: 8 })
+    await create(ids.otherOwner, { store: ids.otherStore, method: 'bank', amount: 16 })
+    const ids_ = async (uid, from, to, f) => (await list(uid, from, to, f)).entries.map((e) => e.id).sort()
+    const minus = async (n) => (await one(`SELECT ($1::date - $2::int)::text AS d`, [d, n])).d
+    assert.deepEqual(await ids_(ids.owner, d, d), [mine.id, rec.id, bank.id].sort())
+    assert.deepEqual(await ids_(ids.manager, await minus(3), d), [old.id, mine.id, rec.id, bank.id].sort())
+    assert.deepEqual(await ids_(ids.owner, await minus(3), await minus(3)), [old.id])
+    assert.deepEqual(await ids_(ids.owner, d, d, { kind: 'receipt' }), [rec.id])
+    assert.deepEqual(await ids_(ids.owner, d, d, { method: 'bank' }), [bank.id])
+    assert.deepEqual(await ids_(ids.owner, d, d, { category_id: await category(ids.store, 'Điện nước') }), [bank.id])
+    assert.deepEqual(await ids_(ids.owner, d, d, { kind: 'payment', method: 'cash' }), [mine.id])
+    // Thu ngân: chỉ phiếu mình ghi, totals cũng chỉ của mình.
+    const c = await list(ids.cashier, await minus(3), d)
+    assert.deepEqual(c.entries.map((e) => e.id), [mine.id])
+    assert.deepEqual(c.totals, { receipt_cash: 0, receipt_bank: 0, payment_cash: 2, payment_bank: 0 })
+    for (const uid of [ids.otherOwner, ids.staff]) {
+      await assert.rejects(list(uid, d, d), /Không có quyền xem sổ thu chi/)
+    }
+    await assert.rejects(list(ids.owner, d, d, { kind: 'transfer' }), /Bộ lọc không hợp lệ/)
+    await assert.rejects(list(ids.owner, d, d, { category_id: 'abc' }), /Bộ lọc không hợp lệ/)
+  })
+
+  test('cash_book_list: khoảng ngày ngược hoặc dài hơn 366 ngày bị chặn', async () => {
+    await assert.rejects(list(ids.owner, '2026-11-09', '2026-11-08'), /Khoảng ngày không hợp lệ/)
+    await assert.rejects(list(ids.owner, '2025-11-07', '2026-11-09'), /Khoảng ngày không hợp lệ/)
+    await assert.rejects(list(ids.owner, null, '2026-11-09'), /Khoảng ngày không hợp lệ/)
+    assert.deepEqual((await list(ids.owner, '2025-11-08', '2026-11-09')).entries, [])
+  })
+
+  test('cash_book_list: tối đa 2000 phiếu, truncated true, totals vẫn tính đủ', async () => {
+    const cat = await category(ids.store, 'Đá')
+    await db.query(`INSERT INTO cash_book_entries(store_id, kind, method, category_id, amount, business_date, source,
+        client_request_id, created_by)
+      SELECT $1, 'payment', 'bank', $2, 1, current_business_date($1), 'manual', gen_random_uuid(), $3
+        FROM generate_series(1, 2001)`, [ids.store, cat, ids.owner])
+    const d = await today()
+    const r = await list(ids.owner, d, d)
+    assert.equal(r.entries.length, 2000)
+    assert.equal(r.truncated, true)
+    assert.equal(r.totals.payment_bank, 2001)
+  })
+
+  test('danh mục: tạo trùng tên (khác hoa thường) bị chặn; nhóm inventory_purchase bị chặn; nhóm sai loại bị chặn', async () => {
+    const save = (uid, id, kind, name, group, storeId = ids.store) =>
+      rpc(uid, 'cash_book_save_category', storeId, id, kind, name, group)
+    const r = await save(ids.manager, null, 'payment', '  Thuê loa  ', null)
+    assert.equal(r.ok, true)
+    const row = await one('SELECT * FROM cash_book_categories WHERE id = $1', [r.id])
+    assert.deepEqual([row.store_id, row.kind, row.name, row.report_group, row.is_system, row.is_active, row.requires_note],
+      [ids.store, 'payment', 'Thuê loa', 'operating_expense', false, true, false])
+    assert.ok(row.sort_order > 90)
+    const rec = await save(ids.owner, null, 'receipt', 'Bán vỏ chai', null)
+    assert.equal((await one('SELECT report_group FROM cash_book_categories WHERE id = $1', [rec.id])).report_group, 'other_income')
+    await save(ids.owner, null, 'receipt', 'Rút ngân hàng', 'cash_transfer')
+    await assert.rejects(save(ids.owner, null, 'payment', 'đá', null), /Danh mục đã có/)
+    await assert.rejects(save(ids.owner, null, 'payment', 'THUÊ LOA', null), /Danh mục đã có/)
+    await assert.rejects(save(ids.owner, null, 'payment', 'Nhập bia', 'inventory_purchase'), /Nhóm danh mục không hợp lệ/)
+    await assert.rejects(save(ids.owner, null, 'receipt', 'Thu lạ', 'operating_expense'), /Nhóm danh mục không hợp lệ/)
+    await assert.rejects(save(ids.owner, null, 'transfer', 'Lạ', null), /Loại danh mục không hợp lệ/)
+    await assert.rejects(save(ids.owner, null, 'payment', '   ', null), /Tên danh mục/)
+    await assert.rejects(save(ids.owner, null, 'payment', 'x'.repeat(61), null), /Tên danh mục/)
+    // Cùng tên khác loại (thu / chi) thì được.
+    await save(ids.owner, null, 'receipt', 'Đá', null)
+  })
+
+  test('danh mục hệ thống: đổi tên, ẩn đều bị chặn; danh mục thường đổi tên, ẩn, hiện lại được', async () => {
+    const save = (uid, id, kind, name, group) => rpc(uid, 'cash_book_save_category', ids.store, id, kind, name, group)
+    const nhap = await category(ids.store, 'Nhập hàng')
+    await assert.rejects(save(ids.owner, nhap, 'payment', 'Mua hàng', 'inventory_purchase'), /Danh mục hệ thống không sửa được/)
+    await assert.rejects(rpc(ids.owner, 'cash_book_set_category_active', nhap, false), /Danh mục hệ thống không sửa được/)
+    const cho = await category(ids.store, 'Đi chợ')
+    assert.deepEqual(await save(ids.manager, cho, 'payment', 'Đi chợ sáng', 'operating_expense'), { ok: true, id: cho })
+    assert.equal((await one('SELECT name FROM cash_book_categories WHERE id = $1', [cho])).name, 'Đi chợ sáng')
+    await assert.rejects(save(ids.manager, cho, 'payment', 'Đá', 'operating_expense'), /Danh mục đã có/)
+    await assert.rejects(save(ids.manager, cho, 'receipt', 'Đi chợ sáng', 'other_income'), /Không đổi được loại thu\/chi/)
+    await assert.rejects(save(ids.manager, cho, 'payment', 'Đi chợ sáng', 'inventory_purchase'), /Nhóm danh mục không hợp lệ/)
+    // Đổi hoa thường của chính nó: không coi là trùng.
+    await save(ids.manager, cho, 'payment', 'ĐI CHỢ SÁNG', 'operating_expense')
+    assert.deepEqual(await rpc(ids.manager, 'cash_book_set_category_active', cho, false), { ok: true })
+    assert.equal((await one('SELECT is_active FROM cash_book_categories WHERE id = $1', [cho])).is_active, false)
+    await assert.rejects(create(ids.owner, { category: cho, method: 'bank' }), /Danh mục không hợp lệ/)
+    assert.deepEqual(await rpc(ids.owner, 'cash_book_set_category_active', cho, true), { ok: true })
+    await create(ids.owner, { category: cho, method: 'bank' })
+    // Danh mục quán khác: không thấy.
+    await assert.rejects(rpc(ids.owner, 'cash_book_save_category', ids.store, await category(ids.otherStore, 'Đá'),
+      'payment', 'Lén', null), /Không tìm thấy danh mục/)
+    await assert.rejects(rpc(ids.owner, 'cash_book_set_category_active', randomUUID(), false), /Không tìm thấy danh mục/)
+  })
+
+  test('danh mục: thu ngân, phục vụ bị chặn', async () => {
+    const cho = await category(ids.store, 'Đi chợ')
+    for (const uid of [ids.cashier, ids.staff, ids.otherOwner]) {
+      await assert.rejects(rpc(uid, 'cash_book_save_category', ids.store, null, 'payment', 'Mới', null),
+        /Chỉ chủ quán hoặc quản lý được sửa danh mục/)
+      await assert.rejects(rpc(uid, 'cash_book_save_category', ids.store, cho, 'payment', 'Đổi', null),
+        /Chỉ chủ quán hoặc quản lý được sửa danh mục/)
+      await assert.rejects(rpc(uid, 'cash_book_set_category_active', cho, false),
+        /Chỉ chủ quán hoặc quản lý được sửa danh mục/)
+    }
+    assert.equal((await one('SELECT name, is_active FROM cash_book_categories WHERE id = $1', [cho])).name, 'Đi chợ')
+  })
+
+  test('quyền hàm sổ: anon không EXECUTE, authenticated được, SECURITY DEFINER', async () => {
+    for (const fn of ['cash_book_create(text,text,uuid,bigint,text,text,uuid,text)', 'cash_book_void(uuid,text)',
+      'cash_book_list(uuid,date,date,jsonb)', 'cash_book_save_category(uuid,uuid,text,text,text)',
+      'cash_book_set_category_active(uuid,boolean)']) {
+      assert.equal((await one(`SELECT has_function_privilege('anon', 'public.${fn}', 'EXECUTE') AS v`)).v, false, fn)
+      assert.equal((await one(`SELECT has_function_privilege('authenticated', 'public.${fn}', 'EXECUTE') AS v`)).v, true, fn)
+      const d = await def(fn)
+      assert.match(d, /SECURITY DEFINER/, fn)
+      assert.match(d, /SET search_path TO 'public'/, fn)
+    }
+  })
+
+  test('khoá: cash_book_void khoá phiếu FOR UPDATE và ca FOR SHARE', async () => {
+    const d = await def('cash_book_void_internal(uuid,text,uuid)')
+    assert.match(d, /FROM public\.cash_book_entries[^;]*FOR UPDATE/)
+    assert.match(d, /FROM public\.cash_shifts[^;]*FOR SHARE/)
+    assert.ok(d.indexOf('FOR UPDATE') < d.indexOf('FOR SHARE'))
+    assert.match(await def('cash_book_void(uuid,text)'), /cash_book_void_internal\(/)
+    assert.match(await def('cash_book_create(text,text,uuid,bigint,text,text,uuid,text)'), /cash_book_create_internal\(/)
+  })
+})
+
 describe('122 điều kiện trước', () => {
   test('dừng nếu 112b chưa áp (đường thu cũ còn mở)', async () => {
     await assert.rejects(openCashShiftDb({ lock: false }), /mig 122: .*112b/)

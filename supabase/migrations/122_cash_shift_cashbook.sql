@@ -13,6 +13,9 @@
 --      (service_role cho /print/agent); RPC open_cash_shift, close_cash_shift, continue_stale_shift,
 --      get_open_cash_shift, list_cash_shifts, get_cash_shift_report, set_require_cash_shift; vá tại chỗ
 --      store_workflow_snapshot thêm require_cash_shift. Ca đang mở: server KHÔNG trả tiền bán / dự kiến / lệch.
+--   6) Sổ thu chi: RPC cash_book_create (manual | pos_drawer), cash_book_void, cash_book_list,
+--      cash_book_save_category, cash_book_set_category_active. Thu ngân chỉ ghi tiền mặt tại két, không huỷ,
+--      chỉ xem phiếu mình ghi; danh mục hệ thống "Nhập hàng" không ghi tay, không sửa, không ẩn.
 --
 -- ⚠️ Không chặn ở RLS: thu ngân đọc thẳng bill_payments vẫn tính được tiền dự kiến — quy tắc "đếm trước thấy sau"
 --    chỉ ở giao diện, chấp nhận (spec B2: A04 vốn cho thu ngân xem tiền mặt theo ngày).
@@ -996,6 +999,314 @@ GRANT EXECUTE ON FUNCTION public.get_open_cash_shift(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.list_cash_shifts(uuid, integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_cash_shift_report(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_require_cash_shift(uuid, boolean) TO authenticated;
+
+-- ============================================================
+-- 12) Sổ thu chi: RPC
+--    Quyền (bảng vai Quản lý §2): chủ quán + quản lý (is_store_back_office) ghi TM + CK, huỷ, sửa danh mục, xem
+--    cả sổ. Thu ngân chỉ ghi TIỀN MẶT tại két (nguồn pos_drawer), không huỷ, chỉ xem phiếu mình ghi. Phục vụ: không.
+-- ============================================================
+
+-- Ghi phiếu. Quán suy từ danh mục (client không tự chọn quán). p_source chỉ manual | pos_drawer: phiếu
+-- inventory_receipt chỉ sinh trong giao dịch phiếu nhập kho (122b), danh mục hệ thống "Nhập hàng" cũng vậy.
+CREATE FUNCTION public.cash_book_create(
+  p_kind text, p_method text, p_category_id uuid, p_amount bigint, p_note text, p_counterparty text,
+  p_client_request_id uuid, p_source text DEFAULT 'manual')
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_store uuid;
+  v_is_system boolean;
+  v_already boolean;
+  v_id uuid;
+  v_entry public.cash_book_entries%ROWTYPE;
+BEGIN
+  IF p_client_request_id IS NULL THEN
+    RAISE EXCEPTION 'Thiếu mã chống ghi trùng';
+  END IF;
+  IF p_source IS NULL OR p_source NOT IN ('manual', 'pos_drawer') THEN
+    RAISE EXCEPTION 'Nguồn phiếu không hợp lệ';
+  END IF;
+
+  SELECT c.store_id, c.is_system INTO v_store, v_is_system
+    FROM public.cash_book_categories c WHERE c.id = p_category_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Danh mục không hợp lệ';
+  END IF;
+
+  IF public.is_store_back_office(v_store) THEN
+    NULL;  -- mọi phương thức, mọi nguồn trong danh sách trên
+  ELSIF public.is_store_pos_operator(v_store) THEN
+    IF p_method IS DISTINCT FROM 'cash' OR p_source <> 'pos_drawer' THEN
+      RAISE EXCEPTION 'Thu ngân chỉ ghi thu/chi tiền mặt ở két';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Không có quyền ghi sổ thu chi';
+  END IF;
+
+  IF v_is_system THEN
+    RAISE EXCEPTION 'Danh mục Nhập hàng chỉ ghi qua phiếu nhập kho';
+  END IF;
+
+  -- Gửi lại (mạng rớt, bấm hai lần): báo already. cash_book_create_internal tự trả id cũ (kể cả khi ca đã đóng
+  -- giữa hai lần) hoặc raise khi cùng mã mà khác nội dung.
+  v_already := EXISTS (SELECT 1 FROM public.cash_book_entries e
+                        WHERE e.store_id = v_store AND e.client_request_id = p_client_request_id);
+
+  v_id := public.cash_book_create_internal(
+    v_store, p_kind, p_method, p_category_id, p_amount, p_note, p_counterparty, p_source, NULL, auth.uid(),
+    p_client_request_id);
+
+  SELECT * INTO v_entry FROM public.cash_book_entries e WHERE e.id = v_id;
+  RETURN jsonb_build_object(
+    'ok', true,
+    'already', v_already,
+    'id', v_entry.id,
+    'cash_shift_id', v_entry.cash_shift_id,
+    'business_date', v_entry.business_date
+  );
+END;
+$$;
+
+-- Huỷ phiếu: chỉ chủ quán / quản lý. Phiếu chi sinh từ phiếu nhập kho huỷ bằng cách huỷ phiếu nhập (kho và sổ
+-- luôn khớp). Khoá phiếu FOR UPDATE và ca FOR SHARE nằm trong cash_book_void_internal.
+CREATE FUNCTION public.cash_book_void(p_id uuid, p_reason text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_store uuid;
+  v_source text;
+BEGIN
+  SELECT e.store_id, e.source INTO v_store, v_source FROM public.cash_book_entries e WHERE e.id = p_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Không tìm thấy phiếu';
+  END IF;
+  IF NOT public.is_store_back_office(v_store) THEN
+    RAISE EXCEPTION 'Chỉ chủ quán hoặc quản lý được huỷ phiếu';
+  END IF;
+  IF v_source = 'inventory_receipt' THEN
+    RAISE EXCEPTION 'Phiếu chi của phiếu nhập kho, huỷ ở trang Kho';
+  END IF;
+  RETURN public.cash_book_void_internal(p_id, p_reason, auth.uid());
+END;
+$$;
+
+-- Xem sổ theo khoảng ngày kinh doanh (business_date). Thu ngân chỉ thấy phiếu mình ghi (totals cũng vậy).
+-- totals chỉ tính phiếu chưa huỷ, trên TOÀN BỘ phiếu khớp lọc (không chỉ 2000 dòng trả về).
+CREATE FUNCTION public.cash_book_list(p_store_id uuid, p_from date, p_to date, p_filters jsonb DEFAULT '{}'::jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_all boolean;
+  v_filters jsonb := COALESCE(p_filters, '{}'::jsonb);
+  v_kind text;
+  v_method text;
+  v_cat_text text;
+  v_cat uuid;
+  v_entries jsonb;
+  v_totals jsonb;
+  v_truncated boolean;
+BEGIN
+  IF public.is_store_back_office(p_store_id) THEN
+    v_all := true;
+  ELSIF public.is_store_pos_operator(p_store_id) THEN
+    v_all := false;
+  ELSE
+    RAISE EXCEPTION 'Không có quyền xem sổ thu chi';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_from > p_to OR p_to - p_from > 366 THEN
+    RAISE EXCEPTION 'Khoảng ngày không hợp lệ';
+  END IF;
+
+  IF jsonb_typeof(v_filters) <> 'object' THEN
+    RAISE EXCEPTION 'Bộ lọc không hợp lệ';
+  END IF;
+  v_kind := NULLIF(v_filters->>'kind', '');
+  v_method := NULLIF(v_filters->>'method', '');
+  v_cat_text := NULLIF(v_filters->>'category_id', '');
+  IF (v_kind IS NOT NULL AND v_kind NOT IN ('receipt', 'payment'))
+     OR (v_method IS NOT NULL AND v_method NOT IN ('cash', 'bank'))
+     OR (v_cat_text IS NOT NULL
+         AND v_cat_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') THEN
+    RAISE EXCEPTION 'Bộ lọc không hợp lệ';
+  END IF;
+  v_cat := v_cat_text::uuid;
+
+  WITH f AS (
+    SELECT e.*
+      FROM public.cash_book_entries e
+     WHERE e.store_id = p_store_id
+       AND e.business_date BETWEEN p_from AND p_to
+       AND (v_all OR e.created_by = v_uid)
+       AND (v_kind IS NULL OR e.kind = v_kind)
+       AND (v_method IS NULL OR e.method = v_method)
+       AND (v_cat IS NULL OR e.category_id = v_cat)
+  )
+  SELECT
+    (SELECT COALESCE(jsonb_agg(x.j ORDER BY x.created_at DESC, x.id DESC), '[]'::jsonb)
+       FROM (SELECT f.id, f.created_at, jsonb_build_object(
+                     'id', f.id,
+                     'kind', f.kind,
+                     'method', f.method,
+                     'category_id', f.category_id,
+                     'category_name', c.name,
+                     'report_group', c.report_group,
+                     'amount', f.amount,
+                     'note', f.note,
+                     'counterparty', f.counterparty,
+                     'business_date', f.business_date,
+                     'created_at', f.created_at,
+                     'created_by_name', public.cash_user_name(f.created_by),
+                     'cash_shift_id', f.cash_shift_id,
+                     'shift_opened_at', s.opened_at,
+                     'source', f.source,
+                     'source_ref', f.source_ref,
+                     'voided_at', f.voided_at,
+                     'voided_by_name', public.cash_user_name(f.voided_by),
+                     'void_reason', f.void_reason) AS j
+               FROM f
+               JOIN public.cash_book_categories c ON c.id = f.category_id
+               LEFT JOIN public.cash_shifts s ON s.id = f.cash_shift_id
+              ORDER BY f.created_at DESC, f.id DESC
+              LIMIT 2000) x),
+    (SELECT jsonb_build_object(
+              'receipt_cash', COALESCE(SUM(f.amount) FILTER (WHERE f.kind = 'receipt' AND f.method = 'cash'), 0),
+              'receipt_bank', COALESCE(SUM(f.amount) FILTER (WHERE f.kind = 'receipt' AND f.method = 'bank'), 0),
+              'payment_cash', COALESCE(SUM(f.amount) FILTER (WHERE f.kind = 'payment' AND f.method = 'cash'), 0),
+              'payment_bank', COALESCE(SUM(f.amount) FILTER (WHERE f.kind = 'payment' AND f.method = 'bank'), 0))
+       FROM f WHERE f.voided_at IS NULL),
+    (SELECT count(*) > 2000 FROM f)
+  INTO v_entries, v_totals, v_truncated;
+
+  RETURN jsonb_build_object('entries', v_entries, 'totals', v_totals, 'truncated', v_truncated);
+END;
+$$;
+
+-- Thêm / sửa danh mục (p_id NULL = thêm). Không chọn được nhóm inventory_purchase (chỉ danh mục hệ thống),
+-- không đổi loại thu/chi (phiếu cũ đã ghi theo loại), danh mục hệ thống không sửa.
+CREATE FUNCTION public.cash_book_save_category(
+  p_store_id uuid, p_id uuid, p_kind text, p_name text, p_report_group text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_name text := btrim(p_name);
+  v_kind text;
+  v_group text;
+  v_cat public.cash_book_categories%ROWTYPE;
+  v_id uuid;
+BEGIN
+  IF NOT public.is_store_back_office(p_store_id) THEN
+    RAISE EXCEPTION 'Chỉ chủ quán hoặc quản lý được sửa danh mục';
+  END IF;
+
+  IF p_id IS NOT NULL THEN
+    SELECT * INTO v_cat FROM public.cash_book_categories c
+     WHERE c.id = p_id AND c.store_id = p_store_id
+     FOR UPDATE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Không tìm thấy danh mục';
+    END IF;
+    IF v_cat.is_system THEN
+      RAISE EXCEPTION 'Danh mục hệ thống không sửa được';
+    END IF;
+    IF p_kind IS NOT NULL AND p_kind <> v_cat.kind THEN
+      RAISE EXCEPTION 'Không đổi được loại thu/chi của danh mục';
+    END IF;
+    v_kind := v_cat.kind;
+    v_group := COALESCE(NULLIF(p_report_group, ''), v_cat.report_group);
+  ELSE
+    IF p_kind IS NULL OR p_kind NOT IN ('receipt', 'payment') THEN
+      RAISE EXCEPTION 'Loại danh mục không hợp lệ';
+    END IF;
+    v_kind := p_kind;
+    v_group := COALESCE(NULLIF(p_report_group, ''),
+                        CASE WHEN p_kind = 'payment' THEN 'operating_expense' ELSE 'other_income' END);
+  END IF;
+
+  IF v_name IS NULL OR v_name = '' OR length(v_name) > 60 THEN
+    RAISE EXCEPTION 'Tên danh mục từ 1 đến 60 ký tự';
+  END IF;
+  IF NOT ((v_kind = 'payment' AND v_group IN ('operating_expense', 'owner_draw', 'cash_transfer'))
+          OR (v_kind = 'receipt' AND v_group IN ('other_income', 'cash_transfer'))) THEN
+    RAISE EXCEPTION 'Nhóm danh mục không hợp lệ';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.cash_book_categories c
+              WHERE c.store_id = p_store_id AND c.kind = v_kind AND lower(c.name) = lower(v_name)
+                AND c.id IS DISTINCT FROM p_id) THEN
+    RAISE EXCEPTION 'Danh mục đã có';
+  END IF;
+
+  BEGIN
+    IF p_id IS NULL THEN
+      INSERT INTO public.cash_book_categories (store_id, kind, name, report_group, sort_order)
+      VALUES (p_store_id, v_kind, v_name, v_group,
+              COALESCE((SELECT max(c.sort_order) FROM public.cash_book_categories c
+                         WHERE c.store_id = p_store_id AND c.kind = v_kind), 0) + 10)
+      RETURNING id INTO v_id;
+    ELSE
+      UPDATE public.cash_book_categories SET name = v_name, report_group = v_group WHERE id = p_id;
+      v_id := p_id;
+    END IF;
+  EXCEPTION WHEN unique_violation THEN
+    -- Hai người cùng thêm một tên đúng lúc.
+    RAISE EXCEPTION 'Danh mục đã có';
+  END;
+
+  RETURN jsonb_build_object('ok', true, 'id', v_id);
+END;
+$$;
+
+-- Ẩn / hiện danh mục. Ẩn không xoá: phiếu cũ vẫn giữ danh mục, chỉ không chọn được khi ghi phiếu mới.
+CREATE FUNCTION public.cash_book_set_category_active(p_id uuid, p_active boolean)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_cat public.cash_book_categories%ROWTYPE;
+BEGIN
+  SELECT * INTO v_cat FROM public.cash_book_categories c WHERE c.id = p_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Không tìm thấy danh mục';
+  END IF;
+  IF NOT public.is_store_back_office(v_cat.store_id) THEN
+    RAISE EXCEPTION 'Chỉ chủ quán hoặc quản lý được sửa danh mục';
+  END IF;
+  IF v_cat.is_system THEN
+    RAISE EXCEPTION 'Danh mục hệ thống không sửa được';
+  END IF;
+  IF p_active IS NULL THEN
+    RAISE EXCEPTION 'Giá trị không hợp lệ';
+  END IF;
+  UPDATE public.cash_book_categories SET is_active = p_active WHERE id = p_id;
+  RETURN jsonb_build_object('ok', true);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_book_create(text, text, uuid, bigint, text, text, uuid, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.cash_book_void(uuid, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.cash_book_list(uuid, date, date, jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.cash_book_save_category(uuid, uuid, text, text, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.cash_book_set_category_active(uuid, boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cash_book_create(text, text, uuid, bigint, text, text, uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.cash_book_void(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.cash_book_list(uuid, date, date, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.cash_book_save_category(uuid, uuid, text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.cash_book_set_category_active(uuid, boolean) TO authenticated;
 
 NOTIFY pgrst, 'reload schema';
 
