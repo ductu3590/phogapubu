@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import PrintBill, { billDiscountError, billDiscountLabel, LOI_GIAM_GIA_IN } from './print-bill'
+import QRCode from 'qrcode'
+import { VIETQR_QUIET_ZONE } from '@/components/vietqr-code'
+import PrintBill, { QR_PRINT_MM, billDiscountError, billDiscountLabel, LOI_GIAM_GIA_IN } from './print-bill'
 import { buildTestBill } from '@/lib/print/test-bill'
 
 const now = new Date('2026-10-09T12:00:00.000Z')
@@ -192,5 +194,32 @@ describe('PrintBill — autoPrint', () => {
   })
   it('mặc định vẫn có nút In lại', () => {
     expect(renderToStaticMarkup(<PrintBill bill={buildTestBill(store, now)} />)).toContain('no-print')
+  })
+})
+
+const qr = { payload: '00020101021238570010A00000072701270006970436011300110012345670208QRIBFTTA530370454061550005802VN62170813BAN 12 A1B2C363047A8C',
+  amount: 155000, memo: 'BAN 12 A1B2C3', bankName: 'Vietcombank', accountNumber: '0011001234567', accountName: 'DO DUC TU' }
+
+describe('VietQR trên tờ in', () => {
+  it('có QR ngay trong HTML lần đầu, kèm số tiền và tài khoản', () => {
+    const html = renderToStaticMarkup(<PrintBill bill={buildTestBill(store, now)} qr={qr} />)
+    expect(html).toContain('<svg')
+    expect(html).toContain(`width="${QR_PRINT_MM}mm"`)
+    expect(html).toContain('Chuyển khoản 155.000đ')
+    expect(html).toContain('0011001234567')
+    expect(html).toContain('DO DUC TU')
+    expect(html).toContain('BAN 12 A1B2C3')
+  })
+  it('không có QR thì tờ in như cũ', () => {
+    const html = renderToStaticMarkup(<PrintBill bill={buildTestBill(store, now)} qr={null} />)
+    expect(html).not.toContain('<svg')
+    expect(html).not.toContain('Chuyển khoản')
+  })
+  it('phiếu in thử không bao giờ có QR', () => {
+    expect(renderToStaticMarkup(<PrintBill bill={buildTestBill(store, now)} qr={qr} testMode />)).not.toContain('<svg')
+  })
+  it('phần mã trên giấy đủ 35mm với mã nhỏ nhất', () => {
+    const n = QRCode.create('00020101021238560010A0000007270126000697041501121080001234560208QRIBFTTA5303704540115802VN6304F903', { errorCorrectionLevel: 'M' }).modules.size
+    expect((QR_PRINT_MM * n) / (n + 2 * VIETQR_QUIET_ZONE)).toBeGreaterThanOrEqual(35)
   })
 })
