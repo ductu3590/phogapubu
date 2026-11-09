@@ -9,7 +9,7 @@ import type { OpenTableSession, SessionOrderItem, SessionOrderRow } from '@/lib/
 import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
 import { cashChange, parseVnd } from '@/lib/cash-change'
-import { buildPaymentLines, fillOtherSide, type PayMethod, type PaymentLine } from '@/lib/collect-payment'
+import { fillOtherSide, paymentDraft, type PayMethod, type PaymentLine } from '@/lib/collect-payment'
 import { billTotals, combinedDiscount, sessionDiscountOf, type BillDiscount } from '@/lib/bill-discount'
 import { isReviewableOrder, orderRound } from '@/lib/pos-work-queue'
 import { clock } from '@/lib/pos-timeline'
@@ -789,9 +789,10 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   // Một mã cho cả lần mở màn này, kể cả bấm lại sau lỗi: lần trước lỗi thì server đã huỷ cả giao dịch; lần
   // trước mất mạng mà server đã thu thì cùng mã trả 'already' — bấm hai lần không thành hai khoản thu.
   const [clientRequestId] = useState(() => crypto.randomUUID())
-  const draft = buildPaymentLines(total, method, parseVnd(cashText), parseVnd(bankText))
-  const cashPart = method === 'mixed' ? parseVnd(cashText) ?? 0 : method === 'cash' ? total : 0
-  const bankPart = method === 'mixed' ? parseVnd(bankText) ?? 0 : method === 'bank' ? total : 0
+  // Một nguồn: phần tiền mặt / chuyển khoản lấy từ chính các dòng sẽ gửi khi hợp lệ (paymentDraft).
+  const draft = paymentDraft(total, method, parseVnd(cashText), parseVnd(bankText))
+  const cashPart = draft.cash
+  const bankPart = draft.bank
   const given = parseVnd(givenText)
   const change = cashChange(cashPart, given)
   const items = list.flatMap((s) => s.orders.filter((o) => o.status !== 'cancelled').flatMap((o) => o.items))
@@ -898,6 +899,7 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
         method={method}
         total={total}
         cashPart={cashPart}
+        bankPart={bankPart}
         cashText={cashText}
         bankText={bankText}
         givenText={givenText}

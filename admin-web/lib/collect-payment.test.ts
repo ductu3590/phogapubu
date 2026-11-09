@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPaymentLines, cashPartOf, fillOtherSide, INSTRUMENT_LABELS, paymentRows } from './collect-payment'
+import { bankPartOf, buildPaymentLines, cashPartOf, fillOtherSide, INSTRUMENT_LABELS, paymentDraft, paymentRows } from './collect-payment'
 
 describe('fillOtherSide', () => {
   it('gõ một ô, ô kia là phần còn lại, không âm', () => {
@@ -47,6 +47,30 @@ describe('cashPartOf', () => {
     expect(cashPartOf([{ instrument: 'cash', amount: 400_000 }, { instrument: 'bank', amount: 600_000 }])).toBe(400_000)
     expect(cashPartOf([{ instrument: 'bank', amount: 600_000 }])).toBe(0)
     expect(cashPartOf([])).toBe(0)
+  })
+})
+
+describe('bankPartOf', () => {
+  it('chỉ cộng phần chuyển khoản', () => {
+    expect(bankPartOf([{ instrument: 'cash', amount: 400_000 }, { instrument: 'bank', amount: 600_000 }])).toBe(600_000)
+    expect(bankPartOf([{ instrument: 'cash', amount: 1 }])).toBe(0)
+  })
+})
+
+describe('paymentDraft — một nguồn cho phần tiền mặt / chuyển khoản của màn Thanh toán', () => {
+  it('hợp lệ: phần lấy từ dòng đã dựng', () => {
+    expect(paymentDraft(1_000_000, 'mixed', 400_000, 600_000)).toMatchObject({ error: null, cash: 400_000, bank: 600_000 })
+    expect(paymentDraft(100_000, 'cash', null, null)).toMatchObject({ cash: 100_000, bank: 0 })
+    expect(paymentDraft(100_000, 'bank', null, null)).toMatchObject({ cash: 0, bank: 100_000 })
+  })
+
+  it('bill 0đ ở chế độ Kết hợp: không có phần tiền mặt dù ô còn chữ cũ (ẩn khách đưa, không gửi cashGiven)', () => {
+    expect(paymentDraft(0, 'mixed', 50_000, 0)).toEqual({ lines: [], error: null, cash: 0, bank: 0 })
+  })
+
+  it('đang lệch: phần lấy theo chữ đang gõ để ô khách đưa / nhắc chuyển khoản bám theo', () => {
+    expect(paymentDraft(1_000_000, 'mixed', 300_000, 600_000)).toMatchObject({ lines: [], cash: 300_000, bank: 600_000 })
+    expect(paymentDraft(1_000_000, 'mixed', null, null)).toMatchObject({ cash: 0, bank: 0 })
   })
 })
 

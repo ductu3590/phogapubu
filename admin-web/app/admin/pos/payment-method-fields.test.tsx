@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import PaymentMethodFields from './payment-method-fields'
 
 const fields = (over: Partial<Parameters<typeof PaymentMethodFields>[0]>) => renderToStaticMarkup(
-  <PaymentMethodFields method="cash" total={1_000_000} cashPart={1_000_000} cashText="" bankText="" givenText=""
+  <PaymentMethodFields method="cash" total={1_000_000} cashPart={1_000_000} bankPart={0} cashText="" bankText="" givenText=""
     mixedError={null} onMethod={vi.fn()} onCashText={vi.fn()} onBankText={vi.fn()} onGivenText={vi.fn()} {...over} />)
 
 describe('PaymentMethodFields', () => {
@@ -41,18 +41,24 @@ describe('PaymentMethodFields', () => {
     expect(fields({ method: 'mixed', cashPart: 0 })).not.toContain('id="pos-cash-given"')
   })
 
-  it('kết hợp có phần chuyển khoản: nhắc nghe loa đúng số chuyển khoản', () => {
-    const html = fields({ method: 'mixed', cashPart: 400_000, cashText: '400.000', bankText: '600.000' })
+  it('kết hợp có phần chuyển khoản: nhắc nghe loa đúng số chuyển khoản (đọc prop bankPart, không tự tính)', () => {
+    const html = fields({ method: 'mixed', cashPart: 400_000, bankPart: 600_000, cashText: '400.000', bankText: '999.000' })
     expect(html).toContain('nghe loa báo tiền')
     expect(html).toContain('600.000đ')
   })
 
   it('kết hợp chưa có phần chuyển khoản: không nhắc nghe loa', () => {
-    expect(fields({ method: 'mixed', cashPart: 1_000_000, cashText: '1.000.000', bankText: '0' })).not.toContain('nghe loa báo tiền')
+    expect(fields({ method: 'mixed', cashPart: 1_000_000, bankPart: 0, cashText: '1.000.000', bankText: '0' })).not.toContain('nghe loa báo tiền')
+  })
+
+  it('kết hợp đang lệch: ẩn nhắc nghe loa (số chuyển khoản chưa chốt)', () => {
+    const html = fields({ method: 'mixed', cashPart: 300_000, bankPart: 600_000, cashText: '300.000', bankText: '600.000',
+      mixedError: 'Tổng hai khoản phải đúng 1.000.000đ' })
+    expect(html).not.toContain('nghe loa báo tiền')
   })
 
   it('chuyển khoản: nhắc nghe loa, không có ô tiền khách đưa', () => {
-    const html = fields({ method: 'bank', cashPart: 0 })
+    const html = fields({ method: 'bank', cashPart: 0, bankPart: 1_000_000 })
     expect(html).toContain('nghe loa báo tiền')
     expect(html).not.toContain('id="pos-cash-given"')
   })

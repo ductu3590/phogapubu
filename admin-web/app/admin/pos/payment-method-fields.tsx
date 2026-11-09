@@ -21,7 +21,7 @@ const METHODS: readonly [PayMethod, string, ReactNode][] = [
 ]
 
 export default function PaymentMethodFields({
-  method, total, cashPart, cashText, bankText, givenText, mixedError,
+  method, total, cashPart, bankPart, cashText, bankText, givenText, mixedError,
   onMethod, onCashText, onBankText, onGivenText,
 }: {
   method: PayMethod
@@ -29,6 +29,8 @@ export default function PaymentMethodFields({
   total: number
   /** Phần tiền mặt hiện tại: cả bill khi 'cash', 0 khi 'bank', ô tiền mặt khi 'mixed'. */
   cashPart: number
+  /** Phần chuyển khoản hiện tại (paymentDraft). Một nguồn: nhắc nghe loa (và mã QR của Plan D) đọc số này. */
+  bankPart: number
   cashText: string
   bankText: string
   givenText: string
@@ -40,7 +42,8 @@ export default function PaymentMethodFields({
   onGivenText: (t: string) => void
 }) {
   const change = cashChange(cashPart, parseVnd(givenText))
-  const bankAmount = method === 'bank' ? total : method === 'mixed' ? parseVnd(bankText) ?? 0 : 0
+  // Đang lệch thì số chuyển khoản chưa chốt → chưa nhắc nghe loa.
+  const bankAmount = mixedError ? 0 : bankPart
   const showGiven = method !== 'bank' && cashPart > 0
 
   return (

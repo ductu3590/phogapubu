@@ -50,9 +50,33 @@ export function buildPaymentLines(
   return { lines: parts.filter((p) => p.amount > 0), error: null }
 }
 
+const partOf = (lines: PaymentLine[], instrument: Instrument) =>
+  lines.reduce((s, l) => (l.instrument === instrument ? s + l.amount : s), 0)
+
 /** Phần tiền mặt của lần thu: tiền khách đưa / tiền thối so với phần này, không so cả bill. */
 export function cashPartOf(lines: PaymentLine[]): number {
-  return lines.reduce((s, l) => (l.instrument === 'cash' ? s + l.amount : s), 0)
+  return partOf(lines, 'cash')
+}
+
+/** Phần chuyển khoản của lần thu: số loa báo tiền / mã QR phải khớp. */
+export function bankPartOf(lines: PaymentLine[]): number {
+  return partOf(lines, 'bank')
+}
+
+/**
+ * MỘT nguồn cho màn Thanh toán: dòng gửi server + phần tiền mặt / chuyển khoản đang thấy.
+ * Hợp lệ → phần lấy từ CHÍNH các dòng sẽ gửi (bill 0đ ở chế độ Kết hợp: không có phần nào, dù ô còn chữ cũ).
+ * Đang lệch (chỉ Kết hợp) → phần theo số đang gõ để ô khách đưa bám theo; nút thu vẫn khoá vì có lỗi.
+ */
+export function paymentDraft(
+  total: number,
+  method: PayMethod,
+  cashTyped: number | null,
+  bankTyped: number | null,
+): { lines: PaymentLine[]; error: string | null; cash: number; bank: number } {
+  const { lines, error } = buildPaymentLines(total, method, cashTyped, bankTyped)
+  if (error) return { lines, error, cash: cashTyped ?? 0, bank: bankTyped ?? 0 }
+  return { lines, error, cash: cashPartOf(lines), bank: bankPartOf(lines) }
 }
 
 /** Các dòng in dưới tổng hoá đơn / hiện trong ngăn kéo A04: từng khoản, khách đưa, tiền thối (0 thì bỏ). */
