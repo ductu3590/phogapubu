@@ -23,13 +23,14 @@ const inputClass = 'w-full rounded-lg border border-border-strong bg-surface px-
 const iconButtonClass = 'inline-flex size-9 items-center justify-center rounded-lg border'
 const NAME_MAX = 60
 
-// Cảnh báo ở form Sửa khi chủ quán đổi vai. Hạ Quản lý xuống Thu ngân có thêm câu riêng: người đó mất hậu cần
-// (Kho, Thu chi, Công nợ, báo cáo tài chính) dù vẫn thu tiền được — dễ bị bỏ qua nếu chỉ đọc câu của thu ngân.
+// Cảnh báo ở form Sửa khi chủ quán đổi vai. Hạ Quản lý xuống Thu ngân có thêm câu riêng: người đó mất phần ghi
+// hậu cần (chỉ còn xem tồn kho + phiếu thu chi của mình, vẫn ghi nợ / nhận trả nợ được; không huỷ trả nợ, không xem
+// báo cáo tài chính) — dễ bị bỏ qua nếu chỉ đọc câu của thu ngân.
 export function roleChangeWarning(from: StaffMember['role'], to: StaffMember['role']): string[] {
   if (to === 'store_manager') return ['Người này sẽ làm mọi việc của thu ngân, cộng kho, thu chi, công nợ và xem lãi lỗ.']
   if (to === 'store_cashier') {
     const lines = ['Người này sẽ thu tiền, bỏ/tặng món và xem doanh thu.']
-    if (from === 'store_manager') lines.push('Người này sẽ không còn vào được Kho, Thu chi, Công nợ và báo cáo tài chính.')
+    if (from === 'store_manager') lines.push('Người này chỉ còn xem tồn kho và phiếu thu chi của mình; không huỷ trả nợ, không xem báo cáo tài chính.')
     return lines
   }
   return ['Người này sẽ không thu tiền được nữa.']

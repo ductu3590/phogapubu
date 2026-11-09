@@ -65,9 +65,9 @@ export const CASHIER_ADMIN_PATHS = [
  * cũng vào 4 trang đó (chỉ xem); tách tên để hai vai đổi riêng được. Không có Cài đặt / Nhân viên / Bàn & QR /
  * Ưu đãi / Bếp.
  */
-export const MANAGER_ADMIN_PATHS = [
-  ...new Set([...CASHIER_ADMIN_PATHS, '/admin/inventory', '/admin/cashbook', '/admin/debts', '/admin/reports'] as const),
-]
+export const MANAGER_ADMIN_PATHS: readonly string[] = Object.freeze([
+  ...new Set<string>([...CASHIER_ADMIN_PATHS, '/admin/inventory', '/admin/cashbook', '/admin/debts', '/admin/reports']),
+])
 
 const pathIn = (paths: readonly string[], pathname: string) =>
   paths.some((p) => pathname === p || pathname.startsWith(`${p}/`))

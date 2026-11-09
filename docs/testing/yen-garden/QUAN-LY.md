@@ -45,7 +45,23 @@ Làm trên một bàn có khách (quét QR gọi món bằng Mini App, hoặc d�
 1. Tạo một đặt bàn mới từ POS (hoặc trang Đặt bàn).
 2. Xếp bàn cho lượt đó.
 3. Huỷ một lượt.
-4. Nhật ký lượt đặt bàn ghi đúng người thao tác là tài khoản Quản lý.
+4. Giao diện không hiện người thao tác trong nhật ký đặt bàn — **Claude kiểm bằng SQL** (chỉ đọc) trên prod: mọi sự kiện
+   của lượt vừa làm phải có `actor_kind = 'owner'` và `actor_id` = user id của tài khoản Quản lý. Thay email Quản lý thử:
+
+   ```sql
+   select e.created_at, e.event_type, e.actor_kind, e.actor_id, u.email
+   from reservation_events e
+   left join auth.users u on u.id = e.actor_id
+   where e.reservation_id in (
+     select distinct e2.reservation_id from reservation_events e2
+     join auth.users u2 on u2.id = e2.actor_id
+     where u2.email = '<email-quan-ly-thu>'
+       and e2.created_at > now() - interval '2 hours'
+   )
+   order by e.reservation_id, e.created_at;
+   ```
+
+   PASS khi các dòng do Quản lý tạo / xếp bàn / huỷ đều là `owner` + đúng email Quản lý (dòng khách tự đặt, nếu có, vẫn là `customer`).
 
 ## Bài 5. Thực đơn — chỉ bật/tắt Tạm hết
 
@@ -81,7 +97,7 @@ Trong tài khoản Quản lý, gõ từng địa chỉ vào thanh địa chỉ. 
 
 ## Bài 10. Đổi vai và vô hiệu hoá
 
-1. Chủ quán sửa tài khoản Quản lý, đổi vai sang **Thu ngân**: cảnh báo có thêm câu "Người này sẽ không còn vào được Kho, Thu chi, Công nợ và báo cáo tài chính." Bấm **Huỷ** (không lưu).
+1. Chủ quán sửa tài khoản Quản lý, đổi vai sang **Thu ngân**: cảnh báo có thêm câu "Người này chỉ còn xem tồn kho và phiếu thu chi của mình; không huỷ trả nợ, không xem báo cáo tài chính." Bấm **Huỷ** (không lưu).
 2. Đổi vai sang **Phục vụ**, Lưu. Bên tài khoản đó tải lại trang → về `/staff/order`.
 3. Đổi lại **Quản lý**, Lưu. Tải lại → về POS.
 4. **Vô hiệu hoá** tài khoản đó. Bên tài khoản đó tải lại trang → về trang đăng nhập.

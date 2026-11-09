@@ -80,7 +80,7 @@ async function ownerClient() {
   try {
     const operator = await requireOperator()
     if (!isPosRole(operator.role)) {
-      return { supabase: null, storeId: null, error: 'Chỉ chủ quán hoặc thu ngân được xử lý đặt bàn' }
+      return { supabase: null, storeId: null, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được xử lý đặt bàn' }
     }
     return { supabase: await createClient(), storeId: operator.storeId as string, error: null }
   } catch (error) {

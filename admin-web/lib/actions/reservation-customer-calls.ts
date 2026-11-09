@@ -21,7 +21,7 @@ type Result<T> = { ok: true; value: T } | { ok: false; error: string }
 async function ownerClient(): Promise<Result<{ storeId: string; supabase: Awaited<ReturnType<typeof createClient>> }>> {
   try {
     const operator = await requireOperator()
-    if (!isPosRole(operator.role)) return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được xử lý việc gọi nhắc khách' }
+    if (!isPosRole(operator.role)) return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được xử lý việc gọi nhắc khách' }
     return { ok: true, value: { storeId: operator.storeId as string, supabase: await createClient() } }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Không có quyền xử lý việc gọi nhắc khách' }

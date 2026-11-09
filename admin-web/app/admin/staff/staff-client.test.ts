@@ -12,10 +12,10 @@ describe('roleChangeWarning', () => {
       .toEqual(['Người này sẽ làm mọi việc của thu ngân, cộng kho, thu chi, công nợ và xem lãi lỗ.'])
   })
 
-  it('quản lý xuống thu ngân: thêm câu riêng báo mất Kho, Thu chi, Công nợ, báo cáo tài chính', () => {
+  it('quản lý xuống thu ngân: thêm câu riêng — chỉ còn xem tồn kho + phiếu thu chi của mình, mất huỷ trả nợ + báo cáo tài chính', () => {
     expect(roleChangeWarning('store_manager', 'store_cashier')).toEqual([
       'Người này sẽ thu tiền, bỏ/tặng món và xem doanh thu.',
-      'Người này sẽ không còn vào được Kho, Thu chi, Công nợ và báo cáo tài chính.',
+      'Người này chỉ còn xem tồn kho và phiếu thu chi của mình; không huỷ trả nợ, không xem báo cáo tài chính.',
     ])
   })
 
