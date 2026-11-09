@@ -4,6 +4,11 @@ import { useEffect } from 'react'
 import type { SessionsBill } from '@/lib/actions/table-session'
 import { paymentRows } from '@/lib/collect-payment'
 import { useAutoPrint } from '@/lib/print/use-auto-print'
+import VietQrCode from '@/components/vietqr-code'
+import type { BillQr } from '@/lib/bill-qr'
+
+// 44mm vì khung SVG có lề 4 module mỗi bên: mã nhỏ nhất (33 module) ở 44mm có phần mã 35,4mm; ở 42mm chỉ 33,8mm.
+export const QR_PRINT_MM = 44
 
 const dong = (n: number) => n.toLocaleString('vi-VN')
 
@@ -45,8 +50,11 @@ export default function PrintBill({
   bill,
   testMode = false,
   autoPrint = true,
+  qr = null,
 }: {
   bill: SessionsBill
+  /** VietQR của bill CHƯA thu (số tiền = phần còn phải thu). Bill đã thu / phiếu in thử: không có. */
+  qr?: BillQr | null
   testMode?: boolean
   autoPrint?: boolean
 }) {
@@ -91,6 +99,8 @@ export default function PrintBill({
                 font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
                 font-size: 12px; line-height: 1.35; }
         .bill hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+        .qr { text-align: center; break-inside: avoid; margin-top: 6px; }
+        .qr svg { display: block; margin: 4px auto; }
         .row { display: flex; justify-content: space-between; gap: 6px; }
         .row .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
         .row .num { flex-shrink: 0; text-align: right; }
@@ -212,6 +222,15 @@ export default function PrintBill({
             <span className="num">{dong(p.amount)}</span>
           </div>
         ))}
+        {qr && !testMode && (
+          <div className="qr">
+            <div style={{ fontWeight: 700 }}>Chuyển khoản {dong(qr.amount)}đ</div>
+            <VietQrCode payload={qr.payload} size={`${QR_PRINT_MM}mm`} />
+            <div>{qr.bankName} · {qr.accountNumber}</div>
+            <div>{qr.accountName}</div>
+            <div>Nội dung: {qr.memo}</div>
+          </div>
+        )}
 
         <hr />
         <div style={{ textAlign: 'center', fontSize: 11 }}>

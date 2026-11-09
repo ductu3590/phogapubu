@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/feedback'
 import { ORDER_STATUS_TONE } from '@/components/ui/status'
 import { formatVND, cn } from '@/lib/utils'
-import { printInPlace } from '@/lib/print/print-in-place'
+import { printDocument } from '@/lib/print/print-document'
 import { billInstrumentLabel, type BillRow } from '@/lib/bills-report'
 import type { BillDetailOrder, SessionMove } from '@/lib/bill-detail'
 import { collectSessionBill, getSessionMoves, loadBillDetail, redeemBillSpin, runBillOrderAction, type BillOrderAction } from '@/lib/actions/bill-detail'
@@ -176,7 +176,7 @@ export default function BillDrawer({ row, canManage, onClose, onNotice }: {
       footer={
         <>
           {sessionPrint && (
-            <Button icon={<Printer />} onClick={() => printInPlace(`/print/bill?ids=${row.sessionIds.join(',')}`)}>
+            <Button icon={<Printer />} onClick={() => void printDocument({ kind: 'bill', sessionIds: row.sessionIds, reprint: true }).then((r) => { if (!r.ok) setError(r.error) })}>
               {row.kind === 'paid' ? 'In lại hoá đơn' : 'In tạm tính'}
             </Button>
           )}
