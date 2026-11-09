@@ -401,6 +401,36 @@ test('ngày phát sinh theo giờ thu (dời theo giờ bắt đầu ngày); ng�
   }
 })
 
+test('lần trả mang ngày TRƯỚC bill (sau khi đổi giờ bắt đầu ngày): kẹp về ngày của bill, đầu kỳ không âm', async () => {
+  // Bill Anh Hùng 400.000 (TM 200.000 + nợ 400.000) dời sang 04:30 sáng 12-03; lần trả 400.000 ghi ngày 12-02.
+  // Quán đổi về 00:00 → bill thuộc ngày 12-03, SAU lần trả. Ngày hiệu lực của lần trả = max(12-02, 12-03) = 12-03.
+  const { db } = h
+  const hung = (await h.one("SELECT id FROM debt_customers WHERE store_id = $1 AND name = 'Anh Hùng'", [s1])).id
+  const bill = await h.one('SELECT id, collected_at FROM bill_payments WHERE debt_customer_id = $1', [hung])
+  await db.exec('RESET ROLE')
+  await db.query("UPDATE bill_payments SET collected_at = '2026-12-03 04:30:00+07' WHERE id = $1", [bill.id])
+  await h.setDayStart(s1, '00:00')
+  try {
+    const d3 = await rpc('report_receivables', s1, '2026-12-03', '2026-12-03')
+    assert.deepEqual(pick(rowOf(d3, 'Anh Hùng')), [0, 400000, 400000, 0, null, 0, 0, 0])
+    // Kỳ kết thúc trước ngày mới của bill: cả bill lẫn lần trả của nó đều ngoài kỳ → không có dòng.
+    const d2 = await rpc('report_receivables', s1, '2026-12-02', '2026-12-02')
+    assert.equal(rowOf(d2, 'Anh Hùng'), undefined)
+    for (const [from, to] of [['2026-12-01', '2026-12-03'], ['2026-12-02', '2026-12-02'], ['2026-12-03', '2026-12-03'], ['2026-12-04', '2026-12-05']]) {
+      const r = await rpc('report_receivables', s1, from, to)
+      for (const x of r.rows) {
+        assert.ok(x.opening >= 0, `${from}..${to} ${x.name} đầu kỳ âm`)
+        assert.equal(x.opening + x.incurred - x.collected, x.closing, `${from}..${to} ${x.name}`)
+      }
+    }
+  } finally {
+    await h.setDayStart(s1, '05:00')
+    await db.query('UPDATE bill_payments SET collected_at = $2 WHERE id = $1', [bill.id, bill.collected_at])
+  }
+  // Trả lại như cũ: số kỳ 12-02..12-03 không đổi.
+  assert.equal((await rpc('report_receivables', s1, '2026-12-02', '2026-12-03')).totals.closing, 650000)
+})
+
 test('quyền + cách ly quán', async () => {
   const call = (uid, store = s1) => rpcAs(uid, 'report_receivables', store, '2026-12-02', '2026-12-03')
   assert.equal((await call(ids.manager)).totals.closing, 650000)

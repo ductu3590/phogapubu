@@ -455,12 +455,18 @@ BEGIN
      WHERE bp.store_id = p_store_id AND bp.debt_customer_id IS NOT NULL
      GROUP BY bp.id, bp.debt_customer_id, bp.collected_at
   ),
+  -- Ngày hiệu lực của một lần trả vào một bill = GREATEST(debt_payments.business_date, ngày phát sinh của bill).
+  -- Vì bill tính ngày lúc đọc còn lần trả lưu ngày lúc ghi, đổi giờ bắt đầu ngày có thể làm lần trả mang ngày TRƯỚC
+  -- bill của nó (bill 04:30 sáng dời sang ngày sau). Không kẹp thì kỳ bắt đầu ở ngày mới của bill ra đầu kỳ âm
+  -- (0 − tiền trả "trước kỳ") còn đã thu = 0. Kẹp về ngày của bill: lần trả rơi đúng kỳ của bill, đầu kỳ mỗi bill
+  -- không âm, và bill phát sinh sau p_to kéo luôn lần trả của nó ra ngoài kỳ (hai bên cùng không tính).
   paid AS (
     SELECT a.bill_payment_id,
-           COALESCE(SUM(a.amount) FILTER (WHERE dp.business_date < p_from), 0)::bigint AS before_period,
-           COALESCE(SUM(a.amount) FILTER (WHERE dp.business_date BETWEEN p_from AND p_to), 0)::bigint AS in_period
+           COALESCE(SUM(a.amount) FILTER (WHERE GREATEST(dp.business_date, b.incurred_on) < p_from), 0)::bigint AS before_period,
+           COALESCE(SUM(a.amount) FILTER (WHERE GREATEST(dp.business_date, b.incurred_on) BETWEEN p_from AND p_to), 0)::bigint AS in_period
       FROM public.debt_payment_allocations a
       JOIN public.debt_payments dp ON dp.id = a.debt_payment_id
+      JOIN bills b ON b.id = a.bill_payment_id
      WHERE dp.store_id = p_store_id AND dp.voided_at IS NULL
      GROUP BY a.bill_payment_id
   ),
