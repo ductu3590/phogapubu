@@ -4,11 +4,12 @@ import SignOutButton from '@/components/sign-out-button'
 import { IconRailShell } from '@/components/ui/icon-rail-shell'
 import BellStyleSync from '@/components/bell-style-sync'
 import { PosLockProvider } from '@/components/pos-lock'
+import { ROLE_LABEL } from '@/lib/auth/roles'
 import { adminBottomItems, adminRailItems } from './admin-nav'
 
 // `modal` = slot @modal: trang cấu hình mở thành hộp thoại đè lên trang đang mở (Pha 4 ST-3).
 export default async function AdminLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
-  // Chủ quán + thu ngân (PA-2). Superadmin / nhân viên phục vụ lỡ vào → đưa về đúng khu của họ.
+  // Chủ quán + thu ngân (PA-2) + quản lý (mig 116). Superadmin / nhân viên phục vụ lỡ vào → đưa về đúng khu của họ.
   const operator = await requireAdminPageOrRedirect('pos')
 
   const supabase = await createClient()
@@ -28,7 +29,7 @@ export default async function AdminLayout({ children, modal }: { children: React
   return (
     <PosLockProvider userId={user?.id ?? ''} userLabel={user?.email}>
       <IconRailShell
-        brand={{ initial: 'M', title: storeName, subtitle: operator.role === 'store_cashier' ? 'MEVO · Thu ngân' : 'MEVO · Chủ quán' }}
+        brand={{ initial: 'M', title: storeName, subtitle: `MEVO · ${ROLE_LABEL[operator.role]}` }}
         items={adminRailItems(kitchenEnabled, reservationsEnabled, operator.role)}
         bottomItems={adminBottomItems(operator.role)}
         signOut

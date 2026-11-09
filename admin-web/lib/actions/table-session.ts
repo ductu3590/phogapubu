@@ -92,7 +92,7 @@ export type CloseSessionResult =
 
 async function staffClient() {
   const operator = await requireOperator()
-  if (operator.role !== 'store_staff' && operator.role !== 'store_owner' && operator.role !== 'store_cashier') {
+  if (operator.role !== 'store_staff' && operator.role !== 'store_owner' && operator.role !== 'store_cashier' && operator.role !== 'store_manager') {
     return { operator: null, supabase: null, error: 'Không có quyền' as const }
   }
   return { operator, supabase: await createClient(), error: null }

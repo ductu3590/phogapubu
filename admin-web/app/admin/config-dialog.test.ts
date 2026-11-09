@@ -32,4 +32,9 @@ describe('tab trong ⚙ Cài đặt (2026-10-13)', () => {
     expect(tabs.map((t) => t.href)).toEqual(['/admin/account'])
     expect(tabs.every((t) => adminPathAllowed('store_cashier', t.href))).toBe(true)
   })
+  it('quản lý cũng chỉ có Bảo mật (không thấy Cài đặt chung / Nhân viên / Ưu đãi), và mở được trang đó', () => {
+    const tabs = settingsTabs('store_manager')
+    expect(tabs.map((t) => t.href)).toEqual(['/admin/account'])
+    expect(tabs.every((t) => adminPathAllowed('store_manager', t.href))).toBe(true)
+  })
 })
