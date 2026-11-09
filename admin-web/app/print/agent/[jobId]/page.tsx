@@ -19,6 +19,9 @@ import PrintReady from './print-ready'
 // Số liệu do RPC in tính (giảm giá, mốc cắt ngày kinh doanh...) phiếu tự nhận; còn dòng hiển thị mới như khoảng giờ
 // của ngày kinh doanh thì phải đi qua props của loader (rangeLabel ở loadDayReport), không tự có.
 // Tín hiệu cho phần mềm: <html data-print-ready="1"> khi xong, data-print-error="<lý do>" khi lỗi (xem PrintReady).
+//
+// Cấu trúc: mọi việc có thể lỗi (kiểm token, đọc job, các loader) nằm trong planPrint() và trả MỘT đối tượng thuần
+// (Plan). JSX chỉ dựng SAU đó, ngoài try/catch (luật react-hooks/error-boundaries cấm dựng JSX trong try/catch).
 const READ_FAILED = 'Không đọc được dữ liệu phiếu'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -31,29 +34,28 @@ type RenderJob = {
   station_name: string | null
 }
 
-export default async function PrintAgentPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ jobId: string }>
-  searchParams: Promise<{ t?: string }>
-}) {
-  const { jobId } = await params
-  const { t } = await searchParams
+type OrderSlipData = Extract<Awaited<ReturnType<typeof loadOrderSlip>>, { ok: true }>['slip']
+type ShiftSlipProps = Extract<Awaited<ReturnType<typeof loadShiftReportSlip>>, { ok: true }>['props']
+type DaySlipProps = Extract<Awaited<ReturnType<typeof loadDayReport>>, { ok: true }>['props']
 
-  // retryable=true: lỗi đọc tạm thời (mạng/DB) — phần mềm in được phép thử lại; còn lại là lỗi vĩnh viễn.
-  const fail = (message: string, retryable = false) => (
-    <>
-      <PrintReady jobId={jobId} error={message} retryable={retryable} />
-      <p className="p-6 text-sm text-red-600">{message}</p>
-    </>
-  )
+// retryable=true: lỗi đọc tạm thời (mạng/DB) — phần mềm in được phép thử lại; còn lại là lỗi vĩnh viễn.
+type Plan =
+  | { kind: 'error'; message: string; retryable: boolean }
+  | { kind: 'table_slip'; slip: OrderSlipData }
+  | { kind: 'kitchen_ticket'; slip: OrderSlipData; stationName: string | null }
+  | { kind: 'bill'; bill: SessionsBill; qr: Awaited<ReturnType<typeof loadBillQrWithClient>> }
+  | { kind: 'shift_report'; props: ShiftSlipProps }
+  | { kind: 'day_report'; props: DaySlipProps }
+  | { kind: 'test'; bill: SessionsBill }
+
+async function planPrint(jobId: string, t: string | undefined): Promise<Plan> {
+  const fail = (message: string, retryable = false): Plan => ({ kind: 'error', message, retryable })
   // Lỗi đọc DB/RPC luôn báo MỘT câu riêng (không lộ lỗi kỹ thuật, không nhầm với "hết hạn" hay lỗi dữ liệu)
-  const readFail = (detail?: string) => {
+  const readFail = (detail?: string): Plan => {
     if (detail) console.error(`[print/agent ${jobId}] ${detail}`)
     return fail(READ_FAILED, true)
   }
-  const fromLoader = (res: { error: string; transient?: true }) => (res.transient ? readFail(res.error) : fail(res.error))
+  const fromLoader = (res: { error: string; transient?: true }): Plan => (res.transient ? readFail(res.error) : fail(res.error))
 
   try {
     // Token thiếu / sai định dạng thì không chạm DB
@@ -90,26 +92,14 @@ export default async function PrintAgentPage({
 
       if (job.kind === 'table_slip') {
         if (slipData.items.length === 0) return fail('Đơn không còn món để in')
-        return (
-          <>
-            <PrintReady jobId={jobId} />
-            <SlipStyles />
-            <TableSlip slip={slipData} />
-          </>
-        )
+        return { kind: 'table_slip', slip: slipData }
       }
 
       // Phiếu bếp chỉ gồm món của trạm này (itemKeys lúc xếp hàng); món đã bị bỏ sau đó tự rơi khỏi phiếu
       const keys = new Set(Array.isArray(ref.itemKeys) ? (ref.itemKeys as unknown[]).map(String) : [])
       const items = slipData.items.filter((it) => keys.has(it.key))
       if (items.length === 0) return fail('Các món trên phiếu đã bị bỏ')
-      return (
-        <>
-          <PrintReady jobId={jobId} />
-          <SlipStyles />
-          <KitchenSlip slip={{ ...slipData, items }} stationName={job.station_name} showPrices={false} />
-        </>
-      )
+      return { kind: 'kitchen_ticket', slip: { ...slipData, items }, stationName: job.station_name }
     }
 
     if (job.kind === 'bill') {
@@ -120,12 +110,7 @@ export default async function PrintAgentPage({
       if (billErr) return readFail(billErr.message)
       if (!bill) return fail('Không lấy được hoá đơn')
       const qr = await loadBillQrWithClient(await getClient(), job.store_id, ids)
-      return (
-        <>
-          <PrintReady jobId={jobId} />
-          <PrintBill bill={bill as unknown as SessionsBill} autoPrint={false} qr={qr} />
-        </>
-      )
+      return { kind: 'bill', bill: bill as unknown as SessionsBill, qr }
     }
 
     if (job.kind === 'day_report' || job.kind === 'shift_report') {
@@ -146,24 +131,14 @@ export default async function PrintAgentPage({
         // Service role không tự lọc quán: loader so store_id của ca với job.store_id và chỉ nhận ca đã đóng
         const shift = await loadShiftReportSlip(createAdminClient(), job.store_id, shiftId, printedBy, new Date(), getClient)
         if (!shift.ok) return fromLoader(shift)
-        return (
-          <>
-            <PrintReady jobId={jobId} />
-            <ShiftReportSlip {...shift.props} autoPrint={false} />
-          </>
-        )
+        return { kind: 'shift_report', props: shift.props }
       }
 
       const request = (ref.request ?? {}) as { date?: string }
       const res = await loadDayReport(await getClient(), job.store_id, request.date ?? '', printedBy, new Date())
       if (!res.ok) return fromLoader(res)
-      return (
-        <>
-          <PrintReady jobId={jobId} />
-          {/* res.props gồm cả rangeLabel: quán có giờ bắt đầu khác 00:00 thì phiếu có dòng khoảng giờ */}
-          <DayReportSlip {...res.props} autoPrint={false} />
-        </>
-      )
+      // res.props gồm cả rangeLabel: quán có giờ bắt đầu khác 00:00 thì phiếu có dòng khoảng giờ
+      return { kind: 'day_report', props: res.props }
     }
 
     if (job.kind === 'test') {
@@ -178,17 +153,78 @@ export default async function PrintAgentPage({
         },
         new Date(),
       )
-      return (
-        <>
-          <PrintReady jobId={jobId} />
-          <PrintBill bill={bill} testMode autoPrint={false} />
-        </>
-      )
+      return { kind: 'test', bill }
     }
 
     return fail('Loại phiếu không hợp lệ')
   } catch (e) {
     // Ngoại lệ bất ngờ (mạng đứt, thiếu secret…): giữ nội dung để dễ dò, coi là có thể thử lại
     return fail(e instanceof Error ? e.message : 'Không dựng được phiếu', true)
+  }
+}
+
+export default async function PrintAgentPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ jobId: string }>
+  searchParams: Promise<{ t?: string }>
+}) {
+  const { jobId } = await params
+  const { t } = await searchParams
+  const plan = await planPrint(jobId, t)
+
+  switch (plan.kind) {
+    case 'error':
+      return (
+        <>
+          <PrintReady jobId={jobId} error={plan.message} retryable={plan.retryable} />
+          <p className="p-6 text-sm text-red-600">{plan.message}</p>
+        </>
+      )
+    case 'table_slip':
+      return (
+        <>
+          <PrintReady jobId={jobId} />
+          <SlipStyles />
+          <TableSlip slip={plan.slip} />
+        </>
+      )
+    case 'kitchen_ticket':
+      return (
+        <>
+          <PrintReady jobId={jobId} />
+          <SlipStyles />
+          <KitchenSlip slip={plan.slip} stationName={plan.stationName} showPrices={false} />
+        </>
+      )
+    case 'bill':
+      return (
+        <>
+          <PrintReady jobId={jobId} />
+          <PrintBill bill={plan.bill} autoPrint={false} qr={plan.qr} />
+        </>
+      )
+    case 'shift_report':
+      return (
+        <>
+          <PrintReady jobId={jobId} />
+          <ShiftReportSlip {...plan.props} autoPrint={false} />
+        </>
+      )
+    case 'day_report':
+      return (
+        <>
+          <PrintReady jobId={jobId} />
+          <DayReportSlip {...plan.props} autoPrint={false} />
+        </>
+      )
+    case 'test':
+      return (
+        <>
+          <PrintReady jobId={jobId} />
+          <PrintBill bill={plan.bill} testMode autoPrint={false} />
+        </>
+      )
   }
 }
