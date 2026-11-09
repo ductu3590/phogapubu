@@ -449,4 +449,548 @@ GRANT EXECUTE ON FUNCTION public.inventory_set_item_active(uuid, boolean) TO aut
 GRANT EXECUTE ON FUNCTION public.inventory_set_menu_link(uuid, uuid, uuid, numeric) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.inventory_menu_links(uuid) TO authenticated;
 
+-- ============================================================
+-- 4) "Bán" và tồn (hàm nội bộ, không client nào gọi thẳng)
+-- ============================================================
+
+-- Định nghĩa "bán" duy nhất của kho: mỗi dòng order_items đã bán có liên kết tới hàng bán nguyên.
+-- sold_at = orders.created_at, khoảng nửa mở [p_from, p_to). qty = quantity hiện tại × qty_per_sale.
+CREATE FUNCTION public.inventory_sales_lines(p_store_id uuid, p_from timestamptz, p_to timestamptz)
+RETURNS TABLE(inventory_item_id uuid, sold_at timestamptz, qty numeric)
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT lk.inventory_item_id, o.created_at, oi.quantity * lk.qty_per_sale
+    FROM public.orders o
+    JOIN public.stores s ON s.id = o.store_id
+    LEFT JOIN public.store_workflow_settings w ON w.store_id = o.store_id
+    JOIN public.order_items oi ON oi.order_id = o.id
+    -- Liên kết đang hiệu lực LÚC TẠO ĐƠN, ưu tiên (món, biến thể) rồi (món, null). Khoảng nửa mở
+    -- [valid_from, valid_to): đóng dòng cũ và mở dòng mới cùng một now(), đóng kín hai đầu thì đơn đúng khoảnh
+    -- khắc đó bị tính hai lần.
+    JOIN LATERAL (
+      SELECT l.inventory_item_id, l.qty_per_sale
+        FROM public.menu_stock_links l
+       WHERE l.store_id = o.store_id
+         AND l.menu_item_id = oi.menu_item_id
+         AND (l.variant_id = oi.variant_id OR l.variant_id IS NULL)
+         AND l.valid_from <= o.created_at AND (l.valid_to IS NULL OR o.created_at < l.valid_to)
+       ORDER BY (l.variant_id IS NULL)
+       LIMIT 1) lk ON true
+    JOIN public.inventory_items ii ON ii.id = lk.inventory_item_id AND ii.kind = 'goods'
+   WHERE o.store_id = p_store_id
+     AND o.created_at >= p_from AND o.created_at < p_to
+     -- Bị từ chối = cancelled + rejected_at (mig 077); huỷ thường cũng không trừ.
+     AND o.status <> 'cancelled' AND o.rejected_at IS NULL
+     -- Món bỏ không trừ; món tặng vẫn trừ (hàng đã ra khỏi tủ).
+     AND oi.void_type IS DISTINCT FROM 'cancelled'
+     AND (
+       o.status IN ('confirmed', 'cooking', 'ready', 'paid')
+       OR o.confirmed_at IS NOT NULL
+       OR o.payment_received_at IS NOT NULL
+       OR o.order_source = 'pos' -- món thu ngân ghi tay là món đã phục vụ
+       -- giữ khớp orderInKitchen — admin-web/lib/kitchen-announce.ts
+       OR (o.status = 'pending'
+           AND o.order_source <> 'reservation_preorder'
+           AND CASE WHEN o.order_source = 'staff' THEN coalesce(w.staff_order_release_policy, 'automatic')
+                    ELSE coalesce(w.kitchen_release_policy, 'automatic') END = 'automatic'
+           AND (o.order_source = 'staff' OR (s.payment_timing = 'postpay' AND o.payment_method = 'cash')))
+     );
+$$;
+
+-- Hợp đồng chung (báo cáo dùng): chỉ cộng inventory_sales_lines.
+CREATE FUNCTION public.inventory_sales_qty(p_store_id uuid, p_from timestamptz, p_to timestamptz)
+RETURNS TABLE(inventory_item_id uuid, qty numeric)
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT s.inventory_item_id, sum(s.qty)
+    FROM public.inventory_sales_lines(p_store_id, p_from, p_to) s
+   GROUP BY s.inventory_item_id;
+$$;
+
+-- Tồn mọi hàng của quán ngay trước p_at (sự kiện có thời điểm < p_at).
+-- Phiếu kiểm là mốc neo: tồn = SL đếm của dòng kiểm gần nhất + nhập − huỷ − bán từ mốc đó (không neo thì từ đầu,
+-- SL đầu = 0). Công thức tồn chỉ nằm ở đây.
+CREATE FUNCTION public.inventory_stock_at(p_store_id uuid, p_at timestamptz)
+RETURNS TABLE(inventory_item_id uuid, qty numeric)
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  WITH anchor AS (
+    SELECT DISTINCT ON (dl.inventory_item_id) dl.inventory_item_id, dl.counted_qty, d.effective_at
+      FROM public.inventory_document_lines dl
+      JOIN public.inventory_documents d ON d.id = dl.document_id
+     WHERE d.store_id = p_store_id AND d.kind = 'count' AND d.status = 'posted' AND d.effective_at < p_at
+     ORDER BY dl.inventory_item_id, d.effective_at DESC, d.created_at DESC, d.doc_no DESC
+  ),
+  ev AS (
+    SELECT dl.inventory_item_id, d.effective_at AS at,
+           CASE d.kind WHEN 'receipt' THEN dl.qty ELSE -dl.qty END AS q
+      FROM public.inventory_document_lines dl
+      JOIN public.inventory_documents d ON d.id = dl.document_id
+     WHERE d.store_id = p_store_id AND d.kind IN ('receipt', 'writeoff') AND d.status = 'posted'
+       AND d.effective_at < p_at
+    UNION ALL
+    SELECT sl.inventory_item_id, sl.sold_at, -sl.qty
+      FROM public.inventory_sales_lines(p_store_id, '-infinity', p_at) sl
+  )
+  SELECT i.id,
+         coalesce(a.counted_qty, 0)
+           + coalesce(sum(e.q) FILTER (WHERE a.effective_at IS NULL OR e.at >= a.effective_at), 0)
+    FROM public.inventory_items i
+    LEFT JOIN anchor a ON a.inventory_item_id = i.id
+    LEFT JOIN ev e ON e.inventory_item_id = i.id
+   WHERE i.store_id = p_store_id
+   GROUP BY i.id, a.counted_qty, a.effective_at;
+$$;
+
+-- Số phiếu tự sinh theo quán + loại: PN-0001 / PK-0001 / PX-0001; quá 9999 thì dài thêm (không cắt).
+-- Dòng counter bị khoá tới hết giao dịch nên hai phiếu cùng lúc không trùng số; giao dịch lỗi thì số quay lại.
+CREATE FUNCTION public.inventory_next_doc_no(p_store_id uuid, p_kind text)
+RETURNS text
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_n int;
+BEGIN
+  INSERT INTO public.inventory_doc_counters AS c (store_id, kind, last_no)
+  VALUES (p_store_id, p_kind, 1)
+  ON CONFLICT (store_id, kind) DO UPDATE SET last_no = c.last_no + 1
+  RETURNING c.last_no INTO v_n;
+  RETURN CASE p_kind WHEN 'receipt' THEN 'PN-' WHEN 'count' THEN 'PK-' ELSE 'PX-' END
+    || lpad(v_n::text, greatest(4, length(v_n::text)), '0');
+END;
+$$;
+
+-- Đọc số từ JSON: nhận số JSON hoặc chuỗi số thập phân dấu chấm; còn lại null (để RPC báo lỗi tiếng Việt thay vì
+-- lỗi ép kiểu của Postgres).
+CREATE FUNCTION public.inventory_json_numeric(p_value jsonb)
+RETURNS numeric
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT CASE
+    WHEN jsonb_typeof(p_value) = 'number' THEN (p_value #>> '{}')::numeric
+    WHEN jsonb_typeof(p_value) = 'string' AND btrim(p_value #>> '{}') ~ '^-?[0-9]+(\.[0-9]+)?$'
+      THEN btrim(p_value #>> '{}')::numeric
+  END;
+$$;
+
+-- ============================================================
+-- 5) Ghi phiếu nhập / kiểm / huỷ. KHÔNG có khối EXCEPTION: lỗi từ 122b (chưa mở ca...) phải huỷ cả phiếu.
+-- ============================================================
+
+-- Trả {ok, id, doc_no, replayed, before_count_doc_no}. Gửi lại cùng client_request_id trả đúng phiếu cũ.
+CREATE FUNCTION public.inventory_post_document(p_kind text, p_doc jsonb, p_lines jsonb, p_client_request_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_store_id uuid := nullif(btrim(p_doc ->> 'store_id'), '')::uuid;
+  v_doc_id uuid;
+  v_prev record;
+  v_today date;
+  v_doc_date date;
+  v_effective_at timestamptz;
+  v_supplier text;
+  v_note text;
+  v_paid_status text;
+  v_paid_method text;
+  v_line jsonb;
+  v_item_id uuid;
+  v_qty numeric;
+  v_counted numeric;
+  v_cost_raw numeric;
+  v_cost bigint;
+  v_amount bigint;
+  v_items uuid[] := '{}';
+  v_qtys numeric[] := '{}';
+  v_costs bigint[] := '{}';
+  v_counteds numeric[] := '{}';
+  v_amounts bigint[] := '{}';
+  v_systems numeric[];
+  v_total bigint := 0;
+  v_doc_no text;
+  v_before text;
+BEGIN
+  IF v_store_id IS NULL OR NOT public.is_store_back_office(v_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền';
+  END IF;
+  IF p_client_request_id IS NULL THEN
+    RAISE EXCEPTION 'Thiếu mã yêu cầu';
+  END IF;
+
+  -- Bấm hai lần / mạng rớt gửi lại: khoá theo mã yêu cầu, phiếu đã có thì trả lại phiếu đó (không đi tới neo 122b).
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_client_request_id::text, 0));
+  SELECT d.id, d.kind, d.doc_no INTO v_prev
+    FROM public.inventory_documents d
+   WHERE d.store_id = v_store_id AND d.client_request_id = p_client_request_id;
+  IF FOUND THEN
+    IF v_prev.kind IS DISTINCT FROM p_kind THEN
+      RAISE EXCEPTION 'Mã yêu cầu đã dùng cho phiếu khác';
+    END IF;
+    RETURN jsonb_build_object('ok', true, 'id', v_prev.id, 'doc_no', v_prev.doc_no, 'replayed', true,
+      'before_count_doc_no', NULL);
+  END IF;
+
+  IF p_kind IS NULL OR p_kind NOT IN ('receipt', 'count', 'writeoff') THEN
+    RAISE EXCEPTION 'Loại phiếu không hợp lệ';
+  END IF;
+
+  -- Ngày phiếu: hôm nay (ngày kinh doanh) → mốc là lúc ghi; nhập/huỷ ghi lùi ≤ 7 ngày → cuối ngày đó − 1 giây.
+  v_today := public.current_business_date(v_store_id);
+  v_doc_date := coalesce(nullif(btrim(p_doc ->> 'doc_date'), '')::date, v_today);
+  IF p_kind = 'count' AND v_doc_date <> v_today THEN
+    RAISE EXCEPTION 'Phiếu kiểm kho chỉ ghi cho hôm nay';
+  END IF;
+  IF v_doc_date > v_today THEN
+    RAISE EXCEPTION 'Không ghi phiếu cho ngày chưa tới';
+  END IF;
+  IF v_doc_date < v_today - 7 THEN
+    RAISE EXCEPTION 'Chỉ ghi lùi tối đa 7 ngày';
+  END IF;
+  IF v_doc_date = v_today THEN
+    v_effective_at := now();
+  ELSE
+    SELECT b.day_to - interval '1 second' INTO v_effective_at
+      FROM public.business_day_bounds(v_store_id, v_doc_date) b;
+  END IF;
+
+  -- Đầu phiếu. Trạng thái trả tiền chỉ có ở phiếu nhập; phiếu khác bỏ qua.
+  v_note := nullif(btrim(coalesce(p_doc ->> 'note', '')), '');
+  IF length(v_note) > 500 THEN
+    RAISE EXCEPTION 'Ghi chú tối đa 500 ký tự';
+  END IF;
+  IF p_kind = 'writeoff' AND v_note IS NULL THEN
+    RAISE EXCEPTION 'Phiếu xuất huỷ cần lý do';
+  END IF;
+  IF p_kind = 'receipt' THEN
+    v_supplier := nullif(btrim(coalesce(p_doc ->> 'supplier_name', '')), '');
+    IF length(v_supplier) > 120 THEN
+      RAISE EXCEPTION 'Tên nhà cung cấp tối đa 120 ký tự';
+    END IF;
+    v_paid_status := nullif(btrim(coalesce(p_doc ->> 'paid_status', '')), '');
+    v_paid_method := nullif(btrim(coalesce(p_doc ->> 'paid_method', '')), '');
+    IF v_paid_status IS NULL OR v_paid_status NOT IN ('paid', 'unpaid') THEN
+      RAISE EXCEPTION 'Chọn đã trả hay chưa trả';
+    END IF;
+    IF v_paid_method IS NOT NULL AND v_paid_method NOT IN ('cash', 'bank') THEN
+      RAISE EXCEPTION 'Phương thức trả tiền không hợp lệ';
+    END IF;
+    IF v_paid_status = 'paid' AND v_paid_method IS NULL THEN
+      RAISE EXCEPTION 'Chọn phương thức trả tiền';
+    END IF;
+    IF v_paid_status = 'unpaid' AND v_paid_method IS NOT NULL THEN
+      RAISE EXCEPTION 'Phiếu chưa trả không có phương thức trả';
+    END IF;
+  END IF;
+
+  -- Dòng phiếu.
+  IF p_lines IS NULL OR jsonb_typeof(p_lines) <> 'array' OR jsonb_array_length(p_lines) = 0 THEN
+    RAISE EXCEPTION 'Phiếu cần ít nhất một dòng';
+  END IF;
+  IF jsonb_array_length(p_lines) > 500 THEN
+    RAISE EXCEPTION 'Phiếu tối đa 500 dòng';
+  END IF;
+  FOR v_line IN SELECT e.value FROM jsonb_array_elements(p_lines) e LOOP
+    v_item_id := CASE WHEN jsonb_typeof(v_line) = 'object'
+                      AND (v_line ->> 'inventory_item_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                      THEN (v_line ->> 'inventory_item_id')::uuid END;
+    -- FOR SHARE: ngừng dùng hàng song song phải chờ phiếu này xong.
+    PERFORM 1 FROM public.inventory_items i
+      WHERE i.id = v_item_id AND i.store_id = v_store_id AND i.is_active
+      FOR SHARE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Hàng hoá không thuộc quán hoặc đã ngừng dùng';
+    END IF;
+    IF v_item_id = ANY (v_items) THEN
+      RAISE EXCEPTION 'Một hàng chỉ một dòng trong phiếu';
+    END IF;
+
+    v_qty := NULL;
+    v_counted := NULL;
+    v_cost := NULL;
+    v_amount := 0;
+    IF p_kind IN ('receipt', 'writeoff') THEN
+      v_qty := public.inventory_json_numeric(v_line -> 'qty');
+      IF v_qty IS NULL OR v_qty <= 0 OR v_qty <> round(v_qty, 3) THEN
+        RAISE EXCEPTION 'Số lượng phải lớn hơn 0 và tối đa 3 chữ số thập phân';
+      END IF;
+      IF v_qty >= 1000000 THEN
+        RAISE EXCEPTION 'Số lượng phải nhỏ hơn 1.000.000';
+      END IF;
+    ELSE
+      v_counted := public.inventory_json_numeric(v_line -> 'counted_qty');
+      IF v_counted IS NULL OR v_counted < 0 OR v_counted <> round(v_counted, 3) THEN
+        RAISE EXCEPTION 'Số lượng đếm phải từ 0 và tối đa 3 chữ số thập phân';
+      END IF;
+      IF v_counted >= 1000000 THEN
+        RAISE EXCEPTION 'Số lượng phải nhỏ hơn 1.000.000';
+      END IF;
+    END IF;
+    -- Đơn giá: bắt buộc ở phiếu nhập, tuỳ chọn ở phiếu kiểm (giá vốn đầu kỳ), không có ở phiếu huỷ.
+    IF p_kind = 'receipt' OR (p_kind = 'count' AND coalesce(jsonb_typeof(v_line -> 'unit_cost'), 'null') <> 'null') THEN
+      v_cost_raw := public.inventory_json_numeric(v_line -> 'unit_cost');
+      IF v_cost_raw IS NULL OR v_cost_raw <> trunc(v_cost_raw) OR v_cost_raw < 0 OR v_cost_raw > 100000000 THEN
+        RAISE EXCEPTION 'Đơn giá không hợp lệ';
+      END IF;
+      v_cost := v_cost_raw::bigint;
+    END IF;
+    IF p_kind = 'receipt' THEN
+      v_amount := round(v_qty * v_cost)::bigint; -- nửa lên, khớp lib/inventory.ts
+      v_total := v_total + v_amount;
+    END IF;
+
+    v_items := array_append(v_items, v_item_id);
+    v_qtys := array_append(v_qtys, v_qty);
+    v_costs := array_append(v_costs, v_cost);
+    v_counteds := array_append(v_counteds, v_counted);
+    v_amounts := array_append(v_amounts, v_amount);
+  END LOOP;
+
+  -- Phiếu kiểm: chụp tồn theo máy TRƯỚC khi chèn phiếu.
+  IF p_kind = 'count' THEN
+    SELECT array_agg(coalesce(st.qty, 0) ORDER BY u.ord) INTO v_systems
+      FROM unnest(v_items) WITH ORDINALITY AS u(item_id, ord)
+      LEFT JOIN public.inventory_stock_at(v_store_id, now()) st ON st.inventory_item_id = u.item_id;
+  END IF;
+
+  v_doc_no := public.inventory_next_doc_no(v_store_id, p_kind);
+  INSERT INTO public.inventory_documents
+    (store_id, kind, doc_no, doc_date, effective_at, supplier_name, note, total_amount, paid_status, paid_method,
+     client_request_id, created_by)
+  VALUES
+    (v_store_id, p_kind, v_doc_no, v_doc_date, v_effective_at, v_supplier, v_note, v_total, v_paid_status, v_paid_method,
+     p_client_request_id, auth.uid())
+  RETURNING id INTO v_doc_id;
+
+  INSERT INTO public.inventory_document_lines
+    (document_id, store_id, inventory_item_id, qty, unit_cost, counted_qty, system_qty, line_amount)
+  SELECT v_doc_id, v_store_id, u.item_id, u.qty, u.cost, u.counted, v_systems[u.ord], u.amount
+    FROM unnest(v_items, v_qtys, v_costs, v_counteds, v_amounts)
+         WITH ORDINALITY AS u(item_id, qty, cost, counted, amount, ord);
+
+  -- 122b nối phiếu nhập đã trả ↔ phiếu chi ở dòng dưới (hàm 122b tự lọc loại phiếu).
+  -- mevo-anchor:122b inventory_post_document.cash_book(v_doc_id)
+
+  -- Ghi lùi ngày mà đã có phiếu kiểm sau mốc đó cho cùng hàng: tồn hiện tại không đổi (số đếm là sự thật), báo
+  -- cho người dùng biết phiếu kiểm nào đã "nuốt" phiếu này.
+  IF v_effective_at < now() THEN
+    SELECT d.doc_no INTO v_before
+      FROM public.inventory_documents d
+     WHERE d.store_id = v_store_id AND d.kind = 'count' AND d.status = 'posted' AND d.effective_at > v_effective_at
+       AND EXISTS (SELECT 1 FROM public.inventory_document_lines cl
+                    WHERE cl.document_id = d.id AND cl.inventory_item_id = ANY (v_items))
+     ORDER BY d.effective_at, d.created_at
+     LIMIT 1;
+  END IF;
+
+  RETURN jsonb_build_object('ok', true, 'id', v_doc_id, 'doc_no', v_doc_no, 'replayed', false,
+    'before_count_doc_no', v_before);
+END;
+$$;
+
+-- Huỷ phiếu (không sửa phiếu đã lưu). Trả {ok, id, already}.
+CREATE FUNCTION public.inventory_void_document(p_id uuid, p_reason text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_doc_id uuid := p_id;
+  v_doc public.inventory_documents%ROWTYPE;
+  v_reason text := btrim(coalesce(p_reason, ''));
+BEGIN
+  SELECT * INTO v_doc FROM public.inventory_documents WHERE id = v_doc_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Không tìm thấy phiếu';
+  END IF;
+  IF NOT public.is_store_back_office(v_doc.store_id) THEN
+    RAISE EXCEPTION 'Không có quyền';
+  END IF;
+  IF v_doc.status = 'voided' THEN
+    RETURN jsonb_build_object('ok', true, 'id', v_doc_id, 'already', true);
+  END IF;
+  IF v_reason = '' THEN
+    RAISE EXCEPTION 'Cần lý do huỷ phiếu';
+  END IF;
+  IF length(v_reason) > 500 THEN
+    RAISE EXCEPTION 'Lý do huỷ tối đa 500 ký tự';
+  END IF;
+
+  UPDATE public.inventory_documents
+     SET status = 'voided', voided_by = auth.uid(), voided_at = now(), void_reason = v_reason
+   WHERE id = v_doc_id;
+
+  -- 122b huỷ phiếu chi đi kèm phiếu nhập ở dòng dưới.
+  -- mevo-anchor:122b inventory_void_document.cash_book(v_doc_id)
+
+  RETURN jsonb_build_object('ok', true, 'id', v_doc_id, 'already', false);
+END;
+$$;
+
+-- ============================================================
+-- 6) Đọc tồn, danh sách phiếu, chi tiết phiếu
+-- ============================================================
+
+-- Một phiếu dạng JSON (dùng chung cho danh sách + chi tiết). Nội bộ.
+CREATE FUNCTION public.inventory_document_json(p_id uuid)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT jsonb_build_object(
+    'id', d.id, 'kind', d.kind, 'doc_no', d.doc_no, 'doc_date', d.doc_date, 'effective_at', d.effective_at,
+    'supplier_name', d.supplier_name, 'note', d.note, 'total_amount', d.total_amount,
+    'paid_status', d.paid_status, 'paid_method', d.paid_method, 'status', d.status,
+    'line_count', (SELECT count(*) FROM public.inventory_document_lines l WHERE l.document_id = d.id),
+    'created_at', d.created_at,
+    'created_by_name', coalesce(
+      (SELECT nullif(btrim(mo.display_name), '') FROM public.mevo_operators mo
+        WHERE mo.user_id = d.created_by AND nullif(btrim(mo.display_name), '') IS NOT NULL LIMIT 1),
+      (SELECT u.email FROM auth.users u WHERE u.id = d.created_by)),
+    'voided_at', d.voided_at, 'void_reason', d.void_reason)
+    FROM public.inventory_documents d
+   WHERE d.id = p_id;
+$$;
+
+-- Tồn kho tại p_at: chủ quán, quản lý, thu ngân (chỉ xem). Hàng ngừng dùng xếp sau.
+CREATE FUNCTION public.inventory_stock_levels(p_store_id uuid, p_at timestamptz DEFAULT now())
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_at timestamptz := coalesce(p_at, now());
+BEGIN
+  IF p_store_id IS NULL
+     OR NOT (public.is_store_back_office(p_store_id) OR public.is_store_pos_operator(p_store_id)) THEN
+    RAISE EXCEPTION 'Không có quyền';
+  END IF;
+
+  RETURN jsonb_build_object('at', v_at, 'items', coalesce((
+    SELECT jsonb_agg(jsonb_build_object(
+             'id', i.id, 'name', i.name, 'unit', i.unit, 'kind', i.kind, 'sku', i.sku, 'min_stock', i.min_stock,
+             'is_active', i.is_active, 'qty', st.qty, 'last_unit_cost', c.unit_cost,
+             'stock_value', round(greatest(st.qty, 0) * coalesce(c.unit_cost, 0))::bigint)
+           ORDER BY i.is_active DESC, lower(i.name), i.id)
+      FROM public.inventory_items i
+      JOIN public.inventory_stock_at(p_store_id, v_at) st ON st.inventory_item_id = i.id
+      LEFT JOIN LATERAL (
+        SELECT l.unit_cost
+          FROM public.inventory_document_lines l
+          JOIN public.inventory_documents d ON d.id = l.document_id
+         WHERE l.inventory_item_id = i.id AND d.store_id = p_store_id AND d.status = 'posted'
+           AND d.kind IN ('receipt', 'count') AND l.unit_cost IS NOT NULL AND d.effective_at < v_at
+         ORDER BY d.effective_at DESC, d.created_at DESC
+         LIMIT 1) c ON true
+     WHERE i.store_id = p_store_id), '[]'::jsonb));
+END;
+$$;
+
+-- Danh sách phiếu theo ngày phiếu [p_from, p_to] (≤ 93 ngày), p_kind null = mọi loại; kèm gợi ý nhà cung cấp.
+CREATE FUNCTION public.inventory_list_documents(p_store_id uuid, p_kind text, p_from date, p_to date)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_store_id IS NULL OR NOT public.is_store_back_office(p_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền';
+  END IF;
+  IF p_kind IS NOT NULL AND p_kind NOT IN ('receipt', 'count', 'writeoff') THEN
+    RAISE EXCEPTION 'Loại phiếu không hợp lệ';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from THEN
+    RAISE EXCEPTION 'Khoảng ngày không hợp lệ';
+  END IF;
+  IF p_to - p_from > 92 THEN
+    RAISE EXCEPTION 'Chỉ xem tối đa 93 ngày';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'documents', coalesce((
+      SELECT jsonb_agg(public.inventory_document_json(d.id) ORDER BY d.effective_at DESC, d.created_at DESC, d.doc_no DESC)
+        FROM public.inventory_documents d
+       WHERE d.store_id = p_store_id AND (p_kind IS NULL OR d.kind = p_kind)
+         AND d.doc_date BETWEEN p_from AND p_to), '[]'::jsonb),
+    -- Tên nhà cung cấp đã dùng 365 ngày gần nhất, không trùng (bỏ qua hoa thường, giữ cách viết mới nhất).
+    'suppliers', coalesce((
+      SELECT jsonb_agg(x.name ORDER BY x.last_at DESC)
+        FROM (
+          SELECT t.name, t.last_at
+            FROM (
+              SELECT DISTINCT ON (lower(d.supplier_name)) d.supplier_name AS name, d.effective_at AS last_at
+                FROM public.inventory_documents d
+               WHERE d.store_id = p_store_id AND d.kind = 'receipt' AND d.status = 'posted'
+                 AND d.supplier_name IS NOT NULL
+                 AND d.doc_date >= public.current_business_date(p_store_id) - 365
+               ORDER BY lower(d.supplier_name), d.effective_at DESC, d.created_at DESC) t
+           ORDER BY t.last_at DESC
+           LIMIT 50) x), '[]'::jsonb));
+END;
+$$;
+
+-- Chi tiết một phiếu + các dòng.
+CREATE FUNCTION public.inventory_get_document(p_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_store_id uuid;
+BEGIN
+  SELECT d.store_id INTO v_store_id FROM public.inventory_documents d WHERE d.id = p_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Không tìm thấy phiếu';
+  END IF;
+  IF NOT public.is_store_back_office(v_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền';
+  END IF;
+
+  RETURN public.inventory_document_json(p_id) || jsonb_build_object('lines', coalesce((
+    SELECT jsonb_agg(jsonb_build_object(
+             'inventory_item_id', l.inventory_item_id, 'name', i.name, 'unit', i.unit, 'qty', l.qty,
+             'unit_cost', l.unit_cost, 'counted_qty', l.counted_qty, 'system_qty', l.system_qty,
+             'line_amount', l.line_amount)
+           ORDER BY lower(i.name), l.id)
+      FROM public.inventory_document_lines l
+      JOIN public.inventory_items i ON i.id = l.inventory_item_id
+     WHERE l.document_id = p_id), '[]'::jsonb));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.inventory_sales_lines(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.inventory_sales_qty(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.inventory_stock_at(uuid, timestamptz) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.inventory_next_doc_no(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.inventory_json_numeric(jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.inventory_document_json(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.inventory_post_document(text, jsonb, jsonb, uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.inventory_void_document(uuid, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.inventory_stock_levels(uuid, timestamptz) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.inventory_list_documents(uuid, text, date, date) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.inventory_get_document(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.inventory_post_document(text, jsonb, jsonb, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.inventory_void_document(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.inventory_stock_levels(uuid, timestamptz) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.inventory_list_documents(uuid, text, date, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.inventory_get_document(uuid) TO authenticated;
+
 NOTIFY pgrst, 'reload schema';
