@@ -2,6 +2,8 @@
 // lọc chip, tìm kiếm, phân trang. Tiền đã tính ở server — ở đây chỉ đổi tên trường / ép kiểu, KHÔNG cộng trừ gì.
 import type { ReportInstrument } from '@/lib/daily-report'
 import { rejectReasonLabel } from '@/lib/pos-bill-history'
+import { parsePaymentLines, type Instrument, type PaymentLine } from '@/lib/collect-payment'
+import { instrumentLabel } from '@/lib/daily-report'
 
 export type BillsReportBill = {
   key: string; paidAt: string; openedAt: string; sessionIds: string[]; orderIds: string[]; merged: boolean
@@ -11,6 +13,11 @@ export type BillsReportBill = {
   instrument: ReportInstrument; orderType: string
   itemsCount: number; tableLabel: string; customerName: string | null; partySize: number | null
   adjustmentsCount: number; receivedByName: string | null
+  /** Mig 112a: từng khoản của lần thu (tiền mặt là số RÒNG); bill thu trước 112a thì rỗng. */
+  payments: PaymentLine[]
+  /** Mig 112a: tiền khách đưa / tiền thối của lần thu; null khi không ghi. */
+  cashGiven: number | null
+  changeAmount: number | null
 }
 
 export type BillsReportWaiting = {
@@ -76,6 +83,7 @@ export function parseBillsReport(raw: unknown): BillsReport {
         discountTotal: num(b.discount_total), billDiscount: num(b.bill_discount), instrument: instrument(b.instrument), orderType: str(b.order_type) || 'dine_in',
         itemsCount: num(b.items_count), tableLabel: label(b.table_label), customerName: strOrNull(b.customer_name),
         partySize: numOrNull(b.party_size), adjustmentsCount: num(b.adjustments_count), receivedByName: strOrNull(b.received_by_name),
+        payments: parsePaymentLines(b.payments), cashGiven: numOrNull(b.cash_given), changeAmount: numOrNull(b.change_amount),
       }
     }),
     waiting: arr(r.waiting).map((w0) => {
@@ -151,6 +159,10 @@ export type BillRow = {
   receivedByName: string | null
   sessionIds: string[]
   orderIds: string[]
+  /** Mig 112a: từng khoản của bill đã thu; dòng chờ thu / đơn huỷ thì rỗng. */
+  payments: PaymentLine[]
+  cashGiven: number | null
+  changeAmount: number | null
 }
 
 export function buildBillRows(report: BillsReport): BillRow[] {
@@ -162,6 +174,7 @@ export function buildBillRows(report: BillsReport): BillRow[] {
     startedAt: w.openedAt, at: w.openedAt, itemsCount: w.itemsCount, amount: w.provisionalTotal, instrument: null,
     adjusted: false, adjustmentsCount: 0, discountTotal: 0, billDiscount: 0, expired: w.expired, rejected: false, reasonText: null,
     receivedByName: null, sessionIds: w.sessionIds, orderIds: w.orderIds,
+    payments: [], cashGiven: null, changeAmount: null,
   }))
   const paid: BillRow[] = report.bills.map((b) => ({
     key: b.key, kind: 'paid', code: billCode(b.sessionIds, b.orderIds), tableLabel: b.tableLabel,
@@ -169,6 +182,7 @@ export function buildBillRows(report: BillsReport): BillRow[] {
     startedAt: b.openedAt, at: b.paidAt, itemsCount: b.itemsCount, amount: b.total, instrument: b.instrument,
     adjusted: b.adjustmentsCount > 0 || b.discountTotal > 0, adjustmentsCount: b.adjustmentsCount, discountTotal: b.discountTotal, billDiscount: b.billDiscount,
     expired: false, rejected: false, reasonText: null, receivedByName: b.receivedByName, sessionIds: b.sessionIds, orderIds: b.orderIds,
+    payments: b.payments, cashGiven: b.cashGiven, changeAmount: b.changeAmount,
   }))
   const cancelled: BillRow[] = report.cancelled.map((c) => ({
     key: `X:${c.orderId}`, kind: 'cancelled', code: billCode([], [c.orderId]), tableLabel: c.tableLabel, grouped: false,
@@ -176,10 +190,49 @@ export function buildBillRows(report: BillsReport): BillRow[] {
     amount: c.total, instrument: null, adjusted: false, adjustmentsCount: 0, discountTotal: 0, billDiscount: 0, expired: false,
     rejected: c.kind === 'rejected', reasonText: rejectReasonLabel(c.reasonCode, c.reasonNote), receivedByName: null,
     sessionIds: c.sessionId ? [c.sessionId] : [], orderIds: [c.orderId],
+    payments: [], cashGiven: null, changeAmount: null,
   }))
   // Chờ thu lên đầu (việc cần làm), còn lại theo giờ mới nhất.
   const byTimeDesc = (a: BillRow, b: BillRow) => b.at.localeCompare(a.at)
   return [...waiting.sort(byTimeDesc), ...[...paid, ...cancelled].sort(byTimeDesc)]
+}
+
+/**
+ * Tiền mặt / chuyển khoản của MỘT dòng bill đã thu (cột Excel, ngăn kéo). Có từng khoản (mig 112a) → cộng theo
+ * phương tiện, phần không có → null. Bill thu trước 112a: một phương tiện thì đủ số vào đúng cột; ví / trộn
+ * nhiều phương tiện thì không tách được → cả hai null (không đoán). Dòng chờ thu / huỷ → null.
+ */
+export function billCashBank(row: BillRow): { cash: number | null; bank: number | null } {
+  if (row.kind !== 'paid') return { cash: null, bank: null }
+  if (row.payments.length > 0) {
+    const sum = (i: Instrument) => row.payments.filter((p) => p.instrument === i).reduce((s, p) => s + p.amount, 0)
+    const has = (i: Instrument) => row.payments.some((p) => p.instrument === i)
+    return { cash: has('cash') ? sum('cash') : null, bank: has('bank') ? sum('bank') : null }
+  }
+  if (row.instrument === 'cash') return { cash: row.amount, bank: null }
+  if (row.instrument === 'bank') return { cash: null, bank: row.amount }
+  return { cash: null, bank: null }
+}
+
+/**
+ * Nhãn phương thức của một dòng: "Kết hợp" chỉ khi bill thu kết hợp có từng khoản (mig 112a); bill cũ trộn
+ * nhiều phương tiện giữ "Nhiều phương thức". null khi dòng không có phương thức (chờ thu / huỷ).
+ */
+export function billInstrumentLabel(row: Pick<BillRow, 'instrument' | 'payments'>): string | null {
+  if (!row.instrument) return null
+  if (row.instrument === 'mixed' && row.payments.length > 0) return 'Kết hợp'
+  return instrumentLabel(row.instrument)
+}
+
+/**
+ * Phần của bill đã thu KHÔNG nằm ở cột Tiền mặt / Chuyển khoản (ví, bill cũ trộn nhiều phương tiện). Tính là phần
+ * còn lại để mỗi dòng Tiền mặt + Chuyển khoản + Khác = Số tiền. 0 hoặc không phải dòng đã thu → null (ô trống).
+ */
+export function billOther(row: BillRow): number | null {
+  if (row.kind !== 'paid') return null
+  const { cash, bank } = billCashBank(row)
+  const rest = row.amount - (cash ?? 0) - (bank ?? 0)
+  return rest !== 0 ? rest : null
 }
 
 export type BillChip = 'all' | 'paid' | 'adjusted' | 'waiting'

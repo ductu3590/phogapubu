@@ -7,6 +7,18 @@ const now = new Date('2026-10-09T12:00:00.000Z')
 const store = { name: 'Bia lẩu Bảo Lương', address: '236 Bảo Lương, Ngã 5 Bảo Lương, P. Yên Bái, Lào Cai', phone: '0826325523' }
 
 describe('PrintBill (PA-5)', () => {
+  it('mig 112a — in lại bill đã thu: từng khoản, khách đưa, tiền thối', () => {
+    const bill = { ...buildTestBill(store, now), payments: [{ instrument: 'cash' as const, amount: 400_000 }, { instrument: 'bank' as const, amount: 600_000 }], cash_given: 500_000, change_amount: 100_000 }
+    const html = renderToStaticMarkup(<PrintBill bill={bill} />)
+    for (const t of ['Tiền mặt', 'Chuyển khoản', 'Khách đưa', 'Tiền thối', '600.000']) expect(html).toContain(t)
+  })
+
+  it('mig 112a — bill chưa thu: không có dòng khoản', () => {
+    const html = renderToStaticMarkup(<PrintBill bill={buildTestBill(store, now)} />)
+    expect(html).not.toContain('Khách đưa')
+    expect(html).not.toContain('Tiền thối')
+  })
+
   it('hoá đơn thường: tiêu đề HOÁ ĐƠN, có lời cảm ơn, in địa chỉ', () => {
     const html = renderToStaticMarkup(<PrintBill bill={buildTestBill(store, now)} />)
     expect(html).toContain('HOÁ ĐƠN')

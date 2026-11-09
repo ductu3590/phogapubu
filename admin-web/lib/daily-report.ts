@@ -1,6 +1,8 @@
 // Hàm ngày kinh doanh + nhãn phương thức thanh toán cho báo cáo theo ngày.
 // (PA-1 đọc RPC get_daily_report ở đây; A04-4 2026-10-13 thay bằng lib/bills-report.ts + RPC get_bills_report, mig 102 DROP hàm cũ.)
 
+import { INSTRUMENT_LABELS } from '@/lib/collect-payment'
+
 export type ReportInstrument = 'cash' | 'bank' | 'other' | 'mixed'
 
 const VN_OFFSET_MINUTES = 7 * 60
@@ -33,5 +35,7 @@ export function clampReportDate(input: string | undefined, today: string): strin
 }
 
 export function instrumentLabel(i: ReportInstrument): string {
-  return { cash: 'Tiền mặt', bank: 'Chuyển khoản', other: 'Ví / khác', mixed: 'Nhiều phương thức' }[i]
+  // Nhãn từng phương tiện lấy từ MỘT bảng (INSTRUMENT_LABELS). 'mixed' ở đây là bill CŨ trộn nhiều phương tiện;
+  // bill thu Kết hợp có từng khoản (mig 112a) đọc nhãn qua billInstrumentLabel (lib/bills-report.ts).
+  return { ...INSTRUMENT_LABELS, other: 'Ví / khác', mixed: 'Nhiều phương thức' }[i]
 }

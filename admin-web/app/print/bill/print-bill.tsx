@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import type { SessionsBill } from '@/lib/actions/table-session'
+import { paymentRows } from '@/lib/collect-payment'
 import { useAutoPrint } from '@/lib/print/use-auto-print'
 
 const dong = (n: number) => n.toLocaleString('vi-VN')
@@ -204,6 +205,13 @@ export default function PrintBill({
           <span className="name">{giamGia > 0 ? 'Khách cần trả' : 'TỔNG CỘNG'}</span>
           <span className="num">{dong(bill.grand_total)}đ</span>
         </div>
+        {/* Mig 112a: in lại bill đã thu → từng khoản, tiền khách đưa, tiền thối. Bill chưa thu: không có dòng nào. */}
+        {paymentRows({ payments: bill.payments, cashGiven: bill.cash_given, changeAmount: bill.change_amount }).map((p) => (
+          <div key={p.label} className="row">
+            <span className="name">{p.label}</span>
+            <span className="num">{dong(p.amount)}</span>
+          </div>
+        ))}
 
         <hr />
         <div style={{ textAlign: 'center', fontSize: 11 }}>
