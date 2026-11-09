@@ -190,7 +190,7 @@ Kết quả: ☐ PASS ☐ FAIL
 
 1. Đăng nhập **thu ngân** → rail có **Kho**. Mở: **chỉ một tab Tồn kho** (không có hàng tab).
 2. Không có nút **Thêm hàng hoá**, **Sửa**, **Ngừng dùng**; bấm tên hàng **không** mở thẻ kho.
-3. **Không** thấy cột Giá vốn gần nhất, Giá trị tồn, dòng Tổng giá trị tồn (thẻ mobile cũng không có) — chỉ tên, đơn vị, loại, số tồn, nhãn Âm kho / Sắp hết.
+3. **Không** thấy cột Giá vốn gần nhất, Giá trị tồn, dòng Tổng giá trị tồn (thẻ mobile cũng không có) — chỉ tên, đơn vị, loại, số tồn, nhãn Âm kho / Sắp hết. Giá bị gỡ ngay ở server: xem nguồn trang / DevTools → Network cũng không thấy giá vốn của hàng.
 4. Trang **Món** (màn Tạm hết): **không** có nút "Trừ kho" nào, phụ đề như cũ.
 
 Kết quả: ☐ PASS ☐ FAIL
@@ -232,3 +232,4 @@ Kết quả: ☐ PASS ☐ FAIL
 - **Phiếu chi tự tạo** khi phiếu nhập "Đã trả" và **huỷ phiếu chi cùng** phiếu nhập là bài của **mig 122b** (sổ thu chi), không test ở mig 118.
   Mig 118 chỉ lưu `paid_status` + `paid_method` và để sẵn hai dòng neo.
 - Giá vốn (`inventory_cogs`) không có màn riêng — dùng ở báo cáo lãi lỗ (plan BC).
+- **Lưu ý khi đọc lại báo cáo kỳ cũ:** bảng hàng hoá không lưu ngày ngừng dùng (`deactivated_at`). Giá vốn bỏ nguyên liệu đã ngừng dùng mà không biến động trong kỳ dựa trên trạng thái HIỆN TẠI, nên chạy lại báo cáo một kỳ cũ sau khi ngừng dùng một nguyên liệu có thể ra cờ "chưa kiểm" / tổng nguyên liệu khác lần chạy trước. Muốn số kỳ cũ cố định thì chốt (xuất Excel / in) trước khi ngừng dùng hàng.

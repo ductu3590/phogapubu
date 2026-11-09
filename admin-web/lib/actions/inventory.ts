@@ -116,7 +116,9 @@ export async function setInventoryItemActive(id: string, active: boolean): Promi
 export async function loadInventoryStock(): Promise<{ ok: true; rows: StockRow[] } | Fail> {
   const storeId = await posOperator()
   if (isFail(storeId)) return storeId
-  return readStockLevels(storeId)
+  // Giá vốn / giá trị tồn chỉ cho hậu cần: thử guard hậu cần dùng chung (không tự so vai); thu ngân → gỡ ở server.
+  const withCost = !isFail(await backOffice())
+  return readStockLevels(storeId, { withCost })
 }
 
 // ─── Phiếu ────────────────────────────────────────────────────────────────────

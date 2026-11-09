@@ -153,6 +153,11 @@ export function formatQty(n: number): string {
   return QTY_FORMAT.format(n)
 }
 
+/** Bỏ số liệu giá (giá vốn gần nhất, giá trị tồn) — cho thu ngân: gỡ Ở SERVER trước khi trả về trình duyệt. */
+export function withoutCost(rows: StockRow[]): StockRow[] {
+  return rows.map((r) => ({ ...r, lastUnitCost: null, stockValue: 0 }))
+}
+
 export function stockStatus(qty: number, minStock: number | null): 'negative' | 'low' | 'ok' {
   if (qty < 0) return 'negative'
   if (minStock !== null && qty < minStock) return 'low'

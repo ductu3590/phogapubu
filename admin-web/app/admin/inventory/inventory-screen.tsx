@@ -11,7 +11,11 @@ import InventoryTabs from './inventory-tabs'
 export default async function InventoryScreen({ inModal }: { inModal: boolean }) {
   const operator = await requireAdminPageOrRedirect('pos')
   const canEdit = isBackOfficeRole(operator.role)
-  const [stock, today] = await Promise.all([readStockLevels(operator.storeId), inventoryToday(operator.storeId)])
+  // Thu ngân: giá vốn / giá trị tồn gỡ ngay ở server, không chỉ ẩn trên giao diện.
+  const [stock, today] = await Promise.all([
+    readStockLevels(operator.storeId, { withCost: canEdit }),
+    inventoryToday(operator.storeId),
+  ])
 
   return (
     <div className="flex-1 overflow-y-auto bg-background">

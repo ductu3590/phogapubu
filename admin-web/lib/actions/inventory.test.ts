@@ -131,8 +131,15 @@ describe('server action kho', () => {
     expect(r).toEqual({ ok: true, rows: [{ id: 'a', name: 'Bia', unit: 'lon', kind: 'goods', sku: null, minStock: null,
       isActive: true, qty: 66, lastUnitCost: 10000, stockValue: 660000 }] })
     expect(mocks.requirePosOperatorStoreId).toHaveBeenCalledTimes(1)
-    expect(mocks.requireBackOfficeStoreId).not.toHaveBeenCalled() // thu ngân không qua guard hậu cần
     expect(rpcCalls('inventory_stock_levels')).toEqual([{ p_store_id: 'store-1' }])
+
+    // Thu ngân (không qua guard hậu cần): giá vốn / giá trị tồn bị gỡ Ở SERVER, không tới trình duyệt.
+    mocks.requireBackOfficeStoreId.mockRejectedValueOnce(new Error('Chỉ chủ quán hoặc quản lý mới thao tác được ở đây'))
+    const cashier = await actions.loadInventoryStock()
+    expect(cashier).toEqual({ ok: true, rows: [{ id: 'a', name: 'Bia', unit: 'lon', kind: 'goods', sku: null, minStock: null,
+      isActive: true, qty: 66, lastUnitCost: null, stockValue: 0 }] })
+    expect(JSON.stringify(cashier)).not.toContain('10000')
+    expect(JSON.stringify(cashier)).not.toContain('660000')
 
     mocks.requirePosOperatorStoreId.mockRejectedValueOnce(new Error('Chỉ chủ quán hoặc thu ngân mới thao tác được ở đây'))
     expect(await actions.loadInventoryStock()).toEqual({ ok: false,
@@ -239,6 +246,16 @@ describe('bộ đọc phía server', () => {
     mocks.state.rpc.inventory_menu_links = ok({ goods: [{ id: 'a', name: 'Bia', unit: 'lon' }], links: [] })
     expect(await server.readMenuStock('store-1')).toEqual({ goods: [{ id: 'a', name: 'Bia', unit: 'lon' }], links: [] })
     expect(rpcCalls('inventory_menu_links')).toContainEqual({ p_store_id: 'store-1' })
+  })
+
+  it('readStockLevels(storeId, { withCost: false }) gỡ giá vốn + giá trị tồn', async () => {
+    mocks.state.rpc.inventory_stock_levels = ok({ at: 'x', items: [
+      { id: 'a', name: 'Bia', unit: 'lon', kind: 'goods', sku: null, min_stock: 24, is_active: true, qty: 66,
+        last_unit_cost: 10000, stock_value: 660000 }] })
+    const full = await server.readStockLevels('store-1')
+    expect(full.ok && full.rows[0]).toMatchObject({ lastUnitCost: 10000, stockValue: 660000 })
+    const lean = await server.readStockLevels('store-1', { withCost: false })
+    expect(lean.ok && lean.rows[0]).toMatchObject({ qty: 66, minStock: 24, lastUnitCost: null, stockValue: 0 })
   })
 
   it('readStockLevels lỗi RPC → { ok:false }', async () => {
