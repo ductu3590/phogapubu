@@ -79,6 +79,10 @@ export async function addTablesBulk(input: { areaId: string | null; prefix: stri
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Không có quyền' }
   }
+  // Đầu vào đến từ client: sai kiểu thì trả lỗi, không ném
+  if (typeof input?.prefix !== 'string' || typeof input.from !== 'number' || typeof input.to !== 'number') {
+    return { ok: false, error: 'Dữ liệu tạo bàn không hợp lệ' }
+  }
   // Kiểm cỡ lô trước khi chạm DB (tên trùng chưa biết nên so với danh sách rỗng)
   const shape = previewBulkTables(input, [])
   if (!shape.ok) return shape

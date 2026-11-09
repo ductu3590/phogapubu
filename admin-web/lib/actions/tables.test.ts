@@ -109,6 +109,18 @@ describe('addTablesBulk', () => {
     const r = await addTablesBulk({ areaId: null, prefix: 'C', from: 1, to: 2 })
     expect(r).toEqual({ ok: false, error: 'Không có quyền' })
   })
+  it('đầu vào sai kiểu (prefix không phải chuỗi, from/to không phải số): {ok:false}, không ném, không đọc DB', async () => {
+    const bad = [
+      { areaId: null, prefix: undefined, from: 1, to: 2 },
+      { areaId: null, prefix: 'A', from: '1', to: 2 },
+      { areaId: null, prefix: 'A', from: 1, to: null },
+    ]
+    for (const input of bad) {
+      const r = await addTablesBulk(input as never)
+      expect(r.ok).toBe(false)
+    }
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
   it('101 bàn → {ok:false}, không đọc DB', async () => {
     const r = await addTablesBulk({ areaId: null, prefix: 'C', from: 1, to: 101 })
     expect(r).toEqual({ ok: false, error: 'Tối đa 100 bàn một lần' })
