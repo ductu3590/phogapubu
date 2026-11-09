@@ -157,7 +157,7 @@ export async function closeTableSession(
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
   if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' }
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được thu tiền hoặc bỏ bàn' }
   }
 
   const { data, error: rpcErr } = await supabase.rpc('close_table_session', {
@@ -191,7 +191,7 @@ export async function collectTableBill(input: CollectBillInput): Promise<Collect
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
   if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' }
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được thu tiền hoặc bỏ bàn' }
   }
   if (!Array.isArray(input.sessionIds) || input.sessionIds.length === 0) {
     return { ok: false, error: 'Chưa chọn mâm nào' }
@@ -292,7 +292,7 @@ export async function moveSessionTable(
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
   if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được chuyển bàn' }
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được chuyển bàn' }
   }
 
   const { data, error: rpcErr } = await supabase.rpc('pos_move_session_table', {
@@ -315,7 +315,7 @@ export async function moveSessionToTable(
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
   if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được chuyển bàn' }
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được chuyển bàn' }
   }
 
   const { data, error: rpcErr } = await supabase.rpc('pos_move_session_to_table', {
@@ -355,7 +355,7 @@ export async function setSessionDiscount(sessionId: string, d: BillDiscount): Pr
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
   if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được giảm giá hoá đơn' }
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được giảm giá hoá đơn' }
   }
 
   const { error: rpcErr } = await supabase.rpc('pos_set_session_discount', {
@@ -372,7 +372,7 @@ export async function setSessionsDiscount(sessionIds: string[], d: BillDiscount)
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
   if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được giảm giá hoá đơn' }
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được giảm giá hoá đơn' }
   }
   if (sessionIds.length === 0) return { ok: false, error: 'Chưa chọn mâm nào' }
 

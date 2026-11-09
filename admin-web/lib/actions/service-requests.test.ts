@@ -79,7 +79,7 @@ describe('quyền đóng phiên bàn', () => {
 
     await expect(closeTableSession('session-1', 'staff_reset')).resolves.toEqual({
       ok: false,
-      error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn',
+      error: 'Chỉ chủ quán, quản lý hoặc thu ngân được thu tiền hoặc bỏ bàn',
     })
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
@@ -251,7 +251,7 @@ describe('thu ngân ở quầy (PA-2)', () => {
     expect(await collectTableBill(base)).toEqual({ ok: false, error: 'Số tiền không khớp bill' })
     mocks.rpc.mockClear()
     mocks.operator.value = { userId: 's', role: 'store_staff', storeId: 'store-1' }
-    expect(await collectTableBill(base)).toEqual({ ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' })
+    expect(await collectTableBill(base)).toEqual({ ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được thu tiền hoặc bỏ bàn' })
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
