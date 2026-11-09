@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/server'
 import { ErrorState } from '@/components/ui/feedback'
 import BillsReportView from './bills-report-view'
 import OrdersRealtime from './orders-realtime'
+import BillsTabs from './bills-tabs'
+import { loadCashShiftList } from '@/lib/actions/cash-shift-reads'
+import type { CashShiftListItem } from '@/lib/cash-shift'
 
 // "Hoá đơn & Báo cáo" (bản Stitch A04) — thay 2 trang Đơn hàng + Báo cáo ngày (xoá ở A04-4, 2026-10-13).
 // Mọi con số lấy nguyên từ RPC get_bills_report; trang này chỉ hiển thị. Theo NGÀY KINH DOANH của quán (ca làm việc: để sau).
@@ -22,7 +25,14 @@ export default async function BillsScreen({ searchParams, inModal }: { searchPar
   if (operator.role === 'store_owner') {
     await supabase.rpc('sweep_abandoned_orders', { p_store_id: operator.storeId }).then(() => {}, () => {})
   }
-  const [res, { data: auth }] = await Promise.all([loadBillsReport(date), supabase.auth.getUser()])
+  const [res, { data: auth }, shiftList] = await Promise.all([
+    loadBillsReport(date),
+    supabase.auth.getUser(),
+    // Tab Ca (mig 122): lỗi (vd. Vercel lên trước migration) coi như quán chưa dùng ca — không làm hỏng báo cáo.
+    loadCashShiftList(operator.storeId)
+      .then((r) => (r.ok ? r : { required: false, shifts: [] as CashShiftListItem[] }))
+      .catch(() => ({ required: false, shifts: [] as CashShiftListItem[] })),
+  ])
   const meta = (auth.user?.user_metadata ?? {}) as { full_name?: string }
   const viewer = `${meta.full_name?.trim() || auth.user?.email || 'Không rõ'} · ${ROLE_LABEL[operator.role]}`
 
@@ -35,6 +45,7 @@ export default async function BillsScreen({ searchParams, inModal }: { searchPar
       {/* Tự làm mới khi có đơn / thanh toán thay đổi — không bắt F5. */}
       <OrdersRealtime storeId={operator.storeId} channelKey="admin-bills" />
       <div className="mx-auto w-full max-w-7xl p-4 md:p-6">
+        <BillsTabs showShifts={shiftList.required || shiftList.shifts.length > 0} shifts={shiftList.shifts}>
         {res.ok ? (
           <BillsReportView
             report={res.report}
@@ -50,6 +61,7 @@ export default async function BillsScreen({ searchParams, inModal }: { searchPar
         ) : (
           <ErrorState title="Không tải được báo cáo" reason={res.error} />
         )}
+        </BillsTabs>
       </div>
     </div>
   )

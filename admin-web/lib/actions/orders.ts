@@ -3,13 +3,17 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 import { revalidatePath } from 'next/cache'
+import { NO_OPEN_SHIFT_ERROR, isNoOpenShiftError } from '@/lib/cash-shift'
 
 // Lỗi chặn của server đưa thẳng cho người dùng, không kèm tiền tố kỹ thuật. Mig 110: lượt thuộc phiên bàn trả sau
 // (đang mở / hết hạn còn nợ) không được thu lẻ — thu cả bàn ở POS → Thanh toán.
 // KHÔNG export: file 'use server' chỉ được export hàm async.
 const SESSION_PAY_BLOCK = 'Bàn trả sau thu cả bàn một lần ở POS (Thanh toán)'
 function rpcError(prefix: string, message: string): Error {
-  return new Error(message.includes(SESSION_PAY_BLOCK) ? SESSION_PAY_BLOCK : `${prefix}: ${message}`)
+  if (message.includes(SESSION_PAY_BLOCK)) return new Error(SESSION_PAY_BLOCK)
+  // Mig 122: quán bật "Bắt buộc mở ca" mà chưa có ca mở → confirm_manual_payment báo "Chưa mở ca".
+  if (isNoOpenShiftError(message)) return new Error(`${NO_OPEN_SHIFT_ERROR} — mở ca trên POS rồi xác nhận lại`)
+  return new Error(`${prefix}: ${message}`)
 }
 
 // Chủ quán xác nhận ĐÃ NHẬN TIỀN (tiền mặt / chuyển khoản) — gọi RPC confirm_manual_payment

@@ -109,13 +109,27 @@ describe('Kho — phiếu nhập / xuất huỷ', () => {
     expect(buttonWith(markup, 'Lưu')).toMatch(DISABLED)
     // Gợi ý nhà cung cấp cũ.
     expect(markup).toContain('<option value="Đại lý Hà Nội">')
-    // Mig 118 chưa có sổ thu chi: không hứa phiếu chi đã tạo.
+    // Mig 122b: không còn câu hứa "sẽ tự tạo khi có Sổ thu chi"; nói rõ lưu phiếu là ghi luôn phiếu chi.
     expect(markup).not.toContain('đã tạo phiếu chi')
+    expect(markup).not.toContain('sẽ tự tạo khi có Sổ thu chi')
+    expect(markup).toContain('Lưu phiếu sẽ ghi luôn một phiếu chi')
 
     const ok = html(<ReceiptForm today="2026-11-09" items={items} suppliers={[]} onClose={vi.fn()} onSaved={vi.fn()}
       initial={{ paidStatus: 'paid', paidMethod: 'cash', drafts: lines }} />)
     expect(buttonWith(ok, 'Lưu')).not.toMatch(DISABLED)
     expect(ok).not.toContain('Chọn phương thức trả tiền')
+    expect(ok).toContain('quán bật ca thì cần mở ca trên POS trước')
+    expect(ok).not.toContain('Ngày nhập khác hôm nay')
+    // Ghi lùi ngày + trả tiền mặt: nói rõ tiền vẫn ra khỏi két hôm nay; chuyển khoản thì không có câu này.
+    const back = html(<ReceiptForm today="2026-11-09" items={items} suppliers={[]} onClose={vi.fn()} onSaved={vi.fn()}
+      initial={{ docDate: '2026-11-07', paidStatus: 'paid', paidMethod: 'cash', drafts: lines }} />)
+    expect(back).toContain('Ngày nhập khác hôm nay: tiền mặt vẫn tính ra khỏi két hôm nay (ca đang mở)')
+    const backBank = html(<ReceiptForm today="2026-11-09" items={items} suppliers={[]} onClose={vi.fn()} onSaved={vi.fn()}
+      initial={{ docDate: '2026-11-07', paidStatus: 'paid', paidMethod: 'bank', drafts: lines }} />)
+    expect(backBank).not.toContain('Ngày nhập khác hôm nay')
+    // Mặc định "Chưa chọn" (KHO): chưa chọn trạng thái trả thì không có câu phiếu chi.
+    const fresh = html(<ReceiptForm today="2026-11-09" items={items} suppliers={[]} onClose={vi.fn()} onSaved={vi.fn()} />)
+    expect(fresh).not.toContain('phiếu chi')
   })
 
   it('WriteoffForm: chưa có lý do → nút Lưu tắt', () => {

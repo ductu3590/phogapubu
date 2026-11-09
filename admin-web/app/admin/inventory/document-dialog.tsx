@@ -144,7 +144,7 @@ export default function DocumentDialog({ id, onClose, onVoided }: {
           }
         >
           <div className="space-y-2">
-            {/* Chỉ khi phiếu nhập đã có phiếu chi thật (mig 122b trở đi). Mig 118 không trả trường này nên không hiện. */}
+            {/* Chỉ khi phiếu nhập đã có phiếu chi (mig 122b: inventory_document_json trả cash_book_entry_id). */}
             {doc.cashBookEntryId ? (
               <p className="text-sm text-foreground/80">Phiếu chi tương ứng trong sổ thu chi sẽ huỷ cùng.</p>
             ) : null}

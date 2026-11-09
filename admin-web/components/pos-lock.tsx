@@ -46,6 +46,14 @@ export function usePosLock(): PosLockApi {
   return ctx
 }
 
+/**
+ * Màn hình đang khoá PIN? Không ném khi thiếu Provider (vẽ tĩnh trong test) → false.
+ * Dùng để KHÔNG tự bật hộp thoại khi đang khoá: showModal sau sẽ nằm trên màn khoá (top layer).
+ */
+export function usePosLocked(): boolean {
+  return useContext(PosLockContext)?.state.locked ?? false
+}
+
 export function PosLockProvider({ userId, userLabel, children }: { userId: string; userLabel?: string | null; children: ReactNode }) {
   // Snapshot là CHUỖI thô (so sánh được bằng ===) rồi mới parse — trả object mới mỗi lần sẽ vẽ lại vô hạn.
   const raw = useSyncExternalStore(

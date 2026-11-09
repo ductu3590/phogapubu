@@ -22,6 +22,19 @@ describe('hộp thoại cấu hình (ST-3)', () => {
   })
 })
 
+describe('Sổ thu chi (mig 122)', () => {
+  it('CONFIG_TABS có /admin/cashbook, không thuộc nhóm Cài đặt', () => {
+    const tab = CONFIG_TABS.find((t) => t.href === '/admin/cashbook')
+    expect(tab?.label).toBe('Sổ thu chi')
+    expect(tab && 'settings' in tab).toBe(false)
+    expect(settingsTabs('store_owner').map((t) => t.href)).not.toContain('/admin/cashbook')
+  })
+  it('thu ngân và quản lý mở được /admin/cashbook', () => {
+    expect(adminPathAllowed('store_cashier', '/admin/cashbook')).toBe(true)
+    expect(adminPathAllowed('store_manager', '/admin/cashbook')).toBe(true)
+  })
+})
+
 describe('tab trong ⚙ Cài đặt (2026-10-13)', () => {
   it('chủ quán: Cài đặt chung · Nhân viên · Ưu đãi & Vòng quay · Bảo mật', () => {
     expect(settingsTabs('store_owner').map((t) => t.href))

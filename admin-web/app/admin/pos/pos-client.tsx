@@ -103,6 +103,10 @@ import { useServiceRequests } from './use-service-requests'
 import WorkQueue from './work-queue'
 import PosBillPanel, { type PosPayment } from './bill-panel'
 import ConfirmDialog from './confirm-dialog'
+import { useCashShift } from './use-cash-shift'
+import ShiftControls, { ShiftStaleBanner, type ShiftRequest } from './shift-controls'
+import { continueStaleShift } from '@/lib/actions/cash-shift'
+import { isNoOpenShiftError, shouldClearNoShiftError } from '@/lib/cash-shift'
 
 type View = 'timeline' | 'floor' | 'list'
 
@@ -252,6 +256,25 @@ export default function PosClient({
   }, [])
   const autoPrint = useAutoKitchenPrint({ supabase, storeId, sessions, onGiveUp: reportActionError })
   const printStatus = usePrintStatus(storeId)
+  // Ca thu ngân (mig 122). Quán không bật "Bắt buộc mở ca" thì cashShift.state.required = false, POS như cũ.
+  const cashShift = useCashShift(storeId)
+  const [shiftRequest, setShiftRequest] = useState<ShiftRequest | null>(null)
+  const [shiftContinueBusy, setShiftContinueBusy] = useState(false)
+  // Ca đã mở (máy này mở xong, hoặc lần đọc ca thấy máy khác đã mở) → bỏ băng lỗi "Chưa mở ca" còn đứng
+  // từ lần thu bị từ chối. Làm trong lúc vẽ (không qua effect); điều kiện tự tắt sau khi setError(null).
+  if (shouldClearNoShiftError(error, cashShift.state)) setError(null)
+  const onContinueShift = async () => {
+    const shiftId = cashShift.state?.shift?.id
+    if (!shiftId || shiftContinueBusy) return
+    setShiftContinueBusy(true)
+    try {
+      const r = await continueStaleShift(shiftId).catch(() => ({ ok: false as const, error: 'Lỗi kết nối. Thử lại sau.' }))
+      if (!r.ok) reportActionError(r.error)
+      cashShift.reload()
+    } finally {
+      setShiftContinueBusy(false)
+    }
+  }
   // Phiếu đang chạy thao tác: khoá nút của phiếu đó (bấm đúp không tạo hai phiếu in lại)
   const [busyPrintJobs, setBusyPrintJobs] = useState<ReadonlySet<string>>(new Set())
   const [dismissingAllPrint, setDismissingAllPrint] = useState(false)
@@ -470,6 +493,11 @@ export default function PosClient({
     if (out.kind !== 'done') {
       setBusy(false)
       reportActionError(out.error)
+      // Quán bật ca mà chưa có ca (mig 122): mở luôn hộp Mở ca, thu ngân mở xong bấm thu lại (cùng mã, không trùng).
+      if (isNoOpenShiftError(out.error)) {
+        setShiftRequest({ kind: 'open', n: Date.now() })
+        cashShift.reload()
+      }
       if (out.kind === 'stale') await reload()
       return
     }
@@ -1041,6 +1069,13 @@ export default function PosClient({
               )}
             </div>
             <PosLockButton />
+            <ShiftControls
+              state={cashShift.state}
+              reload={cashShift.reload}
+              openTablesCount={openSessions.reduce((n, s) => n + s.tables.length, 0)}
+              storeId={storeId}
+              request={shiftRequest}
+            />
             {reservationsEnabled && !arrange && !reservationPick && (
               <Button variant="primary" icon={<CalendarPlus />} onClick={() => {
                 setBookingError(null)
@@ -1073,6 +1108,12 @@ export default function PosClient({
           onDismissAll={(jobs) => void onDismissAllPrintJobs(jobs)}
         />
         {autoPrint.banner && <Banner tone={autoPrint.banner.tone} title={autoPrint.banner.title} className="mx-4 mt-2 md:mx-5" />}
+        <ShiftStaleBanner
+          state={cashShift.state}
+          busy={shiftContinueBusy}
+          onCloseOld={() => setShiftRequest({ kind: 'close', n: Date.now() })}
+          onContinue={() => void onContinueShift()}
+        />
 
         {mergeMode && (
           <div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/30 bg-primary-light px-4 py-2 md:px-5">

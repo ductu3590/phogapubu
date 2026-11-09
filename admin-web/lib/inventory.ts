@@ -41,7 +41,7 @@ export type DocSummary = {
   createdByName: string | null
   voidedAt: string | null
   voidReason: string | null
-  /** Phiếu chi đi kèm trong sổ thu chi (mig 122b trở đi). Mig 118 không trả trường này → luôn null. */
+  /** Phiếu chi đi kèm trong sổ thu chi (mig 122b: phiếu nhập đã trả). Phiếu khác / chưa trả → null. */
   cashBookEntryId: string | null
 }
 

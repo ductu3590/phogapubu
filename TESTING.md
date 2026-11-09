@@ -9,6 +9,7 @@
 - ⏳ [Yên Garden — Báo cáo, Part 1 bán hàng](docs/testing/yen-garden/BAO-CAO.md) — chờ test, mig 117 chưa áp prod
 - ⏳ [Yên Garden — Vai Quản lý](docs/testing/yen-garden/QUAN-LY.md) — chờ test, mig 116 chưa áp prod (Controller áp + deploy trước)
 - ⏳ [Yên Garden — Kho](docs/testing/yen-garden/KHO.md) — chờ test, mig 118 chưa áp prod
+- ⏳ [Yên Garden — Ca thu ngân + Sổ thu chi](docs/testing/yen-garden/THU-CHI.md) — chờ test, mig 122 + 122b chưa áp prod (áp cùng đợt, trước khi quán nào bật ca; 122 cần 112a/112b + 111 + 116, 122b cần thêm 118)
 - ⏳ [Đợt 1 B1 — Ngày kinh doanh](docs/testing/dot1/B1-ngay-kinh-doanh.md) — chờ test, mig 111 đã áp prod 2026-11-06
 - ⏳ [Đợt 1 — VietQR nền](docs/testing/dot1/vietqr-nen.md) — chờ test
 - ⏳ [Đợt 1 C Part 1 — In hai nơi](docs/testing/dot1/C-part1-in-hai-noi.md) — chờ test, mig 114 chưa áp prod

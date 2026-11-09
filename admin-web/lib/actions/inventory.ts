@@ -16,6 +16,7 @@ import {
 } from '@/lib/inventory'
 import { readStockLevels } from '@/lib/inventory-server'
 import { createClient } from '@/lib/supabase/server'
+import { RECEIPT_NO_SHIFT, RECEIPT_VOID_SHIFT_CLOSED, isNoOpenShiftError, isShiftClosedVoidError } from '@/lib/cash-shift'
 
 // Kho (mig 118). Mọi action gọi RPC bằng phiên người dùng (createClient): RPC kiểm lại is_store_back_office /
 // is_store_pos_operator nên DB là khoá thật, guard ở đây chỉ để báo lỗi sớm + lấy store_id. store_id luôn lấy từ
@@ -188,7 +189,8 @@ export async function postInventoryDocument(input: {
     p_lines: lines.map(toRpcLine),
     p_client_request_id: input.clientRequestId,
   })
-  if (isFail(r)) return r
+  // Mig 122b: phiếu nhập đã trả TIỀN MẶT sinh phiếu chi gắn ca → quán bật ca mà chưa mở ca thì cả phiếu không lưu.
+  if (isFail(r)) return isNoOpenShiftError(r.error) ? fail(RECEIPT_NO_SHIFT) : r
   const id = field(r.data, 'id')
   const docNo = field(r.data, 'doc_no')
   if (typeof id !== 'string' || typeof docNo !== 'string') return fail('Không đọc được kết quả lưu phiếu')
@@ -210,7 +212,8 @@ export async function voidInventoryDocument(id: string, reason: string): Promise
   const trimmed = (reason ?? '').trim()
   if (!trimmed) return fail('Cần lý do huỷ phiếu')
   const r = await rpc('inventory_void_document', { p_id: id, p_reason: trimmed })
-  if (isFail(r)) return r
+  // Mig 122b: phiếu chi tiền mặt đi kèm thuộc ca đã kết → không huỷ được phiếu nhập (két đã chốt).
+  if (isFail(r)) return isShiftClosedVoidError(r.error) ? fail(RECEIPT_VOID_SHIFT_CLOSED) : r
   refreshInventory()
   return { ok: true, already: field(r.data, 'already') === true }
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, ChartColumn, Package, ReceiptText, QrCode, Settings, ShieldCheck, Ticket, Users, UtensilsCrossed, X } from 'lucide-react'
+import { CalendarDays, ChartColumn, Package, ReceiptText, QrCode, Settings, ShieldCheck, Ticket, Users, UtensilsCrossed, Wallet, X } from 'lucide-react'
 import { IconButton } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { OperatorRole } from '@/lib/auth/roles'
@@ -23,6 +23,7 @@ export const CONFIG_TABS = [
   { href: '/admin/tables', label: 'Sơ đồ bàn & QR', icon: <QrCode /> },
   { href: '/admin/bills', label: 'Hoá đơn', icon: <ReceiptText /> },
   { href: '/admin/reports', label: 'Báo cáo', icon: <ChartColumn /> },
+  { href: '/admin/cashbook', label: 'Sổ thu chi', icon: <Wallet /> },
   { href: '/admin/inventory', label: 'Kho', icon: <Package /> },
   { href: '/admin/staff', label: 'Nhân viên', icon: <Users />, settings: true },
   { href: '/admin/vouchers', label: 'Ưu đãi & Vòng quay', icon: <Ticket />, settings: true },

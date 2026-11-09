@@ -63,6 +63,20 @@ describe('confirmManualPayment', () => {
   })
 })
 
+describe('mig 122: cổng ca ở confirm_manual_payment', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.requireStoreOwnerStoreId.mockResolvedValue('store-1')
+    mocks.updateArgs.value = null
+    mocks.orderRow.value = { payment_method: 'cash', payment_received_at: null, status: 'ready' }
+  })
+  it('quán bật ca chưa mở ca → câu "Chưa mở ca …" nguyên văn, không tiền tố kỹ thuật (cả xác nhận lẫn hoàn tất)', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'Chưa mở ca' } })
+    await expect(confirmManualPayment('o1')).rejects.toThrow(/^Chưa mở ca — mở ca trên POS rồi xác nhận lại$/)
+    await expect(completeOrder('o1')).rejects.toThrow(/^Chưa mở ca — mở ca trên POS rồi xác nhận lại$/)
+  })
+})
+
 describe('completeOrder', () => {
   beforeEach(() => {
     vi.clearAllMocks()
