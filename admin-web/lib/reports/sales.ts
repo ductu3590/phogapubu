@@ -27,6 +27,9 @@ export type SalesReport =
   | { tab: 'hour'; head: ReportHead; summary: SalesSummary; rows: SalesHourRow[] }
   | { tab: 'voids'; head: ReportHead; totals: VoidTotals; rows: VoidRow[] }
 
+/** Giờ 18 → '18:00'. Một chỗ cho trang Theo giờ và Excel. */
+export const hourLabel = (hour: number): string => `${String(hour).padStart(2, '0')}:00`
+
 export const VOID_TYPE_LABEL: Record<VoidType, string> = { cancelled: 'Bỏ', gift: 'Tặng', quantity: 'Giảm SL' }
 
 type Obj = Record<string, unknown>

@@ -6,7 +6,7 @@ import { vnDateTimeLabel } from '@/lib/bills-report'
 import { suggestSlug } from '@/lib/slugify'
 import { periodLabel } from './period'
 import { REPORT_TABS, type ReportTab } from './tabs'
-import { VOID_TYPE_LABEL, percentOf, type SalesReport, type SalesSummary } from './sales'
+import { VOID_TYPE_LABEL, hourLabel, percentOf, type SalesReport, type SalesSummary } from './sales'
 
 const MONEY = '#,##0'
 const PERCENT = '0.0'
@@ -17,7 +17,6 @@ type Col = { header: string; width: number; fmt?: string }
 type Cell = string | number | null
 
 const tabLabel = (tab: ReportTab): string => REPORT_TABS.find((t) => t.value === tab)?.label ?? tab
-const hourLabel = (hour: number): string => `${String(hour).padStart(2, '0')}:00`
 const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0)
 
 /** Dựng bảng: hàng tiêu đề đậm, các dòng, dòng Tổng đậm; định dạng số theo cột. */

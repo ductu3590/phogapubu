@@ -19,7 +19,7 @@ export function formatClock(iso: string, withDate = false): string {
   return `${date} ${time}`
 }
 
-export const hourLabel = (hour: number): string => `${String(hour).padStart(2, '0')}:00`
+export { hourLabel } from '@/lib/reports/sales'
 
 export const EMPTY_TEXT = 'Chưa có dữ liệu trong kỳ này'
 

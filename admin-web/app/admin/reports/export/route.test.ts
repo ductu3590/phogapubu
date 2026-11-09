@@ -69,6 +69,14 @@ describe('GET /admin/reports/export', () => {
     expect(mocks.loadReport).not.toHaveBeenCalled()
   })
 
+  it('không xác định được kỳ (resolveReportRange ném): 400 tiếng Việt, không gọi RPC', async () => {
+    mocks.resolveReportRange.mockRejectedValueOnce(new Error('boom'))
+    const res = await GET(req('?tab=item&from=2026-11-01'))
+    expect(res.status).toBe(400)
+    expect(await res.text()).toBe('Không xác định được kỳ báo cáo')
+    expect(mocks.loadReport).not.toHaveBeenCalled()
+  })
+
   it('RPC lỗi: 500 kèm lý do', async () => {
     mocks.loadReport.mockResolvedValueOnce({ ok: false, error: 'Kỳ báo cáo tối đa 366 ngày' })
     const res = await GET(req('?tab=item'))

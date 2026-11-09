@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   VOID_TYPE_LABEL,
+  hourLabel,
   discountGap,
   parseSalesReport,
   percentOf,
@@ -110,6 +111,10 @@ describe('tiện ích', () => {
     const s: SalesSummary = { itemsAmount: 1050000, discountTotal: 40000, revenue: 1010000, qtySold: 20, qtyGift: 1, openTablesCount: 0 }
     expect(discountGap(s)).toBe(0)
     expect(discountGap({ ...s, revenue: 1000000 })).toBe(10000)
+  })
+
+  it('hourLabel: 2 chữ số, dùng chung cho trang và Excel', () => {
+    expect([0, 4, 18, 23].map(hourLabel)).toEqual(['00:00', '04:00', '18:00', '23:00'])
   })
 
   it('VOID_TYPE_LABEL', () => {

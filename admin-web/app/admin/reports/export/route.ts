@@ -22,10 +22,15 @@ export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams
   const now = new Date()
   const tab = parseReportTab(sp.get('tab') ?? undefined, false)
-  const range = await resolveReportRange(
-    { period: sp.get('period') ?? undefined, from: sp.get('from') ?? undefined, to: sp.get('to') ?? undefined },
-    now,
-  )
+  let range: Awaited<ReturnType<typeof resolveReportRange>>
+  try {
+    range = await resolveReportRange(
+      { period: sp.get('period') ?? undefined, from: sp.get('from') ?? undefined, to: sp.get('to') ?? undefined },
+      now,
+    )
+  } catch {
+    return new Response('Không xác định được kỳ báo cáo', { status: 400 })
+  }
   const res = await loadReport(tab, range.from, range.to)
   if (!res.ok) return new Response(`Không tải được báo cáo: ${res.error}`, { status: 500 })
 
