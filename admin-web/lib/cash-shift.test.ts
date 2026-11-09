@@ -6,6 +6,8 @@ import {
   parseCashShiftReport,
   parseCashShiftState,
   parseShiftCash,
+  shiftDateTimeLabel,
+  shiftTimeLabel,
 } from './cash-shift'
 
 const entryRaw = {
@@ -27,6 +29,12 @@ describe('parseShiftCash', () => {
     expect(parseShiftCash('3000000000')).toBeNull()
     expect(parseShiftCash('2.000.000.000')).toBe(2000000000)
   })
+})
+
+it('shiftTimeLabel / shiftDateTimeLabel theo giờ VN, ngày dạng dd/MM', () => {
+  expect(shiftTimeLabel('2026-11-09T01:00:00Z')).toBe('08:00')
+  expect(shiftDateTimeLabel('2026-11-09T18:30:00Z')).toBe('01:30 10/11')
+  expect(shiftDateTimeLabel('rác')).toBe('')
 })
 
 it('differenceLabel', () => {

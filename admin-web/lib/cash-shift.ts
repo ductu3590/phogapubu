@@ -118,8 +118,10 @@ export function shiftTimeLabel(iso: string): string {
 export function shiftDateTimeLabel(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  const date = d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' })
-  return `${shiftTimeLabel(iso)} ${date}`
+  // vi-VN với chỉ ngày + tháng ra "09-11" (gạch ngang) → ghép tay từ từng phần cho đúng "09/11".
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' }).formatToParts(d)
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? ''
+  return `${shiftTimeLabel(iso)} ${get('day')}/${get('month')}`
 }
 
 /** Chênh lệch = đếm được − dự kiến (âm = thiếu). */
