@@ -328,11 +328,13 @@ BEGIN
 END;
 $$;
 
--- Ghi một phiếu. Không kiểm quyền (RPC gọi nó kiểm). Trả id phiếu; gửi lại cùng client_request_id trả id cũ.
-CREATE FUNCTION public.cash_book_create_internal(
+-- Ghi một phiếu. Không kiểm quyền (RPC gọi nó kiểm). Trả {id, already}: gửi lại cùng client_request_id trả id cũ
+-- với already = true. "already" do CHÍNH hàm này quyết định (không tra trước ở RPC): hai lần gọi song song cùng mã
+-- thì lần thua ON CONFLICT quay lại bước 1 và nhận already = true.
+CREATE FUNCTION public.cash_book_create_internal_result(
   p_store_id uuid, p_kind text, p_method text, p_category_id uuid, p_amount bigint, p_note text,
   p_counterparty text, p_source text, p_source_ref uuid, p_actor uuid, p_client_request_id uuid)
-RETURNS uuid
+RETURNS jsonb
 LANGUAGE plpgsql
 SET search_path = public
 AS $$
@@ -363,10 +365,12 @@ BEGIN
          OR v_existing.category_id IS DISTINCT FROM p_category_id
          OR v_existing.amount IS DISTINCT FROM p_amount
          OR v_existing.source IS DISTINCT FROM p_source
-         OR v_existing.source_ref IS DISTINCT FROM p_source_ref THEN
+         OR v_existing.source_ref IS DISTINCT FROM p_source_ref
+         -- Người khác gửi trùng mã (dù cùng nội dung) không được "nhận" phiếu của người ghi đầu.
+         OR v_existing.created_by IS DISTINCT FROM p_actor THEN
         RAISE EXCEPTION 'Mã chống ghi trùng đã dùng cho phiếu khác';
       END IF;
-      RETURN v_existing.id;
+      RETURN jsonb_build_object('id', v_existing.id, 'already', true);
     END IF;
 
     -- 2) Kiểm đầu vào
@@ -429,12 +433,25 @@ BEGIN
     RETURNING id INTO v_id;
 
     IF v_id IS NOT NULL THEN
-      RETURN v_id;
+      RETURN jsonb_build_object('id', v_id, 'already', false);
     END IF;
   END LOOP;
 
   RAISE EXCEPTION 'Không ghi được phiếu, thử lại';
 END;
+$$;
+
+-- Chữ ký hợp đồng chung (kho 122b gọi): chỉ trả id.
+CREATE FUNCTION public.cash_book_create_internal(
+  p_store_id uuid, p_kind text, p_method text, p_category_id uuid, p_amount bigint, p_note text,
+  p_counterparty text, p_source text, p_source_ref uuid, p_actor uuid, p_client_request_id uuid)
+RETURNS uuid
+LANGUAGE sql
+SET search_path = public
+AS $$
+  SELECT (public.cash_book_create_internal_result(
+    p_store_id, p_kind, p_method, p_category_id, p_amount, p_note, p_counterparty, p_source, p_source_ref,
+    p_actor, p_client_request_id)->>'id')::uuid;
 $$;
 
 -- Huỷ một phiếu. Không kiểm quyền và KHÔNG chặn nguồn inventory_receipt (RPC sổ chặn; huỷ phiếu nhập gọi thẳng).
@@ -484,6 +501,8 @@ $$;
 REVOKE ALL ON FUNCTION public.require_open_cash_shift(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.cash_shift_totals(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.cash_book_system_category(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.cash_book_create_internal_result(uuid, text, text, uuid, bigint, text, text, text, uuid, uuid, uuid)
+  FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.cash_book_create_internal(uuid, text, text, uuid, bigint, text, text, text, uuid, uuid, uuid)
   FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.cash_book_void_internal(uuid, text, uuid) FROM PUBLIC, anon, authenticated;
@@ -1019,8 +1038,7 @@ AS $$
 DECLARE
   v_store uuid;
   v_is_system boolean;
-  v_already boolean;
-  v_id uuid;
+  v_result jsonb;
   v_entry public.cash_book_entries%ROWTYPE;
 BEGIN
   IF p_client_request_id IS NULL THEN
@@ -1050,19 +1068,16 @@ BEGIN
     RAISE EXCEPTION 'Danh mục Nhập hàng chỉ ghi qua phiếu nhập kho';
   END IF;
 
-  -- Gửi lại (mạng rớt, bấm hai lần): báo already. cash_book_create_internal tự trả id cũ (kể cả khi ca đã đóng
-  -- giữa hai lần) hoặc raise khi cùng mã mà khác nội dung.
-  v_already := EXISTS (SELECT 1 FROM public.cash_book_entries e
-                        WHERE e.store_id = v_store AND e.client_request_id = p_client_request_id);
-
-  v_id := public.cash_book_create_internal(
+  -- Gửi lại (mạng rớt, bấm hai lần): hàm nội bộ tự trả id cũ với already = true (kể cả khi ca đã đóng giữa hai
+  -- lần, kể cả hai lần gọi song song) hoặc raise khi cùng mã mà khác nội dung / khác người ghi.
+  v_result := public.cash_book_create_internal_result(
     v_store, p_kind, p_method, p_category_id, p_amount, p_note, p_counterparty, p_source, NULL, auth.uid(),
     p_client_request_id);
 
-  SELECT * INTO v_entry FROM public.cash_book_entries e WHERE e.id = v_id;
+  SELECT * INTO v_entry FROM public.cash_book_entries e WHERE e.id = (v_result->>'id')::uuid;
   RETURN jsonb_build_object(
     'ok', true,
-    'already', v_already,
+    'already', (v_result->>'already')::boolean,
     'id', v_entry.id,
     'cash_shift_id', v_entry.cash_shift_id,
     'business_date', v_entry.business_date
@@ -1227,6 +1242,11 @@ BEGIN
     END IF;
     v_kind := v_cat.kind;
     v_group := COALESCE(NULLIF(p_report_group, ''), v_cat.report_group);
+    -- Đổi nhóm báo cáo của danh mục đã có phiếu sẽ âm thầm dời phiếu cũ sang dòng khác của báo cáo lãi lỗ.
+    IF v_group <> v_cat.report_group
+       AND EXISTS (SELECT 1 FROM public.cash_book_entries e WHERE e.category_id = p_id) THEN
+      RAISE EXCEPTION 'Danh mục đã có phiếu — không đổi nhóm báo cáo được; tạo danh mục mới';
+    END IF;
   ELSE
     IF p_kind IS NULL OR p_kind NOT IN ('receipt', 'payment') THEN
       RAISE EXCEPTION 'Loại danh mục không hợp lệ';

@@ -983,6 +983,51 @@ describe('122 sổ', () => {
     await assert.rejects(rpc(ids.owner, 'cash_book_set_category_active', randomUUID(), false), /Không tìm thấy danh mục/)
   })
 
+  test('gửi lại: already do hàm nội bộ quyết định; người khác dùng lại mã bị chặn', async () => {
+    const requestId = randomUUID()
+    const cat = await category(ids.store, 'Đá')
+    const call = (actor) => one(`SELECT cash_book_create_internal_result($1, 'payment', 'bank', $2, 500, NULL, NULL,
+      'manual', NULL, $3, $4) AS r`, [ids.store, cat, actor, requestId])
+    const a = (await call(ids.owner)).r
+    assert.equal(a.already, false)
+    assert.deepEqual((await call(ids.owner)).r, { id: a.id, already: true })
+    // Hàm hợp đồng vẫn trả đúng id.
+    assert.equal((await one(`SELECT cash_book_create_internal($1, 'payment', 'bank', $2, 500, NULL, NULL, 'manual',
+      NULL, $3, $4) AS id`, [ids.store, cat, ids.owner, requestId])).id, a.id)
+    await assert.rejects(call(ids.manager), /Mã chống ghi trùng đã dùng cho phiếu khác/)
+    // Qua RPC: quản lý gửi đúng mã + nội dung phiếu của chủ quán vẫn bị chặn.
+    const r = await create(ids.owner, { method: 'bank', amount: 700 })
+    const req2 = (await entry(r.id)).client_request_id
+    await assert.rejects(create(ids.manager, { method: 'bank', amount: 700, requestId: req2 }),
+      /Mã chống ghi trùng đã dùng cho phiếu khác/)
+    assert.equal((await create(ids.owner, { method: 'bank', amount: 700, requestId: req2 })).already, true)
+    // RPC không tự tra trước (đua song song sẽ cùng thấy "chưa có"): already lấy từ hàm nội bộ.
+    const d = await def('cash_book_create(text,text,uuid,bigint,text,text,uuid,text)')
+    assert.match(d, /cash_book_create_internal_result\(/)
+    assert.doesNotMatch(d, /FROM public\.cash_book_entries e\s+WHERE e\.store_id = v_store AND e\.client_request_id/)
+    for (const role of ['anon', 'authenticated', 'public']) {
+      assert.equal((await one(`SELECT has_function_privilege($1,
+        'public.cash_book_create_internal_result(uuid,text,text,uuid,bigint,text,text,text,uuid,uuid,uuid)', 'EXECUTE') AS v`,
+      [role])).v, false)
+    }
+  })
+
+  test('danh mục đã có phiếu: không đổi nhóm báo cáo, vẫn đổi tên được', async () => {
+    const save = (id, name, group) => rpc(ids.owner, 'cash_book_save_category', ids.store, id, 'payment', name, group)
+    const used = await category(ids.store, 'Sửa chữa')
+    const e = await create(ids.owner, { category: used, method: 'bank' })
+    await assert.rejects(save(used, 'Sửa chữa', 'owner_draw'),
+      /Danh mục đã có phiếu — không đổi nhóm báo cáo được; tạo danh mục mới/)
+    // Phiếu đã huỷ vẫn tính là "đã có phiếu".
+    await rpc(ids.owner, 'cash_book_void', e.id, 'nhầm')
+    await assert.rejects(save(used, 'Sửa chữa', 'owner_draw'), /Danh mục đã có phiếu/)
+    assert.deepEqual(await save(used, 'Sửa chữa máy', null), { ok: true, id: used })
+    assert.deepEqual(await save(used, 'Sửa chữa máy', 'operating_expense'), { ok: true, id: used })
+    const unused = await category(ids.store, 'Ga - than')
+    await save(unused, 'Ga - than', 'owner_draw')
+    assert.equal((await one('SELECT report_group FROM cash_book_categories WHERE id = $1', [unused])).report_group, 'owner_draw')
+  })
+
   test('danh mục: thu ngân, phục vụ bị chặn', async () => {
     const cho = await category(ids.store, 'Đi chợ')
     for (const uid of [ids.cashier, ids.staff, ids.otherOwner]) {
@@ -1014,7 +1059,7 @@ describe('122 sổ', () => {
     assert.match(d, /FROM public\.cash_shifts[^;]*FOR SHARE/)
     assert.ok(d.indexOf('FOR UPDATE') < d.indexOf('FOR SHARE'))
     assert.match(await def('cash_book_void(uuid,text)'), /cash_book_void_internal\(/)
-    assert.match(await def('cash_book_create(text,text,uuid,bigint,text,text,uuid,text)'), /cash_book_create_internal\(/)
+    assert.match(await def('cash_book_create(text,text,uuid,bigint,text,text,uuid,text)'), /cash_book_create_internal_result\(/)
   })
 })
 
