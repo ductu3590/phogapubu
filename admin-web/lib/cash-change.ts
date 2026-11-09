@@ -1,5 +1,6 @@
-// Tiền khách đưa / tiền thối ở màn Thanh toán (/admin/pos). CHỈ để hiển thị cho thu ngân đếm tiền:
-// số tiền thu vẫn là tổng bill do server tính, không gửi con số nào ở đây lên server.
+// Tiền khách đưa / tiền thối ở màn Thanh toán (/admin/pos). Từ mig 112a, tiền khách đưa được gửi lên server
+// (p_cash_given của collect_table_bill) để lưu vào khoản thu và in lại trên hoá đơn; số phải thu vẫn do
+// server tự tính và kiểm, con số ở đây chỉ để thu ngân đếm tiền.
 
 /**
  * "500.000" / "500,000" / "500k" / "500 000đ" → 500000. Bỏ mọi dấu ngăn nghìn trước khi đọc
@@ -16,11 +17,14 @@ export function parseVnd(input: string): number | null {
   return thousands ? n * 1000 : n
 }
 
-/** Các mệnh giá khách hay đưa: vừa đủ + làm tròn lên 50k / 100k / 500k / 1 triệu, không trùng, tối đa 4. */
+/**
+ * Các mệnh giá khách hay đưa: vừa đủ + làm tròn lên 10k / 50k / 100k / 500k / 1 triệu, không trùng, tối đa 4.
+ * Mốc 10k giống KiotViet. Thanh toán kết hợp thì gọi với PHẦN TIỀN MẶT, không phải cả bill.
+ */
 export function cashSuggestions(total: number): number[] {
   if (total <= 0) return []
   const out = [total]
-  for (const step of [50_000, 100_000, 500_000, 1_000_000]) {
+  for (const step of [10_000, 50_000, 100_000, 500_000, 1_000_000]) {
     const v = Math.ceil(total / step) * step
     if (!out.includes(v)) out.push(v)
   }

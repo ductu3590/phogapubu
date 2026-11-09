@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireOperator } from '@/lib/auth/operator'
 import { isPosRole } from '@/lib/auth/roles'
 import type { BillDiscount } from '@/lib/bill-discount'
+import type { PaymentLine } from '@/lib/collect-payment'
 
 // Bọc 3 RPC phiên bàn (mig 039). Luôn dùng createClient() — phiên đăng nhập của nhân viên —
 // chứ KHÔNG createAdminClient(): RPC cần auth.uid() để ghi payment_received_by, đó là dấu vết
@@ -90,6 +91,22 @@ export type CloseSessionResult =
     }
   | { ok: false; error: string }
 
+export type CollectBillInput = {
+  sessionIds: string[]
+  /** p_lines của collect_table_bill, dựng bằng buildPaymentLines (lib/collect-payment.ts). */
+  lines: PaymentLine[]
+  /** Tiền khách đưa, so với PHẦN TIỀN MẶT; null = không ghi. */
+  cashGiven: number | null
+  /** Sinh một lần khi mở màn Thanh toán; bấm lại sau khi mất mạng phải gửi LẠI đúng mã này. */
+  clientRequestId: string
+}
+
+export type CollectBillResult =
+  | { ok: true; already: boolean; paymentId: string | null; total: number; ordersSettled: number }
+  | { ok: false; error: string }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 async function staffClient() {
   const operator = await requireOperator()
   if (operator.role !== 'store_staff' && operator.role !== 'store_owner' && operator.role !== 'store_cashier') {
@@ -154,6 +171,43 @@ export async function closeTableSession(
     ordersCancelled: r.orders_cancelled,
     ordersLeftInKitchen: r.orders_left_in_kitchen,
     total: r.total,
+  }
+}
+
+// Thu tiền một bàn hoặc gộp bill N mâm (mig 112a). Server tự tính số phải thu, so với tổng `lines` ở cấp cả
+// nhóm; lệch một đồng thì từ chối và không ghi gì. Gọi lại cùng clientRequestId (mạng đứt sau khi server đã thu)
+// trả kết quả cũ với already=true, không tạo khoản thứ hai.
+export async function collectTableBill(input: CollectBillInput): Promise<CollectBillResult> {
+  const { operator, supabase, error } = await staffClient()
+  if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' }
+  }
+  if (!Array.isArray(input.sessionIds) || input.sessionIds.length === 0) {
+    return { ok: false, error: 'Chưa chọn mâm nào' }
+  }
+  if (typeof input.clientRequestId !== 'string' || !UUID.test(input.clientRequestId)) {
+    return { ok: false, error: 'Mã thu tiền không hợp lệ' }
+  }
+  if (!input.sessionIds.every((id) => typeof id === 'string' && UUID.test(id))) {
+    return { ok: false, error: 'Mã phiên không hợp lệ' }
+  }
+
+  const { data, error: rpcErr } = await supabase.rpc('collect_table_bill', {
+    p_session_ids: input.sessionIds,
+    p_lines: input.lines,
+    p_cash_given: input.cashGiven,
+    p_client_request_id: input.clientRequestId,
+  })
+  if (rpcErr) return { ok: false, error: rpcErr.message }
+
+  const r = data as { already: boolean; payment_id: string | null; total: number | string; orders_settled: number }
+  return {
+    ok: true,
+    already: r.already,
+    paymentId: r.payment_id ?? null,
+    total: Number(r.total),
+    ordersSettled: r.orders_settled,
   }
 }
 

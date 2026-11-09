@@ -24,6 +24,7 @@ vi.mock('@/lib/supabase/server', () => ({
 const {
   closeTableSession,
   closeTableSessionsBulk,
+  collectTableBill,
   listOpenTableSessions,
 } = await import('./table-session')
 const { listOpenServiceRequests, resolveServiceRequest } = await import('./service-requests')
@@ -195,6 +196,29 @@ describe('thu ngân ở quầy (PA-2)', () => {
     expect((await closeTableSession('session-1', 'paid', 'bank')).ok).toBe(true)
     expect(mocks.rpc).toHaveBeenCalledWith('close_table_session', { p_session_id: 'session-1', p_reason: 'paid', p_instrument: 'bank' })
     expect((await closeTableSessionsBulk(['session-1', 'session-2'], 'paid', 'cash')).ok).toBe(true)
+  })
+
+  it('collectTableBill gửi đúng tham số RPC và đọc already thật', async () => {
+    mocks.rpc.mockResolvedValue({ data: { ok: true, already: true, payment_id: 'p1', total: 100000, orders_settled: 0 }, error: null })
+    const id = '11111111-1111-4111-8111-111111111111'
+    const res = await collectTableBill({ sessionIds: [id], lines: [{ instrument: 'cash', amount: 100000 }], cashGiven: 200000, clientRequestId: id })
+    expect(res).toEqual({ ok: true, already: true, paymentId: 'p1', total: 100000, ordersSettled: 0 })
+    expect(mocks.rpc).toHaveBeenCalledWith('collect_table_bill', { p_session_ids: [id], p_lines: [{ instrument: 'cash', amount: 100000 }], p_cash_given: 200000, p_client_request_id: id })
+  })
+
+  it('collectTableBill chặn phục vụ, mã sai, chưa chọn mâm; lỗi RPC trả nguyên văn', async () => {
+    const id = '11111111-1111-4111-8111-111111111111'
+    const base = { sessionIds: [id], lines: [], cashGiven: null, clientRequestId: id }
+    expect(await collectTableBill({ ...base, sessionIds: [] })).toEqual({ ok: false, error: 'Chưa chọn mâm nào' })
+    expect(await collectTableBill({ ...base, clientRequestId: 'x' })).toEqual({ ok: false, error: 'Mã thu tiền không hợp lệ' })
+    expect(await collectTableBill({ ...base, sessionIds: ['session-1'] })).toEqual({ ok: false, error: 'Mã phiên không hợp lệ' })
+    expect(mocks.rpc).not.toHaveBeenCalled()
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'Số tiền không khớp bill' } })
+    expect(await collectTableBill(base)).toEqual({ ok: false, error: 'Số tiền không khớp bill' })
+    mocks.rpc.mockClear()
+    mocks.operator.value = { userId: 's', role: 'store_staff', storeId: 'store-1' }
+    expect(await collectTableBill(base)).toEqual({ ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' })
+    expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
   it('xem và xử lý gọi nhân viên', async () => {
