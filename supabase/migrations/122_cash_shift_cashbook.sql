@@ -240,9 +240,14 @@ DECLARE
   v_required boolean;
   v_shift uuid;
 BEGIN
+  -- Đọc công tắc có khoá FOR SHARE: chủ quán bật/tắt (set_require_cash_shift khoá FOR UPDATE) chờ khoản thu này
+  -- xong, nên không có khoản thu nào lọt ra ngoài ca vì công tắc đổi giữa chừng. Thứ tự stores → settings giống
+  -- open_cash_shift / set_require_cash_shift: không deadlock (INSERT bill_payments còn khoá KEY SHARE trên stores).
+  PERFORM 1 FROM public.stores WHERE id = p_store_id FOR SHARE;
   SELECT w.require_cash_shift INTO v_required
     FROM public.store_workflow_settings w
-   WHERE w.store_id = p_store_id;
+   WHERE w.store_id = p_store_id
+   FOR SHARE;
   IF NOT COALESCE(v_required, false) THEN
     RETURN NULL;
   END IF;
