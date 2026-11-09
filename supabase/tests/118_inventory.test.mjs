@@ -1115,8 +1115,44 @@ test('D5 thu ngân, ownerB gọi thẻ kho hàng s3 bị chặn; khoảng > 93 n
   for (const uid of [cashier3, ownerB, owner, staff]) {
     await fails(ledger(uid, k.bia, '2026-10-01', '2026-10-01'), 'Không có quyền')
   }
-  await fails(ledger(owner3, newId(), '2026-10-01', '2026-10-01'), 'Không tìm thấy hàng hoá')
+  // Hàng không tồn tại và hàng quán khác cùng một lỗi: không lộ hàng có tồn tại hay không.
+  await fails(ledger(owner3, newId(), '2026-10-01', '2026-10-01'), 'Không có quyền')
+  await fails(ledger(owner, newId(), '2026-10-01', '2026-10-01'), 'Không có quyền')
   await fails(ledger(owner3, k.bia, '2026-07-01', '2026-10-02'), 'Chỉ xem tối đa 93 ngày')
   assert.ok((await ledger(owner3, k.bia, '2026-07-01', '2026-10-01')).rows, '93 ngày tính cả hai đầu vẫn được')
   await fails(ledger(owner3, k.bia, '2026-10-02', '2026-10-01'), 'Khoảng ngày không hợp lệ')
+})
+
+test('E9 tiền = round(SL × tử / mẫu), không chia trước: giá 500/6 × huỷ 0,006 = 0,5 → 1đ (chia trước ra 0,4999… → 0)', async () => {
+  const da = (await upsert(owner3, { store: s3, name: 'Đá viên', unit: 'kg' })).id
+  await postAt('receipt', '2026-10-05 10:00+07', { paid_status: 'unpaid' }, [{ inventory_item_id: da, qty: 5, unit_cost: 84 }])
+  await postAt('receipt', '2026-10-05 11:00+07', { paid_status: 'unpaid' }, [{ inventory_item_id: da, qty: 1, unit_cost: 80 }])
+  await postAt('writeoff', '2026-10-05 12:00+07', { note: 'Tan' }, [{ inventory_item_id: da, qty: 0.006 }])
+  const d = row(await cogs(owner3, '2026-10-05', '2026-10-05'), da)
+  assert.equal(d.unit_cost, 83) // 500 / 6 = 83,33…
+  assert.equal(d.writeoff_qty, 0.006)
+  assert.equal(d.writeoff_cost, 1)
+})
+
+test('E10 giá nhập mới nhất hoà mốc thời gian → chọn dòng id lớn hơn (ổn định giữa các lần gọi)', async () => {
+  const tie = (await upsert(owner3, { store: s3, name: 'Hàng hoà giờ' })).id
+  const mTie = id(54)
+  await db.query(`INSERT INTO menu_items(id, store_id, name) VALUES ($1, $2, 'Hàng hoà giờ')`, [mTie, s3])
+  await db.query(`INSERT INTO menu_stock_links(store_id, menu_item_id, inventory_item_id, qty_per_sale, valid_from)
+    VALUES ($1, $2, $3, 1, '2026-09-01 00:00+07')`, [s3, mTie, tie])
+  const a = await postAt('receipt', '2026-10-06 10:00+07', { paid_status: 'unpaid' }, [{ inventory_item_id: tie, qty: 1, unit_cost: 1000 }])
+  const b = await postAt('receipt', '2026-10-06 10:00+07', { paid_status: 'unpaid' }, [{ inventory_item_id: tie, qty: 1, unit_cost: 2000 }])
+  await db.query(`UPDATE inventory_documents SET created_at = '2026-10-06 10:00+07' WHERE id IN ($1, $2)`, [a.id, b.id])
+  // Dòng giá 1.000 (phiếu ghi trước) mang id lớn nhất → phải thắng dù ghi trước.
+  await db.query(`UPDATE inventory_document_lines SET id = 'ffffffff-ffff-ffff-ffff-ffffffffffff' WHERE document_id = $1`, [a.id])
+  await db.query(`UPDATE inventory_document_lines SET id = '00000000-0000-0000-0000-0000000000ff' WHERE document_id = $1`, [b.id])
+  await sell(mTie, 5, '2026-10-06 12:00+07') // tồn đầu 07/10 = −3 → mẫu ≤ 0 → giá nhập mới nhất
+  await sell(mTie, 1, '2026-10-07 12:00+07')
+  for (let i = 0; i < 3; i++) {
+    const c = row(await cogs(owner3, '2026-10-07', '2026-10-07'), tie)
+    assert.equal(c.unit_cost, 1000)
+    assert.equal(c.cogs, 1000)
+    const dayTo = await scalar(`SELECT day_to::text AS v FROM business_day_bounds($1, '2026-10-07')`, [s3])
+    assert.equal((await levels(owner3, s3, dayTo)).items.find((x) => x.id === tie).last_unit_cost, 1000)
+  }
 })

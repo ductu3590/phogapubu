@@ -894,7 +894,7 @@ BEGIN
           JOIN public.inventory_documents d ON d.id = l.document_id
          WHERE l.inventory_item_id = i.id AND d.store_id = p_store_id AND d.status = 'posted'
            AND d.kind IN ('receipt', 'count') AND l.unit_cost IS NOT NULL AND d.effective_at < v_at
-         ORDER BY d.effective_at DESC, d.created_at DESC
+         ORDER BY d.effective_at DESC, d.created_at DESC, l.id DESC
          LIMIT 1) c ON true
      WHERE i.store_id = p_store_id), '[]'::jsonb));
 END;
@@ -1019,10 +1019,8 @@ DECLARE
   r record;
 BEGIN
   SELECT * INTO v_item FROM public.inventory_items WHERE id = p_item_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Không tìm thấy hàng hoá';
-  END IF;
-  IF NOT public.is_store_back_office(v_item.store_id) THEN
+  -- Hàng không tồn tại và hàng quán khác cùng một lỗi: không lộ id hàng nào có thật.
+  IF NOT FOUND OR NOT public.is_store_back_office(v_item.store_id) THEN
     RAISE EXCEPTION 'Không có quyền';
   END IF;
   IF p_from IS NULL OR p_to IS NULL OR p_to < p_from THEN
@@ -1159,14 +1157,16 @@ BEGIN
            coalesce(op.qty, 0) AS open, coalesce(cl.qty, 0) AS close,
            coalesce(mv.rq, 0) AS rq, coalesce(mv.rv, 0)::numeric AS rv, coalesce(mv.wq, 0) AS wq,
            coalesce(mv.counted, false) AS counted,
+           -- prior chỉ để biết "có giá đầu kỳ hay không"; tiền tính từ pr_num / pr_den ở bước priced.
            CASE WHEN pr.den <> 0 THEN pr.num::numeric / pr.den END AS prior,
+           pr.num::numeric AS pr_num, pr.den AS pr_den,
            coalesce(sold.qty, 0) AS sold_qty,
            (SELECT l.unit_cost
               FROM public.inventory_document_lines l
               JOIN public.inventory_documents d ON d.id = l.document_id
              WHERE l.inventory_item_id = i.id AND d.store_id = p_store_id AND d.status = 'posted'
                AND d.kind IN ('receipt', 'count') AND l.unit_cost IS NOT NULL AND d.effective_at < v_t
-             ORDER BY d.effective_at DESC, d.created_at DESC
+             ORDER BY d.effective_at DESC, d.created_at DESC, l.id DESC
              LIMIT 1) AS last_cost
       FROM public.inventory_items i
       LEFT JOIN op ON op.inventory_item_id = i.id
@@ -1183,17 +1183,26 @@ BEGIN
            CASE WHEN b.prior IS NULL THEN 0 ELSE b.open END AS qo
       FROM base b
   ),
+  -- Giá kỳ giữ dạng phân số up_num / up_den (không chia trước): tiền = round(SL × tử / mẫu). Chia trước rồi nhân
+  -- thì 500/6 = 83,333…3 × 0,006 = 0,4999… làm tròn ra 0 thay vì 1.
+  --   có giá đầu kỳ: (qo × pr_num / pr_den + rv) / (qo + rq) = (qo × pr_num + rv × pr_den) / (pr_den × (qo + rq))
+  --   không có:      rv / rq (qo = 0)
   priced AS (
     SELECT c.*,
-           CASE WHEN c.qo + c.rq > 0 THEN (c.qo * coalesce(c.prior, 0) + c.rv) / (c.qo + c.rq)
-                ELSE coalesce(c.last_cost, 0)::numeric END AS unit_price,
+           CASE WHEN c.qo + c.rq > 0 AND c.prior IS NOT NULL THEN c.qo * c.pr_num + c.rv * c.pr_den
+                WHEN c.qo + c.rq > 0 THEN c.rv
+                ELSE coalesce(c.last_cost, 0)::numeric END AS up_num,
+           CASE WHEN c.qo + c.rq > 0 AND c.prior IS NOT NULL THEN c.pr_den * (c.qo + c.rq)
+                WHEN c.qo + c.rq > 0 THEN c.qo + c.rq
+                ELSE 1::numeric END AS up_den,
            (c.qo + c.rq <= 0 AND c.last_cost IS NULL) AS no_price
       FROM calc c
   ),
   fin AS (
     SELECT p.*,
-           round(coalesce(p.qty_used, 0) * p.unit_price)::bigint AS cogs,
-           round(p.wq * p.unit_price)::bigint AS writeoff_cost,
+           round(p.up_num / p.up_den)::bigint AS unit_cost,
+           round(coalesce(p.qty_used, 0) * p.up_num / p.up_den)::bigint AS cogs,
+           round(p.wq * p.up_num / p.up_den)::bigint AS writeoff_cost,
            (p.no_price AND (coalesce(p.qty_used, 0) <> 0 OR p.wq <> 0)) AS missing_cost,
            (p.kind = 'ingredient' AND NOT p.counted AND (p.open <> 0 OR p.rq > 0 OR p.wq > 0)) AS uncounted
       FROM priced p
@@ -1202,7 +1211,7 @@ BEGIN
   )
   SELECT coalesce(jsonb_agg(jsonb_build_object(
            'inventory_item_id', f.id, 'name', f.name, 'unit', f.unit, 'kind', f.kind,
-           'qty_used', f.qty_used, 'unit_cost', round(f.unit_price)::bigint, 'cogs', f.cogs,
+           'qty_used', f.qty_used, 'unit_cost', f.unit_cost, 'cogs', f.cogs,
            'missing_cost', f.missing_cost, 'writeoff_qty', f.wq, 'writeoff_cost', f.writeoff_cost,
            'counted', f.counted)
          ORDER BY (f.kind = 'goods') DESC, lower(f.name), f.id), '[]'::jsonb),
