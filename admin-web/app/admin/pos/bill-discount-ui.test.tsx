@@ -94,6 +94,18 @@ describe('PaymentView', () => {
     expect(html).not.toContain('Thêm giảm giá')
   })
 
+  it('ba lựa chọn thu tiền có "Kết hợp"; nút thu vẫn ghi số cần thu', () => {
+    const html = view({})
+    expect(html).toContain('Kết hợp')
+    expect(html).toContain('Xác nhận đã nhận 155.000đ')
+  })
+
+  it('bill 0đ (tặng hết món): nút thu vẫn bấm được', () => {
+    const html = view({ goods: 0, total: 0 })
+    // Lớp tailwind có chữ "disabled:" nên dò thuộc tính disabled="" chứ không dò chữ "disabled"
+    expect(html).toMatch(/<button(?![^>]*disabled="")[^>]*>(?:(?!<\/button>).)*Xác nhận đã nhận 0đ/)
+  })
+
   it('bình thường → có nút Thêm giảm giá, không có ghi chú', () => {
     const html = view({})
     expect(html).toContain('Thêm giảm giá')

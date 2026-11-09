@@ -16,7 +16,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   addTableToSession,
   closeTableSession,
-  closeTableSessionsBulk,
+  collectTableBill,
   createTraySession,
   mergeSessionIntoTray,
   moveSessionTable,
@@ -94,7 +94,7 @@ import { useNow } from './use-now'
 import { useOnline } from './use-online'
 import { useServiceRequests } from './use-service-requests'
 import WorkQueue from './work-queue'
-import PosBillPanel from './bill-panel'
+import PosBillPanel, { type PosPayment } from './bill-panel'
 import ConfirmDialog from './confirm-dialog'
 
 type View = 'timeline' | 'floor' | 'list'
@@ -421,12 +421,11 @@ export default function PosClient({
     await sauKhiXong()
   }
 
-  const onPay = async (list: OpenTableSession[], instrument: 'cash' | 'bank') => {
+  // Một bàn hay gộp N mâm đều qua collect_table_bill (mig 112a). clientRequestId do màn Thanh toán giữ:
+  // bấm lại sau lỗi / mất mạng gửi lại đúng mã, server không ghi khoản thứ hai.
+  const onPay = async (list: OpenTableSession[], payment: PosPayment) => {
     setBusy(true)
-    const ids = list.map((s) => s.session_id)
-    const res = ids.length === 1
-      ? await closeTableSession(ids[0], 'paid', instrument)
-      : await closeTableSessionsBulk(ids, 'paid', instrument)
+    const res = await collectTableBill({ sessionIds: list.map((s) => s.session_id), ...payment })
     if (!res.ok) {
       setBusy(false)
       reportActionError(res.error)
@@ -434,7 +433,7 @@ export default function PosClient({
     }
     // Gộp bill đã thu xong → tự thoát chế độ gộp, không bắt thu ngân bấm "Thoát gộp bill".
     setMergeMode(false)
-    await sauKhiXong('already' in res && res.already ? 'Bàn này vừa được máy khác chốt xong.' : undefined)
+    await sauKhiXong(res.already ? 'Bàn này vừa được máy khác chốt xong.' : undefined)
   }
 
   // Chuyển bàn: panel bill GIỮ NGUYÊN phiên (không dùng sauKhiXong vì nó bỏ chọn phiên).
@@ -1324,7 +1323,7 @@ export default function PosClient({
           otherSessions={openSessions.filter((s) => s.session_id !== selectedSessionId)}
           pickedFreeTables={pickedTableIds.size}
           busy={busy}
-          onPay={(list, ins) => void onPay(list, ins)}
+          onPay={(list, payment) => void onPay(list, payment)}
           onPrint={onPrint}
           onConfirmOrder={(id) => void onConfirmOrder(id)}
           onRejectOrder={setRejectingOrderId}
