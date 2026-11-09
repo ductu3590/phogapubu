@@ -126,6 +126,15 @@ describe('122 nền', () => {
     assert.equal((await db.query('SELECT require_open_cash_shift($1) AS id', [s])).rows[0].id, null)
   })
 
+  test('require_open_cash_shift đọc công tắc có khoá, đúng thứ tự stores → settings như open_cash_shift', async () => {
+    // Đổi công tắc giữa chừng không để lọt một khoản thu chưa gắn ca; cùng thứ tự khoá với set_require_cash_shift
+    // (stores → settings) nên không deadlock với lần bật/tắt chạy song song.
+    const d = await def('require_open_cash_shift(uuid)')
+    const storesLock = d.search(/FROM public\.stores[^;]*FOR SHARE/)
+    const settingsLock = d.search(/FROM public\.store_workflow_settings[^;]*FOR SHARE/)
+    assert.ok(storesLock > 0 && settingsLock > storesLock, 'phải khoá stores rồi settings FOR SHARE')
+  })
+
   test('cash_shifts: mỗi quán một ca mở; CHECK tiền âm và trạng thái', async () => {
     await insertShift()
     await assert.rejects(insertShift(), /duplicate key/)
@@ -1231,7 +1240,7 @@ describe('122 gác thu', () => {
         assert.equal(countOf(d, from), 0, `${sig} còn dòng NULL`)
         // Cổng ca đứng SAU mọi nhánh trả already.
         const gate = d.indexOf('require_open_cash_shift(')
-        const lastAlready = Math.max(d.lastIndexOf("'already', true"), d.lastIndexOf("return jsonb_build_object('ok', true, 'already', true"))
+        const lastAlready = d.lastIndexOf("'already', true")
         assert.ok(lastAlready > 0 && gate > lastAlready, `${sig}: cổng ca phải đứng sau nhánh already`)
       }
     } finally {
