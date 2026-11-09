@@ -109,7 +109,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 async function staffClient() {
   const operator = await requireOperator()
-  if (operator.role !== 'store_staff' && operator.role !== 'store_owner' && operator.role !== 'store_cashier') {
+  // Vai trò quầy lấy từ MỘT chỗ (isPosRole) để vai mới ở quầy (vd. quản lý) tự vào được; phục vụ thì thêm riêng.
+  if (!isPosRole(operator.role) && operator.role !== 'store_staff') {
     return { operator: null, supabase: null, error: 'Không có quyền' as const }
   }
   return { operator, supabase: await createClient(), error: null }
@@ -200,14 +201,21 @@ export async function collectTableBill(input: CollectBillInput): Promise<Collect
     p_client_request_id: input.clientRequestId,
   })
   if (rpcErr) return { ok: false, error: rpcErr.message }
+  // Không lỗi mà cũng không có kết quả: không biết đã thu hay chưa → bảo tải lại để xem bill thật, đừng đoán.
+  if (!data) return { ok: false, error: 'Không nhận được kết quả thu tiền, tải lại trang để kiểm tra' }
 
-  const r = data as { already: boolean; payment_id: string | null; total: number | string; orders_settled: number }
+  const r = data as {
+    already: boolean
+    payment_id: string | null
+    total: number | string
+    orders_settled: number | string
+  }
   return {
     ok: true,
-    already: r.already,
+    already: r.already === true,
     paymentId: r.payment_id ?? null,
     total: Number(r.total),
-    ordersSettled: r.orders_settled,
+    ordersSettled: Number(r.orders_settled),
   }
 }
 

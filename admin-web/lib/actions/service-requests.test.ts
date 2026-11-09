@@ -10,13 +10,23 @@ const mocks = vi.hoisted(() => {
   }
   const rpc = vi.fn()
   const requireOperator = vi.fn(async () => operator.value)
+  // Vai được isPosRole nhận thêm (giả lập vai quầy mới, vd. quản lý, thêm ở nhánh khác).
+  const extraPosRoles = new Set<string>()
 
-  return { operator, requireOperator, rpc }
+  return { operator, requireOperator, rpc, extraPosRoles }
 })
 
 vi.mock('@/lib/auth/operator', () => ({
   requireOperator: mocks.requireOperator,
 }))
+vi.mock('@/lib/auth/roles', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/auth/roles')>()
+  return {
+    ...actual,
+    isPosRole: (role: Parameters<typeof actual.isPosRole>[0]) =>
+      (role !== null && mocks.extraPosRoles.has(role)) || actual.isPosRole(role),
+  }
+})
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({ rpc: mocks.rpc })),
 }))
@@ -219,6 +229,35 @@ describe('thu ngân ở quầy (PA-2)', () => {
     mocks.operator.value = { userId: 's', role: 'store_staff', storeId: 'store-1' }
     expect(await collectTableBill(base)).toEqual({ ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' })
     expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('vai mới mà isPosRole nhận (vd. quản lý) thu được tiền và chốt bill — staffClient không chặn cứng 3 vai', async () => {
+    const id = '11111111-1111-4111-8111-111111111111'
+    mocks.extraPosRoles.add('store_manager')
+    try {
+      mocks.operator.value = { userId: 'm', role: 'store_manager' as never, storeId: 'store-1' }
+      mocks.rpc.mockResolvedValue({ data: { ok: true, already: false, payment_id: 'p1', total: 1000, orders_settled: 1 }, error: null })
+      expect((await collectTableBill({ sessionIds: [id], lines: [{ instrument: 'cash', amount: 1000 }], cashGiven: null, clientRequestId: id })).ok).toBe(true)
+      mocks.rpc.mockResolvedValue({ data: { already: false, orders_settled: 0, orders_cancelled: 1, orders_left_in_kitchen: 0, total: 0 }, error: null })
+      expect((await closeTableSession('session-1', 'staff_reset', null)).ok).toBe(true)
+    } finally {
+      mocks.extraPosRoles.clear()
+    }
+  })
+
+  it('vai lạ ngoài isPosRole và ngoài phục vụ vẫn bị chặn ở staffClient', async () => {
+    mocks.operator.value = { userId: 'x', role: 'mevo_superadmin' as never, storeId: 'store-1' }
+    expect(await listOpenTableSessions()).toEqual({ ok: false, error: 'Không có quyền' })
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('collectTableBill: RPC không lỗi mà không có dữ liệu → báo tải lại, không ném; số đếm ép kiểu số', async () => {
+    const id = '11111111-1111-4111-8111-111111111111'
+    const input = { sessionIds: [id], lines: [], cashGiven: null, clientRequestId: id }
+    mocks.rpc.mockResolvedValue({ data: null, error: null })
+    expect(await collectTableBill(input)).toEqual({ ok: false, error: 'Không nhận được kết quả thu tiền, tải lại trang để kiểm tra' })
+    mocks.rpc.mockResolvedValue({ data: { ok: true, already: false, payment_id: 'p1', total: '0', orders_settled: '2' }, error: null })
+    expect(await collectTableBill(input)).toEqual({ ok: true, already: false, paymentId: 'p1', total: 0, ordersSettled: 2 })
   })
 
   it('xem và xử lý gọi nhân viên', async () => {
