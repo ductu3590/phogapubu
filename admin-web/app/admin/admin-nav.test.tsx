@@ -11,9 +11,10 @@ const all = (reservations: boolean, kitchen = true, role: 'store_owner' | 'store
 describe('rail chủ quán — thanh icon dọc, không còn ô Thêm (2026-10-13)', () => {
   it('POS đứng đầu, mục hằng ngày trên rail; Nhân viên · Ưu đãi · Bảo mật nằm trong ⚙ Cài đặt', () => {
     expect(hrefs(adminRailItems(true, true))).toEqual([
-      '/admin/pos', '/admin/kitchen', '/admin/reservations', '/admin/menu', '/admin/tables', '/admin/bills',
+      '/admin/pos', '/admin/kitchen', '/admin/reservations', '/admin/menu', '/admin/tables', '/admin/bills', '/admin/reports',
     ])
-    expect(adminRailItems(true, true).find((i) => i.href === '/admin/bills')?.label).toBe('Báo cáo')
+    expect(adminRailItems(true, true).find((i) => i.href === '/admin/bills')?.label).toBe('Hoá đơn')
+    expect(adminRailItems(true, true).find((i) => i.href === '/admin/reports')?.label).toBe('Báo cáo')
     expect(hrefs(adminBottomItems())).toEqual(['/admin/settings'])
   })
 
@@ -37,7 +38,7 @@ describe('rail chủ quán — thanh icon dọc, không còn ô Thêm (2026-10-1
   it('không mất trang nào: rail + tab trong ⚙ Cài đặt phủ đủ mọi trang (quán bật đặt bàn + dùng màn bếp)', () => {
     expect(new Set([...all(true), ...settingsTabs('store_owner').map((t) => t.href)])).toEqual(new Set([
       '/admin/pos', '/admin/kitchen', '/admin/reservations', '/admin/menu', '/admin/tables',
-      '/admin/bills', '/admin/staff', '/admin/vouchers', '/admin/account', '/admin/settings',
+      '/admin/bills', '/admin/reports', '/admin/staff', '/admin/vouchers', '/admin/account', '/admin/settings',
     ]))
   })
 
@@ -47,6 +48,13 @@ describe('rail chủ quán — thanh icon dọc, không còn ô Thêm (2026-10-1
       if (h === '/admin/pos' || h === '/admin/kitchen') continue
       expect(config.has(h), h).toBe(true)
     }
+  })
+
+  it('Báo cáo bán hàng mở thành hộp thoại, nhãn Hoá đơn tách khỏi Báo cáo', () => {
+    expect(CONFIG_TABS.find((t) => t.href === '/admin/reports')?.label).toBe('Báo cáo')
+    expect(CONFIG_TABS.find((t) => t.href === '/admin/bills')?.label).toBe('Hoá đơn')
+    expect(findActiveHref('/admin/reports', adminNavGroups(false))).toBe('/admin/reports')
+    expect(findActiveHref('/admin/bills', adminNavGroups(false))).toBe('/admin/bills')
   })
 
   it('trang con vẫn sáng đúng mục cha', () => {

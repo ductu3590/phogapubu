@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  ChartColumn,
   ChefHat,
   ReceiptText,
   LayoutGrid,
@@ -21,6 +22,7 @@ import type { OperatorRole } from '@/lib/auth/roles'
 // - Đặt bàn chỉ hiện khi quán bật đặt bàn.
 export function adminRailItems(kitchenEnabled = true, reservationsEnabled = false, role: OperatorRole = 'store_owner'): AppNavItem[] {
   // Thu ngân (PA-2): POS · Món (chỉ bật/tắt Tạm hết) · Báo cáo; Cài đặt ở chân rail.
+  // /admin/reports (báo cáo bán hàng) thêm vào nhánh này cùng lúc với CASHIER_ADMIN_PATHS khi gộp nhánh Quản lý.
   if (role === 'store_cashier') {
     return [
       { href: '/admin/pos', label: 'POS', icon: <LayoutGrid /> },
@@ -34,7 +36,8 @@ export function adminRailItems(kitchenEnabled = true, reservationsEnabled = fals
     ...(reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []),
     { href: '/admin/menu', label: 'Món', icon: <UtensilsCrossed /> },
     { href: '/admin/tables', label: 'Bàn QR', icon: <QrCode /> },
-    { href: '/admin/bills', label: 'Báo cáo', icon: <ReceiptText /> },
+    { href: '/admin/bills', label: 'Hoá đơn', icon: <ReceiptText /> },
+    { href: '/admin/reports', label: 'Báo cáo', icon: <ChartColumn /> },
   ]
 }
 
