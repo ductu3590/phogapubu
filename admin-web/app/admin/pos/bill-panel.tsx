@@ -803,19 +803,15 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   const change = cashChange(cashPart, given)
   // Mã QR: chuyển khoản = cả số cần thu, kết hợp = phần chuyển khoản. Giảm giá lỗi thì số cần thu chưa chốt → không QR.
   // useMemo vì màn này render lại liên tục (mỗi phím gõ), tránh dựng lại chuỗi EMVCo khi đầu vào không đổi.
-  const sessionKey = list.map((s) => `${s.session_id}|${s.table_number}`).join(',')
+  // list đổi tham chiếu mỗi lần poll → khoá bằng định danh phiên + bàn (JSON nên tên bàn có dấu phẩy không gây trùng khoá).
+  const sessionKey = JSON.stringify(list.map((s) => [s.session_id, s.table_number]))
+  const qrSessions = useMemo(
+    () => (JSON.parse(sessionKey) as [string, string][]).map(([sessionId, tableLabel]) => ({ sessionId, tableLabel })),
+    [sessionKey],
+  )
   const qr = useMemo(
-    () =>
-      discountError
-        ? null
-        : buildBillQr({
-            bank: bankAccount,
-            amount: paymentQrAmount({ method, total, bankPart }),
-            sessions: list.map((s) => ({ sessionId: s.session_id, tableLabel: s.table_number })),
-          }),
-    // list đổi tham chiếu mỗi lần poll; chỉ phụ thuộc vào định danh phiên + bàn
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [discountError, bankAccount, method, total, bankPart, sessionKey],
+    () => (discountError ? null : buildBillQr({ bank: bankAccount, amount: paymentQrAmount({ method, total, bankPart }), sessions: qrSessions })),
+    [discountError, bankAccount, method, total, bankPart, qrSessions],
   )
   const items = list.flatMap((s) => s.orders.filter((o) => o.status !== 'cancelled').flatMap((o) => o.items))
   const short = cashPart > 0 && change.kind === 'short'
