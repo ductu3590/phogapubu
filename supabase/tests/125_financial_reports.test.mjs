@@ -321,3 +321,117 @@ test('quyền: thu ngân, phục vụ, superadmin, chủ quán khác bị chặn
     }
   })
 })
+
+// ================================================================================================================
+// Task 9 — Công nợ phải thu
+// ================================================================================================================
+// [opening, incurred, collected, closing, oldest_open_date, age_0_7, age_8_30, age_over_30]
+const pick = (x) => [x.opening, x.incurred, x.collected, x.closing, x.oldest_open_date, x.age_0_7, x.age_8_30, x.age_over_30]
+const rowOf = (r, n) => r.rows.find((x) => x.name === n)
+
+test('kỳ 12-02..12-03: đầu kỳ + phát sinh − thu = cuối kỳ, tuổi nợ', async () => {
+  const r = await rpc('report_receivables', s1, '2026-12-02', '2026-12-03')
+  assert.deepEqual([r.from, r.to], ['2026-12-02', '2026-12-03'])
+  assert.deepEqual(pick(rowOf(r, 'Cty Điện lực')), [800000, 0, 500000, 300000, '2026-12-01', 300000, 0, 0])
+  assert.deepEqual(pick(rowOf(r, 'Anh Hùng')), [400000, 0, 400000, 0, null, 0, 0, 0])
+  assert.deepEqual(pick(rowOf(r, 'Cô Lan')), [250000, 0, 0, 250000, '2026-10-20', 0, 0, 250000])
+  assert.deepEqual(pick(rowOf(r, 'Chú Bình')), [100000, 0, 0, 100000, '2026-11-20', 0, 100000, 0])
+  assert.deepEqual(r.totals, { opening: 1550000, incurred: 0, collected: 900000, closing: 650000, age_0_7: 300000, age_8_30: 100000, age_over_30: 250000 })
+  for (const x of r.rows) assert.equal(x.opening + x.incurred - x.collected, x.closing, x.name)
+  // Sắp: cuối kỳ giảm dần, rồi tên.
+  assert.deepEqual(r.rows.map((x) => x.name), ['Cty Điện lực', 'Cô Lan', 'Chú Bình', 'Anh Hùng'])
+  const hung = rowOf(r, 'Anh Hùng')
+  assert.deepEqual([hung.customer_id, hung.phone, hung.kind], [hung.customer_id, '0912345678', 'person'])
+  assert.equal(rowOf(r, 'Cty Điện lực').kind, 'company')
+})
+
+test('kỳ 12-01..12-03: phát sinh 1.200.000 của Điện lực + Anh Hùng', async () => {
+  const r = await rpc('report_receivables', s1, '2026-12-01', '2026-12-03')
+  assert.deepEqual(pick(rowOf(r, 'Cty Điện lực')), [0, 800000, 500000, 300000, '2026-12-01', 300000, 0, 0])
+  assert.deepEqual(pick(rowOf(r, 'Anh Hùng')), [0, 400000, 400000, 0, null, 0, 0, 0])
+  assert.deepEqual(r.totals, { opening: 350000, incurred: 1200000, collected: 900000, closing: 650000, age_0_7: 300000, age_8_30: 100000, age_over_30: 250000 })
+  // Cuối kỳ cộng các tuổi nợ = cuối kỳ (không bill nào âm).
+  assert.equal(r.totals.age_0_7 + r.totals.age_8_30 + r.totals.age_over_30, r.totals.closing)
+  // Cuối kỳ hôm nay = số nợ "lúc này" của 123 (không lần trả nào sau 12-03).
+  for (const x of r.rows) {
+    const now = Number((await h.one('SELECT COALESCE(SUM(outstanding), 0) AS n FROM debt_customer_bills($1)', [x.customer_id])).n)
+    assert.equal(x.closing, now, x.name)
+  }
+})
+
+test('lần trả đã huỷ không giảm nợ, kể cả khi huỷ sau kỳ', async () => {
+  // Đẩy giờ huỷ của lần trả 100.000 sang năm sau: vẫn coi như chưa từng có.
+  await h.db.exec('RESET ROLE')
+  await h.db.query("UPDATE debt_payments SET voided_at = '2027-01-15 10:00:00+07' WHERE voided_at IS NOT NULL")
+  const r = await rpc('report_receivables', s1, '2026-12-02', '2026-12-02')
+  assert.deepEqual(pick(rowOf(r, 'Anh Hùng')), [400000, 0, 400000, 0, null, 0, 0, 0])
+  const before = await rpc('report_receivables', s1, '2026-12-01', '2026-12-01')
+  assert.deepEqual(pick(rowOf(before, 'Anh Hùng')), [0, 400000, 0, 400000, '2026-12-01', 400000, 0, 0])
+})
+
+test('khách không có số nào khác 0 không có dòng', async () => {
+  assert.deepEqual((await rpc('report_receivables', s1, '2026-10-01', '2026-10-19')).rows, [])
+  const empty = await rpc('report_receivables', s1, '2026-10-01', '2026-10-19')
+  assert.deepEqual(empty.totals, { opening: 0, incurred: 0, collected: 0, closing: 0, age_0_7: 0, age_8_30: 0, age_over_30: 0 })
+  // Sau khi Anh Hùng trả hết: kỳ sau đó không còn dòng Anh Hùng; ba khách còn nợ vẫn có (đầu kỳ = cuối kỳ).
+  const later = await rpc('report_receivables', s1, '2026-12-04', '2026-12-05')
+  assert.deepEqual(later.rows.map((x) => x.name), ['Cty Điện lực', 'Cô Lan', 'Chú Bình'])
+  assert.deepEqual(pick(rowOf(later, 'Cty Điện lực')), [300000, 0, 0, 300000, '2026-12-01', 300000, 0, 0])
+})
+
+test('ngày phát sinh theo giờ thu (dời theo giờ bắt đầu ngày); ngày trả nợ đọc thẳng business_date (không dời)', async () => {
+  // Chấp nhận có chủ đích (hợp đồng chung): bill tính ngày từ bill_payments.collected_at qua business_date_of, nên
+  // đổi giờ bắt đầu ngày thì bill dời ngày; lần trả nợ lưu sẵn business_date lúc ghi nên KHÔNG dời.
+  const { db } = h
+  const dien = (await h.one("SELECT id FROM debt_customers WHERE store_id = $1 AND name = 'Cty Điện lực'", [s1])).id
+  const bill = (await h.one('SELECT id, collected_at FROM bill_payments WHERE debt_customer_id = $1', [dien]))
+  await db.exec('RESET ROLE')
+  await db.query("UPDATE bill_payments SET collected_at = '2026-12-02 04:30:00+07' WHERE id = $1", [bill.id])
+  try {
+    // Quán 05:00: 04:30 sáng 12-02 vẫn thuộc ngày 12-01.
+    let r = await rpc('report_receivables', s1, '2026-12-02', '2026-12-02')
+    assert.deepEqual(pick(rowOf(r, 'Cty Điện lực')).slice(0, 4), [800000, 0, 500000, 300000])
+    // Đổi về 00:00: bill dời sang ngày 12-02, lần trả 500.000 vẫn ngày 12-02.
+    await h.setDayStart(s1, '00:00')
+    r = await rpc('report_receivables', s1, '2026-12-02', '2026-12-02')
+    assert.deepEqual(pick(rowOf(r, 'Cty Điện lực')), [0, 800000, 500000, 300000, '2026-12-02', 300000, 0, 0])
+  } finally {
+    await h.setDayStart(s1, '05:00')
+    await db.query('UPDATE bill_payments SET collected_at = $2 WHERE id = $1', [bill.id, bill.collected_at])
+  }
+})
+
+test('quyền + cách ly quán', async () => {
+  const call = (uid, store = s1) => rpcAs(uid, 'report_receivables', store, '2026-12-02', '2026-12-03')
+  assert.equal((await call(ids.manager)).totals.closing, 650000)
+  for (const uid of [ids.cashier, ids.staff, ids.admin, ids.otherOwner]) {
+    await assert.rejects(call(uid), /Không có quyền xem báo cáo quán này/, uid)
+  }
+  await assert.rejects(rpc('report_receivables', s1, '2026-12-03', '2026-12-02'), /Kỳ báo cáo không hợp lệ/)
+  await assert.rejects(rpc('report_receivables', s1, '2025-01-01', '2026-01-02'), /tối đa 366 ngày/)
+  await assert.rejects(rpc('report_receivables', s1, null, '2026-12-02'), /Thiếu quán hoặc kỳ/)
+  assert.equal((await h.one("SELECT has_function_privilege('anon', 'public.report_receivables(uuid,date,date)', 'EXECUTE') AS ok")).ok, false)
+
+  // Quán khác có một khách nợ: chỉ chủ quán đó thấy, số không lọt sang quán s1 và ngược lại.
+  const { db, rid } = h
+  await db.exec('RESET ROLE')
+  const other = ids.otherStore
+  const cust = (await h.one(`INSERT INTO debt_customers(store_id, name, kind, created_by) VALUES ($1, 'Khách quán khác', 'person', $2)
+    RETURNING id`, [other, ids.otherOwner])).id
+  const bp = (await h.one(`INSERT INTO bill_payments(store_id, client_request_id, total_amount, collected_by, collected_at, source,
+      debt_customer_id) VALUES ($1, $2, 90000, $3, '2026-12-02 20:00:00+07', 'pos', $4) RETURNING id`,
+  [other, rid(), ids.otherOwner, cust])).id
+  await db.query("INSERT INTO bill_payment_lines(payment_id, instrument, amount) VALUES ($1, 'debt', 90000)", [bp])
+  try {
+    const mine = await rpc('report_receivables', s1, '2026-12-02', '2026-12-03')
+    assert.ok(!mine.rows.some((x) => x.name === 'Khách quán khác'))
+    assert.equal(mine.totals.closing, 650000)
+    const theirs = await rpcAs(ids.otherOwner, 'report_receivables', other, '2026-12-02', '2026-12-03')
+    assert.deepEqual(theirs.rows.map((x) => [x.name, x.incurred, x.closing]), [['Khách quán khác', 90000, 90000]])
+    assert.equal(theirs.totals.closing, 90000)
+  } finally {
+    await db.query('DELETE FROM bill_payment_lines WHERE payment_id = $1', [bp])
+    await db.query('DELETE FROM bill_payments WHERE id = $1', [bp])
+    await db.query('DELETE FROM debt_customers WHERE id = $1', [cust])
+  }
+})

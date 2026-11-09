@@ -415,7 +415,110 @@ END;
 $$;
 
 -- ============================================================
--- 6) Quyền. REVOKE FROM PUBLIC một mình không gỡ quyền Supabase cấp thẳng cho anon/authenticated.
+-- 6) Công nợ phải thu theo kỳ (số nợ TẠI MỐC, tự định nghĩa — KHÔNG dùng debt_customer_bills của mig 123: hàm đó là
+--    số còn nợ LÚC NÀY, cộng mọi lần trả chưa huỷ bất kể lần trả xảy ra khi nào)
+-- ============================================================
+-- • Bill nợ: dòng 'debt' của bill_payments có debt_customer_id. Ngày phát sinh = business_date_of(quán, collected_at)
+--   (tính lúc đọc, nên đổi giờ bắt đầu ngày thì bill dời ngày như A04).
+-- • Lần trả hiệu lực: debt_payments.voided_at IS NULL (đã huỷ thì coi như chưa từng có, kể cả khi huỷ sau kỳ).
+--   Ngày trả = debt_payments.business_date ĐỌC THẲNG (ngày kinh doanh lúc ghi, lưu sẵn) — KHÔNG tính lại bằng
+--   business_date_of(created_at). Hệ quả chấp nhận có chủ đích: đổi giờ bắt đầu ngày làm bill dời ngày nhưng lần trả
+--   nợ thì không. Tiền trả vào từng bill = debt_payment_allocations.amount.
+-- • opening = phát sinh trước p_from − trả trước p_from; incurred = phát sinh trong kỳ; collected = trả trong kỳ;
+--   closing = opening + incurred − collected.
+-- • Mỗi bill còn nợ tại p_to = số nợ − tiền trả tới hết p_to; tuổi = p_to − ngày phát sinh: 0–7, 8–30, > 30.
+--   oldest_open_date = ngày phát sinh nhỏ nhất của bill còn nợ > 0 tại p_to.
+-- • Chỉ trả khách có ít nhất một trong opening, incurred, collected, closing khác 0. Sắp closing DESC, tên.
+CREATE FUNCTION public.report_receivables(p_store_id uuid, p_from date, p_to date)
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_rows jsonb;
+BEGIN
+  IF p_store_id IS NULL OR p_from IS NULL OR p_to IS NULL THEN
+    RAISE EXCEPTION 'Thiếu quán hoặc kỳ';
+  END IF;
+  IF NOT public.is_store_back_office(p_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền xem báo cáo quán này';
+  END IF;
+  -- Kiểm kỳ (ngược, quá 366 ngày) dùng chung với các báo cáo khác; mốc giờ không cần vì mọi thứ so theo ngày.
+  PERFORM 1 FROM public.report_period_bounds(p_store_id, p_from, p_to);
+
+  WITH bills AS (
+    SELECT bp.id, bp.debt_customer_id AS customer_id,
+           public.business_date_of(p_store_id, bp.collected_at) AS incurred_on,
+           SUM(l.amount)::bigint AS debt
+      FROM public.bill_payments bp
+      JOIN public.bill_payment_lines l ON l.payment_id = bp.id AND l.instrument = 'debt'
+     WHERE bp.store_id = p_store_id AND bp.debt_customer_id IS NOT NULL
+     GROUP BY bp.id, bp.debt_customer_id, bp.collected_at
+  ),
+  paid AS (
+    SELECT a.bill_payment_id,
+           COALESCE(SUM(a.amount) FILTER (WHERE dp.business_date < p_from), 0)::bigint AS before_period,
+           COALESCE(SUM(a.amount) FILTER (WHERE dp.business_date BETWEEN p_from AND p_to), 0)::bigint AS in_period
+      FROM public.debt_payment_allocations a
+      JOIN public.debt_payments dp ON dp.id = a.debt_payment_id
+     WHERE dp.store_id = p_store_id AND dp.voided_at IS NULL
+     GROUP BY a.bill_payment_id
+  ),
+  per_bill AS (
+    SELECT b.customer_id, b.incurred_on, b.debt,
+           COALESCE(p.before_period, 0) AS before_period,
+           COALESCE(p.in_period, 0) AS in_period,
+           b.debt - COALESCE(p.before_period, 0) - COALESCE(p.in_period, 0) AS open_at_end,
+           p_to - b.incurred_on AS age
+      FROM bills b
+      LEFT JOIN paid p ON p.bill_payment_id = b.id
+     WHERE b.incurred_on <= p_to
+  ),
+  per_customer AS (
+    SELECT pb.customer_id,
+           (COALESCE(SUM(pb.debt) FILTER (WHERE pb.incurred_on < p_from), 0) - COALESCE(SUM(pb.before_period), 0))::bigint AS opening,
+           COALESCE(SUM(pb.debt) FILTER (WHERE pb.incurred_on >= p_from), 0)::bigint AS incurred,
+           COALESCE(SUM(pb.in_period), 0)::bigint AS collected,
+           MIN(pb.incurred_on) FILTER (WHERE pb.open_at_end > 0) AS oldest_open_date,
+           COALESCE(SUM(pb.open_at_end) FILTER (WHERE pb.open_at_end > 0 AND pb.age <= 7), 0)::bigint AS age_0_7,
+           COALESCE(SUM(pb.open_at_end) FILTER (WHERE pb.open_at_end > 0 AND pb.age BETWEEN 8 AND 30), 0)::bigint AS age_8_30,
+           COALESCE(SUM(pb.open_at_end) FILTER (WHERE pb.open_at_end > 0 AND pb.age > 30), 0)::bigint AS age_over_30
+      FROM per_bill pb
+     GROUP BY pb.customer_id
+  ),
+  shown AS (
+    SELECT c.id AS customer_id, c.name, c.phone, c.kind,
+           x.opening, x.incurred, x.collected, x.opening + x.incurred - x.collected AS closing,
+           x.oldest_open_date, x.age_0_7, x.age_8_30, x.age_over_30
+      FROM per_customer x
+      JOIN public.debt_customers c ON c.id = x.customer_id AND c.store_id = p_store_id
+     WHERE x.opening <> 0 OR x.incurred <> 0 OR x.collected <> 0 OR x.opening + x.incurred - x.collected <> 0
+  )
+  SELECT jsonb_build_object(
+    'from', p_from, 'to', p_to,
+    'totals', jsonb_build_object(
+      'opening',     COALESCE(SUM(s.opening), 0),
+      'incurred',    COALESCE(SUM(s.incurred), 0),
+      'collected',   COALESCE(SUM(s.collected), 0),
+      'closing',     COALESCE(SUM(s.closing), 0),
+      'age_0_7',     COALESCE(SUM(s.age_0_7), 0),
+      'age_8_30',    COALESCE(SUM(s.age_8_30), 0),
+      'age_over_30', COALESCE(SUM(s.age_over_30), 0)),
+    'rows', COALESCE(jsonb_agg(jsonb_build_object(
+      'customer_id', s.customer_id, 'name', s.name, 'phone', s.phone, 'kind', s.kind,
+      'opening', s.opening, 'incurred', s.incurred, 'collected', s.collected, 'closing', s.closing,
+      'oldest_open_date', s.oldest_open_date,
+      'age_0_7', s.age_0_7, 'age_8_30', s.age_8_30, 'age_over_30', s.age_over_30
+    ) ORDER BY s.closing DESC, s.name), '[]'::jsonb))
+    INTO v_rows
+    FROM shown s;
+
+  RETURN v_rows;
+END;
+$$;
+
+-- ============================================================
+-- 7) Quyền. REVOKE FROM PUBLIC một mình không gỡ quyền Supabase cấp thẳng cho anon/authenticated.
 -- ============================================================
 REVOKE ALL ON FUNCTION public.report_day_totals(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.report_cash_book_by_category(uuid, date, date) FROM PUBLIC, anon, authenticated;
@@ -424,6 +527,8 @@ REVOKE ALL ON FUNCTION public.report_cash_flow(uuid, date, date) FROM PUBLIC, an
 GRANT EXECUTE ON FUNCTION public.report_cash_flow(uuid, date, date) TO authenticated;
 REVOKE ALL ON FUNCTION public.report_profit_loss(uuid, date, date) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.report_profit_loss(uuid, date, date) TO authenticated;
+REVOKE ALL ON FUNCTION public.report_receivables(uuid, date, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.report_receivables(uuid, date, date) TO authenticated;
 
 REVOKE ALL ON FUNCTION public.report_revenue_series(uuid, date, date, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.report_revenue_series(uuid, date, date, text) TO authenticated;
