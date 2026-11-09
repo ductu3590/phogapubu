@@ -10,7 +10,8 @@
 -- 3) Kỳ = các ngày kinh doanh p_from … p_to (mig 111), cắt từ business_day_bounds(p_from).day_from tới
 --    business_day_bounds(p_to).day_to. Tối đa 366 ngày.
 -- 4) Danh mục = danh mục HIỆN TẠI của order_items.menu_item_id; món đã xoá / mất danh mục → 'Khác' (category_id null).
---    Giờ = giờ vào bếp COALESCE(confirmed_at, created_at) theo giờ VN, xếp theo ngày kinh doanh của quán.
+--    Giờ = giờ vào bếp COALESCE(confirmed_at, created_at) theo giờ VN (thiếu cả hai thì giờ nhận tiền), xếp theo
+--    ngày kinh doanh của quán: khung chứa giờ bắt đầu ngày đứng đầu. Bill vẫn về ngày theo giờ NHẬN TIỀN.
 -- 5) Chỉ thêm hàm mới (CREATE FUNCTION, không OR REPLACE), không vá hàm đang chạy.
 
 -- ============================================================
@@ -80,7 +81,8 @@ AS $$
   SELECT o.id,
          o.session_id,
          COALESCE(o.payment_received_at, o.completed_at, o.updated_at),
-         COALESCE(o.confirmed_at, o.created_at),
+         -- Giờ vào bếp; rơi tiếp về giờ nhận tiền (luôn có, do WHERE) để Theo giờ không có khung NULL.
+         COALESCE(o.confirmed_at, o.created_at, o.payment_received_at, o.completed_at, o.updated_at),
          o.total_amount::bigint,
          COALESCE(o.discount_amount, 0)::bigint,
          o.bill_discount_amount::bigint
@@ -116,6 +118,23 @@ AS $$
     FROM jsonb_array_elements(COALESCE(oi.selected_toppings, '[]'::jsonb)) e
   ) tp ON true
   WHERE oi.void_type IS DISTINCT FROM 'cancelled'
+$$;
+
+-- Nhóm món dùng chung cho Theo món và Theo danh mục. Khoá nhóm (tên đã chụp, danh mục HIỆN TẠI): hai món cùng tên
+-- ở hai danh mục là hai dòng; món đã xoá / mất danh mục / danh mục đã xoá → category_id null, 'Khác'.
+CREATE FUNCTION public.report_item_groups(p_store_id uuid, p_from timestamptz, p_to timestamptz)
+RETURNS TABLE(item_name text, category_id uuid, category_name text, qty_sold bigint, qty_gift bigint, amount bigint)
+LANGUAGE sql STABLE
+SET search_path = public
+AS $$
+  SELECT l.item_name, mc.id, COALESCE(mc.name, 'Khác'),
+         COALESCE(SUM(l.quantity) FILTER (WHERE NOT l.is_gift), 0)::bigint,
+         COALESCE(SUM(l.quantity) FILTER (WHERE l.is_gift), 0)::bigint,
+         COALESCE(SUM(l.amount), 0)::bigint
+  FROM public.report_sold_lines(p_store_id, p_from, p_to) l
+  LEFT JOIN public.menu_items mi ON mi.id = l.menu_item_id
+  LEFT JOIN public.menu_categories mc ON mc.id = mi.category_id
+  GROUP BY l.item_name, mc.id, mc.name
 $$;
 
 -- Khối tổng chung của mọi báo cáo bán hàng. open_tables_count chỉ có nghĩa khi kỳ chứa lúc này.
@@ -168,17 +187,7 @@ BEGIN
         'item_name', g.item_name, 'category_id', g.category_id, 'category_name', g.category_name,
         'qty_sold', g.qty_sold, 'qty_gift', g.qty_gift, 'amount', g.amount
       ) ORDER BY g.amount DESC, g.qty_sold DESC, g.item_name, g.category_name), '[]'::jsonb)
-      FROM (
-        -- Khoá nhóm (tên đã chụp, danh mục hiện tại): hai món cùng tên ở hai danh mục là hai dòng.
-        SELECT l.item_name, mc.id AS category_id, COALESCE(mc.name, 'Khác') AS category_name,
-               COALESCE(SUM(l.quantity) FILTER (WHERE NOT l.is_gift), 0) AS qty_sold,
-               COALESCE(SUM(l.quantity) FILTER (WHERE l.is_gift), 0) AS qty_gift,
-               COALESCE(SUM(l.amount), 0) AS amount
-        FROM public.report_sold_lines(p_store_id, v_from, v_to) l
-        LEFT JOIN public.menu_items mi ON mi.id = l.menu_item_id
-        LEFT JOIN public.menu_categories mc ON mc.id = mi.category_id
-        GROUP BY l.item_name, mc.id, mc.name
-      ) g)
+      FROM public.report_item_groups(p_store_id, v_from, v_to) g)
   );
 END;
 $$;
@@ -215,16 +224,7 @@ BEGIN
                jsonb_agg(jsonb_build_object(
                  'item_name', g.item_name, 'qty_sold', g.qty_sold, 'qty_gift', g.qty_gift, 'amount', g.amount
                ) ORDER BY g.amount DESC, g.qty_sold DESC, g.item_name) AS items
-        FROM (
-          SELECT l.item_name, mc.id AS category_id, COALESCE(mc.name, 'Khác') AS category_name,
-                 COALESCE(SUM(l.quantity) FILTER (WHERE NOT l.is_gift), 0) AS qty_sold,
-                 COALESCE(SUM(l.quantity) FILTER (WHERE l.is_gift), 0) AS qty_gift,
-                 COALESCE(SUM(l.amount), 0) AS amount
-          FROM public.report_sold_lines(p_store_id, v_from, v_to) l
-          LEFT JOIN public.menu_items mi ON mi.id = l.menu_item_id
-          LEFT JOIN public.menu_categories mc ON mc.id = mi.category_id
-          GROUP BY l.item_name, mc.id, mc.name
-        ) g
+        FROM public.report_item_groups(p_store_id, v_from, v_to) g
         GROUP BY g.category_id, g.category_name
       ) c)
   );
@@ -260,9 +260,10 @@ BEGIN
     'summary', public.report_sales_summary(p_store_id, v_from, v_to),
     'rows', (
       -- Xếp theo ngày kinh doanh, không theo đồng hồ: quán mở 05:00 thì 18h đứng trước 04h sáng hôm sau.
+      -- Khung chứa giờ bắt đầu ngày đứng ĐẦU (quán 05:30 → khung 5h đầu tiên), nên chia nguyên v_start_min / 60.
       SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'hour', h.hour, 'orders_count', h.orders_count, 'items_qty', h.items_qty, 'amount', h.amount
-      ) ORDER BY (h.hour * 60 - v_start_min + 1440) % 1440), '[]'::jsonb)
+      ) ORDER BY (h.hour - v_start_min / 60 + 24) % 24), '[]'::jsonb)
       FROM (
         SELECT EXTRACT(hour FROM l.kitchen_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::integer AS hour,
                COUNT(DISTINCT l.order_id) AS orders_count,
@@ -281,6 +282,7 @@ $$;
 REVOKE ALL ON FUNCTION public.report_period_bounds(uuid, date, date) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.report_paid_orders(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.report_sold_lines(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.report_item_groups(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.report_sales_summary(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL ON FUNCTION public.report_sales_by_item(uuid, date, date) FROM PUBLIC, anon;

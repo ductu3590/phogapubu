@@ -5,28 +5,29 @@ import { setupThrough117 } from './helpers/sales-report-fixture.mjs'
 
 // Test mig 117: báo cáo bán hàng theo món, danh mục, giờ. Phạm vi "đã bán" = đơn đã thu có giờ nhận tiền trong kỳ,
 // cùng điều kiện với A04, nên Σ tiền món − giảm giá phải ra đúng doanh thu get_bills_report từng đồng.
-// Quán s1 bắt đầu ngày 05:00, s2 00:00. Ngày D = 2026-11-20 (giờ VN). Mọi giờ trong dữ liệu là giờ VN (+07).
+// Quán s1 bắt đầu ngày 05:00, s2 00:00. Ngày D = 2026-03-20 (giờ VN). Mọi giờ trong dữ liệu là giờ VN (+07).
 const pgliteModule = process.env.PGLITE_MODULE
   ? pathToFileURL(process.env.PGLITE_MODULE).href
   : '@electric-sql/pglite'
 const { PGlite } = await import(pgliteModule)
 const db = new PGlite()
 
-const D = '2026-11-20'
-const NEXT = '2026-11-21'
-const DUP_DAY = '2026-11-25' // trùng tên khác danh mục
-const ORPHAN_DAY = '2026-11-26' // món mất danh mục
+// Ngày cố định ở QUÁ KHỨ: test 'phiên đang mở' dựng bill vào hôm nay thật (now()), không bao giờ trùng các ngày này.
+const D = '2026-03-20'
+const NEXT = '2026-03-21'
+const DUP_DAY = '2026-03-25' // trùng tên khác danh mục
+const ORPHAN_DAY = '2026-03-26' // món mất danh mục
 const at = (date, hms) => `${date} ${hms}+07`
 
 const id = (n) => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`
-const owner = id(1), cashier = id(2), staff = id(3), owner2 = id(4), manager = id(5), admin = id(6)
-const s1 = id(10), s2 = id(11)
+const owner = id(1), cashier = id(2), staff = id(3), owner2 = id(4), manager = id(5), admin = id(6), owner3 = id(7)
+const s1 = id(10), s2 = id(11), s3 = id(12) // s3 bắt đầu ngày 05:30
 const tA1 = id(21), tA5 = id(22), tS2 = id(23)
 const catLau = id(31), catNuong = id(32), catDo = id(33), catS2 = id(34), catGone = id(35)
 const mLauThai = id(41), mLauRieu = id(42), mBaChi = id(43), mBiaHN = id(44), mBiaHoi = id(45), mS2 = id(46)
 let seq = 1000
 const newId = () => id(seq++)
-const ownerOf = { [s1]: owner, [s2]: owner2 }
+const ownerOf = { [s1]: owner, [s2]: owner2, [s3]: owner3 }
 
 async function login(uid) {
   await db.exec('RESET ROLE')
@@ -77,13 +78,13 @@ before(async () => {
     INSERT INTO auth.users(id, email, raw_user_meta_data) VALUES
       ('${owner}', 'chu@quan.vn', '{"full_name":"Chủ quán"}'), ('${cashier}', 'thungan@quan.vn', '{"full_name":"Thu ngân"}'),
       ('${staff}', 'nv@quan.vn', '{}'), ('${owner2}', 'chu2@quan.vn', '{}'), ('${manager}', 'ql@quan.vn', '{}'),
-      ('${admin}', 'mevo@mevo.vn', '{}');
-    INSERT INTO stores(id) VALUES ('${s1}'), ('${s2}');
-    INSERT INTO store_workflow_settings(store_id, business_day_start) VALUES ('${s1}', '05:00'), ('${s2}', '00:00');
+      ('${admin}', 'mevo@mevo.vn', '{}'), ('${owner3}', 'chu3@quan.vn', '{}');
+    INSERT INTO stores(id) VALUES ('${s1}'), ('${s2}'), ('${s3}');
+    INSERT INTO store_workflow_settings(store_id, business_day_start) VALUES ('${s1}', '05:00'), ('${s2}', '00:00'), ('${s3}', '05:30');
     INSERT INTO mevo_operators VALUES
       ('${owner}', '${s1}', 'store_owner', true), ('${cashier}', '${s1}', 'store_cashier', true),
       ('${staff}', '${s1}', 'store_staff', true), ('${manager}', '${s1}', 'store_manager', true),
-      ('${owner2}', '${s2}', 'store_owner', true), ('${admin}', NULL, 'mevo_superadmin', true);
+      ('${owner2}', '${s2}', 'store_owner', true), ('${owner3}', '${s3}', 'store_owner', true), ('${admin}', NULL, 'mevo_superadmin', true);
     INSERT INTO tables VALUES ('${tA1}', '${s1}', 'A1'), ('${tA5}', '${s1}', 'A5'), ('${tS2}', '${s2}', 'B1');
     INSERT INTO menu_categories(id, store_id, name, sort_order) VALUES
       ('${catLau}', '${s1}', 'Lẩu', 1), ('${catNuong}', '${s1}', 'Nướng', 2), ('${catDo}', '${s1}', 'Đồ uống', 3),
@@ -202,6 +203,47 @@ test('Theo giờ theo giờ vào bếp, 18h trước 04h ở quán 05:00', async
   assert.equal(r.rows.reduce((s, x) => s + x.amount, 0), r.summary.items_amount)
 })
 
+test('quán 05:30: khung 5h (chứa giờ bắt đầu ngày) đứng đầu, 18h, rồi 4h và 5h sáng hôm sau gộp khung 5h', async () => {
+  // Kỳ ngày D ở s3 = [D 05:30, D+1 05:30). Khung 5h nhận cả 05:40 hôm D lẫn 05:10 hôm sau.
+  const o1 = await paidOrder({ store: s3, total: 10000, receivedAt: at(D, '06:00:00'), confirmedAt: at(D, '05:40:00') })
+  await line(o1, { name: 'Trà đá', price: 10000 })
+  const o2 = await paidOrder({ store: s3, total: 50000, receivedAt: at(D, '19:00:00'), confirmedAt: at(D, '18:00:00') })
+  await line(o2, { name: 'Lạc rang', price: 25000, qty: 2 })
+  const o3 = await paidOrder({ store: s3, total: 30000, receivedAt: at(NEXT, '04:20:00'), confirmedAt: at(NEXT, '04:10:00') })
+  await line(o3, { name: 'Mì xào', price: 30000 })
+  const o4 = await paidOrder({ store: s3, total: 20000, receivedAt: at(NEXT, '05:20:00'), confirmedAt: at(NEXT, '05:10:00') })
+  await line(o4, { name: 'Trà đá', price: 10000, qty: 2 })
+  const r = await rpc('report_sales_by_hour', s3, D, D)
+  assert.deepEqual(r.rows, [
+    { hour: 5, orders_count: 2, items_qty: 3, amount: 30000 },
+    { hour: 18, orders_count: 1, items_qty: 2, amount: 50000 },
+    { hour: 4, orders_count: 1, items_qty: 1, amount: 30000 },
+  ])
+  assert.equal(r.summary.revenue, (await report(D, s3)).totals.revenue)
+  assert.equal(r.rows.reduce((s, x) => s + x.amount, 0), r.summary.items_amount)
+})
+
+test('quán 00:00: vào bếp 23:50, thu 00:10 hôm sau → bill thuộc D+1, hiện ở khung 23h', async () => {
+  const o = await paidOrder({ store: s2, total: 45000, receivedAt: at(NEXT, '00:10:00'), confirmedAt: at(D, '23:50:00') })
+  await line(o, { name: 'Ngô chiên', price: 45000 })
+  const h = await rpc('report_sales_by_hour', s2, NEXT, NEXT)
+  assert.deepEqual(h.rows, [{ hour: 23, orders_count: 1, items_qty: 1, amount: 45000 }])
+  assert.equal(h.summary.revenue, 45000)
+  assert.equal(h.summary.revenue, (await report(NEXT, s2)).totals.revenue)
+  const d = await rpc('report_sales_by_item', s2, D, D)
+  assert.ok(!d.rows.some((x) => x.item_name === 'Ngô chiên'), 'không lọt về ngày vào bếp')
+  assert.equal(d.summary.revenue, (await report(D, s2)).totals.revenue)
+})
+
+test('đơn thiếu cả confirmed_at lẫn created_at: giờ rơi về giờ nhận tiền, không có khung null', async () => {
+  const day = '2026-03-28'
+  await db.exec('ALTER TABLE orders ALTER COLUMN created_at DROP NOT NULL') // prod cho NULL
+  const o = await paidOrder({ store: s3, total: 15000, receivedAt: at(day, '21:15:00'), createdAt: null })
+  await line(o, { name: 'Khoai lang', price: 15000 })
+  const h = await rpc('report_sales_by_hour', s3, day, day)
+  assert.deepEqual(h.rows, [{ hour: 21, orders_count: 1, items_qty: 1, amount: 15000 }])
+})
+
 test('biên ngày: 04:59:59 vào D, 05:00:00 vào D+1', async () => {
   const r = await rpc('report_sales_by_item', s1, NEXT, NEXT)
   assert.deepEqual(r.rows.map((x) => [x.item_name, x.amount]), [['Lẩu thái', 300000]])
@@ -308,12 +350,13 @@ test('cách ly: số của s2 không lọt vào s1 và ngược lại', async ()
   assert.equal(r1.summary.items_amount, 1050000)
 })
 
-test('4 hàm nội bộ: authenticated không EXECUTE được', async () => {
+test('5 hàm nội bộ: authenticated không EXECUTE được', async () => {
   const from = at(D, '05:00:00'), to = at(NEXT, '05:00:00')
   const calls = [
     ['report_period_bounds(uuid,date,date)', 'SELECT * FROM report_period_bounds($1, $2::date, $2::date)', [s1, D]],
     ['report_paid_orders(uuid,timestamptz,timestamptz)', 'SELECT * FROM report_paid_orders($1, $2, $3)', [s1, from, to]],
     ['report_sold_lines(uuid,timestamptz,timestamptz)', 'SELECT * FROM report_sold_lines($1, $2, $3)', [s1, from, to]],
+    ['report_item_groups(uuid,timestamptz,timestamptz)', 'SELECT * FROM report_item_groups($1, $2, $3)', [s1, from, to]],
     ['report_sales_summary(uuid,timestamptz,timestamptz)', 'SELECT report_sales_summary($1, $2, $3)', [s1, from, to]],
   ]
   for (const [sig, sql, params] of calls) {
