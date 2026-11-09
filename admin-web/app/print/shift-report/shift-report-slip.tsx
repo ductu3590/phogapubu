@@ -41,7 +41,8 @@ function Row({ name, value, strong = false }: { name: string; value: string; str
 export default function ShiftReportSlip({ report: r, storeName, printedAt, printedBy, debt = null, autoPrint = true }: ShiftReportSlipProps) {
   useAutoPrint(autoPrint)
   const groups = groupByCategory(r.entries)
-  const debtCash = r.debtCash ?? 0
+  // Tiền mặt thu nợ: MỘT dòng, lấy số của két (cash_shift_totals.debt_cash, mig 123); két chưa có số thì lấy từ prop debt.
+  const debtCash = r.debtCash ?? debt?.debtCash ?? 0
   return (
     <>
       <style>{`
@@ -85,7 +86,7 @@ export default function ShiftReportSlip({ report: r, storeName, printedAt, print
         <hr />
         <Row name="Tiền đầu ca" value={dong(r.openingCash)} />
         <Row name="Tiền mặt thu bill" value={`+ ${dong(r.cashSales ?? 0)}`} />
-        {debtCash > 0 && <Row name="Khách trả nợ (TM)" value={`+ ${dong(debtCash)}`} />}
+        {debtCash > 0 && <Row name="Thu nợ tiền mặt" value={`+ ${dong(debtCash)}`} />}
         <Row name="Phiếu thu TM" value={`+ ${dong(r.cashReceipts ?? 0)}`} />
         <Row name="Phiếu chi TM" value={`− ${dong(r.cashPayments ?? 0)}`} />
         <div className="row" style={{ fontSize: 14, fontWeight: 700, marginTop: 3 }}>
@@ -98,8 +99,9 @@ export default function ShiftReportSlip({ report: r, storeName, printedAt, print
         <Row name="Số bill" value={String(r.billsCount ?? 0)} />
         <Row name="Tổng TM" value={dong(r.cashSales ?? 0)} />
         <Row name="Tổng CK" value={dong(r.bankSales ?? 0)} />
-        {debt && <Row name="Ghi nợ trong ca" value={dong(debt.debtRecorded)} />}
-        {debt && debt.debtBank > 0 && <Row name="Khách trả nợ (CK)" value={dong(debt.debtBank)} />}
+        {/* Ghi nợ là doanh thu chưa thu; thu nợ CK không vào két. Toàn 0 / không có prop → không in dòng nào. */}
+        {debt && debt.debtRecorded > 0 && <Row name="Ghi nợ trong ca" value={dong(debt.debtRecorded)} />}
+        {debt && debt.debtBank > 0 && <Row name="Thu nợ chuyển khoản" value={dong(debt.debtBank)} />}
         <hr />
         {groups.length === 0 ? (
           <div className="note">Không có phiếu thu / chi tiền mặt.</div>

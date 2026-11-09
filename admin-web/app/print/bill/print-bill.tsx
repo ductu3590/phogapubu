@@ -216,7 +216,7 @@ export default function PrintBill({
           <span className="num">{dong(bill.grand_total)}đ</span>
         </div>
         {/* Mig 112a: in lại bill đã thu → từng khoản, tiền khách đưa, tiền thối. Bill chưa thu: không có dòng nào. */}
-        {paymentRows({ payments: bill.payments, cashGiven: bill.cash_given, changeAmount: bill.change_amount }).map((p) => (
+        {paymentRows({ payments: bill.payments, cashGiven: bill.cash_given, changeAmount: bill.change_amount, debtCustomerName: bill.debt_customer_name ?? null }).map((p) => (
           <div key={p.label} className="row">
             <span className="name">{p.label}</span>
             <span className="num">{dong(p.amount)}</span>

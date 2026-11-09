@@ -1,6 +1,7 @@
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { ROLE_LABEL } from '@/lib/auth/roles'
 import { loadCashShiftReport } from '@/lib/actions/cash-shift-reads'
+import { loadDebtShiftSummary } from '@/lib/actions/debt-reads'
 import { createClient } from '@/lib/supabase/server'
 import ShiftReportSlip, { shiftReportPrintable } from './shift-report-slip'
 
@@ -14,10 +15,12 @@ export default async function PrintShiftReportPage({ searchParams }: { searchPar
 
   const now = new Date()
   const supabase = await createClient()
-  const [res, { data: store }, { data: auth }] = await Promise.all([
+  // Công nợ trong ca (mig 123): lỗi / không có quyền → null, phiếu vẫn in như khi chưa có công nợ.
+  const [res, { data: store }, { data: auth }, debt] = await Promise.all([
     loadCashShiftReport(id),
     supabase.from('stores').select('name').eq('id', operator.storeId).maybeSingle(),
     supabase.auth.getUser(),
+    loadDebtShiftSummary(id).catch(() => null),
   ])
   if (!res.ok) return <div className="p-6 text-sm text-red-600">Không lấy được phiếu ca: {res.error}</div>
   // Ca đang mở: chưa có số kết ca (server không trả), không tự in.
@@ -36,6 +39,7 @@ export default async function PrintShiftReportPage({ searchParams }: { searchPar
       storeName={(store?.name as string | null) ?? ''}
       printedAt={now.toISOString()}
       printedBy={`${meta.full_name?.trim() || auth.user?.email || 'Không rõ'} · ${ROLE_LABEL[operator.role]}`}
+      debt={debt}
     />
   )
 }

@@ -223,3 +223,13 @@ describe('VietQR trên tờ in', () => {
     expect((QR_PRINT_MM * n) / (n + 2 * VIETQR_QUIET_ZONE)).toBeGreaterThanOrEqual(35)
   })
 })
+
+describe('hoá đơn in — công nợ (mig 123)', () => {
+  const store = { name: 'Yên Garden', address: null, phone: null }
+  const now = new Date('2026-11-09T10:00:00Z')
+  it('bill có nợ: dòng "Ghi nợ — Cty Hoà Bình" kèm số tiền', () => {
+    const bill = { ...buildTestBill(store, now), payments: [{ instrument: 'cash' as const, amount: 100_000 }, { instrument: 'debt' as const, amount: 200_000 }], debt_customer_name: 'Cty Hoà Bình' }
+    const html = renderToStaticMarkup(<PrintBill bill={bill} />)
+    for (const t of ['Ghi nợ — Cty Hoà Bình', '200.000']) expect(html).toContain(t)
+  })
+})

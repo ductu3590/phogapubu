@@ -456,6 +456,8 @@ export type SessionsBill = {
   /** Mig 112a: chỉ có khi nhóm phiên đúng MỘT khoản thu, không thì null. */
   cash_given?: number | null
   change_amount?: number | null
+  /** Mig 123: khách ghi nợ của lần thu (dòng 'Ghi nợ — <tên>' trên hoá đơn); không có nợ → null. */
+  debt_customer_name?: string | null
 }
 
 export async function getSessionsBill(
