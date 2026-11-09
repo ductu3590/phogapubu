@@ -23,7 +23,7 @@ Bốn tab: **Theo món**, **Theo danh mục**, **Theo giờ**, **Món huỷ**. K
 ## Trước khi test
 
 - Quán thử: **Bia lẩu Bảo Lương**, hoặc **Yên Garden** khi đã tạo. Cần một ngày có **ít nhất 3 bill đã thu**.
-- Hai tài khoản: chủ quán và thu ngân. Bài 10 chỉ làm được **sau khi nhánh Quản lý (QL) đã gộp**. Trước đó thu ngân bị chặn ở `/admin/reports`, đó là đúng.
+- Ba tài khoản: chủ quán, thu ngân và quản lý (bài 10). Nhánh Quản lý (mig 116) đã gộp: thu ngân và quản lý đều có mục **Hoá đơn** và **Báo cáo** trên thanh icon. Mig 116 phải áp prod trước thì tài khoản quản lý mới đăng nhập được.
 - Mở Báo cáo từ thanh icon bên trái: mục **Báo cáo** (biểu đồ cột), nằm ngay dưới **Hoá đơn**.
 
 ## Bài 1. Doanh thu khớp Hoá đơn (A04)
@@ -99,12 +99,13 @@ Bốn tab: **Theo món**, **Theo danh mục**, **Theo giờ**, **Món huỷ**. K
 3. 6 nút kỳ xuống dòng và thấy được cả nút **Tuỳ chọn**. 4 loại báo cáo xếp **lưới 2 × 2**, đọc đủ chữ.
 4. Mỗi tab hiện **thẻ** thay cho bảng.
 
-## Bài 10. Thu ngân (chỉ làm sau khi nhánh QL đã gộp)
+## Bài 10. Thu ngân và quản lý
 
-1. Đăng nhập thu ngân: thanh icon có **Báo cáo**, vào được trang.
+1. Đăng nhập thu ngân: thanh icon có **Hoá đơn** và **Báo cáo** (ngay dưới Hoá đơn), vào được trang Báo cáo.
 2. Chỉ thấy 4 tab bán hàng.
 3. Gõ tay `/admin/reports?tab=pnl` trên thanh địa chỉ: trang về tab **Theo món**, không báo lỗi.
 4. Xuất Excel được.
+5. Lặp lại bước 1–4 bằng tài khoản **quản lý**: kết quả giống hệt. Phần báo cáo tài chính thuộc Part 2, chưa có.
 
 ## Bài 11. Hộp thoại và trang đầy đủ
 

@@ -7,7 +7,7 @@ import { buildReportWorkbook, reportWorkbookFileName } from '@/lib/reports/repor
 import { createClient } from '@/lib/supabase/server'
 
 // Xuất Excel trang Báo cáo: GET /admin/reports/export?tab=&period=&from=&to= → file .xlsx (một sheet theo tab).
-// Part 1: 4 tab bán hàng, chủ quán + thu ngân (vai POS; quản lý vào khi nhánh QL thêm vai vào isPosRole).
+// Part 1: 4 tab bán hàng, chủ quán + thu ngân + quản lý (mọi vai POS, isPosRole).
 // Kỳ kẹp theo ngày kinh doanh như trang; số liệu lấy từ RPC (tự kiểm quyền theo auth.uid()); tên quán đọc theo
 // store của operator — KHÔNG nhận store_id từ URL. Part 2: tab tài chính mà vai không được xem thì 403, không đổi tab.
 export async function GET(request: NextRequest) {

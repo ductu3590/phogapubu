@@ -65,9 +65,9 @@ describe('rail chủ quán — thanh icon dọc, không còn ô Thêm (2026-10-1
 })
 
 describe('thu ngân (PA-2)', () => {
-  it('rail: POS · Món · Báo cáo; ⚙ Cài đặt = tài khoản của chính mình', () => {
-    expect(hrefs(adminRailItems(true, true, 'store_cashier'))).toEqual(['/admin/pos', '/admin/menu', '/admin/bills'])
-    expect(adminRailItems(true, true, 'store_cashier').map((i) => i.label)).toEqual(['POS', 'Món', 'Báo cáo'])
+  it('rail: POS · Món · Hoá đơn · Báo cáo; ⚙ Cài đặt = tài khoản của chính mình', () => {
+    expect(hrefs(adminRailItems(true, true, 'store_cashier'))).toEqual(['/admin/pos', '/admin/menu', '/admin/bills', '/admin/reports'])
+    expect(adminRailItems(true, true, 'store_cashier').map((i) => i.label)).toEqual(['POS', 'Món', 'Hoá đơn', 'Báo cáo'])
     expect(adminBottomItems('store_cashier')).toMatchObject([{ href: '/admin/account', label: 'Cài đặt' }])
   })
 
@@ -77,10 +77,11 @@ describe('thu ngân (PA-2)', () => {
 })
 
 describe('quản lý (QL)', () => {
-  it('rail: POS · Đặt bàn · Món · Báo cáo; không có Bếp, Bàn QR', () => {
-    expect(hrefs(adminRailItems(true, true, 'store_manager'))).toEqual(['/admin/pos', '/admin/reservations', '/admin/menu', '/admin/bills'])
-    expect(hrefs(adminRailItems(true, false, 'store_manager'))).toEqual(['/admin/pos', '/admin/menu', '/admin/bills'])
-    expect(hrefs(adminRailItems(false, true, 'store_manager'))).toEqual(['/admin/pos', '/admin/reservations', '/admin/menu', '/admin/bills'])
+  it('rail: POS · Đặt bàn · Món · Hoá đơn · Báo cáo; không có Bếp, Bàn QR', () => {
+    expect(hrefs(adminRailItems(true, true, 'store_manager'))).toEqual(['/admin/pos', '/admin/reservations', '/admin/menu', '/admin/bills', '/admin/reports'])
+    expect(hrefs(adminRailItems(true, false, 'store_manager'))).toEqual(['/admin/pos', '/admin/menu', '/admin/bills', '/admin/reports'])
+    expect(hrefs(adminRailItems(false, true, 'store_manager'))).toEqual(['/admin/pos', '/admin/reservations', '/admin/menu', '/admin/bills', '/admin/reports'])
+    expect(adminRailItems(true, true, 'store_manager').slice(-2).map((i) => i.label)).toEqual(['Hoá đơn', 'Báo cáo'])
     expect(adminBottomItems('store_manager')).toMatchObject([{ href: '/admin/account', label: 'Cài đặt' }])
   })
 

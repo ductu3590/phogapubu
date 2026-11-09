@@ -58,6 +58,13 @@ describe('GET /admin/reports/export', () => {
     expect(mocks.resolveReportRange).toHaveBeenCalledWith({ period: '7d', from: undefined, to: undefined }, expect.any(Date))
   })
 
+  it('quản lý (mig 116) xuất được', async () => {
+    mocks.requireOperator.mockResolvedValue({ userId: 'u5', role: 'store_manager', storeId: 'store-1' })
+    const res = await GET(req('?tab=hour'))
+    expect(res.status).toBe(200)
+    expect(mocks.loadReport).toHaveBeenCalledWith('hour', '2026-11-01', '2026-11-20')
+  })
+
   it('chưa đăng nhập: 401; phục vụ / superadmin: 403, không đọc báo cáo', async () => {
     mocks.requireOperator.mockRejectedValueOnce(new Error('Tài khoản chưa được cấp quyền vận hành'))
     expect((await GET(req('?tab=item'))).status).toBe(401)
