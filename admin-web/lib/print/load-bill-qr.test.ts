@@ -1,16 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  listOpenTableSessions: vi.fn(),
   requireOperator: vi.fn(),
+  rpc: vi.fn(),
   eq: vi.fn(),
   maybeSingle: vi.fn(),
 }))
 
-vi.mock('@/lib/actions/table-session', () => ({ listOpenTableSessions: mocks.listOpenTableSessions }))
 vi.mock('@/lib/auth/operator', () => ({ requireOperator: mocks.requireOperator }))
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: async () => ({ from: () => ({ select: () => ({ eq: mocks.eq }) }) }),
+  createClient: async () => ({ rpc: mocks.rpc, from: () => ({ select: () => ({ eq: mocks.eq }) }) }),
 }))
 
 import { loadBillQr, loadBillQrWithClient } from './load-bill-qr'
@@ -28,12 +27,13 @@ beforeEach(() => {
 
 describe('loadBillQr', () => {
   it('bill còn mở: ra QR, đọc đúng quán của người đăng nhập', async () => {
-    mocks.listOpenTableSessions.mockResolvedValue({ ok: true, sessions: [session] })
+    mocks.rpc.mockResolvedValue({ data: [session], error: null })
     expect((await loadBillQr([ID]))?.amount).toBe(155000)
+    expect(mocks.rpc).toHaveBeenCalledWith('list_open_table_sessions', { p_store_id: 'store-1' })
     expect(mocks.eq).toHaveBeenCalledWith('id', 'store-1')
   })
   it('danh sách phiên lỗi: trả null', async () => {
-    mocks.listOpenTableSessions.mockResolvedValue({ ok: false, error: 'x' })
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'x' } })
     await expect(loadBillQr([ID])).resolves.toBeNull()
   })
   it('requireOperator ném: trả null, không ném', async () => {
@@ -41,7 +41,7 @@ describe('loadBillQr', () => {
     await expect(loadBillQr([ID])).resolves.toBeNull()
   })
   it('đọc tài khoản lỗi: trả null', async () => {
-    mocks.listOpenTableSessions.mockResolvedValue({ ok: true, sessions: [session] })
+    mocks.rpc.mockResolvedValue({ data: [session], error: null })
     mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: { message: 'x' } })
     await expect(loadBillQr([ID])).resolves.toBeNull()
   })
@@ -49,19 +49,26 @@ describe('loadBillQr', () => {
 
 // Trang /print/agent không có cookie: đọc bằng client JWT của người tạo phiếu.
 describe('loadBillQrWithClient', () => {
-  const client = (rpc: { data: unknown; error: { message: string } | null }) => ({
-    rpc: vi.fn(async () => rpc),
-    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: bank, error: null }) }) }) }),
-  })
-  it('bill còn mở: ra QR', async () => {
+  const make = (rpc: { data: unknown; error: { message: string } | null }, bankRes: { data: unknown; error: { message: string } | null } = { data: bank, error: null }) => {
+    const eq = vi.fn(() => ({ maybeSingle: async () => bankRes }))
+    return { rpc: vi.fn(async () => rpc), from: () => ({ select: () => ({ eq }) }), eq }
+  }
+  it('bill còn mở: ra QR, RPC và đọc tài khoản đều theo đúng quán', async () => {
+    const c = make({ data: [session], error: null })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await loadBillQrWithClient(client({ data: [session], error: null }) as any, 'store-1', [ID])
-    expect(r?.amount).toBe(155000)
+    expect((await loadBillQrWithClient(c as any, 'store-9', [ID]))?.amount).toBe(155000)
+    expect(c.rpc).toHaveBeenCalledWith('list_open_table_sessions', { p_store_id: 'store-9' })
+    expect(c.eq).toHaveBeenCalledWith('id', 'store-9')
   })
   it('RPC lỗi hoặc ném: null', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(await loadBillQrWithClient(client({ data: null, error: { message: 'x' } }) as any, 'store-1', [ID])).toBeNull()
+    expect(await loadBillQrWithClient(make({ data: null, error: { message: 'x' } }) as any, 'store-1', [ID])).toBeNull()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(await loadBillQrWithClient({ rpc: () => { throw new Error('x') } } as any, 'store-1', [ID])).toBeNull()
+  })
+  it('đọc tài khoản lỗi: null', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const c = make({ data: [session], error: null }, { data: null, error: { message: 'x' } }) as any
+    expect(await loadBillQrWithClient(c, 'store-1', [ID])).toBeNull()
   })
 })

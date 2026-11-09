@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { listOpenTableSessions } from '@/lib/actions/table-session'
 import { requireOperator } from '@/lib/auth/operator'
 import { pickBillQr, type BillQr, type OpenBillSession } from '@/lib/bill-qr'
 import { createClient } from '@/lib/supabase/server'
@@ -12,18 +11,17 @@ const BANK_COLUMNS = 'bank_bin, bank_account_number, bank_account_name'
 export async function loadBillQr(sessionIds: string[]): Promise<BillQr | null> {
   try {
     const operator = await requireOperator()
-    const res = await listOpenTableSessions()
-    if (!res.ok) return null
-    const supabase = await createClient()
-    const { data: bank, error } = await supabase.from('stores').select(BANK_COLUMNS).eq('id', operator.storeId).maybeSingle()
-    if (error) return null
-    return pickBillQr({ sessionIds, openSessions: res.sessions as unknown as OpenBillSession[], bank })
+    if (!operator.storeId) return null
+    return await loadBillQrWithClient(await createClient(), operator.storeId, sessionIds)
   } catch {
     return null
   }
 }
 
-/** /print/agent: không có cookie, đọc bằng client JWT của người tạo phiếu (RLS vẫn khoá theo quán). */
+/**
+ * Lõi dùng chung. Lưu ý: list_open_table_sessions có thể tự đóng phiên quá hạn (ghi vào DB khi đọc) —
+ * chấp nhận được, đúng như khi POS tự làm mới danh sách; không ảnh hưởng số tiền của bill đang in.
+ * /print/agent: không có cookie, đọc bằng client JWT của người tạo phiếu (RLS vẫn khoá theo quán). */
 export async function loadBillQrWithClient(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: SupabaseClient<any>,
