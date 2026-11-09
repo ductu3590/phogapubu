@@ -27,12 +27,16 @@ export async function openFinanceDb() {
     await db.exec('RESET ROLE')
     await db.exec(SALES_EXTRAS)
     await db.exec(await load(url('../../migrations/117_sales_reports.sql')))
+    // Superadmin MEVO: is_store_back_office KHÔNG tính vai này (hợp đồng mig 116).
+    await db.query(`INSERT INTO auth.users(id, email) VALUES ($1, 'mevo@mevo.vn')`, [fixedId(6)])
+    await db.query(`INSERT INTO mevo_operators(user_id, store_id, role, is_active) VALUES ($1, NULL, 'mevo_superadmin', true)`, [fixedId(6)])
   } catch (err) {
     await db.close()
     throw err
   }
 
   Object.assign(ids, {
+    admin: fixedId(6),
     catLau: fixedId(31), catDo: fixedId(32),
     mLauThai: fixedId(41), mLauRieu: fixedId(42), mBiaHN: fixedId(43), mBiaHoi: fixedId(44),
   })
@@ -146,6 +150,30 @@ export async function openFinanceDb() {
     return { session: s, order: o }
   }
 
+  // Đơn không phiên (khoá bill O:): ví Zalo (callback ghi đã nhận tiền → nhóm 'khác'), hoặc tiền mặt kiểu cũ
+  // status 'paid' mà KHÔNG có payment_received_at (A04 rơi về completed_at).
+  async function looseOrder({ items, kind, at: when }) {
+    await db.exec('RESET ROLE')
+    const total = items.reduce((s, [, , price, qty]) => s + price * qty, 0)
+    const o = rid()
+    if (kind === 'wallet') {
+      await db.query(`INSERT INTO orders(id, store_id, status, total_amount, payment_amount, payment_method, payment_instrument,
+          payment_received_at, payment_received_via, order_type, created_at, updated_at, confirmed_at)
+        VALUES ($1, $2, 'confirmed', $3, $3, 'zalo_checkout', 'wallet', $4, 'zalo_callback', 'pickup',
+          $4::timestamptz - interval '15 minutes', $4, $4::timestamptz - interval '10 minutes')`, [o, ids.store, total, when])
+    } else {
+      await db.query(`INSERT INTO orders(id, store_id, status, total_amount, payment_amount, payment_method, order_type,
+          completed_at, created_at, updated_at)
+        VALUES ($1, $2, 'paid', $3, $3, 'cash', 'pickup', $4, $4::timestamptz - interval '20 minutes', $4)`,
+      [o, ids.store, total, when])
+    }
+    for (const [menuId, name, price, qty] of items) {
+      await db.query(`INSERT INTO order_items(id, order_id, menu_item_id, item_name, item_price, quantity, selected_toppings)
+        VALUES ($1, $2, $3, $4, $5, $6, '[]')`, [rid(), o, menuId, name, price, qty])
+    }
+    return o
+  }
+
   async function debtPayment(customerId, amount, method, businessDate) {
     const r = await rpc('debt_collect', customerId, amount, method, null, null, rid())
     await db.exec('RESET ROLE')
@@ -203,6 +231,11 @@ export async function openFinanceDb() {
       lines: [cash(200000), debt(400000)], cashGiven: 200000, customerId: hung, paidAt: at(D1, '22:00:00') })
     bills.L = await legacyBill({ items: [L(ids.mBiaHoi, 'Bia hơi (Tháp)', PRICE.biaHoi, 1)], instrument: 'bank',
       paidAt: at(D1, '23:00:00') })
+    // Ví Zalo 120.000 ngày 12-01 (nhóm 'khác', khoá O:); tiền mặt kiểu cũ 80.000 ngày 11-20 (rơi về completed_at).
+    bills.wallet = await looseOrder({ items: [L(ids.mBiaHN, 'Bia Hà Nội lon', PRICE.biaHN, 6)], kind: 'wallet',
+      at: at(D1, '18:00:00') })
+    bills.legacyCash = await looseOrder({ items: [L(ids.mBiaHN, 'Bia Hà Nội lon', PRICE.biaHN, 4)], kind: 'legacy_cash',
+      at: at('2026-11-20', '13:00:00') })
     bills.V = await tableBill({ items: [L(ids.mBiaHN, 'Bia Hà Nội lon', PRICE.biaHN, 15)], lines: [bank(300000)],
       paidAt: at(D2, '19:30:00') })
     // Nợ cũ: Chú Bình (13 ngày trước 12-03), Cô Lan (44 ngày).

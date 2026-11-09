@@ -238,9 +238,192 @@ END;
 $$;
 
 -- ============================================================
--- 4) Quyền. REVOKE FROM PUBLIC một mình không gỡ quyền Supabase cấp thẳng cho anon/authenticated.
+-- 4) Thu chi (dòng tiền) theo hai quỹ: Tiền mặt, Ngân hàng
+-- ============================================================
+-- Phiếu sổ thu chi còn hiệu lực trong kỳ ngày kinh doanh, gom theo danh mục. Dùng chung cho thu chi và lãi lỗ.
+CREATE FUNCTION public.report_cash_book_by_category(p_store_id uuid, p_from date, p_to date)
+RETURNS TABLE(category_id uuid, kind text, name text, report_group text, sort_order integer, cash bigint, bank bigint)
+LANGUAGE sql STABLE
+SET search_path = public
+AS $$
+  SELECT c.id, c.kind, c.name, c.report_group, c.sort_order,
+         COALESCE(SUM(e.amount) FILTER (WHERE e.method = 'cash'), 0)::bigint,
+         COALESCE(SUM(e.amount) FILTER (WHERE e.method = 'bank'), 0)::bigint
+    FROM public.cash_book_entries e
+    JOIN public.cash_book_categories c ON c.id = e.category_id
+   WHERE e.store_id = p_store_id
+     AND e.voided_at IS NULL
+     AND e.business_date BETWEEN p_from AND p_to
+   GROUP BY c.id, c.kind, c.name, c.report_group, c.sort_order
+$$;
+
+-- Tiền vào: Thu bill (TM / CK của tổng ngày) → Thu qua ví (phần 'khác' của tổng ngày, chỉ khi > 0, vào quỹ Ngân hàng)
+-- → Thu nợ (lần trả chưa huỷ, NGÀY = debt_payments.business_date đọc thẳng) → từng danh mục phiếu thu.
+-- Tiền ra: từng danh mục phiếu chi, kể cả "Nhập hàng" (phiếu chi 122b sinh từ phiếu nhập đã trả).
+-- Ghi nợ (dòng 'debt' của bill) KHÔNG là tiền vào: tiền chỉ vào khi khách trả nợ.
+CREATE FUNCTION public.report_cash_flow(p_store_id uuid, p_from date, p_to date)
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_from timestamptz;
+  v_to   timestamptz;
+  v_t    jsonb;
+  v_in   jsonb;
+  v_out  jsonb;
+BEGIN
+  IF p_store_id IS NULL OR p_from IS NULL OR p_to IS NULL THEN
+    RAISE EXCEPTION 'Thiếu quán hoặc kỳ';
+  END IF;
+  IF NOT public.is_store_back_office(p_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền xem báo cáo quán này';
+  END IF;
+  SELECT b.period_from, b.period_to INTO v_from, v_to FROM public.report_period_bounds(p_store_id, p_from, p_to) b;
+
+  v_t := public.report_day_totals(p_store_id, v_from, v_to);
+
+  v_in := jsonb_build_array(jsonb_build_object(
+    'key', 'bills', 'label', 'Thu bill', 'cash', (v_t->>'cash')::bigint, 'bank', (v_t->>'bank')::bigint));
+  IF (v_t->>'other')::bigint > 0 THEN
+    v_in := v_in || jsonb_build_object('key', 'wallet', 'label', 'Thu qua ví', 'cash', 0, 'bank', (v_t->>'other')::bigint);
+  END IF;
+  v_in := v_in || (
+    SELECT jsonb_build_object('key', 'debt', 'label', 'Thu nợ',
+             'cash', COALESCE(SUM(p.amount) FILTER (WHERE p.method = 'cash'), 0),
+             'bank', COALESCE(SUM(p.amount) FILTER (WHERE p.method = 'bank'), 0))
+      FROM public.debt_payments p
+     WHERE p.store_id = p_store_id AND p.voided_at IS NULL AND p.business_date BETWEEN p_from AND p_to);
+  v_in := v_in || COALESCE((
+    SELECT jsonb_agg(jsonb_build_object('key', 'cat:' || r.category_id, 'label', r.name, 'cash', r.cash, 'bank', r.bank)
+                     ORDER BY r.sort_order, r.name)
+      FROM public.report_cash_book_by_category(p_store_id, p_from, p_to) r
+     WHERE r.kind = 'receipt'), '[]'::jsonb);
+
+  v_out := COALESCE((
+    SELECT jsonb_agg(jsonb_build_object('key', 'cat:' || r.category_id, 'label', r.name, 'report_group', r.report_group,
+                                        'cash', r.cash, 'bank', r.bank)
+                     ORDER BY r.sort_order, r.name)
+      FROM public.report_cash_book_by_category(p_store_id, p_from, p_to) r
+     WHERE r.kind = 'payment'), '[]'::jsonb);
+
+  RETURN (
+    WITH i AS (
+      SELECT COALESCE(SUM((x->>'cash')::bigint), 0) AS cash, COALESCE(SUM((x->>'bank')::bigint), 0) AS bank
+        FROM jsonb_array_elements(v_in) x),
+    o AS (
+      SELECT COALESCE(SUM((x->>'cash')::bigint), 0) AS cash, COALESCE(SUM((x->>'bank')::bigint), 0) AS bank
+        FROM jsonb_array_elements(v_out) x)
+    SELECT jsonb_build_object(
+      'from', p_from, 'to', p_to,
+      'funds', jsonb_build_object(
+        'cash', jsonb_build_object('in', i.cash, 'out', o.cash, 'net', i.cash - o.cash),
+        'bank', jsonb_build_object('in', i.bank, 'out', o.bank, 'net', i.bank - o.bank)),
+      'inflows', v_in,
+      'outflows', v_out)
+    FROM i, o
+  );
+END;
+$$;
+
+-- ============================================================
+-- 5) Lãi lỗ
+-- ============================================================
+--   revenue         = report_day_totals(kỳ).revenue (= cộng A04 từng ngày)
+--   cogs_ingredient = 0 khi inventory_cogs.ingredient_uncounted, ngược lại ingredient_cogs
+--   cogs_total      = goods_cogs + cogs_ingredient
+--   gross_profit    = revenue − cogs_total
+--   net_profit      = gross_profit − chi phí hoạt động − hao hụt (writeoff_cost) + thu khác
+-- Giá vốn lấy TỔNG của inventory_cogs, KHÔNG cộng lại items: khi nguyên liệu chưa kiểm kho, các dòng items vẫn mang
+-- cogs riêng (hợp đồng KHO). Phiếu chi "Nhập hàng" (inventory_purchase) KHÔNG vào lãi lỗ — tiền hàng đã nằm trong giá
+-- vốn — chỉ báo ở excluded cùng rút tiền chủ quán (owner_draw) và chuyển quỹ (cash_transfer).
+-- inventory_cogs tự kiểm is_store_back_office theo auth.uid() của người gọi (hàm này SECURITY DEFINER không đổi uid).
+CREATE FUNCTION public.report_profit_loss(p_store_id uuid, p_from date, p_to date)
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_from       timestamptz;
+  v_to         timestamptz;
+  v_revenue    bigint;
+  v_cogs       jsonb;
+  v_goods      bigint;
+  v_ingredient bigint;
+  v_writeoff   bigint;
+  v_uncounted  boolean;
+  v_opex       jsonb;
+  v_income     jsonb;
+  v_opex_total bigint;
+  v_income_total bigint;
+BEGIN
+  IF p_store_id IS NULL OR p_from IS NULL OR p_to IS NULL THEN
+    RAISE EXCEPTION 'Thiếu quán hoặc kỳ';
+  END IF;
+  IF NOT public.is_store_back_office(p_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền xem báo cáo quán này';
+  END IF;
+  SELECT b.period_from, b.period_to INTO v_from, v_to FROM public.report_period_bounds(p_store_id, p_from, p_to) b;
+
+  v_revenue := (public.report_day_totals(p_store_id, v_from, v_to)->>'revenue')::bigint;
+
+  v_cogs := public.inventory_cogs(p_store_id, p_from, p_to);
+  v_uncounted  := COALESCE((v_cogs->>'ingredient_uncounted')::boolean, false);
+  v_goods      := COALESCE((v_cogs->>'goods_cogs')::bigint, 0);
+  v_ingredient := CASE WHEN v_uncounted THEN 0 ELSE COALESCE((v_cogs->>'ingredient_cogs')::bigint, 0) END;
+  v_writeoff   := COALESCE((v_cogs->>'writeoff_cost')::bigint, 0);
+
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('category_id', r.category_id, 'name', r.name, 'amount', r.cash + r.bank)
+                            ORDER BY r.cash + r.bank DESC, r.name), '[]'::jsonb),
+         COALESCE(SUM(r.cash + r.bank), 0)
+    INTO v_opex, v_opex_total
+    FROM public.report_cash_book_by_category(p_store_id, p_from, p_to) r
+   WHERE r.kind = 'payment' AND r.report_group = 'operating_expense';
+
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('category_id', r.category_id, 'name', r.name, 'amount', r.cash + r.bank)
+                            ORDER BY r.cash + r.bank DESC, r.name), '[]'::jsonb),
+         COALESCE(SUM(r.cash + r.bank), 0)
+    INTO v_income, v_income_total
+    FROM public.report_cash_book_by_category(p_store_id, p_from, p_to) r
+   WHERE r.kind = 'receipt' AND r.report_group = 'other_income';
+
+  RETURN jsonb_build_object(
+    'from', p_from, 'to', p_to,
+    'revenue', v_revenue,
+    'cogs_goods', v_goods,
+    'cogs_ingredient', v_ingredient,
+    'cogs_total', v_goods + v_ingredient,
+    'gross_profit', v_revenue - (v_goods + v_ingredient),
+    'operating_expenses', jsonb_build_object('total', v_opex_total, 'rows', v_opex),
+    'writeoff_cost', v_writeoff,
+    'other_income', jsonb_build_object('total', v_income_total, 'rows', v_income),
+    'net_profit', v_revenue - (v_goods + v_ingredient) - v_opex_total - v_writeoff + v_income_total,
+    'excluded', (
+      SELECT jsonb_build_object(
+        'inventory_purchase', COALESCE(SUM(r.cash + r.bank) FILTER (WHERE r.report_group = 'inventory_purchase'), 0),
+        'owner_draw',         COALESCE(SUM(r.cash + r.bank) FILTER (WHERE r.report_group = 'owner_draw'), 0),
+        'cash_transfer',      COALESCE(SUM(r.cash + r.bank) FILTER (WHERE r.report_group = 'cash_transfer'), 0))
+        FROM public.report_cash_book_by_category(p_store_id, p_from, p_to) r),
+    'warnings', jsonb_build_object(
+      'ingredient_uncounted', v_uncounted,
+      'missing_cost_items', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object('inventory_item_id', x->'inventory_item_id', 'name', x->'name') ORDER BY x->>'name')
+          FROM jsonb_array_elements(COALESCE(v_cogs->'items', '[]'::jsonb)) x
+         WHERE COALESCE((x->>'missing_cost')::boolean, false)), '[]'::jsonb))
+  );
+END;
+$$;
+
+-- ============================================================
+-- 6) Quyền. REVOKE FROM PUBLIC một mình không gỡ quyền Supabase cấp thẳng cho anon/authenticated.
 -- ============================================================
 REVOKE ALL ON FUNCTION public.report_day_totals(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.report_cash_book_by_category(uuid, date, date) FROM PUBLIC, anon, authenticated;
+
+REVOKE ALL ON FUNCTION public.report_cash_flow(uuid, date, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.report_cash_flow(uuid, date, date) TO authenticated;
+REVOKE ALL ON FUNCTION public.report_profit_loss(uuid, date, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.report_profit_loss(uuid, date, date) TO authenticated;
 
 REVOKE ALL ON FUNCTION public.report_revenue_series(uuid, date, date, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.report_revenue_series(uuid, date, date, text) TO authenticated;
