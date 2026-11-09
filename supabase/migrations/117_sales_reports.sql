@@ -1,4 +1,4 @@
--- 117_sales_reports.sql — Báo cáo bán hàng (chỉ đọc): Theo món, Theo danh mục, Theo giờ cho trang /admin/reports.
+-- 117_sales_reports.sql — Báo cáo bán hàng (chỉ đọc): Theo món, Theo danh mục, Theo giờ, Món huỷ cho trang /admin/reports.
 --
 -- 1) Phạm vi "đã bán" có MỘT định nghĩa: report_paid_orders. Điều kiện WHERE chép nguyên văn CTE `money` của
 --    get_bills_report (A04) — đơn không huỷ, đã nhận tiền (hoặc tiền mặt cũ status='paid'), mốc giờ
@@ -94,6 +94,19 @@ AS $$
     AND COALESCE(o.payment_received_at, o.completed_at, o.updated_at) < p_to
 $$;
 
+-- Đơn giá một đơn vị món = item_price + Σ topping.price, đúng công thức recompute_order_total và cột Điều chỉnh A04.
+-- Một chỗ duy nhất cho cả Theo món (tiền bán) lẫn Món huỷ (tiền bỏ / tặng / giảm SL).
+CREATE FUNCTION public.report_line_unit_price(p_item_price integer, p_toppings jsonb)
+RETURNS bigint
+LANGUAGE sql IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT p_item_price::bigint + COALESCE((
+    SELECT SUM(COALESCE((e->>'price')::integer, 0))
+    FROM jsonb_array_elements(COALESCE(p_toppings, '[]'::jsonb)) e
+  ), 0)::bigint
+$$;
+
 -- Dòng món của các đơn đã thu: bỏ dòng 'cancelled'; dòng tặng amount = 0 (giống recompute_order_total chỉ cộng void_type NULL).
 CREATE FUNCTION public.report_sold_lines(p_store_id uuid, p_from timestamptz, p_to timestamptz)
 RETURNS TABLE(order_id uuid, order_item_id uuid, menu_item_id uuid, item_name text, quantity integer,
@@ -108,15 +121,11 @@ AS $$
          oi.quantity,
          COALESCE(oi.void_type = 'gift', false),
          CASE WHEN oi.void_type IS NULL
-              THEN (oi.item_price::bigint + COALESCE(tp.price, 0)) * oi.quantity
+              THEN public.report_line_unit_price(oi.item_price, oi.selected_toppings) * oi.quantity
               ELSE 0 END::bigint,
          p.kitchen_at
   FROM public.report_paid_orders(p_store_id, p_from, p_to) p
   JOIN public.order_items oi ON oi.order_id = p.order_id
-  LEFT JOIN LATERAL (
-    SELECT SUM(COALESCE((e->>'price')::integer, 0))::bigint AS price
-    FROM jsonb_array_elements(COALESCE(oi.selected_toppings, '[]'::jsonb)) e
-  ) tp ON true
   WHERE oi.void_type IS DISTINCT FROM 'cancelled'
 $$;
 
@@ -276,6 +285,81 @@ BEGIN
 END;
 $$;
 
+-- Món huỷ: cùng nguồn cột Điều chỉnh của get_bills_report (order_items.void_* + order_item_quantity_changes), lọc theo
+-- GIỜ THAO TÁC trong kỳ, không giới hạn trong đơn đã thu. Khác A04 hai chỗ, đều cố ý:
+--   • chỉ lần GIẢM số lượng (lần tăng không phải "huỷ"); quantity = old − new, amount = (old − new) × đơn giá;
+--   • bỏ đơn bị từ chối / huỷ cả đơn (status 'cancelled' hoặc rejected_at): đã nằm ở mục Đơn huỷ của A04, tính lại
+--     từng món ở đây là đếm hai lần.
+CREATE FUNCTION public.report_voids(p_store_id uuid, p_from date, p_to date)
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_from timestamptz;
+  v_to   timestamptz;
+BEGIN
+  IF p_store_id IS NULL OR p_from IS NULL OR p_to IS NULL THEN
+    RAISE EXCEPTION 'Thiếu quán hoặc kỳ';
+  END IF;
+  IF NOT public.is_store_pos_operator(p_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền xem báo cáo quán này';
+  END IF;
+  SELECT b.period_from, b.period_to INTO v_from, v_to FROM public.report_period_bounds(p_store_id, p_from, p_to) b;
+
+  RETURN (
+    WITH ev AS (
+      -- Bỏ / tặng: tiền theo số lượng hiện tại của dòng.
+      SELECT oi.voided_at AS at, oi.void_type AS type, oi.order_id, oi.item_name, oi.quantity,
+             public.report_line_unit_price(oi.item_price, oi.selected_toppings) * oi.quantity AS amount,
+             oi.void_reason AS reason, oi.voided_by AS by_user
+      FROM public.order_items oi
+      WHERE oi.void_type IS NOT NULL
+        AND oi.voided_at >= v_from AND oi.voided_at < v_to
+      UNION ALL
+      -- Giảm số lượng. Dòng món có thể đã mất (LEFT JOIN) thì đơn giá 0 như A04.
+      SELECT c.changed_at, 'quantity', c.order_id, c.item_name, c.old_quantity - c.new_quantity,
+             public.report_line_unit_price(COALESCE(oi.item_price, 0), oi.selected_toppings)
+               * (c.old_quantity - c.new_quantity),
+             c.reason, c.changed_by
+      FROM public.order_item_quantity_changes c
+      LEFT JOIN public.order_items oi ON oi.id = c.order_item_id
+      WHERE c.store_id = p_store_id
+        AND c.new_quantity < c.old_quantity
+        AND c.changed_at >= v_from AND c.changed_at < v_to
+    ),
+    r AS (
+      SELECT ev.*, o.session_id, o.order_type
+      FROM ev
+      JOIN public.orders o ON o.id = ev.order_id
+      WHERE o.store_id = p_store_id
+        AND o.status <> 'cancelled'
+        AND o.rejected_at IS NULL
+    )
+    SELECT jsonb_build_object(
+      'from', p_from, 'to', p_to, 'period_from', v_from, 'period_to', v_to,
+      'totals', jsonb_build_object(
+        'cancelled_amount', COALESCE(SUM(r.amount) FILTER (WHERE r.type = 'cancelled'), 0),
+        'gift_amount',      COALESCE(SUM(r.amount) FILTER (WHERE r.type = 'gift'), 0),
+        'reduced_amount',   COALESCE(SUM(r.amount) FILTER (WHERE r.type = 'quantity'), 0),
+        'count',            COUNT(*)),
+      'rows', COALESCE(jsonb_agg(jsonb_build_object(
+        'at', r.at,
+        'type', r.type,
+        'table_label', public.bills_report_table_label(
+          CASE WHEN r.session_id IS NULL THEN '{}'::uuid[] ELSE ARRAY[r.session_id] END, ARRAY[r.order_id], r.order_type),
+        'item_name', r.item_name,
+        'quantity', r.quantity,
+        'amount', r.amount,
+        'reason', NULLIF(btrim(r.reason), ''),
+        'by_name', (SELECT COALESCE(NULLIF(u.raw_user_meta_data->>'full_name', ''), u.email)
+                    FROM auth.users u WHERE u.id = r.by_user)
+      ) ORDER BY r.at DESC, r.type, r.item_name), '[]'::jsonb))
+    FROM r
+  );
+END;
+$$;
+
 -- ============================================================
 -- 4) Quyền. REVOKE FROM PUBLIC một mình không gỡ quyền Supabase cấp thẳng cho anon/authenticated.
 -- ============================================================
@@ -283,6 +367,7 @@ REVOKE ALL ON FUNCTION public.report_period_bounds(uuid, date, date) FROM PUBLIC
 REVOKE ALL ON FUNCTION public.report_paid_orders(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.report_sold_lines(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.report_item_groups(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.report_line_unit_price(integer, jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.report_sales_summary(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL ON FUNCTION public.report_sales_by_item(uuid, date, date) FROM PUBLIC, anon;
@@ -291,5 +376,7 @@ REVOKE ALL ON FUNCTION public.report_sales_by_hour(uuid, date, date) FROM PUBLIC
 GRANT EXECUTE ON FUNCTION public.report_sales_by_item(uuid, date, date) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.report_sales_by_category(uuid, date, date) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.report_sales_by_hour(uuid, date, date) TO authenticated;
+REVOKE ALL ON FUNCTION public.report_voids(uuid, date, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.report_voids(uuid, date, date) TO authenticated;
 
 NOTIFY pgrst, 'reload schema';

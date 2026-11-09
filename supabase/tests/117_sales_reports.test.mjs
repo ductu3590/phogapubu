@@ -350,7 +350,7 @@ test('cách ly: số của s2 không lọt vào s1 và ngược lại', async ()
   assert.equal(r1.summary.items_amount, 1050000)
 })
 
-test('5 hàm nội bộ: authenticated không EXECUTE được', async () => {
+test('6 hàm nội bộ: authenticated không EXECUTE được', async () => {
   const from = at(D, '05:00:00'), to = at(NEXT, '05:00:00')
   const calls = [
     ['report_period_bounds(uuid,date,date)', 'SELECT * FROM report_period_bounds($1, $2::date, $2::date)', [s1, D]],
@@ -358,6 +358,7 @@ test('5 hàm nội bộ: authenticated không EXECUTE được', async () => {
     ['report_sold_lines(uuid,timestamptz,timestamptz)', 'SELECT * FROM report_sold_lines($1, $2, $3)', [s1, from, to]],
     ['report_item_groups(uuid,timestamptz,timestamptz)', 'SELECT * FROM report_item_groups($1, $2, $3)', [s1, from, to]],
     ['report_sales_summary(uuid,timestamptz,timestamptz)', 'SELECT report_sales_summary($1, $2, $3)', [s1, from, to]],
+    ['report_line_unit_price(integer,jsonb)', "SELECT report_line_unit_price(1000, '[]'::jsonb)", []],
   ]
   for (const [sig, sql, params] of calls) {
     for (const role of ['anon', 'authenticated']) {
@@ -380,4 +381,115 @@ test('hàm nội bộ: report_paid_orders trả đúng cột, kitchen_at rơi v�
     ORDER BY item_name, is_gift`, [s1, at(D, '05:00:00'), at(NEXT, '05:00:00')])).rows
   assert.ok(!lines.some((l) => l.item_name === 'Lẩu riêu'), 'món bỏ không có dòng')
   assert.deepEqual(lines.filter((l) => l.is_gift).map((l) => [l.item_name, l.quantity, Number(l.amount)]), [['Ba chỉ nướng', 1, 0]])
+})
+
+// --- Món huỷ (report_voids) ---
+const VOID_DAY = '2026-03-29' // đơn bị từ chối cả đơn
+const userName = { [owner]: 'Chủ quán', [cashier]: 'Thu ngân' }
+
+// Đơn chưa thu (không phiên → nhãn 'Mang về'): Món huỷ không giới hạn trong đơn đã thu.
+async function openOrder({ store = s1, createdAt, status = 'pending', rejectedAt = null }) {
+  const o = newId()
+  await db.query(`INSERT INTO orders(id, store_id, status, total_amount, order_type, created_at, updated_at, rejected_at)
+    VALUES ($1, $2, $3, 0, 'pickup', $4, $4, $5)`, [o, store, status, createdAt, rejectedAt])
+  return o
+}
+
+test('Món huỷ ngày D: bỏ, tặng, giảm SL; lần tăng SL không có', async () => {
+  const r = await rpc('report_voids', s1, D, D)
+  assert.deepEqual(r.rows.map((x) => [x.type, x.item_name, x.quantity, x.amount, x.reason]), [
+    ['cancelled', 'Lẩu riêu', 1, 250000, 'Bếp hết'],
+    ['quantity', 'Bia Hà Nội lon', 2, 40000, 'Khách trả lại'],
+    ['gift', 'Ba chỉ nướng', 1, 120000, null],
+  ])
+  assert.deepEqual(r.totals, { cancelled_amount: 250000, gift_amount: 120000, reduced_amount: 40000, count: 3 })
+  assert.equal(r.rows[0].table_label, 'A1')
+  assert.deepEqual(r.rows.map((x) => [x.table_label, x.by_name]),
+    [['A1', userName[cashier]], ['A1', userName[cashier]], ['A1', userName[owner]]])
+  assert.deepEqual(r.rows.map((x) => new Date(x.at).getTime()),
+    [at(D, '18:55:00'), at(D, '18:40:00'), at(D, '18:30:00')].map((t) => new Date(t).getTime()))
+  // Phần đầu chung, không có summary.
+  assert.deepEqual(Object.keys(r).sort(), ['from', 'period_from', 'period_to', 'rows', 'to', 'totals'])
+  assert.equal(r.from, D)
+  assert.equal(new Date(r.period_from).getTime(), new Date(at(D, '05:00:00')).getTime())
+  assert.equal(new Date(r.period_to).getTime(), new Date(at(NEXT, '05:00:00')).getTime())
+})
+
+test('Món huỷ dùng cùng nguồn với cột Điều chỉnh của A04 (trừ lần tăng SL)', async () => {
+  const a04 = (await report(D, s1)).adjustments
+  const r = await rpc('report_voids', s1, D, D)
+  const key = (x) => `${x.type}|${x.item_name}|${new Date(x.at).getTime()}`
+  assert.deepEqual(r.rows.map(key), a04.filter((x) => x.type !== 'quantity' || x.new_quantity < x.old_quantity).map(key))
+  assert.deepEqual(r.rows.filter((x) => x.type !== 'quantity').map((x) => x.amount),
+    a04.filter((x) => x.type !== 'quantity').map((x) => x.amount))
+})
+
+test('lọc theo giờ thao tác: bỏ món lúc D+1 06:00 không vào D; đơn chưa thu vẫn có', async () => {
+  const o = await openOrder({ createdAt: at(NEXT, '05:50:00') })
+  await line(o, { name: 'Gỏi cuốn', price: 30000, qty: 2, toppings: [{ price: 5000 }], voidType: 'cancelled',
+    voidedAt: at(NEXT, '06:00:00'), voidedBy: cashier, voidReason: '  ' })
+  // Giây cuối ngày D (04:59:59 hôm sau) vẫn thuộc D.
+  const o2 = await openOrder({ createdAt: at(NEXT, '04:50:00') })
+  await line(o2, { name: 'Chả giò', price: 40000, voidType: 'gift', voidedAt: at(NEXT, '04:59:59'), voidedBy: owner,
+    voidReason: 'Khách quen' })
+  const d = await rpc('report_voids', s1, D, D)
+  assert.ok(!d.rows.some((x) => x.item_name === 'Gỏi cuốn'))
+  assert.equal(d.rows[0].item_name, 'Chả giò')
+  assert.equal(d.totals.count, 4)
+  assert.equal(d.totals.gift_amount, 160000)
+  const n = await rpc('report_voids', s1, NEXT, NEXT)
+  assert.deepEqual(n.rows.map((x) => [x.type, x.item_name, x.quantity, x.amount, x.reason, x.table_label]),
+    [['cancelled', 'Gỏi cuốn', 2, 70000, null, 'Mang về']])
+  assert.deepEqual(n.totals, { cancelled_amount: 70000, gift_amount: 0, reduced_amount: 0, count: 1 })
+})
+
+test('Món huỷ: đơn bị từ chối cả đơn không có dòng; giảm SL tính theo giá + topping', async () => {
+  const rejected = await openOrder({ createdAt: at(VOID_DAY, '12:00:00'), status: 'cancelled',
+    rejectedAt: at(VOID_DAY, '12:05:00') })
+  await line(rejected, { name: 'Bò lúc lắc', price: 150000, voidType: 'cancelled', voidedAt: at(VOID_DAY, '12:01:00'),
+    voidedBy: cashier, voidReason: 'Từ chối' })
+  const ok = await openOrder({ createdAt: at(VOID_DAY, '13:00:00'), status: 'confirmed' })
+  const item = await line(ok, { name: 'Cơm chiên', price: 50000, qty: 1, toppings: [{ price: 10000 }, { price: 5000 }] })
+  await qtyChange({ orderId: ok, itemId: item, name: 'Cơm chiên', from: 4, to: 1, reason: 'Gọi nhầm',
+    changedAt: at(VOID_DAY, '13:10:00') })
+  const r = await rpc('report_voids', s1, VOID_DAY, VOID_DAY)
+  assert.deepEqual(r.rows.map((x) => [x.type, x.item_name, x.quantity, x.amount, x.reason, x.by_name]),
+    [['quantity', 'Cơm chiên', 3, 195000, 'Gọi nhầm', userName[cashier]]])
+  assert.deepEqual(r.totals, { cancelled_amount: 0, gift_amount: 0, reduced_amount: 195000, count: 1 })
+})
+
+test('Món huỷ: kỳ trống trả mảng rỗng, tổng 0', async () => {
+  const r = await rpc('report_voids', s1, '2026-01-05', '2026-01-06')
+  assert.deepEqual([r.rows, r.totals], [[], { cancelled_amount: 0, gift_amount: 0, reduced_amount: 0, count: 0 }])
+})
+
+test('Món huỷ: quyền như Task 1, kỳ sai bị chặn', async () => {
+  for (const uid of [owner, cashier, manager]) {
+    assert.equal((await rpc('report_voids', s1, D, D, uid)).totals.cancelled_amount, 250000, uid)
+  }
+  for (const uid of [staff, owner2, admin]) {
+    await assert.rejects(rpc('report_voids', s1, D, D, uid), /Không có quyền xem báo cáo quán này/, uid)
+  }
+  await assert.rejects(rpc('report_voids', s1, NEXT, D), /Kỳ báo cáo không hợp lệ/)
+  await assert.rejects(rpc('report_voids', s1, '2025-01-01', '2026-01-02'), /tối đa 366 ngày/)
+  await assert.rejects(rpc('report_voids', s1, null, D), /Thiếu quán hoặc kỳ/)
+  await assert.rejects(rpc('report_voids', null, D, D), /Thiếu quán hoặc kỳ/)
+  const can = async (role) => (await db.query(
+    "SELECT has_function_privilege($1, 'public.report_voids(uuid,date,date)', 'EXECUTE') AS ok", [role])).rows[0].ok
+  assert.equal(await can('anon'), false)
+  assert.equal(await can('authenticated'), true)
+  await db.exec('SET ROLE anon')
+  await assert.rejects(db.query('SELECT report_voids($1, $2::date, $2::date)', [s1, D]), /permission denied for function/)
+  await db.exec('RESET ROLE')
+})
+
+test('Món huỷ: cách ly giữa hai quán', async () => {
+  const o = await openOrder({ store: s2, createdAt: at(D, '20:00:00') })
+  await line(o, { name: 'Lẩu cua', price: 777000, voidType: 'cancelled', voidedAt: at(D, '20:10:00'), voidedBy: owner2,
+    voidReason: 'Hết cua' })
+  const r2 = await rpc('report_voids', s2, D, D)
+  assert.deepEqual(r2.rows.map((x) => [x.item_name, x.amount, x.by_name]), [['Lẩu cua', 777000, 'chu2@quan.vn']])
+  const r1 = await rpc('report_voids', s1, D, D)
+  assert.ok(!r1.rows.some((x) => x.item_name === 'Lẩu cua'))
+  assert.equal(r1.totals.cancelled_amount, 250000)
 })
