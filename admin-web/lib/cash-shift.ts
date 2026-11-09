@@ -3,7 +3,7 @@
 // dự kiến / lệch, nên các trường đó là null và phải giữ null (không ép về 0, kẻo màn hình hiện "dự kiến 0đ").
 import { parseVnd } from './cash-change'
 import { formatVND } from './utils'
-import { isObj, kindOf, methodOf, num, sourceOf, str, type CashBookSource } from './cash-book'
+import { MAX_CASH_AMOUNT, isObj, kindOf, methodOf, num, sourceOf, str, type CashBookSource } from './cash-common'
 
 export type CashShiftEntry = {
   id: string
@@ -85,12 +85,10 @@ export type CashShiftReport = {
   entries: CashShiftEntry[]
 }
 
-const MAX_CASH = 2_000_000_000
-
 /** Ô tiền đầu ca / tiền đếm được: kiểu Việt Nam ("500.000", "500k", "1.000.000đ"); 0 hợp lệ; quá 2 tỉ → null. */
 export function parseShiftCash(text: string): number | null {
   const v = parseVnd(text)
-  if (v === null || v > MAX_CASH) return null
+  if (v === null || v > MAX_CASH_AMOUNT) return null
   return v
 }
 

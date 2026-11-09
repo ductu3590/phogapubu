@@ -2,10 +2,12 @@
 // /admin/cashbook, gom theo danh mục cho phiếu bàn giao ca. Hàm thuần, không gọi mạng. Mọi con số tiền do server
 // tính; ở đây chỉ cộng lại ba ô tổng (thu, chi, chênh lệch) từ bốn số server đã trả.
 import type { CashShiftEntry } from './cash-shift'
+import {
+  isObj, kindOf, methodOf, num, oneOf, sourceOf, str,
+  type CashBookKind, type CashBookMethod, type CashBookSource,
+} from './cash-common'
 
-export type CashBookKind = 'receipt' | 'payment'
-export type CashBookMethod = 'cash' | 'bank'
-export type CashBookSource = 'manual' | 'pos_drawer' | 'inventory_receipt'
+export type { CashBookKind, CashBookMethod, CashBookSource } from './cash-common'
 export type ReportGroup = 'operating_expense' | 'inventory_purchase' | 'owner_draw' | 'other_income' | 'cash_transfer'
 
 export type CashBookCategory = {
@@ -73,24 +75,7 @@ export function userReportGroups(kind: CashBookKind): ReportGroup[] {
   return kind === 'payment' ? ['operating_expense', 'owner_draw', 'cash_transfer'] : ['other_income', 'cash_transfer']
 }
 
-// ---------------------------------------------------------------------------
-// Đọc an toàn
-// ---------------------------------------------------------------------------
-type Obj = Record<string, unknown>
-export const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
-export const str = (v: unknown): string | null => (typeof v === 'string' ? v : null)
-export const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
-const oneOf = <T extends string>(v: unknown, list: readonly T[]): T | null =>
-  typeof v === 'string' && (list as readonly string[]).includes(v) ? (v as T) : null
-
-export const KINDS = ['receipt', 'payment'] as const
-export const METHODS = ['cash', 'bank'] as const
-export const SOURCES = ['manual', 'pos_drawer', 'inventory_receipt'] as const
 const GROUPS = ['operating_expense', 'inventory_purchase', 'owner_draw', 'other_income', 'cash_transfer'] as const
-
-export const kindOf = (v: unknown) => oneOf(v, KINDS)
-export const methodOf = (v: unknown) => oneOf(v, METHODS)
-export const sourceOf = (v: unknown) => oneOf(v, SOURCES)
 
 function parseEntry(raw: unknown): CashBookEntry | null {
   if (!isObj(raw)) return null

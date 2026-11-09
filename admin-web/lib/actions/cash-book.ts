@@ -4,12 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { requireBackOfficeStoreId, requirePosOperatorStoreId } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import type { CashBookKind, CashBookMethod, ReportGroup } from '@/lib/cash-book'
+import { MAX_CASH_AMOUNT } from '@/lib/cash-common'
 
 // Sổ thu chi (mig 122). Gọi bằng phiên đăng nhập: RPC tự phân quyền (thu ngân chỉ ghi tiền mặt tại két, không huỷ;
 // chủ quán + quản lý ghi TM/CK, huỷ, sửa danh mục). Guard ở đây chỉ để báo lỗi sớm; lỗi trả { ok: false, error }.
 
 type Fail = { ok: false; error: string }
-const MAX_AMOUNT = 2_000_000_000
 const message = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback)
 
 export async function createCashBookEntry(input: {
@@ -23,7 +23,7 @@ export async function createCashBookEntry(input: {
   clientRequestId: string
 }): Promise<{ ok: true; id: string; already: boolean } | Fail> {
   if (!input.clientRequestId?.trim()) return { ok: false, error: 'Thiếu mã chống ghi trùng' }
-  if (!Number.isSafeInteger(input.amount) || input.amount < 1 || input.amount > MAX_AMOUNT) {
+  if (!Number.isSafeInteger(input.amount) || input.amount < 1 || input.amount > MAX_CASH_AMOUNT) {
     return { ok: false, error: 'Số tiền phải từ 1đ đến 2.000.000.000đ' }
   }
   if (!input.categoryId) return { ok: false, error: 'Chọn danh mục' }

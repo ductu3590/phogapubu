@@ -4,14 +4,14 @@ import { revalidatePath } from 'next/cache'
 import { requirePosOperatorStoreId, requireStoreOwnerStoreId } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { parseCashShiftCloseResult, type CashShiftCloseResult } from '@/lib/cash-shift'
+import { MAX_CASH_AMOUNT } from '@/lib/cash-common'
 
 // Ca thu ngân (mig 122). Gọi bằng phiên đăng nhập (không service key): RPC tự kiểm quyền theo auth.uid().
 // Lỗi người dùng trả { ok: false, error } (Next prod giấu nội dung lỗi ném); bọc cả bước kiểm quyền.
 // Trạng thái ca POS đọc thẳng từ trình duyệt (lib/pos-browser-reads.ts), không poll qua action.
 
 type Fail = { ok: false; error: string }
-const MAX_CASH = 2_000_000_000
-const validCash = (v: number) => Number.isSafeInteger(v) && v >= 0 && v <= MAX_CASH
+const validCash = (v: number) => Number.isSafeInteger(v) && v >= 0 && v <= MAX_CASH_AMOUNT
 const message = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback)
 
 export async function openCashShift(input: { openingCash: number; note: string | null }): Promise<

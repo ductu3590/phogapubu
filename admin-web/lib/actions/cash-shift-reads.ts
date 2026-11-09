@@ -30,8 +30,12 @@ export async function loadCashShiftReport(shiftId: string): Promise<
   return { ok: true, report }
 }
 
-// Công tắc "Bắt buộc mở ca". Đọc thẳng bảng bằng service key như loadBusinessDayStart (get_public_store_workflow lọc
-// quán is_active nên quán chưa bật luôn ra false). Lỗi / thiếu dòng → false (mặc định của cột).
+/**
+ * Công tắc "Bắt buộc mở ca". Đọc thẳng bảng bằng service key như loadBusinessDayStart (get_public_store_workflow lọc
+ * quán is_active nên quán chưa bật luôn ra false). Lỗi / thiếu dòng → false (mặc định của cột).
+ * ⚠️ Service key bỏ qua RLS: `storeId` PHẢI lấy từ guard đã kiểm operator (requireAdminPageOrRedirect /
+ * require*StoreId), không bao giờ từ tham số URL hay input client.
+ */
 export async function loadCashShiftRequired(storeId: string): Promise<boolean> {
   try {
     const { data, error } = await createAdminClient()
