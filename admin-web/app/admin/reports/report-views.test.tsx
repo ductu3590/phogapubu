@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { SalesHourRow, SalesItemRow, SalesSummary, VoidRow } from '@/lib/reports/sales'
@@ -9,8 +11,20 @@ const { default: SalesItemView, categoryOptions, filterItemRows } = await import
 const { default: SalesCategoryView } = await import('./sales-category-view')
 const { default: SalesHourView, HourBars } = await import('./sales-hour-view')
 const { default: VoidsView } = await import('./voids-view')
-const { default: ReportToolbar, reportQuery } = await import('./report-toolbar')
+const { default: ReportToolbar, reportQuery, toolbarKey } = await import('./report-toolbar')
 const { default: SalesSummaryBlock } = await import('./report-summary')
+const { reportScopeNote } = await import('./report-format')
+
+describe('dòng phạm vi dưới tiêu đề', () => {
+  it('3 tab bán hàng: chỉ tính bill đã thu; Món huỷ: theo giờ thao tác, không nói "đã thu"', () => {
+    for (const tab of ['item', 'category', 'hour'] as const) expect(reportScopeNote(tab)).toContain('chỉ tính bill đã thu tiền')
+    expect(reportScopeNote('voids')).not.toContain('đã thu')
+    expect(reportScopeNote('voids')).toContain('giờ thao tác')
+    const screen = readFileSync(join(__dirname, 'reports-screen.tsx'), 'utf8')
+    expect(screen).not.toContain('chỉ tính bill đã thu tiền')
+    expect(screen).toContain('reportScopeNote(tab)')
+  })
+})
 
 // Dữ liệu "ngày D" của test SQL mig 117 (quán 05:00, bill A/B).
 const item = (itemName: string, categoryId: string | null, categoryName: string, qtySold: number, qtyGift: number, amount: number): SalesItemRow =>
@@ -183,6 +197,16 @@ describe('toolbar', () => {
     expect(count(html, 'max="2026-11-20"')).toBe(2)
     expect(html).toContain('value="2026-11-01"')
     expect(html).toContain('>Xem<')
+  })
+
+  it('toolbar gắn key theo kỳ: router.replace trong hộp thoại dựng lại ô ngày, không giữ ngày cũ', () => {
+    const k = (preset: 'custom' | 'today', from: string, to: string) => toolbarKey({ preset, from, to })
+    expect(k('custom', '2026-11-01', '2026-11-20')).not.toBe(k('custom', '2026-11-02', '2026-11-20'))
+    expect(k('custom', '2026-11-01', '2026-11-20')).not.toBe(k('custom', '2026-11-01', '2026-11-19'))
+    expect(k('custom', '2026-11-20', '2026-11-20')).not.toBe(k('today', '2026-11-20', '2026-11-20'))
+    // Màn hình phải thật sự truyền key này (đổi kỳ trong hộp thoại không gỡ component nên state nháp sẽ cũ).
+    const screen = readFileSync(join(__dirname, 'reports-screen.tsx'), 'utf8')
+    expect(screen).toMatch(/<ReportToolbar\s+key=\{toolbarKey\(range\)\}/)
   })
 
   it('reportQuery giữ khoá còn lại; preset nhanh không mang from/to', () => {

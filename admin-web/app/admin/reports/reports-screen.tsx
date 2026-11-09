@@ -4,7 +4,8 @@ import { periodLabel } from '@/lib/reports/period'
 import { parseReportTab, reportTabsFor } from '@/lib/reports/tabs'
 import type { SalesReport } from '@/lib/reports/sales'
 import { ErrorState } from '@/components/ui/feedback'
-import ReportToolbar from './report-toolbar'
+import ReportToolbar, { toolbarKey } from './report-toolbar'
+import { reportScopeNote } from './report-format'
 import SalesSummaryBlock from './report-summary'
 import SalesItemView from './sales-item-view'
 import SalesCategoryView from './sales-category-view'
@@ -34,11 +35,12 @@ export default async function ReportsScreen({ searchParams, inModal }: {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold text-foreground md:text-2xl">Báo cáo</h1>
           <p className="mt-1 text-sm text-muted">
-            Kỳ <span className="font-medium text-foreground tabular">{periodLabel(range)}</span> · theo ngày kinh doanh, chỉ tính bill đã thu tiền
+            Kỳ <span className="font-medium text-foreground tabular">{periodLabel(range)}</span> · {reportScopeNote(tab)}
           </p>
         </div>
 
         <ReportToolbar
+          key={toolbarKey(range)}
           tab={tab}
           preset={range.preset}
           from={range.from}
