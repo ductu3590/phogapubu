@@ -15,6 +15,7 @@ import type { BillRow } from '@/lib/bills-report'
 import type { BillDetailOrder, SessionMove } from '@/lib/bill-detail'
 import { collectSessionBill, getSessionMoves, loadBillDetail, redeemBillSpin, runBillOrderAction, type BillOrderAction } from '@/lib/actions/bill-detail'
 import { getSessionsBill } from '@/lib/actions/table-session'
+import ConfirmDialog from '../pos/confirm-dialog'
 
 const time = (iso: string) =>
   iso ? new Date(iso).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -33,6 +34,11 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [reloadTick, setReloadTick] = useState(0)
+  // Bước 2 của "Đã nhận tiền": hộp xác nhận + mã chống thu trùng của lần thu này.
+  const [pendingCollect, setPendingCollect] = useState<
+    { instrument: 'cash' | 'bank'; amount: number; requestId: string; text: string } | null
+  >(null)
+  const [collectError, setCollectError] = useState<string | null>(null)
 
   // Cha dựng lại component theo key của dòng → state tự về ban đầu khi đổi dòng. Ở đây chỉ tải khi danh sách
   // đơn đổi hoặc sau một thao tác (không theo object `row`: router.refresh dựng lại object mỗi lần → tải thừa, nháy).
@@ -81,13 +87,14 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
     }
   }
 
-  // Bàn trả sau: thu CẢ BÀN một lần → đóng bill (như POS → Thanh toán). Xong thì dòng chuyển sang "Đã thanh toán"
-  // với key khác → đóng ngăn kéo.
+  // Bàn trả sau: thu CẢ BÀN một lần → đóng bill (như POS → Thanh toán). Hai bước: (1) đọc bill để có số SAU giảm
+  // giá rồi mở hộp xác nhận, (2) xác nhận → collect_table_bill. Xong thì dòng chuyển sang "Đã thanh toán" với key
+  // khác → đóng ngăn kéo. requestId sinh ở bước 1 và giữ tới khi thu xong hoặc huỷ hộp: bấm lại sau lỗi / mất
+  // mạng gửi lại đúng mã, server không ghi khoản thứ hai.
   const onCollect = async (instrument: 'cash' | 'bank') => {
     if (!row) return
-    const how = instrument === 'cash' ? 'TIỀN MẶT' : 'CHUYỂN KHOẢN'
-    // Giảm giá đặt ở POS nằm trên phiên; close_table_session trừ nó lúc thu (mig 108) → hỏi đúng số SAU giảm,
-    // không thì thu ngân thu đủ tạm tính mà báo cáo ghi ít hơn (két lệch). Phiên hết hạn: server trả 0.
+    // Giảm giá đặt ở POS nằm trên phiên; server trừ nó lúc thu (mig 108) → hỏi và gửi đúng số SAU giảm,
+    // không thì server từ chối vì lệch. Phiên hết hạn: server trả 0.
     setBusy(`collect:${instrument}`)
     let discount = 0
     try {
@@ -104,19 +111,28 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
       setError('Giảm giá lớn hơn tiền hàng. Sửa giảm giá ở POS → Thanh toán rồi thu lại.')
       return
     }
-    const amountText = discount > 0
-      ? `${formatVND(row.amount - discount)} (tạm tính ${formatVND(row.amount)}, đã trừ giảm giá ${formatVND(discount)})`
-      : formatVND(row.amount)
-    if (!window.confirm(`Đã nhận ${amountText} bằng ${how} cho ${row.tableLabel}?
-Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.`)) return
+    const due = row.amount - discount
+    const text = discount > 0
+      ? `Tạm tính ${formatVND(row.amount)}, đã trừ giảm giá ${formatVND(discount)}.`
+      : ''
+    setCollectError(null)
+    setPendingCollect({ instrument, amount: due, requestId: crypto.randomUUID(), text })
+  }
+
+  const confirmCollect = async () => {
+    if (!row || !pendingCollect) return
+    const { instrument, amount, requestId } = pendingCollect
     setBusy(`collect:${instrument}`)
+    setCollectError(null)
     try {
-      const res = await collectSessionBill(row.sessionIds, instrument)
-      if (!res.ok) { setError(res.error); return }
+      const res = await collectSessionBill(row.sessionIds, instrument, amount, requestId)
+      // Lỗi: giữ hộp + giữ mã. Lần lỗi không ghi gì nên bấm lại an toàn; bill đổi thì server báo lệch → huỷ hộp, mở lại.
+      if (!res.ok) { setCollectError(res.error); return }
+      setPendingCollect(null)
       router.refresh()
       onClose()
     } catch {
-      setError('Lỗi kết nối. Kiểm tra lại bàn ở POS trước khi thu lại.')
+      setCollectError('Lỗi kết nối. Bấm thu lại — cùng một lần thu nên không bị ghi trùng.')
     } finally {
       setBusy(null)
     }
@@ -207,6 +223,26 @@ Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.`)) return
           ))
         )}
       </div>
+      <ConfirmDialog
+        open={pendingCollect !== null}
+        title={pendingCollect
+          ? `Đã nhận ${formatVND(pendingCollect.amount)} bằng ${pendingCollect.instrument === 'cash' ? 'tiền mặt' : 'chuyển khoản'}?`
+          : ''}
+        description={pendingCollect && (
+          <>
+            {row.tableLabel}. {pendingCollect.text} Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.
+            {collectError && (
+              <span role="alert" className="mt-2 block rounded-lg border border-critical-border bg-critical-bg px-3 py-2 text-[13px] text-critical">
+                {collectError}
+              </span>
+            )}
+          </>
+        )}
+        confirmLabel="Đã nhận tiền"
+        busy={busy?.startsWith('collect:') ?? false}
+        onConfirm={() => void confirmCollect()}
+        onCancel={() => { setPendingCollect(null); setCollectError(null) }}
+      />
     </Dialog>
   )
 }

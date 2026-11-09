@@ -14,7 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   addTableToSession,
   closeTableSession,
-  closeTableSessionsBulk,
+  collectTableBill,
   createTraySession,
   listOpenTableSessions,
   mergeSessionIntoTray,
@@ -43,7 +43,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 type Sheet =
   | { kind: 'none' }
-  | { kind: 'pay'; sessions: OpenTableSession[] }
+  // requestId sinh lúc mở sheet: bấm lại sau lỗi / mất mạng gửi lại đúng mã → server không ghi khoản thứ hai.
+  | { kind: 'pay'; sessions: OpenTableSession[]; requestId: string }
   | { kind: 'more'; session: OpenTableSession }
   | { kind: 'reset'; session: OpenTableSession }
   | { kind: 'tray' }
@@ -149,7 +150,7 @@ export default function TablesClient({
   const liveSessions = sessions.filter((s) => !s.needs_review)
   const reviewSessions = sessions.filter((s) => s.needs_review)
   const pickedSessions = sessions.filter((s) => picked.has(s.session_id))
-  // Số tiền thu = phần chưa thu trừ giảm giá đặt ở POS — đúng số close_table_session ghi (mig 108).
+  // Số tiền thu = phần chưa thu trừ giảm giá đặt ở POS — đúng số collect_table_bill tự tính (mig 108, 112a).
   const pickedTotal = billTotals(pickedSessions).payable
 
   const finish = async (msg?: string) => {
@@ -161,25 +162,39 @@ export default function TablesClient({
     await reload()
   }
 
-  const doClose = async (
-    list: OpenTableSession[],
-    reason: 'paid' | 'staff_reset',
-    instrument: 'cash' | 'bank' | null,
-  ) => {
+  // Thu một bàn hoặc gộp N mâm, MỘT phương tiện (mig 112a: collect_table_bill). Số gửi lên = số đang hiện
+  // (billTotals); server tự tính lại và từ chối nếu bill vừa đổi. Lỗi thì finish không chạy → sheet giữ
+  // nguyên requestId, bấm lại không tạo khoản trùng.
+  const doCollect = async (list: OpenTableSession[], instrument: 'cash' | 'bank', requestId: string) => {
     if (!canClose) return
     setBusy(true)
-    const ids = list.map((s) => s.session_id)
-    const res =
-      ids.length === 1
-        ? await closeTableSession(ids[0], reason, instrument)
-        : await closeTableSessionsBulk(ids, reason, instrument)
+    const t = billTotals(list)
+    const res = await collectTableBill({
+      sessionIds: list.map((s) => s.session_id),
+      lines: t.payable > 0 ? [{ instrument, amount: t.payable }] : [],
+      cashGiven: null,
+      clientRequestId: requestId,
+    })
+    if (!res.ok) {
+      setBusy(false)
+      setError(res.error)
+      return
+    }
+    await finish(res.already ? 'Bàn này vừa được máy khác chốt xong.' : undefined)
+  }
+
+  // Bỏ bàn: đóng phiên không thu tiền.
+  const doReset = async (session: OpenTableSession) => {
+    if (!canClose) return
+    setBusy(true)
+    const res = await closeTableSession(session.session_id, 'staff_reset')
     if (!res.ok) {
       setBusy(false)
       setError(res.error)
       return
     }
     await finish(
-      reason === 'staff_reset' && res.ordersLeftInKitchen > 0
+      res.ordersLeftInKitchen > 0
         ? `Đã bỏ bàn. Còn ${res.ordersLeftInKitchen} món đã vào bếp — vẫn nằm ở màn bếp, xử lý tay.`
         : undefined,
     )
@@ -297,7 +312,7 @@ export default function TablesClient({
 
           <div className="flex gap-2">
             {canClose && (
-              <Button variant="primary" onClick={() => setSheet({ kind: 'pay', sessions: [s] })} disabled={busy} className="flex-1">
+              <Button variant="primary" onClick={() => setSheet({ kind: 'pay', sessions: [s], requestId: crypto.randomUUID() })} disabled={busy} className="flex-1">
                 Thu tiền &amp; đóng bàn
               </Button>
             )}
@@ -366,7 +381,7 @@ export default function TablesClient({
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => setPicked(new Set())}>Bỏ chọn</Button>
             <Button icon={<Printer />} onClick={() => printBill(pickedSessions)}>In 1 hoá đơn</Button>
-            <Button variant="primary" onClick={() => setSheet({ kind: 'pay', sessions: pickedSessions })} disabled={busy} className="flex-1">
+            <Button variant="primary" onClick={() => setSheet({ kind: 'pay', sessions: pickedSessions, requestId: crypto.randomUUID() })} disabled={busy} className="flex-1">
               Thu tiền
             </Button>
           </div>
@@ -394,10 +409,10 @@ export default function TablesClient({
                 )}
                 <p className="text-sm text-muted">Khách trả bằng gì?</p>
                 <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Button variant="primary" size="touch" icon={<Banknote />} onClick={() => void doClose(sheet.sessions, 'paid', 'cash')} disabled={busy || !!t.error}>
+                  <Button variant="primary" size="touch" icon={<Banknote />} onClick={() => void doCollect(sheet.sessions, 'cash', sheet.requestId)} disabled={busy || !!t.error}>
                     Tiền mặt
                   </Button>
-                  <Button size="touch" icon={<Landmark />} onClick={() => void doClose(sheet.sessions, 'paid', 'bank')} disabled={busy || !!t.error}>
+                  <Button size="touch" icon={<Landmark />} onClick={() => void doCollect(sheet.sessions, 'bank', sheet.requestId)} disabled={busy || !!t.error}>
                     Chuyển khoản
                   </Button>
                 </div>
@@ -454,7 +469,7 @@ export default function TablesClient({
                 </p>
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <Button size="touch" onClick={() => setSheet({ kind: 'more', session: sheet.session })}>Quay lại</Button>
-                  <Button variant="danger" size="touch" onClick={() => void doClose([sheet.session], 'staff_reset', null)} disabled={busy}>Bỏ bàn</Button>
+                  <Button variant="danger" size="touch" onClick={() => void doReset(sheet.session)} disabled={busy}>Bỏ bàn</Button>
                 </div>
               </>
             )}

@@ -138,12 +138,11 @@ export async function listOpenTableSessions(): Promise<ListSessionsResult> {
   return { ok: true, sessions }
 }
 
-// reason='paid'        → ghi tiền cho MỌI đơn chưa thu của phiên (trừ đơn đã huỷ) rồi đóng bàn.
-// reason='staff_reset' → bỏ bàn không thu tiền: huỷ đơn chưa nấu, GIỮ đơn đã vào bếp.
+// Bỏ bàn ('staff_reset'): đóng phiên KHÔNG thu tiền — huỷ đơn chưa nấu, GIỮ đơn đã vào bếp.
+// Thu tiền KHÔNG đi đường này nữa (mig 112b: close_table_session từ chối 'paid') → dùng collectTableBill.
 export async function closeTableSession(
   sessionId: string,
-  reason: 'paid' | 'staff_reset',
-  instrument: 'cash' | 'bank' | null,
+  reason: 'staff_reset',
 ): Promise<CloseSessionResult> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
@@ -154,7 +153,7 @@ export async function closeTableSession(
   const { data, error: rpcErr } = await supabase.rpc('close_table_session', {
     p_session_id: sessionId,
     p_reason: reason,
-    p_instrument: instrument,
+    p_instrument: null,
   })
   if (rpcErr) return { ok: false, error: rpcErr.message }
 
@@ -331,7 +330,7 @@ export async function mergeSessionIntoTray(
 }
 
 // ─── Giảm giá cả bill (mig 107) ──────────────────────────────────────────────
-// Chỉ lưu "ý định" trên phiên; tiền thật sự trừ vào đơn lúc close_table_session(paid). null = bỏ giảm giá.
+// Chỉ lưu "ý định" trên phiên; tiền thật sự trừ vào đơn lúc thu (collect_table_bill, mig 112a). null = bỏ giảm giá.
 // Mọi luật (số nguyên không âm, % ≤ 100, VNĐ ≤ tiền hàng, phiên còn mở) do RPC kiểm; lỗi trả nguyên văn tiếng Việt.
 
 // Một phiên.
@@ -367,43 +366,6 @@ export async function setSessionsDiscount(sessionIds: string[], d: BillDiscount)
   })
   if (rpcErr) return { ok: false, error: rpcErr.message }
   return { ok: true }
-}
-
-// Gộp bill: chốt N mâm trong MỘT giao dịch, cùng một phương tiện. Hoặc thu hết, hoặc không
-// mâm nào bị đánh dấu đã thu — không có cảnh thu được 2/3 mâm rồi đứt.
-export async function closeTableSessionsBulk(
-  sessionIds: string[],
-  reason: 'paid' | 'staff_reset',
-  instrument: 'cash' | 'bank' | null,
-): Promise<CloseSessionResult> {
-  const { operator, supabase, error } = await staffClient()
-  if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
-  if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' }
-  }
-  if (sessionIds.length === 0) return { ok: false, error: 'Chưa chọn mâm nào' }
-
-  const { data, error: rpcErr } = await supabase.rpc('close_table_sessions_bulk', {
-    p_session_ids: sessionIds,
-    p_reason: reason,
-    p_instrument: instrument,
-  })
-  if (rpcErr) return { ok: false, error: rpcErr.message }
-
-  const r = data as {
-    orders_settled: number
-    orders_cancelled: number
-    orders_left_in_kitchen: number
-    total: number
-  }
-  return {
-    ok: true,
-    already: false,
-    ordersSettled: r.orders_settled,
-    ordersCancelled: r.orders_cancelled,
-    ordersLeftInKitchen: r.orders_left_in_kitchen,
-    total: r.total,
-  }
 }
 
 // ─── Dữ liệu in hoá đơn 80mm ────────────────────────────────────────────────

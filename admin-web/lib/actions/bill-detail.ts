@@ -6,7 +6,7 @@ import { requirePosOperatorStoreId } from '@/lib/auth/operator'
 import { parseBillDetail, parseSessionMoves, type BillDetailOrder, type SessionMove } from '@/lib/bill-detail'
 import { cancelOrder, completeOrder, confirmManualPayment } from '@/lib/actions/orders'
 import { redeemSpin } from '@/lib/actions/spin'
-import { closeTableSession, closeTableSessionsBulk } from '@/lib/actions/table-session'
+import { collectTableBill } from '@/lib/actions/table-session'
 
 // Ngăn kéo "Xem bill" (A04-2) của trang Hoá đơn & Báo cáo.
 // Gọi MỘT lần khi mở ngăn kéo / sau mỗi thao tác — KHÔNG poll bằng server action (bài học ST-3).
@@ -106,14 +106,28 @@ export async function redeemBillSpin(resultId: string): Promise<{ ok: true } | {
 }
 
 // Bàn trả sau: "Đã nhận tiền" = thu CẢ BÀN một lần rồi đóng bill (anh Tú 2026-10-13: quán chỉ thanh toán một lần
-// trước khi khách về). Dùng lại NGUYÊN action thu tiền của POS → close_table_session(paid): ghi tiền mọi lượt chưa thu,
-// chuyển đơn sang Hoàn tất (mig 085), đóng phiên. Chủ quán + thu ngân (như POS). Phiên hết hạn còn nợ cũng thu được.
-export async function collectSessionBill(sessionIds: string[], instrument: 'cash' | 'bank'): Promise<{ ok: true } | { ok: false; error: string }> {
+// trước khi khách về). Dùng lại NGUYÊN action thu tiền của POS → collect_table_bill (mig 112a): ghi một khoản thu
+// một phương tiện, ghi tiền mọi lượt chưa thu, chuyển đơn sang Hoàn tất (mig 085), đóng phiên. Chủ quán + thu ngân
+// (như POS). Phiên hết hạn còn nợ cũng thu được.
+// `amount` = số ngăn kéo đang hiện (sau giảm giá); server tự tính lại và từ chối nếu lệch (bill đổi từ lúc mở).
+// `clientRequestId` do ngăn kéo giữ suốt lần xác nhận: bấm lại sau lỗi / mất mạng không ghi khoản thứ hai.
+export async function collectSessionBill(
+  sessionIds: string[],
+  instrument: 'cash' | 'bank',
+  amount: number,
+  clientRequestId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const ids = Array.isArray(sessionIds) ? sessionIds.filter((x) => typeof x === 'string' && UUID.test(x)) : []
   if (ids.length === 0) return { ok: false, error: 'Không có bàn nào để thu' }
   if (instrument !== 'cash' && instrument !== 'bank') return { ok: false, error: 'Phương thức thanh toán không hợp lệ' }
+  if (!Number.isSafeInteger(amount) || amount < 0) return { ok: false, error: 'Số tiền không hợp lệ' }
   try {
-    const res = ids.length === 1 ? await closeTableSession(ids[0], 'paid', instrument) : await closeTableSessionsBulk(ids, 'paid', instrument)
+    const res = await collectTableBill({
+      sessionIds: ids,
+      lines: amount > 0 ? [{ instrument, amount }] : [],
+      cashGiven: null,
+      clientRequestId,
+    })
     if (!res.ok) return { ok: false, error: res.error }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Không thu được, thử lại sau' }

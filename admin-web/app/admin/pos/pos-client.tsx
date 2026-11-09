@@ -471,7 +471,7 @@ export default function PosClient({
 
   const doReset = async (s: OpenTableSession) => {
     setBusy(true)
-    const res = await closeTableSession(s.session_id, 'staff_reset', null)
+    const res = await closeTableSession(s.session_id, 'staff_reset')
     setPendingConfirm(null) // đóng hộp ngay khi có kết quả, không đợi reload
     if (!res.ok) {
       setBusy(false)
