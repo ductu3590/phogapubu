@@ -164,6 +164,30 @@ BEGIN
 END;
 $$;
 
+-- Kiểm tên / loại / ghi chú của khách nợ (một chỗ cho tạo và sửa). Nhận giá trị ĐÃ chuẩn hoá: tên đã btrim,
+-- loại đã thay mặc định, ghi chú đã btrim (rỗng → NULL). Thứ tự và câu báo cố định.
+CREATE FUNCTION public.debt_customer_validate(p_name text, p_kind text, p_note text)
+RETURNS void
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = public
+AS $$
+BEGIN
+  IF p_name IS NULL OR p_name = '' THEN
+    RAISE EXCEPTION 'Tên khách nợ không được trống';
+  END IF;
+  IF char_length(p_name) > 120 THEN
+    RAISE EXCEPTION 'Tên khách nợ quá dài';
+  END IF;
+  IF p_kind IS NULL OR p_kind NOT IN ('company', 'person') THEN
+    RAISE EXCEPTION 'Loại khách không hợp lệ';
+  END IF;
+  IF char_length(p_note) > 500 THEN
+    RAISE EXCEPTION 'Ghi chú quá dài';
+  END IF;
+END;
+$$;
+
 -- Tạo một khách nợ. Không kiểm quyền: người gọi (RPC SECURITY DEFINER) đã kiểm.
 CREATE FUNCTION public.debt_customer_create_internal(
   p_store_id uuid, p_name text, p_phone text, p_kind text, p_note text, p_actor uuid
@@ -180,18 +204,7 @@ DECLARE
   v_old_name text;
   v_id uuid;
 BEGIN
-  IF v_name = '' THEN
-    RAISE EXCEPTION 'Tên khách nợ không được trống';
-  END IF;
-  IF char_length(v_name) > 120 THEN
-    RAISE EXCEPTION 'Tên khách nợ quá dài';
-  END IF;
-  IF v_kind NOT IN ('company', 'person') THEN
-    RAISE EXCEPTION 'Loại khách không hợp lệ';
-  END IF;
-  IF char_length(v_note) > 500 THEN
-    RAISE EXCEPTION 'Ghi chú quá dài';
-  END IF;
+  PERFORM public.debt_customer_validate(v_name, v_kind, v_note);
   v_phone := public.debt_normalize_phone(p_phone);
 
   IF v_phone IS NOT NULL THEN
@@ -239,6 +252,7 @@ AS $$
 $$;
 
 REVOKE ALL ON FUNCTION public.debt_normalize_phone(text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.debt_customer_validate(text, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.debt_customer_create_internal(uuid, text, text, text, text, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.debt_customer_bills(uuid) FROM PUBLIC, anon, authenticated;
 
@@ -478,6 +492,10 @@ BEGIN
        OR v_old.method IS DISTINCT FROM p_method THEN
       RAISE EXCEPTION 'Mã thu nợ đã dùng cho lần thu khác';
     END IF;
+    -- Lần trả cùng mã đã bị huỷ (chủ quán huỷ trong lúc máy này mất phản hồi): không trả 'already' như thể đã thu.
+    IF v_old.voided_at IS NOT NULL THEN
+      RAISE EXCEPTION 'Lần trả nợ này đã bị huỷ';
+    END IF;
     RETURN jsonb_build_object(
       'ok', true, 'already', true, 'debt_payment_id', v_old.id,
       'allocations', public.debt_payment_allocations_json(v_old.id),
@@ -561,6 +579,10 @@ BEGIN
     VALUES (v_id, v_bill.bill_payment_id, v_take);
     v_left := v_left - v_take;
   END LOOP;
+  -- Phòng hờ: bước 6 đã chặn trả quá số nợ dưới cùng khoá khách, nên không bao giờ còn dư.
+  IF v_left > 0 THEN
+    RAISE EXCEPTION 'Phân bổ lần trả nợ không khớp số tiền, tải lại rồi thu lại';
+  END IF;
 
   -- 9.
   RETURN jsonb_build_object(
@@ -624,7 +646,7 @@ SET search_path TO 'public'
 AS $$
 DECLARE
   v_name text := btrim(COALESCE(p_name, ''));
-  v_kind text := COALESCE(p_kind, 'person');
+  v_kind text;
   v_note text := NULLIF(btrim(COALESCE(p_note, '')), '');
   v_phone text;
   v_old_name text;
@@ -637,23 +659,13 @@ BEGIN
       public.debt_customer_create_internal(p_store_id, p_name, p_phone, p_kind, p_note, auth.uid()));
   END IF;
 
-  PERFORM 1 FROM public.debt_customers c WHERE c.id = p_customer_id AND c.store_id = p_store_id FOR UPDATE;
+  -- Sửa: p_kind NULL = giữ loại đang có (tạo mới thì NULL = 'person').
+  SELECT COALESCE(p_kind, c.kind) INTO v_kind FROM public.debt_customers c
+   WHERE c.id = p_customer_id AND c.store_id = p_store_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Không tìm thấy khách nợ';
   END IF;
-  -- Kiểm như debt_customer_create_internal, cùng thứ tự và câu báo.
-  IF v_name = '' THEN
-    RAISE EXCEPTION 'Tên khách nợ không được trống';
-  END IF;
-  IF char_length(v_name) > 120 THEN
-    RAISE EXCEPTION 'Tên khách nợ quá dài';
-  END IF;
-  IF v_kind NOT IN ('company', 'person') THEN
-    RAISE EXCEPTION 'Loại khách không hợp lệ';
-  END IF;
-  IF char_length(v_note) > 500 THEN
-    RAISE EXCEPTION 'Ghi chú quá dài';
-  END IF;
+  PERFORM public.debt_customer_validate(v_name, v_kind, v_note);
   v_phone := public.debt_normalize_phone(p_phone);
   IF v_phone IS NOT NULL THEN
     SELECT c.name INTO v_old_name FROM public.debt_customers c

@@ -418,3 +418,42 @@ test('quyền: thu ngân, quản lý xem được ca của mình; thu ngân khô
   assert.equal((await rpc(ids.owner, 'get_debt_shift_summary', [shift])).debt_cash, 0)
   await assert.rejects(rpc(ids.owner, 'get_debt_shift_summary', [rid()]), /Không tìm thấy ca/)
 })
+
+// ---- Fold-in sau review Task 2 ----
+
+test('gọi lại mã của lần trả đã bị huỷ: lỗi, không trả already, không ghi thêm', async () => {
+  const c = await customer(); await threeBills(c); const id = rid()
+  const a = await pay(c, 100000, 'bank', null, id)
+  await rpc(ids.owner, 'debt_payment_void', [a.debt_payment_id, 'nhầm'])
+  await assert.rejects(pay(c, 100000, 'bank', null, id), /Lần trả nợ này đã bị huỷ/)
+  assert.equal(await count('debt_payments'), 1)
+})
+
+test('debt_collect: sau vòng phân bổ còn dư thì RAISE (phòng hờ, kiểm tĩnh)', async () => {
+  const { def } = await one("SELECT pg_get_functiondef('public.debt_collect(uuid,bigint,text,jsonb,text,uuid)'::regprocedure) def")
+  assert.match(def, /END LOOP;\s*--[^\n]*\n\s*IF v_left > 0 THEN\s*RAISE EXCEPTION/)
+})
+
+test('sửa khách: p_kind NULL giữ loại cũ; kiểm tên / loại / ghi chú dùng chung một hàm', async () => {
+  const c = await customer({ kind: 'company' })
+  await rpc(ids.owner, 'debt_customer_upsert', [ids.store, c, 'Cty Hoà Bình', null, null, null])
+  assert.equal((await one('SELECT kind FROM debt_customers WHERE id = $1', [c])).kind, 'company')
+  const n = (await rpc(ids.owner, 'debt_customer_upsert', [ids.store, null, 'Anh Hải', null, null, null])).customer_id
+  assert.equal((await one('SELECT kind FROM debt_customers WHERE id = $1', [n])).kind, 'person')
+  for (const [args, err] of [
+    [['  ', null, null], /Tên khách nợ không được trống/],
+    [['x'.repeat(121), null, null], /Tên khách nợ quá dài/],
+    [['A', 'vip', null], /Loại khách không hợp lệ/],
+    [['A', null, 'x'.repeat(501)], /Ghi chú quá dài/],
+  ]) {
+    const [name, kind, note] = args
+    await assert.rejects(rpc(ids.owner, 'debt_customer_upsert', [ids.store, c, name, null, kind, note]), err)
+    await assert.rejects(rpc(ids.owner, 'debt_customer_upsert', [ids.store, null, name, null, kind, note]), err)
+  }
+  for (const fn of ['public.debt_customer_create_internal(uuid,text,text,text,text,uuid)', 'public.debt_customer_upsert(uuid,uuid,text,text,text,text)']) {
+    const { def } = await one('SELECT pg_get_functiondef($1::regprocedure) def', [fn])
+    assert.match(def, /debt_customer_validate\(/)
+    assert.doesNotMatch(def, /Tên khách nợ quá dài/)
+  }
+  assert.equal((await one("SELECT has_function_privilege('authenticated', 'debt_customer_validate(text,text,text)', 'EXECUTE') v")).v, false)
+})
