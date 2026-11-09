@@ -1,6 +1,6 @@
 # Sổ thu chi (tiền mặt + chuyển khoản)
 
-> Ngày: 2026-11-09 · Thuộc: [spec tổng Yên Garden](2026-11-09-yen-garden-trien-khai-design.md) · Migration: **113** (gộp với ca, mục B Part 2 của Đợt 1)
+> Ngày: 2026-11-09 · Thuộc: [spec tổng Yên Garden](2026-11-09-yen-garden-trien-khai-design.md) · Migration: **122** (gộp với ca, thay số 113 của plan cũ; nối kho ở **122b**, mục B Part 2 của Đợt 1)
 
 Ký hiệu: **[anh Tú]** = anh Tú đã chốt · **[em]** = em tự quyết.
 
@@ -16,7 +16,7 @@ Thay thế "khoản chi trong ca" (spec Đợt 1 §B3): không tạo `cash_shift
 - Đối soát sao kê ngân hàng tự động.
 - Nhiều quỹ / nhiều tài khoản ngân hàng. Một quỹ tiền mặt (két) và một "quỹ ngân hàng" chung **[em]**.
 
-## 3. Dữ liệu (mig 113, cùng file với ca)
+## 3. Dữ liệu (mig 122, cùng file với ca)
 
 ```
 cash_book_categories
@@ -74,7 +74,7 @@ cash_book_entries
 
 ## 7. Sửa plan Đợt 1 mục B Part 2
 
-- Task 5 (mig 113): thay bảng `cash_shift_expenses` bằng hai bảng ở §3; công thức két theo spec tổng §4.4; seed danh mục.
+- Task 5 (đổi thành mig 122): thay bảng `cash_shift_expenses` bằng hai bảng ở §3; công thức két theo spec tổng §4.4; seed danh mục.
 - Task 8 (ca trên POS): nút "Thu/Chi két" thay "Chi tiền từ két".
 - Thêm task: trang `/admin/cashbook` + Excel.
 - Task 9 (phiếu bàn giao): dòng thu khác / chi theo danh mục.

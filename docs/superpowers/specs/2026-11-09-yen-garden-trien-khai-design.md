@@ -46,8 +46,8 @@ Huỷ món: thu ngân / quản lý bỏ món có lý do (đã có), báo bếp b
 
 1. **4 máy in thay vì 2.** Trạm in đã hỗ trợ số trạm tuỳ ý (mig 114); chỉ đổi cấu hình và checklist C. Không đổi code.
 2. **Chế độ in qua phần mềm khi đơn vào bếp tự động.** Spec Đợt 1 §C2 chặn `print_mode='agent'` khi chính sách là `automatic`. Anh Tú cần đổi được chính sách sau một thời gian vận hành **[anh Tú]**, nên phải gỡ chặn và có đường in tự động — xem §5.2.
-3. **Công nợ là phương tiện thứ ba trong lần thu.** `bill_payment_lines.instrument` nhận `cash | bank | debt`. Kết hợp được TM + CK + Ghi nợ. Mục A (mig 112a) phải để CHECK mở rộng được; spec công nợ thêm giá trị `debt` ở mig 119. Bất biến báo cáo đổi thành `cash + bank + debt + other = revenue`.
-4. **Khoản chi trong ca (B3) chuyển thành sổ thu chi.** Không tạo bảng `cash_shift_expenses`. Mig 113 tạo `cash_book_entries` theo spec sổ thu chi; nút "Chi tiền từ két" trên POS ghi một phiếu chi tiền mặt gắn ca. Công thức két:
+3. **Công nợ là phương tiện thứ ba trong lần thu.** `bill_payment_lines.instrument` nhận `cash | bank | debt`. Kết hợp được TM + CK + Ghi nợ. Mục A (mig 112a) phải để CHECK mở rộng được; spec công nợ thêm giá trị `debt` ở mig 123. Bất biến báo cáo đổi thành `cash + bank + debt + other = revenue`.
+4. **Khoản chi trong ca (B3) chuyển thành sổ thu chi.** Không tạo bảng `cash_shift_expenses`. Mig 122 (thay số 113 của plan cũ) tạo `cash_book_entries` theo spec sổ thu chi; nút "Chi tiền từ két" trên POS ghi một phiếu chi tiền mặt gắn ca. Công thức két:
 
    ```
    Tiền dự kiến = tiền đầu ca
@@ -86,13 +86,14 @@ Mỗi agent một worktree (Agent `isolation: "worktree"`), từ nhánh tích h�
 | 1 | KHO | Kho trọn gói | 118 | Bảng mới, trang mới, trang Món (gắn hàng) |
 | 1 | BC1 | Báo cáo bán hàng (món, giờ, danh mục, huỷ) | 117 | RPC đọc mới, trang Báo cáo mới |
 | 1 | CFG | §5.1 tạo bàn hàng loạt + §5.2 in tự động | 121 | `/admin/tables`, POS (phần in) |
-| 2 | CA | Mục B Part 2 + sổ thu chi | 113 | Bảng ca, sổ thu chi, gác RPC thu |
-| 2 | NO | Công nợ | 119 | `PaymentView`, `collect_table_bill`, trang Công nợ |
+| 2 | CA | Mục B Part 2 + sổ thu chi + nối phiếu nhập kho với phiếu chi | 122, 122b | Bảng ca, sổ thu chi, gác RPC thu |
+| 2 | NO | Công nợ | 123 | `PaymentView`, `collect_table_bill`, trang Công nợ |
 | 2 | QRIN | Mục D Part 2 + mục C Part 2 | — | `PaymentView`, `/print/bill`, các màn gọi in |
-| 3 | BC2 | 4 báo cáo tài chính | 120 | Trang Báo cáo |
+| 3 | BC2 | 4 báo cáo tài chính | 125 | Trang Báo cáo |
 
 - Sóng 2 bắt đầu khi THU xong review và đã gộp vào nhánh tích hợp. CA, NO, QRIN cùng đụng `PaymentView`: chạy song song, controller gộp và giải xung đột.
 - Sóng 3 cần NO, CA, KHO đã gộp.
+- **Số migration xếp theo thứ tự phụ thuộc** để dựng DB sạch chạy đúng: 112a/112b → 116 → 117 → 118 → 121 → 122 → 122b → 123 → 125. Số 113 bỏ trống (plan Đợt 1 mục B Part 2 đổi sang 122) vì sổ thu chi dùng helper `is_store_back_office` của mig 116. 119, 120, 124 bỏ trống.
 - Mig 115 đang được một phiên khác giữ (giảm giá theo món). Sau khi gộp, nếu nhánh đó đã vào `main` thì rebase nhánh tích hợp lên `main` trước khi áp migration.
 
 ## 7. Hoàn thành khi nào

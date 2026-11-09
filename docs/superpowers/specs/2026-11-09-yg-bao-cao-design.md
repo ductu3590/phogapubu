@@ -1,6 +1,6 @@
 # Báo cáo bán hàng và 4 báo cáo tài chính
 
-> Ngày: 2026-11-09 · Thuộc: [spec tổng Yên Garden](2026-11-09-yen-garden-trien-khai-design.md) · Migration: **117** (bán hàng), **120** (tài chính)
+> Ngày: 2026-11-09 · Thuộc: [spec tổng Yên Garden](2026-11-09-yen-garden-trien-khai-design.md) · Migration: **117** (bán hàng), **125** (tài chính)
 
 Ký hiệu: **[anh Tú]** = anh Tú đã chốt · **[em]** = em tự quyết.
 
@@ -52,7 +52,7 @@ Bàn chưa thu không vào báo cáo; trang ghi dòng nhỏ "Chưa gồm N bàn 
 
 RPC: `report_sales_by_item`, `report_sales_by_category`, `report_sales_by_hour`, `report_voids` — tham số `(p_store_id, p_from date, p_to date)`, kiểm `is_store_pos_operator`.
 
-### 4.3. Báo cáo tài chính (mig 120, chỉ đọc)
+### 4.3. Báo cáo tài chính (mig 125, chỉ đọc)
 
 **Doanh thu theo ngày / tháng**
 - Chế độ Ngày: mỗi ngày kinh doanh trong kỳ một dòng. Chế độ Tháng: mỗi tháng trong 12 tháng gần nhất một dòng.

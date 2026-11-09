@@ -44,7 +44,7 @@ menu_stock_links
 inventory_documents
   id, store_id, kind ('receipt'|'count'|'writeoff'), doc_no (text, tự sinh 'PN-0001','PK-0001','PX-0001'),
   doc_date (date, ngày kinh doanh), supplier_name (null), note, total_amount bigint (receipt),
-  paid_status ('paid'|'unpaid') null, cash_book_entry_id (null, FK sổ thu chi — mig 113),
+  paid_status ('paid'|'unpaid') null, cash_book_entry_id (null; FK tới sổ thu chi thêm ở mig 122b),
   status ('posted'|'voided'), created_by, created_at, voided_by, voided_at, void_reason
 
 inventory_document_lines
@@ -100,7 +100,7 @@ Huỷ phiếu: được, có lý do, ghi người + giờ; phiếu nhập đã t
 
 - `inventory_upsert_item(...)`, `inventory_set_item_active(...)`
 - `inventory_set_menu_link(p_menu_item_id, p_variant_id, p_inventory_item_id, p_qty)` (null = gỡ)
-- `inventory_post_document(p_kind, p_doc jsonb, p_lines jsonb, p_client_request_id uuid)` — idempotent; với receipt + đã trả thì gọi hàm nội bộ của sổ thu chi để tạo phiếu chi trong cùng transaction (nếu mig 113 chưa có thì bỏ qua phần này — controller ghép sau).
+- `inventory_post_document(p_kind, p_doc jsonb, p_lines jsonb, p_client_request_id uuid)` — idempotent; với receipt + đã trả thì gọi hàm nội bộ của sổ thu chi để tạo phiếu chi trong cùng transaction (mig 118 chưa có sổ thu chi: lưu `paid_status` + phương thức trên phiếu; mig 122b vá hàm này để tạo phiếu chi và backfill phiếu đã trả).
 - `inventory_void_document(p_id, p_reason)`
 - `inventory_stock_levels(p_store_id, p_at timestamptz default now())` — đọc
 - `inventory_item_ledger(p_item_id, p_from, p_to)` — đọc

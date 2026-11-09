@@ -1,6 +1,6 @@
 # Công nợ khách hàng
 
-> Ngày: 2026-11-09 · Thuộc: [spec tổng Yên Garden](2026-11-09-yen-garden-trien-khai-design.md) · Migration: **119** · Cần trước: mục A thu kết hợp (mig 112a/b), ca + sổ thu chi (mig 113)
+> Ngày: 2026-11-09 · Thuộc: [spec tổng Yên Garden](2026-11-09-yen-garden-trien-khai-design.md) · Migration: **123** · Cần trước: mục A thu kết hợp (mig 112a/b), ca + sổ thu chi (mig 122)
 
 Ký hiệu: **[anh Tú]** = anh Tú đã chốt · **[em]** = em tự quyết.
 
@@ -17,7 +17,7 @@ Chốt **[anh Tú]**: thu ngân **tự thêm** khách nợ ngay lúc thu, **khô
 - Lãi chậm trả, chiết khấu thanh toán sớm.
 - Công nợ nhà cung cấp.
 
-## 3. Dữ liệu (mig 119)
+## 3. Dữ liệu (mig 123)
 
 ```
 debt_customers
