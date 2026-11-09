@@ -408,6 +408,11 @@ export type SessionsBill = {
   grand_total: number
   /** Mig 108: tổng giảm giá các mâm; server cũ không trả (coi như 0). */
   grand_discount?: number
+  /** Mig 112a: các khoản đã thu của nhóm phiên (cộng theo phương tiện); chưa thu → []. Server cũ không trả. */
+  payments?: PaymentLine[]
+  /** Mig 112a: chỉ có khi nhóm phiên đúng MỘT khoản thu, không thì null. */
+  cash_given?: number | null
+  change_amount?: number | null
 }
 
 export async function getSessionsBill(

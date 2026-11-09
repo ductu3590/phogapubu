@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  billCashBank,
   billCode,
   buildBillRows,
   businessDayRangeLabel,
@@ -11,6 +12,7 @@ import {
   daySummary,
   vnDateTimeLabel,
   parseBillsReport,
+  type BillRow,
   type BillsReport,
 } from './bills-report'
 
@@ -109,6 +111,43 @@ describe('parseBillsReport (A04-1)', () => {
     expect(bad.bills[0].instrument).toBe('other')
     expect(bad.bills[0].tableLabel).toBe('—')
     expect(bad.adjustments[0].type).toBe('cancelled')
+  })
+})
+
+describe('mig 112a: từng khoản thu', () => {
+  it('đọc payments, cash_given, change_amount; thiếu thì rỗng', () => {
+    const raw = { bills: [{ instrument: 'mixed', payments: [{ instrument: 'cash', amount: 400000 }, { instrument: 'bank', amount: 600000 }], cash_given: 500000, change_amount: 100000 }, {}] }
+    const [a, b] = parseBillsReport(raw).bills
+    expect(a.payments).toHaveLength(2); expect([a.cashGiven, a.changeAmount]).toEqual([500000, 100000])
+    expect(b.payments).toEqual([]); expect(b.cashGiven).toBeNull()
+  })
+
+  it('payments: bỏ phần tử hỏng / phương tiện lạ, số ép kiểu', () => {
+    const raw = { bills: [{ payments: [{ instrument: 'cash', amount: '1000' }, { instrument: 'wallet', amount: 5 }, null, { amount: 3 }] }] }
+    expect(parseBillsReport(raw).bills[0].payments).toEqual([{ instrument: 'cash', amount: 1000 }])
+  })
+
+  it('buildBillRows: dòng đã thu mang từng khoản; chờ thu / huỷ thì rỗng', () => {
+    const rows = buildBillRows(parseBillsReport({
+      bills: [{ key: 'P:1', paid_at: '2026-10-09T05:00:00Z', instrument: 'mixed', total: 1000,
+        payments: [{ instrument: 'cash', amount: 400 }, { instrument: 'bank', amount: 600 }], cash_given: 500, change_amount: 100 }],
+      waiting: [{ key: 'S:w', opened_at: '2026-10-09T06:00:00Z', provisional_total: 50 }],
+      cancelled: [{ order_id: 'o-x', at: '2026-10-09T04:00:00Z', total: 20 }],
+    }))
+    const paid = rows.find((r) => r.kind === 'paid')!
+    expect([paid.payments.length, paid.cashGiven, paid.changeAmount]).toEqual([2, 500, 100])
+    for (const r of rows.filter((x) => x.kind !== 'paid')) expect([r.payments, r.cashGiven, r.changeAmount]).toEqual([[], null, null])
+  })
+
+  it('billCashBank: theo khoản; bill cũ theo phương thức; bill cũ trộn thì để trống', () => {
+    const row = (over: Partial<BillRow>) => ({ kind: 'paid', amount: 1000, instrument: 'cash', payments: [], ...over }) as BillRow
+    expect(billCashBank(row({ instrument: 'mixed', payments: [{ instrument: 'cash', amount: 400 }, { instrument: 'bank', amount: 600 }] }))).toEqual({ cash: 400, bank: 600 })
+    expect(billCashBank(row({}))).toEqual({ cash: 1000, bank: null })
+    expect(billCashBank(row({ instrument: 'bank' }))).toEqual({ cash: null, bank: 1000 })
+    expect(billCashBank(row({ instrument: 'mixed' }))).toEqual({ cash: null, bank: null })
+    expect(billCashBank(row({ kind: 'waiting', instrument: null }))).toEqual({ cash: null, bank: null })
+    // Có khoản nhưng chỉ chuyển khoản: cột tiền mặt trống, không phải 0
+    expect(billCashBank(row({ instrument: 'bank', payments: [{ instrument: 'bank', amount: 1000 }] }))).toEqual({ cash: null, bank: 1000 })
   })
 })
 

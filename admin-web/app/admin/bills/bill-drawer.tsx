@@ -17,6 +17,7 @@ import { collectSessionBill, getSessionMoves, loadBillDetail, redeemBillSpin, ru
 import { getSessionsBill } from '@/lib/actions/table-session'
 import ConfirmDialog from '../pos/confirm-dialog'
 import { isAmountMismatch, runCollect } from '@/lib/collect-outcome'
+import { paymentRows } from '@/lib/collect-payment'
 
 const time = (iso: string) =>
   iso ? new Date(iso).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -142,6 +143,10 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
 
   if (!row) return null
   const sessionPrint = row.sessionIds.length > 0 && row.kind !== 'cancelled'
+  // Mig 112a: từng khoản + khách đưa + tiền thối của bill đã thu (bill thu trước 112a thì rỗng → ẩn khối).
+  const paidRows = row.kind === 'paid'
+    ? paymentRows({ payments: row.payments, cashGiven: row.cashGiven, changeAmount: row.changeAmount })
+    : []
   const amountLabel = row.kind === 'paid' ? 'Đã thu' : row.kind === 'waiting' ? 'Tạm tính' : 'Giá trị đơn huỷ'
 
   return (
@@ -193,6 +198,19 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
               </Button>
             </div>
           </div>
+        )}
+        {paidRows.length > 0 && (
+          <section className="rounded-xl border border-border bg-surface px-3 py-2.5">
+            <h3 className="text-[13px] font-semibold text-foreground">Các khoản đã thu</h3>
+            <ul className="mt-1 space-y-0.5">
+              {paidRows.map((p) => (
+                <li key={p.label} className="flex justify-between text-[13px] text-muted">
+                  <span>{p.label}</span>
+                  <span className="font-semibold text-foreground tabular">{formatVND(p.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
         {shownMoves.length > 0 && (
           <section className="rounded-xl border border-border bg-surface px-3 py-2.5">
