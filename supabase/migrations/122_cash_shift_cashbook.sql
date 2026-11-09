@@ -9,6 +9,10 @@
 --      cho quán mới, cash_book_entries (phiếu thu / chi ngoài bán hàng, tiền mặt hoặc chuyển khoản).
 --   4) Hàm nội bộ (REVOKE khỏi client, chỉ RPC SECURITY DEFINER gọi): require_open_cash_shift, cash_shift_totals,
 --      cash_book_system_category, cash_book_create_internal, cash_book_void_internal, seed_cash_book_categories.
+--   5) Ca: hàm đọc nội bộ cash_user_name, cash_shift_stale, cash_shift_entries_json, cash_shift_report_json
+--      (service_role cho /print/agent); RPC open_cash_shift, close_cash_shift, continue_stale_shift,
+--      get_open_cash_shift, list_cash_shifts, get_cash_shift_report, set_require_cash_shift; vá tại chỗ
+--      store_workflow_snapshot thêm require_cash_shift. Ca đang mở: server KHÔNG trả tiền bán / dự kiến / lệch.
 --
 -- Công thức két (một chỗ duy nhất, TS không tính lại):
 --   expected_cash = opening_cash + cash_sales + debt_cash + cash_receipts − cash_payments
@@ -495,6 +499,494 @@ GRANT SELECT ON TABLE public.cash_book_categories TO authenticated;
 CREATE POLICY cash_book_categories_pos_select ON public.cash_book_categories
   FOR SELECT TO authenticated
   USING (public.is_store_pos_operator(store_id));
+
+-- ============================================================
+-- 8) Ca: hàm đọc nội bộ
+--    Quy tắc xuyên suốt (spec B2): server KHÔNG trả tiền dự kiến (cũng như tiền bán, số bill, lệch) của ca đang
+--    mở cho client, kể cả chủ quán. Đếm trước, thấy sau.
+-- ============================================================
+
+-- Tên người như get_bills_report: full_name, rỗng thì email.
+CREATE FUNCTION public.cash_user_name(p_uid uuid)
+RETURNS text
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT COALESCE(NULLIF(u.raw_user_meta_data->>'full_name', ''), u.email) FROM auth.users u WHERE u.id = p_uid;
+$$;
+
+-- Ca quên kết: mở trước mốc bắt đầu ngày kinh doanh hiện tại và chưa ai chọn "tiếp tục" trong ngày này.
+-- Tính lúc đọc (không lưu) nên đổi giờ bắt đầu ngày thì tự tính lại. Ca đóng không stale; không thấy ca → NULL.
+CREATE FUNCTION public.cash_shift_stale(p_shift_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SET search_path = public
+AS $$
+DECLARE
+  v_store uuid;
+  v_status text;
+  v_opened_at timestamptz;
+  v_continued_at timestamptz;
+  v_day_from timestamptz;
+BEGIN
+  SELECT s.store_id, s.status, s.opened_at, s.continued_at INTO v_store, v_status, v_opened_at, v_continued_at
+    FROM public.cash_shifts s WHERE s.id = p_shift_id;
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+  IF v_status <> 'open' THEN
+    RETURN false;
+  END IF;
+  SELECT b.day_from INTO v_day_from
+    FROM public.business_day_bounds(v_store, public.current_business_date(v_store)) b;
+  RETURN v_opened_at < v_day_from AND (v_continued_at IS NULL OR v_continued_at < v_day_from);
+END;
+$$;
+
+-- Phiếu tiền mặt gắn ca (gồm cả phiếu đã huỷ), mới nhất trước.
+CREATE FUNCTION public.cash_shift_entries_json(p_shift_id uuid)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'id', e.id,
+           'kind', e.kind,
+           'method', e.method,
+           'category_name', c.name,
+           'amount', e.amount,
+           'note', e.note,
+           'counterparty', e.counterparty,
+           'source', e.source,
+           'created_at', e.created_at,
+           'created_by_name', public.cash_user_name(e.created_by),
+           'voided_at', e.voided_at
+         ) ORDER BY e.created_at DESC, e.id DESC), '[]'::jsonb)
+    FROM public.cash_book_entries e
+    JOIN public.cash_book_categories c ON c.id = e.category_id
+   WHERE e.cash_shift_id = p_shift_id AND e.method = 'cash';
+$$;
+
+-- Phiếu bàn giao ca. Không kiểm quyền (get_cash_shift_report kiểm; /print/agent gọi bằng service_role).
+-- Ca đang mở: mọi con số thu/chi, dự kiến, đếm, lệch, số bill đều null.
+CREATE FUNCTION public.cash_shift_report_json(p_shift_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_shift public.cash_shifts%ROWTYPE;
+  v_totals jsonb;
+  v_carried integer := 1;
+BEGIN
+  SELECT * INTO v_shift FROM public.cash_shifts s WHERE s.id = p_shift_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Không tìm thấy ca';
+  END IF;
+  IF v_shift.status = 'closed' THEN
+    v_totals := public.cash_shift_totals(p_shift_id);
+  END IF;
+  -- "Ca gộp qua N ngày": chỉ tính khi đã có người chọn tiếp tục.
+  IF v_shift.continued_at IS NOT NULL THEN
+    v_carried := public.business_date_of(v_shift.store_id, COALESCE(v_shift.closed_at, now()))
+               - public.business_date_of(v_shift.store_id, v_shift.opened_at) + 1;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'id', v_shift.id,
+    'store_id', v_shift.store_id,
+    'status', v_shift.status,
+    'opened_at', v_shift.opened_at,
+    'closed_at', v_shift.closed_at,
+    'opened_by_name', public.cash_user_name(v_shift.opened_by),
+    'closed_by_name', public.cash_user_name(v_shift.closed_by),
+    'opening_cash', v_shift.opening_cash,
+    'open_note', v_shift.open_note,
+    'close_note', v_shift.close_note,
+    'cash_sales', v_totals->'cash_sales',
+    'bank_sales', v_totals->'bank_sales',
+    'cash_receipts', v_totals->'cash_receipts',
+    'cash_payments', v_totals->'cash_payments',
+    'debt_cash', v_totals->'debt_cash',
+    -- Ba số dưới là số đã LƯU lúc kết ca (ca mở: null).
+    'expected_cash', v_shift.expected_cash,
+    'counted_cash', v_shift.counted_cash,
+    'difference', v_shift.difference,
+    'bills_count', v_totals->'bills_count',
+    'carried_days', v_carried,
+    'continued_at', v_shift.continued_at,
+    'continued_by_name', public.cash_user_name(v_shift.continued_by),
+    'entries', public.cash_shift_entries_json(p_shift_id)
+  );
+END;
+$$;
+
+-- ============================================================
+-- 9) Ca: RPC. Ai có quyền POS (chủ quán, quản lý, thu ngân) mở, kết, tiếp tục ca của quán mình.
+-- ============================================================
+CREATE FUNCTION public.open_cash_shift(p_store_id uuid, p_opening_cash bigint, p_note text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_note text := NULLIF(btrim(p_note), '');
+  v_required boolean;
+  v_id uuid;
+BEGIN
+  IF NOT public.is_store_pos_operator(p_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền thao tác ca';
+  END IF;
+  IF p_opening_cash IS NULL OR p_opening_cash < 0 OR p_opening_cash > 2000000000 THEN
+    RAISE EXCEPTION 'Số tiền không hợp lệ';
+  END IF;
+  IF length(v_note) > 500 THEN
+    RAISE EXCEPTION 'Ghi chú tối đa 500 ký tự';
+  END IF;
+
+  -- FOR SHARE: chủ quán tắt công tắc (set_require_cash_shift khoá FOR UPDATE) không chen giữa kiểm và ghi.
+  SELECT w.require_cash_shift INTO v_required
+    FROM public.store_workflow_settings w
+   WHERE w.store_id = p_store_id
+   FOR SHARE;
+  IF NOT COALESCE(v_required, false) THEN
+    RAISE EXCEPTION 'Quán chưa bật mở ca';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.cash_shifts s WHERE s.store_id = p_store_id AND s.status = 'open') THEN
+    RAISE EXCEPTION 'Đã có ca đang mở';
+  END IF;
+  BEGIN
+    INSERT INTO public.cash_shifts (store_id, status, opened_by, opening_cash, open_note)
+    VALUES (p_store_id, 'open', auth.uid(), p_opening_cash, v_note)
+    RETURNING id INTO v_id;
+  EXCEPTION WHEN unique_violation THEN
+    -- Hai người bấm "Mở ca" cùng lúc: index cash_shifts_one_open chặn người sau.
+    RAISE EXCEPTION 'Đã có ca đang mở';
+  END;
+
+  RETURN jsonb_build_object('ok', true, 'shift_id', v_id);
+END;
+$$;
+
+-- Kết ca: đếm trước, thấy sau. Khoá ca FOR UPDATE TRƯỚC khi cộng két: lần thu / ghi phiếu đang chạy (giữ
+-- FOR SHARE qua require_open_cash_shift) xong hẳn mới cộng; lần tới sau thấy ca đã đóng và nhận "Chưa mở ca".
+-- Gọi lại cùng số đếm (mạng rớt, bấm hai lần) trả kết quả đã lưu, already = true.
+CREATE FUNCTION public.close_cash_shift(p_shift_id uuid, p_counted_cash bigint, p_note text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_shift public.cash_shifts%ROWTYPE;
+  v_note text := NULLIF(btrim(p_note), '');
+  v_totals jsonb;
+  v_expected bigint;
+  v_already boolean := false;
+BEGIN
+  SELECT * INTO v_shift FROM public.cash_shifts s WHERE s.id = p_shift_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Không tìm thấy ca';
+  END IF;
+  IF NOT public.is_store_pos_operator(v_shift.store_id) THEN
+    RAISE EXCEPTION 'Không có quyền thao tác ca';
+  END IF;
+  IF p_counted_cash IS NULL OR p_counted_cash < 0 OR p_counted_cash > 2000000000 THEN
+    RAISE EXCEPTION 'Số tiền không hợp lệ';
+  END IF;
+  IF length(v_note) > 500 THEN
+    RAISE EXCEPTION 'Ghi chú tối đa 500 ký tự';
+  END IF;
+
+  IF v_shift.status = 'closed' THEN
+    IF v_shift.counted_cash IS DISTINCT FROM p_counted_cash THEN
+      RAISE EXCEPTION 'Ca đã đóng';
+    END IF;
+    -- Phiếu và bill của ca đã đóng không đổi được nữa nên đọc lại khớp lúc kết.
+    v_already := true;
+    v_totals := public.cash_shift_totals(p_shift_id);
+  ELSE
+    v_totals := public.cash_shift_totals(p_shift_id);
+    v_expected := (v_totals->>'expected_cash')::bigint;
+    UPDATE public.cash_shifts
+       SET status = 'closed',
+           closed_by = auth.uid(),
+           closed_at = now(),
+           counted_cash = p_counted_cash,
+           expected_cash = v_expected,
+           difference = p_counted_cash - v_expected,
+           close_note = v_note
+     WHERE id = p_shift_id
+    RETURNING * INTO v_shift;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'already', v_already,
+    'shift_id', v_shift.id,
+    'opening_cash', v_totals->'opening_cash',
+    'cash_sales', v_totals->'cash_sales',
+    'cash_receipts', v_totals->'cash_receipts',
+    'cash_payments', v_totals->'cash_payments',
+    'debt_cash', v_totals->'debt_cash',
+    'expected_cash', v_shift.expected_cash,
+    'counted_cash', v_shift.counted_cash,
+    'difference', v_shift.difference
+  );
+END;
+$$;
+
+-- "Tiếp tục gộp vào ca đó" cho ca quên kết: ghi người và giờ, cảnh báo không hiện lại trong ngày kinh doanh này.
+CREATE FUNCTION public.continue_stale_shift(p_shift_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_store uuid;
+  v_status text;
+BEGIN
+  SELECT s.store_id, s.status INTO v_store, v_status FROM public.cash_shifts s WHERE s.id = p_shift_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Không tìm thấy ca';
+  END IF;
+  IF NOT public.is_store_pos_operator(v_store) THEN
+    RAISE EXCEPTION 'Không có quyền thao tác ca';
+  END IF;
+  IF v_status <> 'open' THEN
+    RAISE EXCEPTION 'Ca đã đóng';
+  END IF;
+  IF NOT public.cash_shift_stale(p_shift_id) THEN
+    RETURN jsonb_build_object('ok', true, 'already', true);
+  END IF;
+
+  UPDATE public.cash_shifts SET continued_by = auth.uid(), continued_at = now() WHERE id = p_shift_id;
+  RETURN jsonb_build_object('ok', true, 'already', false);
+END;
+$$;
+
+-- Trạng thái ca cho POS. Không có tiền bán / dự kiến (ca đang mở).
+CREATE FUNCTION public.get_open_cash_shift(p_store_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_required boolean;
+  v_shift public.cash_shifts%ROWTYPE;
+BEGIN
+  IF NOT public.is_store_pos_operator(p_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền thao tác ca';
+  END IF;
+  SELECT w.require_cash_shift INTO v_required FROM public.store_workflow_settings w WHERE w.store_id = p_store_id;
+  SELECT * INTO v_shift FROM public.cash_shifts s WHERE s.store_id = p_store_id AND s.status = 'open';
+
+  RETURN jsonb_build_object(
+    'required', COALESCE(v_required, false),
+    -- Chủ quán + quản lý ghi phiếu chuyển khoản và huỷ phiếu; thu ngân chỉ thu/chi tiền mặt tại két.
+    'can_manage_entries', public.is_store_back_office(p_store_id),
+    'shift', CASE WHEN v_shift.id IS NULL THEN NULL ELSE jsonb_build_object(
+      'id', v_shift.id,
+      'opened_at', v_shift.opened_at,
+      'opened_by_name', public.cash_user_name(v_shift.opened_by),
+      'opening_cash', v_shift.opening_cash,
+      'open_note', v_shift.open_note,
+      'stale', public.cash_shift_stale(v_shift.id),
+      'entries', public.cash_shift_entries_json(v_shift.id)
+    ) END
+  );
+END;
+$$;
+
+-- Danh sách ca (tab Ca ở Hoá đơn & Báo cáo). Chủ quán + quản lý xem mọi ca; thu ngân chỉ ca mình mở hoặc kết.
+-- expected_cash / counted_cash / difference là số đã lưu lúc kết, ca mở luôn null.
+CREATE FUNCTION public.list_cash_shifts(p_store_id uuid, p_limit integer DEFAULT 60)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_all boolean;
+  v_required boolean;
+  v_limit integer := LEAST(GREATEST(COALESCE(p_limit, 60), 1), 200);
+  v_shifts jsonb;
+BEGIN
+  IF NOT public.is_store_pos_operator(p_store_id) THEN
+    RAISE EXCEPTION 'Không có quyền thao tác ca';
+  END IF;
+  v_all := public.is_store_back_office(p_store_id);
+  SELECT w.require_cash_shift INTO v_required FROM public.store_workflow_settings w WHERE w.store_id = p_store_id;
+
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'id', x.id,
+           'status', x.status,
+           'opened_at', x.opened_at,
+           'closed_at', x.closed_at,
+           'opened_by_name', public.cash_user_name(x.opened_by),
+           'closed_by_name', public.cash_user_name(x.closed_by),
+           'opening_cash', x.opening_cash,
+           'expected_cash', x.expected_cash,
+           'counted_cash', x.counted_cash,
+           'difference', x.difference
+         ) ORDER BY x.opened_at DESC, x.id DESC), '[]'::jsonb)
+    INTO v_shifts
+    FROM (SELECT s.* FROM public.cash_shifts s
+           WHERE s.store_id = p_store_id
+             AND (v_all OR s.opened_by = v_uid OR s.closed_by = v_uid)
+           ORDER BY s.opened_at DESC, s.id DESC
+           LIMIT v_limit) x;
+
+  RETURN jsonb_build_object('required', COALESCE(v_required, false), 'shifts', v_shifts);
+END;
+$$;
+
+CREATE FUNCTION public.get_cash_shift_report(p_shift_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_store uuid;
+  v_opened_by uuid;
+  v_closed_by uuid;
+BEGIN
+  SELECT s.store_id, s.opened_by, s.closed_by INTO v_store, v_opened_by, v_closed_by
+    FROM public.cash_shifts s WHERE s.id = p_shift_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Không tìm thấy ca';
+  END IF;
+  -- COALESCE: closed_by NULL (ca mở) không được làm cả điều kiện thành NULL rồi lọt qua IF.
+  IF NOT (public.is_store_back_office(v_store)
+          OR (public.is_store_pos_operator(v_store)
+              AND (COALESCE(v_opened_by = v_uid, false) OR COALESCE(v_closed_by = v_uid, false)))) THEN
+    RAISE EXCEPTION 'Không có quyền xem ca này';
+  END IF;
+  RETURN public.cash_shift_report_json(p_shift_id);
+END;
+$$;
+
+-- Công tắc bắt buộc mở ca: chỉ chủ quán (hoặc MEVO). Mẫu set_business_day_start (mig 111): khoá stores → settings,
+-- ghi sự kiện cài đặt trước / sau.
+CREATE FUNCTION public.set_require_cash_shift(p_store_id uuid, p_enabled boolean)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_before jsonb;
+  v_after jsonb;
+BEGIN
+  IF NOT public.is_store_owner_or_admin(p_store_id) THEN
+    RAISE EXCEPTION 'Chỉ chủ quán được bật/tắt bắt buộc mở ca';
+  END IF;
+  IF p_enabled IS NULL THEN
+    RAISE EXCEPTION 'Giá trị không hợp lệ';
+  END IF;
+
+  PERFORM 1 FROM public.stores WHERE id = p_store_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Không tìm thấy quán';
+  END IF;
+
+  INSERT INTO public.store_workflow_settings(store_id)
+  VALUES (p_store_id)
+  ON CONFLICT (store_id) DO NOTHING;
+  PERFORM 1 FROM public.store_workflow_settings WHERE store_id = p_store_id FOR UPDATE;
+
+  -- Tắt khi còn ca mở thì ca đó không ai kết được trên POS (POS ẩn mọi nút ca khi tắt).
+  IF NOT p_enabled AND EXISTS (SELECT 1 FROM public.cash_shifts s WHERE s.store_id = p_store_id AND s.status = 'open') THEN
+    RAISE EXCEPTION 'Còn ca đang mở, kết ca trước khi tắt';
+  END IF;
+
+  v_before := public.store_workflow_snapshot(p_store_id);
+
+  UPDATE public.store_workflow_settings
+  SET require_cash_shift = p_enabled,
+      updated_at = now(),
+      updated_by = v_uid
+  WHERE store_id = p_store_id;
+
+  v_after := public.store_workflow_snapshot(p_store_id);
+  INSERT INTO public.store_workflow_setting_events(store_id, before_value, after_value, changed_by, changed_via)
+  VALUES (
+    p_store_id, v_before, v_after, v_uid,
+    CASE WHEN public.is_store_owner_of(p_store_id) THEN 'owner' ELSE 'mevo' END
+  );
+
+  RETURN jsonb_build_object('ok', true, 'require_cash_shift', p_enabled);
+END;
+$$;
+
+-- ============================================================
+-- 10) store_workflow_snapshot: thêm require_cash_shift (sự kiện cài đặt thấy trước / sau, POS đọc qua
+--     get_public_store_workflow). Helper vá tại chỗ theo mẫu mig 110/111: neo khớp ĐÚNG MỘT lần, CRLF → LF.
+--     Neo chép từ pg_get_functiondef prod sau mig 111 (bản chụp supabase/tests/prod-defs/122).
+-- ============================================================
+CREATE OR REPLACE FUNCTION pg_temp.mevo_patch(p_sig text, p_from text, p_to text)
+RETURNS void LANGUAGE plpgsql AS $patch$
+DECLARE v_def text; v_from text; v_to text; v_hits int;
+BEGIN
+  v_from := replace(p_from, E'\r\n', E'\n');
+  v_to   := replace(p_to,   E'\r\n', E'\n');
+  v_def  := pg_get_functiondef(p_sig::regprocedure);
+  v_hits := (length(v_def) - length(replace(v_def, v_from, ''))) / length(v_from);
+  IF v_hits = 0 THEN
+    RAISE EXCEPTION 'mig 122: % không còn chuỗi cần vá: %', p_sig, v_from;
+  END IF;
+  IF v_hits > 1 THEN
+    RAISE EXCEPTION 'mig 122: % có hơn một chỗ khớp chuỗi cần vá: %', p_sig, v_from;
+  END IF;
+  EXECUTE replace(v_def, v_from, v_to);
+END
+$patch$;
+
+SELECT pg_temp.mevo_patch('public.store_workflow_snapshot(uuid)',
+$a$'business_day_start', to_char(w.business_day_start, 'HH24:MI')$a$,
+$b$'business_day_start', to_char(w.business_day_start, 'HH24:MI'),
+    'require_cash_shift', w.require_cash_shift$b$);
+
+-- ============================================================
+-- 11) Quyền hàm ca
+-- ============================================================
+REVOKE ALL ON FUNCTION public.cash_user_name(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.cash_shift_stale(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.cash_shift_entries_json(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.cash_shift_report_json(uuid) FROM PUBLIC, anon, authenticated;
+-- /print/agent (plan C) render phiếu bàn giao không có phiên đăng nhập.
+GRANT EXECUTE ON FUNCTION public.cash_shift_report_json(uuid) TO service_role;
+
+REVOKE ALL ON FUNCTION public.open_cash_shift(uuid, bigint, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.close_cash_shift(uuid, bigint, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.continue_stale_shift(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.get_open_cash_shift(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.list_cash_shifts(uuid, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.get_cash_shift_report(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.set_require_cash_shift(uuid, boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.open_cash_shift(uuid, bigint, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.close_cash_shift(uuid, bigint, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.continue_stale_shift(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_open_cash_shift(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.list_cash_shifts(uuid, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_cash_shift_report(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_require_cash_shift(uuid, boolean) TO authenticated;
 
 NOTIFY pgrst, 'reload schema';
 

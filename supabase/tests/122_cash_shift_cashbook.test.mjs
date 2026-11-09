@@ -3,7 +3,8 @@
 //   cash_book_system_category, cash_book_create_internal, cash_book_void_internal, quyền đọc bảng.
 import { after, beforeEach, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import { openCashShiftDb } from './helpers/cash-shift-db.mjs'
 
 const h = await openCashShiftDb({ through: '122' })
@@ -368,6 +369,349 @@ describe('122 nền', () => {
   test('store_workflow_settings.require_cash_shift mặc định false', async () => {
     const s = await newStore()
     assert.equal((await one('SELECT require_cash_shift FROM store_workflow_settings WHERE store_id = $1', [s])).require_cash_shift, false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Task 2: RPC ca
+// ---------------------------------------------------------------------------
+async function rpc(uid, fn, ...args) {
+  const ph = args.map((_, i) => `$${i + 1}`).join(', ')
+  return (await as(uid, `SELECT ${fn}(${ph}) AS v`, args)).rows[0].v
+}
+async function dayFrom(storeId = ids.store) {
+  await db.exec('RESET ROLE')
+  return (await one(`SELECT b.day_from FROM business_day_bounds($1, current_business_date($1)) b`, [storeId])).day_from
+}
+const shiftRow = (id) => one('SELECT * FROM cash_shifts WHERE id = $1', [id])
+const MONEY_HIDDEN = ['cash_sales', 'bank_sales', 'expected_cash', 'difference', 'bills_count']
+
+// Kịch bản két chuẩn: thu ngân mở ca 500k; bill TM 300k + CK 200k; phiếu thu TM 100k; phiếu chi TM 50k.
+async function standardShift() {
+  await setShiftRequired(ids.store, true)
+  const { shift_id: shift } = await rpc(ids.cashier, 'open_cash_shift', ids.store, 500000, 'đầu ca')
+  await bill(shift, { cash: 300000, bank: 200000 })
+  await internal({ kind: 'receipt', category: await category(ids.store, 'Nộp thêm vào két'), amount: 100000,
+    source: 'pos_drawer', actor: ids.cashier })
+  await internal({ amount: 50000, source: 'pos_drawer', actor: ids.cashier })
+  return shift
+}
+
+describe('122 ca', () => {
+  test('kết ca lệch: đếm 840k so với 850k dự kiến → difference −10000, lưu vào ca', async () => {
+    const shift = await standardShift()
+    const r = await rpc(ids.cashier, 'close_cash_shift', shift, 840000, '  thiếu 10k  ')
+    assert.deepEqual(r, {
+      ok: true, already: false, shift_id: shift, opening_cash: 500000, cash_sales: 300000, cash_receipts: 100000,
+      cash_payments: 50000, debt_cash: 0, expected_cash: 850000, counted_cash: 840000, difference: -10000,
+    })
+    const row = await shiftRow(shift)
+    assert.equal(row.status, 'closed')
+    assert.ok(row.closed_at)
+    assert.equal(row.closed_by, ids.cashier)
+    assert.deepEqual([row.counted_cash, row.expected_cash, row.difference].map(Number), [840000, 850000, -10000])
+    assert.equal(row.close_note, 'thiếu 10k')
+    assert.equal(row.open_note, 'đầu ca')
+    assert.equal(row.opened_by, ids.cashier)
+    // Ca đã đóng: phiếu TM mới báo Chưa mở ca.
+    await assert.rejects(internal(), /Chưa mở ca/)
+  })
+
+  test('mỗi quán một ca mở: mở lần hai báo Đã có ca đang mở', async () => {
+    await setShiftRequired(ids.store, true)
+    await rpc(ids.owner, 'open_cash_shift', ids.store, 0, null)
+    await assert.rejects(rpc(ids.cashier, 'open_cash_shift', ids.store, 100, null), /Đã có ca đang mở/)
+    assert.equal(await count("cash_shifts WHERE status = 'open'"), 1)
+  })
+
+  test('công tắc tắt: open_cash_shift báo Quán chưa bật mở ca', async () => {
+    await assert.rejects(rpc(ids.owner, 'open_cash_shift', ids.store, 0, null), /Quán chưa bật mở ca/)
+    assert.equal(await count('cash_shifts'), 0)
+  })
+
+  test('tiền đầu ca, tiền đếm: NULL hoặc âm báo Số tiền không hợp lệ; 0 hợp lệ', async () => {
+    await setShiftRequired(ids.store, true)
+    for (const v of [null, -1, 2000000001]) {
+      await assert.rejects(rpc(ids.cashier, 'open_cash_shift', ids.store, v, null), /Số tiền không hợp lệ/)
+    }
+    await assert.rejects(rpc(ids.cashier, 'open_cash_shift', ids.store, 0, 'x'.repeat(501)), /Ghi chú tối đa 500 ký tự/)
+    const { shift_id: shift } = await rpc(ids.cashier, 'open_cash_shift', ids.store, 0, '   ')
+    assert.equal((await shiftRow(shift)).open_note, null)
+    for (const v of [null, -1]) {
+      await assert.rejects(rpc(ids.cashier, 'close_cash_shift', shift, v, null), /Số tiền không hợp lệ/)
+    }
+    const r = await rpc(ids.cashier, 'close_cash_shift', shift, 0, null)
+    assert.deepEqual([r.expected_cash, r.difference], [0, 0])
+    await assert.rejects(rpc(ids.cashier, 'close_cash_shift', randomUUID(), 0, null), /Không tìm thấy ca/)
+  })
+
+  test('ca mở không lộ số: get_open_cash_shift và get_cash_shift_report không có cash_sales, bank_sales, expected_cash, difference, bills_count (vắng hoặc null)', async () => {
+    const shift = await standardShift()
+    for (const uid of [ids.owner, ids.manager, ids.cashier]) {
+      const open = await rpc(uid, 'get_open_cash_shift', ids.store)
+      assert.equal(open.shift.id, shift)
+      for (const k of MONEY_HIDDEN) assert.equal(open.shift[k] ?? null, null, `get_open_cash_shift lộ ${k}`)
+      for (const k of MONEY_HIDDEN) assert.equal(open[k] ?? null, null)
+      const rep = await rpc(uid, 'get_cash_shift_report', shift)
+      assert.equal(rep.status, 'open')
+      for (const k of [...MONEY_HIDDEN, 'cash_receipts', 'cash_payments', 'debt_cash', 'counted_cash']) {
+        assert.equal(rep[k] ?? null, null, `get_cash_shift_report lộ ${k}`)
+      }
+      const list = await rpc(uid, 'list_cash_shifts', ids.store, 60)
+      const item = list.shifts.find((s) => s.id === shift)
+      assert.equal(item.expected_cash, null)
+      assert.equal(item.difference, null)
+    }
+    // Không có chuỗi 850000 ở bất kỳ đâu trong JSON trả về cho client.
+    const all = JSON.stringify([await rpc(ids.owner, 'get_open_cash_shift', ids.store),
+      await rpc(ids.owner, 'get_cash_shift_report', shift), await rpc(ids.owner, 'list_cash_shifts', ids.store, 60)])
+    assert.ok(!all.includes('850000') && !all.includes('300000'))
+  })
+
+  test('get_open_cash_shift: dạng JSON, phiếu TM của ca mới nhất trước, gồm phiếu huỷ', async () => {
+    await setShiftRequired(ids.store, true)
+    const empty = await rpc(ids.cashier, 'get_open_cash_shift', ids.store)
+    assert.deepEqual(empty, { required: true, can_manage_entries: false, shift: null })
+    const { shift_id: shift } = await rpc(ids.cashier, 'open_cash_shift', ids.store, 200000, 'ca sáng')
+    const a = await internal({ amount: 1000, note: 'đá', counterparty: 'Anh Ba', actor: ids.cashier, source: 'pos_drawer' })
+    await db.query("UPDATE cash_book_entries SET created_at = now() - interval '1 minute' WHERE id = $1", [a])
+    const b = await internal({ amount: 2000, actor: ids.owner })
+    await voidInternal(b, 'nhầm')
+    await internal({ method: 'bank', amount: 3000 })                 // CK: không thuộc ca
+    const r = await rpc(ids.cashier, 'get_open_cash_shift', ids.store)
+    assert.equal(r.required, true)
+    assert.deepEqual(Object.keys(r.shift).sort(),
+      ['entries', 'id', 'open_note', 'opened_at', 'opened_by_name', 'opening_cash', 'stale'])
+    assert.equal(r.shift.opened_by_name, 'Thu ngân Lan')
+    assert.equal(r.shift.opening_cash, 200000)
+    assert.equal(r.shift.open_note, 'ca sáng')
+    assert.equal(r.shift.stale, false)
+    assert.deepEqual(r.shift.entries.map((e) => e.id), [b, a])
+    const ea = r.shift.entries[1]
+    assert.deepEqual(Object.keys(ea).sort(), ['amount', 'category_name', 'counterparty', 'created_at', 'created_by_name',
+      'id', 'kind', 'method', 'note', 'source', 'voided_at'])
+    assert.deepEqual([ea.kind, ea.method, ea.category_name, ea.amount, ea.note, ea.counterparty, ea.source,
+      ea.created_by_name, ea.voided_at], ['payment', 'cash', 'Đá', 1000, 'đá', 'Anh Ba', 'pos_drawer', 'Thu ngân Lan', null])
+    assert.equal(r.shift.entries[0].created_by_name, 'chu@quan.vn')
+    assert.ok(r.shift.entries[0].voided_at)
+  })
+
+  test('kết ca lặp cùng số đếm: already true, đúng kết quả cũ; khác số đếm: Ca đã đóng, không ghi đè', async () => {
+    const shift = await standardShift()
+    const first = await rpc(ids.cashier, 'close_cash_shift', shift, 840000, 'a')
+    const closedAt = (await shiftRow(shift)).closed_at
+    const again = await rpc(ids.owner, 'close_cash_shift', shift, 840000, 'b')
+    assert.deepEqual(again, { ...first, already: true })
+    await assert.rejects(rpc(ids.cashier, 'close_cash_shift', shift, 850000, null), /Ca đã đóng/)
+    const row = await shiftRow(shift)
+    assert.deepEqual([Number(row.counted_cash), row.close_note, row.closed_by], [840000, 'a', ids.cashier])
+    assert.equal(row.closed_at.getTime(), closedAt.getTime())
+  })
+
+  test('continue_stale_shift trên ca đã đóng: Ca đã đóng', async () => {
+    const shift = await insertShift({ status: 'closed' })
+    await assert.rejects(rpc(ids.cashier, 'continue_stale_shift', shift), /Ca đã đóng/)
+    await assert.rejects(rpc(ids.cashier, 'continue_stale_shift', randomUUID()), /Không tìm thấy ca/)
+  })
+
+  test('stale: mở đúng day_from không stale, trước 1 giây thì stale; đổi giờ bắt đầu ngày thì tính lại', async () => {
+    await setShiftRequired(ids.store, true)
+    const df = await dayFrom()
+    const shift = await insertShift({ openedAt: df })
+    assert.equal((await rpc(ids.cashier, 'get_open_cash_shift', ids.store)).shift.stale, false)
+    await db.query("UPDATE cash_shifts SET opened_at = $1::timestamptz - interval '1 second' WHERE id = $2", [df, shift])
+    assert.equal((await rpc(ids.cashier, 'get_open_cash_shift', ids.store)).shift.stale, true)
+    // Đổi giờ bắt đầu ngày: mốc mới, stale tính lại theo mốc mới (không lưu sẵn).
+    for (const start of ['05:00', '12:00', '00:00']) {
+      await setDayStart(ids.store, start)
+      const dfNew = await dayFrom()
+      await db.query("UPDATE cash_shifts SET opened_at = $1::timestamptz WHERE id = $2", [dfNew, shift])
+      assert.equal((await rpc(ids.cashier, 'get_open_cash_shift', ids.store)).shift.stale, false, start)
+      await db.query("UPDATE cash_shifts SET opened_at = $1::timestamptz - interval '1 second' WHERE id = $2", [dfNew, shift])
+      assert.equal((await rpc(ids.cashier, 'get_open_cash_shift', ids.store)).shift.stale, true, start)
+    }
+  })
+
+  test('continue_stale_shift: ghi người, giờ, stale tắt; continued_at của ngày kinh doanh trước thì stale lại; ca không stale: already true', async () => {
+    await setShiftRequired(ids.store, true)
+    const df = await dayFrom()
+    const shift = await insertShift({ openedAt: new Date(df.getTime() - 3600_000) })
+    assert.equal((await rpc(ids.manager, 'get_open_cash_shift', ids.store)).shift.stale, true)
+    assert.deepEqual(await rpc(ids.manager, 'continue_stale_shift', shift), { ok: true, already: false })
+    const row = await shiftRow(shift)
+    assert.equal(row.continued_by, ids.manager)
+    assert.ok(row.continued_at)
+    assert.equal((await rpc(ids.cashier, 'get_open_cash_shift', ids.store)).shift.stale, false)
+    // Gộp lần nữa trong cùng ngày: không ghi đè.
+    assert.deepEqual(await rpc(ids.cashier, 'continue_stale_shift', shift), { ok: true, already: true })
+    assert.equal((await shiftRow(shift)).continued_by, ids.manager)
+    // continued_at rơi vào ngày kinh doanh trước → stale lại.
+    await db.query("UPDATE cash_shifts SET continued_at = $1::timestamptz - interval '1 second' WHERE id = $2", [df, shift])
+    assert.equal((await rpc(ids.cashier, 'get_open_cash_shift', ids.store)).shift.stale, true)
+    assert.deepEqual(await rpc(ids.cashier, 'continue_stale_shift', shift), { ok: true, already: false })
+    assert.equal((await shiftRow(shift)).continued_by, ids.cashier)
+
+    // Ca không stale: already true, không ghi.
+    await db.query("UPDATE cash_shifts SET status = 'closed', closed_at = now(), closed_by = $1, counted_cash = 0, expected_cash = 0, difference = 0 WHERE id = $2", [ids.cashier, shift])
+    const fresh = await insertShift({ openedAt: df })
+    assert.deepEqual(await rpc(ids.cashier, 'continue_stale_shift', fresh), { ok: true, already: true })
+    assert.equal((await shiftRow(fresh)).continued_at, null)
+  })
+
+  test('carried_days = 3 khi ca mở từ 2 ngày kinh doanh trước rồi continue; 1 khi chưa continue', async () => {
+    await setShiftRequired(ids.store, true)
+    const df = await dayFrom()
+    const shift = await insertShift({ openedAt: new Date(df.getTime() - 2 * 86400_000 + 3600_000) })
+    assert.equal((await rpc(ids.owner, 'get_cash_shift_report', shift)).carried_days, 1)
+    await rpc(ids.owner, 'continue_stale_shift', shift)
+    const open = await rpc(ids.owner, 'get_cash_shift_report', shift)
+    assert.equal(open.carried_days, 3)
+    assert.equal(open.continued_by_name, 'chu@quan.vn')
+    await rpc(ids.cashier, 'close_cash_shift', shift, 0, null)
+    assert.equal((await rpc(ids.owner, 'get_cash_shift_report', shift)).carried_days, 3)
+  })
+
+  test('báo cáo ca đã đóng: đủ trường, phiếu gồm cả phiếu đã huỷ', async () => {
+    const shift = await standardShift()
+    const v = await internal({ amount: 7000, actor: ids.cashier, source: 'pos_drawer' })
+    await voidInternal(v, 'nhầm', ids.owner)
+    await rpc(ids.owner, 'close_cash_shift', shift, 850000, 'đủ')
+    const rep = await rpc(ids.cashier, 'get_cash_shift_report', shift)
+    assert.deepEqual(Object.keys(rep).sort(), ['bank_sales', 'bills_count', 'carried_days', 'cash_payments',
+      'cash_receipts', 'cash_sales', 'close_note', 'closed_at', 'closed_by_name', 'continued_at', 'continued_by_name',
+      'counted_cash', 'debt_cash', 'difference', 'entries', 'expected_cash', 'id', 'open_note', 'opened_at',
+      'opened_by_name', 'opening_cash', 'status', 'store_id'])
+    assert.deepEqual([rep.status, rep.store_id, rep.opened_by_name, rep.closed_by_name, rep.opening_cash, rep.cash_sales,
+      rep.bank_sales, rep.cash_receipts, rep.cash_payments, rep.debt_cash, rep.expected_cash, rep.counted_cash,
+      rep.difference, rep.bills_count, rep.carried_days, rep.continued_at, rep.continued_by_name, rep.close_note],
+    ['closed', ids.store, 'Thu ngân Lan', 'chu@quan.vn', 500000, 300000, 200000, 100000, 50000, 0, 850000, 850000,
+      0, 1, 1, null, null, 'đủ'])
+    assert.equal(rep.entries.length, 3)
+    assert.equal(rep.entries.filter((e) => e.voided_at).length, 1)
+  })
+
+  test('tắt công tắc khi còn ca mở: Còn ca đang mở, kết ca trước khi tắt; bật/tắt ghi store_workflow_setting_events', async () => {
+    assert.deepEqual(await rpc(ids.owner, 'set_require_cash_shift', ids.store, true), { ok: true, require_cash_shift: true })
+    const ev = await one(`SELECT before_value, after_value, changed_by, changed_via FROM store_workflow_setting_events
+      WHERE store_id = $1 ORDER BY created_at DESC LIMIT 1`, [ids.store])
+    assert.deepEqual([ev.before_value.require_cash_shift, ev.after_value.require_cash_shift, ev.changed_by, ev.changed_via],
+      [false, true, ids.owner, 'owner'])
+    const { shift_id: shift } = await rpc(ids.cashier, 'open_cash_shift', ids.store, 0, null)
+    await assert.rejects(rpc(ids.owner, 'set_require_cash_shift', ids.store, false), /Còn ca đang mở, kết ca trước khi tắt/)
+    assert.equal((await one('SELECT require_cash_shift FROM store_workflow_settings WHERE store_id = $1', [ids.store])).require_cash_shift, true)
+    await rpc(ids.cashier, 'close_cash_shift', shift, 0, null)
+    const before = await count('store_workflow_setting_events')
+    assert.deepEqual(await rpc(ids.owner, 'set_require_cash_shift', ids.store, false), { ok: true, require_cash_shift: false })
+    assert.equal(await count('store_workflow_setting_events'), before + 1)
+    await assert.rejects(rpc(ids.owner, 'set_require_cash_shift', ids.store, null), /không hợp lệ/)
+  })
+
+  test('set_require_cash_shift: quản lý, thu ngân bị chặn', async () => {
+    for (const uid of [ids.manager, ids.cashier, ids.staff, ids.otherOwner]) {
+      await assert.rejects(rpc(uid, 'set_require_cash_shift', ids.store, true), /Chỉ chủ quán/)
+    }
+    assert.equal((await one('SELECT require_cash_shift FROM store_workflow_settings WHERE store_id = $1', [ids.store])).require_cash_shift, false)
+  })
+
+  test('list_cash_shifts: chủ quán và quản lý thấy mọi ca; thu ngân chỉ ca mình mở hoặc kết', async () => {
+    await setShiftRequired(ids.store, true)
+    const t = (h) => new Date(Date.now() - h * 3600_000)
+    const a = await insertShift({ status: 'closed', openedBy: ids.owner, openedAt: t(5) })          // chủ quán mở + kết
+    const c = await insertShift({ status: 'closed', openedBy: ids.manager, openedAt: t(3) })
+    await db.query('UPDATE cash_shifts SET closed_by = $1 WHERE id = $2', [ids.cashier, c])          // thu ngân kết hộ
+    const b = await insertShift({ openedBy: ids.cashier, openedAt: t(1) })                          // thu ngân đang mở
+    await insertShift({ storeId: ids.otherStore, openedBy: ids.otherOwner })
+    for (const uid of [ids.owner, ids.manager]) {
+      const r = await rpc(uid, 'list_cash_shifts', ids.store, 60)
+      assert.equal(r.required, true)
+      assert.deepEqual(r.shifts.map((s) => s.id), [b, c, a])
+    }
+    const mine = await rpc(ids.cashier, 'list_cash_shifts', ids.store, 60)
+    assert.deepEqual(mine.shifts.map((s) => s.id), [b, c])
+    const item = mine.shifts[1]
+    assert.deepEqual(Object.keys(item).sort(), ['closed_at', 'closed_by_name', 'counted_cash', 'difference',
+      'expected_cash', 'id', 'opened_at', 'opened_by_name', 'opening_cash', 'status'])
+    assert.deepEqual([item.status, item.opened_by_name, item.closed_by_name], ['closed', 'quanly@quan.vn', 'Thu ngân Lan'])
+    assert.equal((await rpc(ids.owner, 'list_cash_shifts', ids.store, 1)).shifts.length, 1)
+  })
+
+  test('get_cash_shift_report: thu ngân xem ca người khác bị chặn Không có quyền xem ca này; quản lý xem được', async () => {
+    const other = await insertShift({ status: 'closed', openedBy: ids.owner })
+    await assert.rejects(rpc(ids.cashier, 'get_cash_shift_report', other), /Không có quyền xem ca này/)
+    assert.equal((await rpc(ids.manager, 'get_cash_shift_report', other)).id, other)
+    await assert.rejects(rpc(ids.otherOwner, 'get_cash_shift_report', other), /Không có quyền xem ca này/)
+    await assert.rejects(rpc(ids.owner, 'get_cash_shift_report', randomUUID()), /Không tìm thấy ca/)
+  })
+
+  test('get_open_cash_shift: can_manage_entries true với chủ quán, quản lý; false với thu ngân', async () => {
+    assert.equal((await rpc(ids.owner, 'get_open_cash_shift', ids.store)).can_manage_entries, true)
+    assert.equal((await rpc(ids.manager, 'get_open_cash_shift', ids.store)).can_manage_entries, true)
+    const c = await rpc(ids.cashier, 'get_open_cash_shift', ids.store)
+    assert.deepEqual(c, { required: false, can_manage_entries: false, shift: null })
+  })
+
+  test('quyền: phục vụ và chủ quán quán khác bị chặn ở mọi RPC ca; anon không EXECUTE được', async () => {
+    await setShiftRequired(ids.store, true)
+    const shift = await insertShift()
+    for (const uid of [ids.staff, ids.otherOwner]) {
+      await assert.rejects(rpc(uid, 'open_cash_shift', ids.store, 0, null), /Không có quyền/)
+      await assert.rejects(rpc(uid, 'close_cash_shift', shift, 0, null), /Không có quyền/)
+      await assert.rejects(rpc(uid, 'continue_stale_shift', shift), /Không có quyền/)
+      await assert.rejects(rpc(uid, 'get_open_cash_shift', ids.store), /Không có quyền/)
+      await assert.rejects(rpc(uid, 'list_cash_shifts', ids.store, 60), /Không có quyền/)
+      await assert.rejects(rpc(uid, 'get_cash_shift_report', shift), /Không có quyền/)
+    }
+    assert.equal((await shiftRow(shift)).status, 'open')
+    for (const fn of ['open_cash_shift(uuid,bigint,text)', 'close_cash_shift(uuid,bigint,text)',
+      'continue_stale_shift(uuid)', 'get_open_cash_shift(uuid)', 'list_cash_shifts(uuid,integer)',
+      'get_cash_shift_report(uuid)', 'set_require_cash_shift(uuid,boolean)']) {
+      assert.equal((await one(`SELECT has_function_privilege('anon', 'public.${fn}', 'EXECUTE') AS v`)).v, false, fn)
+      assert.equal((await one(`SELECT has_function_privilege('authenticated', 'public.${fn}', 'EXECUTE') AS v`)).v, true, fn)
+      const d = await def(fn)
+      assert.match(d, /SECURITY DEFINER/, fn)
+      assert.match(d, /SET search_path TO 'public'/, fn)
+    }
+  })
+
+  test('cash_shift_report_json: service_role EXECUTE được, authenticated không', async () => {
+    const shift = await insertShift({ status: 'closed' })
+    for (const fn of ['cash_shift_report_json(uuid)', 'cash_shift_stale(uuid)', 'cash_shift_entries_json(uuid)',
+      'cash_user_name(uuid)']) {
+      for (const role of ['anon', 'authenticated', 'public']) {
+        assert.equal((await one(`SELECT has_function_privilege($1, 'public.${fn}', 'EXECUTE') AS v`, [role])).v, false,
+          `${role} gọi được ${fn}`)
+      }
+    }
+    assert.equal((await one(`SELECT has_function_privilege('service_role', 'public.cash_shift_report_json(uuid)', 'EXECUTE') AS v`)).v, true)
+    await db.exec('SET ROLE service_role')
+    try {
+      assert.equal((await one('SELECT cash_shift_report_json($1) AS r', [shift])).r.id, shift)
+    } finally {
+      await db.exec('RESET ROLE')
+    }
+    await assert.rejects(as(ids.owner, 'SELECT cash_shift_report_json($1)', [shift]), /permission denied/)
+  })
+
+  test('khoá: close_cash_shift lấy FOR UPDATE trên ca trước khi gọi cash_shift_totals; open/continue khoá đúng chỗ', async () => {
+    const close = await def('close_cash_shift(uuid,bigint,text)')
+    const lock = close.indexOf('FOR UPDATE')
+    assert.ok(lock > 0 && lock < close.indexOf('cash_shift_totals('), 'close_cash_shift phải FOR UPDATE trước khi cộng két')
+    assert.match(await def('continue_stale_shift(uuid)'), /FOR UPDATE/)
+    // Mở ca khoá dòng cài đặt FOR SHARE: tắt công tắc (FOR UPDATE) không chen giữa kiểm và ghi.
+    assert.match(await def('open_cash_shift(uuid,bigint,text)'), /store_workflow_settings[\s\S]*FOR SHARE/)
+    assert.match(await def('set_require_cash_shift(uuid,boolean)'), /store_workflow_settings[\s\S]*FOR UPDATE/)
+  })
+
+  test('snapshot cài đặt có require_cash_shift; neo store_workflow_snapshot khớp đúng 1 lần trong prod-defs/122', async () => {
+    const snap = (await one('SELECT store_workflow_snapshot($1) AS s', [ids.store])).s
+    assert.equal(snap.require_cash_shift, false)
+    assert.equal(snap.business_day_start, '00:00')
+    await setShiftRequired(ids.store, true)
+    assert.equal((await one('SELECT store_workflow_snapshot($1) AS s', [ids.store])).s.require_cash_shift, true)
+    const prod = (await readFile(new URL('./prod-defs/122/store_workflow_snapshot.sql', import.meta.url), 'utf8'))
+      .replace(/\r\n/g, '\n')
+    assert.equal(countOf(prod, "'business_day_start', to_char(w.business_day_start, 'HH24:MI')"), 1)
+    assert.equal(createHash('md5').update(prod).digest('hex'), '51e3171bc7d4d5eb9075cf091d4e6c06')
   })
 })
 
