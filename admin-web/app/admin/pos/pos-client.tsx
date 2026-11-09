@@ -163,11 +163,11 @@ export default function PosClient({
   initialFloorError: string | null
   categories: PosMenuCategory[]
   initialSessions: OpenTableSession[]
-  /** Thu ngân (PA-2) không sắp xếp sơ đồ — việc cấu hình của chủ quán; server cũng chặn lưu. */
+  /** Chỉ chủ quán sắp xếp sơ đồ (thu ngân, quản lý thì không) — việc cấu hình; server cũng chặn lưu. */
   canArrange: boolean
-  /** Email người đang đăng nhập — hiện cạnh nhãn "Chủ quán" / "Thu ngân". */
+  /** Email người đang đăng nhập — hiện cạnh nhãn vai (operatorRoleLabel). */
   operatorEmail: string | null
-  /** Nhãn vai đang đăng nhập (ROLE_LABEL): Chủ quán / Thu ngân / Quản lý. Thiếu thì suy từ canArrange như cũ. */
+  /** Nhãn vai lấy từ ROLE_LABEL (lib/auth/roles.ts): Chủ quán / Thu ngân / Quản lý. Thiếu thì suy từ canArrange như cũ. */
   operatorRoleLabel?: string
   initialError: string | null
   initialRequests: ServiceRequestRow[]
@@ -954,7 +954,7 @@ export default function PosClient({
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-slate-900">MEVO POS</h1>
                 <span className="max-w-48 truncate rounded-md border border-orange-200 bg-orange-50 px-2 py-0.5 text-[13px] font-semibold text-orange-700">{storeName}</span>
-                {/* Vai trò đang vận hành máy quầy (chủ quán và thu ngân có quyền khác nhau — PA-2). */}
+                {/* Vai trò đang vận hành máy quầy, nhãn lấy từ ROLE_LABEL (chủ quán, thu ngân, quản lý có quyền khác nhau). */}
                 <span
                   className="inline-flex max-w-64 items-center gap-1.5 truncate rounded-md border border-slate-300 bg-slate-900 px-2 py-0.5 text-[13px] font-semibold text-white"
                   title={operatorEmail ?? undefined}

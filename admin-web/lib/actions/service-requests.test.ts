@@ -216,7 +216,7 @@ describe('quản lý (QL) ở khu /staff', () => {
   it('resolveServiceRequest gọi RPC', async () => {
     mocks.rpc.mockResolvedValue({ data: { already: false }, error: null })
     await expect(resolveServiceRequest('request-1')).resolves.toMatchObject({ ok: true })
-    expect(mocks.rpc).toHaveBeenCalled()
+    expect(mocks.rpc).toHaveBeenCalledWith('resolve_service_request', { p_request_id: 'request-1' })
   })
 
   it('listOpenTableSessions gọi RPC list_open_table_sessions', async () => {

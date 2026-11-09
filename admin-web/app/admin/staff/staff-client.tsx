@@ -23,6 +23,18 @@ const inputClass = 'w-full rounded-lg border border-border-strong bg-surface px-
 const iconButtonClass = 'inline-flex size-9 items-center justify-center rounded-lg border'
 const NAME_MAX = 60
 
+// Cảnh báo ở form Sửa khi chủ quán đổi vai. Hạ Quản lý xuống Thu ngân có thêm câu riêng: người đó mất hậu cần
+// (Kho, Thu chi, Công nợ, báo cáo tài chính) dù vẫn thu tiền được — dễ bị bỏ qua nếu chỉ đọc câu của thu ngân.
+export function roleChangeWarning(from: StaffMember['role'], to: StaffMember['role']): string[] {
+  if (to === 'store_manager') return ['Người này sẽ làm mọi việc của thu ngân, cộng kho, thu chi, công nợ và xem lãi lỗ.']
+  if (to === 'store_cashier') {
+    const lines = ['Người này sẽ thu tiền, bỏ/tặng món và xem doanh thu.']
+    if (from === 'store_manager') lines.push('Người này sẽ không còn vào được Kho, Thu chi, Công nợ và báo cáo tài chính.')
+    return lines
+  }
+  return ['Người này sẽ không thu tiền được nữa.']
+}
+
 // Tài khoản cũ (trước mig 101) chưa có tên → hiện email làm tên chính.
 function staffLabel(s: StaffMember) {
   return s.displayName ?? s.email
@@ -410,11 +422,7 @@ function EditDialog({ staff, error, busy, onSubmit, onClose }: {
       </label>
       {roleChanged ? (
         <p className="rounded-lg bg-warning-bg p-3 text-xs text-warning">
-          {role === 'store_manager'
-            ? 'Người này sẽ làm mọi việc của thu ngân, cộng kho, thu chi, công nợ và xem lãi lỗ.'
-            : role === 'store_cashier'
-              ? 'Người này sẽ thu tiền, bỏ/tặng món và xem doanh thu.'
-              : 'Người này sẽ không thu tiền được nữa.'}
+          {roleChangeWarning(staff.role, role).join(' ')}
           {' '}Có hiệu lực từ lần tải trang kế tiếp của họ.
         </p>
       ) : (
