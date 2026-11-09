@@ -1,6 +1,6 @@
 // Báo cáo bán hàng (mig 117): kiểu dữ liệu + đọc JSON của 4 RPC report_sales_by_item / _by_category / _by_hour /
 // report_voids. Tiền đã tính ở server — ở đây chỉ đổi tên trường / ép kiểu, không cộng trừ lại (trừ % hiển thị).
-import type { ReportTab } from './tabs'
+import type { SalesTab } from './tabs'
 
 export type SalesSummary = {
   itemsAmount: number; discountTotal: number; revenue: number; qtySold: number; qtyGift: number; openTablesCount: number
@@ -84,7 +84,7 @@ function voidRows(v: unknown): VoidRow[] {
   }))
 }
 
-export function parseSalesReport(tab: ReportTab, raw: unknown): SalesReport {
+export function parseSalesReport(tab: SalesTab, raw: unknown): SalesReport {
   const o = obj(raw)
   const h = head(o)
   switch (tab) {

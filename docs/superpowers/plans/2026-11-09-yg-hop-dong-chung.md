@@ -34,6 +34,26 @@ is_store_back_office(p_store_id uuid) RETURNS boolean
   -- true khi auth.uid() là store_owner hoặc store_manager is_active của p_store_id
 is_store_pos_operator(p_store_id uuid)   -- vá tại chỗ: nhận thêm store_manager
 
+-- mig 117 (BC) — chỉ đọc
+report_period_bounds(p_store_id uuid, p_from date, p_to date)
+  RETURNS TABLE(period_from timestamptz, period_to timestamptz)    -- nội bộ; kỳ ngày kinh doanh, tối đa 366 ngày
+report_paid_orders(p_store_id uuid, p_from timestamptz, p_to timestamptz)
+  RETURNS TABLE(order_id uuid, session_id uuid, received_at timestamptz, kitchen_at timestamptz,
+                total_amount bigint, discount_amount bigint, bill_discount_amount bigint)
+  -- nội bộ, định nghĩa DUY NHẤT "đơn đã thu trong kỳ" (WHERE chép nguyên văn CTE money cũ của get_bills_report;
+  -- từ mig 125 CTE money của get_bills_report gọi lại hàm này). Đổi điều kiện "đã thu" → vá hàm này.
+
+-- mig 125 (BC) — chỉ đọc
+report_day_totals(p_store_id uuid, p_from timestamptz, p_to timestamptz) RETURNS jsonb
+  -- nội bộ, {revenue, cash, bank, debt, other, bills_count, discount_total}; get_bills_report.totals gọi hàm này.
+  -- Migration sau muốn đổi cách cộng tổng ngày: vá report_day_totals, KHÔNG BAO GIỜ vá khối totals của get_bills_report.
+report_revenue_series(p_store_id uuid, p_from date, p_to date, p_grain text) RETURNS jsonb   -- RPC, back office
+report_cash_flow(p_store_id uuid, p_from date, p_to date) RETURNS jsonb                    -- RPC, back office
+report_profit_loss(p_store_id uuid, p_from date, p_to date) RETURNS jsonb                  -- RPC, back office
+report_receivables(p_store_id uuid, p_from date, p_to date) RETURNS jsonb                  -- RPC, back office
+  -- ngày phát sinh = business_date_of(collected_at); ngày trả hiệu lực = GREATEST(debt_payments.business_date,
+  -- ngày phát sinh của bill); lần trả đã huỷ coi như chưa từng có.
+
 -- mig 118 (KHO)
 inventory_sales_qty(p_store_id uuid, p_from timestamptz, p_to timestamptz)
   RETURNS TABLE(inventory_item_id uuid, qty numeric)              -- nội bộ, REVOKE client

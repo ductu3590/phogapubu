@@ -6,10 +6,12 @@ const mocks = vi.hoisted(() => ({
   eq: vi.fn(),
   from: vi.fn(),
   requirePosOperatorStoreId: vi.fn(async () => 'store-1'),
+  requireBackOfficeStoreId: vi.fn(async () => 'store-1'),
 }))
 
 vi.mock('@/lib/auth/operator', () => ({
   requirePosOperatorStoreId: mocks.requirePosOperatorStoreId,
+  requireBackOfficeStoreId: mocks.requireBackOfficeStoreId,
 }))
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({ rpc: mocks.rpc })),
@@ -31,16 +33,53 @@ beforeEach(() => {
   mocks.from.mockReturnValue({ select: () => ({ eq: mocks.eq }) })
   mocks.requirePosOperatorStoreId.mockReset()
   mocks.requirePosOperatorStoreId.mockResolvedValue('store-1')
+  mocks.requireBackOfficeStoreId.mockReset()
+  mocks.requireBackOfficeStoreId.mockResolvedValue('store-1')
 })
 
 describe('loadReport', () => {
-  it('REPORT_RPC đủ 4 tab bán hàng', () => {
+  it('REPORT_RPC đủ 8 tab', () => {
     expect(REPORT_RPC).toEqual({
       item: 'report_sales_by_item',
       category: 'report_sales_by_category',
       hour: 'report_sales_by_hour',
       voids: 'report_voids',
+      revenue: 'report_revenue_series',
+      cashflow: 'report_cash_flow',
+      pnl: 'report_profit_loss',
+      debts: 'report_receivables',
     })
+  })
+
+  it('loadReport tab revenue gọi report_revenue_series kèm p_grain', async () => {
+    mocks.rpc.mockResolvedValue({ data: { from: '2026-12-01', to: '2026-12-03', grain: 'month', rows: [], totals: {} }, error: null })
+    const res = await loadReport('revenue', '2026-12-01', '2026-12-03', 'month')
+    expect(mocks.rpc).toHaveBeenLastCalledWith('report_revenue_series',
+      { p_store_id: 'store-1', p_from: '2026-12-01', p_to: '2026-12-03', p_grain: 'month' })
+    expect(res.ok && res.report.tab === 'revenue' && res.report.grain).toBe('month')
+    await loadReport('revenue', '2026-12-01', '2026-12-03')
+    expect(mocks.rpc).toHaveBeenLastCalledWith('report_revenue_series',
+      { p_store_id: 'store-1', p_from: '2026-12-01', p_to: '2026-12-03', p_grain: 'day' })
+    // Tab khác không nhận p_grain.
+    mocks.rpc.mockResolvedValue({ data: {}, error: null })
+    for (const tab of ['cashflow', 'pnl', 'debts'] as const) {
+      const r = await loadReport(tab, '2026-12-01', '2026-12-03', 'month')
+      expect(r.ok && r.report.tab).toBe(tab)
+      expect(mocks.rpc).toHaveBeenLastCalledWith(REPORT_RPC[tab], { p_store_id: 'store-1', p_from: '2026-12-01', p_to: '2026-12-03' })
+    }
+  })
+
+  it('tab tài chính ở vai không phải hậu cần: {ok:false} tiếng Việt, không ném, không gọi RPC', async () => {
+    mocks.requireBackOfficeStoreId.mockRejectedValue(new Error('Chỉ chủ quán hoặc quản lý mới thao tác được ở đây'))
+    for (const tab of ['revenue', 'cashflow', 'pnl', 'debts'] as const) {
+      await expect(loadReport(tab, '2026-12-01', '2026-12-03')).resolves.toEqual({
+        ok: false, error: 'Chỉ chủ quán hoặc quản lý mới xem được báo cáo tài chính',
+      })
+    }
+    expect(mocks.rpc).not.toHaveBeenCalled()
+    // Tab bán hàng vẫn đọc được (thu ngân).
+    mocks.rpc.mockResolvedValue({ data: {}, error: null })
+    expect((await loadReport('item', '2026-12-01', '2026-12-03')).ok).toBe(true)
   })
 
   it('loadReport gọi đúng RPC theo tab với store của operator và p_from, p_to', async () => {

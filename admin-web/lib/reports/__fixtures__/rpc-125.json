@@ -1,0 +1,383 @@
+{
+  "report_revenue_series_day": {
+    "to": "2026-12-03",
+    "from": "2026-12-01",
+    "rows": [
+      {
+        "bank": 850000,
+        "cash": 1000000,
+        "date": "2026-12-01",
+        "debt": 1200000,
+        "other": 120000,
+        "revenue": 3170000,
+        "bills_count": 6,
+        "discount_total": 50000
+      },
+      {
+        "bank": 300000,
+        "cash": 0,
+        "date": "2026-12-02",
+        "debt": 0,
+        "other": 0,
+        "revenue": 300000,
+        "bills_count": 1,
+        "discount_total": 0
+      },
+      {
+        "bank": 0,
+        "cash": 0,
+        "date": "2026-12-03",
+        "debt": 0,
+        "other": 0,
+        "revenue": 0,
+        "bills_count": 0,
+        "discount_total": 0
+      }
+    ],
+    "grain": "day",
+    "totals": {
+      "bank": 1150000,
+      "cash": 1000000,
+      "debt": 1200000,
+      "other": 120000,
+      "revenue": 3470000,
+      "bills_count": 7,
+      "discount_total": 50000
+    }
+  },
+  "report_revenue_series_month": {
+    "to": "2026-12-31",
+    "from": "2026-01-01",
+    "rows": [
+      {
+        "bank": 0,
+        "cash": 0,
+        "date": "2026-01-01",
+        "debt": 0,
+        "other": 0,
+        "revenue": 0,
+        "bills_count": 0,
+        "discount_total": 0
+      },
+      {
+        "bank": 0,
+        "cash": 0,
+        "date": "2026-02-01",
+        "debt": 0,
+        "other": 0,
+        "revenue": 0,
+        "bills_count": 0,
+        "discount_total": 0
+      },
+      {
+        "bank": 0,
+        "cash": 0,
+        "date": "2026-03-01",
+        "debt": 0,
+        "other": 0,
+        "revenue": 0,
+        "bills_count": 0,
+        "discount_total": 0
+      },
+      {
+        "bank": 0,
+        "cash": 0,
+        "date": "2026-04-01",
+        "debt": 0,
+        "other": 0,
+        "revenue": 0,
+        "bills_count": 0,
+        "discount_total": 0
+      },
+      {
+        "bank": 0,
+        "cash": 0,
+        "date": "2026-05-01",
+        "debt": 0,
+        "other": 0,
+        "revenue": 0,
+        "bills_count": 0,
+        "discount_total": 0
+      },
+      {
+        "bank": 0,
+        "cash": 0,
+        "date": "2026-06-01",
+        "debt": 0,
+        "other": 0,
+        "revenue": 0,
+        "bills_count": 0,
+        "discount_total": 0
+      },
+      {
+        "bank": 0,
+        "cash": 0,
+        "date": "2026-07-01",
+        "debt": 0,
+        "other": 0,
+        "revenue": 0,
+        "bills_count": 0,
+        "discount_total": 0
+      },
+      {
+        "bank": 0,
+        "cash": 0,
+        "date": "2026-08-01",
+        "debt": 0,
+        "other": 0,
+        "revenue": 0,
+        "bills_count": 0,
+        "discount_total": 0
+      },
+      {
+        "bank": 0,
+        "cash": 0,
+        "date": "2026-09-01",
+        "debt": 0,
+        "other": 0,
+        "revenue": 0,
+        "bills_count": 0,
+        "discount_total": 0
+      },
+      {
+        "bank": 0,
+        "cash": 0,
+        "date": "2026-10-01",
+        "debt": 250000,
+        "other": 0,
+        "revenue": 250000,
+        "bills_count": 1,
+        "discount_total": 0
+      },
+      {
+        "bank": 0,
+        "cash": 80000,
+        "date": "2026-11-01",
+        "debt": 100000,
+        "other": 0,
+        "revenue": 180000,
+        "bills_count": 2,
+        "discount_total": 0
+      },
+      {
+        "bank": 1150000,
+        "cash": 1000000,
+        "date": "2026-12-01",
+        "debt": 1200000,
+        "other": 120000,
+        "revenue": 3470000,
+        "bills_count": 7,
+        "discount_total": 50000
+      }
+    ],
+    "grain": "month",
+    "totals": {
+      "bank": 1150000,
+      "cash": 1080000,
+      "debt": 1550000,
+      "other": 120000,
+      "revenue": 3900000,
+      "bills_count": 10,
+      "discount_total": 50000
+    }
+  },
+  "report_cash_flow": {
+    "to": "2026-12-03",
+    "from": "2026-12-01",
+    "funds": {
+      "bank": {
+        "in": 1820000,
+        "net": 1320000,
+        "out": 500000
+      },
+      "cash": {
+        "in": 2400000,
+        "net": -500000,
+        "out": 2900000
+      }
+    },
+    "inflows": [
+      {
+        "key": "bills",
+        "bank": 1150000,
+        "cash": 1000000,
+        "label": "Thu bill"
+      },
+      {
+        "key": "wallet",
+        "bank": 120000,
+        "cash": 0,
+        "label": "Thu qua ví"
+      },
+      {
+        "key": "debt",
+        "bank": 500000,
+        "cash": 400000,
+        "label": "Thu nợ"
+      },
+      {
+        "key": "cat:a596127b-9193-49e2-a8f6-97d40014a91e",
+        "bank": 0,
+        "cash": 1000000,
+        "label": "Nộp thêm vào két"
+      },
+      {
+        "key": "cat:4b2f8889-790b-4abb-8fb7-bd60f934335a",
+        "bank": 50000,
+        "cash": 0,
+        "label": "Thu khác"
+      }
+    ],
+    "outflows": [
+      {
+        "key": "cat:5aee467d-318b-435c-840c-4c444d45405c",
+        "bank": 0,
+        "cash": 600000,
+        "label": "Nhập hàng",
+        "report_group": "inventory_purchase"
+      },
+      {
+        "key": "cat:0fa7fa57-51da-4787-a4ae-93fd4a4b9856",
+        "bank": 0,
+        "cash": 300000,
+        "label": "Đi chợ",
+        "report_group": "operating_expense"
+      },
+      {
+        "key": "cat:bf42bf52-f20d-468b-b51f-4784e25f1ff8",
+        "bank": 500000,
+        "cash": 0,
+        "label": "Lương - thưởng",
+        "report_group": "operating_expense"
+      },
+      {
+        "key": "cat:f3e2749f-f155-4a1d-91f7-172cd3012357",
+        "bank": 0,
+        "cash": 2000000,
+        "label": "Chủ quán rút",
+        "report_group": "owner_draw"
+      }
+    ]
+  },
+  "report_profit_loss": {
+    "to": "2026-12-03",
+    "from": "2026-12-01",
+    "revenue": 3470000,
+    "excluded": {
+      "owner_draw": 2000000,
+      "cash_transfer": 1000000,
+      "inventory_purchase": 600000
+    },
+    "warnings": {
+      "missing_cost_items": [
+        {
+          "name": "Đá viên",
+          "inventory_item_id": "00000000-0000-0000-0000-0000000000a1"
+        }
+      ],
+      "ingredient_uncounted": true
+    },
+    "cogs_goods": 520000,
+    "cogs_total": 520000,
+    "net_profit": 2140000,
+    "gross_profit": 2950000,
+    "other_income": {
+      "rows": [
+        {
+          "name": "Thu khác",
+          "amount": 50000,
+          "category_id": "4b2f8889-790b-4abb-8fb7-bd60f934335a"
+        }
+      ],
+      "total": 50000
+    },
+    "writeoff_cost": 60000,
+    "cogs_ingredient": 0,
+    "operating_expenses": {
+      "rows": [
+        {
+          "name": "Lương - thưởng",
+          "amount": 500000,
+          "category_id": "bf42bf52-f20d-468b-b51f-4784e25f1ff8"
+        },
+        {
+          "name": "Đi chợ",
+          "amount": 300000,
+          "category_id": "0fa7fa57-51da-4787-a4ae-93fd4a4b9856"
+        }
+      ],
+      "total": 800000
+    }
+  },
+  "report_receivables": {
+    "to": "2026-12-03",
+    "from": "2026-12-02",
+    "rows": [
+      {
+        "kind": "company",
+        "name": "Cty Điện lực",
+        "phone": null,
+        "age_0_7": 300000,
+        "closing": 300000,
+        "opening": 800000,
+        "age_8_30": 0,
+        "incurred": 0,
+        "collected": 500000,
+        "age_over_30": 0,
+        "customer_id": "c3a12911-f5d6-4fb2-9b66-52df6285f6ec",
+        "oldest_open_date": "2026-12-01"
+      },
+      {
+        "kind": "person",
+        "name": "Cô Lan",
+        "phone": null,
+        "age_0_7": 0,
+        "closing": 250000,
+        "opening": 250000,
+        "age_8_30": 0,
+        "incurred": 0,
+        "collected": 0,
+        "age_over_30": 250000,
+        "customer_id": "be6ff104-53b0-405d-8220-6fadf473cb50",
+        "oldest_open_date": "2026-10-20"
+      },
+      {
+        "kind": "person",
+        "name": "Chú Bình",
+        "phone": null,
+        "age_0_7": 0,
+        "closing": 100000,
+        "opening": 100000,
+        "age_8_30": 100000,
+        "incurred": 0,
+        "collected": 0,
+        "age_over_30": 0,
+        "customer_id": "0471ba66-f518-471a-b7d8-4dbdb4ec9454",
+        "oldest_open_date": "2026-11-20"
+      },
+      {
+        "kind": "person",
+        "name": "Anh Hùng",
+        "phone": "0912345678",
+        "age_0_7": 0,
+        "closing": 0,
+        "opening": 400000,
+        "age_8_30": 0,
+        "incurred": 0,
+        "collected": 400000,
+        "age_over_30": 0,
+        "customer_id": "76799c88-6bc0-44ee-91b6-9df2c64e1686",
+        "oldest_open_date": null
+      }
+    ],
+    "totals": {
+      "age_0_7": 300000,
+      "closing": 650000,
+      "opening": 1550000,
+      "age_8_30": 100000,
+      "incurred": 0,
+      "collected": 900000,
+      "age_over_30": 250000
+    }
+  }
+}

@@ -25,7 +25,23 @@ export const EMPTY_TEXT = 'Chưa có dữ liệu trong kỳ này'
 
 /** Dòng phạm vi dưới tiêu đề: 3 tab bán hàng chỉ tính bill đã thu; Món huỷ lọc theo giờ thao tác, gồm cả bàn chưa thu. */
 export function reportScopeNote(tab: ReportTab): string {
-  return tab === 'voids'
-    ? 'theo ngày kinh doanh, theo giờ thao tác (gồm cả bàn chưa thu)'
-    : 'theo ngày kinh doanh, chỉ tính bill đã thu tiền'
+  switch (tab) {
+    case 'voids':
+      return 'theo ngày kinh doanh, theo giờ thao tác (gồm cả bàn chưa thu)'
+    case 'cashflow':
+      return 'theo ngày kinh doanh, tiền thật vào và ra két, tài khoản'
+    case 'pnl':
+      return 'theo ngày kinh doanh, doanh thu đã thu trừ giá vốn và chi phí'
+    case 'debts':
+      return 'nợ của khách theo ngày kinh doanh: đầu kỳ, phát sinh, đã thu, cuối kỳ'
+    default:
+      return 'theo ngày kinh doanh, chỉ tính bill đã thu tiền'
+  }
 }
+
+/** Ngày 'YYYY-MM-DD' → 'dd/MM/yyyy'. */
+export const formatYmd = (ymd: string | null): string =>
+  ymd && /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}` : '—'
+
+/** Ghi chú chung cho Thu chi / Lãi lỗ: phiếu đọc theo trạng thái HIỆN TẠI. */
+export const VOID_LATER_NOTE = 'Phiếu huỷ sau này không còn tính vào kỳ đã qua.'

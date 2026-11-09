@@ -6,6 +6,7 @@ import { openCashShiftDb } from './cash-shift-db.mjs'
 // (is_store_back_office, is_store_pos_operator có store_manager, ids.manager), store_workflow_settings + ba hàm
 // ngày kinh doanh nguyên văn mig 111, rồi mig 122. Ở đây chỉ nạp thêm 123 và các hàm tiện cho test công nợ.
 // withDebt = false: dừng ở 122 (dùng để chụp prod-defs/123).
+// through = '122b': nạp thêm 118 (kho) + 122b như thứ tự prod, rồi 123 (báo cáo tài chính mig 125 cần cả kho).
 const url = (path) => new URL(path, import.meta.url)
 const load = async (u) => (await readFile(u, 'utf8')).replace(/\r\n/g, '\n')
 
@@ -28,8 +29,8 @@ const SESSION_TABLES_SYNC_040 = `
     execute function sync_session_tables_open();
 `
 
-export async function openDebtDb({ withDebt = true } = {}) {
-  const base = await openCashShiftDb({ lock: true })
+export async function openDebtDb({ withDebt = true, through = '122' } = {}) {
+  const base = await openCashShiftDb({ lock: true, through })
   try {
     return await extend(base, withDebt)
   } catch (err) {

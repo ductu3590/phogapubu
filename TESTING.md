@@ -6,7 +6,7 @@
 
 ## Checklist mới tách riêng
 
-- ⏳ [Yên Garden — Báo cáo, Part 1 bán hàng](docs/testing/yen-garden/BAO-CAO.md) — chờ test, mig 117 chưa áp prod
+- ⏳ [Yên Garden — Báo cáo, Part 1 bán hàng + Part 2 tài chính](docs/testing/yen-garden/BAO-CAO.md) — chờ test, mig 117 + 125 chưa áp prod
 - ⏳ [Yên Garden — Vai Quản lý](docs/testing/yen-garden/QUAN-LY.md) — chờ test, mig 116 chưa áp prod (Controller áp + deploy trước)
 - ⏳ [Yên Garden — Kho](docs/testing/yen-garden/KHO.md) — chờ test, mig 118 chưa áp prod
 - ⏳ [Yên Garden — Ca thu ngân + Sổ thu chi](docs/testing/yen-garden/THU-CHI.md) — chờ test, mig 122 + 122b chưa áp prod (áp cùng đợt, trước khi quán nào bật ca; 122 cần 112a/112b + 111 + 116, 122b cần thêm 118)

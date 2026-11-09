@@ -19,6 +19,12 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 const { GET } = await import('./route')
+const rpc125 = (await import('@/lib/reports/__fixtures__/rpc-125.json')).default
+const { parseFinanceReport } = await import('@/lib/reports/finance')
+const FINANCE_JSON: Record<string, unknown> = {
+  revenue: rpc125.report_revenue_series_day, cashflow: rpc125.report_cash_flow,
+  pnl: rpc125.report_profit_loss, debts: rpc125.report_receivables,
+}
 const req = (qs: string) => ({ nextUrl: new URL(`http://localhost/admin/reports/export${qs}`) }) as never
 
 const EMPTY_ITEM = {
@@ -30,7 +36,13 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.requireOperator.mockResolvedValue({ userId: 'u1', role: 'store_owner', storeId: 'store-1' })
   mocks.resolveReportRange.mockResolvedValue({ preset: 'custom', from: '2026-11-01', to: '2026-11-20', today: '2026-11-20' })
-  mocks.loadReport.mockImplementation(async (tab: string) => ({ ok: true, report: { ...EMPTY_ITEM, tab, ...(tab === 'voids' ? { totals: { cancelledAmount: 0, giftAmount: 0, reducedAmount: 0, count: 0 } } : {}) } }))
+  mocks.loadReport.mockImplementation(async (tab: string, _from: string, _to: string, grain: string) => {
+    if (tab in FINANCE_JSON) {
+      const raw = tab === 'revenue' && grain === 'month' ? rpc125.report_revenue_series_month : FINANCE_JSON[tab]
+      return { ok: true, report: parseFinanceReport(tab as never, raw) }
+    }
+    return { ok: true, report: { ...EMPTY_ITEM, tab, ...(tab === 'voids' ? { totals: { cancelledAmount: 0, giftAmount: 0, reducedAmount: 0, count: 0 } } : {}) } }
+  })
   mocks.getUser.mockResolvedValue({ data: { user: { email: 'chu@quan.vn', user_metadata: { full_name: 'Anh Tú' } } } })
 })
 
@@ -42,7 +54,7 @@ describe('GET /admin/reports/export', () => {
     expect(res.headers.get('Content-Disposition')).toBe('attachment; filename="bao-cao-voids-bia-lau-bao-luong-2026-11-01_2026-11-20.xlsx"')
     expect(res.headers.get('Cache-Control')).toBe('no-store')
     expect(mocks.resolveReportRange).toHaveBeenCalledWith({ period: undefined, from: '2026-11-01', to: '2026-11-20' }, expect.any(Date))
-    expect(mocks.loadReport).toHaveBeenCalledWith('voids', '2026-11-01', '2026-11-20')
+    expect(mocks.loadReport).toHaveBeenCalledWith('voids', '2026-11-01', '2026-11-20', 'day')
     expect(mocks.storeEq).toHaveBeenCalledWith('id', 'store-1')
     const wb = new ExcelJS.Workbook()
     await wb.xlsx.load(await res.arrayBuffer())
@@ -54,7 +66,7 @@ describe('GET /admin/reports/export', () => {
     mocks.requireOperator.mockResolvedValue({ userId: 'u2', role: 'store_cashier', storeId: 'store-1' })
     const res = await GET(req('?tab=zzz&period=7d'))
     expect(res.status).toBe(200)
-    expect(mocks.loadReport).toHaveBeenCalledWith('item', '2026-11-01', '2026-11-20')
+    expect(mocks.loadReport).toHaveBeenCalledWith('item', '2026-11-01', '2026-11-20', 'day')
     expect(mocks.resolveReportRange).toHaveBeenCalledWith({ period: '7d', from: undefined, to: undefined }, expect.any(Date))
   })
 
@@ -62,7 +74,7 @@ describe('GET /admin/reports/export', () => {
     mocks.requireOperator.mockResolvedValue({ userId: 'u5', role: 'store_manager', storeId: 'store-1' })
     const res = await GET(req('?tab=hour'))
     expect(res.status).toBe(200)
-    expect(mocks.loadReport).toHaveBeenCalledWith('hour', '2026-11-01', '2026-11-20')
+    expect(mocks.loadReport).toHaveBeenCalledWith('hour', '2026-11-01', '2026-11-20', 'day')
   })
 
   it('chưa đăng nhập: 401; phục vụ / superadmin: 403, không đọc báo cáo', async () => {
@@ -82,6 +94,47 @@ describe('GET /admin/reports/export', () => {
     expect(res.status).toBe(400)
     expect(await res.text()).toBe('Không xác định được kỳ báo cáo')
     expect(mocks.loadReport).not.toHaveBeenCalled()
+  })
+
+  it('tab tài chính: thu ngân 403 (không lặng lẽ trả file Theo món), không đọc kỳ, không gọi RPC', async () => {
+    mocks.requireOperator.mockResolvedValue({ userId: 'u2', role: 'store_cashier', storeId: 'store-1' })
+    for (const tab of ['revenue', 'cashflow', 'pnl', 'debts']) {
+      const res = await GET(req(`?tab=${tab}&from=2026-12-01&to=2026-12-03`))
+      expect(res.status, tab).toBe(403)
+      expect(res.headers.get('Content-Type') ?? '', tab).not.toContain('spreadsheet')
+      expect(await res.text()).toBe('Không có quyền xem báo cáo tài chính')
+    }
+    expect(mocks.resolveReportRange).not.toHaveBeenCalled()
+    expect(mocks.loadReport).not.toHaveBeenCalled()
+  })
+
+  it('tab tài chính: chủ quán / quản lý nhận đúng file tài chính', async () => {
+    const sheetNames = { revenue: 'Doanh thu', cashflow: 'Thu chi', pnl: 'Lãi lỗ', debts: 'Công nợ' } as const
+    for (const role of ['store_owner', 'store_manager']) {
+      mocks.requireOperator.mockResolvedValue({ userId: 'u1', role, storeId: 'store-1' })
+      for (const [tab, name] of Object.entries(sheetNames)) {
+        const res = await GET(req(`?tab=${tab}&from=2026-12-01&to=2026-12-03`))
+        expect(res.status, `${role} ${tab}`).toBe(200)
+        expect(res.headers.get('Cache-Control')).toBe('no-store')
+        expect(mocks.loadReport).toHaveBeenLastCalledWith(tab, '2026-11-01', '2026-11-20', 'day')
+        const wb = new ExcelJS.Workbook()
+        await wb.xlsx.load(await res.arrayBuffer())
+        expect(wb.worksheets[0].name, `${role} ${tab}`).toBe(name)
+      }
+    }
+  })
+
+  it('Doanh thu ?grain=month: truyền grain; tên file và dòng Kỳ theo 12 tháng của báo cáo', async () => {
+    const res = await GET(req('?tab=revenue&grain=month&from=2026-12-01&to=2026-12-03'))
+    expect(res.status).toBe(200)
+    expect(mocks.loadReport).toHaveBeenCalledWith('revenue', '2026-11-01', '2026-11-20', 'month')
+    expect(res.headers.get('Content-Disposition')).toBe('attachment; filename="bao-cao-revenue-bia-lau-bao-luong-2026-01-01_2026-12-31.xlsx"')
+    const wb = new ExcelJS.Workbook()
+    await wb.xlsx.load(await res.arrayBuffer())
+    expect(wb.worksheets[0].getCell('B3').value).toBe('01/01 – 31/12/2026')
+    // grain chỉ có nghĩa ở tab Doanh thu.
+    await GET(req('?tab=pnl&grain=month'))
+    expect(mocks.loadReport).toHaveBeenLastCalledWith('pnl', '2026-11-01', '2026-11-20', 'day')
   })
 
   it('RPC lỗi: 500 kèm lý do', async () => {
