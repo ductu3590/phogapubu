@@ -45,11 +45,18 @@ describe('printDocument', () => {
     expect(mocks.printInPlace).not.toHaveBeenCalled()
   })
 
-  it('agent + kind ngoài AGENT_KINDS: rơi về printInPlace', async () => {
+  it('agent + shift_report: xếp hàng cho phần mềm in, không in trình duyệt', async () => {
     mocks.rpc.mockResolvedValue({ data: 'agent', error: null })
+    mocks.enqueuePrint.mockResolvedValue({ ok: true, queued: 1 })
+    expect(await printDocument({ kind: 'shift_report', shiftId: 's1' })).toEqual({ ok: true })
+    expect(mocks.enqueuePrint).toHaveBeenCalledWith({ kind: 'shift_report', shiftId: 's1' })
+    expect(mocks.printInPlace).not.toHaveBeenCalled()
+  })
+
+  it('browser + shift_report: in trình duyệt như cũ', async () => {
+    mocks.rpc.mockResolvedValue({ data: 'browser', error: null })
     await printDocument({ kind: 'shift_report', shiftId: 's1' })
     expect(mocks.printInPlace).toHaveBeenCalledWith('/print/shift-report?id=s1')
-    expect(mocks.enqueuePrint).not.toHaveBeenCalled()
   })
 
   it('đọc mode lỗi và chưa có cache: dùng browser để không kẹt in', async () => {
