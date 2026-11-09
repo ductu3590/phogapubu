@@ -12,7 +12,8 @@ vi.mock('@/lib/actions/inventory', () => ({
 }))
 
 const { ToastProvider } = await import('@/components/ui/toast')
-const { DocumentList, orderedRange } = await import('./documents-tab')
+const { DocumentList } = await import('./documents-tab')
+const { orderedRange } = await import('./doc-format')
 const { default: LinesEditor } = await import('./lines-editor')
 const { default: ReceiptForm } = await import('./receipt-form')
 const { default: WriteoffForm } = await import('./writeoff-form')

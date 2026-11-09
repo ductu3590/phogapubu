@@ -180,15 +180,30 @@ export default function StockTab({ rows, canEdit, onOpenLedger }: {
           <ul className="divide-y divide-border md:hidden">
             {visible.map((row) => (
               <li key={row.id} className={cn('px-4 py-3', !row.isActive && 'bg-background')}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    {nameCell(row, 'block break-words')}
-                    <p className="mt-0.5 text-[13px] text-muted">
-                      {KIND_LABEL[row.kind]} · Giá vốn {money(row.lastUnitCost)} · Giá trị {formatVND(row.stockValue)}
-                    </p>
+                {/* Có thẻ kho: cả phần trên của thẻ (tên, số, tồn) là MỘT nút cao ≥ 44px — chỉ tên chữ thì quá nhỏ để chạm.
+                    Nút Sửa / Ngừng dùng nằm ngoài nút này (không lồng nút trong nút). */}
+                {onOpenLedger ? (
+                  <button type="button" onClick={() => onOpenLedger(row)} aria-label={`Xem thẻ kho ${row.name}`}
+                    className="-mx-2 -my-1 flex min-h-11 w-[calc(100%+1rem)] cursor-pointer items-start justify-between gap-3 rounded-lg px-2 py-1 text-left outline-hidden hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-focus">
+                    <span className="min-w-0">
+                      <span className="block font-medium break-words text-foreground">{row.name}</span>
+                      <span className="mt-0.5 block text-[13px] text-muted">
+                        {KIND_LABEL[row.kind]} · Giá vốn {money(row.lastUnitCost)} · Giá trị {formatVND(row.stockValue)}
+                      </span>
+                    </span>
+                    <Qty row={row} className="shrink-0 text-lg font-semibold" />
+                  </button>
+                ) : (
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      {nameCell(row, 'block break-words')}
+                      <p className="mt-0.5 text-[13px] text-muted">
+                        {KIND_LABEL[row.kind]} · Giá vốn {money(row.lastUnitCost)} · Giá trị {formatVND(row.stockValue)}
+                      </p>
+                    </div>
+                    <Qty row={row} className="shrink-0 text-lg font-semibold" />
                   </div>
-                  <Qty row={row} className="shrink-0 text-lg font-semibold" />
-                </div>
+                )}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StockBadges row={row} />
                   {canEdit ? (

@@ -2,11 +2,11 @@
 
 import { useState, type ReactNode } from 'react'
 import { Tabs } from '@/components/ui/tabs'
-import { EmptyState } from '@/components/ui/feedback'
 import { useToast } from '@/components/ui/toast'
 import { loadInventoryStock } from '@/lib/actions/inventory'
 import { DOC_KIND_LABEL, type DocKind, type StockRow } from '@/lib/inventory'
 import DocumentsTab from './documents-tab'
+import LedgerDialog from './ledger-dialog'
 import StockTab from './stock-tab'
 
 type TabValue = 'stock' | DocKind
@@ -18,11 +18,11 @@ export type InventoryTabsProps = {
   today: string
   initialStock: StockRow[]
   /**
-   * Thẻ kho của một hàng (Task 8). Là hàm nên chỉ truyền được từ client component; bỏ trống thì dòng tồn kho
-   * không bấm được.
+   * Ghi đè thẻ kho của một hàng. Là hàm nên chỉ truyền được từ client component. Bỏ trống: chủ quán / quản lý mở
+   * LedgerDialog (nối ngay trong component client này), thu ngân không mở được thẻ kho.
    */
   ledgerSlot?: (row: StockRow, onClose: () => void) => ReactNode
-  /** Ghi đè nội dung một tab phiếu (Task 8 cắm kiểm kho). Nhập hàng / Xuất huỷ mặc định là DocumentsTab. */
+  /** Ghi đè nội dung một tab phiếu. Mặc định cả 3 tab phiếu là DocumentsTab. */
   docSlots?: Partial<Record<DocKind, ReactNode>>
 }
 
@@ -59,11 +59,15 @@ export default function InventoryTabs(props: InventoryTabsProps) {
 
   const docContent = (kind: DocKind): ReactNode => {
     if (docSlots?.[kind]) return docSlots[kind]
-    if (kind === 'receipt' || kind === 'writeoff') {
-      return <DocumentsTab key={kind} kind={kind} today={today} items={stock} onChanged={refreshStock} />
-    }
-    return <EmptyState>Phần {DOC_KIND_LABEL[kind].toLowerCase()} đang được hoàn thiện.</EmptyState>
+    return <DocumentsTab key={kind} kind={kind} today={today} items={stock} onChanged={refreshStock} />
   }
+
+  // Thẻ kho: RPC chỉ cho chủ quán + quản lý (is_store_back_office) → thu ngân không có lối mở.
+  const renderLedger = ledgerSlot ?? (canEdit
+    ? (row: StockRow, onClose: () => void) => (
+        <LedgerDialog key={row.id} item={row} today={today} onClose={onClose} onChanged={refreshStock} />
+      )
+    : undefined)
 
   return (
     <div className="space-y-4">
@@ -75,13 +79,13 @@ export default function InventoryTabs(props: InventoryTabsProps) {
         <StockTab
           rows={stock}
           canEdit={canEdit}
-          onOpenLedger={ledgerSlot ? (row) => setLedgerRow(row) : undefined}
+          onOpenLedger={renderLedger ? (row) => setLedgerRow(row) : undefined}
         />
       ) : (
         docContent(current)
       )}
 
-      {ledgerSlot && ledgerRow ? ledgerSlot(ledgerRow, () => setLedgerRow(null)) : null}
+      {renderLedger && ledgerRow ? renderLedger(ledgerRow, () => setLedgerRow(null)) : null}
     </div>
   )
 }

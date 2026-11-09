@@ -69,7 +69,11 @@ export function makeDocumentSubmit(deps: {
  * Gửi một phiếu từ form. `clientRequestId` sinh MỘT lần khi form mount (mỗi lần mở form là một lần mount) và giữ
  * nguyên qua mọi lần bấm Lưu thất bại; chỉ bỏ khi lưu xong hoặc đóng form (unmount).
  */
-export function useDocumentSubmit(kind: DocKind, today: string, onSaved: () => void, opts?: { withCost?: boolean }) {
+export function useDocumentSubmit(kind: DocKind, today: string, onSaved: () => void, opts?: {
+  withCost?: boolean
+  /** Tiêu đề toast khi lưu xong (mặc định "Đã lưu PN-0004"). */
+  successTitle?: (docNo: string) => string
+}) {
   const toast = useToast()
   const [clientRequestId] = useState(() => crypto.randomUUID())
   const [busy, setBusy] = useState(false)
@@ -86,7 +90,7 @@ export function useDocumentSubmit(kind: DocKind, today: string, onSaved: () => v
       setError(res.error)
       return
     }
-    toast({ tone: 'success', title: `Đã lưu ${res.docNo}` })
+    toast({ tone: 'success', title: opts?.successTitle?.(res.docNo) ?? `Đã lưu ${res.docNo}` })
     if (res.beforeCountDocNo) {
       toast({
         tone: 'info',

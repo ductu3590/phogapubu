@@ -9,16 +9,12 @@ import { Field, Input } from '@/components/ui/field'
 import { loadInventoryDocuments } from '@/lib/actions/inventory'
 import { DOC_KIND_LABEL, type DocKind, type DocSummary, type StockRow } from '@/lib/inventory'
 import { cn, formatVND } from '@/lib/utils'
-import { formatDocDate, paidLabel } from './doc-format'
+import { formatDocDate, orderedRange, paidLabel } from './doc-format'
 import { addDaysIso } from './document-form'
+import CountForm from './count-form'
 import DocumentDialog from './document-dialog'
 import ReceiptForm from './receipt-form'
 import WriteoffForm from './writeoff-form'
-
-/** Khoảng ngày lọc phiếu theo đúng thứ tự (ngày đầu gõ sau ngày cuối thì đảo lại). */
-export function orderedRange(from: string, to: string): { lo: string; hi: string; swapped: boolean } {
-  return from > to ? { lo: to, hi: from, swapped: true } : { lo: from, hi: to, swapped: false }
-}
 
 const CREATE_LABEL: Record<DocKind, string> = {
   receipt: 'Tạo phiếu nhập',
@@ -167,6 +163,10 @@ export default function DocumentsTab({ kind, today, items, onChanged }: {
 
       {creating && kind === 'receipt' ? (
         <ReceiptForm today={today} items={items} suppliers={suppliers} onClose={() => setCreating(false)}
+          onSaved={() => { setCreating(false); refresh() }} />
+      ) : null}
+      {creating && kind === 'count' ? (
+        <CountForm today={today} items={items} onClose={() => setCreating(false)}
           onSaved={() => { setCreating(false); refresh() }} />
       ) : null}
       {creating && kind === 'writeoff' ? (

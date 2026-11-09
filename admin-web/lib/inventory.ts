@@ -112,8 +112,8 @@ const QTY_PATTERN = /^\d+(?:[.,]\d{1,3})?$/
 
 // ─── Ô số lượng ────────────────────────────────────────────────────────────────
 
-/** Đọc ô số lượng, cho phép 0 (SL đếm). null khi sai định dạng hoặc ≥ 1.000.000. */
-function parseQtyAllowZero(raw: string): number | null {
+/** Đọc ô SL đếm (phiếu kiểm): như parseQty nhưng cho phép 0. null khi sai định dạng hoặc ≥ 1.000.000. */
+export function parseCountedQty(raw: string): number | null {
   const s = raw.replace(/\s+/g, '')
   if (!QTY_PATTERN.test(s)) return null
   const n = Number(s.replace(',', '.'))
@@ -126,7 +126,7 @@ function parseQtyAllowZero(raw: string): number | null {
  * → null. Kho không có dấu ngăn nghìn (xem qtyWarning cho chữ cảnh báo dưới ô).
  */
 export function parseQty(raw: string): number | null {
-  const n = parseQtyAllowZero(raw)
+  const n = parseCountedQty(raw)
   return n !== null && n > 0 ? n : null
 }
 
@@ -218,7 +218,7 @@ export function buildDocumentLines(
     seen.add(itemId)
 
     if (kind === 'count') {
-      const counted = parseQtyAllowZero(d.countedQty)
+      const counted = parseCountedQty(d.countedQty)
       if (counted === null) return { ok: false, error: `${label}: Số lượng đếm phải từ 0, tối đa 3 chữ số thập phân` }
       if (!opts?.withCost) {
         lines.push({ inventoryItemId: itemId, countedQty: counted })
