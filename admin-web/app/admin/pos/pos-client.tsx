@@ -4,7 +4,8 @@
 // Thay hẳn /admin/cashier cũ (đã xoá 2026-10-03 sau POS-1..4 PASS; URL cũ chuyển hướng về đây).
 // Logic dữ liệu / thao tác giữ nguyên của POS cũ: cùng server action, cùng watcher realtime, cùng chuông.
 
-import { printInPlace } from '@/lib/print/print-in-place'
+import { printDocument } from '@/lib/print/print-document'
+import { confirmAndPrint } from './print-actions'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeftRight, Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, Layers, ListTodo, TriangleAlert, UserPlus, UserRound, Volume2, X, Zap } from 'lucide-react'
 import { TableStateLegend } from '@/components/ui/badge'
@@ -506,20 +507,21 @@ export default function PosClient({
   }
 
   const onPrintOrder = (orderId: string) => {
-    printInPlace(`/print/order?id=${orderId}`)
+    // In lại phiếu bếp + phiếu bàn; lỗi xếp hàng (chế độ phần mềm in) báo cho thu ngân
+    void printDocument({ kind: 'order', orderId, reprint: true }).then((r) => { if (!r.ok) reportActionError(r.error) })
   }
 
   const onConfirmOrder = async (orderId: string) => {
     setBusy(true)
-    const res = await confirmOrder(orderId)
+    const res = await confirmAndPrint(orderId, { confirmOrder, printDocument })
     if (!res.ok) {
       setBusy(false)
       reportActionError(res.error)
       return
     }
-    onPrintOrder(orderId)
     setBusy(false)
-    if (res.already) reportActionError('Đơn này đã được xác nhận trước đó — chỉ in lại phiếu.')
+    if (res.printError) reportActionError(`Đơn đã duyệt nhưng chưa tạo được phiếu in: ${res.printError}. Bấm In lại ở lượt này.`)
+    else if (res.already) reportActionError('Đơn này đã được xác nhận trước đó.')
     await reload()
   }
 
@@ -543,7 +545,7 @@ export default function PosClient({
   }
 
   const onPrint = (list: OpenTableSession[]) => {
-    printInPlace(`/print/bill?ids=${list.map((s) => s.session_id).join(',')}`)
+    void printDocument({ kind: 'bill', sessionIds: list.map((s) => s.session_id) }).then((r) => { if (!r.ok) reportActionError(r.error) })
   }
 
   const onWalkIn = async (tableId: string, items: PosManualItem[], clientRequestId: string) => {
@@ -701,8 +703,10 @@ export default function PosClient({
       ? (fresh.revision > 1 ? 'adjustment' : 'reprint') : kind
     const result = await requestReservationPreorderPrint(fresh.orderId, fresh.releasedRevision, printKind, undefined, reason)
     if (!result.ok) { reportActionError(result.error); return result }
-    if (result.printJobId) printInPlace(`/print/order?job=${result.printJobId}`)
-    else reportActionError('Phiếu đã tạo nhưng chưa có mã in. Mở lại từ POS để in.')
+    if (result.printJobId) {
+      const printed = await printDocument({ kind: 'preorder_job', jobId: result.printJobId })
+      if (!printed.ok) reportActionError(printed.error)
+    } else reportActionError('Phiếu đã tạo nhưng chưa có mã in. Mở lại từ POS để in.')
     await reloadPreorders()
     return result
   }

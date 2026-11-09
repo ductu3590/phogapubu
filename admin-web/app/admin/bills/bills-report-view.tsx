@@ -19,7 +19,7 @@ import {
   type BillsReport,
   type BillsReportAdjustment,
 } from '@/lib/bills-report'
-import { printInPlace } from '@/lib/print/print-in-place'
+import { printDocument } from '@/lib/print/print-document'
 import ReportDatePicker from './report-date-picker'
 import BillDrawer from './bill-drawer'
 
@@ -91,7 +91,7 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
             <FileSpreadsheet className="size-4 text-emerald-600" aria-hidden />
             Xuất Excel
           </a>
-          <button type="button" onClick={() => printInPlace(`/print/day-report?date=${date}`)}
+          <button type="button" onClick={() => void printDocument({ kind: 'day_report', date }).then((r) => { if (!r.ok) setNotice(r.error) })}
             className={cn(getButtonClasses('outline'), 'whitespace-nowrap')}>
             <Printer className="size-4 text-blue-600" aria-hidden />
             In báo cáo cuối ngày
@@ -177,7 +177,7 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {paged.items.map((r) => <BillTableRow key={r.key} row={r} date={date} onOpen={() => setOpenKey(r.key)} />)}
+                {paged.items.map((r) => <BillTableRow key={r.key} row={r} date={date} onOpen={() => setOpenKey(r.key)} onError={setNotice} />)}
               </tbody>
             </table>
             </div>
@@ -222,9 +222,9 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
   )
 }
 
-function BillTableRow({ row: r, date, onOpen }: { row: BillRow; date: string; onOpen: () => void }) {
+function BillTableRow({ row: r, date, onOpen, onError }: { row: BillRow; date: string; onOpen: () => void; onError: (message: string) => void }) {
   // In lại hoá đơn 80mm chỉ có với bill trả sau đã thu (theo phiên) — như trang Báo cáo cũ. In ngầm (printInPlace).
-  const printUrl = r.kind === 'paid' && r.sessionIds.length > 0 ? `/print/bill?ids=${r.sessionIds.join(',')}` : null
+  const canPrint = r.kind === 'paid' && r.sessionIds.length > 0
   return (
     <tr className={cn('flex flex-col gap-1.5 px-4 py-3 @3xl:table-row @3xl:p-0', r.kind === 'cancelled' && 'bg-background/60')}>
       <td className="whitespace-nowrap font-mono text-[13px] font-semibold text-foreground @3xl:px-4 @3xl:py-3">{r.code}</td>
@@ -258,8 +258,8 @@ function BillTableRow({ row: r, date, onOpen }: { row: BillRow; date: string; on
             className={cn(getButtonClasses('outline'), 'aspect-square px-0')}>
             <Eye className="size-4" aria-hidden />
           </button>
-          {printUrl && (
-            <button type="button" onClick={() => printInPlace(printUrl)} aria-label="In lại hoá đơn" title="In lại hoá đơn"
+          {canPrint && (
+            <button type="button" onClick={() => void printDocument({ kind: 'bill', sessionIds: r.sessionIds, reprint: true }).then((p) => { if (!p.ok) onError(p.error) })} aria-label="In lại hoá đơn" title="In lại hoá đơn"
               className={cn(getButtonClasses('outline'), 'aspect-square px-0')}>
               <Printer className="size-4" aria-hidden />
             </button>
