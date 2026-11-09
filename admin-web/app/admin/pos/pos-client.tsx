@@ -64,7 +64,8 @@ import {
 import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
 import { createReservationReminderCoordinator, type ReminderStorage } from '@/lib/reservation-reminders'
 import { resolveReservationCustomerCall, type ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
-import { readCustomerCalls, readOpenSessions, readPreorderQueue, readReservationQueue, readStoreBankAccount } from '@/lib/pos-browser-reads'
+import { readCustomerCalls, readDebtCustomers, readOpenSessions, readPreorderQueue, readReservationQueue, readStoreBankAccount } from '@/lib/pos-browser-reads'
+import { buildCollectPayload } from '@/lib/collect-payment'
 import {
   releaseReservationPreorder,
   requestReservationPreorderPrint,
@@ -466,7 +467,9 @@ export default function PosClient({
   // bill vừa đổi → tải lại để màn Thanh toán hiện số mới.
   const onPay = async (list: OpenTableSession[], payment: PosPayment) => {
     setBusy(true)
-    const out = await runCollect(() => collectTableBill({ sessionIds: list.map((s) => s.session_id), ...payment }))
+    // Khách nợ chỉ gửi khi có dòng ghi nợ (buildCollectPayload); không có thì đúng 4 tham số như trước.
+    const { debtCustomer, ...rest } = payment
+    const out = await runCollect(() => collectTableBill({ sessionIds: list.map((s) => s.session_id), ...rest, ...buildCollectPayload(rest.lines, debtCustomer) }))
     if (out.kind !== 'done') {
       setBusy(false)
       reportActionError(out.error)
@@ -1377,6 +1380,7 @@ export default function PosClient({
             const r = await readStoreBankAccount(supabase, storeId)
             return r.ok ? r.bank : null
           }}
+          loadDebtCustomers={() => readDebtCustomers(supabase, storeId)}
           // Đổi bàn / gộp bill khác = bill mới: về tab Hoá đơn, thoát màn thanh toán đang dở.
           key={selected?.session_id ?? [...pickedSessionIds].sort().join(',') ?? 'pick'}
           trayColors={trayColors}

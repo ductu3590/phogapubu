@@ -32,6 +32,13 @@ describe('paymentQrAmount', () => {
   it('chuyển khoản: số cần thu', () => expect(paymentQrAmount({ method: 'bank', total: 100000, bankPart: 0 })).toBe(100000))
   it('kết hợp: phần chuyển khoản', () => expect(paymentQrAmount({ method: 'mixed', total: 100000, bankPart: 40000 })).toBe(40000))
   it('ghi nợ cả bill: 0', () => expect(paymentQrAmount({ method: 'debt', total: 100000, bankPart: 0 })).toBe(0))
+  // Kết hợp + ghi nợ phần còn lại (mig 123): QR chỉ cho phần chuyển khoản, không phải cả bill hay phần nợ.
+  it('kết hợp + nợ phần còn lại: chỉ phần chuyển khoản', () => expect(paymentQrAmount({ method: 'mixed', total: 1_000_000, bankPart: 300_000 })).toBe(300_000))
+  it('màn Thanh toán đang lỗi chia khoản: 0 (kể cả chuyển khoản cả bill)', () => {
+    expect(paymentQrAmount({ method: 'mixed', total: 1_000_000, bankPart: 300_000, draftError: 'Tiền mặt và chuyển khoản vượt số cần thu 1.000.000đ' })).toBe(0)
+    expect(paymentQrAmount({ method: 'bank', total: 1_000_000, bankPart: 1_000_000, draftError: 'x' })).toBe(0)
+    expect(paymentQrAmount({ method: 'bank', total: 1_000_000, bankPart: 1_000_000, draftError: null })).toBe(1_000_000)
+  })
   it.each([0, 100001])('kết hợp, phần CK %s: 0', (bankPart) => {
     expect(paymentQrAmount({ method: 'mixed', total: 100000, bankPart })).toBe(0)
   })

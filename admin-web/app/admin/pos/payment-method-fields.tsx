@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Banknote, Landmark, Split } from 'lucide-react'
+import { Banknote, Landmark, NotebookPen, Split } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/field'
 import { cashChange, cashSuggestions, formatVndInput, parseVnd } from '@/lib/cash-change'
@@ -20,16 +20,17 @@ const METHODS: readonly [PayMethod, string, ReactNode][] = [
   ['cash', 'Tiền mặt', <Banknote key="cash" />],
   ['bank', 'Chuyển khoản', <Landmark key="bank" />],
   ['mixed', 'Kết hợp', <Split key="mixed" />],
+  ['debt', 'Ghi nợ', <NotebookPen key="debt" />],
 ]
 
 export default function PaymentMethodFields({
   method, total, cashPart, bankPart, qr, cashText, bankText, givenText, mixedError,
-  onMethod, onCashText, onBankText, onGivenText,
+  onMethod, onCashText, onBankText, onGivenText, debtRest = false, debtPart = 0, onDebtRest,
 }: {
   method: PayMethod
   /** Khách cần trả cả bill. */
   total: number
-  /** Phần tiền mặt hiện tại: cả bill khi 'cash', 0 khi 'bank', ô tiền mặt khi 'mixed'. */
+  /** Phần tiền mặt hiện tại: cả bill khi 'cash', 0 khi 'bank' / 'debt', ô tiền mặt khi 'mixed'. */
   cashPart: number
   /** Phần chuyển khoản hiện tại (paymentDraft). Một nguồn: nhắc nghe loa (và mã QR của Plan D) đọc số này. */
   bankPart: number
@@ -44,6 +45,11 @@ export default function PaymentMethodFields({
   onCashText: (t: string) => void
   onBankText: (t: string) => void
   onGivenText: (t: string) => void
+  /** Mig 123: Kết hợp + ghi nợ phần còn lại (hai ô không phải cộng đúng tổng, phần thiếu là nợ). */
+  debtRest?: boolean
+  /** Phần ghi nợ hiện tại (debtPartOf các dòng sẽ gửi). */
+  debtPart?: number
+  onDebtRest?: (v: boolean) => void
 }) {
   const given = parseVnd(givenText)
   const givenError = cashGivenError(given)
@@ -56,7 +62,7 @@ export default function PaymentMethodFields({
     <>
       <section className="mt-3">
         <p className="mb-2 text-[12px] font-bold tracking-wide text-slate-700 uppercase">Phương thức thu tiền thực tế</p>
-        <div role="radiogroup" aria-label="Phương thức thu tiền" className="grid grid-cols-3 gap-2">
+        <div role="radiogroup" aria-label="Phương thức thu tiền" className="grid grid-cols-2 gap-2 min-[480px]:grid-cols-4">
           {METHODS.map(([value, label, icon]) => (
             <button
               key={value}
@@ -103,13 +109,36 @@ export default function PaymentMethodFields({
               />
             </label>
           </div>
-          <p className="text-[12px] text-slate-500">Gõ một ô, ô kia tự điền phần còn lại của {dong(total)}.</p>
+          <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700" htmlFor="pos-debt-rest">
+            <input
+              id="pos-debt-rest"
+              type="checkbox"
+              checked={debtRest}
+              onChange={(e) => onDebtRest?.(e.target.checked)}
+              className="size-4 accent-orange-600"
+            />
+            Ghi nợ phần còn lại
+          </label>
+          {debtRest ? (
+            <p className="flex items-baseline justify-between rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-orange-800 tabular">
+              <span className="text-sm font-semibold">Ghi nợ: {dong(debtPart)}</span>
+              <span className="text-[12px]">phần còn lại của {dong(total)}</span>
+            </p>
+          ) : (
+            <p className="text-[12px] text-slate-500">Gõ một ô, ô kia tự điền phần còn lại của {dong(total)}.</p>
+          )}
           {mixedError && (
             <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 tabular">
               {mixedError}
             </p>
           )}
         </div>
+      )}
+
+      {method === 'debt' && (
+        <p className="mt-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5 text-sm font-semibold text-orange-800 tabular">
+          Ghi nợ toàn bộ {dong(debtPart)}
+        </p>
       )}
 
       {showGiven && (

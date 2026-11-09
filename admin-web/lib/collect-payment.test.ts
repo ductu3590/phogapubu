@@ -65,7 +65,7 @@ describe('paymentDraft — một nguồn cho phần tiền mặt / chuyển kho�
   })
 
   it('bill 0đ ở chế độ Kết hợp: không có phần tiền mặt dù ô còn chữ cũ (ẩn khách đưa, không gửi cashGiven)', () => {
-    expect(paymentDraft(0, 'mixed', 50_000, 0)).toEqual({ lines: [], error: null, cash: 0, bank: 0 })
+    expect(paymentDraft(0, 'mixed', 50_000, 0)).toEqual({ lines: [], error: null, cash: 0, bank: 0, debt: 0 })
   })
 
   it('đang lệch: phần lấy theo chữ đang gõ để ô khách đưa / nhắc chuyển khoản bám theo', () => {
@@ -151,6 +151,8 @@ describe('ghi nợ', () => {
       .toEqual(['Tiền mặt', 'Chuyển khoản', 'Ghi nợ', 'Khách đưa', 'Tiền thối'])
   })
   it('paymentDraft với Ghi nợ: phần tiền mặt / chuyển khoản là 0', () => {
-    expect(paymentDraft(500_000, 'debt', null, null)).toEqual({ lines: [{ instrument: 'debt', amount: 500_000 }], error: null, cash: 0, bank: 0 })
+    expect(paymentDraft(500_000, 'debt', null, null)).toEqual({ lines: [{ instrument: 'debt', amount: 500_000 }], error: null, cash: 0, bank: 0, debt: 500_000 })
+    expect(paymentDraft(1_000_000, 'mixed', 300_000, null, true)).toMatchObject({ cash: 300_000, bank: 0, debt: 700_000 })
+    expect(paymentDraft(1_000_000, 'mixed', 800_000, 300_000, true)).toMatchObject({ error: 'Tiền mặt và chuyển khoản vượt số cần thu 1.000.000đ', debt: 0 })
   })
 })

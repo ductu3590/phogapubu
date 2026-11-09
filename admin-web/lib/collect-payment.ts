@@ -135,10 +135,11 @@ export function paymentDraft(
   cashTyped: number | null,
   bankTyped: number | null,
   debtRest = false,
-): { lines: PaymentLine[]; error: string | null; cash: number; bank: number } {
+): { lines: PaymentLine[]; error: string | null; cash: number; bank: number; debt: number } {
   const { lines, error } = buildPaymentLines(total, method, cashTyped, bankTyped, debtRest)
-  if (error) return { lines, error, cash: cashTyped ?? 0, bank: bankTyped ?? 0 }
-  return { lines, error, cash: cashPartOf(lines), bank: bankPartOf(lines) }
+  // Đang lệch: chưa có phần ghi nợ nào chốt (debt 0) → chưa bắt chọn khách, nút thu vẫn khoá vì có lỗi.
+  if (error) return { lines, error, cash: cashTyped ?? 0, bank: bankTyped ?? 0, debt: 0 }
+  return { lines, error, cash: cashPartOf(lines), bank: bankPartOf(lines), debt: debtPartOf(lines) }
 }
 
 const INSTRUMENT_ORDER: readonly string[] = Object.keys(INSTRUMENT_LABELS)
