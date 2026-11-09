@@ -92,6 +92,7 @@ import ReservationDetail from './reservation-detail'
 import NewReservationSheet, { type NewReservationSubmit } from './new-reservation-sheet'
 import { useNow } from './use-now'
 import { useOnline } from './use-online'
+import { useAutoKitchenPrint } from './use-auto-kitchen-print'
 import { useServiceRequests } from './use-service-requests'
 import WorkQueue from './work-queue'
 import PosBillPanel from './bill-panel'
@@ -238,6 +239,7 @@ export default function PosClient({
   const reportActionError = useCallback((message: string | null) => {
     setError(message ? actionError(message) : null)
   }, [])
+  const autoPrint = useAutoKitchenPrint({ supabase, storeId, sessions, onGiveUp: reportActionError })
 
   // ─── Tải dữ liệu ─────────────────────────────────────────────────────────
   const reload = useCallback(async () => {
@@ -1014,6 +1016,8 @@ export default function PosClient({
             </Button>
           </div>
         </div>
+
+        {autoPrint.banner && <Banner tone={autoPrint.banner.tone} title={autoPrint.banner.title} className="mx-4 mt-2 md:mx-5" />}
 
         {mergeMode && (
           <div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/30 bg-primary-light px-4 py-2 md:px-5">
