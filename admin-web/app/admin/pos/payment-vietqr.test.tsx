@@ -21,7 +21,7 @@ const view = (over: Partial<Parameters<typeof PaymentView>[0]>) =>
   renderToStaticMarkup(
     <PaymentView title="Bàn 5" list={[session]} goods={155_000} paid={0} expiredNote={null} discount={0} discountLabel=""
       discountError={null} onEditDiscount={vi.fn()} total={155_000} busy={false} onAdjust={vi.fn()} onQty={vi.fn()}
-      onRestore={vi.fn()} onBack={vi.fn()} onDismiss={vi.fn()} onPay={vi.fn()} onPrint={vi.fn()} {...over} />,
+      onRestore={vi.fn()} onBack={vi.fn()} onDismiss={vi.fn()} onPay={vi.fn()} onPrint={vi.fn()} loadDebtCustomers={vi.fn()} {...over} />,
   )
 
 describe('PaymentVietQr', () => {

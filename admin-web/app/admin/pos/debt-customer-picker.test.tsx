@@ -47,4 +47,12 @@ describe('DebtCustomerPicker', () => {
     const html = pick({ customers: [{ id: 'z', name: 'Anh Z', phone: null, kind: 'person', isActive: true, outstanding: 0 }] })
     expect(html).toContain('Anh Z'); expect(html).not.toContain('đang nợ')
   })
+  it('fix round 1: đang tải thì "+ Khách mới" bị khoá', () => {
+    expect(pick({ customers: null, loading: true })).toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*\+ Khách mới/)
+    expect(pick()).not.toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*\+ Khách mới/)
+  })
+  it('fix round 1: danh sách tải lỗi → form khách mới cũng báo lỗi + Thử lại', () => {
+    const html = pick({ customers: null, error: 'mất mạng', onRetry: vi.fn(), value: { kind: 'new', customer: { name: 'A', phone: null, kind: 'company' } } })
+    expect(html).toContain('mất mạng'); expect(html).toContain('Thử lại')
+  })
 })

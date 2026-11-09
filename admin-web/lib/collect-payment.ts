@@ -6,6 +6,7 @@
 // này + một nhánh PayMethod, không phải viết lại các hàm dưới.
 
 import type { DebtCustomerChoice, NewDebtCustomer } from '@/lib/debts'
+import { parseVnd } from '@/lib/cash-change'
 import { formatVND } from '@/lib/utils'
 
 // Thứ tự khoá = thứ tự hiện trên màn / hoá đơn và thứ tự server trả (mig 123: cash, bank, debt).
@@ -164,4 +165,31 @@ export function paymentRows(p: {
   if (p.cashGiven != null) rows.push({ label: 'Khách đưa', amount: p.cashGiven })
   if (p.changeAmount != null && p.changeAmount > 0) rows.push({ label: 'Tiền thối', amount: p.changeAmount })
   return rows
+}
+
+/**
+ * Hai ô Kết hợp khi bật / tắt "Ghi nợ phần còn lại". lastTyped = ô thu ngân gõ sau cùng (ô kia là ô TỰ ĐIỀN).
+ * Bật: xoá ô tự điền, giữ ô đã gõ → phần còn lại thành nợ (không bao giờ xoá số thu ngân đã gõ).
+ * Tắt: ô tự điền lại bằng phần còn lại của ô đã gõ (như khi chưa bật). Chưa gõ ô nào → không đổi.
+ */
+export function debtRestBoxes(input: {
+  on: boolean
+  total: number
+  cashText: string
+  bankText: string
+  lastTyped: 'cash' | 'bank' | null
+}): { cashText: string; bankText: string } {
+  const { on, total, cashText, bankText, lastTyped } = input
+  if (lastTyped === null) return { cashText, bankText }
+  if (on) return lastTyped === 'cash' ? { cashText, bankText: '' } : { cashText: '', bankText }
+  const typed = lastTyped === 'cash' ? cashText : bankText
+  const other = fillOtherSide(total, parseVnd(typed))
+  const otherText = other === null ? '' : other.toLocaleString('vi-VN')
+  return lastTyped === 'cash' ? { cashText, bankText: otherText } : { cashText: otherText, bankText }
+}
+
+
+/** Chữ nút thu ở màn Thanh toán: Ghi nợ cả bill (có tiền) → "Xác nhận ghi nợ"; bill 0đ / phương thức khác → chữ thường. */
+export function payButtonLabel(method: PayMethod, total: number): string {
+  return method === 'debt' && total > 0 ? `Xác nhận ghi nợ ${formatVND(total)}` : `Xác nhận đã nhận ${formatVND(total)}`
 }

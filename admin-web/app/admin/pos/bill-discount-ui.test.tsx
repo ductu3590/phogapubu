@@ -28,7 +28,7 @@ const session = (over: Partial<OpenTableSession>): OpenTableSession => ({
 
 function panel(s: OpenTableSession) {
   return renderToStaticMarkup(
-    <PosBillPanel selected={s} picked={[]} freeTables={[]} moveTargets={[]} moveAreas={[]}
+    <PosBillPanel loadDebtCustomers={async () => ({ ok: true, customers: [] })} selected={s} picked={[]} freeTables={[]} moveTargets={[]} moveAreas={[]}
       onMoveTable={vi.fn()} onMoveTray={vi.fn()} otherSessions={[]} pickedFreeTables={0} trayColors={new Map()} busy={false}
       onPay={vi.fn()} onPrint={vi.fn()} onReset={vi.fn()} onCreateTray={vi.fn()} onAddTable={vi.fn()}
       onMergeInto={vi.fn()} onReleaseHost={vi.fn()} onConfirmOrder={vi.fn()} onRejectOrder={vi.fn()}
@@ -102,6 +102,9 @@ describe('PaymentView', () => {
     expect(html).toContain('Xác nhận đã nhận 155.000đ')
   })
 
+  it('fix round 1: nút thu bill 0đ giữ chữ thường (không "Xác nhận ghi nợ")', () => {
+    expect(view({ goods: 0, total: 0 })).toContain('Xác nhận đã nhận 0đ')
+  })
   it('bill 0đ (tặng hết món): nút thu vẫn bấm được', () => {
     const html = view({ goods: 0, total: 0 })
     // Lớp tailwind có chữ "disabled:" nên dò thuộc tính disabled="" chứ không dò chữ "disabled"

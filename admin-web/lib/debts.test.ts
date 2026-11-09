@@ -151,3 +151,16 @@ describe('fold-in sau review Task 4', () => {
     expect(d?.payments.map((p) => p.id)).toEqual(['p'])
   })
 })
+
+describe('fix round 1: đầu vào lạ không ném', () => {
+  it('debtChoiceError với tên / SĐT / loại không phải chuỗi', () => {
+    const bad = (customer: unknown) => debtChoiceError({ kind: 'new', customer } as never)
+    expect(bad({ name: 5, phone: null, kind: 'person' })).toBe('Nhập tên khách')
+    expect(bad({ name: 'A', phone: 912345678, kind: 'person' })).toBe('SĐT không hợp lệ')
+    expect(bad({ name: 'A', phone: null, kind: 'vip' })).toBe('Loại khách không hợp lệ')
+    expect(bad(null)).toBe('Thông tin khách nợ không hợp lệ')
+    expect(bad('x')).toBe('Thông tin khách nợ không hợp lệ')
+    expect(debtChoiceError({ kind: 'existing', id: 5, name: 'A' } as never)).toBe('Chọn khách ghi nợ')
+    expect(normalizeDebtPhone(123 as never)).toEqual({ phone: null, error: 'SĐT không hợp lệ' })
+  })
+})

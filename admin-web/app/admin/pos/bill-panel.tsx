@@ -9,7 +9,7 @@ import type { OpenTableSession, SessionOrderItem, SessionOrderRow } from '@/lib/
 import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
 import { cashChange, parseVnd } from '@/lib/cash-change'
-import { cashGivenError, fillOtherSide, paymentDraft, type PayMethod, type PaymentLine } from '@/lib/collect-payment'
+import { cashGivenError, debtRestBoxes, fillOtherSide, payButtonLabel, paymentDraft, type PayMethod, type PaymentLine } from '@/lib/collect-payment'
 import { debtChoiceError, type DebtCustomerChoice, type DebtCustomerSummary } from '@/lib/debts'
 import { billTotals, combinedDiscount, sessionDiscountOf, type BillDiscount } from '@/lib/bill-discount'
 import { isReviewableOrder, orderRound } from '@/lib/pos-work-queue'
@@ -66,8 +66,8 @@ export type PosBillPanelProps = {
   bankAccount?: BankAccountFields | null
   /** Đọc lại tài khoản nhận tiền mới nhất lúc mở màn Thanh toán (máy khác có thể vừa đổi); lỗi thì dùng bankAccount của trang. */
   loadBankAccount?: () => Promise<BankAccountFields | null>
-  /** Mig 123: danh sách khách nợ cho lựa chọn "Ghi nợ"; tải một lần khi có phần ghi nợ. Không truyền = danh sách rỗng. */
-  loadDebtCustomers?: LoadDebtCustomers
+  /** Mig 123: danh sách khách nợ cho lựa chọn "Ghi nợ"; tải MỘT lần khi chọn Ghi nợ / bật Ghi nợ phần còn lại. */
+  loadDebtCustomers: LoadDebtCustomers
   selected: OpenTableSession | null
   picked: OpenTableSession[]
   freeTables: { id: string; table_number: string }[]
@@ -794,7 +794,7 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   total: number
   bankAccount?: BankAccountFields | null
   loadBankAccount?: () => Promise<BankAccountFields | null>
-  loadDebtCustomers?: LoadDebtCustomers
+  loadDebtCustomers: LoadDebtCustomers
   busy: boolean
   onAdjust: (itemId: string, type: 'cancelled' | 'gift') => void
   onQty: (item: SessionOrderItem) => void
@@ -826,6 +826,8 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   // Mig 123 — ghi nợ: Kết hợp + "Ghi nợ phần còn lại", hoặc Ghi nợ cả bill. Khách nợ chọn / thêm ở DebtCustomerPicker.
   // Đổi khách sau một lần lỗi mạng KHÔNG sinh mã mới: cùng clientRequestId, server trả 'already' nếu đã ghi.
   const [debtRest, setDebtRest] = useState(false)
+  // Ô Kết hợp thu ngân gõ sau cùng; ô kia là ô tự điền (bật "Ghi nợ phần còn lại" chỉ xoá ô tự điền).
+  const [lastTyped, setLastTyped] = useState<'cash' | 'bank' | null>(null)
   const [debtChoice, setDebtChoice] = useState<DebtCustomerChoice | null>(null)
   const [debtCustomers, setDebtCustomers] = useState<{ list: DebtCustomerSummary[] | null; loading: boolean; error: string | null }>(
     { list: null, loading: false, error: null },
@@ -842,10 +844,6 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   const debtLoadStarted = useRef(false)
   const taiKhachNo = () => {
     debtLoadStarted.current = true
-    if (!loadDebtCustomers) {
-      setDebtCustomers({ list: [], loading: false, error: null })
-      return
-    }
     setDebtCustomers({ list: null, loading: true, error: null })
     loadDebtCustomers().then(
       (r) => setDebtCustomers(r.ok ? { list: r.customers, loading: false, error: null } : { list: null, loading: false, error: r.error }),
@@ -880,26 +878,26 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
     if (m !== 'mixed') setDebtRest(false)
     if (m === 'debt') canTaiKhachNo()
   }
-  // Bật: bỏ ô chuyển khoản tự điền để phần thiếu thành nợ (giữ ô tiền mặt). Tắt: ô chuyển khoản lại là phần còn lại.
+  // Bật: xoá ô TỰ ĐIỀN (ô không gõ sau cùng), giữ số thu ngân đã gõ → phần thiếu thành nợ. Tắt: ô tự điền lại là
+  // phần còn lại của ô đã gõ. Không bao giờ xoá số thu ngân tự gõ (debtRestBoxes).
   const doiGhiNoPhanConLai = (on: boolean) => {
     setDebtRest(on)
-    if (on) {
-      setBankText('')
-      canTaiKhachNo()
-    } else {
-      const other = fillOtherSide(total, parseVnd(cashText))
-      setBankText(other === null ? '' : other.toLocaleString('vi-VN'))
-    }
+    const boxes = debtRestBoxes({ on, total, cashText, bankText, lastTyped })
+    setCashText(boxes.cashText)
+    setBankText(boxes.bankText)
+    if (on) canTaiKhachNo()
   }
   // Ghi nợ phần còn lại: gõ một ô KHÔNG tự điền ô kia (phần thiếu là nợ); tắt thì như cũ.
   const goTienMat = (text: string) => {
     setCashText(text)
+    setLastTyped('cash')
     if (debtRest) return
     const other = fillOtherSide(total, parseVnd(text))
     setBankText(other === null ? '' : other.toLocaleString('vi-VN'))
   }
   const goChuyenKhoan = (text: string) => {
     setBankText(text)
+    setLastTyped('bank')
     if (debtRest) return
     const other = fillOtherSide(total, parseVnd(text))
     setCashText(other === null ? '' : other.toLocaleString('vi-VN'))
@@ -931,7 +929,7 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
             </p>
           )}
           <Button variant="primary" size="touch" icon={<Banknote />} isLoading={busy} disabled={blocked} onClick={thu} className="w-full text-base font-bold whitespace-nowrap">
-            {method === 'debt' ? `Xác nhận ghi nợ ${dong(total)}` : `Xác nhận đã nhận ${dong(total)}`}
+            {payButtonLabel(method, total)}
           </Button>
           <Button icon={<Printer className="text-blue-600" />} onClick={onPrint} disabled={busy || !!discountError} className="mt-2 w-full font-semibold">In tạm tính / hoá đơn</Button>
           <p className="mt-2 text-[12px] text-slate-500">Máy in lỗi vẫn thu tiền bình thường — in hoá đơn sau cũng được.</p>

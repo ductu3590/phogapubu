@@ -218,6 +218,9 @@ export async function collectTableBill(input: CollectBillInput): Promise<Collect
       return { ok: false, error: 'Mã khách không hợp lệ' }
     }
     // Cùng kiểm của màn Thanh toán (thiếu khách, tên trống, SĐT sai) → câu báo thân thiện trước khi gọi server.
+    if (newDebtCustomer !== null && (typeof newDebtCustomer !== 'object' || Array.isArray(newDebtCustomer))) {
+      return { ok: false, error: 'Thông tin khách nợ không hợp lệ' }
+    }
     const choice: DebtCustomerChoice | null = newDebtCustomer
       ? { kind: 'new', customer: newDebtCustomer }
       : debtCustomerId ? { kind: 'existing', id: debtCustomerId, name: '' } : null

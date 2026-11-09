@@ -148,19 +148,29 @@ export function parseDebtAllocations(raw: unknown): DebtAllocation[] {
  * Sai dạng → error 'SĐT không hợp lệ' (cùng câu server).
  */
 export function normalizeDebtPhone(input: string): { phone: string | null; error: string | null } {
-  if (!input || input.trim() === '') return { phone: null, error: null }
+  if (input === null || input === undefined || input === '') return { phone: null, error: null }
+  // Đầu vào lạ (số, object từ client sửa tay): báo lỗi, không ném.
+  if (typeof input !== 'string') return { phone: null, error: 'SĐT không hợp lệ' }
+  if (input.trim() === '') return { phone: null, error: null }
   const digits = input.replace(/[^0-9]/g, '').replace(/^84([0-9]{9,10})$/, '0$1')
   return /^0[0-9]{8,10}$/.test(digits) ? { phone: digits, error: null } : { phone: null, error: 'SĐT không hợp lệ' }
 }
 
 /** Kiểm lựa chọn khách ở màn Thanh toán khi có phần ghi nợ. null = hợp lệ. */
+// Có kiểm kiểu từng trường: hàm này cũng chạy ở server action (collectTableBill) với dữ liệu client gửi lên, nên
+// dữ liệu dạng lạ phải ra câu báo, không được ném.
 export function debtChoiceError(choice: DebtCustomerChoice | null): string | null {
-  if (!choice) return 'Chọn khách ghi nợ'
-  if (choice.kind === 'existing') return choice.id ? null : 'Chọn khách ghi nợ'
-  const name = choice.customer.name.trim()
-  if (!name) return 'Nhập tên khách'
-  if (name.length > DEBT_NAME_MAX) return 'Tên khách nợ quá dài'
-  return normalizeDebtPhone(choice.customer.phone ?? '').error
+  if (!choice || typeof choice !== 'object') return 'Chọn khách ghi nợ'
+  if (choice.kind === 'existing') return typeof choice.id === 'string' && choice.id ? null : 'Chọn khách ghi nợ'
+  const c = (choice as { customer?: unknown }).customer
+  if (!c || typeof c !== 'object' || Array.isArray(c)) return 'Thông tin khách nợ không hợp lệ'
+  const { name, phone, kind } = c as { name?: unknown; phone?: unknown; kind?: unknown }
+  const trimmed = typeof name === 'string' ? name.trim() : ''
+  if (!trimmed) return 'Nhập tên khách'
+  if (trimmed.length > DEBT_NAME_MAX) return 'Tên khách nợ quá dài'
+  if (kind !== 'company' && kind !== 'person') return 'Loại khách không hợp lệ'
+  if (phone !== null && phone !== undefined && typeof phone !== 'string') return 'SĐT không hợp lệ'
+  return normalizeDebtPhone((phone as string | null | undefined) ?? '').error
 }
 
 /**

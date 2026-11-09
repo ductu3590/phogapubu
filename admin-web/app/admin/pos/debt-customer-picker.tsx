@@ -59,6 +59,8 @@ export default function DebtCustomerPicker({ customers, loading, error, value, o
       <Wrap>
         <div className="space-y-2 rounded-lg border border-orange-200 bg-white p-3">
           <p className="text-[12px] font-bold tracking-wide text-slate-700 uppercase">Khách nợ mới</p>
+          {/* Danh sách chưa tải được thì không dò được trùng tên → báo rõ và cho tải lại ngay tại form. */}
+          {error && <LoadError error={error} onRetry={onRetry} />}
           <label className="block text-[13px] font-semibold text-slate-700" htmlFor="debt-new-name">
             Tên khách / cơ quan
             <Input id="debt-new-name" autoComplete="off" value={c.name} maxLength={120}
@@ -106,12 +108,7 @@ export default function DebtCustomerPicker({ customers, loading, error, value, o
           onChange={(e) => setQuery(e.target.value)} className="mt-1" />
       </label>
       {loading && <p className="mt-2 text-[13px] text-slate-500">Đang tải khách nợ…</p>}
-      {error && (
-        <div role="alert" className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
-          <span>{error}</span>
-          {onRetry && <Button icon={<RotateCw />} onClick={onRetry} className="min-h-9 shrink-0 md:min-h-9">Thử lại</Button>}
-        </div>
-      )}
+      {error && <LoadError error={error} onRetry={onRetry} className="mt-2" />}
       {customers && (
         <ul className="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
           {list.map((c) => (
@@ -129,8 +126,18 @@ export default function DebtCustomerPicker({ customers, loading, error, value, o
           {list.length === 0 && <li className="px-3 py-2 text-[13px] text-slate-500">Không tìm thấy khách. Thêm khách mới bên dưới.</li>}
         </ul>
       )}
-      <Button icon={<UserPlus />} onClick={startNew} className="mt-2 min-h-10 w-full font-semibold">+ Khách mới</Button>
+      {/* Đang tải: chưa biết khách nào đã có → chưa cho thêm khách mới (tránh tạo trùng tên). */}
+      <Button icon={<UserPlus />} onClick={startNew} disabled={loading} className="mt-2 min-h-10 w-full font-semibold">+ Khách mới</Button>
     </Wrap>
+  )
+}
+
+function LoadError({ error, onRetry, className }: { error: string; onRetry?: () => void; className?: string }) {
+  return (
+    <div role="alert" className={cn('flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700', className)}>
+      <span>{error}</span>
+      {onRetry && <Button icon={<RotateCw />} onClick={onRetry} className="min-h-9 shrink-0 md:min-h-9">Thử lại</Button>}
+    </div>
   )
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bankPartOf, buildCollectPayload, buildPaymentLines, cashGivenError, cashPartOf, debtPartOf, fillOtherSide, INSTRUMENT_LABELS, parsePaymentLines, paymentDraft, paymentRows } from './collect-payment'
+import { bankPartOf, buildCollectPayload, debtRestBoxes, payButtonLabel, buildPaymentLines, cashGivenError, cashPartOf, debtPartOf, fillOtherSide, INSTRUMENT_LABELS, parsePaymentLines, paymentDraft, paymentRows } from './collect-payment'
 
 describe('fillOtherSide', () => {
   it('gõ một ô, ô kia là phần còn lại, không âm', () => {
@@ -155,4 +155,33 @@ describe('ghi nợ', () => {
     expect(paymentDraft(1_000_000, 'mixed', 300_000, null, true)).toMatchObject({ cash: 300_000, bank: 0, debt: 700_000 })
     expect(paymentDraft(1_000_000, 'mixed', 800_000, 300_000, true)).toMatchObject({ error: 'Tiền mặt và chuyển khoản vượt số cần thu 1.000.000đ', debt: 0 })
   })
+})
+
+describe('debtRestBoxes — bật / tắt "Ghi nợ phần còn lại" (fix round 1)', () => {
+  it('gõ CK trước rồi bật: giữ CK đã gõ, xoá ô tiền mặt tự điền → nợ là phần còn lại', () => {
+    const boxes = debtRestBoxes({ on: true, total: 1_000_000, cashText: '600.000', bankText: '400.000', lastTyped: 'bank' })
+    expect(boxes).toEqual({ cashText: '', bankText: '400.000' })
+    expect(buildPaymentLines(1_000_000, 'mixed', null, 400_000, true).lines)
+      .toEqual([{ instrument: 'bank', amount: 400_000 }, { instrument: 'debt', amount: 600_000 }])
+  })
+  it('gõ TM trước rồi bật: giữ TM, xoá ô CK tự điền', () => {
+    expect(debtRestBoxes({ on: true, total: 1_000_000, cashText: '500.000', bankText: '500.000', lastTyped: 'cash' }))
+      .toEqual({ cashText: '500.000', bankText: '' })
+  })
+  it('chưa gõ gì: bật không đổi gì', () => {
+    expect(debtRestBoxes({ on: true, total: 1_000_000, cashText: '', bankText: '', lastTyped: null })).toEqual({ cashText: '', bankText: '' })
+  })
+  it('tắt: ô tự điền lại là phần còn lại của ô gõ sau cùng', () => {
+    expect(debtRestBoxes({ on: false, total: 1_000_000, cashText: '', bankText: '400.000', lastTyped: 'bank' }))
+      .toEqual({ cashText: '600.000', bankText: '400.000' })
+    expect(debtRestBoxes({ on: false, total: 1_000_000, cashText: '300.000', bankText: '', lastTyped: 'cash' }))
+      .toEqual({ cashText: '300.000', bankText: '700.000' })
+    expect(debtRestBoxes({ on: false, total: 1_000_000, cashText: '', bankText: '', lastTyped: null })).toEqual({ cashText: '', bankText: '' })
+  })
+})
+
+it('payButtonLabel: Ghi nợ có tiền → "Xác nhận ghi nợ"; bill 0đ hoặc phương thức khác → chữ thường', () => {
+  expect(payButtonLabel('debt', 350_000)).toBe('Xác nhận ghi nợ 350.000đ')
+  expect(payButtonLabel('debt', 0)).toBe('Xác nhận đã nhận 0đ')
+  expect(payButtonLabel('mixed', 1_000)).toBe('Xác nhận đã nhận 1.000đ')
 })
