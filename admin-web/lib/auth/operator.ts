@@ -1,13 +1,17 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { isPosRole, parseOperatorRow } from './roles'
+import { isBackOfficeRole, isPosRole, parseOperatorRow } from './roles'
 
 export type Operator =
   | { userId: string; role: 'mevo_superadmin'; storeId: null }
   | { userId: string; role: 'store_owner'; storeId: string }
   | { userId: string; role: 'store_staff'; storeId: string }
   | { userId: string; role: 'store_cashier'; storeId: string }
+  | { userId: string; role: 'store_manager'; storeId: string }
+
+// Người mở được trang /admin (đã loại phục vụ + superadmin, luôn có storeId).
+export type AdminPageOperator = { userId: string; role: 'store_owner' | 'store_cashier' | 'store_manager'; storeId: string }
 
 // cache(): MỘT lần hỏi phiên + quyền cho mỗi request. Layout, page, vỏ hộp thoại cấu hình và các
 // hàm con đều gọi requireOperator… — trước đây mỗi lần là 2 chặng mạng tới Supabase (getUser + bảng
@@ -62,7 +66,8 @@ export async function requireStoreOwnerStoreId(): Promise<string> {
   return operator.storeId
 }
 
-// Thao tác POS / đặt bàn / báo cáo / bật tắt Tạm hết (PA-2): chủ quán HOẶC thu ngân.
+// Thao tác POS / đặt bàn / báo cáo / bật tắt Tạm hết (PA-2): chủ quán, thu ngân HOẶC quản lý (mig 116).
+// Giữ nguyên chữ thông báo lỗi cũ (UI + test đang so chuỗi).
 // Chỉ để báo lỗi đẹp — RPC kiểm lại bằng is_store_pos_operator.
 export async function requirePosOperatorStoreId(): Promise<string> {
   const operator = await requireOperator()
@@ -70,22 +75,34 @@ export async function requirePosOperatorStoreId(): Promise<string> {
   return operator.storeId as string
 }
 
-// Trang /admin: 'owner' = chỉ chủ quán (thu ngân bị đưa về POS), 'pos' = chủ quán + thu ngân.
+// Hậu cần (kho, sổ thu chi, huỷ trả nợ, báo cáo tài chính): chủ quán HOẶC quản lý. Module KHO/CA/NO/BC bọc
+// try/catch rồi trả { ok: false, error }. RPC kiểm lại bằng is_store_back_office.
+export async function requireBackOfficeStoreId(): Promise<string> {
+  const operator = await requireOperator()
+  if (!isBackOfficeRole(operator.role)) throw new Error('Chỉ chủ quán hoặc quản lý mới thao tác được ở đây')
+  return operator.storeId as string
+}
+
+// Trang /admin:
+//   'owner'       = chỉ chủ quán (thu ngân, quản lý bị đưa về POS);
+//   'back_office' = chủ quán + quản lý (thu ngân về POS);
+//   'pos'         = chủ quán + thu ngân + quản lý.
 export async function requireAdminPageOrRedirect(
-  area: 'owner' | 'pos',
-): Promise<{ userId: string; role: 'store_owner' | 'store_cashier'; storeId: string }> {
+  area: 'owner' | 'pos' | 'back_office',
+): Promise<AdminPageOperator> {
   const operator = await requireOperatorOrRedirect()
   if (operator.role === 'mevo_superadmin') redirect('/mevo')
   if (operator.role === 'store_staff') redirect('/staff/order')
-  if (operator.role === 'store_cashier' && area === 'owner') redirect('/admin/pos')
-  return operator as { userId: string; role: 'store_owner' | 'store_cashier'; storeId: string }
+  if (area === 'owner' && operator.role !== 'store_owner') redirect('/admin/pos')
+  if (area === 'back_office' && !isBackOfficeRole(operator.role)) redirect('/admin/pos')
+  return operator as AdminPageOperator
 }
 
-// Dùng trong layout khu /staff — cho phép store_staff, store_owner (vào để hỗ trợ/test) và store_cashier
-// (trang in hoá đơn 80mm nằm ở /print/bill — POS + Báo cáo mở nó).
+// Dùng trong layout khu /staff — cho phép store_staff, store_owner (vào để hỗ trợ/test), store_cashier
+// (trang in hoá đơn 80mm nằm ở /print/bill — POS + Báo cáo mở nó) và store_manager (gọi món hộ).
 // Superadmin bị đẩy về /mevo; không operator → /login. Trả về operator (đã loại superadmin, luôn có storeId).
 export async function requireStaffAreaOrRedirect(): Promise<
-  { userId: string; role: 'store_owner' | 'store_staff' | 'store_cashier'; storeId: string }
+  { userId: string; role: 'store_owner' | 'store_staff' | 'store_cashier' | 'store_manager'; storeId: string }
 > {
   const operator = await requireOperatorOrRedirect()
   if (operator.role === 'mevo_superadmin') redirect('/mevo')
