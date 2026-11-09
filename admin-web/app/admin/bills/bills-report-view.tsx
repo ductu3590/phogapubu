@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { Banknote, Eye, FileSpreadsheet, Gift, Landmark, ListOrdered, Printer, Receipt, Search, Undo2, Users, Wallet } from 'lucide-react'
+import { Banknote, Eye, FileSpreadsheet, Gift, HandCoins, Landmark, ListOrdered, Printer, Receipt, Search, Undo2, Users, Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { getButtonClasses } from '@/components/ui/button-classes'
 import { Banner, EmptyState } from '@/components/ui/feedback'
@@ -13,6 +13,7 @@ import {
   chipCounts,
   filterBillRows,
   paginate,
+  revenueLabel,
   startedLabel,
   type BillChip,
   type BillRow,
@@ -26,6 +27,7 @@ import BillDrawer from './bill-drawer'
 const CHIPS: { id: BillChip; label: string }[] = [
   { id: 'all', label: 'Tất cả' },
   { id: 'paid', label: 'Đã thanh toán' },
+  { id: 'debt', label: 'Ghi nợ' },
   { id: 'adjusted', label: 'Đã huỷ / giảm trừ' },
   { id: 'waiting', label: 'Chờ thu' },
 ]
@@ -67,6 +69,7 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
   const openRow = openKey ? rows.find((r) => r.key === openKey) ?? null : null
 
   const rangeLabel = businessDayRangeLabel(report)
+  const showDebt = report.totals.debt > 0 || report.debtCollections.count > 0
 
   const pickChip = (id: BillChip) => { setChip(id); setPage(1) }
 
@@ -99,13 +102,18 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
         </div>
       </div>
 
-      {/* 4 thẻ số liệu — tiền từ server, không tính lại. */}
-      <div className="grid grid-cols-2 gap-3 @4xl:grid-cols-4">
-        <Stat icon={<Wallet />} tone="accent" label="Tổng thực thu" value={formatVND(report.totals.revenue)}
+      {/* 4 thẻ số liệu (5 khi có nợ / thu nợ) — tiền từ server, không tính lại. */}
+      <div className={cn('grid grid-cols-2 gap-3', showDebt ? '@4xl:grid-cols-5' : '@4xl:grid-cols-4')}>
+        <Stat icon={<Wallet />} tone="accent" label={revenueLabel(report.totals)} value={formatVND(report.totals.revenue)}
           note={`${report.totals.billsCount} hoá đơn đã thanh toán${report.totals.other > 0 ? ` · ${formatVND(report.totals.other)} ví / khác` : ''}`} />
         <Stat icon={<Banknote />} tone="success" label="Tiền mặt" value={formatVND(report.totals.cash)} note="Đối chiếu với két" />
         {/* KHÔNG ghi "khớp tài khoản": hệ thống không xác minh được tiền chuyển khoản đã về (Option A, 2026-07-08). */}
         <Stat icon={<Landmark />} tone="info" label="Chuyển khoản" value={formatVND(report.totals.bank)} note="Đối chiếu app ngân hàng" />
+        {/* Mig 123: phần ghi nợ của doanh thu. Thu nợ hôm nay là tiền vào riêng, KHÔNG cộng vào doanh thu. */}
+        {showDebt && (
+          <Stat icon={<HandCoins />} tone="warning" label="Ghi nợ" value={formatVND(report.totals.debt)}
+            note={`Thu nợ hôm nay ${formatVND(report.debtCollections.cash + report.debtCollections.bank)}`} />
+        )}
         {today ? (
           <Stat icon={<Users />} tone="warning" label="Đang phục vụ · chưa thu" value={`${report.open.tablesCount} bàn`}
             note={`Tạm tính ${formatVND(report.open.provisionalTotal)}${expiredDebt.length > 0 ? ` · ${expiredDebt.length} bàn hết hạn còn nợ` : ''}`}
@@ -119,7 +127,8 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
       {/* Thanh lọc: chip + ô tìm. Lọc ở trình duyệt — dữ liệu một ngày đủ nhỏ. */}
       <div className="flex flex-col gap-3 @3xl:flex-row @3xl:items-center @3xl:justify-between">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Lọc hoá đơn">
-          {CHIPS.map((c) => (
+          {/* Chip Ghi nợ chỉ hiện ở quán / ngày có nợ: quán không dùng công nợ giữ nguyên giao diện cũ. */}
+          {CHIPS.filter((c) => c.id !== 'debt' || showDebt || counts.debt > 0).map((c) => (
             <button
               key={c.id}
               type="button"
@@ -248,6 +257,9 @@ function BillTableRow({ row: r, date, onOpen, onError }: { row: BillRow; date: s
           {r.kind === 'paid' ? (billInstrumentLabel(r) ?? '—') : r.kind === 'waiting' ? 'Tạm tính' : '—'}
           {r.kind === 'paid' && r.discountTotal > 0 && <> · giảm {formatVND(r.discountTotal)}</>}
         </span>
+        {r.kind === 'paid' && r.debtCustomerName && (
+          <span className="block text-[12px] font-medium text-orange-700">Nợ — {r.debtCustomerName}</span>
+        )}
       </td>
       <td className="@3xl:px-4 @3xl:py-3">
         <RowStatus row={r} />

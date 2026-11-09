@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   billCashBank,
+  billDebtAmount,
+  billPaymentParts,
+  revenueLabel,
   billCode,
   billInstrumentLabel,
   billOther,
@@ -85,7 +88,7 @@ describe('businessDayRangeLabel', () => {
 
 describe('parseBillsReport (A04-1)', () => {
   it('đổi tên trường + giữ số liệu server, không tự cộng trừ', () => {
-    expect(report.totals).toEqual({ revenue: 300000, cash: 200000, bank: 100000, other: 0, billsCount: 2 })
+    expect(report.totals).toEqual({ revenue: 300000, cash: 200000, bank: 100000, debt: 0, other: 0, billsCount: 2 })
     expect(report.open).toEqual({ tablesCount: 1, provisionalTotal: 150000 })
     expect(report.bills[0].sessionIds).toEqual([S1, S2])
     expect(report.bills[0].billDiscount).toBe(0)
@@ -220,7 +223,7 @@ describe('key dòng không trùng (A04-2 fix)', () => {
 
 describe('chip + tìm kiếm + phân trang (A04-1)', () => {
   it('đếm chip: Đã huỷ/giảm trừ = đơn huỷ + bill có điều chỉnh/giảm giá', () => {
-    expect(chipCounts(rows)).toEqual({ all: 4, paid: 2, adjusted: 3, waiting: 1 })
+    expect(chipCounts(rows)).toEqual({ all: 4, paid: 2, debt: 0, adjusted: 3, waiting: 1 })
   })
   it('lọc theo chip', () => {
     expect(filterBillRows(rows, 'waiting', '').map((r) => r.kind)).toEqual(['waiting'])
@@ -299,5 +302,56 @@ describe('daySummary — số liệu phụ cho phiếu cuối ngày + Excel (A04
 describe('vnDateTimeLabel (A04-3)', () => {
   it('dd/mm/yyyy HH:MM theo giờ VN', () => {
     expect(vnDateTimeLabel(new Date('2026-10-09T17:30:00Z'))).toBe('10/10/2026 00:30')
+  })
+})
+
+describe('công nợ (mig 123)', () => {
+  it('đọc totals.debt, debt_collections, debt_customer, dòng payments debt; thiếu thì 0 / null', () => {
+    const r = parseBillsReport({ totals: { revenue: 470000, cash: 150000, bank: 70000, debt: 230000, other: 20000 },
+      debt_collections: { cash: 100000, bank: 0, count: 1 },
+      bills: [{ instrument: 'debt', payments: [{ instrument: 'debt', amount: 80000 }], debt_customer: { id: 'c', name: 'Cty Hoà Bình' } }, {}] })
+    expect([r.totals.debt, r.debtCollections.cash]).toEqual([230000, 100000])
+    expect([r.bills[0].instrument, r.bills[0].payments[0].instrument, r.bills[0].debtCustomerName]).toEqual(['debt', 'debt', 'Cty Hoà Bình'])
+    expect([r.bills[1].debtCustomerName, parseBillsReport({}).totals.debt, parseBillsReport({}).debtCollections]).toEqual([null, 0, { cash: 0, bank: 0, count: 0 }])
+    expect(r.bills[0].debtCustomerId).toBe('c')
+  })
+  it('billDebtAmount và billCashBank không lẫn phần nợ', () => {
+    const row = { kind: 'paid', amount: 300000, instrument: 'mixed', payments: [{ instrument: 'cash', amount: 100000 }, { instrument: 'debt', amount: 200000 }] } as BillRow
+    expect(billCashBank(row)).toEqual({ cash: 100000, bank: null })
+    expect(billDebtAmount(row)).toBe(200000)
+    expect(billDebtAmount({ ...row, payments: [{ instrument: 'cash', amount: 300000 }] } as BillRow)).toBeNull()
+  })
+  it('billPaymentParts trả cả phần nợ; cột Khác (billOther) KHÔNG BAO GIỜ chứa nợ', () => {
+    const row = (over: Partial<BillRow>) => ({ kind: 'paid', amount: 1_000_000, instrument: 'mixed', payments: [], ...over }) as BillRow
+    const three = row({ payments: [{ instrument: 'cash', amount: 200000 }, { instrument: 'bank', amount: 300000 }, { instrument: 'debt', amount: 500000 }] })
+    expect(billPaymentParts(three)).toEqual({ cash: 200000, bank: 300000, debt: 500000 })
+    expect(billOther(three)).toBeNull()
+    const onlyDebt = row({ instrument: 'debt', payments: [{ instrument: 'debt', amount: 1_000_000 }] })
+    expect(billPaymentParts(onlyDebt)).toEqual({ cash: null, bank: null, debt: 1_000_000 })
+    expect(billOther(onlyDebt)).toBeNull()
+    // Bill 100% nợ mà server chưa trả dòng khoản: vẫn là nợ, không rơi vào Khác
+    const bare = row({ instrument: 'debt', payments: [] })
+    expect([billDebtAmount(bare), billOther(bare)]).toEqual([1_000_000, null])
+    expect(billPaymentParts(row({ kind: 'waiting', instrument: null }))).toEqual({ cash: null, bank: null, debt: null })
+  })
+  it('chip Ghi nợ: bill có dòng nợ; tìm theo tên khách nợ', () => {
+    const rows = buildBillRows(parseBillsReport({
+      bills: [
+        { key: 'P:1', paid_at: '2026-11-09T05:00:00Z', instrument: 'mixed', total: 300000, table_label: 'Bàn 1',
+          payments: [{ instrument: 'cash', amount: 100000 }, { instrument: 'debt', amount: 200000 }], debt_customer: { id: 'c', name: 'Cty Hoà Bình' } },
+        { key: 'P:2', paid_at: '2026-11-09T06:00:00Z', instrument: 'cash', total: 50000, table_label: 'Bàn 2', payments: [{ instrument: 'cash', amount: 50000 }] },
+      ],
+      waiting: [{ key: 'S:w', opened_at: '2026-11-09T06:00:00Z', provisional_total: 50 }],
+    }))
+    expect(chipCounts(rows).debt).toBe(1)
+    expect(filterBillRows(rows, 'debt', '').map((r) => r.key)).toEqual(['P:1'])
+    expect(filterBillRows(rows, 'all', 'hoa binh').map((r) => r.key)).toEqual(['P:1'])
+    const p1 = rows.find((r) => r.key === 'P:1')!
+    expect([p1.debtCustomerId, p1.debtCustomerName]).toEqual(['c', 'Cty Hoà Bình'])
+    for (const r of rows.filter((x) => x.kind !== 'paid')) expect([r.debtCustomerId, r.debtCustomerName]).toEqual([null, null])
+  })
+  it('revenueLabel', () => {
+    expect(revenueLabel({ revenue: 1, cash: 1, bank: 0, debt: 0, other: 0, billsCount: 1 })).toBe('Tổng thực thu')
+    expect(revenueLabel({ revenue: 2, cash: 1, bank: 0, debt: 1, other: 0, billsCount: 1 })).toBe('Doanh thu')
   })
 })

@@ -18,6 +18,9 @@ export type BillsReportBill = {
   /** Mig 112a: tiền khách đưa / tiền thối của lần thu; null khi không ghi. */
   cashGiven: number | null
   changeAmount: number | null
+  /** Mig 123: khách ghi nợ của lần thu (null khi bill không có phần nợ). */
+  debtCustomerId: string | null
+  debtCustomerName: string | null
 }
 
 export type BillsReportWaiting = {
@@ -43,7 +46,13 @@ export type BillsReport = {
   /** Mig 111: mốc cắt của ngày kinh doanh. Rỗng khi server chưa áp mig. */
   dayFrom: string
   dayTo: string
-  totals: { revenue: number; cash: number; bank: number; other: number; billsCount: number }
+  /**
+   * Bất biến (server): cash + bank + debt + other = revenue. debt = phần GHI NỢ của các bill thu trong ngày (đã là
+   * doanh thu nhưng chưa phải tiền thực nhận). Mig 123.
+   */
+  totals: { revenue: number; cash: number; bank: number; debt: number; other: number; billsCount: number }
+  /** Mig 123: khách trả nợ trong ngày (lần trả chưa huỷ). KHÔNG là doanh thu — chỉ là dòng tiền vào. */
+  debtCollections: { cash: number; bank: number; count: number }
   open: { tablesCount: number; provisionalTotal: number }
   bills: BillsReportBill[]
   waiting: BillsReportWaiting[]
@@ -65,15 +74,22 @@ function instrument(v: unknown): ReportInstrument {
   return v === 'cash' || v === 'bank' || v === 'mixed' || v === 'debt' ? v : 'other'
 }
 
+/** Tiêu đề tổng tiền: 'Tổng thực thu' khi không có nợ; có nợ thì tổng không còn là tiền thực nhận → 'Doanh thu'. */
+export function revenueLabel(totals: Partial<BillsReport['totals']>): 'Tổng thực thu' | 'Doanh thu' {
+  return (totals.debt ?? 0) > 0 ? 'Doanh thu' : 'Tổng thực thu'
+}
+
 export function parseBillsReport(raw: unknown): BillsReport {
   const r = obj(raw)
   const t = obj(r.totals)
   const o = obj(r.open)
+  const dc = obj(r.debt_collections)
   return {
     date: str(r.date),
     dayFrom: str(r.day_from),
     dayTo: str(r.day_to),
-    totals: { revenue: num(t.revenue), cash: num(t.cash), bank: num(t.bank), other: num(t.other), billsCount: num(t.bills_count) },
+    totals: { revenue: num(t.revenue), cash: num(t.cash), bank: num(t.bank), debt: num(t.debt), other: num(t.other), billsCount: num(t.bills_count) },
+    debtCollections: { cash: num(dc.cash), bank: num(dc.bank), count: num(dc.count) },
     open: { tablesCount: num(o.tables_count), provisionalTotal: num(o.provisional_total) },
     bills: arr(r.bills).map((b0) => {
       const b = obj(b0)
@@ -84,6 +100,7 @@ export function parseBillsReport(raw: unknown): BillsReport {
         itemsCount: num(b.items_count), tableLabel: label(b.table_label), customerName: strOrNull(b.customer_name),
         partySize: numOrNull(b.party_size), adjustmentsCount: num(b.adjustments_count), receivedByName: strOrNull(b.received_by_name),
         payments: parsePaymentLines(b.payments), cashGiven: numOrNull(b.cash_given), changeAmount: numOrNull(b.change_amount),
+        debtCustomerId: strOrNull(obj(b.debt_customer).id), debtCustomerName: strOrNull(obj(b.debt_customer).name),
       }
     }),
     waiting: arr(r.waiting).map((w0) => {
@@ -163,6 +180,9 @@ export type BillRow = {
   payments: PaymentLine[]
   cashGiven: number | null
   changeAmount: number | null
+  /** Mig 123: khách ghi nợ của bill đã thu; dòng chờ thu / đơn huỷ / bill không nợ → null. */
+  debtCustomerId: string | null
+  debtCustomerName: string | null
 }
 
 export function buildBillRows(report: BillsReport): BillRow[] {
@@ -174,7 +194,7 @@ export function buildBillRows(report: BillsReport): BillRow[] {
     startedAt: w.openedAt, at: w.openedAt, itemsCount: w.itemsCount, amount: w.provisionalTotal, instrument: null,
     adjusted: false, adjustmentsCount: 0, discountTotal: 0, billDiscount: 0, expired: w.expired, rejected: false, reasonText: null,
     receivedByName: null, sessionIds: w.sessionIds, orderIds: w.orderIds,
-    payments: [], cashGiven: null, changeAmount: null,
+    payments: [], cashGiven: null, changeAmount: null, debtCustomerId: null, debtCustomerName: null,
   }))
   const paid: BillRow[] = report.bills.map((b) => ({
     key: b.key, kind: 'paid', code: billCode(b.sessionIds, b.orderIds), tableLabel: b.tableLabel,
@@ -183,6 +203,7 @@ export function buildBillRows(report: BillsReport): BillRow[] {
     adjusted: b.adjustmentsCount > 0 || b.discountTotal > 0, adjustmentsCount: b.adjustmentsCount, discountTotal: b.discountTotal, billDiscount: b.billDiscount,
     expired: false, rejected: false, reasonText: null, receivedByName: b.receivedByName, sessionIds: b.sessionIds, orderIds: b.orderIds,
     payments: b.payments, cashGiven: b.cashGiven, changeAmount: b.changeAmount,
+    debtCustomerId: b.debtCustomerId, debtCustomerName: b.debtCustomerName,
   }))
   const cancelled: BillRow[] = report.cancelled.map((c) => ({
     key: `X:${c.orderId}`, kind: 'cancelled', code: billCode([], [c.orderId]), tableLabel: c.tableLabel, grouped: false,
@@ -190,7 +211,7 @@ export function buildBillRows(report: BillsReport): BillRow[] {
     amount: c.total, instrument: null, adjusted: false, adjustmentsCount: 0, discountTotal: 0, billDiscount: 0, expired: false,
     rejected: c.kind === 'rejected', reasonText: rejectReasonLabel(c.reasonCode, c.reasonNote), receivedByName: null,
     sessionIds: c.sessionId ? [c.sessionId] : [], orderIds: [c.orderId],
-    payments: [], cashGiven: null, changeAmount: null,
+    payments: [], cashGiven: null, changeAmount: null, debtCustomerId: null, debtCustomerName: null,
   }))
   // Chờ thu lên đầu (việc cần làm), còn lại theo giờ mới nhất.
   const byTimeDesc = (a: BillRow, b: BillRow) => b.at.localeCompare(a.at)
@@ -225,21 +246,41 @@ export function billInstrumentLabel(row: Pick<BillRow, 'instrument' | 'payments'
 }
 
 /**
- * Phần của bill đã thu KHÔNG nằm ở cột Tiền mặt / Chuyển khoản (ví, bill cũ trộn nhiều phương tiện). Tính là phần
- * còn lại để mỗi dòng Tiền mặt + Chuyển khoản + Khác = Số tiền. 0 hoặc không phải dòng đã thu → null (ô trống).
+ * Phần GHI NỢ của một dòng bill đã thu (mig 123): cộng các khoản 'debt'; bill 100% nợ mà chưa có dòng khoản thì cả
+ * bill. Không có nợ / không phải dòng đã thu → null.
+ */
+export function billDebtAmount(row: BillRow): number | null {
+  if (row.kind !== 'paid') return null
+  if (row.payments.some((p) => p.instrument === 'debt')) {
+    return row.payments.filter((p) => p.instrument === 'debt').reduce((s, p) => s + p.amount, 0)
+  }
+  if (row.payments.length === 0 && row.instrument === 'debt') return row.amount
+  return null
+}
+
+/** Tiền mặt / chuyển khoản / ghi nợ của một dòng bill đã thu (cột Excel, ngăn kéo). Phần không có → null. */
+export function billPaymentParts(row: BillRow): { cash: number | null; bank: number | null; debt: number | null } {
+  return { ...billCashBank(row), debt: billDebtAmount(row) }
+}
+
+/**
+ * Phần của bill đã thu KHÔNG nằm ở cột Tiền mặt / Chuyển khoản / Ghi nợ (ví, bill cũ trộn nhiều phương tiện). Tính là
+ * phần còn lại để mỗi dòng Tiền mặt + Chuyển khoản + Ghi nợ + Khác = Số tiền. Nợ KHÔNG BAO GIỜ nằm ở Khác.
+ * 0 hoặc không phải dòng đã thu → null (ô trống).
  */
 export function billOther(row: BillRow): number | null {
   if (row.kind !== 'paid') return null
-  const { cash, bank } = billCashBank(row)
-  const rest = row.amount - (cash ?? 0) - (bank ?? 0)
+  const { cash, bank, debt } = billPaymentParts(row)
+  const rest = row.amount - (cash ?? 0) - (bank ?? 0) - (debt ?? 0)
   return rest !== 0 ? rest : null
 }
 
-export type BillChip = 'all' | 'paid' | 'adjusted' | 'waiting'
+export type BillChip = 'all' | 'paid' | 'debt' | 'adjusted' | 'waiting'
 
 function inChip(row: BillRow, chip: BillChip): boolean {
   if (chip === 'all') return true
   if (chip === 'paid') return row.kind === 'paid'
+  if (chip === 'debt') return row.kind === 'paid' && (billDebtAmount(row) !== null || row.instrument === 'debt')
   if (chip === 'waiting') return row.kind === 'waiting'
   return row.kind === 'cancelled' || (row.kind === 'paid' && row.adjusted)
 }
@@ -248,6 +289,7 @@ export function chipCounts(rows: BillRow[]): Record<BillChip, number> {
   return {
     all: rows.length,
     paid: rows.filter((r) => inChip(r, 'paid')).length,
+    debt: rows.filter((r) => inChip(r, 'debt')).length,
     adjusted: rows.filter((r) => inChip(r, 'adjusted')).length,
     waiting: rows.filter((r) => inChip(r, 'waiting')).length,
   }
@@ -264,7 +306,7 @@ export function filterBillRows(rows: BillRow[], chip: BillChip, query: string): 
   return rows.filter((r) => {
     if (!inChip(r, chip)) return false
     if (!q) return true
-    const hay = normalizeSearch([r.code.replace(/^#/, ''), r.tableLabel, r.customerName ?? ''].join(' '))
+    const hay = normalizeSearch([r.code.replace(/^#/, ''), r.tableLabel, r.customerName ?? '', r.debtCustomerName ?? ''].join(' '))
     return hay.includes(q)
   })
 }

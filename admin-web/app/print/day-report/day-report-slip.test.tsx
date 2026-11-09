@@ -80,3 +80,27 @@ describe('DayReportSlip — autoPrint', () => {
     expect(renderToStaticMarkup(<DayReportSlip {...base} />)).toContain('no-print')
   })
 })
+
+describe('Phiếu cuối ngày — công nợ (mig 123)', () => {
+  it('có nợ: DOANH THU, Ghi nợ hôm nay, Thu nợ TM / CK', () => {
+    const html = renderToStaticMarkup(<DayReportSlip {...base}
+      totals={{ revenue: 470000, cash: 150000, bank: 70000, debt: 230000, other: 20000, billsCount: 4 }}
+      debtCollections={{ cash: 100000, bank: 50000, count: 2 }} />)
+    expect(html).toContain('DOANH THU'); expect(html).not.toContain('TỔNG THỰC THU')
+    expect(html).toContain('Ghi nợ hôm nay'); expect(html).toContain('230.000')
+    expect(html).toContain('Thu nợ tiền mặt'); expect(html).toContain('100.000')
+    expect(html).toContain('Thu nợ chuyển khoản'); expect(html).toContain('50.000')
+    expect(html).toContain('Tiền mặt thu nợ cũng nằm trong két.')
+    expect(html.indexOf('Ghi nợ hôm nay')).toBeGreaterThan(html.indexOf('Chuyển khoản'))
+  })
+  it('không nợ, không thu nợ: TỔNG THỰC THU, không có dòng nợ', () => {
+    const html = renderToStaticMarkup(<DayReportSlip {...base} debtCollections={{ cash: 0, bank: 0, count: 0 }} />)
+    expect(html).toContain('TỔNG THỰC THU')
+    for (const t of ['DOANH THU', 'Ghi nợ hôm nay', 'Thu nợ', 'thu nợ']) expect(html).not.toContain(t)
+  })
+  it('thu nợ chỉ chuyển khoản: có khối thu nợ, không có câu tiền mặt trong két', () => {
+    const html = renderToStaticMarkup(<DayReportSlip {...base} debtCollections={{ cash: 0, bank: 50000, count: 1 }} />)
+    expect(html).toContain('Thu nợ chuyển khoản'); expect(html).toContain('TỔNG THỰC THU')
+    expect(html).not.toContain('Tiền mặt thu nợ cũng nằm trong két.')
+  })
+})

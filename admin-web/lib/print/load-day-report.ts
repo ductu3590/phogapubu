@@ -3,7 +3,7 @@ import type { DayReportSlipProps } from '@/app/print/day-report/day-report-slip'
 import { businessDayRangeLabel, daySummary, parseBillsReport } from '@/lib/bills-report'
 
 // Dựng props phiếu báo cáo cuối ngày cho trang /print/agent (không có cookie → không dùng loadBillsReport).
-// Hai nơi dựng cùng một bộ props với /print/day-report/page.tsx: thêm dòng nào trên phiếu thì sửa cả hai.
+// Hai nơi dựng cùng một bộ props với /print/day-report/page.tsx: thêm dòng nào trên phiếu thì sửa cả hai\n// (vd. debtCollections của mig 123 truyền ở CẢ HAI nơi).
 export async function loadDayReport(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: SupabaseClient<any>,
@@ -37,6 +37,7 @@ export async function loadDayReport(
       printedAt: now.toISOString(),
       printedBy,
       totals: report.totals,
+      debtCollections: report.debtCollections,
       summary: daySummary(report),
     },
   }

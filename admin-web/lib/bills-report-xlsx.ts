@@ -1,7 +1,7 @@
 // Xuất Excel báo cáo ngày (A04-3): 3 sheet Tổng hợp · Hoá đơn · Điều chỉnh. Thuần (không gọi mạng) để test được.
 // Tiền là SỐ (định dạng #,##0) để chủ quán cộng/lọc tiếp trong Excel — không ghi thành chữ "1.281.000đ".
 import ExcelJS from 'exceljs'
-import { billCashBank, billInstrumentLabel, billOther, buildBillRows, businessDayRangeLabel, daySummary, normalizeSearch, startedLabel, vnDateTimeLabel, type BillRow, type BillsReport } from '@/lib/bills-report'
+import { billInstrumentLabel, billOther, billPaymentParts, buildBillRows, businessDayRangeLabel, daySummary, normalizeSearch, revenueLabel, startedLabel, vnDateTimeLabel, type BillRow, type BillsReport } from '@/lib/bills-report'
 
 const MONEY = '#,##0'
 
@@ -37,9 +37,16 @@ export function buildBillsWorkbook(report: BillsReport, meta: BillsWorkbookMeta)
   line('Xuất lúc', vnDateTimeLabel(meta.exportedAt))
   line('Người xuất', meta.exportedBy)
   sum.addRow([])
-  line('Tổng thực thu', report.totals.revenue, true).font = { bold: true }
+  // Có nợ: tổng là DOANH THU (gồm phần ghi nợ), không còn là tiền thực nhận. Quán không có nợ giữ nguyên như cũ.
+  line(revenueLabel(report.totals), report.totals.revenue, true).font = { bold: true }
   line('Tiền mặt', report.totals.cash, true)
   line('Chuyển khoản', report.totals.bank, true)
+  if (report.totals.debt > 0 || report.debtCollections.count > 0) {
+    line('Ghi nợ hôm nay', report.totals.debt, true)
+    // Khách trả nợ trong ngày: dòng tiền vào, KHÔNG cộng vào doanh thu ở trên.
+    line('Thu nợ tiền mặt', report.debtCollections.cash, true)
+    line('Thu nợ chuyển khoản', report.debtCollections.bank, true)
+  }
   line('Ví / khác', report.totals.other, true)
   line('Số hoá đơn đã thu', report.totals.billsCount)
   // Doanh thu ở trên đã là tiền SAU giảm giá; hai dòng này chỉ để chủ quán thấy đã giảm bao nhiêu.
@@ -67,6 +74,8 @@ export function buildBillsWorkbook(report: BillsReport, meta: BillsWorkbookMeta)
     { header: 'Thu / huỷ lúc', width: 13 }, { header: 'Số món', width: 8 }, { header: 'Phương thức', width: 16 },
     // Mig 112a: bill thu Kết hợp tách số theo khoản (billCashBank); bill cũ trộn phương tiện thì để trống.
     { header: 'Tiền mặt', width: 13, style: { numFmt: MONEY } }, { header: 'Chuyển khoản', width: 13, style: { numFmt: MONEY } },
+    // Mig 123: phần ghi nợ của bill — cột riêng, KHÔNG nằm ở Khác.
+    { header: 'Ghi nợ', width: 13, style: { numFmt: MONEY } },
     // Ví / bill cũ trộn phương tiện: phần còn lại, để mỗi dòng Tiền mặt + Chuyển khoản + Khác = Số tiền.
     { header: 'Khác', width: 11, style: { numFmt: MONEY } },
     { header: 'Giảm giá', width: 11, style: { numFmt: MONEY } }, { header: 'Giảm giá bill', width: 13, style: { numFmt: MONEY } }, { header: 'Số tiền', width: 13, style: { numFmt: MONEY } },
@@ -74,14 +83,18 @@ export function buildBillsWorkbook(report: BillsReport, meta: BillsWorkbookMeta)
   ]
   bills.getRow(1).font = { bold: true }
   for (const r of buildBillRows(report)) {
-    const cb = billCashBank(r)
+    const parts = billPaymentParts(r)
+    const notes = [
+      r.kind === 'cancelled' ? (r.reasonText ?? '') : r.adjustmentsCount > 0 ? `${r.adjustmentsCount} điều chỉnh` : '',
+      r.debtCustomerName ? `Nợ — ${r.debtCustomerName}` : '',
+    ].filter(Boolean).join(' · ')
     bills.addRow([
       r.code, statusText(r), r.tableLabel, r.customerName ?? '', r.partySize ?? null,
       startedLabel(r.startedAt, meta.date), r.kind === 'waiting' ? '' : startedLabel(r.at, meta.date), r.itemsCount,
       r.kind === 'paid' ? (billInstrumentLabel(r) ?? '') : r.kind === 'waiting' ? 'Tạm tính' : '',
-      cb.cash, cb.bank, billOther(r),
+      parts.cash, parts.bank, parts.debt, billOther(r),
       r.discountTotal > 0 ? r.discountTotal : null, r.billDiscount > 0 ? r.billDiscount : null, r.amount, r.receivedByName ?? '',
-      r.kind === 'cancelled' ? (r.reasonText ?? '') : r.adjustmentsCount > 0 ? `${r.adjustmentsCount} điều chỉnh` : '',
+      notes,
     ])
   }
 
