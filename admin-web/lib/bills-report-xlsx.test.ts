@@ -11,6 +11,11 @@ const report = parseBillsReport({
     { key: 'C:1', paid_at: '2026-10-09T04:15:00Z', opened_at: '2026-10-09T02:22:00Z', session_ids: ['00000000-0000-0000-0000-00000000b30a'],
       order_ids: ['o1'], merged: true, tables_count: 2, total: 587000, discount_total: 15500, bill_discount: 15500, instrument: 'cash', order_type: 'dine_in',
       items_count: 5, table_label: 'Bàn 8, Bàn 9', customer_name: 'Anh Tú', party_size: 8, adjustments_count: 0, received_by_name: 'Thu ngân Lan' },
+    // Mig 112a: bill thu kết hợp, có từng khoản.
+    { key: 'P:pay-1', paid_at: '2026-10-09T05:00:00Z', opened_at: '2026-10-09T03:00:00Z', session_ids: ['00000000-0000-0000-0000-00000000c40b'],
+      order_ids: ['o2'], merged: false, tables_count: 1, total: 1000000, discount_total: 0, bill_discount: 0, instrument: 'mixed', order_type: 'dine_in',
+      items_count: 3, table_label: 'Bàn 2', adjustments_count: 0, received_by_name: 'Thu ngân Lan',
+      payments: [{ instrument: 'cash', amount: 400000 }, { instrument: 'bank', amount: 600000 }], cash_given: 500000, change_amount: 100000 },
   ],
   waiting: [],
   cancelled: [
@@ -74,8 +79,8 @@ describe('Excel báo cáo ngày (A04-3)', () => {
     const ws = (await roundTrip()).getWorksheet('Hoá đơn')!
     expect(ws.getRow(1).getCell(1).value).toBe('Mã')
     const values = (r: number) => (ws.getRow(r).values as unknown[]).slice(1)
-    const all = [values(2), values(3)]
-    const paid = all.find((v) => v[1] === 'Đã thanh toán')!
+    const all = [values(2), values(3), values(4)]
+    const paid = all.find((v) => v[1] === 'Đã thanh toán' && v[2] === 'Bàn 8, Bàn 9')!
     expect(paid).toEqual(expect.arrayContaining(['Bàn 8, Bàn 9', 'Anh Tú', 8, '09:22', '11:15', 5, 'Tiền mặt', 587000, 'Thu ngân Lan']))
     // GG-1: cột Giảm giá (tổng, gồm voucher) và Giảm giá bill tách riêng.
     const header = (ws.getRow(1).values as unknown[]).slice(1)
@@ -87,6 +92,66 @@ describe('Excel báo cáo ngày (A04-3)', () => {
     expect(cancelledRow[iBill] == null || cancelledRow[iBill] === '').toBe(true)
     const cancelled = all.find((v) => v[1] === 'Từ chối')!
     expect(cancelled).toEqual(expect.arrayContaining(['#DA5382', 'Bàn 9', 274000, 'Hết đồ']))
+  })
+
+  it('Hoá đơn: cột Tiền mặt / Chuyển khoản ngay sau Phương thức; bill kết hợp tách đúng từng khoản', async () => {
+    const ws = (await roundTrip()).getWorksheet('Hoá đơn')!
+    const header = (ws.getRow(1).values as unknown[]).slice(1)
+    expect(header).toEqual(expect.arrayContaining(['Phương thức', 'Tiền mặt', 'Chuyển khoản']))
+    expect(header.indexOf('Tiền mặt')).toBe(header.indexOf('Phương thức') + 1)
+    expect(header.indexOf('Chuyển khoản')).toBe(header.indexOf('Phương thức') + 2)
+    const rows = [2, 3, 4].map((r) => (ws.getRow(r).values as unknown[]).slice(1))
+    const mixedRow = rows.find((v) => v[header.indexOf('Bàn')] === 'Bàn 2')!
+    expect(mixedRow[header.indexOf('Phương thức')]).toBe('Kết hợp')
+    expect(mixedRow[header.indexOf('Tiền mặt')]).toBe(400000)
+    expect(mixedRow[header.indexOf('Chuyển khoản')]).toBe(600000)
+    const mixedRowNo = [2, 3, 4].find((r) => ws.getRow(r).getCell(header.indexOf('Bàn') + 1).value === 'Bàn 2')!
+    expect(ws.getRow(mixedRowNo).getCell(header.indexOf('Tiền mặt') + 1).numFmt).toBe('#,##0')
+    // Bill cũ tiền mặt: đủ số vào cột Tiền mặt, cột Chuyển khoản để trống
+    const cashRow = rows.find((v) => v[header.indexOf('Bàn')] === 'Bàn 8, Bàn 9')!
+    expect(cashRow[header.indexOf('Tiền mặt')]).toBe(587000)
+    expect(cashRow[header.indexOf('Chuyển khoản')] ?? null).toBeNull()
+  })
+
+  it('Hoá đơn: cột Khác sau Chuyển khoản; mọi dòng đã thu Tiền mặt + Chuyển khoản + Khác = Số tiền', async () => {
+    const r = parseBillsReport({
+      date: '2026-10-09',
+      bills: [
+        { key: 'P:1', paid_at: '2026-10-09T05:00:00Z', total: 1000, instrument: 'mixed', table_label: 'Bàn A',
+          payments: [{ instrument: 'cash', amount: 400 }, { instrument: 'bank', amount: 600 }] },
+        { key: 'C:2', paid_at: '2026-10-09T05:10:00Z', total: 700, instrument: 'cash', table_label: 'Bàn B' },
+        { key: 'C:3', paid_at: '2026-10-09T05:20:00Z', total: 300, instrument: 'mixed', table_label: 'Bàn C' }, // bill cũ trộn
+        { key: 'O:4', paid_at: '2026-10-09T05:30:00Z', total: 90, instrument: 'other', table_label: 'Bàn D' }, // ví
+      ],
+    })
+    const buf = await buildBillsWorkbook(r, meta).xlsx.writeBuffer()
+    const wb = new ExcelJS.Workbook()
+    await wb.xlsx.load(buf)
+    const ws = wb.getWorksheet('Hoá đơn')!
+    const header = (ws.getRow(1).values as unknown[]).slice(1)
+    const iCash = header.indexOf('Tiền mặt'), iBank = header.indexOf('Chuyển khoản'), iOther = header.indexOf('Khác')
+    expect(iOther).toBe(iBank + 1)
+    expect(iBank).toBe(iCash + 1)
+    const n = (v: unknown) => (typeof v === 'number' ? v : 0)
+    const byTable: Record<string, number[]> = {}
+    for (let row = 2; row <= ws.rowCount; row++) {
+      const v = (ws.getRow(row).values as unknown[]).slice(1)
+      byTable[v[header.indexOf('Bàn')] as string] = [n(v[iCash]), n(v[iBank]), n(v[iOther])]
+      expect(n(v[iCash]) + n(v[iBank]) + n(v[iOther])).toBe(v[header.indexOf('Số tiền')])
+    }
+    expect(byTable['Bàn A']).toEqual([400, 600, 0])
+    expect(byTable['Bàn B']).toEqual([700, 0, 0])
+    expect(byTable['Bàn C']).toEqual([0, 0, 300])
+    // Phương thức: bill có từng khoản → "Kết hợp"; bill cũ trộn → "Nhiều phương thức"
+    const methodOf = (table: string) => {
+      for (let row = 2; row <= ws.rowCount; row++) {
+        const v = (ws.getRow(row).values as unknown[]).slice(1)
+        if (v[header.indexOf('Bàn')] === table) return v[header.indexOf('Phương thức')]
+      }
+    }
+    expect(methodOf('Bàn A')).toBe('Kết hợp')
+    expect(methodOf('Bàn C')).toBe('Nhiều phương thức')
+    expect(byTable['Bàn D']).toEqual([0, 0, 90])
   })
 
   it('Điều chỉnh: loại tiếng Việt, số lượng cũ → mới, tiền âm khi bớt', async () => {

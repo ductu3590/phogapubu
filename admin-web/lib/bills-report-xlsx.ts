@@ -1,8 +1,7 @@
 // Xuất Excel báo cáo ngày (A04-3): 3 sheet Tổng hợp · Hoá đơn · Điều chỉnh. Thuần (không gọi mạng) để test được.
 // Tiền là SỐ (định dạng #,##0) để chủ quán cộng/lọc tiếp trong Excel — không ghi thành chữ "1.281.000đ".
 import ExcelJS from 'exceljs'
-import { instrumentLabel } from '@/lib/daily-report'
-import { buildBillRows, businessDayRangeLabel, daySummary, normalizeSearch, startedLabel, vnDateTimeLabel, type BillRow, type BillsReport } from '@/lib/bills-report'
+import { billCashBank, billInstrumentLabel, billOther, buildBillRows, businessDayRangeLabel, daySummary, normalizeSearch, startedLabel, vnDateTimeLabel, type BillRow, type BillsReport } from '@/lib/bills-report'
 
 const MONEY = '#,##0'
 
@@ -66,15 +65,21 @@ export function buildBillsWorkbook(report: BillsReport, meta: BillsWorkbookMeta)
     { header: 'Mã', width: 11 }, { header: 'Trạng thái', width: 17 }, { header: 'Bàn', width: 18 },
     { header: 'Khách', width: 20 }, { header: 'Số khách', width: 9 }, { header: 'Vào', width: 12 },
     { header: 'Thu / huỷ lúc', width: 13 }, { header: 'Số món', width: 8 }, { header: 'Phương thức', width: 16 },
+    // Mig 112a: bill thu Kết hợp tách số theo khoản (billCashBank); bill cũ trộn phương tiện thì để trống.
+    { header: 'Tiền mặt', width: 13, style: { numFmt: MONEY } }, { header: 'Chuyển khoản', width: 13, style: { numFmt: MONEY } },
+    // Ví / bill cũ trộn phương tiện: phần còn lại, để mỗi dòng Tiền mặt + Chuyển khoản + Khác = Số tiền.
+    { header: 'Khác', width: 11, style: { numFmt: MONEY } },
     { header: 'Giảm giá', width: 11, style: { numFmt: MONEY } }, { header: 'Giảm giá bill', width: 13, style: { numFmt: MONEY } }, { header: 'Số tiền', width: 13, style: { numFmt: MONEY } },
     { header: 'Người thu', width: 22 }, { header: 'Ghi chú', width: 28 },
   ]
   bills.getRow(1).font = { bold: true }
   for (const r of buildBillRows(report)) {
+    const cb = billCashBank(r)
     bills.addRow([
       r.code, statusText(r), r.tableLabel, r.customerName ?? '', r.partySize ?? null,
       startedLabel(r.startedAt, meta.date), r.kind === 'waiting' ? '' : startedLabel(r.at, meta.date), r.itemsCount,
-      r.kind === 'paid' && r.instrument ? instrumentLabel(r.instrument) : r.kind === 'waiting' ? 'Tạm tính' : '',
+      r.kind === 'paid' ? (billInstrumentLabel(r) ?? '') : r.kind === 'waiting' ? 'Tạm tính' : '',
+      cb.cash, cb.bank, billOther(r),
       r.discountTotal > 0 ? r.discountTotal : null, r.billDiscount > 0 ? r.billDiscount : null, r.amount, r.receivedByName ?? '',
       r.kind === 'cancelled' ? (r.reasonText ?? '') : r.adjustmentsCount > 0 ? `${r.adjustmentsCount} điều chỉnh` : '',
     ])

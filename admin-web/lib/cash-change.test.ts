@@ -25,6 +25,10 @@ describe('cashSuggestions', () => {
     expect(cashSuggestions(500_000)).toEqual([500_000, 1_000_000])
   })
 
+  it('có mốc làm tròn lên 10.000', () => {
+    expect(cashSuggestions(123_000)).toEqual([123_000, 130_000, 150_000, 200_000])
+  })
+
   it('bill 0đ thì không gợi ý', () => {
     expect(cashSuggestions(0)).toEqual([])
   })

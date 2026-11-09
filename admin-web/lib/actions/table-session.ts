@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireOperator } from '@/lib/auth/operator'
 import { isPosRole } from '@/lib/auth/roles'
 import type { BillDiscount } from '@/lib/bill-discount'
+import { parsePaymentLines, type PaymentLine } from '@/lib/collect-payment'
 
 // Bọc 3 RPC phiên bàn (mig 039). Luôn dùng createClient() — phiên đăng nhập của nhân viên —
 // chứ KHÔNG createAdminClient(): RPC cần auth.uid() để ghi payment_received_by, đó là dấu vết
@@ -90,9 +91,36 @@ export type CloseSessionResult =
     }
   | { ok: false; error: string }
 
+export type CollectBillInput = {
+  sessionIds: string[]
+  /** p_lines của collect_table_bill, dựng bằng buildPaymentLines (lib/collect-payment.ts). */
+  lines: PaymentLine[]
+  /** Tiền khách đưa, so với PHẦN TIỀN MẶT; null = không ghi. */
+  cashGiven: number | null
+  /** Sinh một lần khi mở màn Thanh toán; bấm lại sau khi mất mạng phải gửi LẠI đúng mã này. */
+  clientRequestId: string
+}
+
+export type CollectBillResult =
+  | {
+      ok: true
+      already: boolean
+      paymentId: string | null
+      total: number
+      ordersSettled: number
+      /** Chỉ khi already: các khoản ĐÃ GHI (có thể khác khoản vừa gửi). Thu mới → []. */
+      lines: PaymentLine[]
+      cashGiven: number | null
+      changeAmount: number | null
+    }
+  | { ok: false; error: string }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 async function staffClient() {
   const operator = await requireOperator()
-  if (operator.role !== 'store_staff' && operator.role !== 'store_owner' && operator.role !== 'store_cashier' && operator.role !== 'store_manager') {
+  // Vai trò quầy lấy từ MỘT chỗ (isPosRole) để vai mới ở quầy (vd. quản lý) tự vào được; phục vụ thì thêm riêng.
+  if (!isPosRole(operator.role) && operator.role !== 'store_staff') {
     return { operator: null, supabase: null, error: 'Không có quyền' as const }
   }
   return { operator, supabase: await createClient(), error: null }
@@ -120,23 +148,22 @@ export async function listOpenTableSessions(): Promise<ListSessionsResult> {
   return { ok: true, sessions }
 }
 
-// reason='paid'        → ghi tiền cho MỌI đơn chưa thu của phiên (trừ đơn đã huỷ) rồi đóng bàn.
-// reason='staff_reset' → bỏ bàn không thu tiền: huỷ đơn chưa nấu, GIỮ đơn đã vào bếp.
+// Bỏ bàn ('staff_reset'): đóng phiên KHÔNG thu tiền — huỷ đơn chưa nấu, GIỮ đơn đã vào bếp.
+// Thu tiền KHÔNG đi đường này nữa (mig 112b: close_table_session từ chối 'paid') → dùng collectTableBill.
 export async function closeTableSession(
   sessionId: string,
-  reason: 'paid' | 'staff_reset',
-  instrument: 'cash' | 'bank' | null,
+  reason: 'staff_reset',
 ): Promise<CloseSessionResult> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
   if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' }
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được thu tiền hoặc bỏ bàn' }
   }
 
   const { data, error: rpcErr } = await supabase.rpc('close_table_session', {
     p_session_id: sessionId,
     p_reason: reason,
-    p_instrument: instrument,
+    p_instrument: null,
   })
   if (rpcErr) return { ok: false, error: rpcErr.message }
 
@@ -154,6 +181,57 @@ export async function closeTableSession(
     ordersCancelled: r.orders_cancelled,
     ordersLeftInKitchen: r.orders_left_in_kitchen,
     total: r.total,
+  }
+}
+
+// Thu tiền một bàn hoặc gộp bill N mâm (mig 112a). Server tự tính số phải thu, so với tổng `lines` ở cấp cả
+// nhóm; lệch một đồng thì từ chối và không ghi gì. Gọi lại cùng clientRequestId (mạng đứt sau khi server đã thu)
+// trả kết quả cũ với already=true, không tạo khoản thứ hai.
+export async function collectTableBill(input: CollectBillInput): Promise<CollectBillResult> {
+  const { operator, supabase, error } = await staffClient()
+  if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được thu tiền hoặc bỏ bàn' }
+  }
+  if (!Array.isArray(input.sessionIds) || input.sessionIds.length === 0) {
+    return { ok: false, error: 'Chưa chọn mâm nào' }
+  }
+  if (typeof input.clientRequestId !== 'string' || !UUID.test(input.clientRequestId)) {
+    return { ok: false, error: 'Mã thu tiền không hợp lệ' }
+  }
+  if (!input.sessionIds.every((id) => typeof id === 'string' && UUID.test(id))) {
+    return { ok: false, error: 'Mã phiên không hợp lệ' }
+  }
+
+  const { data, error: rpcErr } = await supabase.rpc('collect_table_bill', {
+    p_session_ids: input.sessionIds,
+    p_lines: input.lines,
+    p_cash_given: input.cashGiven,
+    p_client_request_id: input.clientRequestId,
+  })
+  if (rpcErr) return { ok: false, error: rpcErr.message }
+  // Không lỗi mà cũng không có kết quả: không biết đã thu hay chưa → bảo tải lại để xem bill thật, đừng đoán.
+  if (!data) return { ok: false, error: 'Không nhận được kết quả thu tiền, tải lại trang để kiểm tra' }
+
+  const r = data as {
+    already: boolean
+    payment_id: string | null
+    total: number | string
+    orders_settled: number | string
+    lines?: unknown
+    cash_given?: number | null
+    change_amount?: number | null
+  }
+  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
+  return {
+    ok: true,
+    already: r.already === true,
+    paymentId: r.payment_id ?? null,
+    total: Number(r.total),
+    ordersSettled: Number(r.orders_settled),
+    lines: parsePaymentLines(r.lines),
+    cashGiven: num(r.cash_given),
+    changeAmount: num(r.change_amount),
   }
 }
 
@@ -214,7 +292,7 @@ export async function moveSessionTable(
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
   if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được chuyển bàn' }
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được chuyển bàn' }
   }
 
   const { data, error: rpcErr } = await supabase.rpc('pos_move_session_table', {
@@ -237,7 +315,7 @@ export async function moveSessionToTable(
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
   if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được chuyển bàn' }
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được chuyển bàn' }
   }
 
   const { data, error: rpcErr } = await supabase.rpc('pos_move_session_to_table', {
@@ -269,7 +347,7 @@ export async function mergeSessionIntoTray(
 }
 
 // ─── Giảm giá cả bill (mig 107) ──────────────────────────────────────────────
-// Chỉ lưu "ý định" trên phiên; tiền thật sự trừ vào đơn lúc close_table_session(paid). null = bỏ giảm giá.
+// Chỉ lưu "ý định" trên phiên; tiền thật sự trừ vào đơn lúc thu (collect_table_bill, mig 112a). null = bỏ giảm giá.
 // Mọi luật (số nguyên không âm, % ≤ 100, VNĐ ≤ tiền hàng, phiên còn mở) do RPC kiểm; lỗi trả nguyên văn tiếng Việt.
 
 // Một phiên.
@@ -277,7 +355,7 @@ export async function setSessionDiscount(sessionId: string, d: BillDiscount): Pr
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
   if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được giảm giá hoá đơn' }
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được giảm giá hoá đơn' }
   }
 
   const { error: rpcErr } = await supabase.rpc('pos_set_session_discount', {
@@ -294,7 +372,7 @@ export async function setSessionsDiscount(sessionIds: string[], d: BillDiscount)
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
   if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được giảm giá hoá đơn' }
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được giảm giá hoá đơn' }
   }
   if (sessionIds.length === 0) return { ok: false, error: 'Chưa chọn mâm nào' }
 
@@ -305,43 +383,6 @@ export async function setSessionsDiscount(sessionIds: string[], d: BillDiscount)
   })
   if (rpcErr) return { ok: false, error: rpcErr.message }
   return { ok: true }
-}
-
-// Gộp bill: chốt N mâm trong MỘT giao dịch, cùng một phương tiện. Hoặc thu hết, hoặc không
-// mâm nào bị đánh dấu đã thu — không có cảnh thu được 2/3 mâm rồi đứt.
-export async function closeTableSessionsBulk(
-  sessionIds: string[],
-  reason: 'paid' | 'staff_reset',
-  instrument: 'cash' | 'bank' | null,
-): Promise<CloseSessionResult> {
-  const { operator, supabase, error } = await staffClient()
-  if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
-  if (!isPosRole(operator.role)) {
-    return { ok: false, error: 'Chỉ chủ quán hoặc thu ngân được thu tiền hoặc bỏ bàn' }
-  }
-  if (sessionIds.length === 0) return { ok: false, error: 'Chưa chọn mâm nào' }
-
-  const { data, error: rpcErr } = await supabase.rpc('close_table_sessions_bulk', {
-    p_session_ids: sessionIds,
-    p_reason: reason,
-    p_instrument: instrument,
-  })
-  if (rpcErr) return { ok: false, error: rpcErr.message }
-
-  const r = data as {
-    orders_settled: number
-    orders_cancelled: number
-    orders_left_in_kitchen: number
-    total: number
-  }
-  return {
-    ok: true,
-    already: false,
-    ordersSettled: r.orders_settled,
-    ordersCancelled: r.orders_cancelled,
-    ordersLeftInKitchen: r.orders_left_in_kitchen,
-    total: r.total,
-  }
 }
 
 // ─── Dữ liệu in hoá đơn 80mm ────────────────────────────────────────────────
@@ -384,6 +425,11 @@ export type SessionsBill = {
   grand_total: number
   /** Mig 108: tổng giảm giá các mâm; server cũ không trả (coi như 0). */
   grand_discount?: number
+  /** Mig 112a: các khoản đã thu của nhóm phiên (cộng theo phương tiện); chưa thu → []. Server cũ không trả. */
+  payments?: PaymentLine[]
+  /** Mig 112a: chỉ có khi nhóm phiên đúng MỘT khoản thu, không thì null. */
+  cash_given?: number | null
+  change_amount?: number | null
 }
 
 export async function getSessionsBill(

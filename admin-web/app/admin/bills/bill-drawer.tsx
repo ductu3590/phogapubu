@@ -9,12 +9,15 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/feedback'
 import { ORDER_STATUS_TONE } from '@/components/ui/status'
 import { formatVND, cn } from '@/lib/utils'
-import { instrumentLabel } from '@/lib/daily-report'
 import { printInPlace } from '@/lib/print/print-in-place'
-import type { BillRow } from '@/lib/bills-report'
+import { billInstrumentLabel, type BillRow } from '@/lib/bills-report'
 import type { BillDetailOrder, SessionMove } from '@/lib/bill-detail'
 import { collectSessionBill, getSessionMoves, loadBillDetail, redeemBillSpin, runBillOrderAction, type BillOrderAction } from '@/lib/actions/bill-detail'
 import { getSessionsBill } from '@/lib/actions/table-session'
+import ConfirmDialog from '../pos/confirm-dialog'
+import { isAmountMismatch, runCollect } from '@/lib/collect-outcome'
+import { applyCollectOutcome } from './collect-flow'
+import { paymentRows } from '@/lib/collect-payment'
 
 const time = (iso: string) =>
   iso ? new Date(iso).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -27,12 +30,23 @@ const CONFIRM_TEXT: Record<BillOrderAction, string> = {
 
 // Ngăn kéo chi tiết một dòng của trang Hoá đơn & Báo cáo (A04-2). Mỗi lượt gọi món = một khối, kèm đúng các nút
 // trang Đơn hàng cũ có (Đã nhận tiền · Hoàn tất · Huỷ đơn · Đã đổi thưởng). Chỉ chủ quán thấy nút (`canManage`).
-export default function BillDrawer({ row, canManage, onClose }: { row: BillRow | null; canManage: boolean; onClose: () => void }) {
+export default function BillDrawer({ row, canManage, onClose, onNotice }: {
+  row: BillRow | null
+  canManage: boolean
+  onClose: () => void
+  /** Thông báo sống ở TRANG (sống qua lần tải lại làm ngăn kéo bị gỡ), vd khoản đã ghi khi thu trùng. */
+  onNotice: (message: string) => void
+}) {
   const router = useRouter()
   const [loaded, setLoaded] = useState<BillDetailOrder[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [reloadTick, setReloadTick] = useState(0)
+  // Bước 2 của "Đã nhận tiền": hộp xác nhận + mã chống thu trùng của lần thu này.
+  const [pendingCollect, setPendingCollect] = useState<
+    { instrument: 'cash' | 'bank'; amount: number; requestId: string; text: string } | null
+  >(null)
+  const [collectError, setCollectError] = useState<string | null>(null)
 
   // Cha dựng lại component theo key của dòng → state tự về ban đầu khi đổi dòng. Ở đây chỉ tải khi danh sách
   // đơn đổi hoặc sau một thao tác (không theo object `row`: router.refresh dựng lại object mỗi lần → tải thừa, nháy).
@@ -81,13 +95,14 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
     }
   }
 
-  // Bàn trả sau: thu CẢ BÀN một lần → đóng bill (như POS → Thanh toán). Xong thì dòng chuyển sang "Đã thanh toán"
-  // với key khác → đóng ngăn kéo.
+  // Bàn trả sau: thu CẢ BÀN một lần → đóng bill (như POS → Thanh toán). Hai bước: (1) đọc bill để có số SAU giảm
+  // giá rồi mở hộp xác nhận, (2) xác nhận → collect_table_bill. Xong thì dòng chuyển sang "Đã thanh toán" với key
+  // khác → đóng ngăn kéo. requestId sinh ở bước 1 và giữ tới khi thu xong hoặc huỷ hộp: bấm lại sau lỗi / mất
+  // mạng gửi lại đúng mã, server không ghi khoản thứ hai.
   const onCollect = async (instrument: 'cash' | 'bank') => {
     if (!row) return
-    const how = instrument === 'cash' ? 'TIỀN MẶT' : 'CHUYỂN KHOẢN'
-    // Giảm giá đặt ở POS nằm trên phiên; close_table_session trừ nó lúc thu (mig 108) → hỏi đúng số SAU giảm,
-    // không thì thu ngân thu đủ tạm tính mà báo cáo ghi ít hơn (két lệch). Phiên hết hạn: server trả 0.
+    // Giảm giá đặt ở POS nằm trên phiên; server trừ nó lúc thu (mig 108) → hỏi và gửi đúng số SAU giảm,
+    // không thì server từ chối vì lệch. Phiên hết hạn: server trả 0.
     setBusy(`collect:${instrument}`)
     let discount = 0
     try {
@@ -104,22 +119,31 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
       setError('Giảm giá lớn hơn tiền hàng. Sửa giảm giá ở POS → Thanh toán rồi thu lại.')
       return
     }
-    const amountText = discount > 0
-      ? `${formatVND(row.amount - discount)} (tạm tính ${formatVND(row.amount)}, đã trừ giảm giá ${formatVND(discount)})`
-      : formatVND(row.amount)
-    if (!window.confirm(`Đã nhận ${amountText} bằng ${how} cho ${row.tableLabel}?
-Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.`)) return
+    const due = row.amount - discount
+    const text = discount > 0
+      ? `Tạm tính ${formatVND(row.amount)}, đã trừ giảm giá ${formatVND(discount)}.`
+      : ''
+    setCollectError(null)
+    setPendingCollect({ instrument, amount: due, requestId: crypto.randomUUID(), text })
+  }
+
+  const confirmCollect = async () => {
+    if (!row || !pendingCollect) return
+    const { instrument, amount, requestId } = pendingCollect
     setBusy(`collect:${instrument}`)
-    try {
-      const res = await collectSessionBill(row.sessionIds, instrument)
-      if (!res.ok) { setError(res.error); return }
-      router.refresh()
-      onClose()
-    } catch {
-      setError('Lỗi kết nối. Kiểm tra lại bàn ở POS trước khi thu lại.')
-    } finally {
-      setBusy(null)
-    }
+    setCollectError(null)
+    // runCollect không ném. Lỗi khác / mất mạng: giữ hộp + giữ mã, bấm lại an toàn (lần lỗi không ghi gì).
+    // Bill vừa đổi (số lệch): số trong hộp đã cũ → khoá nút xác nhận, bảo huỷ rồi bấm lại để đọc bill mới.
+    const out = await runCollect(() => collectSessionBill(row.sessionIds, instrument, amount, requestId))
+    setBusy(null)
+    // Đã thu từ trước (mất phản hồi / máy khác): câu nêu khoản ĐÃ GHI đưa lên TRANG (onNotice) — ngăn kéo sẽ bị gỡ
+    // sau khi tải lại vì dòng đổi key 'W:S:…' → 'P:…'.
+    applyCollectOutcome(out, {
+      notify: onNotice,
+      refresh: () => router.refresh(),
+      close: () => { setPendingCollect(null); onClose() },
+      showError: setCollectError,
+    })
   }
 
   const onOrderAction = (orderId: string, action: BillOrderAction) => {
@@ -129,6 +153,10 @@ Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.`)) return
 
   if (!row) return null
   const sessionPrint = row.sessionIds.length > 0 && row.kind !== 'cancelled'
+  // Mig 112a: từng khoản + khách đưa + tiền thối của bill đã thu (bill thu trước 112a thì rỗng → ẩn khối).
+  const paidRows = row.kind === 'paid'
+    ? paymentRows({ payments: row.payments, cashGiven: row.cashGiven, changeAmount: row.changeAmount })
+    : []
   const amountLabel = row.kind === 'paid' ? 'Đã thu' : row.kind === 'waiting' ? 'Tạm tính' : 'Giá trị đơn huỷ'
 
   return (
@@ -140,7 +168,7 @@ Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.`)) return
       title={<span className="font-mono">{row.code} <span className="font-sans font-semibold">· {row.tableLabel}</span></span>}
       description={
         row.kind === 'paid'
-          ? `Thu lúc ${time(row.at)}${row.instrument ? ` · ${instrumentLabel(row.instrument)}` : ''}${row.receivedByName ? ` · ${row.receivedByName}` : ''}`
+          ? `Thu lúc ${time(row.at)}${billInstrumentLabel(row) ? ` · ${billInstrumentLabel(row)}` : ''}${row.receivedByName ? ` · ${row.receivedByName}` : ''}`
           : row.kind === 'waiting'
             ? `${row.expired ? 'Hết hạn · còn nợ' : 'Chờ thu'} · vào lúc ${time(row.startedAt)}`
             : `${row.rejected ? 'Từ chối' : 'Đã huỷ'} lúc ${time(row.at)}${row.reasonText ? ` · ${row.reasonText}` : ''}`
@@ -181,6 +209,19 @@ Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.`)) return
             </div>
           </div>
         )}
+        {paidRows.length > 0 && (
+          <section className="rounded-xl border border-border bg-surface px-3 py-2.5">
+            <h3 className="text-[13px] font-semibold text-foreground">Các khoản đã thu</h3>
+            <ul className="mt-1 space-y-0.5">
+              {paidRows.map((p) => (
+                <li key={p.label} className="flex justify-between text-[13px] text-muted">
+                  <span>{p.label}</span>
+                  <span className="font-semibold text-foreground tabular">{formatVND(p.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {shownMoves.length > 0 && (
           <section className="rounded-xl border border-border bg-surface px-3 py-2.5">
             <h3 className="text-[13px] font-semibold text-foreground">Chuyển bàn</h3>
@@ -207,6 +248,28 @@ Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.`)) return
           ))
         )}
       </div>
+      <ConfirmDialog
+        open={pendingCollect !== null}
+        title={pendingCollect
+          ? `Đã nhận ${formatVND(pendingCollect.amount)} bằng ${pendingCollect.instrument === 'cash' ? 'tiền mặt' : 'chuyển khoản'}?`
+          : ''}
+        description={pendingCollect && (
+          <>
+            {row.tableLabel}. {pendingCollect.text} Bill sẽ đóng lại, mọi lượt chuyển Hoàn tất.
+            {collectError && (
+              <span role="alert" className="mt-2 block rounded-lg border border-critical-border bg-critical-bg px-3 py-2 text-[13px] text-critical">
+                {collectError}
+                {isAmountMismatch(collectError) && <strong className="mt-1 block font-semibold">Huỷ rồi bấm lại Đã nhận tiền</strong>}
+              </span>
+            )}
+          </>
+        )}
+        confirmLabel="Đã nhận tiền"
+        confirmDisabled={isAmountMismatch(collectError)}
+        busy={busy?.startsWith('collect:') ?? false}
+        onConfirm={() => void confirmCollect()}
+        onCancel={() => { setPendingCollect(null); setCollectError(null) }}
+      />
     </Dialog>
   )
 }

@@ -2,13 +2,14 @@
 
 import { useState, type ReactNode } from 'react'
 import {
-  ArrowLeft, Banknote, BellRing, Clock3, EllipsisVertical, Gift, Hash, Landmark, Layers, Link2, Lock, Minus, Plus, Printer, Receipt,
+  ArrowLeft, Banknote, BellRing, Clock3, EllipsisVertical, Gift, Hash, Layers, Link2, Lock, Minus, Plus, Printer, Receipt,
   RotateCcw, Smartphone, Trash2, UserRound, X,
 } from 'lucide-react'
 import type { OpenTableSession, SessionOrderItem, SessionOrderRow } from '@/lib/actions/table-session'
 import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
-import { cashChange, cashSuggestions, formatVndInput, parseVnd } from '@/lib/cash-change'
+import { cashChange, parseVnd } from '@/lib/cash-change'
+import { cashGivenError, fillOtherSide, paymentDraft, type PayMethod, type PaymentLine } from '@/lib/collect-payment'
 import { billTotals, combinedDiscount, sessionDiscountOf, type BillDiscount } from '@/lib/bill-discount'
 import { isReviewableOrder, orderRound } from '@/lib/pos-work-queue'
 import { clock } from '@/lib/pos-timeline'
@@ -24,11 +25,15 @@ import { billHistory, rejectReasonLabel } from '@/lib/pos-bill-history'
 import type { MoveTarget } from '@/lib/table-move'
 import { groupTablesByArea, type StaffArea } from '@/lib/staff-area-groups'
 import DiscountDialog from './discount-dialog'
+import PaymentMethodFields from './payment-method-fields'
 
 // Bill của /admin/pos theo bản Stitch P01 (bill dạng tab) + P03 (lượt gọi mới) + P04 (thanh toán một nút).
 // Mọi con số tiền là của server (OpenTableSession.total, order.total_amount); bill KHÔNG tự cộng tổng.
-// Thành tiền từng dòng món chỉ để đọc (đơn giá snapshot × số lượng). Tiền khách đưa / tiền thối chỉ để
-// thu ngân đếm tiền, không gửi lên server.
+// Thành tiền từng dòng món chỉ để đọc (đơn giá snapshot × số lượng). Thu tiền (mig 112a): gửi từng khoản +
+// tiền khách đưa lên collect_table_bill; server tự tính số phải thu và từ chối nếu lệch.
+
+/** Một lần bấm "Xác nhận đã nhận" ở màn Thanh toán → tham số của collectTableBill (trừ sessionIds). */
+export type PosPayment = { lines: PaymentLine[]; cashGiven: number | null; clientRequestId: string }
 
 const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 const gio = (iso: string) => clock(new Date(iso).getTime())
@@ -54,7 +59,7 @@ export type PosBillPanelProps = {
   pickedFreeTables: number
   trayColors: Map<string, TrayAssignment>
   busy: boolean
-  onPay: (list: OpenTableSession[], instrument: 'cash' | 'bank') => void
+  onPay: (list: OpenTableSession[], payment: PosPayment) => void
   onPrint: (list: OpenTableSession[]) => void
   onReset: (s: OpenTableSession) => void
   onCreateTray: () => void
@@ -222,7 +227,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
         onRestore={props.onRestoreOrderItem}
         onBack={() => setPaying(false)}
         onDismiss={props.onDismiss}
-        onPay={(instrument) => props.onPay(list, instrument)}
+        onPay={(payment) => props.onPay(list, payment)}
         onPrint={() => props.onPrint(list)}
       />
       </>
@@ -774,16 +779,42 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   onRestore: (itemId: string) => void
   onBack: () => void
   onDismiss: () => void
-  onPay: (instrument: 'cash' | 'bank') => void
+  onPay: (payment: PosPayment) => void
   onPrint: () => void
 }) {
-  const [method, setMethod] = useState<'cash' | 'bank'>('cash')
+  const [method, setMethod] = useState<PayMethod>('cash')
+  const [cashText, setCashText] = useState('')
+  const [bankText, setBankText] = useState('')
   const [givenText, setGivenText] = useState('')
+  // Một mã cho cả lần mở màn này, kể cả bấm lại sau lỗi: lần trước lỗi thì server đã huỷ cả giao dịch; lần
+  // trước mất mạng mà server đã thu thì cùng mã trả 'already' — bấm hai lần không thành hai khoản thu.
+  const [clientRequestId] = useState(() => crypto.randomUUID())
+  // Một nguồn: phần tiền mặt / chuyển khoản lấy từ chính các dòng sẽ gửi khi hợp lệ (paymentDraft).
+  const draft = paymentDraft(total, method, parseVnd(cashText), parseVnd(bankText))
+  const cashPart = draft.cash
+  const bankPart = draft.bank
   const given = parseVnd(givenText)
-  const change = cashChange(total, given)
+  const change = cashChange(cashPart, given)
   const items = list.flatMap((s) => s.orders.filter((o) => o.status !== 'cancelled').flatMap((o) => o.items))
-  const short = method === 'cash' && change.kind === 'short'
-  const blocked = short || !!discountError
+  const short = cashPart > 0 && change.kind === 'short'
+  // Khách đưa vượt giới hạn integer của server → khoá nút, PaymentMethodFields báo lỗi tiếng Việt.
+  const blocked = short || !!draft.error || !!discountError || (cashPart > 0 && !!cashGivenError(given))
+
+  const chonPhuongThuc = (m: PayMethod) => {
+    setMethod(m)
+    setGivenText('') // tiền khách đưa so với phần tiền mặt, đổi phương thức thì phần đó đổi
+  }
+  const goTienMat = (text: string) => {
+    setCashText(text)
+    const other = fillOtherSide(total, parseVnd(text))
+    setBankText(other === null ? '' : other.toLocaleString('vi-VN'))
+  }
+  const goChuyenKhoan = (text: string) => {
+    setBankText(text)
+    const other = fillOtherSide(total, parseVnd(text))
+    setCashText(other === null ? '' : other.toLocaleString('vi-VN'))
+  }
+  const thu = () => onPay({ lines: draft.lines, cashGiven: cashPart > 0 ? given : null, clientRequestId })
   // Giảm giá ĐANG LƯU trên phiên. Lỗi (vd giảm VNĐ > tiền hàng sau khi bỏ món) thì `discount` = 0 để số thu giữ
   // nguyên trước giảm, nhưng vẫn phải cho thu ngân thấy mức đã đặt và sửa nó — không hiện "Thêm giảm giá".
   const storedDiscount = discountError ? combinedDiscount(list) : discount
@@ -804,7 +835,12 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
       onDismiss={onDismiss}
       footer={
         <>
-          <Button variant="primary" size="touch" icon={<Banknote />} isLoading={busy} disabled={blocked} onClick={() => onPay(method)} className="w-full text-base font-bold whitespace-nowrap">
+          {method === 'mixed' && !draft.error && total > 0 && (
+            <p className="mb-2 text-center text-[13px] text-slate-600 tabular">
+              Tiền mặt {dong(cashPart)} · Chuyển khoản {dong(bankPart)}
+            </p>
+          )}
+          <Button variant="primary" size="touch" icon={<Banknote />} isLoading={busy} disabled={blocked} onClick={thu} className="w-full text-base font-bold whitespace-nowrap">
             Xác nhận đã nhận {dong(total)}
           </Button>
           <Button icon={<Printer className="text-blue-600" />} onClick={onPrint} disabled={busy || !!discountError} className="mt-2 w-full font-semibold">In tạm tính / hoá đơn</Button>
@@ -860,67 +896,20 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
         </p>
       </section>
 
-      <section className="mt-3">
-        <p className="mb-2 text-[12px] font-bold tracking-wide text-slate-700 uppercase">Phương thức thu tiền thực tế</p>
-        <div role="radiogroup" aria-label="Phương thức thu tiền" className="grid grid-cols-2 gap-2">
-          {([['cash', 'Tiền mặt', <Banknote key="c" />], ['bank', 'Chuyển khoản', <Landmark key="b" />]] as const).map(([value, label, icon]) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={method === value}
-              onClick={() => setMethod(value)}
-              className={cn(
-                'flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 text-sm font-bold transition-colors [&>svg]:size-4',
-                method === value ? 'border-orange-600 bg-orange-50 text-orange-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
-              )}
-            >
-              {icon}{label}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {method === 'cash' ? (
-        <div className="mt-3 space-y-3">
-          <label className="block text-[13px] font-semibold text-slate-700" htmlFor="pos-cash-given">
-            Tiền khách đưa (VND)
-            <Input
-              id="pos-cash-given"
-              inputMode="numeric"
-              autoComplete="off"
-              placeholder={total.toLocaleString('vi-VN')}
-              value={givenText}
-              onChange={(e) => setGivenText(formatVndInput(e.target.value))}
-              className="mt-1 text-lg font-bold tabular"
-            />
-            <span className="mt-1 block text-[12px] font-normal text-slate-500">Gõ số, dấu chấm tự thêm. Để trống nếu khách đưa vừa đủ</span>
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[12px] text-slate-500">Gợi ý nhanh:</span>
-            {cashSuggestions(total).map((v) => (
-              <Button key={v} onClick={() => setGivenText(v.toLocaleString('vi-VN'))} className="min-h-9 font-semibold tabular md:min-h-9">
-                {v === total ? `Vừa đủ ${dong(v)}` : dong(v)}
-              </Button>
-            ))}
-          </div>
-          {change.kind === 'ok' && (
-            <p className="flex items-baseline justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
-              <span className="text-sm font-semibold">Tiền thối lại cho khách</span>
-              <span className="text-xl font-bold tabular">{dong(change.change)}</span>
-            </p>
-          )}
-          {change.kind === 'short' && (
-            <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 tabular">
-              Khách đưa còn thiếu {dong(change.missing)}
-            </p>
-          )}
-        </div>
-      ) : (
-        <p className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900">
-          Cho khách quét mã QR của quán, <b className="font-bold">nghe loa báo tiền về đủ {dong(total)}</b> rồi mới bấm xác nhận.
-        </p>
-      )}
+      <PaymentMethodFields
+        method={method}
+        total={total}
+        cashPart={cashPart}
+        bankPart={bankPart}
+        cashText={cashText}
+        bankText={bankText}
+        givenText={givenText}
+        mixedError={method === 'mixed' && (cashText !== '' || bankText !== '') ? draft.error : null}
+        onMethod={chonPhuongThuc}
+        onCashText={goTienMat}
+        onBankText={goChuyenKhoan}
+        onGivenText={setGivenText}
+      />
     </Khung>
   )
 }

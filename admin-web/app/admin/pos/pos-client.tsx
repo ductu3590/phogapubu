@@ -16,7 +16,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   addTableToSession,
   closeTableSession,
-  closeTableSessionsBulk,
+  collectTableBill,
   createTraySession,
   mergeSessionIntoTray,
   moveSessionTable,
@@ -27,6 +27,7 @@ import {
   type OpenTableSession,
 } from '@/lib/actions/table-session'
 import type { BillDiscount } from '@/lib/bill-discount'
+import { runCollect } from '@/lib/collect-outcome'
 import {
   addManualItems,
   confirmOrder,
@@ -95,7 +96,7 @@ import { useOnline } from './use-online'
 import { useAutoKitchenPrint } from './use-auto-kitchen-print'
 import { useServiceRequests } from './use-service-requests'
 import WorkQueue from './work-queue'
-import PosBillPanel from './bill-panel'
+import PosBillPanel, { type PosPayment } from './bill-panel'
 import ConfirmDialog from './confirm-dialog'
 
 type View = 'timeline' | 'floor' | 'list'
@@ -426,20 +427,22 @@ export default function PosClient({
     await sauKhiXong()
   }
 
-  const onPay = async (list: OpenTableSession[], instrument: 'cash' | 'bank') => {
+  // Một bàn hay gộp N mâm đều qua collect_table_bill (mig 112a). clientRequestId do màn Thanh toán giữ:
+  // bấm lại sau lỗi / mất mạng gửi lại đúng mã, server không ghi khoản thứ hai.
+  // runCollect không ném: mất mạng không làm kẹt busy. Lỗi → màn Thanh toán vẫn mở, giữ mã để bấm lại;
+  // bill vừa đổi → tải lại để màn Thanh toán hiện số mới.
+  const onPay = async (list: OpenTableSession[], payment: PosPayment) => {
     setBusy(true)
-    const ids = list.map((s) => s.session_id)
-    const res = ids.length === 1
-      ? await closeTableSession(ids[0], 'paid', instrument)
-      : await closeTableSessionsBulk(ids, 'paid', instrument)
-    if (!res.ok) {
+    const out = await runCollect(() => collectTableBill({ sessionIds: list.map((s) => s.session_id), ...payment }))
+    if (out.kind !== 'done') {
       setBusy(false)
-      reportActionError(res.error)
+      reportActionError(out.error)
+      if (out.kind === 'stale') await reload()
       return
     }
     // Gộp bill đã thu xong → tự thoát chế độ gộp, không bắt thu ngân bấm "Thoát gộp bill".
     setMergeMode(false)
-    await sauKhiXong('already' in res && res.already ? 'Bàn này vừa được máy khác chốt xong.' : undefined)
+    await sauKhiXong(out.message ?? undefined)
   }
 
   // Chuyển bàn: panel bill GIỮ NGUYÊN phiên (không dùng sauKhiXong vì nó bỏ chọn phiên).
@@ -477,7 +480,7 @@ export default function PosClient({
 
   const doReset = async (s: OpenTableSession) => {
     setBusy(true)
-    const res = await closeTableSession(s.session_id, 'staff_reset', null)
+    const res = await closeTableSession(s.session_id, 'staff_reset')
     setPendingConfirm(null) // đóng hộp ngay khi có kết quả, không đợi reload
     if (!res.ok) {
       setBusy(false)
@@ -1331,7 +1334,7 @@ export default function PosClient({
           otherSessions={openSessions.filter((s) => s.session_id !== selectedSessionId)}
           pickedFreeTables={pickedTableIds.size}
           busy={busy}
-          onPay={(list, ins) => void onPay(list, ins)}
+          onPay={(list, payment) => void onPay(list, payment)}
           onPrint={onPrint}
           onConfirmOrder={(id) => void onConfirmOrder(id)}
           onRejectOrder={setRejectingOrderId}

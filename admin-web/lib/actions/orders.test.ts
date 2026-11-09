@@ -6,19 +6,23 @@ const mocks = vi.hoisted(() => {
   const orderRow = { value: null as null | Record<string, unknown> }
   const updateArgs = { value: null as unknown }
   const eqCalls: Array<[string, unknown]> = []
+  const isCalls: Array<[string, unknown]> = []
+  // Dòng update().select() trả về; mặc định có 1 dòng được sửa.
+  const updatedRows = { value: [{ id: 'o1' }] as Array<{ id: string }> }
   const from = vi.fn(() => {
     const b: Record<string, unknown> = {}
     b.select = vi.fn(() => b)
     b.update = vi.fn((arg: unknown) => { updateArgs.value = arg; return b })
     b.eq = vi.fn((col: string, val: unknown) => { eqCalls.push([col, val]); return b })
+    b.is = vi.fn((col: string, val: unknown) => { isCalls.push([col, val]); return b })
     b.single = vi.fn(async () => ({ data: orderRow.value, error: null }))
-    // update().eq() được await → thenable trả { error: null }
-    b.then = (resolve: (v: { error: null }) => void) => resolve({ error: null })
+    // update().eq() được await → thenable trả { data, error: null }
+    b.then = (resolve: (v: { data: unknown; error: null }) => void) => resolve({ data: updatedRows.value, error: null })
     return b
   })
   const supabase = { rpc, from }
   const revalidatePath = vi.fn()
-  return { requireStoreOwnerStoreId, rpc, from, supabase, orderRow, updateArgs, eqCalls, revalidatePath }
+  return { requireStoreOwnerStoreId, rpc, from, supabase, orderRow, updateArgs, eqCalls, isCalls, updatedRows, revalidatePath }
 })
 
 vi.mock('@/lib/auth/operator', () => ({ requireStoreOwnerStoreId: mocks.requireStoreOwnerStoreId }))
@@ -117,7 +121,9 @@ describe('cancelOrder (vá review PA-2)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.eqCalls.length = 0
+    mocks.isCalls.length = 0
     mocks.updateArgs.value = null
+    mocks.updatedRows.value = [{ id: 'o1' }]
     mocks.requireStoreOwnerStoreId.mockResolvedValue('store-1')
   })
 
@@ -131,5 +137,16 @@ describe('cancelOrder (vá review PA-2)', () => {
     await cancelOrder('o1')
     expect(mocks.updateArgs.value).toEqual({ status: 'cancelled' })
     expect(mocks.eqCalls).toEqual(expect.arrayContaining([['id', 'o1'], ['store_id', 'store-1']]))
+  })
+
+  it('mig 112a: chỉ huỷ đơn CHƯA thu tiền — lọc payment_received_at IS NULL ngay trong câu UPDATE', async () => {
+    await cancelOrder('o1')
+    expect(mocks.isCalls).toEqual([['payment_received_at', null]])
+  })
+
+  it('đơn đã thu tiền (ngăn kéo A04 cũ): 0 dòng bị sửa → báo lỗi tiếng Việt, không revalidate', async () => {
+    mocks.updatedRows.value = []
+    await expect(cancelOrder('o1')).rejects.toThrow(/^Đơn đã thu tiền, không huỷ được$/)
+    expect(mocks.revalidatePath).not.toHaveBeenCalled()
   })
 })
