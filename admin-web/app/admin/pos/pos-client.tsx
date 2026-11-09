@@ -96,6 +96,9 @@ import NewReservationSheet, { type NewReservationSubmit } from './new-reservatio
 import { useNow } from './use-now'
 import { useOnline } from './use-online'
 import { useAutoKitchenPrint } from './use-auto-kitchen-print'
+import { usePrintStatus } from './use-print-status'
+import PrintStatusBanner from './print-status-banner'
+import { markPrintedInBrowser, retryPrintJob } from '@/lib/actions/print-jobs'
 import { useServiceRequests } from './use-service-requests'
 import WorkQueue from './work-queue'
 import PosBillPanel, { type PosPayment } from './bill-panel'
@@ -248,6 +251,17 @@ export default function PosClient({
     setError(message ? actionError(message) : null)
   }, [])
   const autoPrint = useAutoKitchenPrint({ supabase, storeId, sessions, onGiveUp: reportActionError })
+  const printStatus = usePrintStatus(storeId)
+  const onRetryPrintJob = async (jobId: string) => {
+    const r = await retryPrintJob(jobId).catch(() => ({ ok: false as const, error: 'Lỗi kết nối. Thử lại sau.' }))
+    if (!r.ok) reportActionError(r.error)
+    await printStatus.reload()
+  }
+  const onPrintedInBrowser = async (jobId: string) => {
+    const r = await markPrintedInBrowser(jobId).catch(() => ({ ok: false as const, error: 'Lỗi kết nối. Thử lại sau.' }))
+    if (!r.ok) reportActionError(r.error)
+    await printStatus.reload()
+  }
 
   // ─── Tải dữ liệu ─────────────────────────────────────────────────────────
   const reload = useCallback(async () => {
@@ -1034,6 +1048,7 @@ export default function PosClient({
           </div>
         </div>
 
+        <PrintStatusBanner status={printStatus.status} onRetry={(j) => void onRetryPrintJob(j.id)} onBrowserPrint={(j) => void onPrintedInBrowser(j.id)} />
         {autoPrint.banner && <Banner tone={autoPrint.banner.tone} title={autoPrint.banner.title} className="mx-4 mt-2 md:mx-5" />}
 
         {mergeMode && (

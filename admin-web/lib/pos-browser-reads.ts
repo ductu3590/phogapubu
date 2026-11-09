@@ -93,6 +93,30 @@ export type PrintStatus = {
   problem_jobs: PrintProblemJob[]
 }
 
+const str = (v: unknown): v is string => typeof v === 'string'
+
+// request từ DB là jsonb do lớp enqueue ghi; vẫn kiểm hình để nút "In bằng trình duyệt" không dựng URL từ rác.
+function parsePrintRequest(v: unknown): PrintRequest | null {
+  if (!v || typeof v !== 'object') return null
+  const r = v as Record<string, unknown>
+  const reprint = r.reprint === true ? { reprint: true } : {}
+  if (r.kind === 'order' && str(r.orderId)) return { kind: 'order', orderId: r.orderId, ...reprint }
+  if (r.kind === 'preorder_job' && str(r.jobId)) return { kind: 'preorder_job', jobId: r.jobId, ...reprint }
+  if (r.kind === 'bill' && Array.isArray(r.sessionIds) && r.sessionIds.length > 0 && r.sessionIds.every(str)) {
+    return { kind: 'bill', sessionIds: r.sessionIds as string[], ...reprint }
+  }
+  if (r.kind === 'day_report' && str(r.date)) return { kind: 'day_report', date: r.date, ...reprint }
+  return null
+}
+
+function parseProblemJob(v: unknown): PrintProblemJob | null {
+  if (!v || typeof v !== 'object') return null
+  const j = v as Record<string, unknown>
+  if (!str(j.id) || !str(j.kind) || !str(j.label) || !str(j.created_at)) return null
+  if (j.status !== 'failed' && j.status !== 'expired') return null
+  return { id: j.id, kind: j.kind, status: j.status, error: str(j.error) ? j.error : null, created_at: j.created_at, label: j.label, request: parsePrintRequest(j.request) }
+}
+
 /** Trạng thái phần mềm in + phiếu lỗi (get_print_status, mig 114). Chủ quán + thu ngân; RPC tự kiểm quyền. */
 export async function readPrintStatus(client: BrowserClient, storeId: string): Promise<
   { ok: true; status: PrintStatus } | { ok: false; error: string }
@@ -107,7 +131,8 @@ export async function readPrintStatus(client: BrowserClient, storeId: string): P
       agent_online: r.agent_online === true,
       last_seen_at: r.last_seen_at ?? null,
       queued_count: typeof r.queued_count === 'number' ? r.queued_count : 0,
-      problem_jobs: Array.isArray(r.problem_jobs) ? r.problem_jobs : [],
+      // Kiểm từng phần tử: một phần tử sai hình bị bỏ, không làm hỏng cả băng báo lỗi
+      problem_jobs: Array.isArray(r.problem_jobs) ? r.problem_jobs.flatMap((j) => parseProblemJob(j) ?? []) : [],
     },
   }
 }

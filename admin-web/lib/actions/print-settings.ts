@@ -30,6 +30,16 @@ export async function savePrintMode(mode: 'browser' | 'agent'): Promise<{ ok: tr
   // RPC kiểm lại is_store_owner_of — giữ nguyên câu lỗi RPC
   const { error } = await supabase.rpc('set_print_mode', { p_store_id: who.storeId, p_mode: mode })
   if (error) return fail(error.message)
+  if (mode === 'browser') {
+    // Phần mềm in cũ vẫn poll hàng đợi: huỷ các phiếu còn xếp hàng để nó không in muộn khi quán đã về in trình duyệt.
+    // Đã đánh dấu xử lý (resolved_at) nên không hiện lại như phiếu lỗi nếu sau này bật lại phần mềm in.
+    const { error: expireErr } = await createAdminClient()
+      .from('print_jobs')
+      .update({ status: 'expired', resolved_at: new Date().toISOString(), resolved_by: who.userId })
+      .eq('store_id', who.storeId)
+      .eq('status', 'queued')
+    if (expireErr) return fail(`Đã chuyển sang in bằng trình duyệt nhưng chưa huỷ được phiếu đang chờ: ${expireErr.message}`)
+  }
   refresh()
   return { ok: true }
 }

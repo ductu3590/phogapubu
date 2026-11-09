@@ -13,3 +13,14 @@ Cần máy in thật và phần mềm in ở quầy: thử ở CẢ HAI chế đ
 8. Chuyển một danh mục sang trạm khác SAU khi đơn đã tự in, rồi bấm **Duyệt & in bếp**: in thêm một phiếu ở trạm mới (đã biết, chấp nhận được).
 
 Chưa làm (cổng máy thật): `docs/testing/dot1/C-0-may-in-that.md` chưa có dòng `KẾT QUẢ: PASS`, nên `pageSizeMode` trong `print-agent/agent.config.example.json` chưa đổi.
+
+## Băng đỏ và phiếu lỗi trên POS (Task 12)
+
+Cần phần mềm in thật ở chế độ `agent`.
+
+9. Tắt phần mềm in, chờ khoảng 30 giây: POS hiện băng đỏ "Máy in chưa kết nối". Bật lại: băng tự gỡ trong vài giây.
+10. Rút giấy / tắt máy in rồi in một phiếu để nó lỗi: băng hiện tên phiếu, lý do, hai nút. **In lại** tạo phiếu mới (có chữ IN LẠI), băng gỡ khi in xong.
+11. Bấm **In bằng trình duyệt** trên phiếu lỗi: tờ in ra bằng trình duyệt, băng gỡ. Phiếu bếp lỗi in bằng trình duyệt ra cả hai liên với mọi món của đơn (đã biết, chấp nhận được).
+12. Phiếu quá 30 phút chưa in (hết hạn): hiện như phiếu lỗi, In lại được.
+13. Phiếu **In thử** lỗi: chỉ có nút In lại, không có nút In bằng trình duyệt.
+14. Chế độ `browser`: không có băng nào. Chuyển từ `agent` về `browser` khi còn phiếu đang xếp hàng: phần mềm in cũ không in các phiếu đó nữa.

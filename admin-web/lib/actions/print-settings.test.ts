@@ -170,3 +170,23 @@ describe('print-settings actions', () => {
     expect(mocks.calls.inserts).toHaveLength(0)
   })
 })
+
+describe('savePrintMode: chuyển về trình duyệt', () => {
+  it('huỷ các phiếu còn xếp hàng của đúng quán để phần mềm in cũ không in muộn', async () => {
+    mocks.calls.filters.length = 0
+    mocks.calls.updates.length = 0
+    expect(await actions.savePrintMode('browser')).toEqual({ ok: true })
+    expect(mocks.calls.from).toContain('print_jobs')
+    expect(mocks.calls.updates[0]).toMatchObject({ status: 'expired' })
+    expect(mocks.calls.updates[0]).toHaveProperty('resolved_at')
+    expect(mocks.calls.filters).toEqual(expect.arrayContaining([
+      { op: 'update', col: 'store_id', val: 'store-1' },
+      { op: 'update', col: 'status', val: 'queued' },
+    ]))
+  })
+  it('bật agent: không đụng hàng đợi', async () => {
+    mocks.calls.from.length = 0
+    expect(await actions.savePrintMode('agent')).toEqual({ ok: true })
+    expect(mocks.calls.from).not.toContain('print_jobs')
+  })
+})
