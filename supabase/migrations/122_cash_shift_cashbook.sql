@@ -14,6 +14,9 @@
 --      get_open_cash_shift, list_cash_shifts, get_cash_shift_report, set_require_cash_shift; vá tại chỗ
 --      store_workflow_snapshot thêm require_cash_shift. Ca đang mở: server KHÔNG trả tiền bán / dự kiến / lệch.
 --
+-- ⚠️ Không chặn ở RLS: thu ngân đọc thẳng bill_payments vẫn tính được tiền dự kiến — quy tắc "đếm trước thấy sau"
+--    chỉ ở giao diện, chấp nhận (spec B2: A04 vốn cho thu ngân xem tiền mặt theo ngày).
+--
 -- Công thức két (một chỗ duy nhất, TS không tính lại):
 --   expected_cash = opening_cash + cash_sales + debt_cash + cash_receipts − cash_payments
 --   debt_cash = 0 cho tới mig 123 (công nợ) vá tại dòng neo trong cash_shift_totals.
@@ -651,6 +654,8 @@ BEGIN
   END IF;
 
   -- FOR SHARE: chủ quán tắt công tắc (set_require_cash_shift khoá FOR UPDATE) không chen giữa kiểm và ghi.
+  -- Khoá đúng thứ tự stores → settings như set_require_cash_shift để hai bên không deadlock.
+  PERFORM 1 FROM public.stores WHERE id = p_store_id FOR SHARE;
   SELECT w.require_cash_shift INTO v_required
     FROM public.store_workflow_settings w
    WHERE w.store_id = p_store_id
@@ -706,7 +711,10 @@ BEGIN
   END IF;
 
   IF v_shift.status = 'closed' THEN
-    IF v_shift.counted_cash IS DISTINCT FROM p_counted_cash THEN
+    -- Chỉ người đã kết ca này hoặc chủ quán / quản lý mới nhận lại số đã lưu. Người khác LUÔN nhận "Ca đã đóng",
+    -- dù số đếm đúng hay sai: không thì thu ngân dò số đếm từng 1.000đ để đọc két ca của người khác (B4).
+    IF NOT (COALESCE(v_shift.closed_by = auth.uid(), false) OR public.is_store_back_office(v_shift.store_id))
+       OR v_shift.counted_cash IS DISTINCT FROM p_counted_cash THEN
       RAISE EXCEPTION 'Ca đã đóng';
     END IF;
     -- Phiếu và bill của ca đã đóng không đổi được nữa nên đọc lại khớp lúc kết.
@@ -744,6 +752,7 @@ END;
 $$;
 
 -- "Tiếp tục gộp vào ca đó" cho ca quên kết: ghi người và giờ, cảnh báo không hiện lại trong ngày kinh doanh này.
+-- Gộp nhiều lần (qua nhiều ngày) chỉ giữ người và giờ của lần gần nhất — chấp nhận, carried_days vẫn tính từ opened_at.
 CREATE FUNCTION public.continue_stale_shift(p_shift_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql

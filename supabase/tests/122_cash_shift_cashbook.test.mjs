@@ -508,6 +508,19 @@ describe('122 ca', () => {
     assert.equal(row.closed_at.getTime(), closedAt.getTime())
   })
 
+  test('kết ca lặp trên ca người khác đã kết: thu ngân luôn nhận Ca đã đóng (không dò được số đếm); quản lý xem được', async () => {
+    const shift = await standardShift()
+    const first = await rpc(ids.owner, 'close_cash_shift', shift, 840000, null)
+    // Đúng số đếm hay sai số đếm đều cùng một lỗi: không có "máy dò".
+    await assert.rejects(rpc(ids.cashier, 'close_cash_shift', shift, 840000, null), /Ca đã đóng/)
+    await assert.rejects(rpc(ids.cashier, 'close_cash_shift', shift, 1000, null), /Ca đã đóng/)
+    assert.deepEqual(await rpc(ids.manager, 'close_cash_shift', shift, 840000, null), { ...first, already: true })
+    // Thu ngân tự kết ca mình thì gửi lại vẫn nhận kết quả đã lưu.
+    const { shift_id: own } = await rpc(ids.cashier, 'open_cash_shift', ids.store, 0, null)
+    const mine = await rpc(ids.cashier, 'close_cash_shift', own, 0, null)
+    assert.deepEqual(await rpc(ids.cashier, 'close_cash_shift', own, 0, null), { ...mine, already: true })
+  })
+
   test('continue_stale_shift trên ca đã đóng: Ca đã đóng', async () => {
     const shift = await insertShift({ status: 'closed' })
     await assert.rejects(rpc(ids.cashier, 'continue_stale_shift', shift), /Ca đã đóng/)
@@ -698,7 +711,11 @@ describe('122 ca', () => {
     assert.ok(lock > 0 && lock < close.indexOf('cash_shift_totals('), 'close_cash_shift phải FOR UPDATE trước khi cộng két')
     assert.match(await def('continue_stale_shift(uuid)'), /FOR UPDATE/)
     // Mở ca khoá dòng cài đặt FOR SHARE: tắt công tắc (FOR UPDATE) không chen giữa kiểm và ghi.
-    assert.match(await def('open_cash_shift(uuid,bigint,text)'), /store_workflow_settings[\s\S]*FOR SHARE/)
+    // Thứ tự khoá giống set_require_cash_shift (stores → settings) để không deadlock.
+    const open = await def('open_cash_shift(uuid,bigint,text)')
+    const storesLock = open.search(/FROM public\.stores[^;]*FOR SHARE/)
+    const settingsLock = open.search(/FROM public\.store_workflow_settings[^;]*FOR SHARE/)
+    assert.ok(storesLock > 0 && settingsLock > storesLock, 'open_cash_shift phải khoá stores trước settings')
     assert.match(await def('set_require_cash_shift(uuid,boolean)'), /store_workflow_settings[\s\S]*FOR UPDATE/)
   })
 
