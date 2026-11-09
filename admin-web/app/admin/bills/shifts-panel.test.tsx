@@ -6,7 +6,7 @@ import type { CashShiftListItem, CashShiftReport } from '@/lib/cash-shift'
 vi.mock('@/lib/print/print-document', () => ({ printDocument: vi.fn() }))
 vi.mock('@/lib/supabase/client', () => ({ createClient: vi.fn() }))
 
-const { ShiftsTable, ShiftDetail } = await import('./shifts-panel')
+const { ShiftsTable, ShiftDetail, canReuseShiftReport } = await import('./shifts-panel')
 const { default: BillsTabs } = await import('./bills-tabs')
 
 const noop = () => {}
@@ -94,5 +94,29 @@ describe('ShiftDetail', () => {
     expect(t).not.toContain('Tiền dự kiến')
     expect(t).not.toContain('In lại phiếu')
     expect(t).toContain('Đá')
+  })
+})
+
+describe('fold-in review Task 8', () => {
+  const rep = (status: 'open' | 'closed') => ({
+    id: 'a', storeId: 's', status, openedAt: closed.openedAt, closedAt: status === 'closed' ? closed.closedAt : null,
+    openedByName: null, closedByName: null, openingCash: 0, openNote: null, closeNote: null,
+    cashSales: null, bankSales: null, cashReceipts: null, cashPayments: null, debtCash: null,
+    expectedCash: null, countedCash: null, difference: null, billsCount: null, carriedDays: 1,
+    continuedAt: null, continuedByName: null, entries: [],
+  } satisfies CashShiftReport)
+  it('chỉ dùng lại chi tiết ca ĐÃ ĐÓNG khớp trạng thái dòng; ca mở / lệch trạng thái thì đọc lại', () => {
+    expect(canReuseShiftReport(undefined, closed)).toBe(false)
+    expect(canReuseShiftReport(rep('open'), open)).toBe(false)
+    expect(canReuseShiftReport(rep('open'), closed)).toBe(false)
+    expect(canReuseShiftReport(rep('closed'), closed)).toBe(true)
+    expect(canReuseShiftReport(rep('closed'), { ...closed, status: 'open' })).toBe(false)
+  })
+  it('ca đã đóng thiếu số đã chốt: hiện —, không Khớp / 0đ', () => {
+    const t = text(renderToStaticMarkup(createElement(ShiftDetail, { report: rep('closed'), onPrint: noop, printError: null })))
+    expect(t).toContain('Tiền dự kiến —')
+    expect(t).toContain('Tiền đếm được —')
+    expect(t).toContain('Chênh lệch —')
+    expect(t).not.toContain('Khớp')
   })
 })

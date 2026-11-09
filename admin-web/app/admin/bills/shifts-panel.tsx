@@ -116,9 +116,15 @@ export function ShiftDetail({ report: r, onPrint, printError }: {
           {(r.debtCash ?? 0) > 0 ? <Line label="Khách trả nợ (TM)" value={`+${formatVND(r.debtCash ?? 0)}`} /> : null}
           <Line label="Phiếu thu TM" value={`+${formatVND(r.cashReceipts ?? 0)}`} />
           <Line label="Phiếu chi TM" value={`−${formatVND(r.cashPayments ?? 0)}`} />
-          <Line label="Tiền dự kiến" value={formatVND(r.expectedCash ?? 0)} strong />
-          <Line label="Tiền đếm được" value={formatVND(r.countedCash ?? 0)} strong />
-          <Line label="Chênh lệch" value={differenceLabel(r.difference ?? 0)} strong className={diffClass(r.difference ?? 0)} />
+          {/* Thiếu số đã chốt → "—" như bảng, không bao giờ "Khớp" / 0đ. */}
+          <Line label="Tiền dự kiến" value={r.expectedCash !== null ? formatVND(r.expectedCash) : '—'} strong />
+          <Line label="Tiền đếm được" value={r.countedCash !== null ? formatVND(r.countedCash) : '—'} strong />
+          <Line
+            label="Chênh lệch"
+            value={r.difference !== null ? differenceLabel(r.difference) : '—'}
+            strong
+            className={r.difference !== null ? diffClass(r.difference) : undefined}
+          />
           <Line label="Số bill" value={String(r.billsCount ?? 0)} />
           <Line label="Chuyển khoản" value={formatVND(r.bankSales ?? 0)} />
         </dl>
@@ -163,36 +169,50 @@ export function ShiftDetail({ report: r, onPrint, printError }: {
   )
 }
 
-/** Tab Ca: bảng 60 ca gần nhất + ngăn chi tiết (đọc get_cash_shift_report từ trình duyệt, một lần mỗi ca). */
+/**
+ * Bản chi tiết đã đọc có dùng lại được không: chỉ ca ĐÃ ĐÓNG (số không đổi nữa) và cùng trạng thái với dòng trên bảng.
+ * Ca đang mở (hoặc bảng đã thấy ca vừa đóng) → đọc lại, kẻo hiện bản cũ thiếu phiếu / thiếu số kết ca.
+ */
+export function canReuseShiftReport(cached: CashShiftReport | undefined, row: CashShiftListItem | undefined): boolean {
+  return !!cached && cached.status === 'closed' && (!row || row.status === cached.status)
+}
+
+/** Tab Ca: bảng 60 ca gần nhất + ngăn chi tiết (đọc get_cash_shift_report từ trình duyệt; ca đã đóng chỉ đọc một lần). */
 export default function ShiftsPanel({ shifts }: { shifts: CashShiftListItem[] }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [reports, setReports] = useState<Record<string, CashShiftReport>>({})
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Lỗi / đang tải gắn theo id ca: bấm ca khác trong lúc ca trước đang tải không lẫn trạng thái.
+  const [loadErrors, setLoadErrors] = useState<Record<string, string>>({})
+  const [loadingId, setLoadingId] = useState<string | null>(null)
   const [printError, setPrintError] = useState<string | null>(null)
 
   const open = async (id: string) => {
     setOpenId(id)
-    setLoadError(null)
     setPrintError(null)
-    if (reports[id]) return
-    setLoading(true)
+    setLoadErrors((m) => { const next = { ...m }; delete next[id]; return next })
+    if (canReuseShiftReport(reports[id], shifts.find((s) => s.id === id))) return
+    setLoadingId(id)
     try {
       const res = await readCashShiftReport(createClient(), id)
-      if (!res.ok) { setLoadError(res.error); return }
+      if (!res.ok) { setLoadErrors((m) => ({ ...m, [id]: res.error })); return }
       setReports((m) => ({ ...m, [id]: res.report }))
     } catch {
-      setLoadError('Không tải được ca. Kiểm tra mạng rồi thử lại.')
+      setLoadErrors((m) => ({ ...m, [id]: 'Không tải được ca. Kiểm tra mạng rồi thử lại.' }))
     } finally {
-      setLoading(false)
+      setLoadingId((cur) => (cur === id ? null : cur))
     }
   }
 
   const report = openId ? reports[openId] : undefined
+  const loadError = openId ? loadErrors[openId] : undefined
   const print = async (shiftId: string) => {
     setPrintError(null)
-    const res = await printDocument({ kind: 'shift_report', shiftId })
-    if (!res.ok) setPrintError(res.error)
+    try {
+      const res = await printDocument({ kind: 'shift_report', shiftId })
+      if (!res.ok) setPrintError(res.error)
+    } catch (e) {
+      setPrintError(e instanceof Error && e.message ? e.message : 'Không in được phiếu. Thử lại.')
+    }
   }
 
   return (
@@ -201,7 +221,7 @@ export default function ShiftsPanel({ shifts }: { shifts: CashShiftListItem[] })
       <Dialog open={openId !== null} onClose={() => setOpenId(null)} placement="side" title="Chi tiết ca">
         {openId === null ? null
           : loadError ? <p role="alert" className="text-sm text-error-text">{loadError}</p>
-            : loading || !report ? <p className="text-sm text-muted">Đang tải…</p>
+            : loadingId === openId || !report ? <p className="text-sm text-muted">Đang tải…</p>
               : <ShiftDetail report={report} onPrint={() => void print(report.id)} printError={printError} />}
       </Dialog>
     </>
