@@ -4,6 +4,7 @@ import { isPosRole, ROLE_LABEL } from '@/lib/auth/roles'
 import { loadReport, resolveReportRange } from '@/lib/actions/reports'
 import { parseReportTab } from '@/lib/reports/tabs'
 import { buildReportWorkbook, reportWorkbookFileName } from '@/lib/reports/reports-xlsx'
+import { isSalesReport } from '@/lib/reports/sales'
 import { createClient } from '@/lib/supabase/server'
 
 // Xuất Excel trang Báo cáo: GET /admin/reports/export?tab=&period=&from=&to= → file .xlsx (một sheet theo tab).
@@ -33,6 +34,8 @@ export async function GET(request: NextRequest) {
   }
   const res = await loadReport(tab, range.from, range.to)
   if (!res.ok) return new Response(`Không tải được báo cáo: ${res.error}`, { status: 500 })
+  // Tab đã kẹp về tab bán hàng ở trên (Excel tài chính: Task 11); kiểm lại để TS hẹp kiểu.
+  if (!isSalesReport(res.report)) return new Response('Chưa có Excel cho báo cáo này', { status: 400 })
 
   const supabase = await createClient()
   const [{ data: store }, { data: auth }] = await Promise.all([

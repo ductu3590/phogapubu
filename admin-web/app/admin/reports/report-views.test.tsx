@@ -24,6 +24,17 @@ describe('dòng phạm vi dưới tiêu đề', () => {
     expect(screen).not.toContain('chỉ tính bill đã thu tiền')
     expect(screen).toContain('reportScopeNote(tab)')
   })
+
+  it('màn hình chỉ mở tab tài chính cho vai hậu cần (isBackOfficeRole), thu ngân về Theo món', () => {
+    const screen = readFileSync(join(__dirname, 'reports-screen.tsx'), 'utf8')
+    expect(screen).toContain('const canSeeFinance = isBackOfficeRole(operator.role)')
+    expect(screen).toContain('reportTabsFor(canSeeFinance)')
+    expect(screen).toContain('parseReportTab(sp.tab, canSeeFinance)')
+    expect(screen).not.toMatch(/parseReportTab\([^)]*, false\)/)
+    // Doanh thu cũng chỉ tính bill đã thu (cùng câu với tab bán hàng); ba tab còn lại có câu riêng.
+    expect(reportScopeNote('revenue')).toBe(reportScopeNote('item'))
+    for (const tab of ['cashflow', 'pnl', 'debts'] as const) expect(reportScopeNote(tab)).not.toBe(reportScopeNote('item'))
+  })
 })
 
 // Dữ liệu "ngày D" của test SQL mig 117 (quán 05:00, bill A/B).
@@ -216,5 +227,131 @@ describe('toolbar', () => {
     expect(reportQuery({ ...cur, preset: 'yesterday' }, { tab: 'item' })).toBe('tab=item&period=yesterday')
     expect(reportQuery({ ...cur, preset: 'today' }, { preset: 'custom', from: '2026-11-03', to: '2026-11-04' }))
       .toBe('tab=hour&period=custom&from=2026-11-03&to=2026-11-04')
+  })
+
+  it('tab Doanh thu: nút Ngày | Tháng; grain chỉ đi theo tab Doanh thu', () => {
+    const cur = { tab: 'revenue' as const, preset: '7d' as const, from: '2026-11-14', to: '2026-11-20', grain: 'day' as const }
+    expect(reportQuery(cur, { grain: 'month' })).toBe('tab=revenue&period=7d&grain=month')
+    expect(reportQuery({ ...cur, grain: 'month' }, { tab: 'pnl' })).toBe('tab=pnl&period=7d')
+    expect(reportQuery(cur, {})).toBe('tab=revenue&period=7d')
+    const html = renderToStaticMarkup(<ReportToolbar tab="revenue" grain="month" preset="7d" from="2026-11-14" to="2026-11-20"
+      today="2026-11-20" tabs={REPORT_TABS} inModal={false} exportHref={null} />)
+    const g = slice(html, 'aria-label="Chế độ xem"')
+    const group = g.slice(0, g.indexOf('</div>'))
+    expect(group).toMatch(/aria-pressed="true"[^>]*>Tháng</)
+    expect(group).toContain('>Ngày<')
+    // Chưa có Excel cho tab tài chính (Task 11): không hiện nút.
+    expect(html).not.toContain('Xuất Excel')
+    const item = renderToStaticMarkup(<ReportToolbar tab="item" preset="7d" from="2026-11-14" to="2026-11-20"
+      today="2026-11-20" tabs={REPORT_TABS} inModal={false} exportHref="/x" />)
+    expect(item).not.toContain('aria-label="Chế độ xem"')
+  })
+})
+
+// ================================================================================================================
+// 4 tab tài chính — dữ liệu là JSON thật của RPC mig 125 (lib/reports/__fixtures__/rpc-125.json).
+// ================================================================================================================
+describe('tab tài chính', async () => {
+  const rpc125 = (await import('@/lib/reports/__fixtures__/rpc-125.json')).default
+  const { parseFinanceReport } = await import('@/lib/reports/finance')
+  const { default: RevenueView, RevenueLine } = await import('./revenue-view')
+  const { default: CashFlowView } = await import('./cash-flow-view')
+  const { default: ProfitLossView } = await import('./profit-loss-view')
+  const { default: ReceivablesView } = await import('./receivables-view')
+  const as = <T extends string>(tab: T, raw: unknown) => {
+    const r = parseFinanceReport(tab as never, raw)
+    if (r.tab !== tab) throw new Error('sai tab')
+    return r as Extract<typeof r, { tab: T }>
+  }
+
+  it('Doanh thu: SVG có một polyline, số điểm bằng số dòng; 375px bảng thành thẻ', () => {
+    const r = as('revenue', rpc125.report_revenue_series_day)
+    const chart = renderToStaticMarkup(<RevenueLine rows={r.rows} grain="day" />)
+    expect(count(chart, '<polyline')).toBe(1)
+    const points = /points="([^"]*)"/.exec(chart)![1].trim().split(/\s+/)
+    expect(points).toHaveLength(3)
+    expect(count(chart, '<circle')).toBe(3)
+    expect(chart).toContain('viewBox="0 0 600 160"')
+    expect(chart).toContain('preserveAspectRatio="none"')
+    expect(chart).toContain('width="100%"')
+    expect(chart).toContain('>01/12<')
+    expect(chart).toContain('>03/12<')
+    const html = renderToStaticMarkup(<RevenueView report={r} />)
+    expect(html).toContain('hidden md:table')
+    expect(html).toContain('md:hidden')
+    for (const head of ['Ngày', 'Doanh thu', 'Giảm giá', 'Tiền mặt', 'Chuyển khoản', 'Ghi nợ', 'Số bill', 'TB/bill']) {
+      expect(html).toContain(`>${head}</th>`)
+    }
+    expect(html).toContain('3.170.000đ')
+    expect(html).toContain('528.333đ') // 3.170.000 / 6 bill
+    expect(html).toContain('>Tổng<')
+    expect(html).toContain('3.470.000đ')
+    const month = renderToStaticMarkup(<RevenueView report={as('revenue', rpc125.report_revenue_series_month)} />)
+    expect(month).toContain('>Tháng</th>')
+    expect(month).toContain('>12/2026<')
+    // Kỳ không có dòng nào: không chia cho 0, không vẽ đường.
+    expect(renderToStaticMarkup(<RevenueLine rows={[]} grain="day" />)).not.toContain('<polyline')
+  })
+
+  it('Thu chi: hai quỹ, âm tô đỏ, quỹ ngân hàng ghi "Ngân hàng / ví" khi có ví, chú thích', () => {
+    const r = as('cashflow', rpc125.report_cash_flow)
+    const html = renderToStaticMarkup(<CashFlowView report={r} />)
+    expect(html).toContain('Tiền mặt')
+    expect(html).toContain('Ngân hàng / ví')
+    expect(html).toContain('Tiền ví về tài khoản ngân hàng khi đối soát')
+    expect(html).toMatch(/text-critical[^>]*>-500\.000đ</)
+    expect(html).toContain('1.320.000đ')
+    for (const l of ['Thu bill', 'Thu qua ví', 'Thu nợ', 'Nộp thêm vào két', 'Thu khác', 'Nhập hàng', 'Đi chợ', 'Lương - thưởng', 'Chủ quán rút']) {
+      expect(count(html, `>${l}<`), l).toBeGreaterThanOrEqual(2) // bảng md + thẻ mobile
+    }
+    expect(html).toContain('Ghi nợ không tính là tiền vào. Không có số dư đầu kỳ.')
+    expect(html).toContain('Phiếu huỷ sau này không còn tính vào kỳ đã qua.')
+    // Không có dòng ví: thẻ quỹ ghi "Ngân hàng" thường, không có chú thích ví.
+    const noWallet = { ...r, inflows: r.inflows.filter((x) => x.key !== 'wallet') }
+    const plain = renderToStaticMarkup(<CashFlowView report={noWallet} />)
+    expect(plain).not.toContain('Ngân hàng / ví')
+    expect(plain).not.toContain('khi đối soát')
+  })
+
+  it('Lãi lỗ: có cảnh báo vàng khi chưa kiểm kho, có khối Không tính vào lãi lỗ', () => {
+    const r = as('pnl', rpc125.report_profit_loss)
+    const html = renderToStaticMarkup(<ProfitLossView report={r} />)
+    expect(html).toContain('Giá vốn nguyên liệu chưa tính — cần kiểm kho')
+    expect(html).toContain('Thiếu giá nhập: Đá viên')
+    const order = ['Doanh thu thuần', 'Giá vốn hàng bán', 'Lãi gộp', 'Chi phí hoạt động', 'Hàng huỷ', 'Thu nhập khác', 'Lãi ròng']
+    const pos = order.map((l) => html.indexOf(l))
+    expect(pos.every((x) => x >= 0)).toBe(true)
+    expect([...pos].sort((a, b) => a - b)).toEqual(pos)
+    expect(html).toContain('2.950.000đ')
+    expect(html).toContain('2.140.000đ')
+    expect(html).toContain('Lương - thưởng')
+    const ex = slice(html, 'Không tính vào lãi lỗ')
+    expect(ex).toContain('Nhập hàng')
+    expect(ex).toContain('600.000đ')
+    expect(ex).toContain('Chủ quán rút')
+    expect(ex).toContain('2.000.000đ')
+    expect(ex).toContain('Chuyển quỹ (tổng phiếu, không tính)')
+    expect(html).toContain('Phiếu huỷ sau này không còn tính vào kỳ đã qua.')
+    // Đã kiểm kho đủ, không thiếu giá: không có cảnh báo.
+    const ok = renderToStaticMarkup(<ProfitLossView report={{ ...r, warnings: { ingredientUncounted: false, missingCostItems: [] } }} />)
+    expect(ok).not.toContain('cần kiểm kho')
+    expect(ok).not.toContain('Thiếu giá nhập')
+    // Lãi ròng âm tô đỏ.
+    const loss = renderToStaticMarkup(<ProfitLossView report={{ ...r, netProfit: -150000 }} />)
+    expect(loss).toMatch(/text-critical[^>]*>-150\.000đ</)
+  })
+
+  it('Công nợ: link /admin/debts?customer=<id>, ba ô tuổi nợ', () => {
+    const r = as('debts', rpc125.report_receivables)
+    const html = renderToStaticMarkup(<ReceivablesView report={r} />)
+    for (const l of ['0–7 ngày', '8–30 ngày', 'Trên 30 ngày']) expect(html).toContain(l)
+    for (const x of r.rows) expect(html).toContain(`href="/admin/debts?customer=${x.customerId}"`)
+    for (const head of ['Tên', 'Nợ đầu kỳ', 'Phát sinh', 'Đã thu', 'Nợ cuối kỳ', 'Bill nợ cũ nhất']) expect(html).toContain(`>${head}</th>`)
+    expect(html).toContain('hidden md:table')
+    expect(html).toContain('md:hidden')
+    expect(html).toContain('>01/12/2026<')
+    expect(html).toContain('>Tổng<')
+    expect(html).toContain('650.000đ')
+    expect(renderToStaticMarkup(<ReceivablesView report={{ ...r, rows: [] }} />)).toContain('Chưa có dữ liệu trong kỳ này')
   })
 })

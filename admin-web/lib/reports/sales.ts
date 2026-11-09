@@ -1,6 +1,6 @@
 // Báo cáo bán hàng (mig 117): kiểu dữ liệu + đọc JSON của 4 RPC report_sales_by_item / _by_category / _by_hour /
 // report_voids. Tiền đã tính ở server — ở đây chỉ đổi tên trường / ép kiểu, không cộng trừ lại (trừ % hiển thị).
-import type { ReportTab } from './tabs'
+import type { SalesTab } from './tabs'
 
 export type SalesSummary = {
   itemsAmount: number; discountTotal: number; revenue: number; qtySold: number; qtyGift: number; openTablesCount: number
@@ -29,6 +29,10 @@ export type SalesReport =
 
 /** Giờ 18 → '18:00'. Một chỗ cho trang Theo giờ và Excel. */
 export const hourLabel = (hour: number): string => `${String(hour).padStart(2, '0')}:00`
+
+/** Báo cáo bán hàng (khác báo cáo tài chính cùng trang). */
+export const isSalesReport = (r: { tab: string }): r is SalesReport =>
+  r.tab === 'item' || r.tab === 'category' || r.tab === 'hour' || r.tab === 'voids'
 
 export const VOID_TYPE_LABEL: Record<VoidType, string> = { cancelled: 'Bỏ', gift: 'Tặng', quantity: 'Giảm SL' }
 
@@ -84,7 +88,7 @@ function voidRows(v: unknown): VoidRow[] {
   }))
 }
 
-export function parseSalesReport(tab: ReportTab, raw: unknown): SalesReport {
+export function parseSalesReport(tab: SalesTab, raw: unknown): SalesReport {
   const o = obj(raw)
   const h = head(o)
   switch (tab) {
