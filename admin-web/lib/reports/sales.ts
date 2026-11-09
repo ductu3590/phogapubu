@@ -30,10 +30,6 @@ export type SalesReport =
 /** Giờ 18 → '18:00'. Một chỗ cho trang Theo giờ và Excel. */
 export const hourLabel = (hour: number): string => `${String(hour).padStart(2, '0')}:00`
 
-/** Báo cáo bán hàng (khác báo cáo tài chính cùng trang). */
-export const isSalesReport = (r: { tab: string }): r is SalesReport =>
-  r.tab === 'item' || r.tab === 'category' || r.tab === 'hour' || r.tab === 'voids'
-
 export const VOID_TYPE_LABEL: Record<VoidType, string> = { cancelled: 'Bỏ', gift: 'Tặng', quantity: 'Giảm SL' }
 
 type Obj = Record<string, unknown>

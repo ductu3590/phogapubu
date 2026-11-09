@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import rpc from './__fixtures__/rpc-125.json'
-import { avgPerBill, parseFinanceReport, revenueRowLabel, type RevenueRow } from './finance'
+import { avgPerBill, parseFinanceReport, revenueRowLabel, shownPeriod, type RevenueRow } from './finance'
 
 // JSON chép NGUYÊN từ một lần chạy 4 RPC mig 125 trên pglite (bảng seed của plan, giá vốn stub có nguyên liệu chưa
 // kiểm + một hàng thiếu giá). Đổi tên khoá ở SQL mà quên đổi parser thì test này đỏ.
@@ -84,6 +84,18 @@ describe('parseFinanceReport rác an toàn', () => {
     expect(month.tab === 'revenue' && [month.grain, month.rows]).toEqual(['month', [
       { date: '2026-12-01', revenue: 0, discountTotal: 0, cash: 0, bank: 0, debt: 0, other: 0, billsCount: 0 },
     ]])
+  })
+})
+
+describe('kỳ hiển thị', () => {
+  it('Doanh thu chế độ tháng: kỳ là 12 tháng thật của báo cáo; còn lại là kỳ đang chọn', () => {
+    const selected = { from: '2026-12-01', to: '2026-12-03' }
+    expect(shownPeriod(parseFinanceReport('revenue', rpc.report_revenue_series_month), selected)).toEqual({ from: '2026-01-01', to: '2026-12-31' })
+    expect(shownPeriod(parseFinanceReport('revenue', rpc.report_revenue_series_day), selected)).toEqual(selected)
+    expect(shownPeriod(parseFinanceReport('pnl', rpc.report_profit_loss), selected)).toEqual(selected)
+    // Server không trả from/to (rác): giữ kỳ đang chọn.
+    expect(shownPeriod(parseFinanceReport('revenue', { grain: 'month' }), selected)).toEqual(selected)
+    expect(shownPeriod({ tab: 'item' }, selected)).toEqual(selected)
   })
 })
 

@@ -31,6 +31,9 @@ describe('dòng phạm vi dưới tiêu đề', () => {
     expect(screen).toContain('reportTabsFor(canSeeFinance)')
     expect(screen).toContain('parseReportTab(sp.tab, canSeeFinance)')
     expect(screen).not.toMatch(/parseReportTab\([^)]*, false\)/)
+    // Chế độ tháng: nhãn kỳ đầu trang theo 12 tháng thật của báo cáo; tab tài chính có nút Excel (kèm grain).
+    expect(screen).toContain('periodLabel(shownPeriod(res.ok ? res.report : { tab }, range))')
+    expect(screen).not.toContain('isFinanceTab(tab) ? null')
     // Doanh thu cũng chỉ tính bill đã thu (cùng câu với tab bán hàng); ba tab còn lại có câu riêng.
     expect(reportScopeNote('revenue')).toBe(reportScopeNote('item'))
     for (const tab of ['cashflow', 'pnl', 'debts'] as const) expect(reportScopeNote(tab)).not.toBe(reportScopeNote('item'))

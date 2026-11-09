@@ -126,3 +126,17 @@ export function revenueRowLabel(row: RevenueRow, grain: RevenueGrain): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date)) return '—'
   return grain === 'month' ? `${row.date.slice(5, 7)}/${row.date.slice(0, 4)}` : `${row.date.slice(8, 10)}/${row.date.slice(5, 7)}`
 }
+
+/**
+ * Kỳ để GHI ra (nhãn đầu trang, dòng Kỳ của Excel, tên file). Doanh thu chế độ tháng xem 12 tháng kết thúc ở tháng của
+ * "Đến ngày" — kỳ thật là from/to server trả về, không phải kỳ đang chọn. Các báo cáo khác: kỳ đang chọn.
+ */
+export function shownPeriod(
+  report: { tab: string; grain?: RevenueGrain; head?: ReportHead },
+  selected: { from: string; to: string },
+): { from: string; to: string } {
+  if (report.tab === 'revenue' && report.grain === 'month' && report.head?.from && report.head?.to) {
+    return { from: report.head.from, to: report.head.to }
+  }
+  return { from: selected.from, to: selected.to }
+}

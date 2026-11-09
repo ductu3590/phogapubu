@@ -151,3 +151,120 @@ describe('Excel báo cáo bán hàng', () => {
     expect(reportWorkbookFileName('', 'hour', '2026-11-20', '2026-11-20')).toBe('bao-cao-hour-quan-2026-11-20_2026-11-20.xlsx')
   })
 })
+
+// ================================================================================================================
+// 4 tab tài chính — JSON thật của RPC mig 125 (lib/reports/__fixtures__/rpc-125.json, kỳ 01/12 – 03/12/2026).
+// Số khác brief (brief viết trước khi fixture thêm đơn ví 120.000 ngày 01/12): doanh thu 3.470.000 (brief 3.350.000),
+// lãi ròng 1.240.000 (brief 1.120.000). Fixture lãi lỗ chụp với nguyên liệu CHƯA kiểm (lãi ròng 2.140.000); bản "đã
+// kiểm" ở đây dựng lại từ cùng JSON với giá vốn nguyên liệu 900.000 như test SQL Task 8.
+describe('Excel báo cáo tài chính', async () => {
+  const rpc = (await import('./__fixtures__/rpc-125.json')).default
+  const { parseFinanceReport } = await import('./finance')
+  const fmeta = { ...meta, from: '2026-12-01', to: '2026-12-03' }
+  const sheetOf = async (report: Parameters<typeof buildReportWorkbook>[0], m = fmeta) => {
+    const wb = new ExcelJS.Workbook()
+    await wb.xlsx.load(await buildReportWorkbook(report, m).xlsx.writeBuffer())
+    expect(wb.worksheets).toHaveLength(1)
+    return wb.worksheets[0]
+  }
+  const pnlCounted = parseFinanceReport('pnl', {
+    ...rpc.report_profit_loss,
+    cogs_ingredient: 900000, cogs_total: 1420000, gross_profit: 2050000, net_profit: 1240000,
+    warnings: { ingredient_uncounted: false, missing_cost_items: [] },
+  })
+
+  it('Lãi lỗ: dòng Lãi ròng = 1.240.000 là số', async () => {
+    const ws = await sheetOf(pnlCounted)
+    expect(ws.name).toBe('Lãi lỗ')
+    expect(ws.getCell('A1').value).toBe('BÁO CÁO LÃI LỖ')
+    expect(valuesOf(ws, 'Khoản')).toEqual(['Khoản', 'Số tiền'])
+    const labels = rowsOf(ws).map((r) => r.values[0]).filter((v) => typeof v === 'string') as string[]
+    const order = ['Doanh thu thuần', '− Giá vốn hàng bán', '= Lãi gộp', '− Chi phí hoạt động', '− Hàng huỷ', '+ Thu nhập khác', '= Lãi ròng']
+    const pos = order.map((l) => labels.indexOf(l))
+    expect(pos.every((x) => x >= 0)).toBe(true)
+    expect([...pos].sort((a, b) => a - b)).toEqual(pos)
+    const net = findRow(ws, '= Lãi ròng')
+    expect(net.getCell(2).value).toBe(1240000)
+    expect(net.getCell(2).numFmt).toBe('#,##0')
+    expect(net.font?.bold).toBe(true)
+    expect(findRow(ws, 'Doanh thu thuần').getCell(2).value).toBe(3470000)
+    expect(findRow(ws, '= Lãi gộp').getCell(2).value).toBe(2050000)
+    expect(findRow(ws, '    Nguyên liệu').getCell(2).value).toBe(900000)
+    expect(findRow(ws, '    Lương - thưởng').getCell(2).value).toBe(500000)
+    expect(findRow(ws, 'Nhập hàng (đã nằm trong giá vốn)').getCell(2).value).toBe(600000)
+    expect(findRow(ws, 'Chủ quán rút').getCell(2).value).toBe(2000000)
+    expect(findRow(ws, 'Chuyển quỹ (tổng phiếu, không tính)').getCell(2).value).toBe(1000000)
+    expect(labels.some((l) => l.startsWith('Cảnh báo'))).toBe(false)
+    expect(labels).toContain('Phiếu huỷ sau này không còn tính vào kỳ đã qua.')
+    // Nguyên liệu chưa kiểm + thiếu giá: hai dòng cảnh báo bằng chữ; lãi ròng âm vẫn là SỐ âm.
+    const warn = await sheetOf({ ...parseFinanceReport('pnl', rpc.report_profit_loss), netProfit: -150000 } as never)
+    const wl = rowsOf(warn).map((r) => r.values[0])
+    expect(wl).toContain('Cảnh báo: Giá vốn nguyên liệu chưa tính — cần kiểm kho')
+    expect(wl).toContain('Cảnh báo: Thiếu giá nhập: Đá viên')
+    expect(findRow(warn, '= Lãi ròng').getCell(2).value).toBe(-150000)
+  })
+
+  it('Doanh thu: 3 dòng ngày + dòng Tổng 3.470.000', async () => {
+    const ws = await sheetOf(parseFinanceReport('revenue', rpc.report_revenue_series_day))
+    expect(ws.name).toBe('Doanh thu')
+    expect(valuesOf(ws, 'Chế độ')).toEqual(['Chế độ', 'Ngày'])
+    expect(valuesOf(ws, 'Ngày')).toEqual(['Ngày', 'Doanh thu', 'Giảm giá', 'Tiền mặt', 'Chuyển khoản', 'Ghi nợ', 'Số bill', 'TB/bill'])
+    expect(valuesOf(ws, '01/12')).toEqual(['01/12', 3170000, 50000, 1000000, 850000, 1200000, 6, 528333])
+    expect(valuesOf(ws, '02/12')[1]).toBe(300000)
+    expect(valuesOf(ws, '03/12')[1]).toBe(0)
+    const total = findRow(ws, 'Tổng')
+    expect(total.getCell(2).value).toBe(3470000)
+    expect(total.getCell(2).numFmt).toBe('#,##0')
+    expect(total.getCell(7).value).toBe(7)
+    expect(total.getCell(7).numFmt).not.toBe('#,##0.00')
+  })
+
+  it('Doanh thu tháng: dòng Kỳ ghi đúng 12 tháng của báo cáo, không phải kỳ đang chọn', async () => {
+    const month = parseFinanceReport('revenue', rpc.report_revenue_series_month)
+    const ws = await sheetOf(month)
+    expect(valuesOf(ws, 'Kỳ')).toEqual(['Kỳ', '01/01 – 31/12/2026'])
+    expect(valuesOf(ws, 'Chế độ')).toEqual(['Chế độ', 'Tháng'])
+    expect(valuesOf(ws, 'Tháng')[0]).toBe('Tháng')
+    expect(valuesOf(ws, '12/2026')[1]).toBe(3470000)
+  })
+
+  it('Công nợ: dòng tổng Nợ cuối kỳ 650.000', async () => {
+    const ws = await sheetOf(parseFinanceReport('debts', rpc.report_receivables), { ...fmeta, from: '2026-12-02' })
+    expect(ws.name).toBe('Công nợ')
+    expect(valuesOf(ws, 'Tên')).toEqual(['Tên', 'SĐT', 'Nợ đầu kỳ', 'Phát sinh', 'Đã thu', 'Nợ cuối kỳ', 'Bill nợ cũ nhất'])
+    expect(valuesOf(ws, 'Cty Điện lực')).toEqual(['Cty Điện lực', undefined, 800000, 0, 500000, 300000, '01/12/2026'])
+    const total = findRow(ws, 'Tổng')
+    expect([total.getCell(3).value, total.getCell(6).value]).toEqual([1550000, 650000])
+    expect(total.getCell(6).numFmt).toBe('#,##0')
+    expect(findRow(ws, '0–7 ngày').getCell(2).value).toBe(300000)
+    expect(findRow(ws, '8–30 ngày').getCell(2).value).toBe(100000)
+    expect(findRow(ws, 'Trên 30 ngày').getCell(2).value).toBe(250000)
+  })
+
+  it('Thu chi: Chênh lệch Tiền mặt -500.000; quỹ ngân hàng ghi "Ngân hàng / ví" khi có ví', async () => {
+    const cf = parseFinanceReport('cashflow', rpc.report_cash_flow)
+    if (cf.tab !== 'cashflow') throw new Error('sai tab')
+    const ws = await sheetOf(cf)
+    expect(ws.name).toBe('Thu chi')
+    const diff = findRow(ws, 'Tiền mặt: Chênh lệch')
+    expect(diff.getCell(2).value).toBe(-500000)
+    expect(diff.getCell(2).numFmt).toBe('#,##0')
+    expect(findRow(ws, 'Ngân hàng / ví: Vào').getCell(2).value).toBe(1820000)
+    expect(findRow(ws, 'Ngân hàng / ví: Chênh lệch').getCell(2).value).toBe(1320000)
+    expect(valuesOf(ws, 'Tiền vào')).toEqual(['Tiền vào', 'Tiền mặt', 'Chuyển khoản'])
+    expect(valuesOf(ws, 'Tiền ra')).toEqual(['Tiền ra', 'Tiền mặt', 'Chuyển khoản'])
+    expect(valuesOf(ws, 'Thu qua ví')).toEqual(['Thu qua ví', 0, 120000])
+    expect(valuesOf(ws, 'Nhập hàng')).toEqual(['Nhập hàng', 600000, 0])
+    const labels = rowsOf(ws).map((r) => r.values[0])
+    expect(labels).toContain('Ghi nợ không tính là tiền vào. Không có số dư đầu kỳ.')
+    expect(labels).toContain('Tiền ví về tài khoản ngân hàng khi đối soát.')
+    // Không có ví: quỹ ghi "Ngân hàng".
+    const plain = await sheetOf({ ...cf, inflows: cf.inflows.filter((x) => x.key !== 'wallet') } as never)
+    expect(findRow(plain, 'Ngân hàng: Vào').getCell(2).value).toBe(1820000)
+    expect(rowsOf(plain).some((r) => r.values[0] === 'Tiền ví về tài khoản ngân hàng khi đối soát.')).toBe(false)
+  })
+
+  it('tên file theo tab tài chính', () => {
+    expect(reportWorkbookFileName('Yên Garden', 'pnl', '2026-12-01', '2026-12-03')).toBe('bao-cao-pnl-yen-garden-2026-12-01_2026-12-03.xlsx')
+  })
+})

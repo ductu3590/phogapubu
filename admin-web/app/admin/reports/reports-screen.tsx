@@ -2,7 +2,8 @@ import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { isBackOfficeRole } from '@/lib/auth/roles'
 import { loadReport, resolveReportRange, type ReportData } from '@/lib/actions/reports'
 import { periodLabel } from '@/lib/reports/period'
-import { isFinanceTab, parseReportTab, reportTabsFor } from '@/lib/reports/tabs'
+import { parseReportTab, reportTabsFor } from '@/lib/reports/tabs'
+import { shownPeriod } from '@/lib/reports/finance'
 import { ErrorState } from '@/components/ui/feedback'
 import ReportToolbar, { toolbarKey } from './report-toolbar'
 import { reportScopeNote } from './report-format'
@@ -31,10 +32,11 @@ export default async function ReportsScreen({ searchParams, inModal }: {
   const range = await resolveReportRange(sp, new Date())
   const tabs = reportTabsFor(canSeeFinance)
   const tab = parseReportTab(sp.tab, canSeeFinance)
-  const grain = sp.grain === 'month' ? 'month' : 'day'
+  const grain = tab === 'revenue' && sp.grain === 'month' ? 'month' : 'day'
   const res = await loadReport(tab, range.from, range.to, grain)
-  // Excel cho tab tài chính làm ở Task 11: tới đó ẩn nút.
-  const exportHref = isFinanceTab(tab) ? null : `/admin/reports/export?${new URLSearchParams({ tab, from: range.from, to: range.to })}`
+  const exportQuery = new URLSearchParams({ tab, from: range.from, to: range.to })
+  if (grain === 'month') exportQuery.set('grain', 'month')
+  const exportHref = `/admin/reports/export?${exportQuery}`
 
   return (
     <div className="flex-1 overflow-y-auto bg-background">
@@ -42,7 +44,8 @@ export default async function ReportsScreen({ searchParams, inModal }: {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold text-foreground md:text-2xl">Báo cáo</h1>
           <p className="mt-1 text-sm text-muted">
-            Kỳ <span className="font-medium text-foreground tabular">{periodLabel(range)}</span> · {reportScopeNote(tab)}
+            {/* Doanh thu chế độ tháng: kỳ thật là 12 tháng server trả về, không phải kỳ đang chọn. */}
+            Kỳ <span className="font-medium text-foreground tabular">{periodLabel(shownPeriod(res.ok ? res.report : { tab }, range))}</span> · {reportScopeNote(tab)}
           </p>
         </div>
 

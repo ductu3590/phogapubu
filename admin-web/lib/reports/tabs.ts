@@ -21,6 +21,10 @@ export function isFinanceTab(tab: ReportTab): tab is FinanceTab {
   return REPORT_TABS.some((t) => t.value === tab && t.finance)
 }
 
+/** Chuỗi `?tab=` thô có phải tên một tab tài chính không — kiểm TRƯỚC khi parseReportTab kẹp về 'item'. */
+export const isFinanceTabName = (raw: string | null | undefined): boolean =>
+  REPORT_TABS.some((t) => t.finance && t.value === raw)
+
 export function reportTabsFor(canSeeFinance: boolean): typeof REPORT_TABS {
   return canSeeFinance ? REPORT_TABS : REPORT_TABS.filter((t) => !t.finance)
 }
