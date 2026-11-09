@@ -896,7 +896,7 @@ $b$'date', p_date, 'day_from', v_from, 'day_to', v_to,
 -- ============================================================
 SELECT pg_temp.mevo_patch('public.get_sessions_bill(uuid[])',
 $a$'grand_discount', v_discount,$a$,
-$b$'grand_discount', v_discount, 'debt_customer_name', (SELECT dc.name FROM public.bill_payments bp JOIN public.debt_customers dc ON dc.id = bp.debt_customer_id WHERE bp.id IN (SELECT ts.bill_payment_id FROM public.table_sessions ts WHERE ts.id = ANY(p_session_ids)) LIMIT 1),$b$);
+$b$'grand_discount', v_discount, 'debt_customer_name', (SELECT dc.name FROM public.bill_payments bp JOIN public.debt_customers dc ON dc.id = bp.debt_customer_id WHERE bp.id IN (SELECT ts.bill_payment_id FROM public.table_sessions ts WHERE ts.id = ANY(p_session_ids)) ORDER BY dc.name, dc.id LIMIT 1),$b$);
 SELECT pg_temp.mevo_patch('public.get_sessions_bill(uuid[])',
 $a$ORDER BY x.instrument DESC)$a$,
 $b$ORDER BY array_position(ARRAY['cash','bank','debt'], x.instrument))$b$);
