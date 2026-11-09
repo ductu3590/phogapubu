@@ -79,3 +79,11 @@ cash_book_void_internal(p_entry_id uuid, p_reason text, p_actor uuid)       -- n
 - Trang mới: `/admin/inventory` (KHO), `/admin/cashbook` (CA), `/admin/debts` (NO), `/admin/reports` (BC). Mỗi trang có bản intercept `app/admin/@modal/(config)/(.)<x>/page.tsx` như `(.)bills`.
 - Test chạy trước khi báo xong mỗi task: `cd admin-web; npm test` (vitest), `npx tsc --noEmit`, `npm run lint`; SQL: `$env:PGLITE_MODULE='<worktree>/admin-web/node_modules/@electric-sql/pglite/dist/index.js'; node --test supabase/tests/<file>.test.mjs`.
 - Test SQL của module chạy **trước** mig 116 có mặt (sóng 1 song song): fixture được định nghĩa stub `is_store_back_office` giống hệt hợp đồng trong setup của test, không đưa vào migration.
+
+## Bổ sung sau khi có plan công nợ (2026-11-09)
+
+- Sau mig 123: `collect_table_bill(uuid[], jsonb, integer, uuid, uuid DEFAULT NULL, jsonb DEFAULT NULL)` (thêm `p_debt_customer_id`, `p_new_debt_customer`); bản 4 tham số bị drop trong cùng giao dịch. Gọi 4 tham số cũ vẫn chạy.
+- `orders.payment_instrument` thêm `'debt'` (bill 100% nợ); bill nhiều phương tiện vẫn `'mixed'`. `ReportInstrument` (TS) thêm `'debt'`.
+- `get_bills_report` thêm `totals.debt`, `debt_collections`, `bills[].debt_customer`. Hàm nội bộ `debt_customer_bills` dùng được cho 125. RPC `get_debt_shift_summary(p_shift_id)` cho phiếu ca.
+- CA (122): `expected_cash` PHẢI đã cộng `v_debt_cash` (=0 tới khi 123 vá). `ShiftReportSlip` nhận prop tuỳ chọn `debt` (123 thêm).
+- Bảng kê công nợ 80mm in qua trình duyệt kể cả `print_mode='agent'` (chưa có `print_jobs.kind` cho nó).
