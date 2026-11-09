@@ -21,7 +21,7 @@ export type OpenBillSession = DiscountedSession & {
   table_number: string
   total: number
   /** Các đơn của phiên (RPC đã trả sẵn): đơn còn chờ thu ngân duyệt thì chưa in QR. */
-  orders?: { status: string; order_source: string }[]
+  orders: { status: string; order_source: string }[]
 }
 
 /**
@@ -78,7 +78,8 @@ export function pickBillQr(input: {
   const found = input.openSessions.filter((s) => wanted.has(s.session_id))
   if (found.length === 0 || found.length !== wanted.size) return null
   // Tờ in đưa tận tay khách: đơn chờ duyệt có thể bị từ chối sau khi khách đã chuyển khoản → chưa in QR.
-  if (found.some((s) => (s.orders ?? []).some(isReviewableOrder))) return null
+  // Fail closed: không có danh sách đơn (dữ liệu thiếu) thì không biết còn đơn chờ duyệt không → không in QR.
+  if (found.some((s) => !Array.isArray(s.orders) || s.orders.some(isReviewableOrder))) return null
   const totals = billTotals(found)
   if (totals.error) return null
   return buildBillQr({

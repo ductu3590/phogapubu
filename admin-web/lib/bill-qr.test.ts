@@ -3,7 +3,7 @@ import { buildBillQr, paymentQrAmount, pickBillQr } from './bill-qr'
 
 const bank = { bank_bin: '970436', bank_account_number: '0011001234567', bank_account_name: 'DO DUC TU' }
 const ID = '11111111-2222-3333-4444-555555a1b2c3'
-const open = (over = {}) => ({ session_id: ID, table_number: 'Bàn 12', total: 155000, unpaid_total: 155000, ...over })
+const open = (over = {}) => ({ session_id: ID, table_number: 'Bàn 12', total: 155000, unpaid_total: 155000, orders: [], ...over })
 
 describe('buildBillQr', () => {
   it('ra đúng mẫu độc lập ở Task 1', () => {
@@ -66,6 +66,11 @@ describe('pickBillQr', () => {
     const a = open()
     const b = open({ session_id: 'b', orders: [{ status: 'pending', order_source: 'staff' }] })
     expect(pickBillQr({ sessionIds: [ID, 'b'], openSessions: [a, b], bank })).toBeNull()
+  })
+  it('thiếu danh sách đơn (dữ liệu không đầy đủ): không có QR (fail closed)', () => {
+    const { orders: _omit, ...noOrders } = open()
+    void _omit
+    expect(pickBillQr({ sessionIds: [ID], openSessions: [noOrders as never], bank })).toBeNull()
   })
   it('giảm 100%: không có QR', () => {
     expect(pickBillQr({ sessionIds: [ID], openSessions: [open({ bill_discount_type: 'percent', bill_discount_value: 100 })], bank })).toBeNull()

@@ -15,7 +15,7 @@ vi.mock('@/lib/supabase/server', () => ({
 import { loadBillQr, loadBillQrWithClient } from './load-bill-qr'
 
 const ID = '11111111-2222-3333-4444-555555a1b2c3'
-const session = { session_id: ID, table_number: 'Bàn 12', total: 155000, unpaid_total: 155000 }
+const session = { session_id: ID, table_number: 'Bàn 12', total: 155000, unpaid_total: 155000, orders: [{ status: 'confirmed', order_source: 'customer' }] }
 const bank = { bank_bin: '970436', bank_account_number: '0011001234567', bank_account_name: 'DO DUC TU' }
 
 beforeEach(() => {
