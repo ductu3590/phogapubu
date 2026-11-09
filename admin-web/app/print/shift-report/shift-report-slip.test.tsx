@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { CashShiftEntry, CashShiftReport } from '@/lib/cash-shift'
-import ShiftReportSlip from './shift-report-slip'
+import ShiftReportSlip, { shiftReportPrintable } from './shift-report-slip'
 
 const entry = (over: Partial<CashShiftEntry>): CashShiftEntry => ({
   id: Math.random().toString(), kind: 'payment', method: 'cash', categoryName: 'Đá', amount: 10000, note: null,
@@ -85,5 +85,15 @@ describe('Phiếu bàn giao ca 80mm', () => {
   it('autoPrint=false (phần mềm in): không có nút In lại', () => {
     expect(render()).toContain('In lại')
     expect(render({ autoPrint: false })).not.toContain('In lại')
+  })
+})
+
+describe('in được hay không', () => {
+  it('ca đã kết đủ số: in được; thiếu đếm được / dự kiến / chênh lệch hoặc ca mở: không', () => {
+    expect(shiftReportPrintable(report)).toBe(true)
+    expect(shiftReportPrintable({ ...report, countedCash: null })).toBe(false)
+    expect(shiftReportPrintable({ ...report, expectedCash: null })).toBe(false)
+    expect(shiftReportPrintable({ ...report, difference: null })).toBe(false)
+    expect(shiftReportPrintable({ ...report, status: 'open' })).toBe(false)
   })
 })

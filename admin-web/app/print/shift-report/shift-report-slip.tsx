@@ -21,6 +21,11 @@ export type ShiftReportSlipProps = {
   autoPrint?: boolean
 }
 
+/** Ca đã kết và có đủ số đã chốt (dự kiến, đếm được, chênh lệch) → in được. Thiếu số thì không in phiếu ghi 0đ. */
+export function shiftReportPrintable(r: CashShiftReport): boolean {
+  return r.status === 'closed' && r.expectedCash !== null && r.countedCash !== null && r.difference !== null
+}
+
 function Row({ name, value, strong = false }: { name: string; value: string; strong?: boolean }) {
   return (
     <div className="row" style={strong ? { fontWeight: 700 } : undefined}>
