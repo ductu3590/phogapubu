@@ -59,7 +59,13 @@ BEGIN
     'public.cash_shift_totals(uuid)',
     'public.is_store_back_office(uuid)',
     'public.collect_table_bill(uuid[],jsonb,integer,uuid)',
-    'public.close_table_session_core(uuid,text,text,uuid)'
+    'public.close_table_session_core(uuid,text,text,uuid)',
+    'public.bill_payment_lines_json(uuid[])',
+    'public.get_bills_report(uuid,date)',
+    'public.get_sessions_bill(uuid[])',
+    'public.business_date_of(uuid,timestamptz)',
+    'public.bills_report_table_label(uuid[],uuid[],text)',
+    'public.cash_user_name(uuid)'
   ] LOOP
     IF to_regprocedure(v_sig) IS NULL THEN
       RAISE EXCEPTION 'mig 123: thiếu hàm %', v_sig;
@@ -848,6 +854,55 @@ GRANT EXECUTE ON FUNCTION public.get_debt_shift_summary(uuid) TO authenticated;
 SELECT pg_temp.mevo_patch('public.cash_shift_totals(uuid)',
 $a$  v_debt_cash := 0; -- mevo-anchor:123 cash_shift_totals.debt_cash$a$,
 $b$  v_debt_cash := (SELECT COALESCE(SUM(dp.amount), 0) FROM public.debt_payments dp WHERE dp.cash_shift_id = p_shift_id AND dp.method = 'cash' AND dp.voided_at IS NULL)::bigint; -- mig 123$b$);
+
+-- ============================================================
+-- 7) Báo cáo ngày A04 (get_bills_report) đọc phần ghi nợ. Neo chép từ prod-defs/123/get_bills_report.sql (sau
+--    111 + 112a + 122; 117 / 118 không vá hàm này), mỗi neo một dòng.
+--   • totals.debt nằm TRONG khối totals; 'other' vẫn là phần còn lại → cash + bank + debt + other = revenue.
+--   • Gốc JSON thêm debt_collections {cash, bank, count}: lần trả nợ chưa huỷ có business_date = p_date. Tiền trả nợ
+--     KHÔNG là doanh thu, chỉ là dòng tiền vào ngày trả.
+--   • bills[].debt_customer {id, name} | null; bills[].payments sắp cash, bank, debt; bucket 'debt' cho đơn
+--     payment_instrument = 'debt' (bill 100% nợ) → bills[].instrument = 'debt'.
+--   ⚠️ Không đụng WHERE của CTE money: mig 117 chép nguyên văn WHERE đó vào report_paid_orders. Neo bucket nằm ở
+--      danh sách cột SELECT, không ở WHERE.
+-- ============================================================
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid,date)',
+$a$               WHEN o.payment_instrument = 'cash' THEN 'cash'$a$,
+$b$               WHEN o.payment_instrument = 'debt' THEN 'debt'
+               WHEN o.payment_instrument = 'cash' THEN 'cash'$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid,date)',
+$a$COALESCE(SUM(l.amount) FILTER (WHERE l.instrument = 'bank'), 0)::bigint AS bank,$a$,
+$b$COALESCE(SUM(l.amount) FILTER (WHERE l.instrument = 'bank'), 0)::bigint AS bank,
+             COALESCE(SUM(l.amount) FILTER (WHERE l.instrument = 'debt'), 0)::bigint AS debt,$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid,date)',
+$a$ORDER BY l.instrument DESC) FILTER (WHERE l.id IS NOT NULL)$a$,
+$b$ORDER BY array_position(ARRAY['cash','bank','debt'], l.instrument)) FILTER (WHERE l.id IS NOT NULL)$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid,date)',
+$a$- (SELECT COALESCE(SUM(cash + bank), 0) FROM pay),$a$,
+$b$- (SELECT COALESCE(SUM(cash + bank + debt), 0) FROM pay),
+          'debt',    (SELECT COALESCE(SUM(debt), 0) FROM pay),$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid,date)',
+$a$'instrument', b.instrument,$a$,
+$b$'instrument', b.instrument,
+          'debt_customer', (SELECT jsonb_build_object('id', dc.id, 'name', dc.name) FROM public.bill_payments bp JOIN public.debt_customers dc ON dc.id = bp.debt_customer_id WHERE bp.id = b.payment_id),$b$);
+SELECT pg_temp.mevo_patch('public.get_bills_report(uuid,date)',
+$a$'date', p_date, 'day_from', v_from, 'day_to', v_to,$a$,
+$b$'date', p_date, 'day_from', v_from, 'day_to', v_to,
+      'debt_collections', (SELECT jsonb_build_object('cash', COALESCE(SUM(amount) FILTER (WHERE method = 'cash'), 0), 'bank', COALESCE(SUM(amount) FILTER (WHERE method = 'bank'), 0), 'count', COUNT(*)) FROM public.debt_payments WHERE store_id = p_store_id AND business_date = p_date AND voided_at IS NULL),$b$);
+
+-- ============================================================
+-- 8) Hoá đơn in (get_sessions_bill): dòng nợ (sắp cash, bank, debt) + tên khách nợ ở gốc. Hàm lẫn CRLF trên prod:
+--    neo một dòng. Cùng thứ tự cho bill_payment_lines_json (nhánh 'already' của collect_table_bill).
+-- ============================================================
+SELECT pg_temp.mevo_patch('public.get_sessions_bill(uuid[])',
+$a$'grand_discount', v_discount,$a$,
+$b$'grand_discount', v_discount, 'debt_customer_name', (SELECT dc.name FROM public.bill_payments bp JOIN public.debt_customers dc ON dc.id = bp.debt_customer_id WHERE bp.id IN (SELECT ts.bill_payment_id FROM public.table_sessions ts WHERE ts.id = ANY(p_session_ids)) LIMIT 1),$b$);
+SELECT pg_temp.mevo_patch('public.get_sessions_bill(uuid[])',
+$a$ORDER BY x.instrument DESC)$a$,
+$b$ORDER BY array_position(ARRAY['cash','bank','debt'], x.instrument))$b$);
+SELECT pg_temp.mevo_patch('public.bill_payment_lines_json(uuid[])',
+$a$ORDER BY x.instrument DESC)$a$,
+$b$ORDER BY array_position(ARRAY['cash','bank','debt'], x.instrument))$b$);
 
 NOTIFY pgrst, 'reload schema';
 

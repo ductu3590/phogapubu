@@ -8,7 +8,7 @@ import { openDebtDb } from './helpers/debt-db.mjs'
 const h = await openDebtDb()
 const {
   db, ids, reset, login, session, order, collect, rid, one, count, debt, customer, collectDebtBill, outstanding,
-  rpc, enableShift, openShift, closeShiftRow,
+  rpc, enableShift, openShift, closeShiftRow, report, sessionsBill, walletOrder,
 } = h
 after(async () => db.close())
 
@@ -456,4 +456,81 @@ test('sửa khách: p_kind NULL giữ loại cũ; kiểm tên / loại / ghi ch�
     assert.doesNotMatch(def, /Tên khách nợ quá dài/)
   }
   assert.equal((await one("SELECT has_function_privilege('authenticated', 'debt_customer_validate(text,text,text)', 'EXECUTE') v")).v, false)
+})
+
+// ============================================================
+// Task 3: báo cáo ngày (get_bills_report) và hoá đơn in (get_sessions_bill) đọc phần ghi nợ
+// ============================================================
+
+test('bất biến ngày: TM + CK + nợ + khác = doanh thu; thu nợ không là doanh thu', async () => {
+  const c = await customer()
+  const a = await session(); await order(a, 100000); await collect([a], [cash(100000)], null, rid())
+  const b = await session(); await order(b, 200000)
+  const rb = await collectDebtBill([b], [cash(50000), debt(150000)], null, rid(), { customerId: c })
+  const cc = await session(); await order(cc, 80000)
+  const rc = await collectDebtBill([cc], [debt(80000)], null, rid(), { customerId: c })
+  const d = await session(); await order(d, 70000); await collect([d], [bank(70000)], null, rid())
+  await walletOrder(20000)
+  await rpc(ids.cashier, 'debt_collect', [c, 100000, 'cash', null, null, rid()])
+  const r = await report()
+  assert.deepEqual([r.totals.cash, r.totals.bank, r.totals.debt, r.totals.other, r.totals.revenue], [150000, 70000, 230000, 20000, 470000])
+  assert.equal(r.totals.cash + r.totals.bank + r.totals.debt + r.totals.other, r.totals.revenue)
+  assert.deepEqual(r.debt_collections, { cash: 100000, bank: 0, count: 1 })
+  const billB = r.bills.find((x) => x.key === `P:${rb.payment_id}`)
+  const billC = r.bills.find((x) => x.key === `P:${rc.payment_id}`)
+  assert.deepEqual([billB.instrument, billC.instrument], ['mixed', 'debt'])
+  assert.deepEqual(billB.payments, [{ instrument: 'cash', amount: 50000 }, { instrument: 'debt', amount: 150000 }])
+  assert.deepEqual(billC.debt_customer, { id: c, name: 'Cty Hoà Bình' })
+  assert.equal(r.bills.find((x) => x.instrument === 'cash').debt_customer, null)
+})
+
+test('lần trả đã huỷ không vào debt_collections; ngày khác không vào', async () => {
+  const c = await customer(); const s = await session(); await order(s, 50000)
+  await collectDebtBill([s], [debt(50000)], null, rid(), { customerId: c })
+  const p = await rpc(ids.cashier, 'debt_collect', [c, 30000, 'bank', null, null, rid()])
+  await rpc(ids.owner, 'debt_payment_void', [p.debt_payment_id, 'nhầm'])
+  const q = await rpc(ids.cashier, 'debt_collect', [c, 20000, 'bank', null, null, rid()])
+  await db.query("UPDATE debt_payments SET business_date = business_date - 1 WHERE id = $1", [q.debt_payment_id])
+  assert.deepEqual((await report()).debt_collections, { cash: 0, bank: 0, count: 0 })
+})
+
+test('get_sessions_bill: bill có nợ trả dòng nợ và tên khách; bill thường tên khách null', async () => {
+  const c = await customer(); const s = await session(); await order(s, 300000)
+  await collectDebtBill([s], [cash(100000), bank(50000), debt(150000)], null, rid(), { customerId: c })
+  const b = await sessionsBill([s])
+  assert.deepEqual(b.payments.map((p) => p.instrument), ['cash', 'bank', 'debt'])
+  assert.equal(b.debt_customer_name, 'Cty Hoà Bình')
+  const t = await session(); await order(t, 1000); await collect([t], [cash(1000)], null, rid())
+  assert.equal((await sessionsBill([t])).debt_customer_name, null)
+})
+
+// ---- Thêm ngoài plan (Task 3) ----
+
+test('báo cáo: thứ tự khoản thu cash, bank, debt; nhánh already của collect_table_bill cùng thứ tự', async () => {
+  const c = await customer(); const s = await session(); await order(s, 300000); const id = rid()
+  const r1 = await collectDebtBill([s], [debt(100000), bank(100000), cash(100000)], null, id, { customerId: c })
+  const bill = (await report()).bills.find((x) => x.key === `P:${r1.payment_id}`)
+  assert.deepEqual(bill.payments.map((p) => p.instrument), ['cash', 'bank', 'debt'])
+  assert.equal(bill.instrument, 'mixed')
+  const again = await collectDebtBill([s], [debt(100000), bank(100000), cash(100000)], null, id, { customerId: c })
+  assert.deepEqual(again.lines.map((l) => l.instrument), ['cash', 'bank', 'debt'])
+})
+
+test('báo cáo: bất biến giữ khi có bill cũ (chưa có bill_payment_id) cạnh bill nợ', async () => {
+  const c = await customer()
+  await h.legacyPaidSession({ amount: 40000, instrument: 'bank' })
+  const s = await session(); await order(s, 60000)
+  await collectDebtBill([s], [debt(60000)], null, rid(), { customerId: c })
+  const t = (await report()).totals
+  assert.deepEqual([t.cash, t.bank, t.debt, t.other, t.revenue], [0, 40000, 60000, 0, 100000])
+})
+
+test('get_bills_report: WHERE của CTE money giữ nguyên văn (mig 117 chép vào report_paid_orders)', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const lf = (s) => s.replace(/\r\n/g, '\n')
+  const cut = (s) => { const t = lf(s); const i = t.indexOf('FROM public.orders o\n      LEFT JOIN public.table_sessions s'); return t.slice(i, t.indexOf('keyed AS (', i)) }
+  const before = cut(await readFile(new URL('./prod-defs/123/get_bills_report.sql', import.meta.url), 'utf8'))
+  const { def } = await one("SELECT pg_get_functiondef('public.get_bills_report(uuid,date)'::regprocedure) def")
+  assert.ok(before.includes('AND o.status <> \'cancelled\''))
+  assert.equal(cut(def), before)
 })
