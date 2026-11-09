@@ -63,15 +63,26 @@ còn hiệu lực; lần trả đã huỷ coi như chưa từng có.
 4. **Thứ tự với Vercel:** áp 123 trước hay sau khi Vercel lên code mới đều được: `collect_table_bill` mới có hai tham số
    mặc định NULL nên tab POS cũ (gọi 4 tham số) vẫn thu bình thường. Code mới mà DB chưa có 123 thì màn Công nợ báo lỗi —
    áp 123 xong mới deploy là gọn nhất.
-5. **Kiểm sau khi áp:** chạy SQL bất biến ở cuối file (phải 0 dòng) và
-   `SELECT has_function_privilege('anon', 'public.debt_collect(uuid,bigint,text,jsonb,text,uuid)', 'EXECUTE');` → `false`.
+5. **Áp ngoài giờ mở cửa:** 123 DROP rồi ADD lại hai ràng buộc CHECK (`bill_payment_lines_instrument_check`,
+   `orders_payment_instrument_check`) và DROP/CREATE `collect_table_bill` — ADD CHECK giữ khoá ACCESS EXCLUSIVE trên
+   `orders` / `bill_payment_lines` trong lúc quét bảng, mọi lần gọi món / thu tiền phải chờ.
+6. **Kiểm sau khi áp** (chỉ đọc):
+
+   ```sql
+   SELECT to_regprocedure('public.collect_table_bill(uuid[],jsonb,integer,uuid)') IS NULL AS ban_4_tham_so_da_drop,   -- true
+          has_function_privilege('authenticated', 'public.collect_table_bill(uuid[],jsonb,integer,uuid,uuid,jsonb)', 'EXECUTE') AS auth_goi_duoc, -- true
+          has_function_privilege('anon', 'public.collect_table_bill(uuid[],jsonb,integer,uuid,uuid,jsonb)', 'EXECUTE') AS anon_goi_duoc,         -- false
+          has_function_privilege('anon', 'public.debt_collect(uuid,bigint,text,jsonb,text,uuid)', 'EXECUTE') AS anon_thu_no;                       -- false
+   ```
+
+   rồi chạy SQL bất biến ở cuối file (phải 0 dòng).
 
 ### Còn hở đã biết
 
-- **Phiếu bàn giao ca in qua phần mềm in** (`/print/agent`, chế độ "Nhiều nơi") **chưa có dòng nợ** ("Ghi nợ trong ca",
-  "Thu nợ chuyển khoản"; "Thu nợ tiền mặt" vẫn có vì lấy từ số két). Trang agent hiện còn trả "Chưa hỗ trợ" cho
-  `shift_report`; khi QRIN Task 13 nối nhánh đó phải gọi thêm `get_debt_shift_summary` (controller đang theo dõi). In bằng
-  trình duyệt (`/print/shift-report`) đã đủ dòng.
+- **Phiếu bàn giao ca in qua phần mềm in** (`/print/agent`, chế độ "Nhiều nơi") đọc công nợ trong ca bằng JWT của người
+  tạo phiếu: cùng giới hạn như trang trình duyệt (chủ quán / quản lý, hoặc thu ngân đã mở / kết ca đó). Người tạo phiếu
+  không đủ quyền xem → phiếu vẫn in nhưng **không có** "Ghi nợ trong ca" / "Thu nợ chuyển khoản" ("Thu nợ tiền mặt" vẫn
+  có vì lấy từ số két).
 - **Bảng kê công nợ chỉ in bằng trình duyệt**, kể cả khi quán ở chế độ phần mềm in (`print_jobs` chưa có loại này).
 
 ## Trước khi test
@@ -95,6 +106,7 @@ còn hiệu lực; lần trả đã huỷ coi như chưa từng có.
 | 7 | — | | | ……… đ (CK) |
 | 9 | — | | | ……… đ (CK) |
 | 10 | Bàn 10 | ……… đ (TM) | | ……… đ (TM) |
+| 11 | — | | | ……… đ (TM, rồi huỷ) |
 | **Tổng** | | **……… đ** | **……… đ** | **……… đ** |
 
 ## Các bài
@@ -111,8 +123,8 @@ còn hiệu lực; lần trả đã huỷ coi như chưa từng có.
 | 8 | Thu quá số nợ | Nút khoá; nếu ép bằng hai tab thì server báo vượt |
 | 9 | Bật ca, chưa mở ca, thu nợ TM | "Chưa mở ca"; CK vẫn thu được |
 | 10 | Mở ca 500.000, thu bill TM 100.000, thu nợ TM 250.000, kết ca đếm 850.000 | Khớp; phiếu bàn giao có dòng thu nợ |
-| 11 | Quản lý huỷ lần thu nợ ở bài 6 (ca còn mở) | Nợ khôi phục; két giảm |
-| 12 | Huỷ lần thu nợ TM của ca đã kết | Báo ca đã kết |
+| 11 | Mở **ca mới** (sau bài 10), thu nợ TM 100.000 của một khách còn nợ; quản lý vào trang Công nợ **huỷ** lần thu đó (ghi lý do); kết ca | Nợ của khách khôi phục đúng 100.000; lần thu hiện gạch ngang kèm lý do; phiếu / màn kết ca: tiền dự kiến **không** gồm 100.000 đã huỷ (không có dòng "Thu nợ tiền mặt" nếu không còn lần thu TM nào) |
+| 12 | Huỷ lần thu nợ TM 250.000 ở **bài 10** (ca của nó đã kết) | Báo "Ca của lần thu này đã kết, không huỷ được"; nợ không đổi, phiếu ca bài 10 in lại vẫn y số cũ |
 | 13 | Thu ngân mở trang Công nợ | Thấy danh sách, Thu nợ được; không có Huỷ / Sửa / Ngừng |
 | 14 | A04 ngày có nợ: thẻ, chip Ghi nợ, Excel, In báo cáo cuối ngày | "Doanh thu"; TM + CK + Nợ + khác = Doanh thu; thu nợ tách riêng |
 | 15 | In lại hoá đơn bill bài 2 ở A04 | Dòng "Ghi nợ — <tên>" 700.000 |
@@ -124,7 +136,8 @@ còn hiệu lực; lần trả đã huỷ coi như chưa từng có.
 Ghi chú khi test:
 - Bài 2: bật "Ghi nợ phần còn lại" **không xoá số đã gõ** — ô tự điền bị xoá, phần thiếu thành nợ.
 - Bài 6–8, 11: trang Công nợ mở từ rail **Công nợ** (ngay sau Hoá đơn); bấm tên khách mở ngăn kéo.
-- Bài 10: phiếu bàn giao in bằng **trình duyệt** (xem "Còn hở đã biết").
+- Bài 10: phiếu bàn giao (in trình duyệt hoặc phần mềm in) có "Thu nợ tiền mặt 250.000" trong khối tiền mặt. Màn kết ca là "đếm trước, thấy sau": gõ 850.000 rồi mới thấy dự kiến / chênh lệch.
+- Bài 11, 12 làm **sau** bài 10; bài 6 thu nợ TM trước khi bật ca nên lần thu đó không gắn ca nào — không dùng nó cho bài huỷ.
 - Bài 14: Excel Hoá đơn có cột **Ghi nợ** riêng; cột **Khác** không bao giờ chứa nợ.
 
 ## SQL bất biến (controller, chỉ đọc — kết quả phải 0 dòng)
