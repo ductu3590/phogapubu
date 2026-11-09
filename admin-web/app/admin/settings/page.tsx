@@ -3,6 +3,8 @@ import SettingsClient from './settings-client'
 import WorkflowSettingsForm from './workflow-settings-form'
 import BellSettingsSection from './bell-settings-section'
 import BusinessDaySection from './business-day-section'
+import CashShiftSetting from './cash-shift-setting'
+import { loadCashShiftRequired } from '@/lib/actions/cash-shift-reads'
 import BankAccountSection from './bank-account-section'
 import PrintSettingsSection from './print-settings-section'
 import { parsePrintSettings } from '@/lib/print/print-settings'
@@ -25,7 +27,7 @@ export default async function SettingsPage() {
     .then(({ data, error }) => (error ? null : parsePrintSettings(data)))
     .catch(() => null)
 
-  const [{ data: store }, workflowSettings, businessDayStart, printSettings] = await Promise.all([
+  const [{ data: store }, workflowSettings, businessDayStart, printSettings, cashShiftRequired] = await Promise.all([
     supabase
       .from('stores')
       .select('name, logo_url, zalo_oa_url, address, google_maps_url, phone, about_text, takeaway_banner_url, wifi_name, wifi_password, delivery_area_note, terms_of_use, bell_style, bank_bin, bank_account_number, bank_account_name')
@@ -34,6 +36,7 @@ export default async function SettingsPage() {
     loadOwnerWorkflowSettings(),
     loadBusinessDayStart(storeId),
     printSettingsPromise,
+    loadCashShiftRequired(storeId),
   ])
 
   return (
@@ -73,6 +76,8 @@ export default async function SettingsPage() {
           </section>
 
           <BusinessDaySection initial={businessDayStart} />
+
+          <CashShiftSetting initial={cashShiftRequired} />
 
           <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
             <h2 className="mb-1 text-lg font-semibold text-foreground">Tài khoản nhận tiền</h2>

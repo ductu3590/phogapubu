@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { readAutoPrintConfig, readPrintStatus, readStoreBankAccount } from './pos-browser-reads'
+import {
+  readAutoPrintConfig,
+  readCashBookCategories,
+  readCashShiftReport,
+  readCashShiftState,
+  readPrintStatus,
+  readStoreBankAccount,
+} from './pos-browser-reads'
 
 type RpcOut = { data: unknown; error: { message: string } | null }
 function fakeClient(out: Record<string, RpcOut>) {
@@ -61,5 +68,39 @@ describe('readStoreBankAccount', () => {
   it('lỗi đọc hoặc không có dòng: {ok:false}', async () => {
     expect((await readStoreBankAccount(client({ data: null, error: { message: 'x' } }), 's1')).ok).toBe(false)
     expect((await readStoreBankAccount(client({ data: null, error: null }), 's1')).ok).toBe(false)
+  })
+})
+
+describe('đọc ca + sổ thu chi (mig 122)', () => {
+  it('readCashShiftState: gọi get_open_cash_shift theo quán, parse; lỗi → {ok:false}', async () => {
+    const calls: unknown[] = []
+    const client = { rpc: async (name: string, args: unknown) => { calls.push([name, args]); return { data: { required: true, can_manage_entries: false, shift: null }, error: null } } } as never
+    expect(await readCashShiftState(client, 's1')).toEqual({ ok: true, state: { required: true, canManageEntries: false, shift: null } })
+    expect(calls).toEqual([['get_open_cash_shift', { p_store_id: 's1' }]])
+    expect(await readCashShiftState(fakeClient({ get_open_cash_shift: { data: null, error: { message: 'Chưa mở ca' } } }), 's1'))
+      .toEqual({ ok: false, error: 'Chưa mở ca' })
+  })
+  it('readCashShiftReport: rác → {ok:false}', async () => {
+    const r = await readCashShiftReport(fakeClient({ get_cash_shift_report: { data: { id: 'x' }, error: null } }), 'sh')
+    expect(r).toEqual({ ok: false, error: 'Không đọc được ca' })
+    const e = await readCashShiftReport(fakeClient({ get_cash_shift_report: { data: null, error: { message: 'Không có quyền xem ca này' } } }), 'sh')
+    expect(e).toEqual({ ok: false, error: 'Không có quyền xem ca này' })
+  })
+  it('readCashBookCategories: chỉ danh mục đang dùng của đúng quán, sắp theo loại + thứ tự', async () => {
+    const steps: unknown[] = []
+    const rows = [{ id: 'c1', kind: 'payment', name: 'Đá', report_group: 'operating_expense', is_system: false, is_active: true, requires_note: false, sort_order: 40 }]
+    const q = {
+      select: (...a: unknown[]) => { steps.push(['select', ...a]); return q },
+      eq: (...a: unknown[]) => { steps.push(['eq', ...a]); return q },
+      order: (...a: unknown[]) => { steps.push(['order', ...a]); return q },
+      then: (resolve: (v: unknown) => void) => resolve({ data: rows, error: null }),
+    }
+    const client = { from: (t: string) => { steps.push(['from', t]); return q } } as never
+    const r = await readCashBookCategories(client, 's1')
+    expect(r).toEqual({ ok: true, categories: [{ id: 'c1', kind: 'payment', name: 'Đá', reportGroup: 'operating_expense', isSystem: false, isActive: true, requiresNote: false, sortOrder: 40 }] })
+    expect(steps).toContainEqual(['from', 'cash_book_categories'])
+    expect(steps).toContainEqual(['eq', 'store_id', 's1'])
+    expect(steps).toContainEqual(['eq', 'is_active', true])
+    expect(steps.filter((s) => (s as unknown[])[0] === 'order').map((s) => (s as unknown[])[1])).toEqual(['kind', 'sort_order'])
   })
 })

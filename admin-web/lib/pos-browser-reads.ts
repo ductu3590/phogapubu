@@ -15,6 +15,8 @@ import type { ReservationCustomerCallTask } from '@/lib/actions/reservation-cust
 import type { BankAccountFields } from '@/lib/vietqr'
 import type { PrintRequest } from '@/lib/print/print-request'
 import type { AutoPrintConfig } from '@/lib/print/auto-kitchen-print'
+import { parseCashShiftReport, parseCashShiftState, type CashShiftReport, type CashShiftState } from '@/lib/cash-shift'
+import { CASH_BOOK_CATEGORY_COLUMNS, parseCashBookCategories, type CashBookCategory } from '@/lib/cash-book'
 import { toCustomerCallTask, toPreorderRow, toReservationRow, type PreorderRpcRow, type ReservationRpcRow } from './reservation-rows'
 
 type BrowserClient = ReturnType<typeof createClient>
@@ -171,4 +173,41 @@ export async function readAutoPrintConfig(client: BrowserClient, storeId: string
     ok: true,
     config: { mode: mode.data, kitchenReleasePolicy: kitchen, staffOrderReleasePolicy: staff, paymentTiming: timing },
   }
+}
+
+// ---------------------------------------------------------------------------
+// Ca thu ngân + sổ thu chi (mig 122). Đọc từ trình duyệt như mọi đọc POS khác (không poll qua server action).
+// get_open_cash_shift / get_cash_shift_report tự kiểm quyền; ca đang mở không có tiền bán / dự kiến (server không trả).
+// ---------------------------------------------------------------------------
+export async function readCashShiftState(client: BrowserClient, storeId: string): Promise<
+  { ok: true; state: CashShiftState } | { ok: false; error: string }
+> {
+  const { data, error } = await client.rpc('get_open_cash_shift', { p_store_id: storeId })
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, state: parseCashShiftState(data) }
+}
+
+export async function readCashShiftReport(client: BrowserClient, shiftId: string): Promise<
+  { ok: true; report: CashShiftReport } | { ok: false; error: string }
+> {
+  const { data, error } = await client.rpc('get_cash_shift_report', { p_shift_id: shiftId })
+  if (error) return { ok: false, error: error.message }
+  const report = parseCashShiftReport(data)
+  if (!report) return { ok: false, error: 'Không đọc được ca' }
+  return { ok: true, report }
+}
+
+/** Danh mục đang dùng cho hộp Thu/Chi két (RLS: ai có quyền POS của đúng quán). */
+export async function readCashBookCategories(client: BrowserClient, storeId: string): Promise<
+  { ok: true; categories: CashBookCategory[] } | { ok: false; error: string }
+> {
+  const { data, error } = await client
+    .from('cash_book_categories')
+    .select(CASH_BOOK_CATEGORY_COLUMNS)
+    .eq('store_id', storeId)
+    .eq('is_active', true)
+    .order('kind')
+    .order('sort_order')
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, categories: parseCashBookCategories(data) }
 }
