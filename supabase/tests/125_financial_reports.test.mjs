@@ -194,6 +194,15 @@ test('migration: chỉ CREATE FUNCTION hàm mới, không ghi "rerun-safe", hàm
 const P = ['2026-12-01', '2026-12-03']
 const cogsStub = (o) => ({ items: [], goods_cogs: 520000, ingredient_cogs: 900000, writeoff_cost: 60000,
   ingredient_uncounted: false, missing_cost_items: 0, ...o })
+// Stub inventory_cogs chỉ sống trong fn: lỗi giữa chừng vẫn nạp lại bản 118, không lây sang test sau.
+async function withCogs(stub, fn) {
+  await h.stubCogs(stub)
+  try {
+    return await fn()
+  } finally {
+    await h.restoreCogs()
+  }
+}
 
 test('thu chi: hai quỹ, ghi nợ không là tiền vào, phiếu huỷ không tính', async () => {
   const r = await rpc('report_cash_flow', s1, ...P)
@@ -226,8 +235,7 @@ test('thu chi: kỳ không có ví thì không có dòng "Thu qua ví"; ghi nợ
 })
 
 test('lãi lỗ với số cụ thể', async () => {
-  await h.stubCogs(cogsStub())
-  const p = await rpc('report_profit_loss', s1, ...P)
+  const p = await withCogs(cogsStub(), () => rpc('report_profit_loss', s1, ...P))
   assert.deepEqual([p.from, p.to], P)
   // Doanh thu 3.470.000 (gồm ví 120.000) − giá vốn 1.420.000 − chi phí 800.000 − hao hụt 60.000 + thu khác 50.000.
   assert.deepEqual([p.revenue, p.cogs_goods, p.cogs_ingredient, p.cogs_total, p.gross_profit, p.operating_expenses.total,
@@ -244,31 +252,28 @@ test('lãi lỗ với số cụ thể', async () => {
 
 test('nguyên liệu chưa kiểm kho: không tính giá vốn nguyên liệu, có cảnh báo; không cộng lại các dòng items', async () => {
   // items của nguyên liệu vẫn mang cogs riêng (hợp đồng KHO) — báo cáo đọc tổng, không cộng dòng.
-  await h.stubCogs(cogsStub({
+  const p = await withCogs(cogsStub({
     ingredient_uncounted: true, ingredient_cogs: 0,
     items: [{ inventory_item_id: '00000000-0000-0000-0000-0000000000a3', name: 'Thịt bò', kind: 'ingredient', cogs: 777000, missing_cost: false }],
-  }))
-  const p = await rpc('report_profit_loss', s1, ...P)
+  }), () => rpc('report_profit_loss', s1, ...P))
   assert.deepEqual([p.cogs_ingredient, p.cogs_total, p.net_profit, p.warnings.ingredient_uncounted], [0, 520000, 2140000, true])
   // Kể cả khi inventory_cogs lỡ trả ingredient_cogs khác 0 mà vẫn đánh dấu chưa kiểm: lãi lỗ vẫn tính 0.
-  await h.stubCogs(cogsStub({ ingredient_uncounted: true }))
-  assert.equal((await rpc('report_profit_loss', s1, ...P)).cogs_ingredient, 0)
+  const q = await withCogs(cogsStub({ ingredient_uncounted: true }), () => rpc('report_profit_loss', s1, ...P))
+  assert.equal(q.cogs_ingredient, 0)
 })
 
 test('hàng thiếu giá nhập được liệt kê', async () => {
-  await h.stubCogs(cogsStub({
+  const p = await withCogs(cogsStub({
     missing_cost_items: 1,
     items: [
       { inventory_item_id: '00000000-0000-0000-0000-0000000000a1', name: 'Đá viên', kind: 'ingredient', cogs: 0, missing_cost: true },
       { inventory_item_id: '00000000-0000-0000-0000-0000000000a2', name: 'Bia lon', kind: 'goods', cogs: 520000, missing_cost: false },
     ],
-  }))
-  const p = await rpc('report_profit_loss', s1, ...P)
+  }), () => rpc('report_profit_loss', s1, ...P))
   assert.deepEqual(p.warnings.missing_cost_items, [{ inventory_item_id: '00000000-0000-0000-0000-0000000000a1', name: 'Đá viên' }])
 })
 
 test('tích hợp mig 118 thật: cogs_goods + cogs_ingredient khớp inventory_cogs cùng kỳ', async () => {
-  await h.restoreCogs()
   const { db, rid } = h
   const item = rid()
   const doc = rid()
@@ -303,8 +308,7 @@ test('tích hợp mig 118 thật: cogs_goods + cogs_ingredient khớp inventory_
 })
 
 test('quyền: thu ngân, phục vụ, superadmin, chủ quán khác bị chặn cả hai RPC; kỳ sai bị chặn', async () => {
-  await h.stubCogs(cogsStub())
-  try {
+  await withCogs(cogsStub(), async () => {
     for (const fn of ['report_cash_flow', 'report_profit_loss']) {
       assert.ok(await rpcAs(ids.manager, fn, s1, ...P), `${fn} quản lý`)
       for (const uid of [ids.cashier, ids.staff, ids.admin, ids.otherOwner]) {
@@ -315,7 +319,5 @@ test('quyền: thu ngân, phục vụ, superadmin, chủ quán khác bị chặn
       const ok = (await h.one("SELECT has_function_privilege('anon', $1, 'EXECUTE') AS ok", [`public.${fn}(uuid,date,date)`])).ok
       assert.equal(ok, false, fn)
     }
-  } finally {
-    await h.restoreCogs()
-  }
+  })
 })
