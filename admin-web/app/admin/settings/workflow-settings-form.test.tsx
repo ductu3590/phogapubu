@@ -46,21 +46,6 @@ describe('WorkflowSettingsForm', () => {
     expect(html).toContain('Bạn đang cấu hình thay mặt quán')
   })
 
-  it('printMode agent: hai ô policy bị khoá kèm lời giải thích', () => {
-    const html = renderToStaticMarkup(
-      createElement(WorkflowSettingsForm, {
-        initial: { ...PUBU_PRESET, kitchenReleasePolicy: 'pos_confirmation', staffOrderReleasePolicy: 'pos_confirmation' },
-        context: 'owner',
-        printMode: 'agent',
-        onSave: vi.fn(async () => undefined),
-      }),
-    )
-    expect(html).toContain('Đang dùng phần mềm in, phải giữ thu ngân xác nhận')
-    const selects = html.match(/<select[^>]*>/g) ?? []
-    const policySelects = selects.filter((tag) => /disabled=""/.test(tag))
-    expect(policySelects.length).toBeGreaterThanOrEqual(2)
-  })
-
   it('không có printMode: ô policy không bị khoá, không có lời giải thích', () => {
     const html = renderToStaticMarkup(
       createElement(WorkflowSettingsForm, { initial: PUBU_PRESET, context: 'owner', onSave: vi.fn(async () => undefined) }),
@@ -68,16 +53,11 @@ describe('WorkflowSettingsForm', () => {
     expect(html).not.toContain('Đang dùng phần mềm in')
   })
 
-  it('printMode agent mà initial còn automatic: ô policy hiện pos_confirmation (đồng bộ draft), không để automatic đi vào lúc lưu', () => {
-    const html = renderToStaticMarkup(
-      createElement(WorkflowSettingsForm, {
-        initial: { ...PUBU_PRESET, kitchenReleasePolicy: 'automatic', staffOrderReleasePolicy: 'automatic' },
-        context: 'owner',
-        printMode: 'agent',
-        onSave: vi.fn(async () => undefined),
-      }),
-    )
-    expect(html).not.toMatch(/<option value="automatic" selected/)
-    expect((html.match(/<option value="pos_confirmation" selected/g) ?? []).length).toBeGreaterThanOrEqual(2)
+  it('quán automatic: hai ô policy không bị khoá', () => {
+    const html = renderToStaticMarkup(createElement(WorkflowSettingsForm, {
+      initial: { ...PUBU_PRESET, kitchenReleasePolicy: 'automatic', staffOrderReleasePolicy: 'automatic' },
+      context: 'owner', onSave: vi.fn(async () => undefined) }))
+    expect((html.match(/<option value="automatic" selected/g) ?? []).length).toBe(2)
+    expect(html).not.toContain('Đang dùng phần mềm in')
   })
 })

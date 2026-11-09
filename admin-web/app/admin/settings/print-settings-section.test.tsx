@@ -65,10 +65,17 @@ describe('PrintSettingsSection', () => {
     expect((html.match(/>Xoá</g) ?? []).length).toBe(1)
   })
 
-  it('policy automatic: nút Nhiều nơi bị khoá kèm giải thích', () => {
+  it('policy automatic, đang browser: Nhiều nơi chọn được', () => {
     const html = render({ ...base, kitchen_release_policy: 'automatic' })
-    expect(html).toMatch(/<input(?=[^>]*value="agent")(?=[^>]*disabled="")[^>]*>/)
-    expect(html).toContain('Chờ POS xác nhận')
+    expect(html).not.toMatch(/<input(?=[^>]*value="agent")(?=[^>]*disabled="")[^>]*>/)
+  })
+
+  it('agent + một policy automatic: có ghi chú giữ POS mở', () => {
+    expect(render({ ...agentSettings, staff_order_release_policy: 'automatic' })).toContain('chỉ in khi màn POS đang mở ở quầy')
+  })
+
+  it('agent + cả hai pos_confirmation: không có ghi chú', () => {
+    expect(render(agentSettings)).not.toContain('chỉ in khi màn POS đang mở')
   })
 
   it('cả hai policy pos_confirmation: Nhiều nơi chọn được', () => {

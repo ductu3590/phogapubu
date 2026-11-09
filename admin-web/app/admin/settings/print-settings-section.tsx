@@ -15,7 +15,7 @@ import {
   savePrintMode,
   savePrintStation,
 } from '@/lib/actions/print-settings'
-import { canUseAgentMode, printerNames, type PrintSettings, type PrintStation } from '@/lib/print/print-settings'
+import { printerNames, type PrintSettings, type PrintStation } from '@/lib/print/print-settings'
 import { cn } from '@/lib/utils'
 
 const POLL_MS = 5000
@@ -60,7 +60,9 @@ function PrintSettingsBody({ storeId, settings }: { storeId: string; settings: P
   const [confirm, setConfirm] = useState<null | { kind: 'revoke' } | { kind: 'delete'; station: PrintStation }>(null)
 
   const agentMode = settings.mode === 'agent'
-  const agentAllowed = canUseAgentMode(settings)
+  // Còn đơn vào bếp tự động thì phiếu bếp chỉ ra khi POS đang mở (đường in tự động nằm ở POS)
+  const hasAutoRelease =
+    settings.kitchen_release_policy === 'automatic' || settings.staff_order_release_policy === 'automatic'
 
   // Chạy một action rồi làm mới dữ liệu máy chủ. Mọi lỗi hiện tại chỗ; không ném.
   // always: chạy dù thành công hay lỗi (vd. đóng hộp xác nhận để lỗi không nằm dưới lớp phủ).
@@ -95,17 +97,19 @@ function PrintSettingsBody({ storeId, settings }: { storeId: string; settings: P
         />
         <ModeOption
           checked={agentMode}
-          disabled={pending || (!agentAllowed && !agentMode)}
+          disabled={pending}
           value="agent"
           title="Nhiều nơi (qua phần mềm in)"
-          hint={
-            !agentAllowed && !agentMode
-              ? 'Cần đặt cả “Đơn khách xuống bếp” và “Đơn nhân viên xuống bếp” là “Chờ POS xác nhận” ở mục Quy trình vận hành bên dưới.'
-              : 'Phiếu bếp ra máy in bếp, phiếu quầy ra máy in quầy, qua phần mềm in cài ở quầy.'
-          }
+          hint="Phiếu bếp ra máy in bếp, phiếu quầy ra máy in quầy, qua phần mềm in cài ở quầy."
           onSelect={() => run(() => savePrintMode('agent'))}
         />
       </fieldset>
+
+      {agentMode && hasAutoRelease && (
+        <p className="text-sm text-muted">
+          Có đơn vào bếp tự động: phiếu bếp của các đơn này chỉ in khi màn POS đang mở ở quầy.
+        </p>
+      )}
 
       {error && <p role="status" className="text-sm text-red-600">{error}</p>}
       {notice && <p role="status" className="text-sm text-green-700">{notice}</p>}

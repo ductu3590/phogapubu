@@ -95,7 +95,6 @@ export default async function SettingsPage() {
               key={storeId}
               initial={workflowSettings}
               context="owner"
-              printMode={printSettings?.mode}
               onSave={saveOwnerWorkflowSettings}
             />
           </section>
