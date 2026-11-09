@@ -486,7 +486,7 @@ test('B9 liên kết theo thời gian: đơn tạo trước khi gắn món khôn
   assert.deepEqual(lines, [1, 2, 2])
 })
 
-test('B10 inventory_sales_qty khớp tổng inventory_sales_lines; anon và authenticated không EXECUTE được 4 hàm nội bộ', async () => {
+test('B10 inventory_sales_qty khớp tổng inventory_sales_lines; anon và authenticated không EXECUTE được 6 hàm nội bộ', async () => {
   const sum = async (sql) => Object.fromEntries((await db.query(sql, [s1])).rows.map((r) => [r.inventory_item_id, Number(r.qty)]))
   const fromQty = await sum(`SELECT inventory_item_id, qty FROM inventory_sales_qty($1, '-infinity', 'infinity')`)
   const fromLines = await sum(`SELECT inventory_item_id, sum(qty) AS qty FROM inventory_sales_lines($1, '-infinity', 'infinity')
@@ -501,7 +501,8 @@ test('B10 inventory_sales_qty khớp tổng inventory_sales_lines; anon và auth
   const priv = async (role, fn) =>
     (await db.query(`SELECT has_function_privilege($1, $2, 'EXECUTE') AS ok`, [role, fn])).rows[0].ok
   for (const fn of ['inventory_sales_lines(uuid,timestamptz,timestamptz)', 'inventory_sales_qty(uuid,timestamptz,timestamptz)',
-    'inventory_stock_at(uuid,timestamptz)', 'inventory_next_doc_no(uuid,text)']) {
+    'inventory_stock_at(uuid,timestamptz)', 'inventory_next_doc_no(uuid,text)', 'inventory_json_numeric(jsonb)',
+    'inventory_document_json(uuid)']) {
     assert.equal(await priv('anon', fn), false, `anon gọi được ${fn}`)
     assert.equal(await priv('authenticated', fn), false, `authenticated gọi được ${fn}`)
   }
