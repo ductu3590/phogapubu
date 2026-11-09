@@ -105,7 +105,7 @@ Bốn tab: **Theo món**, **Theo danh mục**, **Theo giờ**, **Món huỷ**. K
 2. Chỉ thấy 4 tab bán hàng.
 3. Gõ tay `/admin/reports?tab=pnl` trên thanh địa chỉ: trang về tab **Theo món**, không báo lỗi.
 4. Xuất Excel được.
-5. Lặp lại bước 1–4 bằng tài khoản **quản lý**: kết quả giống hệt. Phần báo cáo tài chính thuộc Part 2, chưa có.
+5. Lặp lại bước 1–4 bằng tài khoản **quản lý**: kết quả giống hệt (4 tab tài chính: xem Part 2, bài 6–7).
 
 ## Bài 11. Hộp thoại và trang đầy đủ
 
@@ -113,3 +113,93 @@ Bốn tab: **Theo món**, **Theo danh mục**, **Theo giờ**, **Món huỷ**. K
 2. Trong hộp thoại, đổi kỳ: số đổi theo và **không** bật thêm hộp thoại thứ hai chồng lên.
 3. Trong hộp thoại, chọn **Tuỳ chọn**, xem một khoảng, rồi bấm **Hôm nay**, rồi lại bấm **Tuỳ chọn**: hai ô ngày phải hiện **kỳ đang xem**, không giữ ngày cũ.
 4. Bấm **F5**: ra trang đầy đủ (không còn POS phía sau). Đổi kỳ, đổi tab vẫn đúng, không bật hộp thoại.
+
+# Part 2 — Tài chính (mig 125)
+
+Bốn tab chỉ chủ quán và quản lý thấy: **Doanh thu**, **Thu chi**, **Lãi lỗ**, **Công nợ**. Thu ngân không thấy, gõ tay
+URL cũng bị chặn (trang về Theo món, file Excel báo 403). Số doanh thu mỗi ngày dùng CHUNG hàm với Hoá đơn (A04).
+
+## Deploy (controller làm, không phải việc của agent code)
+
+Thứ tự migration trên prod (mỗi bước xong mới sang bước sau):
+
+1. 111 (đã áp) → 112a → **deploy Vercel** (code thu tiền mới) → nhờ quán tải lại POS → 112b → 116 → 117 → 118 → 122 + 122b → 123 → **125**.
+2. Trước khi áp 125: kiểm prod đã có đủ 112a, 116, 117, 118, 122, 122b, 123 và **chưa** có `report_day_totals`:
+   `select to_regprocedure('public.report_paid_orders(uuid,timestamptz,timestamptz)'), to_regprocedure('public.report_day_totals(uuid,timestamptz,timestamptz)');`
+   (cái đầu có, cái sau `null`).
+3. So byte `pg_get_functiondef('public.get_bills_report(uuid,date)')` trên prod với
+   `supabase/tests/prod-defs/125/get_bills_report.sql`, **kể cả byte CR**: lấy bản prod dạng base64
+   (`select encode(convert_to(pg_get_functiondef('public.get_bills_report(uuid,date)'::regprocedure), 'UTF8'), 'base64')`)
+   rồi so với file (đọc file ở dạng LF, đúng như `git show`). Khác bất kỳ chỗ nào thì **dừng**: hai neo vá và thân
+   `report_day_totals` phải dựng lại từ bản prod.
+4. Ghi lại `get_bills_report(<quán>, hôm qua)` (và một ngày có bill nợ nếu có) TRƯỚC khi áp.
+5. Áp `125_financial_reports.sql` **ngoài giờ mở cửa**, từ nội dung LF nguyên văn (`git show <commit>:supabase/migrations/125_financial_reports.sql`),
+   không lược comment, không gộp dòng.
+6. Kiểm SAU khi áp: `get_bills_report` cùng ngày ra y như bước 4, `totals` chỉ thêm khoá `discount_total`;
+   `report_revenue_series(<quán>, hôm qua, hôm qua, 'day')` ra cùng revenue / cash / bank / debt / other / bills_count.
+   (Gọi với `set local request.jwt.claim.sub = '<uid chủ quán>'` trong cùng transaction nếu chạy ở SQL editor.)
+7. Deploy Vercel (code 4 tab tài chính). Trang mới gặp DB chưa áp 125 chỉ báo "Không tải được báo cáo".
+
+## Trước khi test
+
+- Chạy trên quán thử sau khi đã có **2–3 ngày dữ liệu thật**: thu kết hợp TM + CK, ghi nợ, trả nợ, phiếu thu chi, nhập
+  kho và kiểm kho.
+- Ba tài khoản: chủ quán, quản lý, thu ngân.
+
+## Bài 1. Doanh thu chế độ Ngày
+
+1. Tab **Doanh thu**, nút **Ngày**, chọn kỳ có 2–3 ngày dữ liệu.
+2. Từng ngày: **Doanh thu**, **Tiền mặt**, **Chuyển khoản**, **Ghi nợ** bằng đúng **Tổng thực thu** và TM / CK / Nợ trên trang
+   **Hoá đơn** ngày đó.
+3. Ngày không bán vẫn có dòng 0đ. Dòng **Tổng** = cộng các ngày. **TB/bill** = Doanh thu ÷ Số bill (làm tròn đồng).
+
+## Bài 2. Doanh thu chế độ Tháng
+
+1. Bấm **Tháng**: có **12 dòng tháng**, tháng cuối là tháng của ngày "Đến".
+2. Nhãn **Kỳ** đầu trang đổi thành 12 tháng thật (ví dụ `01/01 – 31/12/2026`), không phải kỳ đang chọn.
+3. Tháng này = cộng các ngày của tháng (xem lại bằng chế độ Ngày, kỳ Tháng này).
+
+## Bài 3. Thu chi
+
+1. Tab **Thu chi**, kỳ có ca đã chốt.
+2. **Tiền mặt vào** gồm: tiền mặt của bill, **trả nợ bằng tiền mặt**, các **phiếu thu** tiền mặt (vd. Nộp thêm vào két).
+   **Tiền mặt ra** gồm các phiếu chi tiền mặt, kể cả **Nhập hàng** trả tiền mặt (phiếu chi tự sinh từ phiếu nhập kho, mig 122b).
+3. Tiền mặt vào − ra khớp **chênh lệch két** các ca trong kỳ (không tính tiền đầu ca).
+4. Bill ghi nợ **không** có trong Tiền vào (chỉ khi khách trả nợ mới vào). Phiếu đã huỷ **không** có.
+5. Có thu qua ví: thẻ quỹ ghi **"Ngân hàng / ví"** và có dòng "Tiền ví về tài khoản ngân hàng khi đối soát".
+
+## Bài 4. Lãi lỗ
+
+1. Kỳ có nhập kho nhưng **chưa kiểm kho cuối kỳ**: có banner vàng **"Giá vốn nguyên liệu chưa tính — cần kiểm kho"**,
+   dòng Nguyên liệu = 0đ.
+2. Kiểm kho cuối kỳ rồi xem lại: banner mất, giá vốn nguyên liệu có số.
+3. Khối xám **"Không tính vào lãi lỗ"** có **Nhập hàng**, **Chủ quán rút**, **Chuyển quỹ (tổng phiếu, không tính)**; các
+   khoản này **không** trừ vào lãi.
+4. Bấm **Chi phí hoạt động**: xổ ra từng danh mục, cộng đúng tổng. Lãi ròng âm thì tô đỏ.
+
+## Bài 5. Công nợ
+
+1. Một khách vừa trả **một phần** trong kỳ: **Nợ đầu kỳ + Phát sinh − Đã thu = Nợ cuối kỳ**.
+2. Huỷ lần trả đó (ở trang Công nợ) rồi xem lại báo cáo: Đã thu giảm, Nợ cuối kỳ tăng lại đúng số đã huỷ — kể cả khi
+   xem kỳ cũ.
+3. Ba ô tuổi nợ (0–7, 8–30, trên 30 ngày) cộng lại = Nợ cuối kỳ.
+4. Bấm tên khách: mở trang **Công nợ** đúng khách đó.
+
+## Bài 6. Thu ngân
+
+1. Không thấy 4 tab tài chính.
+2. Gõ tay `/admin/reports?tab=pnl`: trang về **Theo món**, không báo lỗi.
+3. Gõ tay `/admin/reports/export?tab=pnl`: trình duyệt báo **"Không có quyền xem báo cáo tài chính"** (không tải về file Theo món).
+
+## Bài 7. Quản lý
+
+1. Thấy đủ **8 tab**, số giống tài khoản chủ quán.
+
+## Bài 8. Xuất Excel 4 tab
+
+1. Ở từng tab tài chính, bấm **Xuất Excel**. Mở file: số bằng màn hình, cột tiền cộng được (là số), số âm là số âm.
+2. Doanh thu chế độ Tháng: dòng **Kỳ** trong file là 12 tháng thật, có dòng **Chế độ: Tháng**.
+
+## Bài 9. Điện thoại 375px
+
+1. Mở 4 tab trên điện thoại (hoặc DevTools 375px): không cuộn ngang, bảng thành thẻ, biểu đồ doanh thu vừa khung.
