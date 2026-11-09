@@ -11,6 +11,8 @@ import {
   buildBillRows,
   businessDayRangeLabel,
   chipCounts,
+  debtChipVisible,
+  effectiveChip,
   filterBillRows,
   paginate,
   revenueLabel,
@@ -62,14 +64,17 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
 
   const rows = useMemo(() => buildBillRows(report), [report])
   const counts = useMemo(() => chipCounts(rows), [rows])
-  const visible = useMemo(() => filterBillRows(rows, chip, query), [rows, chip, query])
+  const showDebt = report.totals.debt > 0 || report.debtCollections.count > 0
+  const showDebtChip = debtChipVisible(report, counts)
+  // Đang ở chip Ghi nợ mà đổi sang ngày không nợ: chip biến mất → lọc như Tất cả.
+  const activeChip = effectiveChip(chip, showDebtChip)
+  const visible = useMemo(() => filterBillRows(rows, activeChip, query), [rows, activeChip, query])
   const paged = paginate(visible, page)
   const expiredDebt = report.waiting.filter((w) => w.expired)
   // Giữ theo KEY (không giữ object): sau router.refresh dòng được dựng lại, ngăn kéo vẫn bám đúng dòng.
   const openRow = openKey ? rows.find((r) => r.key === openKey) ?? null : null
 
   const rangeLabel = businessDayRangeLabel(report)
-  const showDebt = report.totals.debt > 0 || report.debtCollections.count > 0
 
   const pickChip = (id: BillChip) => { setChip(id); setPage(1) }
 
@@ -128,21 +133,21 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
       <div className="flex flex-col gap-3 @3xl:flex-row @3xl:items-center @3xl:justify-between">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Lọc hoá đơn">
           {/* Chip Ghi nợ chỉ hiện ở quán / ngày có nợ: quán không dùng công nợ giữ nguyên giao diện cũ. */}
-          {CHIPS.filter((c) => c.id !== 'debt' || showDebt || counts.debt > 0).map((c) => (
+          {CHIPS.filter((c) => c.id !== 'debt' || showDebtChip).map((c) => (
             <button
               key={c.id}
               type="button"
               role="tab"
-              aria-selected={chip === c.id}
+              aria-selected={activeChip === c.id}
               onClick={() => pickChip(c.id)}
               className={cn(
                 'inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors',
-                chip === c.id ? 'border-primary bg-primary text-white' : 'border-border bg-surface text-foreground hover:bg-item-hover',
+                activeChip === c.id ? 'border-primary bg-primary text-white' : 'border-border bg-surface text-foreground hover:bg-item-hover',
               )}
             >
               {c.label}
               <span className={cn('rounded-md px-1.5 py-0.5 text-xs font-semibold tabular',
-                chip === c.id ? 'bg-white/20 text-white' : 'bg-secondary text-muted')}>
+                activeChip === c.id ? 'bg-white/20 text-white' : 'bg-secondary text-muted')}>
                 {counts[c.id]}
               </span>
             </button>

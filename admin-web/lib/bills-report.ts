@@ -285,6 +285,15 @@ function inChip(row: BillRow, chip: BillChip): boolean {
   return row.kind === 'cancelled' || (row.kind === 'paid' && row.adjusted)
 }
 
+/** Chip Ghi nợ chỉ hiện ở ngày có nợ / thu nợ / bill nợ (quán không dùng công nợ giữ giao diện cũ). */
+export function debtChipVisible(report: Pick<BillsReport, 'totals' | 'debtCollections'>, counts: Pick<Record<BillChip, number>, 'debt'>): boolean {
+  return report.totals.debt > 0 || report.debtCollections.count > 0 || counts.debt > 0
+}
+
+/** Chip đang chọn có thể biến mất (đổi sang ngày không có nợ khi đang ở Ghi nợ) → về Tất cả, không lọc ra bảng rỗng. */
+export function effectiveChip(chip: BillChip, debtVisible: boolean): BillChip {
+  return chip === 'debt' && !debtVisible ? 'all' : chip
+}
 export function chipCounts(rows: BillRow[]): Record<BillChip, number> {
   return {
     all: rows.length,

@@ -3,6 +3,8 @@ import {
   billCashBank,
   billDebtAmount,
   billPaymentParts,
+  debtChipVisible,
+  effectiveChip,
   revenueLabel,
   billCode,
   billInstrumentLabel,
@@ -353,5 +355,20 @@ describe('công nợ (mig 123)', () => {
   it('revenueLabel', () => {
     expect(revenueLabel({ revenue: 1, cash: 1, bank: 0, debt: 0, other: 0, billsCount: 1 })).toBe('Tổng thực thu')
     expect(revenueLabel({ revenue: 2, cash: 1, bank: 0, debt: 1, other: 0, billsCount: 1 })).toBe('Doanh thu')
+  })
+})
+
+describe('chip Ghi nợ biến mất (đổi ngày)', () => {
+  it('đang ở Ghi nợ mà ngày mới không có nợ → về Tất cả; chip khác giữ nguyên', () => {
+    expect(effectiveChip('debt', false)).toBe('all')
+    expect(effectiveChip('debt', true)).toBe('debt')
+    expect(effectiveChip('waiting', false)).toBe('waiting')
+  })
+  it('debtChipVisible: có nợ / có thu nợ / có bill nợ', () => {
+    const none = parseBillsReport({})
+    expect(debtChipVisible(none, { debt: 0 })).toBe(false)
+    expect(debtChipVisible({ ...none, totals: { ...none.totals, debt: 1 } }, { debt: 0 })).toBe(true)
+    expect(debtChipVisible({ ...none, debtCollections: { cash: 0, bank: 1, count: 1 } }, { debt: 0 })).toBe(true)
+    expect(debtChipVisible(none, { debt: 1 })).toBe(true)
   })
 })
