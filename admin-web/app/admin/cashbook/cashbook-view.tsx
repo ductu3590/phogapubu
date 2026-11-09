@@ -10,7 +10,7 @@ import { Select } from '@/components/ui/field'
 import { Tabs } from '@/components/ui/tabs'
 import { voidCashBookEntry } from '@/lib/actions/cash-book'
 import {
-  filtersToSearch, type CashBookCategory, type CashBookEntry, type CashBookKind, type CashBookMethod, type CashBookTotals,
+  cashEntryVoidable, filtersToSearch, type CashBookCategory, type CashBookEntry, type CashBookKind, type CashBookMethod, type CashBookTotals,
   type CashbookFilters,
 } from '@/lib/cash-book'
 import { shiftDateTimeLabel } from '@/lib/cash-shift'
@@ -74,7 +74,7 @@ export function CashbookEntries({ entries, canManage, onVoid }: {
   if (entries.length === 0) {
     return <p className="rounded-xl border border-border bg-surface px-4 py-8 text-center text-sm text-muted">Chưa có phiếu nào trong khoảng này.</p>
   }
-  const voidable = (e: CashBookEntry) => canManage && !e.voidedAt && e.source !== 'inventory_receipt'
+  const voidable = (e: CashBookEntry) => cashEntryVoidable(e, canManage)
   return (
     <>
       {/* Thẻ dưới md (đọc tốt ở 375px). */}

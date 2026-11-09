@@ -89,6 +89,18 @@ describe('server action kho', () => {
     expect(writeoff.p_lines).toEqual([{ inventory_item_id: UUID(1), qty: 2 }])
   })
 
+  it('mig 122b: "Chưa mở ca" khi lưu phiếu nhập đã trả TM / "ca đã kết" khi huỷ → câu dễ hiểu', async () => {
+    mocks.state.rpc.inventory_post_document = rpcErr('Chưa mở ca')
+    expect(await actions.postInventoryDocument(postInput)).toEqual({
+      ok: false, error: 'Chưa mở ca — mở ca trên POS hoặc chọn Chuyển khoản / Chưa trả',
+    })
+    mocks.state.rpc.inventory_void_document = rpcErr('Ca của phiếu này đã kết, không huỷ được')
+    expect(await actions.voidInventoryDocument(UUID(5), 'Nhầm')).toEqual({
+      ok: false, error: 'Phiếu nhập trả tiền mặt trong ca đã kết — không huỷ được (két đã chốt).',
+    })
+    expect(mocks.revalidatePath).not.toHaveBeenCalled()
+  })
+
   it('RPC lỗi "Không có quyền" → { ok:false, error:"Không có quyền" }, không ném', async () => {
     mocks.state.rpc.inventory_post_document = rpcErr('Không có quyền')
     expect(await actions.postInventoryDocument(postInput)).toEqual({ ok: false, error: 'Không có quyền' })

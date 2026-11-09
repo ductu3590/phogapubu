@@ -3,6 +3,7 @@ import {
   REPORT_GROUP_LABEL,
   filtersToRpc,
   filtersToSearch,
+  cashEntryVoidable,
   groupByCategory,
   parseCashBookCategories,
   parseCashBookList,
@@ -146,5 +147,16 @@ describe('groupByCategory', () => {
       { kind: 'payment', categoryName: 'Đi chợ', total: 50000, count: 1 },
       { kind: 'payment', categoryName: 'Đá', total: 3000, count: 2 },
     ])
+  })
+})
+
+describe('cashEntryVoidable', () => {
+  it('chỉ người quản lý sổ, phiếu chưa huỷ, không phải phiếu nhập kho', () => {
+    const base = { source: 'manual' as const, voidedAt: null }
+    expect(cashEntryVoidable(base, true)).toBe(true)
+    expect(cashEntryVoidable(base, false)).toBe(false)
+    expect(cashEntryVoidable({ ...base, voidedAt: '2026-11-09T01:00:00Z' }, true)).toBe(false)
+    expect(cashEntryVoidable({ source: 'inventory_receipt', voidedAt: null }, true)).toBe(false)
+    expect(cashEntryVoidable({ source: 'pos_drawer', voidedAt: null }, true)).toBe(true)
   })
 })
