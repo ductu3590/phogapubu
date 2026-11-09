@@ -286,8 +286,9 @@ function inChip(row: BillRow, chip: BillChip): boolean {
 }
 
 /** Chip Ghi nợ chỉ hiện ở ngày có nợ / thu nợ / bill nợ (quán không dùng công nợ giữ giao diện cũ). */
-export function debtChipVisible(report: Pick<BillsReport, 'totals' | 'debtCollections'>, counts: Pick<Record<BillChip, number>, 'debt'>): boolean {
-  return report.totals.debt > 0 || report.debtCollections.count > 0 || counts.debt > 0
+// Nhận số (không nhận object) để React Compiler giữ được useMemo của trang A04.
+export function debtChipVisible(totalsDebt: number, collectionsCount: number, debtRows: number): boolean {
+  return totalsDebt > 0 || collectionsCount > 0 || debtRows > 0
 }
 
 /** Chip đang chọn có thể biến mất (đổi sang ngày không có nợ khi đang ở Ghi nợ) → về Tất cả, không lọc ra bảng rỗng. */

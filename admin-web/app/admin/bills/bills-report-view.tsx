@@ -65,10 +65,11 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
   const rows = useMemo(() => buildBillRows(report), [report])
   const counts = useMemo(() => chipCounts(rows), [rows])
   const showDebt = report.totals.debt > 0 || report.debtCollections.count > 0
-  const showDebtChip = debtChipVisible(report, counts)
+  const showDebtChip = debtChipVisible(report.totals.debt, report.debtCollections.count, counts.debt)
   // Đang ở chip Ghi nợ mà đổi sang ngày không nợ: chip biến mất → lọc như Tất cả.
   const activeChip = effectiveChip(chip, showDebtChip)
-  const visible = useMemo(() => filterBillRows(rows, activeChip, query), [rows, activeChip, query])
+  // Không useMemo: lọc một ngày dữ liệu rất nhẹ, và React Compiler tự giữ kết quả (useMemo tay ở đây bị compiler bỏ qua).
+  const visible = filterBillRows(rows, activeChip, query)
   const paged = paginate(visible, page)
   const expiredDebt = report.waiting.filter((w) => w.expired)
   // Giữ theo KEY (không giữ object): sau router.refresh dòng được dựng lại, ngăn kéo vẫn bám đúng dòng.
