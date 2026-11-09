@@ -29,7 +29,7 @@ export function adminRailItems(kitchenEnabled = true, reservationsEnabled = fals
       ...(reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []),
       { href: '/admin/menu', label: 'Món', icon: <UtensilsCrossed /> },
       { href: '/admin/bills', label: 'Báo cáo', icon: <ReceiptText /> },
-    { href: '/admin/inventory', label: 'Kho', icon: <Package /> },
+      { href: '/admin/inventory', label: 'Kho', icon: <Package /> },
     ]
   }
   // Thu ngân (PA-2): POS · Món (chỉ bật/tắt Tạm hết) · Báo cáo · Kho (chỉ xem tồn); Cài đặt ở chân rail.
@@ -38,7 +38,7 @@ export function adminRailItems(kitchenEnabled = true, reservationsEnabled = fals
       { href: '/admin/pos', label: 'POS', icon: <LayoutGrid /> },
       { href: '/admin/menu', label: 'Món', icon: <UtensilsCrossed /> },
       { href: '/admin/bills', label: 'Báo cáo', icon: <ReceiptText /> },
-    { href: '/admin/inventory', label: 'Kho', icon: <Package /> },
+      { href: '/admin/inventory', label: 'Kho', icon: <Package /> },
     ]
   }
   return [

@@ -53,6 +53,10 @@ describe('StockTab', () => {
     // Chủ quán / quản lý thấy đủ.
     const edit = render([row({})], true)
     expect(edit).toContain('Thêm hàng hoá')
+    // Nút chính cao ≥ 44px trên điện thoại (min-h-11), chỉ thấp xuống 40px từ md.
+    const addButton = edit.slice(edit.lastIndexOf('<button', edit.indexOf('Thêm hàng hoá')), edit.indexOf('Thêm hàng hoá'))
+    expect(addButton).toMatch(/\bmin-h-11\b/)
+    expect(addButton).not.toMatch(/(?<!md:)min-h-(?:[0-9]|10)\b/)
     expect(edit).toContain('Ngừng dùng')
     expect(edit).toMatch(/Sửa/)
   })
