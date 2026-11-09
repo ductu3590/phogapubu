@@ -1,7 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requireBackOfficeStoreId, requirePosOperatorStoreId } from '@/lib/auth/operator'
+import { requireBackOfficeStoreId, requireOperator } from '@/lib/auth/operator'
+import { isBackOfficeRole, isPosRole } from '@/lib/auth/roles'
 import { createClient } from '@/lib/supabase/server'
 import type { CashBookKind, CashBookMethod, ReportGroup } from '@/lib/cash-book'
 import { MAX_CASH_AMOUNT } from '@/lib/cash-common'
@@ -28,8 +29,13 @@ export async function createCashBookEntry(input: {
   }
   if (!input.categoryId) return { ok: false, error: 'Chọn danh mục' }
   try {
-    // Ai có quyền POS mới vào được; ghi CK / nguồn manual chỉ chủ quán + quản lý — RPC chặn.
-    await requirePosOperatorStoreId()
+    // Ai có quyền POS mới vào được; ghi CK / nguồn manual chỉ chủ quán + quản lý. RPC chặn thật; chặn sớm ở đây chỉ
+    // để câu báo rõ ràng, không tốn một lượt gọi DB.
+    const operator = await requireOperator()
+    if (!isPosRole(operator.role)) throw new Error('Chỉ chủ quán hoặc thu ngân mới thao tác được ở đây')
+    if (!isBackOfficeRole(operator.role) && (input.method !== 'cash' || input.source !== 'pos_drawer')) {
+      return { ok: false, error: 'Thu ngân chỉ ghi thu/chi tiền mặt ở két' }
+    }
     const supabase = await createClient()
     const { data, error } = await supabase.rpc('cash_book_create', {
       p_kind: input.kind,

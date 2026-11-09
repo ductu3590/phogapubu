@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
-  requirePosOperatorStoreId: vi.fn(async () => 'store-1'),
+  requireOperator: vi.fn(async (): Promise<{ userId: string; role: string; storeId: string | null }> =>
+    ({ userId: 'u1', role: 'store_cashier', storeId: 'store-1' })),
   requireBackOfficeStoreId: vi.fn(async () => 'store-1'),
   revalidatePath: vi.fn(),
 }))
 
 vi.mock('@/lib/auth/operator', () => ({
-  requirePosOperatorStoreId: mocks.requirePosOperatorStoreId,
+  requireOperator: mocks.requireOperator,
   requireBackOfficeStoreId: mocks.requireBackOfficeStoreId,
 }))
 vi.mock('@/lib/supabase/server', () => ({
@@ -50,11 +51,26 @@ describe('createCashBookEntry', () => {
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
   it('lỗi quyền: {ok:false}, không ném', async () => {
-    mocks.requirePosOperatorStoreId.mockRejectedValueOnce(new Error('Chỉ chủ quán hoặc thu ngân mới thao tác được ở đây'))
+    mocks.requireOperator.mockRejectedValueOnce(new Error('Tài khoản chưa được cấp quyền vận hành'))
+    await expect(createCashBookEntry(input)).resolves.toEqual({
+      ok: false, error: 'Tài khoản chưa được cấp quyền vận hành',
+    })
+    mocks.requireOperator.mockResolvedValueOnce({ userId: 'u', role: 'store_staff', storeId: 'store-1' })
     await expect(createCashBookEntry(input)).resolves.toEqual({
       ok: false, error: 'Chỉ chủ quán hoặc thu ngân mới thao tác được ở đây',
     })
     expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+  it('thu ngân gửi chuyển khoản / nguồn manual: báo sớm, không gọi RPC; quản lý thì được gửi', async () => {
+    for (const over of [{ method: 'bank' as const }, { source: 'manual' as const }]) {
+      await expect(createCashBookEntry({ ...input, ...over })).resolves.toEqual({
+        ok: false, error: 'Thu ngân chỉ ghi thu/chi tiền mặt ở két',
+      })
+    }
+    expect(mocks.rpc).not.toHaveBeenCalled()
+    mocks.requireOperator.mockResolvedValueOnce({ userId: 'u', role: 'store_manager', storeId: 'store-1' })
+    mocks.rpc.mockResolvedValueOnce({ data: { ok: true, already: false, id: 'e9' }, error: null })
+    await expect(createCashBookEntry({ ...input, method: 'bank', source: 'manual' })).resolves.toEqual({ ok: true, id: 'e9', already: false })
   })
   it('RPC lỗi: trả nguyên message', async () => {
     mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'Chưa mở ca' } })
