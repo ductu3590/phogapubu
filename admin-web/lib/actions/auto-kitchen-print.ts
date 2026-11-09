@@ -7,7 +7,9 @@ import { enqueuePrint } from '@/lib/actions/print-jobs'
 import { AUTO_PRINT_BATCH_MAX, isAutoKitchenOrder, type AutoPrintConfig } from '@/lib/print/auto-kitchen-print'
 import type { KitchenReleasePolicy, StorePaymentTiming } from '@/lib/kitchen-announce'
 
-export type AutoPrintResult = { orderId: string; status: 'queued' | 'already' | 'skipped' | 'error'; error?: string }
+// permanent: lỗi thử lại cũng vậy (vd. đơn không còn món) — POS bỏ cuộc ngay, không thử 3 lần
+export type AutoPrintResult = { orderId: string; status: 'queued' | 'already' | 'skipped' | 'error'; error?: string; permanent?: true }
+const PERMANENT_ERRORS = new Set(['Đơn không còn món để in'])
 type Result = { ok: true; results: AutoPrintResult[] } | { ok: false; error: string }
 
 type OrderRow = {
@@ -91,9 +93,22 @@ export async function enqueueAutoKitchenPrints(orderIds: string[]): Promise<Resu
         results.push({ orderId, status: 'skipped' })
         continue
       }
+      // Đã có phiếu (dedupe_key order:<id>:...) thì khỏi gọi enqueuePrint; lỗi đọc thì cứ để enqueuePrint tự chống trùng
+      const { data: existing } = await admin
+        .from('print_jobs')
+        .select('id')
+        .eq('store_id', storeId)
+        .like('dedupe_key', `order:${orderId}:%`)
+        .limit(1)
+      if (Array.isArray(existing) && existing.length > 0) {
+        results.push({ orderId, status: 'already' })
+        continue
+      }
       // Tuần tự, không reprint: đơn đã có phiếu thì enqueuePrint trả queued 0
       const res = await enqueuePrint({ kind: 'order', orderId })
-      if (!res.ok) results.push({ orderId, status: 'error', error: res.error })
+      if (!res.ok) {
+        results.push({ orderId, status: 'error', error: res.error, ...(PERMANENT_ERRORS.has(res.error) ? { permanent: true as const } : {}) })
+      }
       else results.push({ orderId, status: res.queued > 0 ? 'queued' : 'already' })
     }
     return { ok: true, results }

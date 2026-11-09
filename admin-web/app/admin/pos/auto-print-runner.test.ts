@@ -74,6 +74,25 @@ describe('createAutoPrintRunner', () => {
     expect(enqueue.mock.calls[2][0]).toEqual(['bad'])
   })
 
+  it('lỗi vĩnh viễn: bỏ cuộc ngay, hai đơn cùng bỏ cuộc chỉ báo MỘT thông báo gộp', async () => {
+    const enqueue = vi.fn(async (ids: string[]) => ({
+      ok: true as const,
+      results: ids.map((orderId) => ({ orderId, status: 'error' as const, error: 'Đơn không còn món để in', permanent: true })),
+    }))
+    const onGiveUp = vi.fn()
+    const runner = createAutoPrintRunner({
+      getState: () => ({ cfg, sessions: sessions('a', 'b') }),
+      enqueue, onGiveUp, isAlive: () => true, now: () => NOW,
+    })
+    await runner.evaluate()
+    expect(enqueue).toHaveBeenCalledTimes(1)
+    expect(onGiveUp).toHaveBeenCalledTimes(1)
+    expect(onGiveUp.mock.calls[0][0]).toContain('Bàn 5')
+    expect(onGiveUp.mock.calls[0][0]).toContain('Đơn không còn món để in')
+    await runner.evaluate()
+    expect(enqueue).toHaveBeenCalledTimes(1)
+  })
+
   it('đã unmount: không chạy lô kế và không gọi enqueue', async () => {
     const enqueue = vi.fn(async (ids: string[]) => ok(ids))
     const { runner } = make({ ids: ['a'], enqueue, alive: () => false })

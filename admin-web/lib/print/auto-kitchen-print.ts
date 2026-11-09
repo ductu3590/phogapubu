@@ -25,7 +25,13 @@ export type AutoPrintOrder = {
   confirmedAt: string | null
 }
 
-export function isAutoKitchenOrder(o: AutoPrintOrder, cfg: AutoPrintConfig, nowMs: number): boolean {
+// ignoreAge: bộ lọc sơ bộ ở trình duyệt KHÔNG áp luật 30 phút (đồng hồ máy POS có thể lệch); luật đó do server quyết theo giờ server.
+export function isAutoKitchenOrder(
+  o: AutoPrintOrder,
+  cfg: AutoPrintConfig,
+  nowMs: number,
+  opts: { ignoreAge?: boolean } = {},
+): boolean {
   if (cfg.mode !== 'agent') return false
   if (o.orderSource === 'pos' || o.orderSource === 'reservation_preorder') return false
   const policy = o.orderSource === 'staff' ? cfg.staffOrderReleasePolicy : cfg.kitchenReleasePolicy
@@ -44,6 +50,7 @@ export function isAutoKitchenOrder(o: AutoPrintOrder, cfg: AutoPrintConfig, nowM
     storePaymentTiming: cfg.paymentTiming,
   })
   if (!inKitchen) return false
+  if (opts.ignoreAge) return true
   // Đơn khách trả trước vào bếp lúc có tiền; còn lại lúc tạo đơn.
   let enteredAt = Date.parse(o.createdAt)
   if (o.orderSource !== 'staff' && o.paymentReceivedAt) {
@@ -76,6 +83,7 @@ export function autoKitchenPrintCandidates(
         },
         cfg,
         nowMs,
+        { ignoreAge: true },
       )
       if (ok) out.push({ orderId: o.id, tableLabel: s.table_number })
     }
@@ -113,11 +121,16 @@ export function createAutoPrintTracker(opts: { maxAttempts?: number; retryMs?: n
     start(orderIds: string[]): void {
       for (const id of orderIds) running.add(id)
     },
-    finish(orderId: string, outcome: 'done' | 'failed', nowMs: number): 'done' | 'retry' | 'gave_up' {
+    finish(orderId: string, outcome: 'done' | 'failed' | 'fatal', nowMs: number): 'done' | 'retry' | 'gave_up' {
       running.delete(orderId)
       if (outcome === 'done') {
         done.add(orderId)
         return 'done'
+      }
+      // fatal = lỗi vĩnh viễn (thử lại cũng vậy): bỏ cuộc ngay
+      if (outcome === 'fatal') {
+        gaveUp.add(orderId)
+        return 'gave_up'
       }
       const count = (failures.get(orderId)?.count ?? 0) + 1
       failures.set(orderId, { count, lastAt: nowMs })

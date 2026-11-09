@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     timing: 'postpay',
     orders: [] as Array<Record<string, unknown>>,
     ordersError: null as null | { message: string },
+    printJobs: [] as Array<{ id: string }>,
   }
   const calls = {
     filters: [] as Array<{ table: string; col: string; val: unknown }>,
@@ -19,12 +20,15 @@ const mocks = vi.hoisted(() => {
     b.select = vi.fn(() => b)
     b.eq = vi.fn((col: string, val: unknown) => { calls.filters.push({ table, col, val }); return b })
     b.in = vi.fn((col: string, val: unknown) => { calls.filters.push({ table, col, val }); return b })
+    b.like = vi.fn((col: string, val: unknown) => { calls.filters.push({ table, col: `like:${col}`, val }); return b })
+    b.limit = vi.fn(() => b)
     b.maybeSingle = vi.fn(async () => ({
       data: table === 'store_workflow_settings' ? state.settings : table === 'stores' ? { payment_timing: state.timing } : null,
       error: null,
     }))
     b.then = (resolve: (v: unknown) => void) => {
-      resolve(table === 'orders' ? { data: state.ordersError ? null : state.orders, error: state.ordersError } : { data: [], error: null })
+      if (table === 'print_jobs') { resolve({ data: state.printJobs, error: null }); return }
+      resolve(table === 'orders' ?{ data: state.ordersError ? null : state.orders, error: state.ordersError } : { data: [], error: null })
     }
     return b
   }
@@ -54,6 +58,7 @@ beforeEach(() => {
   mocks.state.timing = 'postpay'
   mocks.state.orders = []
   mocks.state.ordersError = null
+  mocks.state.printJobs = []
   mocks.calls.filters.length = 0
   mocks.calls.adminTables.length = 0
   mocks.enqueuePrint.mockReset()
@@ -68,6 +73,23 @@ describe('enqueueAutoKitchenPrints', () => {
     expect(r).toEqual({ ok: true, results: [{ orderId: 'o1', status: 'queued' }] })
     expect(mocks.enqueuePrint).toHaveBeenCalledTimes(1)
     expect(mocks.enqueuePrint).toHaveBeenCalledWith({ kind: 'order', orderId: 'o1' })
+  })
+
+  it('đơn đã có phiếu trong print_jobs: already, không gọi enqueuePrint', async () => {
+    mocks.state.orders = [row('o1')]
+    mocks.state.printJobs = [{ id: 'j1' }]
+    const r = await enqueueAutoKitchenPrints(['o1'])
+    expect(r).toEqual({ ok: true, results: [{ orderId: 'o1', status: 'already' }] })
+    expect(mocks.enqueuePrint).not.toHaveBeenCalled()
+    expect(mocks.calls.filters).toContainEqual({ table: 'print_jobs', col: 'store_id', val: 'store-1' })
+    expect(mocks.calls.filters).toContainEqual({ table: 'print_jobs', col: 'like:dedupe_key', val: 'order:o1:%' })
+  })
+
+  it('lỗi vĩnh viễn "Đơn không còn món để in": status error kèm permanent', async () => {
+    mocks.state.orders = [row('o1')]
+    mocks.enqueuePrint.mockResolvedValue({ ok: false, error: 'Đơn không còn món để in' })
+    const r = await enqueueAutoKitchenPrints(['o1'])
+    expect(r).toEqual({ ok: true, results: [{ orderId: 'o1', status: 'error', error: 'Đơn không còn món để in', permanent: true }] })
   })
 
   it('enqueuePrint trả queued 0: status already', async () => {

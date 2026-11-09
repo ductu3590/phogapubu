@@ -67,6 +67,14 @@ describe('autoKitchenPrintCandidates', () => {
   })
 })
 
+describe('autoKitchenPrintCandidates — đồng hồ POS lệch', () => {
+  it('đồng hồ POS nhanh 40 phút: đơn vừa tạo vẫn được gửi lên (luật 30 phút do server quyết)', () => {
+    const rows = [{ id: 'a', status: 'pending', order_source: 'staff', created_at: ago(5), payment_received_at: null }] as never
+    const out = autoKitchenPrintCandidates([{ status: 'open', table_number: 'Bàn 5', orders: rows }], cfg, now + 40 * 60_000)
+    expect(out).toEqual([{ orderId: 'a', tableLabel: 'Bàn 5' }])
+  })
+})
+
 describe('autoPrintBanner', () => {
   it('browser / null / cả hai pos_confirmation: null', () => {
     expect(autoPrintBanner(null)).toBeNull()
@@ -87,6 +95,12 @@ describe('createAutoPrintTracker', () => {
     expect(t.due(['a', 'b'], 1)).toEqual([])
     expect(t.finish('a', 'done', 2)).toBe('done')
     expect(t.due(['a', 'b'], 3)).toEqual([])
+  })
+  it('lỗi vĩnh viễn (fatal): bỏ cuộc ngay lần đầu, không due nữa', () => {
+    const t = createAutoPrintTracker()
+    t.start(['a'])
+    expect(t.finish('a', 'fatal', 0)).toBe('gave_up')
+    expect(t.due(['a'], 10_000_000)).toEqual([])
   })
   it('lỗi lần 1 chờ 30 giây mới due lại; lỗi lần 3 trả gave_up và không due nữa', () => {
     const t = createAutoPrintTracker()

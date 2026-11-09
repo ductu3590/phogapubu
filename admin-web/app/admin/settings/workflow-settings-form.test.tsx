@@ -46,7 +46,7 @@ describe('WorkflowSettingsForm', () => {
     expect(html).toContain('Bạn đang cấu hình thay mặt quán')
   })
 
-  it('không có printMode: ô policy không bị khoá, không có lời giải thích', () => {
+  it('quán PUBU_PRESET: ô policy không bị khoá, không có lời giải thích', () => {
     const html = renderToStaticMarkup(
       createElement(WorkflowSettingsForm, { initial: PUBU_PRESET, context: 'owner', onSave: vi.fn(async () => undefined) }),
     )

@@ -650,19 +650,16 @@ function SelectInput({
 function PolicySelect({
   label,
   value,
-  disabled = false,
   onChange,
 }: {
   label: string
   value: ReleasePolicy
-  disabled?: boolean
   onChange: (value: ReleasePolicy) => void
 }) {
   return (
     <SelectInput
       label={label}
       value={value}
-      disabled={disabled}
       onChange={(next) => onChange(next as ReleasePolicy)}
       options={[
         ['automatic', 'Tự động chuyển cho bếp'],

@@ -24,8 +24,8 @@ Cùng khu và tiền tố, 1→25.
 - **Mong đợi:** xem trước ghi 20 tên "· đã có, bỏ qua" và nút **Tạo 5 bàn**. Tạo xong: "Đã tạo 5 bàn." và "Bỏ qua 20 bàn trùng tên: …". Chỉ có A21–A25 mới.
 
 ### Bài 3 — Trùng với bàn đã Đóng
-Có sẵn một bàn tên `a 3` (đã **Đóng**). Tạo tiền tố `A`, 1→5 (dùng quán/khu chưa có A1–A5 khác).
-- **Mong đợi:** A3 bị bỏ qua (không phân biệt hoa/thường, khoảng trắng), bàn đã Đóng vẫn được tính.
+Dùng **tiền tố mới chưa dùng**, ví dụ `C` (trùng tên được kiểm trong **toàn quán**, mọi khu, nên không dùng lại `A`). Trước tiên tạo bàn tên `c3` (chữ thường) rồi bấm **Đóng** bàn đó. Sau đó Tạo nhiều bàn: tiền tố `C`, 1→5.
+- **Mong đợi:** `C3` bị bỏ qua, chỉ tạo C1, C2, C4, C5. Không phân biệt hoa/thường và bàn đã Đóng vẫn được tính. (Khoảng trắng ở giữa tên không bị bỏ: `c 3` sẽ KHÔNG trùng `C3`.)
 
 ### Bài 4 — Giới hạn, tiền tố có dấu cách, màn nhỏ
 1. Số cuối 101 (số đầu 1): hiện "Tối đa 100 bàn một lần", nút Tạo bị **khoá**.
@@ -34,8 +34,10 @@ Có sẵn một bàn tên `a 3` (đã **Đóng**). Tạo tiền tố `A`, 1→5 
 
 ## B. In tự động
 
+> **Trước các bài 5, 9 và 12 (đổi policy xuống bếp):** hệ thống từ chối đổi policy khi quán còn phiên bàn mở hoặc đơn đang xử lý (mig 049, `update_store_workflow_settings`). Trước khi đổi: **đóng mọi phiên bàn** (Thanh toán hoặc Bỏ bàn) và bảo đảm **không còn đơn** ở trạng thái `pending / confirmed / cooking / ready`. Chưa dọn mà Lưu báo lỗi thì không tính FAIL — dọn rồi thử lại.
+
 ### Bài 5 — Đổi policy khi đang "Nhiều nơi"
-Cài đặt đang **Nhiều nơi**. Mục Quy trình: đổi "Đơn nhân viên xuống bếp" sang **Tự động chuyển cho bếp** → Lưu.
+(Dọn phiên + đơn như ghi chú trên.) Cài đặt đang **Nhiều nơi**. Mục Quy trình: đổi "Đơn nhân viên xuống bếp" sang **Tự động chuyển cho bếp** → Lưu.
 - **Mong đợi:** lưu được, không lỗi. Khối In ấn hiện ghi chú "Có đơn vào bếp tự động: phiếu bếp của các đơn này chỉ in khi màn POS đang mở ở quầy."
 
 ### Bài 6 — Bật "Nhiều nơi" khi policy tự động
@@ -51,7 +53,8 @@ Mở POS ở **hai tab**, gửi một đơn nhân viên.
 - **Mong đợi:** chỉ **một bộ** phiếu (đếm dòng `print_jobs` có `dedupe_key` chứa id đơn).
 
 ### Bài 9 — Khách duyệt + nhân viên tự động
-Đặt "Đơn khách xuống bếp" = **Chờ POS xác nhận**, "Đơn nhân viên xuống bếp" = **Tự động**.
+(Dọn phiên + đơn như ghi chú trước bài 5.) Đặt "Đơn khách xuống bếp" = **Chờ POS xác nhận**, "Đơn nhân viên xuống bếp" = **Tự động**.
+Đơn khách QR cần Mini App của quán thử (quét QR bàn bằng Zalo, đặt món). **Mini App Bảo Lương đang tắt**: nếu quán thử không có Mini App thì **bỏ qua phần đơn khách** (ghi "bỏ qua" vào bảng kết quả), chỉ xác nhận đơn nhân viên vẫn tự in sau khi đổi policy.
 - **Mong đợi:** đơn khách QR **không** tự in, vẫn chờ "Duyệt & in bếp"; đơn nhân viên tự in.
 
 ### Bài 10 — Đơn cũ quá 30 phút không in
@@ -63,7 +66,7 @@ Tắt phần mềm in rồi gửi đơn.
 - **Mong đợi:** job nằm `queued`; bật lại phần mềm thì in (đúng luật hàng đợi C-Part1).
 
 ### Bài 12 — Về lại "Chờ POS xác nhận"
-Đổi **cả hai** policy về "Chờ POS xác nhận".
+(Dọn phiên + đơn như ghi chú trước bài 5.) Đổi **cả hai** policy về "Chờ POS xác nhận".
 - **Mong đợi:** băng biến mất trong khoảng 30 giây, đơn mới không tự in.
 
 ## Ghi nhận kết quả
