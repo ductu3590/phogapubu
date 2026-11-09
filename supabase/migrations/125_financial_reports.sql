@@ -11,6 +11,8 @@
 --    ngày thì vá report_day_totals, KHÔNG vá get_bills_report. Danh sách bill vẫn do CTE keyed của get_bills_report
 --    dựng (hai bên cùng khoá bill: test so bills.length = totals.bills_count).
 -- 3) RPC chỉ đọc cho chủ quán + quản lý (is_store_back_office, mig 116). Thu ngân KHÔNG xem báo cáo tài chính.
+-- 4) ALTER FUNCTION report_paid_orders … ROWS 50 (hàm của mig 117): chỉ đổi ước lượng số dòng cho planner, không đổi
+--    thân hàm hay quyền.
 --
 -- Bản chụp get_bills_report dựng từ chuỗi migration trên pglite (112a + 112b + 122 + 123 trên prod-defs/112).
 -- Controller PHẢI đối chiếu pg_get_functiondef trên prod với prod-defs/125/get_bills_report.sql trước khi áp: lệch thì
@@ -50,6 +52,14 @@ BEGIN
   END IF;
 END
 $pre$;
+
+-- ============================================================
+-- 0b) Ước lượng số dòng của report_paid_orders (hàm mig 117 — ALTER, không thay thân hàm)
+-- ============================================================
+-- Hàm trả tập (SRF) mặc định được planner đoán 1000 dòng. Từ mig này `o.id IN (SELECT … FROM report_paid_orders(…))`
+-- nằm trong get_bills_report (gọi 2 lần mỗi A04) và report_revenue_series (tới 366 lần mỗi kỳ): đoán 1000 dòng thì
+-- planner dễ quét cả bảng orders. Một quán một ngày kinh doanh thường vài chục bill → 50.
+ALTER FUNCTION public.report_paid_orders(uuid, timestamptz, timestamptz) ROWS 50;
 
 -- ============================================================
 -- 1) Tổng ngày dùng chung

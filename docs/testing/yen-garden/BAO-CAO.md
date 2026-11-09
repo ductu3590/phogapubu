@@ -138,7 +138,14 @@ Thứ tự migration trên prod (mỗi bước xong mới sang bước sau):
 6. Kiểm SAU khi áp: `get_bills_report` cùng ngày ra y như bước 4, `totals` chỉ thêm khoá `discount_total`;
    `report_revenue_series(<quán>, hôm qua, hôm qua, 'day')` ra cùng revenue / cash / bank / debt / other / bills_count.
    (Gọi với `set local request.jwt.claim.sub = '<uid chủ quán>'` trong cùng transaction nếu chạy ở SQL editor.)
-7. Deploy Vercel (code 4 tab tài chính). Trang mới gặp DB chưa áp 125 chỉ báo "Không tải được báo cáo".
+7. Kiểm planner dùng index (mig 125 đặt `report_paid_orders` ước lượng 50 dòng): chạy
+   `EXPLAIN (ANALYZE, BUFFERS) SELECT get_bills_report('<quán>', <hôm qua>);` và
+   `EXPLAIN (ANALYZE, BUFFERS) SELECT report_revenue_series('<quán>', <hôm qua − 89 ngày>, <hôm qua>, 'day');`
+   (trong transaction có `set local request.jwt.claim.sub`). Muốn thấy kế hoạch BÊN TRONG hàm thì bật
+   `LOAD 'auto_explain'; SET auto_explain.log_min_duration = 0; SET auto_explain.log_nested_statements = on;` trước.
+   Mong đợi: đọc `orders` qua `orders_store_report_received_idx` / `orders_pkey`, KHÔNG `Seq Scan on orders`; 90 ngày
+   chạy dưới vài giây. Seq scan hoặc quá chậm thì báo lại trước khi deploy.
+8. Deploy Vercel (code 4 tab tài chính). Trang mới gặp DB chưa áp 125 chỉ báo "Không tải được báo cáo".
 
 ## Trước khi test
 
@@ -164,7 +171,10 @@ Thứ tự migration trên prod (mỗi bước xong mới sang bước sau):
 1. Tab **Thu chi**, kỳ có ca đã chốt.
 2. **Tiền mặt vào** gồm: tiền mặt của bill, **trả nợ bằng tiền mặt**, các **phiếu thu** tiền mặt (vd. Nộp thêm vào két).
    **Tiền mặt ra** gồm các phiếu chi tiền mặt, kể cả **Nhập hàng** trả tiền mặt (phiếu chi tự sinh từ phiếu nhập kho, mig 122b).
-3. Tiền mặt vào − ra khớp **chênh lệch két** các ca trong kỳ (không tính tiền đầu ca).
+3. Chọn kỳ mà **không ca nào vắt qua giờ bắt đầu ngày** (mọi ca mở và chốt trong kỳ). Chênh lệch quỹ Tiền mặt
+   (vào − ra) phải bằng **Σ (Tiền dự kiến − Tiền đầu ca)** của các ca đó (trang Sổ thu chi / phiếu ca: "Tiền dự kiến" trừ
+   "Tiền đầu ca"). KHÔNG so với "chênh lệch két" của phiếu ca — số đó là tiền đếm thực − tiền dự kiến (thừa / thiếu
+   két), không phải tiền vào ra.
 4. Bill ghi nợ **không** có trong Tiền vào (chỉ khi khách trả nợ mới vào). Phiếu đã huỷ **không** có.
 5. Có thu qua ví: thẻ quỹ ghi **"Ngân hàng / ví"** và có dòng "Tiền ví về tài khoản ngân hàng khi đối soát".
 

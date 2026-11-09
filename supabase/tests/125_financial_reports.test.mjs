@@ -465,3 +465,57 @@ test('quyền + cách ly quán', async () => {
     await db.query('DELETE FROM debt_customers WHERE id = $1', [cust])
   }
 })
+
+test('report_paid_orders được ước lượng 50 dòng (ALTER … ROWS 50), không phải mặc định 1000', async () => {
+  const r = await h.one("SELECT prorows FROM pg_proc WHERE oid = 'public.report_paid_orders(uuid,timestamptz,timestamptz)'::regprocedure")
+  assert.equal(Number(r.prorows), 50)
+  assert.match(await load(migration), /ALTER FUNCTION public\.report_paid_orders\(uuid, timestamptz, timestamptz\) ROWS 50;/)
+})
+
+// Chạy CUỐI file: bật ca, mọi thao tác diễn ra "bây giờ" (ngày kinh doanh hiện tại, không trùng ngày nào của seed).
+test('một ca trọn trong một ngày kinh doanh: chênh lệch quỹ tiền mặt của Thu chi = tiền két dự kiến − tiền đầu ca', async () => {
+  const { db, rid } = h
+  await h.setShiftRequired(s1, true)
+  try {
+    const today = (await h.one('SELECT current_business_date($1)::text AS d', [s1])).d
+    const before = await rpc('report_cash_flow', s1, today, today)
+    assert.deepEqual(before.funds.cash, { in: 0, out: 0, net: 0 }, 'ngày hiện tại phải sạch')
+
+    const shift = (await rpcAs(ids.cashier, 'open_cash_shift', s1, 500000, 'Ca test 125')).shift_id
+      ?? (await h.one("SELECT id FROM cash_shifts WHERE store_id = $1 AND status = 'open'", [s1])).id
+    // Bill tiền mặt 180.000 trong ca.
+    await db.exec('RESET ROLE')
+    const session = await h.session()
+    const order = await h.order(session, 180000)
+    await db.query(`INSERT INTO order_items(id, order_id, menu_item_id, item_name, item_price, quantity, selected_toppings)
+      VALUES ($1, $2, $3, 'Bia Hà Nội lon', 20000, 9, '[]')`, [rid(), order, ids.mBiaHN])
+    const bill = await h.collectDebtBill([session], [{ instrument: 'cash', amount: 180000 }], 200000, rid(), {}, ids.cashier)
+    assert.equal(bill.ok, true)
+    // Cô Lan trả nợ TM 50.000.
+    const lan = (await h.one("SELECT id FROM debt_customers WHERE store_id = $1 AND name = 'Cô Lan'", [s1])).id
+    await rpcAs(ids.cashier, 'debt_collect', lan, 50000, 'cash', null, null, rid())
+    // Phiếu thu Thu khác TM 30.000, phiếu chi Đi chợ TM 40.000.
+    const cat = async (kind, name) => (await h.one('SELECT id FROM cash_book_categories WHERE store_id = $1 AND kind = $2 AND name = $3', [s1, kind, name])).id
+    await rpcAs(ids.manager, 'cash_book_create', 'receipt', 'cash', await cat('receipt', 'Thu khác'), 30000, 'Thu vỏ chai', null, rid())
+    await rpcAs(ids.manager, 'cash_book_create', 'payment', 'cash', await cat('payment', 'Đi chợ'), 40000, 'Rau', null, rid())
+    // Phiếu nhập kho đã trả TM 10 × 12.000 → 122b tự sinh phiếu chi "Nhập hàng" gắn ca.
+    await db.exec('RESET ROLE')
+    const item = (await h.one(`INSERT INTO inventory_items(store_id, name, unit, kind) VALUES ($1, 'Bia lon ca test', 'lon', 'goods')
+      RETURNING id`, [s1])).id
+    await rpcAs(ids.manager, 'inventory_post_document', 'receipt',
+      JSON.stringify({ store_id: s1, paid_status: 'paid', paid_method: 'cash', supplier_name: 'NCC test' }),
+      JSON.stringify([{ inventory_item_id: item, qty: 10, unit_cost: 12000 }]), rid())
+    const purchase = await h.one("SELECT amount, cash_shift_id FROM cash_book_entries WHERE source = 'inventory_receipt' AND cash_shift_id = $1", [shift])
+    assert.deepEqual([Number(purchase.amount), purchase.cash_shift_id], [120000, shift])
+
+    await rpcAs(ids.cashier, 'close_cash_shift', shift, 600000, null)
+    const totals = (await h.one('SELECT cash_shift_totals($1) AS t', [shift])).t
+    const flow = await rpc('report_cash_flow', s1, today, today)
+    // Dự kiến = 500.000 + bill 180.000 + thu khác 30.000 − đi chợ 40.000 − nhập hàng 120.000 + trả nợ 50.000 = 600.000.
+    assert.equal(Number(totals.expected_cash), 600000)
+    assert.equal(flow.funds.cash.net, Number(totals.expected_cash) - Number(totals.opening_cash))
+    assert.deepEqual(flow.funds.cash, { in: 260000, out: 160000, net: 100000 })
+  } finally {
+    await h.setShiftRequired(s1, false)
+  }
+})
