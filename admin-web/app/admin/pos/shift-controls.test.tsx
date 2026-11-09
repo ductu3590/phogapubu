@@ -86,6 +86,17 @@ describe('panel ca', () => {
     expect(text(manage)).toContain('Thu/Chi két')
     expect(text(manage)).toContain('Kết ca')
   })
+  it('phiếu chi từ phiếu nhập kho: không có nút Huỷ phiếu, ghi "Huỷ ở trang Kho" (kể cả chủ quán / quản lý)', () => {
+    const kho = { ...shiftState().shift!, entries: [
+      entry({ id: 'k', source: 'inventory_receipt', categoryName: 'Nhập hàng', amount: 300000 }),
+      entry({ id: 'n', amount: 1000 }),
+    ] }
+    const html = render(createElement(ShiftPanelBody, { shift: kho, canManageEntries: true, onVoid: noop, onDrawer: noop, onCloseShift: noop }))
+    expect(html.match(/>Huỷ phiếu</g)).toHaveLength(1)
+    const row = html.match(/<li[^>]*>(?:(?!<\/li>)[\s\S])*Nhập hàng(?:(?!<\/li>)[\s\S])*<\/li>/)?.[0] ?? ''
+    expect(text(row)).toContain('Huỷ ở trang Kho')
+    expect(row).not.toContain('>Huỷ phiếu<')
+  })
   it('ca chưa có phiếu: câu rỗng', () => {
     const html = render(createElement(ShiftPanelBody, { shift: shiftState().shift!, canManageEntries: false, onVoid: noop, onDrawer: noop, onCloseShift: noop }))
     expect(text(html)).toContain('Chưa có phiếu thu / chi tiền mặt trong ca')

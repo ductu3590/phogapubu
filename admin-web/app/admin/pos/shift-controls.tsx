@@ -9,7 +9,7 @@ import { Banner } from '@/components/ui/feedback'
 import { closeCashShift, openCashShift } from '@/lib/actions/cash-shift'
 import { voidCashBookEntry } from '@/lib/actions/cash-book'
 import { formatVndInput } from '@/lib/cash-change'
-import type { CashBookCategory } from '@/lib/cash-book'
+import { cashEntryVoidable, type CashBookCategory } from '@/lib/cash-book'
 import {
   differenceLabel,
   parseShiftCash,
@@ -144,8 +144,10 @@ export function ShiftPanelBody({ shift, canManageEntries, onVoid, onDrawer, onCl
                     {signed(e)}
                   </span>
                   {e.voidedAt ? <span className="text-[13px] text-muted">Đã huỷ</span>
-                    : canManageEntries ? (
+                    : cashEntryVoidable(e, canManageEntries) ? (
                       <button type="button" className="min-h-8 text-[13px] font-medium text-danger hover:underline" onClick={() => onVoid(e)}>Huỷ phiếu</button>
+                    ) : e.source === 'inventory_receipt' ? (
+                      <span className="text-[13px] text-muted">Huỷ ở trang Kho</span>
                     ) : null}
                 </div>
               </li>

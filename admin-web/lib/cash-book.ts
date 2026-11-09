@@ -208,6 +208,14 @@ export function filtersToRpc(f: CashbookFilters): Record<string, string> {
   return out
 }
 
+/**
+ * Phiếu có nút "Huỷ phiếu" không (POS panel ca + trang Sổ thu chi dùng chung): chỉ người quản lý sổ (chủ quán / quản lý),
+ * phiếu chưa huỷ, và KHÔNG phải phiếu chi sinh từ phiếu nhập kho (huỷ ở trang Kho — RPC cash_book_void cũng chặn).
+ */
+export function cashEntryVoidable(e: { source: CashBookSource; voidedAt: string | null }, canManage: boolean): boolean {
+  return canManage && !e.voidedAt && e.source !== 'inventory_receipt'
+}
+
 // ---------------------------------------------------------------------------
 // Phiếu bàn giao ca: thu / chi theo danh mục, bỏ phiếu đã huỷ. Thu trước, chi sau; trong mỗi loại tiền lớn trước.
 // ---------------------------------------------------------------------------

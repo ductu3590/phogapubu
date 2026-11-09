@@ -96,7 +96,10 @@ Công thức két (chỉ server tính): **Tiền dự kiến = tiền đầu ca 
 ## Bài 8. Kết ca lệch
 1. **Mở ca mới** (từ hộp kết quả). Thu 1 bill TM. Kết ca, nhập ít hơn 50.000 → **Thiếu 50.000đ**.
 2. In phiếu → đủ dòng như bài 7, chênh lệch "Thiếu 50.000đ".
-3. Bấm kết ca lần nữa (F5 rồi gửi lại cùng số nếu mạng rớt) → trả kết quả đã lưu, không kết 2 lần.
+3. Mất mạng lúc kết ca: mở ca mới, mở hộp **Kết ca**, nhập số đếm. Mở DevTools → Network → **Offline**, bấm **Xác nhận kết ca**
+   → báo lỗi kết nối, ô số đếm vẫn giữ. Bật lại **Online**, bấm **Xác nhận kết ca** lần nữa (cùng số) → ra kết quả bình thường;
+   tab Ca ở A04 chỉ có MỘT ca vừa đóng (không kết hai lần). Nếu lần đầu thật ra đã tới server thì lần hai hiện câu "Ca này đã kết
+   trước đó — đây là kết quả đã lưu".
 - [ ] PASS / FAIL
 
 ## Bài 9. Kết ca khi còn bàn mở
