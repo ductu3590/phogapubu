@@ -15,6 +15,11 @@ import DocumentDialog from './document-dialog'
 import ReceiptForm from './receipt-form'
 import WriteoffForm from './writeoff-form'
 
+/** Khoảng ngày lọc phiếu theo đúng thứ tự (ngày đầu gõ sau ngày cuối thì đảo lại). */
+export function orderedRange(from: string, to: string): { lo: string; hi: string; swapped: boolean } {
+  return from > to ? { lo: to, hi: from, swapped: true } : { lo: from, hi: to, swapped: false }
+}
+
 const CREATE_LABEL: Record<DocKind, string> = {
   receipt: 'Tạo phiếu nhập',
   count: 'Tạo phiếu kiểm',
@@ -29,11 +34,8 @@ export function DocumentList({ kind, documents, onOpen }: {
 }) {
   const isReceipt = kind === 'receipt'
   const detail = (d: DocSummary) => (isReceipt ? d.supplierName : d.note) ?? '—'
-  const docNo = (d: DocSummary) => (
-    <button type="button" onClick={() => onOpen(d.id)} aria-label={`Xem phiếu ${d.docNo}`}
-      className="cursor-pointer text-left font-semibold underline-offset-2 hover:underline focus-visible:underline">
-      <span className={cn(d.status === 'voided' && 'text-muted line-through')}>{d.docNo}</span>
-    </button>
+  const docNoText = (d: DocSummary) => (
+    <span className={cn('font-semibold', d.status === 'voided' && 'text-muted line-through')}>{d.docNo}</span>
   )
   const statusBadges = (d: DocSummary) => (
     <>
@@ -46,16 +48,20 @@ export function DocumentList({ kind, documents, onOpen }: {
     <div className="overflow-hidden rounded-xl border border-border bg-surface">
       <ul className="divide-y divide-border md:hidden">
         {documents.map((d) => (
-          <li key={d.id} className="px-4 py-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                {docNo(d)}
-                <p className="text-[13px] text-muted">{formatDocDate(d.docDate)} · {d.lineCount} dòng · {d.createdByName ?? '—'}</p>
-              </div>
-              {isReceipt ? <span className="shrink-0 font-semibold tabular-nums">{formatVND(d.totalAmount)}</span> : null}
-            </div>
-            <p className="mt-1 text-sm break-words text-foreground/80">{detail(d)}</p>
-            <div className="mt-2 flex flex-wrap gap-2">{statusBadges(d)}</div>
+          <li key={d.id}>
+            {/* Dưới md cả thẻ là một nút (vùng chạm cả thẻ, Enter/Space mở được) — số phiếu một mình quá nhỏ để chạm. */}
+            <button type="button" onClick={() => onOpen(d.id)} aria-label={`Xem phiếu ${d.docNo}`}
+              className="block w-full cursor-pointer px-4 py-3 text-left transition-colors outline-hidden hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.04] focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset">
+              <span className="flex items-start justify-between gap-3">
+                <span className="min-w-0">
+                  {docNoText(d)}
+                  <span className="block text-[13px] text-muted">{formatDocDate(d.docDate)} · {d.lineCount} dòng · {d.createdByName ?? '—'}</span>
+                </span>
+                {isReceipt ? <span className="shrink-0 font-semibold tabular-nums">{formatVND(d.totalAmount)}</span> : null}
+              </span>
+              <span className="mt-1 block text-sm break-words text-foreground/80">{detail(d)}</span>
+              <span className="mt-2 flex flex-wrap gap-2">{statusBadges(d)}</span>
+            </button>
           </li>
         ))}
       </ul>
@@ -75,7 +81,12 @@ export function DocumentList({ kind, documents, onOpen }: {
         <tbody className="divide-y divide-border">
           {documents.map((d) => (
             <tr key={d.id} className={cn(d.status === 'voided' && 'bg-background')}>
-              <td className="px-4 py-2.5">{docNo(d)}</td>
+              <td className="px-4 py-1">
+                <button type="button" onClick={() => onOpen(d.id)} aria-label={`Xem phiếu ${d.docNo}`}
+                  className="inline-flex min-h-10 cursor-pointer items-center text-left underline-offset-2 hover:underline focus-visible:underline">
+                  {docNoText(d)}
+                </button>
+              </td>
               <td className="px-3 py-2.5 tabular-nums">{formatDocDate(d.docDate)}</td>
               <td className="max-w-64 px-3 py-2.5 break-words text-foreground/80">{detail(d)}</td>
               <td className="px-3 py-2.5 text-right tabular-nums">{d.lineCount}</td>
@@ -109,12 +120,14 @@ export default function DocumentsTab({ kind, today, items, onChanged }: {
   const [creating, setCreating] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
 
-  const key = `${kind}|${from}|${to}|${tick}`
+  // Gõ tay ngày đầu sau ngày cuối (ô date vẫn cho gõ) → đảo lại cho đúng thứ tự, báo một dòng.
+  const { lo, hi, swapped } = orderedRange(from, to)
+  const key = `${kind}|${lo}|${hi}|${tick}`
   useEffect(() => {
     let alive = true
-    loadInventoryDocuments(kind, from, to).then((result) => { if (alive) setLoaded({ key, result }) })
+    loadInventoryDocuments(kind, lo, hi).then((result) => { if (alive) setLoaded({ key, result }) })
     return () => { alive = false }
-  }, [kind, from, to, key])
+  }, [kind, lo, hi, key])
 
   const result = loaded?.key === key ? loaded.result : null
   const suppliers = loaded?.result.ok ? loaded.result.suppliers : []
@@ -135,6 +148,10 @@ export default function DocumentsTab({ kind, today, items, onChanged }: {
           {CREATE_LABEL[kind]}
         </Button>
       </div>
+
+      {swapped ? (
+        <p className="text-[13px] text-muted">Đang xem từ {formatDocDate(lo)} đến {formatDocDate(hi)} (đã đảo hai ngày cho đúng thứ tự).</p>
+      ) : null}
 
       {result === null ? (
         <div className="rounded-xl border border-border bg-surface"><SkeletonList rows={4} label="Đang tải phiếu" /></div>

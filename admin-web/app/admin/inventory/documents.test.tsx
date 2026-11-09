@@ -12,11 +12,12 @@ vi.mock('@/lib/actions/inventory', () => ({
 }))
 
 const { ToastProvider } = await import('@/components/ui/toast')
-const { DocumentList } = await import('./documents-tab')
+const { DocumentList, orderedRange } = await import('./documents-tab')
 const { default: LinesEditor } = await import('./lines-editor')
 const { default: ReceiptForm } = await import('./receipt-form')
 const { default: WriteoffForm } = await import('./writeoff-form')
-const { addDaysIso } = await import('./document-form')
+const { addDaysIso, DocumentFormShell, makeDocumentSubmit } = await import('./document-form')
+const { escapeHandler } = await import('@/components/ui/dialog')
 
 const html = (el: ReactElement) => renderToStaticMarkup(<ToastProvider>{el}</ToastProvider>)
 
@@ -138,5 +139,73 @@ describe('Kho — phiếu nhập / xuất huỷ', () => {
       expect(input).toContain('max="2026-11-09"')
       expect(input).toContain('value="2026-11-09"')
     }
+  })
+})
+
+describe('Kho — sửa vòng 1 (review Task 7)', () => {
+  it('lỗi lưu nằm ở CHÂN hộp cạnh nút Lưu (không khuất trên đầu thân hộp ở 375px)', () => {
+    const markup = html(<DocumentFormShell title="Tạo phiếu nhập" dirty busy={false} blocker={null}
+      error="Dòng 2: Đơn giá không hợp lệ" onClose={vi.fn()} onSave={vi.fn()}><p>THÂN</p></DocumentFormShell>)
+    const footer = markup.slice(markup.indexOf('<footer'), markup.indexOf('</footer>'))
+    expect(footer).toContain('Dòng 2: Đơn giá không hợp lệ')
+    expect(footer).toContain('role="alert"')
+    expect(footer).toContain('>Lưu<')
+    const body = markup.slice(0, markup.indexOf('<footer'))
+    expect(body).not.toContain('Đơn giá không hợp lệ')
+    // Có cả lỗi lẫn lý do chưa lưu được thì hiện cả hai ở chân.
+    const both = html(<DocumentFormShell title="x" dirty busy={false} blocker="Nhập lý do huỷ" error="Không có quyền"
+      onClose={vi.fn()} onSave={vi.fn()}><p /></DocumentFormShell>)
+    const f2 = both.slice(both.indexOf('<footer'), both.indexOf('</footer>'))
+    expect(f2).toContain('Không có quyền')
+    expect(f2).toContain('Nhập lý do huỷ')
+  })
+
+  it('gửi lại sau lần lưu thất bại dùng ĐÚNG clientRequestId cũ', async () => {
+    const post = vi.fn()
+      .mockResolvedValueOnce({ ok: false, error: 'Không kết nối được máy chủ' })
+      .mockResolvedValueOnce({ ok: true, id: 'd1', docNo: 'PN-0004', replayed: true, beforeCountDocNo: null })
+    const send = makeDocumentSubmit({ kind: 'receipt', today: '2026-11-09', clientRequestId: 'req-1', post })
+    const header = { docDate: '2026-11-09', supplierName: null, note: null, paidStatus: 'unpaid' as const, paidMethod: null }
+    expect(await send(header, lines)).toEqual({ ok: false, error: 'Không kết nối được máy chủ' })
+    expect(await send(header, lines)).toMatchObject({ ok: true, docNo: 'PN-0004', replayed: true })
+    expect(post).toHaveBeenCalledTimes(2)
+    expect(post.mock.calls.map((c) => c[0].clientRequestId)).toEqual(['req-1', 'req-1'])
+    // Hôm nay gửi docDate null (server tự lấy ngày kinh doanh); ngày lùi gửi nguyên.
+    expect(post.mock.calls[0][0].docDate).toBeNull()
+    await send({ ...header, docDate: '2026-11-08' }, lines)
+    expect(post.mock.calls[2][0]).toMatchObject({ docDate: '2026-11-08', clientRequestId: 'req-1' })
+    // Dòng sai: báo lỗi, không gọi server.
+    post.mockClear()
+    expect(await send(header, [{ inventoryItemId: 'bia', qty: '0', unitCost: '1', countedQty: '' }]))
+      .toEqual({ ok: false, error: 'Dòng 1: Số lượng phải lớn hơn 0, tối đa 3 chữ số thập phân' })
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it('Esc ở hộp khoá (dismissible=false) gọi onEscape; hộp thường gọi onClose; không có onEscape thì không làm gì', () => {
+    const close = vi.fn()
+    const escape = vi.fn()
+    expect(escapeHandler(true, close, escape)).toBe(close)
+    expect(escapeHandler(false, close, escape)).toBe(escape)
+    expect(escapeHandler(false, close)).toBeUndefined()
+  })
+
+  it('lọc ngày: ngày đầu sau ngày cuối thì đảo lại và báo', () => {
+    expect(orderedRange('2026-11-09', '2026-11-01')).toEqual({ lo: '2026-11-01', hi: '2026-11-09', swapped: true })
+    expect(orderedRange('2026-11-01', '2026-11-09')).toEqual({ lo: '2026-11-01', hi: '2026-11-09', swapped: false })
+    expect(orderedRange('2026-11-09', '2026-11-09').swapped).toBe(false)
+  })
+
+  it('thẻ phiếu dưới md: cả thẻ là một nút (vùng chạm lớn, bàn phím mở được)', () => {
+    const markup = html(<DocumentList kind="receipt" documents={[doc({})]} onOpen={vi.fn()} />)
+    const mobile = markup.slice(markup.indexOf('md:hidden'), markup.indexOf('<table'))
+    const btn = mobile.match(/<button[^>]*aria-label="Xem phiếu PN-0001"[^>]*>/)?.[0] ?? ''
+    expect(btn).toContain('type="button"')
+    expect(btn).toMatch(/\bw-full\b/)
+    expect(btn).toMatch(/\bpy-3\b/)
+    // Nội dung thẻ (số tiền, nhà cung cấp, trạng thái) nằm TRONG nút.
+    const inside = mobile.slice(mobile.indexOf(btn), mobile.indexOf('</button>', mobile.indexOf(btn)))
+    expect(inside).toContain('567.000đ')
+    expect(inside).toContain('Đại lý Hà Nội')
+    expect(inside).toContain('Đã trả · Tiền mặt')
   })
 })

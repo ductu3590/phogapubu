@@ -8,6 +8,7 @@ import {
   lineAmount,
   parseQty,
   qtyWarning,
+  receiptTotal,
   type DocKind,
   type DraftLine,
   type InventoryKind,
@@ -50,7 +51,12 @@ export default function LinesEditor({ kind, items, drafts, onChange, withCost = 
     const cost = parseVnd(d.unitCost)
     return qty !== null && cost !== null ? lineAmount(qty, cost) : null
   }
-  const total = drafts.reduce((sum, d) => sum + (d.inventoryItemId ? amountOf(d) ?? 0 : 0), 0)
+  // Tổng = receiptTotal (lib/inventory) trên các dòng đã chọn hàng và đọc được SL + đơn giá — cùng công thức với SQL.
+  const total = receiptTotal(drafts.flatMap((d) => {
+    const qty = parseQty(d.qty)
+    const unitCost = parseVnd(d.unitCost)
+    return d.inventoryItemId && qty !== null && unitCost !== null ? [{ qty, unitCost }] : []
+  }))
 
   const cols = cn(
     'md:grid md:items-start md:gap-2',

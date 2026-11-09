@@ -5,12 +5,18 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { IconButton } from './button'
 
+/** Esc gọi gì: đóng được thì onClose; khoá (`dismissible=false`) thì onEscape nếu có, không thì không làm gì. */
+export function escapeHandler(dismissible: boolean, onClose: () => void, onEscape?: () => void): (() => void) | undefined {
+  return dismissible ? onClose : onEscape
+}
+
 /**
  * Lớp nổi dựng trên <dialog> gốc: tự khoá focus, Esc để đóng, nền mờ phía sau.
  * - `center`: hộp xác nhận / form ngắn (rộng tối đa 480px).
  * - `side`: panel chi tiết. Desktop trượt từ phải (420px), mobile thành sheet từ dưới, cao tối đa 90vh.
  * Header và footer đứng yên, chỉ thân cuộn — nút ở footer không bao giờ đè dòng cuối.
- * `dismissible=false`: không đóng khi bấm ra ngoài (form đang nhập dở, thao tác tiền).
+ * `dismissible=false`: không đóng khi bấm ra ngoài (form đang nhập dở, thao tác tiền). Esc khi đó gọi `onEscape` nếu có
+ * (vd. hỏi "Bỏ phiếu đang nhập?"), không có thì Esc không làm gì — hành vi cũ của mọi chỗ đang dùng giữ nguyên.
  */
 export function Dialog({
   open,
@@ -20,6 +26,7 @@ export function Dialog({
   footer,
   placement = 'center',
   dismissible = true,
+  onEscape,
   className,
   children,
 }: {
@@ -30,6 +37,8 @@ export function Dialog({
   footer?: ReactNode
   placement?: 'center' | 'side'
   dismissible?: boolean
+  /** Esc khi `dismissible=false` (mặc định: không làm gì). */
+  onEscape?: () => void
   className?: string
   children?: ReactNode
 }) {
@@ -48,7 +57,7 @@ export function Dialog({
       onCancel={(event) => {
         // Esc: luôn để component cha quyết định đóng (giữ state `open` là nguồn sự thật).
         event.preventDefault()
-        if (dismissible) onClose()
+        escapeHandler(dismissible, onClose, onEscape)?.()
       }}
       onClick={(event) => {
         if (dismissible && event.target === ref.current) onClose()

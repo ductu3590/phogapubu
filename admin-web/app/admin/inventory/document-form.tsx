@@ -26,37 +26,52 @@ export type DocumentHeader = {
   paidMethod: 'cash' | 'bank' | null
 }
 
+type PostResult = Awaited<ReturnType<typeof postInventoryDocument>>
+
 /**
- * Gửi một phiếu. `clientRequestId` sinh MỘT lần khi form mở (form mount theo lần mở) và giữ nguyên qua mọi lần bấm
- * Lưu thất bại: mạng rớt mà server đã lưu thì gửi lại trả đúng phiếu cũ (`replayed`), không ra phiếu thứ hai.
- * Chỉ bỏ khi lưu xong hoặc đóng form (component unmount).
+ * Hàm gửi phiếu thuần (không React) gắn chặt MỘT `clientRequestId`: gọi bao nhiêu lần cũng gửi cùng mã đó, nên
+ * mạng rớt mà server đã lưu thì lần gửi lại trả đúng phiếu cũ (`replayed`), không ra phiếu thứ hai.
+ */
+export function makeDocumentSubmit(deps: {
+  kind: DocKind
+  today: string
+  clientRequestId: string
+  post: typeof postInventoryDocument
+  withCost?: boolean
+}) {
+  return async (header: DocumentHeader, drafts: DraftLine[]): Promise<PostResult> => {
+    const built = buildDocumentLines(deps.kind, drafts, { withCost: deps.withCost })
+    if (!built.ok) return { ok: false, error: built.error }
+    return deps.post({
+      kind: deps.kind,
+      // Hôm nay gửi null: server lấy ngày kinh doanh của chính nó (mốc = lúc lưu).
+      docDate: header.docDate === deps.today ? null : header.docDate,
+      supplierName: header.supplierName,
+      note: header.note,
+      paidStatus: header.paidStatus,
+      paidMethod: header.paidMethod,
+      lines: built.lines,
+      clientRequestId: deps.clientRequestId,
+    })
+  }
+}
+
+/**
+ * Gửi một phiếu từ form. `clientRequestId` sinh MỘT lần khi form mount (mỗi lần mở form là một lần mount) và giữ
+ * nguyên qua mọi lần bấm Lưu thất bại; chỉ bỏ khi lưu xong hoặc đóng form (unmount).
  */
 export function useDocumentSubmit(kind: DocKind, today: string, onSaved: () => void, opts?: { withCost?: boolean }) {
   const toast = useToast()
   const [clientRequestId] = useState(() => crypto.randomUUID())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const send = makeDocumentSubmit({ kind, today, clientRequestId, post: postInventoryDocument, withCost: opts?.withCost })
 
   async function submit(header: DocumentHeader, drafts: DraftLine[]) {
     if (busy) return
-    const built = buildDocumentLines(kind, drafts, opts)
-    if (!built.ok) {
-      setError(built.error)
-      return
-    }
     setBusy(true)
     setError(null)
-    const res = await postInventoryDocument({
-      kind,
-      // Hôm nay gửi null: server lấy ngày kinh doanh của chính nó (mốc = lúc lưu).
-      docDate: header.docDate === today ? null : header.docDate,
-      supplierName: header.supplierName,
-      note: header.note,
-      paidStatus: header.paidStatus,
-      paidMethod: header.paidMethod,
-      lines: built.lines,
-      clientRequestId,
-    })
+    const res = await send(header, drafts)
     setBusy(false)
     if (!res.ok) {
       setError(res.error)
@@ -78,7 +93,8 @@ export function useDocumentSubmit(kind: DocKind, today: string, onSaved: () => v
 
 /**
  * Vỏ chung của form phiếu: Dialog bên phải (sheet dưới trên mobile), không đóng khi bấm ra ngoài.
- * Đóng khi đã gõ → hỏi "Bỏ phiếu đang nhập?" bằng ConfirmDialog (không window.confirm).
+ * Đóng (nút Đóng, X, Esc) khi đã gõ → hỏi "Bỏ phiếu đang nhập?" bằng ConfirmDialog (không window.confirm).
+ * Lỗi lưu và lý do chưa lưu được nằm ở CHÂN hộp, cạnh nút Lưu: thân hộp cuộn, ở 375px lỗi đặt trên đầu sẽ khuất.
  */
 export function DocumentFormShell({ title, description, dirty, busy, blocker, error, onClose, onSave, children }: {
   title: string
@@ -107,23 +123,25 @@ export function DocumentFormShell({ title, description, dirty, busy, blocker, er
         placement="side"
         dismissible={false}
         onClose={requestClose}
+        onEscape={requestClose}
         title={title}
         description={description}
         className="md:w-[640px]"
         footer={
           <>
-            {blocker ? <p className="mr-auto text-[13px] text-warning">{blocker}</p> : null}
+            {error ? (
+              <p role="alert" data-slot="form-error"
+                className="basis-full rounded-lg border border-critical-border bg-critical-bg px-3 py-2 text-sm text-critical">
+                {error}
+              </p>
+            ) : null}
+            {blocker ? <p data-slot="form-blocker" className="mr-auto text-[13px] text-warning">{blocker}</p> : null}
             <Button onClick={requestClose} disabled={busy}>Đóng</Button>
             <Button variant="primary" onClick={onSave} isLoading={busy} disabled={blocker !== null}>Lưu</Button>
           </>
         }
       >
-        <div className="space-y-4">
-          {error ? (
-            <p role="alert" className="rounded-lg border border-critical-border bg-critical-bg px-3 py-2 text-sm text-critical">{error}</p>
-          ) : null}
-          {children}
-        </div>
+        <div className="space-y-4">{children}</div>
       </Dialog>
       {confirmDiscard ? (
         <ConfirmDialog
