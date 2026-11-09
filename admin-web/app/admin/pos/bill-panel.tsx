@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   ArrowLeft, Banknote, BellRing, Clock3, EllipsisVertical, Gift, Hash, Layers, Link2, Lock, Minus, Plus, Printer, Receipt,
   RotateCcw, Smartphone, Trash2, UserRound, X,
@@ -25,6 +25,8 @@ import { billHistory, rejectReasonLabel } from '@/lib/pos-bill-history'
 import type { MoveTarget } from '@/lib/table-move'
 import { groupTablesByArea, type StaffArea } from '@/lib/staff-area-groups'
 import DiscountDialog from './discount-dialog'
+import { buildBillQr, paymentQrAmount } from '@/lib/bill-qr'
+import type { BankAccountFields } from '@/lib/vietqr'
 import PaymentMethodFields from './payment-method-fields'
 
 // Bill của /admin/pos theo bản Stitch P01 (bill dạng tab) + P03 (lượt gọi mới) + P04 (thanh toán một nút).
@@ -52,6 +54,8 @@ const BILL_STATE: Record<TableVisualState, string> = {
 }
 
 export type PosBillPanelProps = {
+  /** Tài khoản nhận tiền của quán (VietQR); không truyền = không hiện QR. */
+  bankAccount?: BankAccountFields | null
   selected: OpenTableSession | null
   picked: OpenTableSession[]
   freeTables: { id: string; table_number: string }[]
@@ -221,6 +225,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
         discountError={discountError}
         onEditDiscount={() => setDiscountOpen(true)}
         total={payable}
+        bankAccount={props.bankAccount}
         busy={busy}
         onAdjust={dieuChinh}
         onQty={suaSoLuong}
@@ -755,7 +760,7 @@ function currentDiscountOf(list: OpenTableSession[]): BillDiscount {
 }
 
 /** Màn Thanh toán & đóng mâm — bản Stitch P04. */
-export function PaymentView({ title, list, goods, paid, expiredNote, discount, discountLabel, discountError, onEditDiscount, total, busy, onAdjust, onQty, onRestore, onBack, onDismiss, onPay, onPrint }: {
+export function PaymentView({ title, list, goods, paid, expiredNote, discount, discountLabel, discountError, onEditDiscount, total, bankAccount, busy, onAdjust, onQty, onRestore, onBack, onDismiss, onPay, onPrint }: {
   title: string
   list: OpenTableSession[]
   /** Tổng tiền hàng CHƯA thu (trước giảm giá) — nền của giảm giá và của số tiền thu. */
@@ -773,6 +778,7 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   onEditDiscount: () => void
   /** Khách cần trả = tiền hàng − giảm giá. */
   total: number
+  bankAccount?: BankAccountFields | null
   busy: boolean
   onAdjust: (itemId: string, type: 'cancelled' | 'gift') => void
   onQty: (item: SessionOrderItem) => void
@@ -795,6 +801,22 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   const bankPart = draft.bank
   const given = parseVnd(givenText)
   const change = cashChange(cashPart, given)
+  // Mã QR: chuyển khoản = cả số cần thu, kết hợp = phần chuyển khoản. Giảm giá lỗi thì số cần thu chưa chốt → không QR.
+  // useMemo vì màn này render lại liên tục (mỗi phím gõ), tránh dựng lại chuỗi EMVCo khi đầu vào không đổi.
+  const sessionKey = list.map((s) => `${s.session_id}|${s.table_number}`).join(',')
+  const qr = useMemo(
+    () =>
+      discountError
+        ? null
+        : buildBillQr({
+            bank: bankAccount,
+            amount: paymentQrAmount({ method, total, bankPart }),
+            sessions: list.map((s) => ({ sessionId: s.session_id, tableLabel: s.table_number })),
+          }),
+    // list đổi tham chiếu mỗi lần poll; chỉ phụ thuộc vào định danh phiên + bàn
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [discountError, bankAccount, method, total, bankPart, sessionKey],
+  )
   const items = list.flatMap((s) => s.orders.filter((o) => o.status !== 'cancelled').flatMap((o) => o.items))
   const short = cashPart > 0 && change.kind === 'short'
   // Khách đưa vượt giới hạn integer của server → khoá nút, PaymentMethodFields báo lỗi tiếng Việt.
@@ -901,6 +923,7 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
         total={total}
         cashPart={cashPart}
         bankPart={bankPart}
+        qr={qr}
         cashText={cashText}
         bankText={bankText}
         givenText={givenText}

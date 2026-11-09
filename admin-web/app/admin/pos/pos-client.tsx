@@ -27,6 +27,7 @@ import {
   type OpenTableSession,
 } from '@/lib/actions/table-session'
 import type { BillDiscount } from '@/lib/bill-discount'
+import type { BankAccountFields } from '@/lib/vietqr'
 import { runCollect } from '@/lib/collect-outcome'
 import {
   addManualItems,
@@ -132,6 +133,7 @@ function queueRange() {
 export default function PosClient({
   storeId,
   storeName,
+  bankAccount,
   paymentTiming,
   servingHours,
   slotIntervalMinutes,
@@ -155,6 +157,7 @@ export default function PosClient({
 }: {
   storeId: string
   storeName: string
+  bankAccount?: BankAccountFields | null
   paymentTiming: 'prepay' | 'postpay'
   servingHours: ServingPeriod[]
   /** Bước giờ đặt bàn (Cài đặt quán) — làm tròn giờ đặt bàn mới. */
@@ -1323,6 +1326,7 @@ export default function PosClient({
       )}
       {panel === 'bill' && (
         <PosBillPanel
+          bankAccount={bankAccount}
           // Đổi bàn / gộp bill khác = bill mới: về tab Hoá đơn, thoát màn thanh toán đang dở.
           key={selected?.session_id ?? [...pickedSessionIds].sort().join(',') ?? 'pick'}
           trayColors={trayColors}
