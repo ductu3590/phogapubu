@@ -77,8 +77,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // /admin — chủ quán + thu ngân (PA-2). Thu ngân chỉ vào POS / Báo cáo / Đặt bàn / Thực đơn (Tạm hết) /
-  // Tài khoản; trang khác → về POS. Staff/superadmin → đúng khu của họ (không dead-end ở /login).
+  // /admin — chủ quán + thu ngân (PA-2) + quản lý (mig 116). Thu ngân / quản lý chỉ vào POS / Hoá đơn / Đặt bàn /
+  // Thực đơn (Tạm hết) / Tài khoản / Báo cáo / Công nợ / Kho / Thu chi (CASHIER_/MANAGER_ADMIN_PATHS); trang khác
+  // (Cài đặt, Nhân viên, Bàn & QR, Ưu đãi, Bếp…) → về POS. Staff/superadmin → đúng khu của họ (không dead-end ở /login).
   if (isAdminRoute && (!canEnterAdmin(role) || !adminPathAllowed(role as OperatorRole, request.nextUrl.pathname))) {
     const home = homeFor(role)
     return home ? NextResponse.redirect(new URL(home, request.url)) : toLogin()
@@ -90,7 +91,8 @@ export async function proxy(request: NextRequest) {
     return home ? NextResponse.redirect(new URL(home, request.url)) : toLogin()
   }
 
-  // /staff — nhân viên, chủ quán (hỗ trợ/test), thu ngân (in hoá đơn 80mm ở /staff/tables/print). Superadmin → /mevo.
+  // /staff — nhân viên, chủ quán (hỗ trợ/test), thu ngân, quản lý (gọi món hộ). Hoá đơn 80mm nay in ở /print/bill
+  // (URL cũ /staff/tables/print chỉ còn chuyển hướng sang đó). Superadmin → /mevo.
   if (isStaffRoute && !canEnterStaffArea(role)) {
     const home = homeFor(role)
     return home ? NextResponse.redirect(new URL(home, request.url)) : toLogin()

@@ -76,3 +76,13 @@ describe('thu ngân đặt hộ (vá review PA-2)', () => {
     await expect(createStaffOrder(baseInput)).resolves.toMatchObject({ ok: true, orderId: 'o1' })
   })
 })
+
+describe('quản lý đặt hộ (QL)', () => {
+  it('quản lý đặt hộ gọi RPC staff_create_order (mig 116)', async () => {
+    vi.clearAllMocks()
+    mocks.requireOperator.mockResolvedValue({ userId: 'm1', role: 'store_manager', storeId: 'store-1' })
+    mocks.rpc.mockResolvedValue({ data: { order_id: 'o1', total: 100000 }, error: null })
+    await expect(createStaffOrder(baseInput)).resolves.toMatchObject({ ok: true, orderId: 'o1' })
+    expect(mocks.rpc).toHaveBeenCalledWith('staff_create_order', expect.anything())
+  })
+})

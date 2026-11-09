@@ -93,6 +93,7 @@ import ReservationDetail from './reservation-detail'
 import NewReservationSheet, { type NewReservationSubmit } from './new-reservation-sheet'
 import { useNow } from './use-now'
 import { useOnline } from './use-online'
+import { useAutoKitchenPrint } from './use-auto-kitchen-print'
 import { useServiceRequests } from './use-service-requests'
 import WorkQueue from './work-queue'
 import PosBillPanel, { type PosPayment } from './bill-panel'
@@ -141,6 +142,7 @@ export default function PosClient({
   initialSessions,
   canArrange,
   operatorEmail,
+  operatorRoleLabel,
   initialError,
   initialRequests,
   initialRequestError,
@@ -163,10 +165,12 @@ export default function PosClient({
   initialFloorError: string | null
   categories: PosMenuCategory[]
   initialSessions: OpenTableSession[]
-  /** Thu ngân (PA-2) không sắp xếp sơ đồ — việc cấu hình của chủ quán; server cũng chặn lưu. */
+  /** Chỉ chủ quán sắp xếp sơ đồ (thu ngân, quản lý thì không) — việc cấu hình; server cũng chặn lưu. */
   canArrange: boolean
-  /** Email người đang đăng nhập — hiện cạnh nhãn "Chủ quán" / "Thu ngân". */
+  /** Email người đang đăng nhập — hiện cạnh nhãn vai (operatorRoleLabel). */
   operatorEmail: string | null
+  /** Nhãn vai lấy từ ROLE_LABEL (lib/auth/roles.ts): Chủ quán / Thu ngân / Quản lý. Thiếu thì suy từ canArrange như cũ. */
+  operatorRoleLabel?: string
   initialError: string | null
   initialRequests: ServiceRequestRow[]
   initialRequestError: string | null
@@ -239,6 +243,7 @@ export default function PosClient({
   const reportActionError = useCallback((message: string | null) => {
     setError(message ? actionError(message) : null)
   }, [])
+  const autoPrint = useAutoKitchenPrint({ supabase, storeId, sessions, onGiveUp: reportActionError })
 
   // ─── Tải dữ liệu ─────────────────────────────────────────────────────────
   const reload = useCallback(async () => {
@@ -954,13 +959,13 @@ export default function PosClient({
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-slate-900">MEVO POS</h1>
                 <span className="max-w-48 truncate rounded-md border border-orange-200 bg-orange-50 px-2 py-0.5 text-[13px] font-semibold text-orange-700">{storeName}</span>
-                {/* Vai trò đang vận hành máy quầy (chủ quán và thu ngân có quyền khác nhau — PA-2). */}
+                {/* Vai trò đang vận hành máy quầy, nhãn lấy từ ROLE_LABEL (chủ quán, thu ngân, quản lý có quyền khác nhau). */}
                 <span
                   className="inline-flex max-w-64 items-center gap-1.5 truncate rounded-md border border-slate-300 bg-slate-900 px-2 py-0.5 text-[13px] font-semibold text-white"
                   title={operatorEmail ?? undefined}
                 >
                   <UserRound className="size-3.5 shrink-0" aria-hidden />
-                  {canArrange ? 'Chủ quán' : 'Thu ngân'}
+                  {operatorRoleLabel ?? (canArrange ? 'Chủ quán' : 'Thu ngân')}
                   {operatorEmail && <span className="hidden truncate font-normal text-slate-300 lg:inline">· {operatorEmail}</span>}
                 </span>
               </div>
@@ -1017,6 +1022,8 @@ export default function PosClient({
             </Button>
           </div>
         </div>
+
+        {autoPrint.banner && <Banner tone={autoPrint.banner.tone} title={autoPrint.banner.title} className="mx-4 mt-2 md:mx-5" />}
 
         {mergeMode && (
           <div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/30 bg-primary-light px-4 py-2 md:px-5">

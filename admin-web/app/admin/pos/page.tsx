@@ -1,4 +1,5 @@
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
+import { ROLE_LABEL } from '@/lib/auth/roles'
 import { createClient } from '@/lib/supabase/server'
 import { listOpenTableSessions } from '@/lib/actions/table-session'
 import { loadFloorLayout } from '@/lib/actions/floor-layout'
@@ -122,6 +123,7 @@ export default async function PosPage() {
       categories={categories}
       initialSessions={res.ok ? res.sessions : []}
       canArrange={operator.role === 'store_owner'}
+      operatorRoleLabel={ROLE_LABEL[operator.role]}
       operatorEmail={userRes.data.user?.email ?? null}
       initialError={res.ok ? null : res.error}
     />

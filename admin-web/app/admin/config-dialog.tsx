@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, ReceiptText, QrCode, Settings, ShieldCheck, Ticket, Users, UtensilsCrossed, X } from 'lucide-react'
+import { CalendarDays, ChartColumn, ReceiptText, QrCode, Settings, ShieldCheck, Ticket, Users, UtensilsCrossed, X } from 'lucide-react'
 import { IconButton } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { OperatorRole } from '@/lib/auth/roles'
@@ -21,7 +21,8 @@ export const CONFIG_TABS = [
   { href: '/admin/settings', label: 'Cài đặt chung', icon: <Settings />, settings: true },
   { href: '/admin/menu', label: 'Thực đơn & Giá', icon: <UtensilsCrossed /> },
   { href: '/admin/tables', label: 'Sơ đồ bàn & QR', icon: <QrCode /> },
-  { href: '/admin/bills', label: 'Hoá đơn & Báo cáo', icon: <ReceiptText /> },
+  { href: '/admin/bills', label: 'Hoá đơn', icon: <ReceiptText /> },
+  { href: '/admin/reports', label: 'Báo cáo', icon: <ChartColumn /> },
   { href: '/admin/staff', label: 'Nhân viên', icon: <Users />, settings: true },
   { href: '/admin/vouchers', label: 'Ưu đãi & Vòng quay', icon: <Ticket />, settings: true },
   { href: '/admin/account', label: 'Bảo mật', icon: <ShieldCheck />, settings: true, cashier: true },
@@ -30,9 +31,12 @@ export const CONFIG_TABS = [
 type ConfigTab = (typeof CONFIG_TABS)[number]
 const isSettingsTab = (t: ConfigTab) => 'settings' in t && t.settings
 
-/** Tab trong nhóm ⚙ Cài đặt theo vai trò: thu ngân chỉ có Bảo mật (tài khoản của mình) → không cần hàng tab. */
+/**
+ * Tab trong nhóm ⚙ Cài đặt theo vai trò. Chủ quán thấy mọi tab; vai khác (thu ngân, quản lý) chỉ tab có cờ
+ * `cashier` = "tài khoản của chính mình" (Bảo mật) → một tab nên không cần hàng tab.
+ */
 export function settingsTabs(role: OperatorRole) {
-  return CONFIG_TABS.filter((t) => isSettingsTab(t) && (role !== 'store_cashier' || ('cashier' in t && t.cashier)))
+  return CONFIG_TABS.filter((t) => isSettingsTab(t) && (role === 'store_owner' || ('cashier' in t && t.cashier)))
 }
 
 // Độ dài lịch sử trình duyệt lúc hộp thoại MỞ — đóng là quay về đúng trang nền dù bên trong đã bấm

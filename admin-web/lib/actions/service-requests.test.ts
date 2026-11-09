@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => {
   const operator = {
     value: { userId: 'owner-1', role: 'store_owner', storeId: 'store-1' } as {
       userId: string
-      role: 'store_owner' | 'store_staff' | 'store_cashier'
+      role: 'store_owner' | 'store_staff' | 'store_cashier' | 'store_manager'
       storeId: string
     },
   }
@@ -41,6 +41,7 @@ const {
 } = await import('./table-session')
 const { listOpenServiceRequests, resolveServiceRequest } = await import('./service-requests')
 const { collectSessionBill } = await import('./bill-detail')
+const { listStaffUpcomingReservedTables } = await import('./staff-reservations')
 
 const OPEN_REQUEST = {
   id: 'request-1',
@@ -97,7 +98,7 @@ describe('service request actions', () => {
     mocks.rpc.mockResolvedValue({ data: [OPEN_REQUEST], error: null })
   })
 
-  it.each(['store_owner', 'store_staff'] as const)(
+  it.each(['store_owner', 'store_staff', 'store_cashier', 'store_manager'] as const)(
     '%s list request đúng store operator',
     async (role) => {
       mocks.operator.value = { userId: `${role}-1`, role, storeId: 'store-1' }
@@ -286,5 +287,33 @@ describe('thu ngân ở quầy (PA-2)', () => {
   it('xem và xử lý gọi nhân viên', async () => {
     mocks.rpc.mockResolvedValueOnce({ data: [], error: null })
     await expect(listOpenServiceRequests()).resolves.toMatchObject({ ok: true })
+  })
+})
+
+// Vai Quản lý (mig 116) dùng được các action /staff giống chủ quán / thu ngân: nút chuông, danh sách bàn,
+// bàn đặt trước sắp tới. RPC phía DB kiểm lại bằng is_store_scoped_operator / is_store_pos_operator.
+describe('quản lý (QL) ở khu /staff', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.rpc.mockReset()
+    mocks.operator.value = { userId: 'm1', role: 'store_manager', storeId: 'store-1' }
+  })
+
+  it('resolveServiceRequest gọi RPC', async () => {
+    mocks.rpc.mockResolvedValue({ data: { already: false }, error: null })
+    await expect(resolveServiceRequest('request-1')).resolves.toMatchObject({ ok: true })
+    expect(mocks.rpc).toHaveBeenCalledWith('resolve_service_request', { p_request_id: 'request-1' })
+  })
+
+  it('listOpenTableSessions gọi RPC list_open_table_sessions', async () => {
+    mocks.rpc.mockResolvedValue({ data: [], error: null })
+    await listOpenTableSessions()
+    expect(mocks.rpc).toHaveBeenCalledWith('list_open_table_sessions', expect.anything())
+  })
+
+  it('listStaffUpcomingReservedTables gọi RPC đúng quán', async () => {
+    mocks.rpc.mockResolvedValue({ data: [], error: null })
+    await expect(listStaffUpcomingReservedTables()).resolves.toEqual({ ok: true, rows: [] })
+    expect(mocks.rpc).toHaveBeenCalledWith('list_staff_upcoming_reserved_tables', { p_store_id: 'store-1' })
   })
 })

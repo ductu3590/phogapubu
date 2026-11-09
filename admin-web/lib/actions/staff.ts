@@ -5,12 +5,15 @@ import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 import { findAuthUserByEmail, listAllAuthUsers } from '@/lib/supabase/auth-users'
 import { revalidatePath } from 'next/cache'
 
-// Hai vai trò chủ quán tự tạo được (PA-2): nhân viên phục vụ (đặt hộ) và thu ngân (POS, thu tiền).
-export type StoreTeamRole = 'store_staff' | 'store_cashier'
-const TEAM_ROLES: StoreTeamRole[] = ['store_staff', 'store_cashier']
-// Giá trị lạ từ form → nhân viên phục vụ (quyền thấp nhất). KHÔNG BAO GIỜ thành store_owner.
+// Ba vai trò chủ quán tự tạo được: nhân viên phục vụ (đặt hộ), thu ngân (POS, thu tiền — PA-2) và quản lý
+// (việc thu ngân + kho, thu chi, công nợ, báo cáo tài chính — mig 116). TEAM_ROLES cũng là bộ lọc `in('role')`
+// của sửa / khoá / đặt lại mật khẩu: thiếu một vai là chủ quán không đụng được người giữ vai đó.
+export type StoreTeamRole = 'store_staff' | 'store_cashier' | 'store_manager'
+const TEAM_ROLES: StoreTeamRole[] = ['store_staff', 'store_cashier', 'store_manager']
+// Giá trị lạ từ form (kể cả store_owner / mevo_superadmin sửa tay) → nhân viên phục vụ (quyền thấp nhất).
+// KHÔNG BAO GIỜ thành store_owner.
 function parseTeamRole(v: unknown): StoreTeamRole {
-  return v === 'store_cashier' ? 'store_cashier' : 'store_staff'
+  return TEAM_ROLES.includes(v as StoreTeamRole) ? (v as StoreTeamRole) : 'store_staff'
 }
 
 // Tên nhân viên chủ quán tự gõ — chỉ là nhãn để biết tài khoản của ai (mig 101). Gộp dấu cách thừa.
@@ -22,9 +25,9 @@ function parseDisplayName(v: unknown): { ok: true; name: string } | { ok: false;
   return { ok: true, name }
 }
 
-// Chủ quán tạo tài khoản nhân viên phục vụ / thu ngân cho ĐÚNG quán mình.
+// Chủ quán tạo tài khoản nhân viên phục vụ / thu ngân / quản lý cho ĐÚNG quán mình.
 // Mô phỏng assignStoreOwner: tạo Supabase Auth user nếu email chưa có + sinh mật khẩu tạm
-// (chỉ trả về 1 lần), rồi gắn mevo_operators role store_staff.
+// (chỉ trả về 1 lần), rồi gắn mevo_operators với vai trong form (giá trị lạ → store_staff).
 //
 // store_id LẤY TỪ guard chủ quán (server-side), KHÔNG tin client — nhân viên/anon gọi thẳng
 // action này sẽ bị requireStoreOwnerStoreId chặn trước mọi thao tác.
@@ -44,7 +47,7 @@ export async function createStoreStaff(formData: FormData): Promise<{ email: str
   if (existing) {
     userId = existing.id
     // Không được CHIẾM quyền một tài khoản đang là operator của quán/role khác (PK là user_id →
-    // upsert sẽ ghi đè). Chỉ chấp nhận nếu chưa là operator, hoặc đã là phục vụ/thu ngân của chính quán này.
+    // upsert sẽ ghi đè). Chỉ chấp nhận nếu chưa là operator, hoặc đã là phục vụ/thu ngân/quản lý của chính quán này.
     const { data: existingOp } = await admin
       .from('mevo_operators')
       .select('store_id, role')

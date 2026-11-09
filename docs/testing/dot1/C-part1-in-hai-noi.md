@@ -59,6 +59,8 @@ Quán test phải đang có **cả hai** ô "Đơn khách xuống bếp" và "Đ
 - **Mong đợi:** vẫn đúng 2 trạm (không nhân đôi). Kiểm: `SELECT name, is_pos, is_default_kitchen FROM print_stations WHERE store_id = '<id quán test>' ORDER BY created_at;` đúng 2 dòng.
 
 ## Bài 3 — Khoá hai chiều với policy xuống bếp
+> **Đã bị thay thế bởi mig 121** (gỡ trigger `print_mode_policy_guard`): không còn khoá hai chiều, bài này không còn áp dụng. Xem `docs/testing/yen-garden/CFG.md` (bài 5, 6).
+
 (Không đổi policy trên quán thật: hệ thống từ chối đổi policy khi quán còn phiên bàn đang mở hoặc đơn đang xử lý. Bài này chỉ **quan sát** ô bị khoá, không cần lưu preset.)
 1. Quán test đang ở chế độ **Nhiều nơi**: ở mục **Quy trình vận hành**, hai ô "Đơn khách xuống bếp" và "Đơn nhân viên xuống bếp" bị **khoá** (không bấm chọn được) kèm câu "Đang dùng phần mềm in, phải giữ thu ngân xác nhận". Hai ô đều đang là "Chờ POS xác nhận".
 2. Mở Cài đặt của **một quán đang để Tự động** ở ít nhất một trong hai ô (vd. quán trả trước như Pubu; **nếu không có quán nào như vậy thì bỏ bước này**): mục In ấn, lựa chọn **Nhiều nơi bị khoá** kèm giải thích cần cả hai ô là "Chờ POS xác nhận".

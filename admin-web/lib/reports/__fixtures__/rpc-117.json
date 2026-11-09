@@ -1,0 +1,146 @@
+{
+  "report_sales_by_item": {
+    "to": "2026-03-20",
+    "from": "2026-03-20",
+    "rows": [
+      {
+        "amount": 300000,
+        "qty_gift": 1,
+        "qty_sold": 1,
+        "item_name": "Lẩu thái",
+        "category_id": "00000000-0000-0000-0000-000000000031",
+        "category_name": "Lẩu"
+      },
+      {
+        "amount": 60000,
+        "qty_gift": 0,
+        "qty_sold": 1,
+        "item_name": "Món cũ",
+        "category_id": null,
+        "category_name": "Khác"
+      }
+    ],
+    "summary": {
+      "revenue": 340000,
+      "qty_gift": 1,
+      "qty_sold": 2,
+      "items_amount": 360000,
+      "discount_total": 20000,
+      "open_tables_count": 0
+    },
+    "period_to": "2026-03-21T05:00:00+07:00",
+    "period_from": "2026-03-20T05:00:00+07:00"
+  },
+  "report_sales_by_category": {
+    "to": "2026-03-20",
+    "from": "2026-03-20",
+    "rows": [
+      {
+        "items": [
+          {
+            "amount": 300000,
+            "qty_gift": 1,
+            "qty_sold": 1,
+            "item_name": "Lẩu thái"
+          }
+        ],
+        "amount": 300000,
+        "qty_gift": 1,
+        "qty_sold": 1,
+        "category_id": "00000000-0000-0000-0000-000000000031",
+        "category_name": "Lẩu"
+      },
+      {
+        "items": [
+          {
+            "amount": 60000,
+            "qty_gift": 0,
+            "qty_sold": 1,
+            "item_name": "Món cũ"
+          }
+        ],
+        "amount": 60000,
+        "qty_gift": 0,
+        "qty_sold": 1,
+        "category_id": null,
+        "category_name": "Khác"
+      }
+    ],
+    "summary": {
+      "revenue": 340000,
+      "qty_gift": 1,
+      "qty_sold": 2,
+      "items_amount": 360000,
+      "discount_total": 20000,
+      "open_tables_count": 0
+    },
+    "period_to": "2026-03-21T05:00:00+07:00",
+    "period_from": "2026-03-20T05:00:00+07:00"
+  },
+  "report_sales_by_hour": {
+    "to": "2026-03-20",
+    "from": "2026-03-20",
+    "rows": [
+      {
+        "hour": 18,
+        "amount": 360000,
+        "items_qty": 3,
+        "orders_count": 1
+      }
+    ],
+    "summary": {
+      "revenue": 340000,
+      "qty_gift": 1,
+      "qty_sold": 2,
+      "items_amount": 360000,
+      "discount_total": 20000,
+      "open_tables_count": 0
+    },
+    "period_to": "2026-03-21T05:00:00+07:00",
+    "period_from": "2026-03-20T05:00:00+07:00"
+  },
+  "report_voids": {
+    "to": "2026-03-20",
+    "from": "2026-03-20",
+    "rows": [
+      {
+        "at": "2026-03-20T18:55:00+07:00",
+        "type": "cancelled",
+        "amount": 250000,
+        "reason": "Bếp hết",
+        "by_name": "Chủ quán",
+        "quantity": 1,
+        "item_name": "Lẩu riêu",
+        "table_label": "A1"
+      },
+      {
+        "at": "2026-03-20T18:40:00+07:00",
+        "type": "quantity",
+        "amount": 120000,
+        "reason": "Khách trả lại",
+        "by_name": "Chủ quán",
+        "quantity": 2,
+        "item_name": "Món cũ",
+        "table_label": "A1"
+      },
+      {
+        "at": "2026-03-20T18:30:00+07:00",
+        "type": "gift",
+        "amount": 300000,
+        "reason": null,
+        "by_name": "Chủ quán",
+        "quantity": 1,
+        "item_name": "Lẩu thái",
+        "table_label": "A1"
+      }
+    ],
+    "totals": {
+      "count": 3,
+      "gift_amount": 300000,
+      "reduced_amount": 120000,
+      "cancelled_amount": 250000
+    },
+    "period_to": "2026-03-21T05:00:00+07:00",
+    "period_from": "2026-03-20T05:00:00+07:00"
+  }
+}

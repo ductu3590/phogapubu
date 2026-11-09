@@ -123,7 +123,7 @@ describe('reservation actions', () => {
 
     await expect(invoke()).resolves.toEqual({
       ok: false,
-      error: 'Chỉ chủ quán hoặc thu ngân được xử lý đặt bàn',
+      error: 'Chỉ chủ quán, quản lý hoặc thu ngân được xử lý đặt bàn',
     })
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
