@@ -24,3 +24,12 @@ Cần phần mềm in thật ở chế độ `agent`.
 12. Phiếu quá 30 phút chưa in (hết hạn): hiện như phiếu lỗi, In lại được.
 13. Phiếu **In thử** lỗi: chỉ có nút In lại, không có nút In bằng trình duyệt.
 14. Chế độ `browser`: không có băng nào. Chuyển từ `agent` về `browser` khi còn phiếu đang xếp hàng: phần mềm in cũ không in các phiếu đó nữa.
+
+## Vòng sửa cuối (review toàn nhánh)
+
+15. Bill còn một đơn khách gọi CHƯA duyệt: **In tạm tính** không có QR (cả POS lẫn `/staff/tables`). Duyệt xong rồi in lại: có QR. Đơn ghi tay / đặt trước ở trạng thái chờ không chặn QR.
+16. Sự cố dài: để phần mềm in lỗi/tắt rồi in nhiều phiếu (hoặc dựng nhiều phiếu lỗi): băng chỉ hiện một dòng "N phiếu in lỗi" + 3 phiếu đầu, có **Xem tất cả** / **Thu gọn**. **Bỏ qua** một phiếu và **Bỏ qua tất cả** làm băng gỡ mà KHÔNG in gì.
+17. Chuyển từ `agent` về `browser` khi còn phiếu lỗi/hết hạn chưa xử lý: các phiếu đó được bỏ qua, bật lại `agent` không hiện băng cũ.
+18. Hai máy POS: máy A mở sẵn POS, máy B chuyển quán về `browser`. Bấm in ở máy A (cache còn `agent`): tờ in ra bằng trình duyệt ngay lần bấm đó, không báo lỗi.
+19. Hai máy POS: máy B đổi tài khoản nhận tiền ở Cài đặt; máy A mở màn Thanh toán, chọn Chuyển khoản: QR dùng tài khoản MỚI (không cần tải lại trang).
+20. Bấm **In lại** / **Bỏ qua** trên một phiếu: nút của phiếu đó khoá tới khi xong, băng cập nhật ngay sau đó (không chờ lượt đọc 5 giây kế).

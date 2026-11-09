@@ -38,7 +38,12 @@ async function run(req: PrintRequest): Promise<{ ok: true } | { ok: false; error
     try {
       const res = await enqueuePrint(req)
       // Server nói quán không còn ở chế độ phần mềm in (đổi ở máy khác): bỏ cache để lần sau đọc lại và in bằng trình duyệt
-      if (!res.ok && res.error === PRINT_AGENT_MODE_OFF_ERROR) modeCache = null
+      // và lần bấm này in luôn bằng trình duyệt (đổi chế độ ở máy khác, người bấm không phải bấm lại)
+      if (!res.ok && res.error === PRINT_AGENT_MODE_OFF_ERROR) {
+        modeCache = null
+        printInPlace(browserPrintUrl(req))
+        return { ok: true }
+      }
       return res.ok ? { ok: true } : { ok: false, error: res.error }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : 'Không xếp được phiếu in' }

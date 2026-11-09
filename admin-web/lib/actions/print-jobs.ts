@@ -151,6 +151,13 @@ export async function markPrintedInBrowser(jobId: string): Promise<SimpleResult>
   return callJobRpc('dismiss_print_job', jobId)
 }
 
+// "Bỏ qua tất cả": đánh dấu đã xử lý hàng loạt, KHÔNG in. RPC tự kiểm quyền + quán cho từng phiếu.
+export async function dismissPrintJobs(jobIds: string[]): Promise<SimpleResult> {
+  if (!Array.isArray(jobIds) || jobIds.length === 0 || jobIds.length > 100) return { ok: false, error: 'Danh sách phiếu không hợp lệ' }
+  const results = await Promise.all(jobIds.map((id) => callJobRpc('dismiss_print_job', id)))
+  return results.find((r) => !r.ok) ?? { ok: true }
+}
+
 async function callJobRpc(fn: 'retry_print_job' | 'dismiss_print_job', jobId: string): Promise<SimpleResult> {
   if (typeof jobId !== 'string' || jobId.trim() === '') return { ok: false, error: 'Thiếu mã phiếu' }
   try {

@@ -12,6 +12,7 @@ import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import type { ListReservationsResult, ReservationQueueRange } from '@/lib/actions/reservations'
 import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
 import type { ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
+import type { BankAccountFields } from '@/lib/vietqr'
 import type { PrintRequest } from '@/lib/print/print-request'
 import type { AutoPrintConfig } from '@/lib/print/auto-kitchen-print'
 import { toCustomerCallTask, toPreorderRow, toReservationRow, type PreorderRpcRow, type ReservationRpcRow } from './reservation-rows'
@@ -91,6 +92,17 @@ export type PrintStatus = {
   last_seen_at: string | null
   queued_count: number
   problem_jobs: PrintProblemJob[]
+}
+
+/** Tài khoản nhận tiền hiện tại của quán (đọc lúc mở màn Thanh toán để QR không dùng tài khoản cũ khi máy khác vừa đổi). */
+export async function readStoreBankAccount(client: BrowserClient, storeId: string): Promise<
+  { ok: true; bank: BankAccountFields } | { ok: false; error: string }
+> {
+  const { data, error } = await client.from('stores').select('bank_bin, bank_account_number, bank_account_name').eq('id', storeId).maybeSingle()
+  if (error || !data) return { ok: false, error: error?.message ?? 'Không đọc được tài khoản nhận tiền' }
+  const d = data as Record<string, unknown>
+  const s = (v: unknown) => (typeof v === 'string' ? v : null)
+  return { ok: true, bank: { bank_bin: s(d.bank_bin), bank_account_number: s(d.bank_account_number), bank_account_name: s(d.bank_account_name) } }
 }
 
 const str = (v: unknown): v is string => typeof v === 'string'

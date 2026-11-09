@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   ArrowLeft, Banknote, BellRing, Clock3, EllipsisVertical, Gift, Hash, Layers, Link2, Lock, Minus, Plus, Printer, Receipt,
   RotateCcw, Smartphone, Trash2, UserRound, X,
@@ -56,6 +56,8 @@ const BILL_STATE: Record<TableVisualState, string> = {
 export type PosBillPanelProps = {
   /** Tài khoản nhận tiền của quán (VietQR); không truyền = không hiện QR. */
   bankAccount?: BankAccountFields | null
+  /** Đọc lại tài khoản nhận tiền mới nhất lúc mở màn Thanh toán (máy khác có thể vừa đổi); lỗi thì dùng bankAccount của trang. */
+  loadBankAccount?: () => Promise<BankAccountFields | null>
   selected: OpenTableSession | null
   picked: OpenTableSession[]
   freeTables: { id: string; table_number: string }[]
@@ -226,6 +228,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
         onEditDiscount={() => setDiscountOpen(true)}
         total={payable}
         bankAccount={props.bankAccount}
+        loadBankAccount={props.loadBankAccount}
         busy={busy}
         onAdjust={dieuChinh}
         onQty={suaSoLuong}
@@ -760,7 +763,7 @@ function currentDiscountOf(list: OpenTableSession[]): BillDiscount {
 }
 
 /** Màn Thanh toán & đóng mâm — bản Stitch P04. */
-export function PaymentView({ title, list, goods, paid, expiredNote, discount, discountLabel, discountError, onEditDiscount, total, bankAccount, busy, onAdjust, onQty, onRestore, onBack, onDismiss, onPay, onPrint }: {
+export function PaymentView({ title, list, goods, paid, expiredNote, discount, discountLabel, discountError, onEditDiscount, total, bankAccount: pageBankAccount, loadBankAccount, busy, onAdjust, onQty, onRestore, onBack, onDismiss, onPay, onPrint }: {
   title: string
   list: OpenTableSession[]
   /** Tổng tiền hàng CHƯA thu (trước giảm giá) — nền của giảm giá và của số tiền thu. */
@@ -779,6 +782,7 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   /** Khách cần trả = tiền hàng − giảm giá. */
   total: number
   bankAccount?: BankAccountFields | null
+  loadBankAccount?: () => Promise<BankAccountFields | null>
   busy: boolean
   onAdjust: (itemId: string, type: 'cancelled' | 'gift') => void
   onQty: (item: SessionOrderItem) => void
@@ -789,6 +793,18 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   onPrint: () => void
 }) {
   const [method, setMethod] = useState<PayMethod>('cash')
+  // Tài khoản mới đọc lúc mở màn này ưu tiên hơn bản của trang (có thể đã cũ nếu máy khác vừa đổi tài khoản).
+  const [freshBank, setFreshBank] = useState<BankAccountFields | null>(null)
+  const loadBankRef = useRef(loadBankAccount)
+  useEffect(() => {
+    // chỉ đọc một lần mỗi lần mở màn Thanh toán
+    const load = loadBankRef.current
+    if (!load) return
+    let live = true
+    load().then((b) => { if (live && b) setFreshBank(b) }, () => undefined)
+    return () => { live = false }
+  }, [])
+  const bankAccount = freshBank ?? pageBankAccount
   const [cashText, setCashText] = useState('')
   const [bankText, setBankText] = useState('')
   const [givenText, setGivenText] = useState('')

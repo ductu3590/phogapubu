@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => {
     const b: Record<string, unknown> = {}
     b.select = vi.fn(() => b)
     b.eq = vi.fn((col: string, val: unknown) => { calls.filters.push({ op: mode, col, val }); return b })
+    b.in = vi.fn((col: string, val: unknown) => { calls.filters.push({ op: mode, col, val }); return b })
+    b.is = vi.fn((col: string, val: unknown) => { calls.filters.push({ op: mode, col, val }); return b })
     b.update = vi.fn((v: Record<string, unknown>) => { mode = 'update'; calls.updates.push(v); return b })
     b.insert = vi.fn((v: Record<string, unknown>) => { mode = 'insert'; calls.inserts.push({ table, ...v }); return b })
     b.delete = vi.fn(() => { mode = 'delete'; calls.deletes++; return b })
@@ -182,6 +184,16 @@ describe('savePrintMode: chuyển về trình duyệt', () => {
     expect(mocks.calls.filters).toEqual(expect.arrayContaining([
       { op: 'update', col: 'store_id', val: 'store-1' },
       { op: 'update', col: 'status', val: 'queued' },
+    ]))
+  })
+  it('cũng đánh dấu đã xử lý các phiếu lỗi/hết hạn chưa xử lý (không để băng đỏ treo khi bật lại)', async () => {
+    mocks.calls.filters.length = 0
+    mocks.calls.updates.length = 0
+    await actions.savePrintMode('browser')
+    expect(mocks.calls.updates.some((u) => !('status' in u) && 'resolved_at' in u)).toBe(true)
+    expect(mocks.calls.filters).toEqual(expect.arrayContaining([
+      { op: 'update', col: 'status', val: ['failed', 'expired'] },
+      { op: 'update', col: 'resolved_at', val: null },
     ]))
   })
   it('bật agent: không đụng hàng đợi', async () => {

@@ -14,16 +14,26 @@ export function usePrintStatus(storeId: string): { status: PrintStatus | null; r
   const client = useMemo(() => createClient(), [])
   const [status, setStatus] = useState<PrintStatus | null>(null)
   const inflight = useRef(false)
+  // Đọc lại ngay sau một thao tác (In lại / Bỏ qua) mà đang có lượt đọc chạy: xếp MỘT lượt nữa, không bỏ qua
+  const again = useRef(false)
   const alive = useRef(true)
 
   const reload = useCallback(async () => {
-    if (inflight.current) return
+    if (inflight.current) {
+      again.current = true
+      return
+    }
     inflight.current = true
     try {
-      const res = await readPrintStatus(client, storeId)
-      if (alive.current && res.ok) setStatus(res.status)
-    } catch {
-      // mất mạng thoáng qua: giữ trạng thái cũ
+      do {
+        again.current = false
+        try {
+          const res = await readPrintStatus(client, storeId)
+          if (alive.current && res.ok) setStatus(res.status)
+        } catch {
+          // mất mạng thoáng qua: giữ trạng thái cũ
+        }
+      } while (again.current && alive.current)
     } finally {
       inflight.current = false
     }

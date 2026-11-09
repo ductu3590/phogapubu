@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { readAutoPrintConfig, readPrintStatus } from './pos-browser-reads'
+import { describe, expect, it, vi } from 'vitest'
+import { readAutoPrintConfig, readPrintStatus, readStoreBankAccount } from './pos-browser-reads'
 
 type RpcOut = { data: unknown; error: { message: string } | null }
 function fakeClient(out: Record<string, RpcOut>) {
@@ -46,5 +46,20 @@ describe('readPrintStatus', () => {
   it('thiếu trường: mặc định an toàn', async () => {
     const r = await run({})
     expect(r).toEqual({ ok: true, status: { mode: 'browser', agent_online: false, last_seen_at: null, queued_count: 0, problem_jobs: [] } })
+  })
+})
+
+describe('readStoreBankAccount', () => {
+  const client = (res: { data: unknown; error: { message: string } | null }, eq = vi.fn()) =>
+    ({ from: () => ({ select: () => ({ eq: (...a: unknown[]) => { eq(...a); return { maybeSingle: async () => res } } }) }) }) as never
+  it('đọc 3 cột theo đúng quán', async () => {
+    const eq = vi.fn()
+    const bank = { bank_bin: '970436', bank_account_number: '0011001234567', bank_account_name: 'DO DUC TU' }
+    expect(await readStoreBankAccount(client({ data: bank, error: null }, eq), 's1')).toEqual({ ok: true, bank })
+    expect(eq).toHaveBeenCalledWith('id', 's1')
+  })
+  it('lỗi đọc hoặc không có dòng: {ok:false}', async () => {
+    expect((await readStoreBankAccount(client({ data: null, error: { message: 'x' } }), 's1')).ok).toBe(false)
+    expect((await readStoreBankAccount(client({ data: null, error: null }), 's1')).ok).toBe(false)
   })
 })

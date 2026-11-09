@@ -39,6 +39,14 @@ export async function savePrintMode(mode: 'browser' | 'agent'): Promise<{ ok: tr
       .eq('store_id', who.storeId)
       .eq('status', 'queued')
     if (expireErr) return fail(`Đã chuyển sang in bằng trình duyệt nhưng chưa huỷ được phiếu đang chờ: ${expireErr.message}`)
+    // Phiếu lỗi/hết hạn chưa xử lý cũng bỏ qua: về trình duyệt thì băng đỏ không còn ý nghĩa, và khỏi hiện lại khi bật lại.
+    const { error: resolveErr } = await createAdminClient()
+      .from('print_jobs')
+      .update({ resolved_at: new Date().toISOString(), resolved_by: who.userId })
+      .eq('store_id', who.storeId)
+      .in('status', ['failed', 'expired'])
+      .is('resolved_at', null)
+    if (resolveErr) return fail(`Đã chuyển sang in bằng trình duyệt nhưng chưa bỏ qua được phiếu lỗi cũ: ${resolveErr.message}`)
   }
   refresh()
   return { ok: true }

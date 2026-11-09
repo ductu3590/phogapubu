@@ -54,6 +54,19 @@ describe('pickBillQr', () => {
     const s = open({ unpaid_total: 50000, total: 50000, bill_discount_type: 'amount', bill_discount_value: 80000 })
     expect(pickBillQr({ sessionIds: [ID], openSessions: [s], bank })).toBeNull()
   })
+  it('còn đơn khách gọi chờ thu ngân duyệt: không có QR (đơn có thể bị từ chối sau khi khách đã chuyển khoản)', () => {
+    const s = open({ orders: [{ status: 'confirmed', order_source: 'customer' }, { status: 'pending', order_source: 'customer' }] })
+    expect(pickBillQr({ sessionIds: [ID], openSessions: [s], bank })).toBeNull()
+  })
+  it('đơn pending ghi tay / đặt trước không phải chờ duyệt: vẫn có QR', () => {
+    const s = open({ orders: [{ status: 'pending', order_source: 'pos' }, { status: 'pending', order_source: 'reservation_preorder' }, { status: 'confirmed', order_source: 'customer' }] })
+    expect(pickBillQr({ sessionIds: [ID], openSessions: [s], bank })?.amount).toBe(155000)
+  })
+  it('gộp bill: một mâm còn đơn chờ duyệt thì cả bill không có QR', () => {
+    const a = open()
+    const b = open({ session_id: 'b', orders: [{ status: 'pending', order_source: 'staff' }] })
+    expect(pickBillQr({ sessionIds: [ID, 'b'], openSessions: [a, b], bank })).toBeNull()
+  })
   it('giảm 100%: không có QR', () => {
     expect(pickBillQr({ sessionIds: [ID], openSessions: [open({ bill_discount_type: 'percent', bill_discount_value: 100 })], bank })).toBeNull()
   })

@@ -64,7 +64,7 @@ import {
 import { watchReservationQueue } from '@/lib/reservation-queue-watcher'
 import { createReservationReminderCoordinator, type ReminderStorage } from '@/lib/reservation-reminders'
 import { resolveReservationCustomerCall, type ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
-import { readCustomerCalls, readOpenSessions, readPreorderQueue, readReservationQueue } from '@/lib/pos-browser-reads'
+import { readCustomerCalls, readOpenSessions, readPreorderQueue, readReservationQueue, readStoreBankAccount } from '@/lib/pos-browser-reads'
 import {
   releaseReservationPreorder,
   requestReservationPreorderPrint,
@@ -98,7 +98,7 @@ import { useOnline } from './use-online'
 import { useAutoKitchenPrint } from './use-auto-kitchen-print'
 import { usePrintStatus } from './use-print-status'
 import PrintStatusBanner from './print-status-banner'
-import { markPrintedInBrowser, retryPrintJob } from '@/lib/actions/print-jobs'
+import { dismissPrintJobs, markPrintedInBrowser, retryPrintJob } from '@/lib/actions/print-jobs'
 import { useServiceRequests } from './use-service-requests'
 import WorkQueue from './work-queue'
 import PosBillPanel, { type PosPayment } from './bill-panel'
@@ -252,15 +252,30 @@ export default function PosClient({
   }, [])
   const autoPrint = useAutoKitchenPrint({ supabase, storeId, sessions, onGiveUp: reportActionError })
   const printStatus = usePrintStatus(storeId)
-  const onRetryPrintJob = async (jobId: string) => {
-    const r = await retryPrintJob(jobId).catch(() => ({ ok: false as const, error: 'Lỗi kết nối. Thử lại sau.' }))
-    if (!r.ok) reportActionError(r.error)
-    await printStatus.reload()
+  // Phiếu đang chạy thao tác: khoá nút của phiếu đó (bấm đúp không tạo hai phiếu in lại)
+  const [busyPrintJobs, setBusyPrintJobs] = useState<ReadonlySet<string>>(new Set())
+  const [dismissingAllPrint, setDismissingAllPrint] = useState(false)
+  const runPrintJobAction = async (jobId: string, run: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>) => {
+    if (busyPrintJobs.has(jobId)) return
+    setBusyPrintJobs((s) => new Set(s).add(jobId))
+    try {
+      const r = await run(jobId).catch(() => ({ ok: false as const, error: 'Lỗi kết nối. Thử lại sau.' }))
+      if (!r.ok) reportActionError(r.error)
+    } finally {
+      setBusyPrintJobs((s) => { const n = new Set(s); n.delete(jobId); return n })
+      await printStatus.reload()
+    }
   }
-  const onPrintedInBrowser = async (jobId: string) => {
-    const r = await markPrintedInBrowser(jobId).catch(() => ({ ok: false as const, error: 'Lỗi kết nối. Thử lại sau.' }))
-    if (!r.ok) reportActionError(r.error)
-    await printStatus.reload()
+  const onDismissAllPrintJobs = async (jobs: { id: string }[]) => {
+    if (dismissingAllPrint) return
+    setDismissingAllPrint(true)
+    try {
+      const r = await dismissPrintJobs(jobs.map((j) => j.id)).catch(() => ({ ok: false as const, error: 'Lỗi kết nối. Thử lại sau.' }))
+      if (!r.ok) reportActionError(r.error)
+    } finally {
+      setDismissingAllPrint(false)
+      await printStatus.reload()
+    }
   }
 
   // ─── Tải dữ liệu ─────────────────────────────────────────────────────────
@@ -1048,7 +1063,15 @@ export default function PosClient({
           </div>
         </div>
 
-        <PrintStatusBanner status={printStatus.status} onRetry={(j) => void onRetryPrintJob(j.id)} onBrowserPrint={(j) => void onPrintedInBrowser(j.id)} />
+        <PrintStatusBanner
+          status={printStatus.status}
+          busyJobIds={busyPrintJobs}
+          dismissingAll={dismissingAllPrint}
+          onRetry={(j) => void runPrintJobAction(j.id, retryPrintJob)}
+          onBrowserPrint={(j) => void runPrintJobAction(j.id, markPrintedInBrowser)}
+          onDismiss={(j) => void runPrintJobAction(j.id, markPrintedInBrowser)}
+          onDismissAll={(jobs) => void onDismissAllPrintJobs(jobs)}
+        />
         {autoPrint.banner && <Banner tone={autoPrint.banner.tone} title={autoPrint.banner.title} className="mx-4 mt-2 md:mx-5" />}
 
         {mergeMode && (
@@ -1350,6 +1373,10 @@ export default function PosClient({
       {panel === 'bill' && (
         <PosBillPanel
           bankAccount={bankAccount}
+          loadBankAccount={async () => {
+            const r = await readStoreBankAccount(supabase, storeId)
+            return r.ok ? r.bank : null
+          }}
           // Đổi bàn / gộp bill khác = bill mới: về tab Hoá đơn, thoát màn thanh toán đang dở.
           key={selected?.session_id ?? [...pickedSessionIds].sort().join(',') ?? 'pick'}
           trayColors={trayColors}

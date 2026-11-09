@@ -79,7 +79,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 vi.mock('@/lib/print/load-order-slip', () => ({ loadOrderSlip: mocks.loadOrderSlip }))
 
-const { enqueuePrint, retryPrintJob, markPrintedInBrowser } = await import('./print-jobs')
+const { enqueuePrint, retryPrintJob, markPrintedInBrowser, dismissPrintJobs } = await import('./print-jobs')
 
 const slipWith = (items: Array<{ key: string; menuItemId: string | null }>) => ({
   ok: true as const,
@@ -343,5 +343,26 @@ describe('retryPrintJob / markPrintedInBrowser', () => {
   it('mã phiếu rỗng: lỗi, không gọi RPC', async () => {
     expect((await markPrintedInBrowser('')).ok).toBe(false)
     expect(mocks.session.rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('dismissPrintJobs (Bỏ qua tất cả)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.state.rpcResult = { data: { ok: true }, error: null }
+  })
+  it('gọi dismiss_print_job cho từng phiếu, KHÔNG in', async () => {
+    expect(await dismissPrintJobs(['a', 'b'])).toEqual({ ok: true })
+    expect(mocks.session.rpc).toHaveBeenCalledTimes(2)
+    expect(mocks.session.rpc).toHaveBeenCalledWith('dismiss_print_job', { p_job_id: 'a' })
+    expect(mocks.session.rpc).toHaveBeenCalledWith('dismiss_print_job', { p_job_id: 'b' })
+  })
+  it('một phiếu lỗi: trả lỗi đầu tiên', async () => {
+    mocks.state.rpcResult = { data: null, error: { message: 'Không có quyền' } }
+    expect(await dismissPrintJobs(['a'])).toEqual({ ok: false, error: 'Không có quyền' })
+  })
+  it('danh sách rỗng hoặc quá dài: từ chối', async () => {
+    expect((await dismissPrintJobs([])).ok).toBe(false)
+    expect((await dismissPrintJobs(Array.from({ length: 101 }, (_, i) => String(i)))).ok).toBe(false)
   })
 })

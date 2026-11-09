@@ -1,6 +1,7 @@
 // Chọn số tiền + nội dung cho mã VietQR của một bill. Hàm thuần, dùng được ở client (bill-panel)
 // lẫn trang in — KHÔNG import lib/actions/* để khỏi kéo code server vào bundle.
 import { billTotals, type DiscountedSession } from '@/lib/bill-discount'
+import { isReviewableOrder } from '@/lib/pos-work-queue'
 import { billCode } from '@/lib/bills-report'
 import { billTransferMemo, buildVietQrPayload, hasBankAccount, type BankAccountFields } from '@/lib/vietqr'
 import { bankName } from '@/lib/vietqr-banks'
@@ -15,7 +16,13 @@ export type BillQr = {
 }
 
 /** Một phiên bàn còn mở (list_open_table_sessions) kèm tiền tổng để billTotals tính phần đã thu trước. */
-export type OpenBillSession = DiscountedSession & { session_id: string; table_number: string; total: number }
+export type OpenBillSession = DiscountedSession & {
+  session_id: string
+  table_number: string
+  total: number
+  /** Các đơn của phiên (RPC đã trả sẵn): đơn còn chờ thu ngân duyệt thì chưa in QR. */
+  orders?: { status: string; order_source: string }[]
+}
 
 /**
  * Dựng mã VietQR cho bill. Trả null khi không có QR hợp lệ: chưa khai tài khoản, không có phiên,
@@ -70,6 +77,8 @@ export function pickBillQr(input: {
   const wanted = new Set(input.sessionIds)
   const found = input.openSessions.filter((s) => wanted.has(s.session_id))
   if (found.length === 0 || found.length !== wanted.size) return null
+  // Tờ in đưa tận tay khách: đơn chờ duyệt có thể bị từ chối sau khi khách đã chuyển khoản → chưa in QR.
+  if (found.some((s) => (s.orders ?? []).some(isReviewableOrder))) return null
   const totals = billTotals(found)
   if (totals.error) return null
   return buildBillQr({
