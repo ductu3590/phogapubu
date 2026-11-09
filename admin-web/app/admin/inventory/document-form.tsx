@@ -15,6 +15,15 @@ export function addDaysIso(date: string, n: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+/**
+ * Đóng một form nhập liệu (nút Đóng / X / Esc) thì làm gì: đang lưu → bỏ qua; đã gõ → hỏi bỏ; chưa gõ → đóng luôn.
+ * Dùng chung cho form phiếu và hộp hàng hoá.
+ */
+export function closeAction(dirty: boolean, busy: boolean): 'ignore' | 'confirm' | 'close' {
+  if (busy) return 'ignore'
+  return dirty ? 'confirm' : 'close'
+}
+
 /** Ngày ghi lùi tối đa (khớp RPC inventory_post_document). */
 export const MAX_BACKDATE_DAYS = 7
 
@@ -111,9 +120,9 @@ export function DocumentFormShell({ title, description, dirty, busy, blocker, er
 }) {
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const requestClose = () => {
-    if (busy) return
-    if (dirty) setConfirmDiscard(true)
-    else onClose()
+    const action = closeAction(dirty, busy)
+    if (action === 'confirm') setConfirmDiscard(true)
+    else if (action === 'close') onClose()
   }
 
   return (

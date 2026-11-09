@@ -8,13 +8,15 @@ import { useToast } from '@/components/ui/toast'
 import { saveInventoryItem } from '@/lib/actions/inventory'
 import { formatQty, KIND_LABEL, parseQty, qtyWarning, type InventoryKind, type StockRow } from '@/lib/inventory'
 import { cn } from '@/lib/utils'
+import ConfirmDialog from '../pos/confirm-dialog'
+import { closeAction } from './document-form'
 
 const UNIT_SUGGESTIONS = ['lon', 'chai', 'két', 'kg', 'gói', 'thùng']
 const FORM_ID = 'inventory-item-form'
 
 /**
  * Thêm / sửa một hàng hoá. Mount khi mở (cha đặt `key` theo hàng) nên state khởi tạo thẳng từ `item`.
- * Đã gõ dở thì không đóng khi bấm ra ngoài. Lỗi server (trùng tên, đổi loại khi đang gắn món…) hiện nguyên văn.
+ * Đã gõ dở thì không đóng khi bấm ra ngoài; Huỷ / X / Esc lúc đó hỏi "Bỏ thay đổi?", đang lưu thì không đóng. Lỗi server (trùng tên, đổi loại khi đang gắn món…) hiện nguyên văn.
  */
 export default function ItemDialog({ item, onClose, onSaved }: {
   /** null = thêm mới. */
@@ -34,6 +36,7 @@ export default function ItemDialog({ item, onClose, onSaved }: {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldError, setFieldError] = useState<{ name?: string; unit?: string; minStock?: string }>({})
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
 
   const dirty = (Object.keys(initial) as (keyof typeof initial)[]).some((k) => form[k] !== initial[k])
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
@@ -74,19 +77,27 @@ export default function ItemDialog({ item, onClose, onSaved }: {
     onSaved()
   }
 
+  const requestClose = () => {
+    const action = closeAction(dirty, busy)
+    if (action === 'confirm') setConfirmDiscard(true)
+    else if (action === 'close') onClose()
+  }
+
   const minHint = qtyWarning(form.minStock) ?? 'Tồn dưới mức này thì hiện "Sắp hết". Để trống nếu không cần.'
 
   return (
+    <>
     <Dialog
       open
       placement="side"
       dismissible={!dirty && !busy}
-      onClose={() => { if (!busy) onClose() }}
+      onClose={requestClose}
+      onEscape={requestClose}
       title={item ? 'Sửa hàng hoá' : 'Thêm hàng hoá'}
       description={item ? item.name : 'Thứ quán mua về và đếm được: bia lon, nước chai, thịt, rau…'}
       footer={
         <>
-          <Button onClick={onClose} disabled={busy}>Huỷ</Button>
+          <Button onClick={requestClose} disabled={busy}>Huỷ</Button>
           <Button variant="primary" type="submit" form={FORM_ID} isLoading={busy}>Lưu</Button>
         </>
       }
@@ -134,5 +145,18 @@ export default function ItemDialog({ item, onClose, onSaved }: {
         </Field>
       </form>
     </Dialog>
+    {confirmDiscard ? (
+      <ConfirmDialog
+        open
+        title="Bỏ thay đổi?"
+        description="Những gì vừa gõ sẽ mất."
+        confirmLabel="Bỏ thay đổi"
+        tone="danger"
+        busy={false}
+        onConfirm={() => { setConfirmDiscard(false); onClose() }}
+        onCancel={() => setConfirmDiscard(false)}
+      />
+    ) : null}
+    </>
   )
 }
