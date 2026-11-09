@@ -8,7 +8,7 @@ import { createCashBookEntry } from '@/lib/actions/cash-book'
 import { formatVndInput, parseVnd } from '@/lib/cash-change'
 import { MAX_CASH_AMOUNT, type CashBookKind } from '@/lib/cash-common'
 import type { CashBookCategory } from '@/lib/cash-book'
-import { cn } from '@/lib/utils'
+import { cn, formatVND } from '@/lib/utils'
 
 // Hộp "Thu/Chi két" trên POS (mig 122): phiếu thu / chi TIỀN MẶT tại két, gắn ca đang mở (server gắn).
 // Ai có quyền POS dùng được; luôn method 'cash', nguồn 'pos_drawer'.
@@ -41,6 +41,7 @@ export function drawerCanSubmit(f: {
 /** Thân hộp (thuần props) — test vẽ tĩnh được. Nút nằm trong thân để form tự quyết trạng thái khoá. */
 export function CashDrawerForm({
   categories, kind, onKind, amountText, onAmount, categoryId, onCategory, note, onNote, error, busy, onSubmit, onCancel,
+  locked = false, notice = null,
 }: {
   categories: CashBookCategory[]
   kind: CashBookKind
@@ -55,7 +56,12 @@ export function CashDrawerForm({
   busy: boolean
   onSubmit: () => void
   onCancel: () => void
+  /** Lần gửi trước mất phản hồi (không rõ đã ghi chưa): khoá các ô, chỉ cho bấm ghi lại đúng phiếu đó. */
+  locked?: boolean
+  /** Server báo phiếu đã ghi từ trước (already): hiện câu này, chỉ còn nút Đóng. */
+  notice?: string | null
 }) {
+  const fieldsOff = busy || locked || notice !== null
   const options = drawerCategories(categories, kind)
   const selected = options.find((c) => c.id === categoryId)
   const canSubmit = drawerCanSubmit({ categories, kind, amountText, categoryId, note })
@@ -71,7 +77,7 @@ export function CashDrawerForm({
             type="button"
             role="radio"
             aria-checked={kind === k}
-            disabled={busy}
+            disabled={fieldsOff}
             onClick={() => onKind(k)}
             className={cn(
               'min-h-11 rounded-lg border text-sm font-semibold transition-colors',
@@ -89,12 +95,12 @@ export function CashDrawerForm({
           autoComplete="off"
           placeholder="Ví dụ 80.000"
           value={amountText}
-          disabled={busy}
+          disabled={fieldsOff}
           onChange={(e) => onAmount(formatVndInput(e.target.value))}
         />
       </Field>
       <Field label="Danh mục" htmlFor="drawer-category" required>
-        <Select id="drawer-category" value={categoryId} disabled={busy} onChange={(e) => onCategory(e.target.value)}>
+        <Select id="drawer-category" value={categoryId} disabled={fieldsOff} onChange={(e) => onCategory(e.target.value)}>
           {options.length === 0 ? <option value="">Chưa có danh mục</option> : null}
           {options.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </Select>
@@ -105,14 +111,21 @@ export function CashDrawerForm({
         required={selected?.requiresNote}
         hint={selected?.requiresNote ? 'Danh mục này cần ghi chú' : undefined}
       >
-        <Textarea id="drawer-note" rows={2} maxLength={500} value={note} disabled={busy} onChange={(e) => onNote(e.target.value)} />
+        <Textarea id="drawer-note" rows={2} maxLength={500} value={note} disabled={fieldsOff} onChange={(e) => onNote(e.target.value)} />
       </Field>
+      {notice ? <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{notice}</p> : null}
       {error ? <p role="alert" className="text-sm text-error-text">{error}</p> : null}
       <div className="flex flex-wrap justify-end gap-2 pt-1">
-        <Button type="button" onClick={onCancel} disabled={busy}>Huỷ</Button>
-        <Button type="submit" variant="primary" isLoading={busy} disabled={!canSubmit}>
-          {kind === 'receipt' ? 'Ghi phiếu thu' : 'Ghi phiếu chi'}
-        </Button>
+        {notice ? (
+          <Button type="button" variant="primary" onClick={onCancel}>Đóng</Button>
+        ) : (
+          <>
+            <Button type="button" onClick={onCancel} disabled={busy}>Huỷ</Button>
+            <Button type="submit" variant="primary" isLoading={busy} disabled={!canSubmit}>
+              {locked ? 'Ghi lại' : kind === 'receipt' ? 'Ghi phiếu thu' : 'Ghi phiếu chi'}
+            </Button>
+          </>
+        )}
       </div>
     </form>
   )
@@ -136,6 +149,8 @@ function CashDrawerDialogOpen({ onClose, categories, onSaved }: Props) {
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [locked, setLocked] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const changeKind = (k: CashBookKind) => {
     setKind(k)
@@ -158,9 +173,17 @@ function CashDrawerDialogOpen({ onClose, categories, onSaved }: Props) {
         return
       }
       onSaved()
+      // Phiếu đã ghi ở lần bấm trước (mất phản hồi): nói rõ, không đóng im lặng như vừa ghi mới.
+      // Server chỉ trả "already" khi loại / danh mục / số tiền khớp hệt nên số đang hiện chính là số đã ghi.
+      if (res.already) {
+        setNotice(`${kind === 'receipt' ? 'Phiếu thu' : 'Phiếu chi'} ${formatVND(amount)} đã được ghi ở lần bấm trước — không ghi thêm.`)
+        return
+      }
       onClose()
     } catch {
-      setError('Lỗi kết nối. Bấm ghi lại — cùng một phiếu nên không bị ghi trùng.')
+      // Không rõ server đã ghi chưa: khoá các ô để lần bấm lại gửi ĐÚNG phiếu đó (cùng mã → không ghi trùng).
+      setLocked(true)
+      setError('Lỗi kết nối. Bấm Ghi lại — các ô đã khoá để không ghi nhầm thành phiếu khác.')
     } finally {
       setBusy(false)
     }
@@ -182,6 +205,8 @@ function CashDrawerDialogOpen({ onClose, categories, onSaved }: Props) {
         busy={busy}
         onSubmit={() => void submit()}
         onCancel={onClose}
+        locked={locked}
+        notice={notice}
       />
     </Dialog>
   )

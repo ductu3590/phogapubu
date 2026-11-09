@@ -9,12 +9,15 @@ vi.mock('@/lib/actions/cash-shift', () => ({
 }))
 vi.mock('@/lib/actions/cash-book', () => ({ createCashBookEntry: vi.fn(), voidCashBookEntry: vi.fn() }))
 vi.mock('@/lib/print/print-document', () => ({ printDocument: vi.fn() }))
+const lock = vi.hoisted(() => ({ locked: false }))
+vi.mock('@/components/pos-lock', () => ({ usePosLocked: () => lock.locked }))
 
 const {
   ShiftButtons, ShiftPanelBody, CloseShiftForm, CloseShiftResult, ShiftStaleBanner, default: ShiftControls,
+  decideShiftDialogs, isShiftAlreadyOpenError,
 } = await import('./shift-controls')
 const { CashDrawerForm, drawerAmount, drawerCategories, drawerCanSubmit } = await import('./cash-drawer-dialog')
-const { isNoOpenShiftError } = await import('@/lib/cash-shift')
+const { isNoOpenShiftError, shouldClearNoShiftError } = await import('@/lib/cash-shift')
 
 const noop = () => {}
 const render = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el)
@@ -184,4 +187,69 @@ it('isNoOpenShiftError nhận câu Chưa mở ca của server', () => {
   expect(isNoOpenShiftError('Chưa mở ca')).toBe(true)
   expect(isNoOpenShiftError('Số tiền không khớp bill')).toBe(false)
   expect(isNoOpenShiftError(null)).toBe(false)
+})
+
+describe('fix round 1', () => {
+  const noShift = shiftState({ shift: null })
+  it('khoá PIN: không tự bật hộp mở ca, cũng không xử lý yêu cầu mở; mở khoá xong mới bật', () => {
+    const base = { state: noShift, autoChecked: false, request: { kind: 'open' as const, n: 7 }, seenRequest: null }
+    // Đang khoá: không đổi gì (giữ autoChecked false, seenRequest null để lần vẽ sau còn xử lý).
+    expect(decideShiftDialogs({ ...base, locked: true })).toBeNull()
+    // Mở khoá: bật hộp, đánh dấu đã xử lý.
+    expect(decideShiftDialogs({ ...base, locked: false })).toEqual({ autoChecked: true, seenRequest: 7, open: true, closeShiftId: null })
+    // Yêu cầu kết ca cũ cũng hoãn khi đang khoá.
+    const close = { state: shiftState(), autoChecked: true, request: { kind: 'close' as const, n: 9 }, seenRequest: 7 }
+    expect(decideShiftDialogs({ ...close, locked: true })).toBeNull()
+    expect(decideShiftDialogs({ ...close, locked: false })).toEqual({ autoChecked: true, seenRequest: 9, open: false, closeShiftId: 'sh1' })
+    // Đã có ca: tự kiểm một lần nhưng không bật hộp mở ca.
+    expect(decideShiftDialogs({ locked: false, state: shiftState(), autoChecked: false, request: null, seenRequest: null }))
+      .toEqual({ autoChecked: true, seenRequest: null, open: false, closeShiftId: null })
+  })
+  it('vẽ thật: đang khoá thì không có hộp Mở ca thu ngân; mở khoá thì có', () => {
+    const props = { state: noShift, reload: noop, openTablesCount: 0, storeId: 's', request: null }
+    lock.locked = true
+    try {
+      expect(render(createElement(ShiftControls, props))).not.toContain('Mở ca thu ngân')
+    } finally {
+      lock.locked = false
+    }
+    expect(render(createElement(ShiftControls, props))).toContain('Mở ca thu ngân')
+  })
+  it('"Đã có ca đang mở" được nhận ra để giữ hộp và báo', () => {
+    expect(isShiftAlreadyOpenError('Đã có ca đang mở')).toBe(true)
+    expect(isShiftAlreadyOpenError('Số tiền không hợp lệ')).toBe(false)
+  })
+  it('băng lỗi "Chưa mở ca" tự bỏ khi lần đọc ca thấy ca đang mở', () => {
+    const err = { message: 'Chưa mở ca' }
+    expect(shouldClearNoShiftError(err, shiftState())).toBe(true)
+    expect(shouldClearNoShiftError(err, noShift)).toBe(false)
+    expect(shouldClearNoShiftError({ message: 'Số tiền không khớp bill' }, shiftState())).toBe(false)
+    expect(shouldClearNoShiftError(null, shiftState())).toBe(false)
+  })
+  describe('hộp Thu/Chi két sau lỗi mạng / phiếu đã ghi', () => {
+    const categories: CashBookCategory[] = [{
+      id: 'da', kind: 'payment', name: 'Đá', reportGroup: 'operating_expense', isSystem: false, isActive: true,
+      requiresNote: false, sortOrder: 40,
+    }]
+    const form = (over: Record<string, unknown>) => render(createElement(CashDrawerForm, {
+      categories, kind: 'payment', onKind: noop, amountText: '80.000', onAmount: noop, categoryId: 'da', onCategory: noop,
+      note: '', onNote: noop, error: null, busy: false, onSubmit: noop, onCancel: noop, ...over,
+    }))
+    it('khoá sau lỗi mạng: mọi ô khoá, chỉ còn Ghi lại', () => {
+      const html = form({ locked: true, error: 'Lỗi kết nối.' })
+      expect(html).toMatch(/<input[^>]*id="drawer-amount"[^>]*disabled=""|<input[^>]*disabled=""[^>]*id="drawer-amount"/)
+      expect(html).toMatch(/<select[^>]*disabled=""/)
+      expect(html).toMatch(/<textarea[^>]*disabled=""/)
+      expect(disabledOf(html, 'Thu')).toBe(true)
+      expect(disabledOf(html, 'Ghi lại')).toBe(false)
+      expect(text(html)).not.toContain('Ghi phiếu chi')
+    })
+    it('phiếu đã ghi trước đó: hiện câu báo kèm số tiền, chỉ còn nút Đóng', () => {
+      const html = form({ notice: 'Phiếu chi 80.000đ đã được ghi ở lần bấm trước — không ghi thêm.' })
+      expect(text(html)).toContain('Phiếu chi 80.000đ đã được ghi ở lần bấm trước')
+      expect(disabledOf(html, 'Đóng')).toBe(false)
+      expect(disabledOf(html, 'Ghi phiếu chi')).toBeNull()
+      expect(disabledOf(html, 'Huỷ')).toBeNull()
+    })
+  })
 })

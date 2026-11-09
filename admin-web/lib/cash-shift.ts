@@ -99,6 +99,14 @@ export function isNoOpenShiftError(error: string | null | undefined): boolean {
   return !!error && error.includes(NO_OPEN_SHIFT_ERROR)
 }
 
+/** POS: băng lỗi đang là "Chưa mở ca" mà trạng thái ca giờ đã có ca mở → bỏ băng. */
+export function shouldClearNoShiftError(
+  error: { message: string } | null,
+  state: { shift: unknown | null } | null,
+): boolean {
+  return !!error && isNoOpenShiftError(error.message) && !!state?.shift
+}
+
 /** Giờ mở ca "HH:MM" theo giờ Việt Nam. */
 export function shiftTimeLabel(iso: string): string {
   const d = new Date(iso)

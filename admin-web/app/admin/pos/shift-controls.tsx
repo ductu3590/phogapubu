@@ -24,6 +24,7 @@ import { readCashBookCategories } from '@/lib/pos-browser-reads'
 import { printDocument } from '@/lib/print/print-document'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatVND } from '@/lib/utils'
+import { usePosLocked } from '@/components/pos-lock'
 import ConfirmDialog from './confirm-dialog'
 import CashDrawerDialog from './cash-drawer-dialog'
 
@@ -35,6 +36,41 @@ import CashDrawerDialog from './cash-drawer-dialog'
 export type ShiftRequest = { kind: 'open' | 'close'; n: number }
 
 const signed = (e: Pick<CashShiftEntry, 'kind' | 'amount'>) => `${e.kind === 'receipt' ? '+' : '−'}${formatVND(e.amount)}`
+
+/**
+ * Quyết định bật hộp nào trong lần vẽ này (thuần, test được). null = không đổi gì.
+ *  • Tự bật hộp mở ca MỘT lần mỗi lần vào POS khi quán bật ca mà chưa có ca (đóng được để xem POS).
+ *  • Yêu cầu từ pos-client (đổi theo `n`): 'open' → hộp mở ca; 'close' → hộp kết ca của ca đang mở.
+ *  • Đang khoá PIN: KHÔNG làm gì (giữ autoChecked / seenRequest cũ) → mở khoá xong lần vẽ sau mới bật.
+ */
+export function decideShiftDialogs(input: {
+  locked: boolean
+  state: CashShiftState | null
+  autoChecked: boolean
+  request: ShiftRequest | null
+  seenRequest: number | null
+}): { autoChecked: boolean; seenRequest: number | null; open: boolean; closeShiftId: string | null } | null {
+  const { locked, state, request } = input
+  if (locked) return null
+  const next = { autoChecked: input.autoChecked, seenRequest: input.seenRequest, open: false, closeShiftId: null as string | null }
+  let changed = false
+  if (!next.autoChecked && state?.required) {
+    next.autoChecked = true
+    if (!state.shift) next.open = true
+    changed = true
+  }
+  if (request && request.n !== next.seenRequest) {
+    next.seenRequest = request.n
+    if (request.kind === 'open' && state?.required) next.open = true
+    if (request.kind === 'close' && state?.shift) next.closeShiftId = state.shift.id
+    changed = true
+  }
+  return changed ? next : null
+}
+
+/** Máy khác vừa mở ca: giữ hộp + câu báo, tải lại trạng thái để nút ca hiện đúng. */
+export const SHIFT_ALREADY_OPEN = 'Đã có ca đang mở'
+export const isShiftAlreadyOpenError = (error: string | null | undefined) => !!error && error.includes(SHIFT_ALREADY_OPEN)
 
 // ---------------------------------------------------------------------------
 // Phần vẽ thuần (test vẽ tĩnh được)
@@ -216,7 +252,11 @@ export function ShiftStaleBanner({ state, onCloseOld, onContinue, busy = false }
 // ---------------------------------------------------------------------------
 // Hộp mở ca / kết ca: chỉ dựng khi mở → mở lại là form trống (con của <Dialog> sống cả khi đóng).
 // ---------------------------------------------------------------------------
-function OpenShiftDialog({ onCancel, onOpened }: { onCancel: () => void; onOpened: () => void }) {
+function OpenShiftDialog({ onCancel, onOpened, onRefresh }: {
+  onCancel: () => void
+  onOpened: () => void
+  onRefresh: () => void
+}) {
   const [cashText, setCashText] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -230,9 +270,11 @@ function OpenShiftDialog({ onCancel, onOpened }: { onCancel: () => void; onOpene
     try {
       const res = await openCashShift({ openingCash: cash, note: note.trim() || null })
       if (!res.ok) {
-        setError(res.error)
-        // Máy khác vừa mở ca: tải lại để nút ca hiện đúng.
-        if (res.error.includes('Đã có ca đang mở')) onOpened()
+        // Máy khác vừa mở ca: GIỮ hộp với câu báo (không đóng cùng nhịp làm mất câu), tải lại để nút ca hiện đúng.
+        setError(isShiftAlreadyOpenError(res.error)
+          ? 'Đã có ca đang mở (máy khác vừa mở). Bấm "Để sau" rồi dùng ca đó.'
+          : res.error)
+        if (isShiftAlreadyOpenError(res.error)) onRefresh()
         return
       }
       onOpened()
@@ -360,18 +402,23 @@ export default function ShiftControls({ state, reload, openTablesCount, storeId,
   const [voidBusy, setVoidBusy] = useState(false)
   const [voidError, setVoidError] = useState<string | null>(null)
 
-  // Tự bật hộp mở ca MỘT lần mỗi lần vào POS khi quán bật ca mà chưa có ca (đóng được để xem POS).
-  if (!autoChecked && state?.required) {
-    setAutoChecked(true)
-    if (!state.shift) setOpenDialog(true)
+  const locked = usePosLocked()
+  // Lần đọc ca mới → bỏ câu lỗi tải danh mục cũ (thử lại tự nhiên ở lần bấm sau).
+  const [seenState, setSeenState] = useState(state)
+  if (state !== seenState) {
+    setSeenState(state)
+    if (drawerError) setDrawerError(null)
   }
-  // Yêu cầu từ pos-client (đổi theo `n`): xử lý ngay trong lúc vẽ, không qua effect.
-  if (request && request.n !== seenRequest) {
-    setSeenRequest(request.n)
-    if (request.kind === 'open' && state?.required) setOpenDialog(true)
-    if (request.kind === 'close' && state?.shift) {
+  // Tự bật hộp mở ca / xử lý yêu cầu từ pos-client ngay trong lúc vẽ (không qua effect). Đang khoá PIN thì HOÃN:
+  // hộp mở sau màn khoá sẽ nằm trên nó (top layer) — mở khoá xong mới bật.
+  const decision = decideShiftDialogs({ locked, state, autoChecked, request, seenRequest })
+  if (decision) {
+    setAutoChecked(decision.autoChecked)
+    setSeenRequest(decision.seenRequest)
+    if (decision.open) setOpenDialog(true)
+    if (decision.closeShiftId) {
       setPanelOpen(false)
-      setClosingShiftId(state.shift.id)
+      setClosingShiftId(decision.closeShiftId)
     }
   }
 
@@ -430,6 +477,7 @@ export default function ShiftControls({ state, reload, openTablesCount, storeId,
         <OpenShiftDialog
           onCancel={() => setOpenDialog(false)}
           onOpened={() => { setOpenDialog(false); reload() }}
+          onRefresh={reload}
         />
       ) : null}
 
@@ -472,7 +520,12 @@ export default function ShiftControls({ state, reload, openTablesCount, storeId,
         </Dialog>
       ) : null}
 
-      <CashDrawerDialog open={drawerOpen} onClose={() => setDrawerOpen(false)} categories={categories} onSaved={reload} />
+      <CashDrawerDialog
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        categories={categories}
+        onSaved={() => { setDrawerError(null); reload() }}
+      />
 
       <ConfirmDialog
         open={voidTarget !== null}

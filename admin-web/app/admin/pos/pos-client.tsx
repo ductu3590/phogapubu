@@ -106,7 +106,7 @@ import ConfirmDialog from './confirm-dialog'
 import { useCashShift } from './use-cash-shift'
 import ShiftControls, { ShiftStaleBanner, type ShiftRequest } from './shift-controls'
 import { continueStaleShift } from '@/lib/actions/cash-shift'
-import { isNoOpenShiftError } from '@/lib/cash-shift'
+import { isNoOpenShiftError, shouldClearNoShiftError } from '@/lib/cash-shift'
 
 type View = 'timeline' | 'floor' | 'list'
 
@@ -260,6 +260,9 @@ export default function PosClient({
   const cashShift = useCashShift(storeId)
   const [shiftRequest, setShiftRequest] = useState<ShiftRequest | null>(null)
   const [shiftContinueBusy, setShiftContinueBusy] = useState(false)
+  // Ca đã mở (máy này mở xong, hoặc lần đọc ca thấy máy khác đã mở) → bỏ băng lỗi "Chưa mở ca" còn đứng
+  // từ lần thu bị từ chối. Làm trong lúc vẽ (không qua effect); điều kiện tự tắt sau khi setError(null).
+  if (shouldClearNoShiftError(error, cashShift.state)) setError(null)
   const onContinueShift = async () => {
     const shiftId = cashShift.state?.shift?.id
     if (!shiftId || shiftContinueBusy) return
