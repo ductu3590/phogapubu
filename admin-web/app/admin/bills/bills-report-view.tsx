@@ -223,7 +223,7 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
 }
 
 function BillTableRow({ row: r, date, onOpen, onError }: { row: BillRow; date: string; onOpen: () => void; onError: (message: string) => void }) {
-  // In lại hoá đơn 80mm chỉ có với bill trả sau đã thu (theo phiên) — như trang Báo cáo cũ. In ngầm (printInPlace).
+  // In lại hoá đơn 80mm chỉ có với bill trả sau đã thu (theo phiên) — như trang Báo cáo cũ. In qua printDocument.
   const canPrint = r.kind === 'paid' && r.sessionIds.length > 0
   return (
     <tr className={cn('flex flex-col gap-1.5 px-4 py-3 @3xl:table-row @3xl:p-0', r.kind === 'cancelled' && 'bg-background/60')}>

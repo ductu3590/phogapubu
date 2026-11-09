@@ -513,16 +513,20 @@ export default function PosClient({
 
   const onConfirmOrder = async (orderId: string) => {
     setBusy(true)
-    const res = await confirmAndPrint(orderId, { confirmOrder, printDocument })
-    if (!res.ok) {
+    try {
+      const res = await confirmAndPrint(orderId, { confirmOrder, printDocument })
+      if (!res.ok) {
+        reportActionError(res.error)
+        return
+      }
+      if (res.printError) reportActionError(`Đơn đã duyệt nhưng chưa tạo được phiếu in: ${res.printError}. Bấm In lại ở lượt này.`)
+      else if (res.already) reportActionError('Đơn này đã được xác nhận trước đó.')
+      await reload()
+    } catch {
+      reportActionError('Lỗi kết nối. Kiểm tra trạng thái đơn rồi thử lại.')
+    } finally {
       setBusy(false)
-      reportActionError(res.error)
-      return
     }
-    setBusy(false)
-    if (res.printError) reportActionError(`Đơn đã duyệt nhưng chưa tạo được phiếu in: ${res.printError}. Bấm In lại ở lượt này.`)
-    else if (res.already) reportActionError('Đơn này đã được xác nhận trước đó.')
-    await reload()
   }
 
   const onRejectOrder = async (orderId: string, reason: OrderRejectReason, note: string | null) => {

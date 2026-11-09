@@ -10,4 +10,6 @@ Cần máy in thật và phần mềm in ở quầy: thử ở CẢ HAI chế đ
 6. Chế độ `agent`, tắt phần mềm in rồi bấm in: báo lỗi hoặc hàng đợi giữ việc, không im lặng. Duyệt đơn lúc đó: đơn vẫn vào bếp, hiện "Đơn đã duyệt nhưng chưa tạo được phiếu in: … Bấm In lại ở lượt này."
 7. Phiếu đặt trước (nút In ở danh sách đặt trước): in qua cùng đường, lỗi (nếu có) hiện ở thanh báo POS.
 
+8. Chuyển một danh mục sang trạm khác SAU khi đơn đã tự in, rồi bấm **Duyệt & in bếp**: in thêm một phiếu ở trạm mới (đã biết, chấp nhận được).
+
 Chưa làm (cổng máy thật): `docs/testing/dot1/C-0-may-in-that.md` chưa có dòng `KẾT QUẢ: PASS`, nên `pageSizeMode` trong `print-agent/agent.config.example.json` chưa đổi.
