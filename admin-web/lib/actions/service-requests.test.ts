@@ -193,7 +193,7 @@ describe('thu ngân ở quầy (PA-2)', () => {
     const a = '11111111-1111-4111-8111-111111111111'
     const b = '22222222-2222-4222-8222-222222222222'
     const rid = '33333333-3333-4333-8333-333333333333'
-    expect(await collectSessionBill([a, b], 'bank', 90000, rid)).toEqual({ ok: true })
+    expect(await collectSessionBill([a, b], 'bank', 90000, rid)).toEqual({ ok: true, already: false, lines: [], cashGiven: null, changeAmount: null })
     expect(mocks.rpc).toHaveBeenCalledWith('collect_table_bill', {
       p_session_ids: [a, b], p_lines: [{ instrument: 'bank', amount: 90000 }], p_cash_given: null, p_client_request_id: rid,
     })
@@ -203,7 +203,7 @@ describe('thu ngân ở quầy (PA-2)', () => {
   it('A04 collectSessionBill: bill 0đ gửi lines rỗng; số tiền xấu / phương tiện lạ / không có bàn bị chặn trước RPC', async () => {
     mocks.rpc.mockResolvedValue({ data: { ok: true, already: false, payment_id: 'p1', total: 0, orders_settled: 1 }, error: null })
     const a = '11111111-1111-4111-8111-111111111111'
-    expect(await collectSessionBill([a], 'cash', 0, a)).toEqual({ ok: true })
+    expect(await collectSessionBill([a], 'cash', 0, a)).toMatchObject({ ok: true, already: false })
     expect(mocks.rpc).toHaveBeenCalledWith('collect_table_bill', expect.objectContaining({ p_lines: [] }))
     mocks.rpc.mockClear()
     expect(await collectSessionBill([a], 'cash', -1, a)).toEqual({ ok: false, error: 'Số tiền không hợp lệ' })
@@ -211,6 +211,13 @@ describe('thu ngân ở quầy (PA-2)', () => {
     expect(await collectSessionBill([a], 'wallet' as never, 1000, a)).toEqual({ ok: false, error: 'Phương thức thanh toán không hợp lệ' })
     expect(await collectSessionBill(['x'], 'cash', 1000, a)).toEqual({ ok: false, error: 'Không có bàn nào để thu' })
     expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('A04 collectSessionBill: already → trả khoản đã ghi để ngăn kéo báo cho thu ngân', async () => {
+    mocks.rpc.mockResolvedValue({ data: { ok: true, already: true, payment_id: 'p1', total: 90000, orders_settled: 0,
+      lines: [{ instrument: 'cash', amount: 90000 }], cash_given: null, change_amount: null }, error: null })
+    const a = '11111111-1111-4111-8111-111111111111'
+    expect(await collectSessionBill([a], 'bank', 90000, a)).toEqual({ ok: true, already: true, lines: [{ instrument: 'cash', amount: 90000 }], cashGiven: null, changeAmount: null })
   })
 
   it('A04 collectSessionBill: lỗi server (vd số lệch) trả nguyên văn, không revalidate', async () => {
@@ -222,11 +229,14 @@ describe('thu ngân ở quầy (PA-2)', () => {
   })
 
   it('collectTableBill gửi đúng tham số RPC và đọc already thật', async () => {
-    mocks.rpc.mockResolvedValue({ data: { ok: true, already: true, payment_id: 'p1', total: 100000, orders_settled: 0 }, error: null })
+    mocks.rpc.mockResolvedValue({ data: { ok: true, already: true, payment_id: 'p1', total: 100000, orders_settled: 0,
+      lines: [{ instrument: 'cash', amount: 100000 }, { instrument: 'wallet', amount: 1 }], cash_given: 200000, change_amount: 100000 }, error: null })
     const id = '11111111-1111-4111-8111-111111111111'
-    const res = await collectTableBill({ sessionIds: [id], lines: [{ instrument: 'cash', amount: 100000 }], cashGiven: 200000, clientRequestId: id })
-    expect(res).toEqual({ ok: true, already: true, paymentId: 'p1', total: 100000, ordersSettled: 0 })
-    expect(mocks.rpc).toHaveBeenCalledWith('collect_table_bill', { p_session_ids: [id], p_lines: [{ instrument: 'cash', amount: 100000 }], p_cash_given: 200000, p_client_request_id: id })
+    const res = await collectTableBill({ sessionIds: [id], lines: [{ instrument: 'bank', amount: 100000 }], cashGiven: null, clientRequestId: id })
+    // already: trả khoản ĐÃ GHI (tiền mặt), không phải khoản vừa gửi (chuyển khoản); phương tiện lạ bị lọc
+    expect(res).toEqual({ ok: true, already: true, paymentId: 'p1', total: 100000, ordersSettled: 0,
+      lines: [{ instrument: 'cash', amount: 100000 }], cashGiven: 200000, changeAmount: 100000 })
+    expect(mocks.rpc).toHaveBeenCalledWith('collect_table_bill', { p_session_ids: [id], p_lines: [{ instrument: 'bank', amount: 100000 }], p_cash_given: null, p_client_request_id: id })
   })
 
   it('collectTableBill chặn phục vụ, mã sai, chưa chọn mâm; lỗi RPC trả nguyên văn', async () => {
@@ -270,7 +280,7 @@ describe('thu ngân ở quầy (PA-2)', () => {
     mocks.rpc.mockResolvedValue({ data: null, error: null })
     expect(await collectTableBill(input)).toEqual({ ok: false, error: 'Không nhận được kết quả thu tiền, tải lại trang để kiểm tra' })
     mocks.rpc.mockResolvedValue({ data: { ok: true, already: false, payment_id: 'p1', total: '0', orders_settled: '2' }, error: null })
-    expect(await collectTableBill(input)).toEqual({ ok: true, already: false, paymentId: 'p1', total: 0, ordersSettled: 2 })
+    expect(await collectTableBill(input)).toEqual({ ok: true, already: false, paymentId: 'p1', total: 0, ordersSettled: 2, lines: [], cashGiven: null, changeAmount: null })
   })
 
   it('xem và xử lý gọi nhân viên', async () => {

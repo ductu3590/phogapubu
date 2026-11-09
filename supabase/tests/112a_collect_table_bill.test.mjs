@@ -84,9 +84,21 @@ test('gọi lại cùng mã: trả kết quả cũ, không tạo khoản thứ h
   const a = await collect([s], [cash(100000)], null, id)
   const b = await collect([s], [cash(100000)], null, id)
   assert.deepEqual([b.already, b.payment_id, b.total, b.orders_settled], [true, a.payment_id, 100000, 1])
+  assert.deepEqual([b.lines, b.cash_given, b.change_amount], [[{ instrument: 'cash', amount: 100000 }], null, null])
   assert.equal(await count('bill_payments'), 1)
   const other = await session(); await order(other, 1000)
   await assert.rejects(collect([other], [cash(1000)], null, id), /đã dùng cho bill khác/)
+})
+
+test('mất phản hồi rồi đổi cách thu, bấm lại cùng mã: already trả ĐÚNG khoản đã ghi (tiền mặt), không ghi chuyển khoản', async () => {
+  const s = await session(); await order(s, 1000000); const id = rid()
+  await collect([s], [cash(400000), bank(600000)], 500000, id) // lần 1: server đã ghi, phản hồi mất
+  const again = await collect([s], [bank(1000000)], null, id)  // thu ngân đổi sang chuyển khoản rồi bấm lại
+  assert.equal(again.already, true)
+  assert.deepEqual(again.lines, [{ instrument: 'cash', amount: 400000 }, { instrument: 'bank', amount: 600000 }])
+  assert.deepEqual([again.cash_given, again.change_amount], [500000, 100000])
+  assert.equal(await count('bill_payments'), 1)
+  assert.equal(await count("bill_payment_lines WHERE instrument = 'bank' AND amount = 1000000"), 0)
 })
 
 test('cùng mã, hai nhóm phiên khác nhau, chạy song song: máy sau vấp UNIQUE → lỗi tiếng Việt, không ghi gì', async () => {
@@ -123,7 +135,24 @@ test('hai máy: một mâm đã thu thì không thu nửa nhóm; thu hết rồi
   await collect([b], [cash(2000)], null, rid())
   const r = await collect([a, b], [cash(3000)], null, rid())
   assert.deepEqual([r.already, r.orders_settled, r.total, r.payment_id], [true, 0, 3000, null])
+  // Nhiều khoản thu: cộng theo phương tiện; khách đưa / thối không có nghĩa → null
+  assert.deepEqual([r.lines, r.cash_given, r.change_amount], [[{ instrument: 'cash', amount: 3000 }], null, null])
   assert.equal(await count('bill_payments'), 2)
+})
+
+test('máy khác đã thu cả nhóm bằng MỘT khoản (mã khác): already trả đủ khoản, khách đưa, tiền thối của khoản đó', async () => {
+  const s = await session(); await order(s, 1000000)
+  const first = await collect([s], [cash(400000), bank(600000)], 500000, rid())
+  const r = await collect([s], [cash(1000000)], null, rid())
+  assert.deepEqual([r.already, r.payment_id, r.cash_given, r.change_amount], [true, first.payment_id, 500000, 100000])
+  assert.deepEqual(r.lines, [{ instrument: 'cash', amount: 400000 }, { instrument: 'bank', amount: 600000 }])
+})
+
+test('phiên thu trước mig 112a (không có khoản) rồi bấm thu: already với lines rỗng', async () => {
+  const s = await session(); await order(s, 1000)
+  await h.db.query("UPDATE table_sessions SET status = 'closed', closed_at = now(), close_reason = 'paid' WHERE id = $1", [s])
+  const r = await collect([s], [cash(1000)], null, rid())
+  assert.deepEqual([r.already, r.payment_id, r.lines, r.cash_given], [true, null, [], null])
 })
 
 test('phiên hết hạn: thu được, bỏ qua giảm giá; số sau giảm bị từ chối', async () => {
@@ -193,6 +222,9 @@ test('quyền: phục vụ, quán khác bị chặn; anon không gọi được;
   assert.equal(await can('authenticated', collectSig), true)
   assert.equal(await can('anon', coreSig), false)
   assert.equal(await can('authenticated', coreSig), false)
+  for (const role of ['anon', 'authenticated']) {
+    assert.equal(await can(role, 'bill_payment_lines_json(uuid[])'), false, role)
+  }
 })
 
 test('bảng mới: bật RLS, authenticated chỉ SELECT, anon không có quyền', async () => {

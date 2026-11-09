@@ -63,6 +63,12 @@ describe('PaymentMethodFields', () => {
     expect(html).not.toContain('id="pos-cash-given"')
   })
 
+  it('khách đưa quá 2 tỉ: báo lỗi tiếng Việt, không hiện tiền thối', () => {
+    const html = fields({ cashPart: 100_000, givenText: '3.000.000.000' })
+    expect(html).toContain('Tiền khách đưa quá lớn — kiểm tra lại số')
+    expect(html).not.toContain('Tiền thối lại cho khách')
+  })
+
   it('tiền mặt đưa thiếu: báo thiếu', () => {
     expect(fields({ cashPart: 100_000, givenText: '50.000' })).toContain('Khách đưa còn thiếu 50.000đ')
   })

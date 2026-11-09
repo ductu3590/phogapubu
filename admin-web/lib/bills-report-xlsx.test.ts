@@ -142,6 +142,15 @@ describe('Excel báo cáo ngày (A04-3)', () => {
     expect(byTable['Bàn A']).toEqual([400, 600, 0])
     expect(byTable['Bàn B']).toEqual([700, 0, 0])
     expect(byTable['Bàn C']).toEqual([0, 0, 300])
+    // Phương thức: bill có từng khoản → "Kết hợp"; bill cũ trộn → "Nhiều phương thức"
+    const methodOf = (table: string) => {
+      for (let row = 2; row <= ws.rowCount; row++) {
+        const v = (ws.getRow(row).values as unknown[]).slice(1)
+        if (v[header.indexOf('Bàn')] === table) return v[header.indexOf('Phương thức')]
+      }
+    }
+    expect(methodOf('Bàn A')).toBe('Kết hợp')
+    expect(methodOf('Bàn C')).toBe('Nhiều phương thức')
     expect(byTable['Bàn D']).toEqual([0, 0, 90])
   })
 

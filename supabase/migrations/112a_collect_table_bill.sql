@@ -135,6 +135,26 @@ $core$;
 REVOKE ALL ON FUNCTION public.close_table_session_core(uuid, text, text, uuid) FROM PUBLIC, anon, authenticated;
 
 -- ============================================================
+-- 3a) Các khoản đã ghi của một tập khoản thu, cộng theo phương tiện (tiền mặt trước) — nhánh 'already' của
+--     collect_table_bill trả kèm để thu ngân thấy ĐÃ GHI GÌ (vd. bấm lại bằng Chuyển khoản nhưng lần trước đã ghi
+--     Tiền mặt). Nội bộ.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.bill_payment_lines_json(p_payment_ids uuid[])
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('instrument', x.instrument, 'amount', x.amount) ORDER BY x.instrument DESC), '[]'::jsonb)
+    FROM (SELECT l.instrument, SUM(l.amount)::bigint AS amount
+            FROM public.bill_payment_lines l
+           WHERE l.payment_id = ANY(p_payment_ids)
+           GROUP BY l.instrument) x;
+$function$;
+
+REVOKE ALL ON FUNCTION public.bill_payment_lines_json(uuid[]) FROM PUBLIC, anon, authenticated;
+
+-- ============================================================
 -- 3) RPC collect_table_bill
 -- p_lines: mảng 0–2 phần tử {instrument: 'cash'|'bank', amount: số nguyên > 0}. Tiền mặt là số RÒNG.
 -- p_cash_given: tiền khách đưa, so với PHẦN TIỀN MẶT (không so cả bill). NULL = không ghi.
@@ -175,6 +195,8 @@ DECLARE
   v_settled integer := 0;
   v_due bigint;
   v_constraint text;
+  v_pids uuid[];
+  v_one public.bill_payments%ROWTYPE;
 BEGIN
   -- 1. Tham số bắt buộc
   IF p_client_request_id IS NULL THEN
@@ -216,10 +238,14 @@ BEGIN
     IF v_existing_ids IS DISTINCT FROM v_ids THEN
       RAISE EXCEPTION 'Mã thu tiền đã dùng cho bill khác';
     END IF;
+    -- Trả kèm các khoản ĐÃ GHI: lần trước có thể là phương tiện khác lần bấm này (mất phản hồi rồi đổi cách thu).
     RETURN jsonb_build_object(
       'ok', true, 'already', true, 'payment_id', v_existing.id,
       'total', v_existing.total_amount,
-      'orders_settled', (SELECT count(*) FROM public.orders WHERE bill_payment_id = v_existing.id)
+      'orders_settled', (SELECT count(*) FROM public.orders WHERE bill_payment_id = v_existing.id),
+      'lines', public.bill_payment_lines_json(ARRAY[v_existing.id]),
+      'cash_given', v_existing.cash_given,
+      'change_amount', v_existing.change_amount
     );
   END IF;
 
@@ -233,16 +259,23 @@ BEGIN
     RAISE EXCEPTION 'Phiên đã đóng, không thu được';
   END IF;
   IF v_paid = v_found THEN
-    -- Máy khác đã thu hết nhóm này. payment_id chung chỉ khi mọi phiên cùng một khoản thu.
+    -- Máy khác đã thu hết nhóm này. payment_id (và khách đưa / tiền thối) chỉ khi mọi phiên cùng MỘT khoản thu.
+    IF v_payment_count = 1 AND NOT EXISTS (SELECT 1 FROM public.table_sessions
+                                            WHERE id = ANY(v_ids) AND bill_payment_id IS NULL) THEN
+      SELECT * INTO v_one FROM public.bill_payments WHERE id = v_common_payment;
+    END IF;
+    -- Các khoản đã ghi (cộng theo phương tiện) của mọi khoản thu của nhóm; phiên thu trước mig 112a không có dòng.
+    SELECT array_agg(DISTINCT bill_payment_id) FILTER (WHERE bill_payment_id IS NOT NULL) INTO v_pids
+      FROM public.table_sessions WHERE id = ANY(v_ids);
     RETURN jsonb_build_object(
       'ok', true, 'already', true,
-      'payment_id', CASE WHEN v_payment_count = 1
-                          AND NOT EXISTS (SELECT 1 FROM public.table_sessions
-                                           WHERE id = ANY(v_ids) AND bill_payment_id IS NULL)
-                         THEN v_common_payment END,
+      'payment_id', v_one.id,
       'total', (SELECT COALESCE(sum(total_amount), 0) FROM public.orders
                  WHERE session_id = ANY(v_ids) AND status <> 'cancelled'),
-      'orders_settled', 0
+      'orders_settled', 0,
+      'lines', public.bill_payment_lines_json(COALESCE(v_pids, '{}'::uuid[])),
+      'cash_given', v_one.cash_given,
+      'change_amount', v_one.change_amount
     );
   END IF;
   IF v_paid > 0 THEN
@@ -439,8 +472,9 @@ SELECT pg_temp.mevo_patch('public.get_bills_report(uuid, date)',
 $a$    bills AS ($a$,
 $b$    -- mig 112a: pay cộng NGUYÊN các dòng khoản thu, còn doanh thu cộng đơn trong keyed. Hai số chỉ khớp
     -- vì đơn đã thu không bị huỷ / sửa tiền nữa (chặn ở mig 038 cancel_order, 046 bỏ/tặng món, 098 sửa
-    -- số lượng, và server action cancelOrder của admin-web lọc payment_received_at IS NULL). Mở đường nào
-    -- huỷ/sửa đơn đã thu thì phải sửa cả chỗ này, không thì 'other' âm.
+    -- số lượng, server action cancelOrder của admin-web lọc payment_received_at IS NULL, và mig 112b: trigger
+    -- trg_orders_block_client_money_write chặn client huỷ / sửa tiền đơn đã thu). Mở đường nào huỷ/sửa đơn đã
+    -- thu thì phải sửa cả chỗ này, không thì 'other' âm.
     pay AS (
       SELECT bp.id AS payment_id, bp.cash_given, bp.change_amount,
              COALESCE(SUM(l.amount) FILTER (WHERE l.instrument = 'cash'), 0)::bigint AS cash,

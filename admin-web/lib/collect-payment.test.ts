@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bankPartOf, buildPaymentLines, cashPartOf, fillOtherSide, INSTRUMENT_LABELS, paymentDraft, paymentRows } from './collect-payment'
+import { bankPartOf, buildPaymentLines, cashGivenError, cashPartOf, fillOtherSide, INSTRUMENT_LABELS, parsePaymentLines, paymentDraft, paymentRows } from './collect-payment'
 
 describe('fillOtherSide', () => {
   it('gõ một ô, ô kia là phần còn lại, không âm', () => {
@@ -71,6 +71,24 @@ describe('paymentDraft — một nguồn cho phần tiền mặt / chuyển kho�
   it('đang lệch: phần lấy theo chữ đang gõ để ô khách đưa / nhắc chuyển khoản bám theo', () => {
     expect(paymentDraft(1_000_000, 'mixed', 300_000, 600_000)).toMatchObject({ lines: [], cash: 300_000, bank: 600_000 })
     expect(paymentDraft(1_000_000, 'mixed', null, null)).toMatchObject({ cash: 0, bank: 0 })
+  })
+})
+
+describe('parsePaymentLines', () => {
+  it('chỉ giữ phương tiện có nhãn (kể cả khoá kế thừa như toString bị loại), số ép kiểu', () => {
+    expect(parsePaymentLines([{ instrument: 'cash', amount: '1000' }, { instrument: 'wallet', amount: 5 }, null, { amount: 3 },
+      { instrument: 'toString', amount: 1 }, { instrument: 'bank', amount: 2 }]))
+      .toEqual([{ instrument: 'cash', amount: 1000 }, { instrument: 'bank', amount: 2 }])
+    expect(parsePaymentLines(undefined)).toEqual([])
+    expect(parsePaymentLines({})).toEqual([])
+  })
+})
+
+describe('cashGivenError', () => {
+  it('trống hoặc trong giới hạn: không lỗi; quá 2 tỉ: lỗi tiếng Việt (không để server báo tràn số)', () => {
+    expect(cashGivenError(null)).toBeNull()
+    expect(cashGivenError(2_000_000_000)).toBeNull()
+    expect(cashGivenError(2_000_000_001)).toBe('Tiền khách đưa quá lớn — kiểm tra lại số')
   })
 })
 

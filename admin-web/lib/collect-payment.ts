@@ -19,6 +19,30 @@ export type PaymentLine = { instrument: Instrument; amount: number }
 
 const fmt = (n: number) => n.toLocaleString('vi-VN')
 
+/** Giới hạn số tiền một ô (khớp server: 2.000.000.000 — p_cash_given là integer). */
+export const MAX_VND = 2_000_000_000
+
+/**
+ * Đọc mảng khoản thu từ JSON server (get_bills_report, collect_table_bill 'already'). Chỉ giữ phương tiện có nhãn
+ * (Object.hasOwn — khoá kế thừa như 'toString' không lọt), số ép kiểu. Thêm phương tiện = thêm nhãn ở bảng trên.
+ */
+export function parsePaymentLines(v: unknown): PaymentLine[] {
+  if (!Array.isArray(v)) return []
+  return v.flatMap((p0) => {
+    const p = p0 && typeof p0 === 'object' ? (p0 as Record<string, unknown>) : {}
+    const i = p.instrument
+    const amount = Number(p.amount)
+    return typeof i === 'string' && Object.hasOwn(INSTRUMENT_LABELS, i) && Number.isFinite(amount)
+      ? [{ instrument: i as Instrument, amount }]
+      : []
+  })
+}
+
+/** Tiền khách đưa vượt giới hạn → lỗi tiếng Việt (không để server báo tràn số integer). */
+export function cashGivenError(given: number | null): string | null {
+  return given !== null && given > MAX_VND ? 'Tiền khách đưa quá lớn — kiểm tra lại số' : null
+}
+
 /** Gõ một ô, ô kia là phần còn lại của tổng; gõ quá tổng thì ô kia là 0. Ô trống → null. */
 export function fillOtherSide(total: number, typed: number | null): number | null {
   if (typed === null) return null

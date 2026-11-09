@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   billCashBank,
   billCode,
+  billInstrumentLabel,
   billOther,
   buildBillRows,
   businessDayRangeLabel,
@@ -158,6 +159,14 @@ describe('mig 112a: từng khoản thu', () => {
     expect(billOther(row({ instrument: 'other' }))).toBe(1000)
     expect(billOther(row({ instrument: 'mixed', payments: [{ instrument: 'cash', amount: 400 }, { instrument: 'bank', amount: 600 }] }))).toBeNull()
     expect(billOther(row({ kind: 'waiting', instrument: null }))).toBeNull()
+  })
+
+  it('billInstrumentLabel: "Kết hợp" chỉ khi bill có từng khoản; bill cũ trộn phương tiện giữ "Nhiều phương thức"', () => {
+    const row = (over: Partial<BillRow>) => ({ kind: 'paid', amount: 1000, instrument: 'mixed', payments: [], ...over }) as BillRow
+    expect(billInstrumentLabel(row({ payments: [{ instrument: 'cash', amount: 400 }, { instrument: 'bank', amount: 600 }] }))).toBe('Kết hợp')
+    expect(billInstrumentLabel(row({}))).toBe('Nhiều phương thức')
+    expect(billInstrumentLabel(row({ instrument: 'cash' }))).toBe('Tiền mặt')
+    expect(billInstrumentLabel(row({ instrument: null }))).toBeNull()
   })
 
   it('payments: khoá kế thừa từ Object.prototype không lọt qua bộ lọc phương tiện', () => {

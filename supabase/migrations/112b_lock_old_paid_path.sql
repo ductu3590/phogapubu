@@ -5,7 +5,8 @@
 --     cầm code cũ gọi hàm này thì thu ngân thấy lỗi, tải lại, thu bằng collect_table_bill.
 --     close_table_sessions_bulk gọi lại hàm này nên tự bị chặn theo. Chữ ký giữ nguyên → không có bản cũ
 --     phải drop, quyền EXECUTE giữ nguyên.
---   • Trigger chặn client (anon / authenticated / kitchen) UPDATE thẳng cột tiền của đơn — RLS
+--   • Trigger chặn client (anon / authenticated / kitchen) UPDATE thẳng cột tiền của đơn, và huỷ / sửa tiền
+--     (total_amount, bill_discount_amount, discount_amount) của đơn ĐÃ THU — RLS
 --     auth_update_orders vẫn cho chủ quán sửa orders (chỗ hở CLAUDE.md 2026-11-03 đã ghi). RPC SECURITY DEFINER
 --     chạy quyền chủ hàm (postgres), checkout-notify chạy service_role → không bị chặn.
 --   table_sessions chỉ có policy đọc nên không cần chặn. File này chỉ có hàm và trigger, không đụng dữ liệu.
@@ -81,13 +82,24 @@ LANGUAGE plpgsql
 SET search_path TO 'public'
 AS $function$
 BEGIN
-  IF current_user IN ('anon', 'authenticated', 'kitchen')
-     AND (NEW.payment_received_at IS DISTINCT FROM OLD.payment_received_at
-          OR NEW.payment_received_via IS DISTINCT FROM OLD.payment_received_via
-          OR NEW.payment_received_by IS DISTINCT FROM OLD.payment_received_by
-          OR NEW.payment_instrument IS DISTINCT FROM OLD.payment_instrument
-          OR NEW.bill_payment_id IS DISTINCT FROM OLD.bill_payment_id) THEN
+  IF current_user NOT IN ('anon', 'authenticated', 'kitchen') THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.payment_received_at IS DISTINCT FROM OLD.payment_received_at
+     OR NEW.payment_received_via IS DISTINCT FROM OLD.payment_received_via
+     OR NEW.payment_received_by IS DISTINCT FROM OLD.payment_received_by
+     OR NEW.payment_instrument IS DISTINCT FROM OLD.payment_instrument
+     OR NEW.bill_payment_id IS DISTINCT FROM OLD.bill_payment_id THEN
     RAISE EXCEPTION 'Không ghi tiền trực tiếp vào đơn';
+  END IF;
+  -- Đơn ĐÃ THU: báo cáo (CTE pay của get_bills_report) cộng nguyên dòng khoản thu, nên huỷ đơn hay sửa số tiền
+  -- của nó làm ngăn 'khác' âm. Chuyển sang 'paid' (completeOrder đóng đơn) vẫn được.
+  IF OLD.payment_received_at IS NOT NULL
+     AND ((NEW.status = 'cancelled' AND OLD.status IS DISTINCT FROM 'cancelled')
+          OR NEW.total_amount IS DISTINCT FROM OLD.total_amount
+          OR NEW.bill_discount_amount IS DISTINCT FROM OLD.bill_discount_amount
+          OR NEW.discount_amount IS DISTINCT FROM OLD.discount_amount) THEN
+    RAISE EXCEPTION 'Đơn đã thu tiền, không huỷ hay sửa số tiền được';
   END IF;
   RETURN NEW;
 END;

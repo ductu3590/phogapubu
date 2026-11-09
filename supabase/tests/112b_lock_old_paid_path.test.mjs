@@ -58,6 +58,33 @@ test('chủ quán không UPDATE thẳng được cột tiền của đơn', asyn
   assert.equal((await one('SELECT status FROM orders WHERE id = $1', [o])).status, 'confirmed')
 })
 
+test('đơn ĐÃ THU: client không huỷ, không sửa tiền được; đóng đơn (status paid kiểu completeOrder) vẫn được', async () => {
+  const o = await order(null, 1000, { method: 'cash' })
+  await confirm(o) // thu tay → đơn có payment_received_at + khoản thu
+  await login(ids.owner)
+  for (const set of ["status = 'cancelled'", 'total_amount = 0', 'bill_discount_amount = 500', 'discount_amount = 100']) {
+    await assert.rejects(db.query(`UPDATE orders SET ${set} WHERE id = $1`, [o]), /Đơn đã thu tiền, không huỷ hay sửa số tiền được/, set)
+  }
+  await db.query("UPDATE orders SET status = 'paid' WHERE id = $1", [o]) // completeOrder
+  await db.query('UPDATE orders SET total_amount = total_amount WHERE id = $1', [o]) // không đổi giá trị: không chặn
+  await db.exec('RESET ROLE')
+  const row = await one('SELECT status, total_amount FROM orders WHERE id = $1', [o])
+  assert.deepEqual([row.status, row.total_amount], ['paid', 1000])
+})
+
+test('đơn CHƯA thu: client vẫn huỷ / sửa được như trước; service_role (cancelOrder, checkout-notify) không bị chặn', async () => {
+  const unpaid = await order(null, 1000, { method: 'cash' })
+  await login(ids.owner)
+  await db.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [unpaid])
+  await db.exec('RESET ROLE')
+  const paid = await order(null, 2000, { method: 'cash' })
+  await confirm(paid)
+  await db.exec('SET ROLE service_role')
+  await db.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [paid])
+  await db.exec('RESET ROLE')
+  assert.equal((await one('SELECT status FROM orders WHERE id = $1', [paid])).status, 'cancelled')
+})
+
 test('anon và bếp (role kitchen) cũng bị chặn; service_role (checkout-notify) thì không', async () => {
   const o = await order(null, 1000, { method: 'zalo_checkout', instrument: 'wallet' })
   await db.exec('GRANT SELECT, UPDATE ON orders TO anon, kitchen')

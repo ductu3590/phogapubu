@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireOperator } from '@/lib/auth/operator'
 import { isPosRole } from '@/lib/auth/roles'
 import type { BillDiscount } from '@/lib/bill-discount'
-import type { PaymentLine } from '@/lib/collect-payment'
+import { parsePaymentLines, type PaymentLine } from '@/lib/collect-payment'
 
 // Bọc 3 RPC phiên bàn (mig 039). Luôn dùng createClient() — phiên đăng nhập của nhân viên —
 // chứ KHÔNG createAdminClient(): RPC cần auth.uid() để ghi payment_received_by, đó là dấu vết
@@ -102,7 +102,17 @@ export type CollectBillInput = {
 }
 
 export type CollectBillResult =
-  | { ok: true; already: boolean; paymentId: string | null; total: number; ordersSettled: number }
+  | {
+      ok: true
+      already: boolean
+      paymentId: string | null
+      total: number
+      ordersSettled: number
+      /** Chỉ khi already: các khoản ĐÃ GHI (có thể khác khoản vừa gửi). Thu mới → []. */
+      lines: PaymentLine[]
+      cashGiven: number | null
+      changeAmount: number | null
+    }
   | { ok: false; error: string }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -208,13 +218,20 @@ export async function collectTableBill(input: CollectBillInput): Promise<Collect
     payment_id: string | null
     total: number | string
     orders_settled: number | string
+    lines?: unknown
+    cash_given?: number | null
+    change_amount?: number | null
   }
+  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
   return {
     ok: true,
     already: r.already === true,
     paymentId: r.payment_id ?? null,
     total: Number(r.total),
     ordersSettled: Number(r.orders_settled),
+    lines: parsePaymentLines(r.lines),
+    cashGiven: num(r.cash_given),
+    changeAmount: num(r.change_amount),
   }
 }
 

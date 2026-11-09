@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { getButtonClasses } from '@/components/ui/button-classes'
 import { EmptyState } from '@/components/ui/feedback'
 import { formatVND, cn } from '@/lib/utils'
-import { instrumentLabel } from '@/lib/daily-report'
 import {
+  billInstrumentLabel,
   buildBillRows,
   businessDayRangeLabel,
   chipCounts,
@@ -241,7 +241,7 @@ function BillTableRow({ row: r, date, onOpen }: { row: BillRow; date: string; on
           {formatVND(r.amount)}
         </span>
         <span className="block text-[12px] text-muted">
-          {r.kind === 'paid' && r.instrument ? instrumentLabel(r.instrument) : r.kind === 'waiting' ? 'Tạm tính' : '—'}
+          {r.kind === 'paid' ? (billInstrumentLabel(r) ?? '—') : r.kind === 'waiting' ? 'Tạm tính' : '—'}
           {r.kind === 'paid' && r.discountTotal > 0 && <> · giảm {formatVND(r.discountTotal)}</>}
         </span>
       </td>

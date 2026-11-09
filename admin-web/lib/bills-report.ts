@@ -2,7 +2,8 @@
 // lọc chip, tìm kiếm, phân trang. Tiền đã tính ở server — ở đây chỉ đổi tên trường / ép kiểu, KHÔNG cộng trừ gì.
 import type { ReportInstrument } from '@/lib/daily-report'
 import { rejectReasonLabel } from '@/lib/pos-bill-history'
-import { INSTRUMENT_LABELS, type Instrument, type PaymentLine } from '@/lib/collect-payment'
+import { parsePaymentLines, type Instrument, type PaymentLine } from '@/lib/collect-payment'
+import { instrumentLabel } from '@/lib/daily-report'
 
 export type BillsReportBill = {
   key: string; paidAt: string; openedAt: string; sessionIds: string[]; orderIds: string[]; merged: boolean
@@ -60,15 +61,6 @@ const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
 const strArr = (v: unknown): string[] => arr(v).filter((x): x is string => typeof x === 'string')
 const label = (v: unknown): string => str(v) || '—'
 
-// Chỉ giữ khoản có phương tiện đã biết (INSTRUMENT_LABELS): thêm phương tiện mới = thêm một nhãn ở đó.
-function payments(v: unknown): PaymentLine[] {
-  return arr(v).flatMap((p0) => {
-    const p = obj(p0)
-    const i = p.instrument
-    return typeof i === 'string' && Object.hasOwn(INSTRUMENT_LABELS, i) ? [{ instrument: i as Instrument, amount: num(p.amount) }] : []
-  })
-}
-
 function instrument(v: unknown): ReportInstrument {
   return v === 'cash' || v === 'bank' || v === 'mixed' ? v : 'other'
 }
@@ -91,7 +83,7 @@ export function parseBillsReport(raw: unknown): BillsReport {
         discountTotal: num(b.discount_total), billDiscount: num(b.bill_discount), instrument: instrument(b.instrument), orderType: str(b.order_type) || 'dine_in',
         itemsCount: num(b.items_count), tableLabel: label(b.table_label), customerName: strOrNull(b.customer_name),
         partySize: numOrNull(b.party_size), adjustmentsCount: num(b.adjustments_count), receivedByName: strOrNull(b.received_by_name),
-        payments: payments(b.payments), cashGiven: numOrNull(b.cash_given), changeAmount: numOrNull(b.change_amount),
+        payments: parsePaymentLines(b.payments), cashGiven: numOrNull(b.cash_given), changeAmount: numOrNull(b.change_amount),
       }
     }),
     waiting: arr(r.waiting).map((w0) => {
@@ -220,6 +212,16 @@ export function billCashBank(row: BillRow): { cash: number | null; bank: number 
   if (row.instrument === 'cash') return { cash: row.amount, bank: null }
   if (row.instrument === 'bank') return { cash: null, bank: row.amount }
   return { cash: null, bank: null }
+}
+
+/**
+ * Nhãn phương thức của một dòng: "Kết hợp" chỉ khi bill thu kết hợp có từng khoản (mig 112a); bill cũ trộn
+ * nhiều phương tiện giữ "Nhiều phương thức". null khi dòng không có phương thức (chờ thu / huỷ).
+ */
+export function billInstrumentLabel(row: Pick<BillRow, 'instrument' | 'payments'>): string | null {
+  if (!row.instrument) return null
+  if (row.instrument === 'mixed' && row.payments.length > 0) return 'Kết hợp'
+  return instrumentLabel(row.instrument)
 }
 
 /**

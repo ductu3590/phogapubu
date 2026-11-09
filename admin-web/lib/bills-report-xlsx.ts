@@ -1,8 +1,7 @@
 // Xuất Excel báo cáo ngày (A04-3): 3 sheet Tổng hợp · Hoá đơn · Điều chỉnh. Thuần (không gọi mạng) để test được.
 // Tiền là SỐ (định dạng #,##0) để chủ quán cộng/lọc tiếp trong Excel — không ghi thành chữ "1.281.000đ".
 import ExcelJS from 'exceljs'
-import { instrumentLabel } from '@/lib/daily-report'
-import { billCashBank, billOther, buildBillRows, businessDayRangeLabel, daySummary, normalizeSearch, startedLabel, vnDateTimeLabel, type BillRow, type BillsReport } from '@/lib/bills-report'
+import { billCashBank, billInstrumentLabel, billOther, buildBillRows, businessDayRangeLabel, daySummary, normalizeSearch, startedLabel, vnDateTimeLabel, type BillRow, type BillsReport } from '@/lib/bills-report'
 
 const MONEY = '#,##0'
 
@@ -79,7 +78,7 @@ export function buildBillsWorkbook(report: BillsReport, meta: BillsWorkbookMeta)
     bills.addRow([
       r.code, statusText(r), r.tableLabel, r.customerName ?? '', r.partySize ?? null,
       startedLabel(r.startedAt, meta.date), r.kind === 'waiting' ? '' : startedLabel(r.at, meta.date), r.itemsCount,
-      r.kind === 'paid' && r.instrument ? instrumentLabel(r.instrument) : r.kind === 'waiting' ? 'Tạm tính' : '',
+      r.kind === 'paid' ? (billInstrumentLabel(r) ?? '') : r.kind === 'waiting' ? 'Tạm tính' : '',
       cb.cash, cb.bank, billOther(r),
       r.discountTotal > 0 ? r.discountTotal : null, r.billDiscount > 0 ? r.billDiscount : null, r.amount, r.receivedByName ?? '',
       r.kind === 'cancelled' ? (r.reasonText ?? '') : r.adjustmentsCount > 0 ? `${r.adjustmentsCount} điều chỉnh` : '',

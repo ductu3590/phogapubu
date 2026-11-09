@@ -9,9 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/feedback'
 import { ORDER_STATUS_TONE } from '@/components/ui/status'
 import { formatVND, cn } from '@/lib/utils'
-import { instrumentLabel } from '@/lib/daily-report'
 import { printInPlace } from '@/lib/print/print-in-place'
-import type { BillRow } from '@/lib/bills-report'
+import { billInstrumentLabel, type BillRow } from '@/lib/bills-report'
 import type { BillDetailOrder, SessionMove } from '@/lib/bill-detail'
 import { collectSessionBill, getSessionMoves, loadBillDetail, redeemBillSpin, runBillOrderAction, type BillOrderAction } from '@/lib/actions/bill-detail'
 import { getSessionsBill } from '@/lib/actions/table-session'
@@ -41,6 +40,7 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
     { instrument: 'cash' | 'bank'; amount: number; requestId: string; text: string } | null
   >(null)
   const [collectError, setCollectError] = useState<string | null>(null)
+  const [collectNotice, setCollectNotice] = useState<string | null>(null)
 
   // Cha dựng lại component theo key của dòng → state tự về ban đầu khi đổi dòng. Ở đây chỉ tải khi danh sách
   // đơn đổi hoặc sau một thao tác (không theo object `row`: router.refresh dựng lại object mỗi lần → tải thừa, nháy).
@@ -133,6 +133,9 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
     if (out.kind !== 'done') { setCollectError(out.error); return }
     setPendingCollect(null)
     router.refresh()
+    // Đã thu từ trước (mất phản hồi / máy khác): GIỮ ngăn kéo mở để thu ngân đọc khoản ĐÃ GHI (có thể khác
+    // phương tiện vừa chọn). Thu mới bình thường thì đóng ngăn kéo như cũ.
+    if (out.message) { setCollectNotice(out.message); return }
     onClose()
   }
 
@@ -158,7 +161,7 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
       title={<span className="font-mono">{row.code} <span className="font-sans font-semibold">· {row.tableLabel}</span></span>}
       description={
         row.kind === 'paid'
-          ? `Thu lúc ${time(row.at)}${row.instrument ? ` · ${instrumentLabel(row.instrument)}` : ''}${row.receivedByName ? ` · ${row.receivedByName}` : ''}`
+          ? `Thu lúc ${time(row.at)}${billInstrumentLabel(row) ? ` · ${billInstrumentLabel(row)}` : ''}${row.receivedByName ? ` · ${row.receivedByName}` : ''}`
           : row.kind === 'waiting'
             ? `${row.expired ? 'Hết hạn · còn nợ' : 'Chờ thu'} · vào lúc ${time(row.startedAt)}`
             : `${row.rejected ? 'Từ chối' : 'Đã huỷ'} lúc ${time(row.at)}${row.reasonText ? ` · ${row.reasonText}` : ''}`
@@ -224,6 +227,7 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
             </ul>
           </section>
         )}
+        {collectNotice && <p role="status" className="rounded-lg border border-warning-border bg-warning-bg px-3 py-2 text-[13px] text-warning">{collectNotice}</p>}
         {error && <p role="alert" className="rounded-lg border border-critical-border bg-critical-bg px-3 py-2 text-[13px] text-critical">{error}</p>}
 
         {orders === null ? (

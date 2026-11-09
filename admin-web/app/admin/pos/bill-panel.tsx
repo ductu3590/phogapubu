@@ -9,7 +9,7 @@ import type { OpenTableSession, SessionOrderItem, SessionOrderRow } from '@/lib/
 import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
 import { cashChange, parseVnd } from '@/lib/cash-change'
-import { fillOtherSide, paymentDraft, type PayMethod, type PaymentLine } from '@/lib/collect-payment'
+import { cashGivenError, fillOtherSide, paymentDraft, type PayMethod, type PaymentLine } from '@/lib/collect-payment'
 import { billTotals, combinedDiscount, sessionDiscountOf, type BillDiscount } from '@/lib/bill-discount'
 import { isReviewableOrder, orderRound } from '@/lib/pos-work-queue'
 import { clock } from '@/lib/pos-timeline'
@@ -797,7 +797,8 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
   const change = cashChange(cashPart, given)
   const items = list.flatMap((s) => s.orders.filter((o) => o.status !== 'cancelled').flatMap((o) => o.items))
   const short = cashPart > 0 && change.kind === 'short'
-  const blocked = short || !!draft.error || !!discountError
+  // Khách đưa vượt giới hạn integer của server → khoá nút, PaymentMethodFields báo lỗi tiếng Việt.
+  const blocked = short || !!draft.error || !!discountError || (cashPart > 0 && !!cashGivenError(given))
 
   const chonPhuongThuc = (m: PayMethod) => {
     setMethod(m)

@@ -5,7 +5,7 @@ import { Banknote, Landmark, Split } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/field'
 import { cashChange, cashSuggestions, formatVndInput, parseVnd } from '@/lib/cash-change'
-import type { PayMethod } from '@/lib/collect-payment'
+import { cashGivenError, type PayMethod } from '@/lib/collect-payment'
 import { cn } from '@/lib/utils'
 
 // Phần chọn phương thức + ô tiền của màn Thanh toán POS (mig 112a). KHÔNG giữ state: PaymentView giữ chữ
@@ -41,7 +41,9 @@ export default function PaymentMethodFields({
   onBankText: (t: string) => void
   onGivenText: (t: string) => void
 }) {
-  const change = cashChange(cashPart, parseVnd(givenText))
+  const given = parseVnd(givenText)
+  const givenError = cashGivenError(given)
+  const change = cashChange(cashPart, given)
   // Đang lệch thì số chuyển khoản chưa chốt → chưa nhắc nghe loa.
   const bankAmount = mixedError ? 0 : bankPart
   const showGiven = method !== 'bank' && cashPart > 0
@@ -129,7 +131,12 @@ export default function PaymentMethodFields({
               </Button>
             ))}
           </div>
-          {change.kind === 'ok' && (
+          {givenError && (
+            <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+              {givenError}
+            </p>
+          )}
+          {!givenError && change.kind === 'ok' && (
             <p className="flex items-baseline justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
               <span className="text-sm font-semibold">Tiền thối lại cho khách</span>
               <span className="text-xl font-bold tabular">{dong(change.change)}</span>

@@ -69,6 +69,6 @@ describe('nhãn phương thức', () => {
     expect(instrumentLabel('cash')).toBe('Tiền mặt')
     expect(instrumentLabel('bank')).toBe('Chuyển khoản')
     expect(instrumentLabel('other')).toBe('Ví / khác')
-    expect(instrumentLabel('mixed')).toBe('Kết hợp')
+    expect(instrumentLabel('mixed')).toBe('Nhiều phương thức')
   })
 })

@@ -7,6 +7,7 @@ import { parseBillDetail, parseSessionMoves, type BillDetailOrder, type SessionM
 import { cancelOrder, completeOrder, confirmManualPayment } from '@/lib/actions/orders'
 import { redeemSpin } from '@/lib/actions/spin'
 import { collectTableBill } from '@/lib/actions/table-session'
+import type { PaymentLine } from '@/lib/collect-payment'
 
 // Ngăn kéo "Xem bill" (A04-2) của trang Hoá đơn & Báo cáo.
 // Gọi MỘT lần khi mở ngăn kéo / sau mỗi thao tác — KHÔNG poll bằng server action (bài học ST-3).
@@ -116,22 +117,27 @@ export async function collectSessionBill(
   instrument: 'cash' | 'bank',
   amount: number,
   clientRequestId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; already: boolean; lines: PaymentLine[]; cashGiven: number | null; changeAmount: number | null }
+  | { ok: false; error: string }
+> {
   const ids = Array.isArray(sessionIds) ? sessionIds.filter((x) => typeof x === 'string' && UUID.test(x)) : []
   if (ids.length === 0) return { ok: false, error: 'Không có bàn nào để thu' }
   if (instrument !== 'cash' && instrument !== 'bank') return { ok: false, error: 'Phương thức thanh toán không hợp lệ' }
   if (!Number.isSafeInteger(amount) || amount < 0) return { ok: false, error: 'Số tiền không hợp lệ' }
+  let res: Awaited<ReturnType<typeof collectTableBill>>
   try {
-    const res = await collectTableBill({
+    res = await collectTableBill({
       sessionIds: ids,
       lines: amount > 0 ? [{ instrument, amount }] : [],
       cashGiven: null,
       clientRequestId,
     })
-    if (!res.ok) return { ok: false, error: res.error }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Không thu được, thử lại sau' }
   }
+  if (!res.ok) return { ok: false, error: res.error }
   revalidatePath('/admin/bills')
-  return { ok: true }
+  // already: trả khoản ĐÃ GHI để ngăn kéo báo đúng (có thể khác phương tiện vừa chọn).
+  return { ok: true, already: res.already, lines: res.lines, cashGiven: res.cashGiven, changeAmount: res.changeAmount }
 }

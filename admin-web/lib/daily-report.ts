@@ -35,7 +35,7 @@ export function clampReportDate(input: string | undefined, today: string): strin
 }
 
 export function instrumentLabel(i: ReportInstrument): string {
-  // Nhãn từng phương tiện lấy từ MỘT bảng (INSTRUMENT_LABELS); 'mixed' = bill thu Kết hợp (mig 112a) — cùng chữ
-  // với lựa chọn ở màn Thanh toán POS.
-  return { ...INSTRUMENT_LABELS, other: 'Ví / khác', mixed: 'Kết hợp' }[i]
+  // Nhãn từng phương tiện lấy từ MỘT bảng (INSTRUMENT_LABELS). 'mixed' ở đây là bill CŨ trộn nhiều phương tiện;
+  // bill thu Kết hợp có từng khoản (mig 112a) đọc nhãn qua billInstrumentLabel (lib/bills-report.ts).
+  return { ...INSTRUMENT_LABELS, other: 'Ví / khác', mixed: 'Nhiều phương thức' }[i]
 }
