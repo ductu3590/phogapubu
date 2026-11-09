@@ -27,6 +27,7 @@ import {
   type OpenTableSession,
 } from '@/lib/actions/table-session'
 import type { BillDiscount } from '@/lib/bill-discount'
+import { runCollect } from '@/lib/collect-outcome'
 import {
   addManualItems,
   confirmOrder,
@@ -423,17 +424,20 @@ export default function PosClient({
 
   // Một bàn hay gộp N mâm đều qua collect_table_bill (mig 112a). clientRequestId do màn Thanh toán giữ:
   // bấm lại sau lỗi / mất mạng gửi lại đúng mã, server không ghi khoản thứ hai.
+  // runCollect không ném: mất mạng không làm kẹt busy. Lỗi → màn Thanh toán vẫn mở, giữ mã để bấm lại;
+  // bill vừa đổi → tải lại để màn Thanh toán hiện số mới.
   const onPay = async (list: OpenTableSession[], payment: PosPayment) => {
     setBusy(true)
-    const res = await collectTableBill({ sessionIds: list.map((s) => s.session_id), ...payment })
-    if (!res.ok) {
+    const out = await runCollect(() => collectTableBill({ sessionIds: list.map((s) => s.session_id), ...payment }))
+    if (out.kind !== 'done') {
       setBusy(false)
-      reportActionError(res.error)
+      reportActionError(out.error)
+      if (out.kind === 'stale') await reload()
       return
     }
     // Gộp bill đã thu xong → tự thoát chế độ gộp, không bắt thu ngân bấm "Thoát gộp bill".
     setMergeMode(false)
-    await sauKhiXong(res.already ? 'Bàn này vừa được máy khác chốt xong.' : undefined)
+    await sauKhiXong(out.message ?? undefined)
   }
 
   // Chuyển bàn: panel bill GIỮ NGUYÊN phiên (không dùng sauKhiXong vì nó bỏ chọn phiên).

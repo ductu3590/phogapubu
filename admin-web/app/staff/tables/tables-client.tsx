@@ -27,6 +27,7 @@ import { billTotals } from '@/lib/bill-discount'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
 import { areaColorClasses } from '@/lib/area-colors'
 import { groupTablesByArea, type StaffArea } from '@/lib/staff-area-groups'
+import { runCollect } from '@/lib/collect-outcome'
 
 const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 
@@ -71,6 +72,8 @@ export default function TablesClient({
   const [sessions, setSessions] = useState(initialSessions)
   const [error, setError] = useState(initialError)
   const [busy, setBusy] = useState(false)
+  // Lỗi hiện NGAY trong sheet đang mở (thu tiền / bỏ bàn) — Banner đầu trang bị sheet che mất.
+  const [sheetError, setSheetError] = useState<string | null>(null)
   const [sheet, setSheet] = useState<Sheet>({ kind: 'none' })
   const [connected, setConnected] = useState(false)
   // Chế độ gộp bill: tick nhiều mâm rồi thu một lần. Tách bill là MẶC ĐỊNH (mỗi mâm vốn là
@@ -155,6 +158,7 @@ export default function TablesClient({
 
   const finish = async (msg?: string) => {
     setBusy(false)
+    setSheetError(null)
     setSheet({ kind: 'none' })
     setPicked(new Set())
     setPickTables(new Set())
@@ -163,41 +167,56 @@ export default function TablesClient({
   }
 
   // Thu một bàn hoặc gộp N mâm, MỘT phương tiện (mig 112a: collect_table_bill). Số gửi lên = số đang hiện
-  // (billTotals); server tự tính lại và từ chối nếu bill vừa đổi. Lỗi thì finish không chạy → sheet giữ
-  // nguyên requestId, bấm lại không tạo khoản trùng.
+  // (billTotals); server tự tính lại và từ chối nếu bill vừa đổi. Kết quả xử lý chung bằng runCollect:
+  //   • bill vừa đổi → đóng sheet (bỏ số cũ), báo trên trang, tải lại; mở lại sheet sẽ có số mới + mã mới;
+  //   • lỗi khác / mất mạng → GIỮ sheet và requestId, báo ngay trong sheet; bấm lại không tạo khoản trùng.
   const doCollect = async (list: OpenTableSession[], instrument: 'cash' | 'bank', requestId: string) => {
     if (!canClose) return
     setBusy(true)
-    const t = billTotals(list)
-    const res = await collectTableBill({
-      sessionIds: list.map((s) => s.session_id),
-      lines: t.payable > 0 ? [{ instrument, amount: t.payable }] : [],
-      cashGiven: null,
-      clientRequestId: requestId,
-    })
-    if (!res.ok) {
+    setSheetError(null)
+    try {
+      const t = billTotals(list)
+      const out = await runCollect(() => collectTableBill({
+        sessionIds: list.map((s) => s.session_id),
+        lines: t.payable > 0 ? [{ instrument, amount: t.payable }] : [],
+        cashGiven: null,
+        clientRequestId: requestId,
+      }))
+      if (out.kind === 'done') {
+        await finish(out.message ?? undefined)
+      } else if (out.kind === 'stale') {
+        setSheet({ kind: 'none' })
+        setError(out.error)
+        await reload()
+      } else {
+        setSheetError(out.error)
+      }
+    } finally {
       setBusy(false)
-      setError(res.error)
-      return
     }
-    await finish(res.already ? 'Bàn này vừa được máy khác chốt xong.' : undefined)
   }
 
-  // Bỏ bàn: đóng phiên không thu tiền.
+  // Bỏ bàn: đóng phiên không thu tiền. Server action ném (mất mạng) thì báo trong sheet, không kẹt busy.
   const doReset = async (session: OpenTableSession) => {
     if (!canClose) return
     setBusy(true)
-    const res = await closeTableSession(session.session_id, 'staff_reset')
-    if (!res.ok) {
+    setSheetError(null)
+    try {
+      const res = await closeTableSession(session.session_id, 'staff_reset')
+      if (!res.ok) {
+        setSheetError(res.error)
+        return
+      }
+      await finish(
+        res.ordersLeftInKitchen > 0
+          ? `Đã bỏ bàn. Còn ${res.ordersLeftInKitchen} món đã vào bếp — vẫn nằm ở màn bếp, xử lý tay.`
+          : undefined,
+      )
+    } catch {
+      setSheetError('Lỗi kết nối. Tải lại trang để xem bàn đã được bỏ chưa rồi thử lại.')
+    } finally {
       setBusy(false)
-      setError(res.error)
-      return
     }
-    await finish(
-      res.ordersLeftInKitchen > 0
-        ? `Đã bỏ bàn. Còn ${res.ordersLeftInKitchen} món đã vào bếp — vẫn nằm ở màn bếp, xử lý tay.`
-        : undefined,
-    )
   }
 
   const printBill = (list: OpenTableSession[]) => {
@@ -232,7 +251,8 @@ export default function TablesClient({
       return next
     })
 
-  const dongSheet = () => { if (!busy) setSheet({ kind: 'none' }) }
+  const dongSheet = () => { if (!busy) { setSheetError(null); setSheet({ kind: 'none' }) } }
+  const openSheet = (next: Sheet) => { setSheetError(null); setSheet(next) }
 
   const sheetTitle =
     sheet.kind === 'pay'
@@ -312,12 +332,12 @@ export default function TablesClient({
 
           <div className="flex gap-2">
             {canClose && (
-              <Button variant="primary" onClick={() => setSheet({ kind: 'pay', sessions: [s], requestId: crypto.randomUUID() })} disabled={busy} className="flex-1">
+              <Button variant="primary" onClick={() => openSheet({ kind: 'pay', sessions: [s], requestId: crypto.randomUUID() })} disabled={busy} className="flex-1">
                 Thu tiền &amp; đóng bàn
               </Button>
             )}
             <IconButton icon={<Printer />} label="In bill" onClick={() => printBill([s])} disabled={busy} className="border border-border-strong bg-surface" />
-            <IconButton icon={<Ellipsis />} label="Thao tác khác" onClick={() => setSheet({ kind: 'more', session: s })} disabled={busy} className="border border-border-strong bg-surface" />
+            <IconButton icon={<Ellipsis />} label="Thao tác khác" onClick={() => openSheet({ kind: 'more', session: s })} disabled={busy} className="border border-border-strong bg-surface" />
           </div>
         </li>
         )
@@ -330,7 +350,7 @@ export default function TablesClient({
           <StatusDot tone={connected ? 'success' : 'neutral'} />
           {connected ? 'Đang cập nhật trực tiếp' : 'Mất kết nối — đang thử lại...'}
         </span>
-        <Button icon={<Layers />} onClick={() => setSheet({ kind: 'tray' })} disabled={busy || freeTables.length === 0}>
+        <Button icon={<Layers />} onClick={() => openSheet({ kind: 'tray' })} disabled={busy || freeTables.length === 0}>
           Ghép mâm
         </Button>
       </div>
@@ -381,7 +401,7 @@ export default function TablesClient({
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => setPicked(new Set())}>Bỏ chọn</Button>
             <Button icon={<Printer />} onClick={() => printBill(pickedSessions)}>In 1 hoá đơn</Button>
-            <Button variant="primary" onClick={() => setSheet({ kind: 'pay', sessions: pickedSessions, requestId: crypto.randomUUID() })} disabled={busy} className="flex-1">
+            <Button variant="primary" onClick={() => openSheet({ kind: 'pay', sessions: pickedSessions, requestId: crypto.randomUUID() })} disabled={busy} className="flex-1">
               Thu tiền
             </Button>
           </div>
@@ -407,6 +427,7 @@ export default function TablesClient({
                     Tiền hàng <span className="tabular">{dong(t.goods)}</span> · Giảm giá <span className="tabular">−{dong(t.discount)}</span> (đặt ở POS)
                   </p>
                 )}
+                {sheetError && <Banner tone="error" title={sheetError} className="mb-3" />}
                 <p className="text-sm text-muted">Khách trả bằng gì?</p>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <Button variant="primary" size="touch" icon={<Banknote />} onClick={() => void doCollect(sheet.sessions, 'cash', sheet.requestId)} disabled={busy || !!t.error}>
@@ -429,14 +450,14 @@ export default function TablesClient({
                   icon={<Plus />}
                   title="Thêm bàn vào mâm"
                   description="Đoàn đông thêm người. Thêm bàn xong là cả nhóm cùng gọi vào một bill."
-                  onClick={() => setSheet({ kind: 'addTable', session: sheet.session })}
+                  onClick={() => openSheet({ kind: 'addTable', session: sheet.session })}
                   disabled={busy || freeTables.length === 0}
                 />
                 <ActionRow
                   icon={<Link2 />}
                   title="Nhập vào mâm khác"
                   description="Khách quét QR trước khi kịp ghép bàn. Chuyển cả món lẫn bàn sang mâm đích."
-                  onClick={() => setSheet({ kind: 'merge', session: sheet.session })}
+                  onClick={() => openSheet({ kind: 'merge', session: sheet.session })}
                   disabled={busy || openSessions.length < 2}
                 />
                 {!sheet.session.is_open_ordering && (
@@ -454,7 +475,7 @@ export default function TablesClient({
                     icon={<Trash2 />}
                     title="Bỏ bàn (không thu tiền)"
                     description="Dùng cho đơn ma. Huỷ món chưa nấu, giữ nguyên món đã vào bếp."
-                    onClick={() => setSheet({ kind: 'reset', session: sheet.session })}
+                    onClick={() => openSheet({ kind: 'reset', session: sheet.session })}
                     disabled={busy}
                   />
                 )}
@@ -463,12 +484,13 @@ export default function TablesClient({
 
             {canClose && sheet.kind === 'reset' && (
               <>
+                {sheetError && <Banner tone="error" title={sheetError} className="mb-3" />}
                 <p className="text-sm text-muted">
                   <span className="font-semibold text-foreground tabular">{dong(sheet.session.total)}</span> sẽ không được ghi nhận. Món chưa nấu bị huỷ; món đã
                   vào bếp giữ nguyên và vẫn phải xử lý tay.
                 </p>
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <Button size="touch" onClick={() => setSheet({ kind: 'more', session: sheet.session })}>Quay lại</Button>
+                  <Button size="touch" onClick={() => openSheet({ kind: 'more', session: sheet.session })}>Quay lại</Button>
                   <Button variant="danger" size="touch" onClick={() => void doReset(sheet.session)} disabled={busy}>Bỏ bàn</Button>
                 </div>
               </>

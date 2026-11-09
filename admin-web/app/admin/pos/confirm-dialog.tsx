@@ -9,13 +9,15 @@ import { Dialog } from '@/components/ui/dialog'
  * Đang chạy (`busy`) thì nút xác nhận quay vòng, không đóng được bằng Esc / bấm ra ngoài.
  * `tone='danger'` cho việc không hoàn tác được (Bỏ bàn).
  */
-export default function ConfirmDialog({ open, title, description, confirmLabel, tone = 'default', busy, onConfirm, onCancel }: {
+export default function ConfirmDialog({ open, title, description, confirmLabel, tone = 'default', busy, confirmDisabled = false, onConfirm, onCancel }: {
   open: boolean
   title: ReactNode
   description?: ReactNode
   confirmLabel: string
   tone?: 'default' | 'danger'
   busy: boolean
+  /** Khoá nút xác nhận (vd. số tiền đã cũ, phải huỷ rồi mở lại). Nút Huỷ vẫn bấm được. */
+  confirmDisabled?: boolean
   onConfirm: () => void
   onCancel: () => void
 }) {
@@ -29,7 +31,7 @@ export default function ConfirmDialog({ open, title, description, confirmLabel, 
       footer={
         <>
           <Button onClick={onCancel} disabled={busy}>Huỷ</Button>
-          <Button variant={tone === 'danger' ? 'danger' : 'primary'} isLoading={busy} onClick={() => { if (!busy) onConfirm() }}>{confirmLabel}</Button>
+          <Button variant={tone === 'danger' ? 'danger' : 'primary'} isLoading={busy} disabled={confirmDisabled} onClick={() => { if (!busy && !confirmDisabled) onConfirm() }}>{confirmLabel}</Button>
         </>
       }
     >

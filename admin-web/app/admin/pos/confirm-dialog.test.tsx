@@ -80,6 +80,21 @@ describe('ConfirmDialog khi đang xử lý', () => {
     expect(onConfirm).not.toHaveBeenCalled()
   })
 
+  it('confirmDisabled (vd. A04 số tiền đã cũ): nút xác nhận bị khoá và không gọi onConfirm; Huỷ vẫn đóng được', () => {
+    const onConfirm = vi.fn()
+    const onCancel = vi.fn()
+    const el = ConfirmDialog({ open: true, title: 'T', confirmLabel: 'Đã nhận tiền', busy: false, confirmDisabled: true, onConfirm, onCancel }) as ReactElement<{
+      onClose: () => void
+      footer: ReactElement<{ children: ReactElement<{ onClick: () => void; disabled?: boolean }>[] }>
+    }>
+    const [, confirmBtn] = el.props.footer.props.children
+    expect(confirmBtn.props.disabled).toBe(true)
+    confirmBtn.props.onClick()
+    expect(onConfirm).not.toHaveBeenCalled()
+    el.props.onClose()
+    expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+
   it('không busy: onClose gọi onCancel, nút xác nhận gọi onConfirm', () => {
     const onConfirm = vi.fn()
     const onCancel = vi.fn()

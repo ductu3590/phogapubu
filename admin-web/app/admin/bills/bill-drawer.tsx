@@ -16,6 +16,7 @@ import type { BillDetailOrder, SessionMove } from '@/lib/bill-detail'
 import { collectSessionBill, getSessionMoves, loadBillDetail, redeemBillSpin, runBillOrderAction, type BillOrderAction } from '@/lib/actions/bill-detail'
 import { getSessionsBill } from '@/lib/actions/table-session'
 import ConfirmDialog from '../pos/confirm-dialog'
+import { isAmountMismatch, runCollect } from '@/lib/collect-outcome'
 
 const time = (iso: string) =>
   iso ? new Date(iso).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -124,18 +125,14 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
     const { instrument, amount, requestId } = pendingCollect
     setBusy(`collect:${instrument}`)
     setCollectError(null)
-    try {
-      const res = await collectSessionBill(row.sessionIds, instrument, amount, requestId)
-      // Lỗi: giữ hộp + giữ mã. Lần lỗi không ghi gì nên bấm lại an toàn; bill đổi thì server báo lệch → huỷ hộp, mở lại.
-      if (!res.ok) { setCollectError(res.error); return }
-      setPendingCollect(null)
-      router.refresh()
-      onClose()
-    } catch {
-      setCollectError('Lỗi kết nối. Bấm thu lại — cùng một lần thu nên không bị ghi trùng.')
-    } finally {
-      setBusy(null)
-    }
+    // runCollect không ném. Lỗi khác / mất mạng: giữ hộp + giữ mã, bấm lại an toàn (lần lỗi không ghi gì).
+    // Bill vừa đổi (số lệch): số trong hộp đã cũ → khoá nút xác nhận, bảo huỷ rồi bấm lại để đọc bill mới.
+    const out = await runCollect(() => collectSessionBill(row.sessionIds, instrument, amount, requestId))
+    setBusy(null)
+    if (out.kind !== 'done') { setCollectError(out.error); return }
+    setPendingCollect(null)
+    router.refresh()
+    onClose()
   }
 
   const onOrderAction = (orderId: string, action: BillOrderAction) => {
@@ -234,11 +231,13 @@ export default function BillDrawer({ row, canManage, onClose }: { row: BillRow |
             {collectError && (
               <span role="alert" className="mt-2 block rounded-lg border border-critical-border bg-critical-bg px-3 py-2 text-[13px] text-critical">
                 {collectError}
+                {isAmountMismatch(collectError) && <strong className="mt-1 block font-semibold">Huỷ rồi bấm lại Đã nhận tiền</strong>}
               </span>
             )}
           </>
         )}
         confirmLabel="Đã nhận tiền"
+        confirmDisabled={isAmountMismatch(collectError)}
         busy={busy?.startsWith('collect:') ?? false}
         onConfirm={() => void confirmCollect()}
         onCancel={() => { setPendingCollect(null); setCollectError(null) }}
