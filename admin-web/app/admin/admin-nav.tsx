@@ -3,6 +3,7 @@ import {
   ChefHat,
   ReceiptText,
   LayoutGrid,
+  Package,
   QrCode,
   Settings,
   UtensilsCrossed,
@@ -20,7 +21,7 @@ import type { OperatorRole } from '@/lib/auth/roles'
 //   (kitchen_release_policy = pos_confirmation, mô hình Bảo Lương) không có màn bếp nào để mở.
 // - Đặt bàn chỉ hiện khi quán bật đặt bàn.
 export function adminRailItems(kitchenEnabled = true, reservationsEnabled = false, role: OperatorRole = 'store_owner'): AppNavItem[] {
-  // Quản lý (QL, mig 116): POS · Đặt bàn · Món (chỉ bật/tắt Tạm hết) · Báo cáo; không Bếp, không Bàn QR.
+  // Quản lý (QL, mig 116): POS · Đặt bàn · Món (chỉ bật/tắt Tạm hết) · Báo cáo · Kho; không Bếp, không Bàn QR.
   // Module KHO / CA / NO / BC thêm mục của mình vào nhánh này VÀ nhánh chủ quán bên dưới.
   if (role === 'store_manager') {
     return [
@@ -28,14 +29,16 @@ export function adminRailItems(kitchenEnabled = true, reservationsEnabled = fals
       ...(reservationsEnabled ? [{ href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> }] : []),
       { href: '/admin/menu', label: 'Món', icon: <UtensilsCrossed /> },
       { href: '/admin/bills', label: 'Báo cáo', icon: <ReceiptText /> },
+    { href: '/admin/inventory', label: 'Kho', icon: <Package /> },
     ]
   }
-  // Thu ngân (PA-2): POS · Món (chỉ bật/tắt Tạm hết) · Báo cáo; Cài đặt ở chân rail.
+  // Thu ngân (PA-2): POS · Món (chỉ bật/tắt Tạm hết) · Báo cáo · Kho (chỉ xem tồn); Cài đặt ở chân rail.
   if (role === 'store_cashier') {
     return [
       { href: '/admin/pos', label: 'POS', icon: <LayoutGrid /> },
       { href: '/admin/menu', label: 'Món', icon: <UtensilsCrossed /> },
       { href: '/admin/bills', label: 'Báo cáo', icon: <ReceiptText /> },
+    { href: '/admin/inventory', label: 'Kho', icon: <Package /> },
     ]
   }
   return [
@@ -45,6 +48,7 @@ export function adminRailItems(kitchenEnabled = true, reservationsEnabled = fals
     { href: '/admin/menu', label: 'Món', icon: <UtensilsCrossed /> },
     { href: '/admin/tables', label: 'Bàn QR', icon: <QrCode /> },
     { href: '/admin/bills', label: 'Báo cáo', icon: <ReceiptText /> },
+    { href: '/admin/inventory', label: 'Kho', icon: <Package /> },
   ]
 }
 

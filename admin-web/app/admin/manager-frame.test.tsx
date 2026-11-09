@@ -90,7 +90,7 @@ describe('khung /admin theo vai', () => {
     const render = async () => renderToStaticMarkup(await AdminLayout({ children: <b />, modal: null }))
     let html = await render()
     expect(html).toContain('data-subtitle="MEVO · Quản lý"')
-    expect(html).toContain('data-rail="/admin/pos,/admin/menu,/admin/bills"')
+    expect(html).toContain('data-rail="/admin/pos,/admin/menu,/admin/bills,/admin/inventory"')
     expect(html).toContain('data-bottom="/admin/account"')
     as('store_cashier')
     expect(await render()).toContain('data-subtitle="MEVO · Thu ngân"')
