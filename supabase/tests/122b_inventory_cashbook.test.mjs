@@ -136,6 +136,17 @@ describe('122b nối phiếu nhập ↔ phiếu chi', () => {
     assert.equal((await entryOf(doc)).voided_at, null)
   })
 
+  test('huỷ phiếu nhập trả CHUYỂN KHOẢN sau khi ca đã kết: vẫn huỷ được (phiếu CK không gắn ca)', async () => {
+    await setShiftRequired(ids.store, true)
+    const shift = await insertShift()
+    const doc = await postReceipt({ paid: 'bank', lines: [[beer, 1, 30000]] })
+    assert.equal((await entryOf(doc)).cash_shift_id, null)
+    await db.query("UPDATE cash_shifts SET status = 'closed', closed_at = now(), closed_by = $1, counted_cash = 0, expected_cash = 0, difference = 0 WHERE id = $2", [ids.cashier, shift])
+    assert.equal((await voidDoc(doc, 'nhầm')).already, false)
+    assert.equal((await docRow(doc)).status, 'voided')
+    assert.ok((await entryOf(doc)).voided_at)
+  })
+
   test('cash_book_void trực tiếp phiếu chi nguồn kho: bị chặn (Task 3), phiếu nhập không đổi', async () => {
     const doc = await postReceipt({ paid: 'bank', lines: [[beer, 1, 30000]] })
     const e = await entryOf(doc)

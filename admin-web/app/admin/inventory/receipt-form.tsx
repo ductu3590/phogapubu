@@ -127,6 +127,13 @@ export default function ReceiptForm({ today, items, suppliers, onClose, onSaved,
               Lưu phiếu sẽ ghi luôn một phiếu chi &quot;Nhập hàng&quot; vào Sổ thu chi
               {form.paidMethod === 'cash' ? ' — tiền mặt lấy từ két, quán bật ca thì cần mở ca trên POS trước.' : '.'}
             </p>
+            {/* Ghi lùi ngày nhập: tồn kho tính theo ngày nhập, nhưng tiền mặt ra khỏi két HÔM NAY (phiếu chi mang ngày hôm nay,
+                gắn ca đang mở) — cash_book_create_internal không ghi lùi ngày. */}
+            {form.paidMethod === 'cash' && form.docDate !== today ? (
+              <p className="text-[13px] text-amber-800">
+                Ngày nhập khác hôm nay: tiền mặt vẫn tính ra khỏi két hôm nay (ca đang mở), không ghi lùi vào ngày nhập.
+              </p>
+            ) : null}
           </>
         ) : null}
       </Section>
