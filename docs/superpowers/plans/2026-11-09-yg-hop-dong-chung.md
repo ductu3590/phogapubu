@@ -59,7 +59,10 @@ cash_shift_totals(p_shift_id uuid) RETURNS jsonb
 ## Web
 
 - `admin-web/lib/auth/roles.ts` (QL): `store_manager`, `MANAGER_ADMIN_PATHS` gồm `/admin/inventory`, `/admin/cashbook`, `/admin/debts`, `/admin/reports` cộng mọi đường thu ngân có. Module khác chỉ thêm mục rail / tab của mình, không sửa luật vai.
-- Thu ngân được vào `/admin/reports` (4 tab bán hàng) và `/admin/debts` (QL thêm vào `CASHIER_ADMIN_PATHS`).
+- Thu ngân được vào `/admin/reports` (4 tab bán hàng), `/admin/debts`, `/admin/inventory` (chỉ xem tồn), `/admin/cashbook` (chỉ phiếu của mình) — QL thêm cả 4 vào `CASHIER_ADMIN_PATHS`; từng trang tự ẩn phần ghi theo vai.
+- Guard web dùng chung (QL tạo, module khác DÙNG, không tự viết): `isBackOfficeRole(role)` trong `lib/auth/roles.ts`; `requireBackOfficeStoreId()` trong `lib/auth/operator.ts`; vùng `'back_office'` của `requireAdminPageOrRedirect`.
+- `is_store_back_office`: `REVOKE ALL FROM PUBLIC, anon; GRANT EXECUTE TO authenticated`; KHÔNG gồm superadmin. Stub trong test phải giống hệt (cả `SECURITY DEFINER`).
+- Mục rail của module mới phải thêm vào cả nhánh chủ quán lẫn nhánh quản lý (và thu ngân nếu có quyền) trong `adminRailItems`. `config-dialog.test.ts` đòi mỗi `CONFIG_TABS` có trang + route `(.)` — chỉ thêm tab khi trang đã có.
 - Trang mới: `/admin/inventory` (KHO), `/admin/cashbook` (CA), `/admin/debts` (NO), `/admin/reports` (BC). Mỗi trang có bản intercept `app/admin/@modal/(config)/(.)<x>/page.tsx` như `(.)bills`.
 - Test chạy trước khi báo xong mỗi task: `cd admin-web; npm test` (vitest), `npx tsc --noEmit`, `npm run lint`; SQL: `$env:PGLITE_MODULE='<worktree>/admin-web/node_modules/@electric-sql/pglite/dist/index.js'; node --test supabase/tests/<file>.test.mjs`.
 - Test SQL của module chạy **trước** mig 116 có mặt (sóng 1 song song): fixture được định nghĩa stub `is_store_back_office` giống hệt hợp đồng trong setup của test, không đưa vào migration.
