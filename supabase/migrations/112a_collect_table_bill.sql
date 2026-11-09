@@ -341,6 +341,80 @@ $function$;
 REVOKE ALL ON FUNCTION public.collect_table_bill(uuid[], jsonb, integer, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.collect_table_bill(uuid[], jsonb, integer, uuid) TO authenticated;
 
+-- ============================================================
+-- 4) Đơn không phiên xác nhận tay cũng ghi một khoản thu một dòng (két + báo cáo đọc một nguồn)
+--   confirm_manual_payment (chủ quán, A04 / completeOrder) → source 'manual_order', collected_by = auth.uid()
+--   kitchen_confirm_payment (bếp, token không có auth.uid()) → source 'kitchen', collected_by NULL
+-- Phương tiện suy từ payment_method: 'cash' → cash, còn lại (bank_transfer, zalo_checkout chuyển khoản) → bank.
+-- Hai đường này không có client_request_id: chống ghi trùng bằng khoá dòng đơn (FOR UPDATE) + nhánh already.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.attach_order_payment(p_order_id uuid, p_payment_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_order public.orders%ROWTYPE;
+  v_instrument text;
+BEGIN
+  SELECT * INTO v_order FROM public.orders WHERE id = p_order_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Không tìm thấy đơn';
+  END IF;
+  -- Không đọc payment_instrument ghi sẵn trên đơn: chỉ payment_method nói tiền vào két hay vào tài khoản.
+  v_instrument := CASE WHEN v_order.payment_method = 'cash' THEN 'cash' ELSE 'bank' END;
+  UPDATE public.orders
+     SET payment_instrument = v_instrument,
+         bill_payment_id = p_payment_id
+   WHERE id = p_order_id;
+  -- Đơn 0đ không có khoản thu (amount của dòng phải > 0).
+  IF p_payment_id IS NOT NULL THEN
+    INSERT INTO public.bill_payment_lines (payment_id, instrument, amount)
+    VALUES (p_payment_id, v_instrument, v_order.total_amount);
+  END IF;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.attach_order_payment(uuid, uuid) FROM PUBLIC, anon, authenticated;
+
+-- Vá tại chỗ (neo đã đối chiếu prod-defs/112, khớp đúng 1 lần). ⚠️ Mig ca làm việc (cash shift) neo vào
+-- câu INSERT bill_payments dưới đây: giữ cột một dòng, giá trị một dòng, cash_shift_id là chữ NULL.
+SELECT pg_temp.mevo_patch('public.confirm_manual_payment(uuid)',
+$a$  select * into v_order from orders where id = p_order_id;$a$,
+$b$  select * into v_order from orders where id = p_order_id for update;$b$);
+SELECT pg_temp.mevo_patch('public.confirm_manual_payment(uuid)',
+$a$declare v_order orders%rowtype;$a$,
+$b$declare v_order orders%rowtype;
+  v_payment_id uuid;$b$);
+SELECT pg_temp.mevo_patch('public.confirm_manual_payment(uuid)',
+$a$  return jsonb_build_object('ok', true, 'already', false);$a$,
+$b$  -- mig 112a: ghi khoản thu một dòng. Đơn 0đ không có khoản thu.
+  if v_order.total_amount > 0 then
+    insert into public.bill_payments (store_id, cash_shift_id, total_amount, collected_by, source)
+    values (v_order.store_id, NULL, v_order.total_amount, auth.uid(), 'manual_order')
+    returning id into v_payment_id;
+  end if;
+  perform public.attach_order_payment(p_order_id, v_payment_id);
+  return jsonb_build_object('ok', true, 'already', false);$b$);
+
+SELECT pg_temp.mevo_patch('public.kitchen_confirm_payment(uuid)',
+$a$  select * into v_order from orders where id = p_order_id and store_id = v_store;$a$,
+$b$  select * into v_order from orders where id = p_order_id and store_id = v_store for update;$b$);
+SELECT pg_temp.mevo_patch('public.kitchen_confirm_payment(uuid)',
+$a$  v_can_cash boolean;$a$,
+$b$  v_can_cash boolean;
+  v_payment_id uuid;$b$);
+SELECT pg_temp.mevo_patch('public.kitchen_confirm_payment(uuid)',
+$a$  return jsonb_build_object('ok', true);$a$,
+$b$  -- mig 112a: ghi khoản thu một dòng. Đơn 0đ không có khoản thu.
+  if v_order.total_amount > 0 then
+    insert into public.bill_payments (store_id, cash_shift_id, total_amount, collected_by, source)
+    values (v_order.store_id, NULL, v_order.total_amount, NULL, 'kitchen')
+    returning id into v_payment_id;
+  end if;
+  perform public.attach_order_payment(p_order_id, v_payment_id);
+  return jsonb_build_object('ok', true);$b$);
+
 NOTIFY pgrst, 'reload schema';
 
 COMMIT;

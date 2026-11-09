@@ -146,6 +146,12 @@ export async function openCollectDb({ lock = false, businessDay = BUSINESS_DAY_S
   for (const name of SNAPSHOTS) {
     await db.exec(await readFile(url(`../prod-defs/112/${name}.sql`), 'utf8'))
   }
+  // Quyền EXECUTE của 2 hàm xác nhận tay đúng như prod (2026-11-09): không anon; bếp gọi bằng role kitchen.
+  await db.exec(`
+    REVOKE ALL ON FUNCTION public.confirm_manual_payment(uuid) FROM PUBLIC, anon;
+    REVOKE ALL ON FUNCTION public.kitchen_confirm_payment(uuid) FROM PUBLIC, anon;
+    GRANT EXECUTE ON FUNCTION public.kitchen_confirm_payment(uuid) TO kitchen;
+  `)
   await db.exec(await readFile(url('../../migrations/112a_collect_table_bill.sql'), 'utf8'))
   if (lock) await db.exec(await readFile(url('../../migrations/112b_lock_old_paid_path.sql'), 'utf8'))
 
@@ -210,5 +216,29 @@ export async function openCollectDb({ lock = false, businessDay = BUSINESS_DAY_S
     }
   }
 
-  return { db, ids, reset, login, session, order, collect, rid, one, count }
+  // Chủ quán bấm "Đã nhận tiền" cho một đơn (A04 / completeOrder).
+  async function confirm(orderId, uid = ids.owner) {
+    await login(uid)
+    try {
+      return (await db.query('SELECT confirm_manual_payment($1) AS r', [orderId])).rows[0].r
+    } finally {
+      await db.exec('RESET ROLE')
+    }
+  }
+
+  // Bếp xác nhận: token bếp không có auth.uid(); quán lấy từ GUC test.kitchen_store (thay claim JWT).
+  async function kitchenConfirm(orderId, storeId = ids.store) {
+    await db.exec('RESET ROLE')
+    await db.query("SELECT set_config('request.jwt.claim.sub', '', false)")
+    await db.query("SELECT set_config('test.kitchen_store', $1, false)", [storeId])
+    await db.exec('SET ROLE kitchen')
+    try {
+      return (await db.query('SELECT kitchen_confirm_payment($1) AS r', [orderId])).rows[0].r
+    } finally {
+      await db.exec('RESET ROLE')
+      await db.query("SELECT set_config('test.kitchen_store', '', false)")
+    }
+  }
+
+  return { db, ids, reset, login, session, order, collect, confirm, kitchenConfirm, rid, one, count }
 }
