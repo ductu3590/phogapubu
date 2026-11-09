@@ -92,6 +92,38 @@ export function parseShiftCash(text: string): number | null {
   return v
 }
 
+/** Câu server báo khi quán bật ca mà chưa có ca mở (require_open_cash_shift, mig 122). */
+export const NO_OPEN_SHIFT_ERROR = 'Chưa mở ca'
+
+export function isNoOpenShiftError(error: string | null | undefined): boolean {
+  return !!error && error.includes(NO_OPEN_SHIFT_ERROR)
+}
+
+/** POS: băng lỗi đang là "Chưa mở ca" mà trạng thái ca giờ đã có ca mở → bỏ băng. */
+export function shouldClearNoShiftError(
+  error: { message: string } | null,
+  state: { shift: unknown | null } | null,
+): boolean {
+  return !!error && isNoOpenShiftError(error.message) && !!state?.shift
+}
+
+/** Giờ mở ca "HH:MM" theo giờ Việt Nam. */
+export function shiftTimeLabel(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+/** "HH:MM dd/MM" theo giờ Việt Nam (banner ca quên kết, panel ca). */
+export function shiftDateTimeLabel(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  // vi-VN với chỉ ngày + tháng ra "09-11" (gạch ngang) → ghép tay từ từng phần cho đúng "09/11".
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' }).formatToParts(d)
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? ''
+  return `${shiftTimeLabel(iso)} ${get('day')}/${get('month')}`
+}
+
 /** Chênh lệch = đếm được − dự kiến (âm = thiếu). */
 export function differenceLabel(difference: number): string {
   if (difference === 0) return 'Khớp'
