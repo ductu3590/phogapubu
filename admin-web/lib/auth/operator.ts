@@ -87,6 +87,8 @@ export async function requireBackOfficeStoreId(): Promise<string> {
 //   'owner'       = chỉ chủ quán (thu ngân, quản lý bị đưa về POS);
 //   'back_office' = chủ quán + quản lý (thu ngân về POS);
 //   'pos'         = chủ quán + thu ngân + quản lý.
+// Trang thu ngân được XEM (Kho, Thu chi, Công nợ, Báo cáo) dùng 'pos' rồi ẩn nút ghi theo vai; 'back_office' chỉ cho
+// trang mà CHỈ chủ quán + quản lý được mở.
 export async function requireAdminPageOrRedirect(
   area: 'owner' | 'pos' | 'back_office',
 ): Promise<AdminPageOperator> {

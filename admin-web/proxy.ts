@@ -91,8 +91,8 @@ export async function proxy(request: NextRequest) {
     return home ? NextResponse.redirect(new URL(home, request.url)) : toLogin()
   }
 
-  // /staff — nhân viên, chủ quán (hỗ trợ/test), thu ngân (in hoá đơn 80mm ở /staff/tables/print), quản lý (gọi món
-  // hộ). Superadmin → /mevo.
+  // /staff — nhân viên, chủ quán (hỗ trợ/test), thu ngân, quản lý (gọi món hộ). Hoá đơn 80mm nay in ở /print/bill
+  // (URL cũ /staff/tables/print chỉ còn chuyển hướng sang đó). Superadmin → /mevo.
   if (isStaffRoute && !canEnterStaffArea(role)) {
     const home = homeFor(role)
     return home ? NextResponse.redirect(new URL(home, request.url)) : toLogin()

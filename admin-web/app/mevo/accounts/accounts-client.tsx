@@ -9,6 +9,7 @@ const ROLE_LABEL: Record<OperatorAccount['role'], string> = {
   store_owner: 'Chủ quán',
   store_staff: 'Nhân viên',
   store_cashier: 'Thu ngân',
+  store_manager: 'Quản lý',
 }
 
 export default function AccountsClient({ groups }: { groups: AccountGroup[] }) {

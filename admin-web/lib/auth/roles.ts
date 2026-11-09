@@ -51,7 +51,9 @@ export function isBackOfficeRole(role: OperatorRole | null): boolean {
 /**
  * Trang /admin thu ngân được mở (kể cả trang con). Thực đơn: chỉ có công tắc Tạm hết.
  * Báo cáo / Công nợ / Kho / Thu chi (hợp đồng chung YG 2026-11-09): thu ngân vào được, từng trang tự ẩn phần
- * ghi theo vai (kho chỉ xem tồn, thu chi chỉ phiếu của mình…).
+ * ghi theo vai (kho chỉ xem tồn, thu chi chỉ phiếu của mình…). Trang nào thu ngân được XEM thì dùng guard trang
+ * `requireAdminPageOrRedirect('pos')` và ẩn nút ghi theo vai; `'back_office'` chỉ dành cho trang mà CHỈ chủ quán +
+ * quản lý được mở.
  */
 export const CASHIER_ADMIN_PATHS = [
   '/admin/pos', '/admin/bills', '/admin/reservations', '/admin/menu', '/admin/account',
