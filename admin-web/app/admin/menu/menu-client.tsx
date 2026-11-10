@@ -30,6 +30,8 @@ import { formatVndTyping, parseVnd } from '@/lib/money'
 import SquareCropper from './square-cropper'
 import { visibleMenuItems, type StatusFilter } from '@/lib/menu/menu-filter'
 import { badgeLabel, MENU_BADGES } from '@/lib/menu/sku'
+import { applyMenuDiscount, discountBadge, type ActiveRule, type MenuDiscountRow } from '@/lib/menu/menu-discount'
+import { DiscountOverview, TargetDiscounts } from './menu-discounts'
 
 // Topping trong kho dùng chung của quán
 type Topping = {
@@ -68,7 +70,24 @@ function moveArrayItem<T>(items: T[], oldIndex: number, newIndex: number): T[] {
   return next
 }
 
-export default function MenuClient({ categories: initialCategories, toppings, stations = [] }: { categories: Category[]; toppings: Topping[]; stations?: PrintStationOption[]; storeId: string }) {
+export default function MenuClient({
+  categories: initialCategories,
+  toppings,
+  stations = [],
+  discounts = [],
+  activeDiscountIds = [],
+  activeDiscountsByItem = {},
+}: {
+  categories: Category[]
+  toppings: Topping[]
+  stations?: PrintStationOption[]
+  storeId: string
+  // Giảm giá món / danh mục (mig 115). activeDiscountsByItem = chương trình đang chạy của từng món (cấp thắng).
+  discounts?: MenuDiscountRow[]
+  activeDiscountIds?: string[]
+  activeDiscountsByItem?: Record<string, ActiveRule[]>
+}) {
+  const activeIds = new Set(activeDiscountIds)
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [categories, setCategories] = useState<Category[]>(initialCategories)
@@ -132,6 +151,19 @@ export default function MenuClient({ categories: initialCategories, toppings, st
   const liveEditItem = editItem
     ? (categories.flatMap((c) => c.menu_items ?? []).find((i) => i.id === editItem.id) ?? editItem)
     : null
+
+  const allItems = categories.flatMap((c) => c.menu_items ?? [])
+  const openItemEditor = (id: string) => {
+    const item = allItems.find((i) => i.id === id)
+    if (!item) return
+    setEditImage(null)
+    setFormError(null)
+    setEditItem(item)
+  }
+  const openCategoryEditor = (id: string) => {
+    const cat = categories.find((c) => c.id === id)
+    if (cat) setEditCat(cat)
+  }
 
   const selectedCat = categories.find((c) => c.id === selectedCatId)
   const selectedItems = selectedCat?.menu_items?.slice().sort((a, b) => a.sort_order - b.sort_order) ?? []
@@ -229,11 +261,25 @@ export default function MenuClient({ categories: initialCategories, toppings, st
           onClick={() => setSelectedCatId('__toppings__')}
           className={`mt-2 w-full px-4 py-2.5 text-left text-sm font-medium ${selectedCatId === '__toppings__' ? 'bg-primary-light text-primary' : 'text-muted hover:bg-item-hover'}`}
         >Topping <span className="ml-1 text-xs text-muted">({toppings.length})</span></button>
+        <button
+          onClick={() => setSelectedCatId('__discounts__')}
+          className={`w-full px-4 py-2.5 text-left text-sm font-medium ${selectedCatId === '__discounts__' ? 'bg-primary-light text-primary' : 'text-muted hover:bg-item-hover'}`}
+        >Giảm giá <span className="ml-1 text-xs text-muted">({discounts.length})</span></button>
       </aside>
 
       {/* Kho topping dùng chung — khi chọn nút "🧀 Topping" */}
       {selectedCatId === '__toppings__' ? (
         <ToppingPool toppings={toppings} router={router} />
+      ) : selectedCatId === '__discounts__' ? (
+        <DiscountOverview
+          rules={discounts}
+          activeIds={activeIds}
+          itemNames={new Map(allItems.map((i) => [i.id, i.name]))}
+          categoryNames={new Map(categories.map((c) => [c.id, c.name]))}
+          itemPrices={new Map(allItems.map((i) => [i.id, i.price]))}
+          onOpenItem={openItemEditor}
+          onOpenCategory={openCategoryEditor}
+        />
       ) : (
       /* Danh sách món bên phải */
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -365,7 +411,7 @@ export default function MenuClient({ categories: initialCategories, toppings, st
                         </span>
                       )}
                     </div>
-                    <p className="ml-auto flex-shrink-0 font-semibold text-foreground tabular">{formatVND(item.price)}</p>
+                    <ItemPrice price={item.price} hasVariants={(item.menu_item_variants?.length ?? 0) > 0} rules={activeDiscountsByItem[item.id]} />
 
                     {/* Sửa */}
                     <button
@@ -460,6 +506,12 @@ export default function MenuClient({ categories: initialCategories, toppings, st
           />
           <ItemToppingPicker item={liveEditItem} toppings={toppings} router={router} />
           <ItemVariantEditor item={liveEditItem} router={router} />
+          <TargetDiscounts
+            target={{ menuItemId: liveEditItem.id }}
+            rules={discounts.filter((d) => d.menu_item_id === liveEditItem.id)}
+            activeIds={activeIds}
+            previewPrice={liveEditItem.price}
+          />
         </Modal>
       )}
 
@@ -524,8 +576,29 @@ export default function MenuClient({ categories: initialCategories, toppings, st
               <button type="submit" className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-hover">Lưu</button>
             </div>
           </form>
+          <TargetDiscounts
+            target={{ categoryId: editCat.id }}
+            rules={discounts.filter((d) => d.category_id === editCat.id)}
+            activeIds={activeIds}
+          />
         </Modal>
       )}
+    </div>
+  )
+}
+
+// Giá ở dòng món: đang giảm thì giá giảm + giá gốc gạch + chip mức giảm (theo chương trình server báo đang chạy).
+function ItemPrice({ price, hasVariants, rules }: { price: number; hasVariants: boolean; rules?: ActiveRule[] }) {
+  const d = applyMenuDiscount(price, rules)
+  const prefix = hasVariants ? 'Từ ' : ''
+  if (!d.rule) return <p className="ml-auto flex-shrink-0 font-semibold text-foreground tabular">{prefix}{formatVND(price)}</p>
+  return (
+    <div className="ml-auto flex flex-shrink-0 flex-col items-end">
+      <p className="font-semibold text-primary tabular">
+        <span className="mr-1.5 rounded bg-primary-light px-1 text-[11px]">{discountBadge(d.rule)}</span>
+        {prefix}{formatVND(d.price)}
+      </p>
+      <s className="text-xs text-muted tabular">{formatVND(price)}</s>
     </div>
   )
 }

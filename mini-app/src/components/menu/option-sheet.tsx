@@ -6,6 +6,7 @@ import { formatCurrency } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import { UtensilsIcon } from "@/components/common/icons";
 import BadgePill from "@/components/ui/badge-pill";
+import { DiscountLine } from "@/components/ui/product-card";
 
 interface OptionSheetProps {
   product: Product | null;
@@ -84,6 +85,7 @@ export default function OptionSheet({ product, visible, onClose, onConfirm }: Op
             <p className="text-small text-text-secondary">
               {hasVariants ? "Từ " : ""}{formatCurrency(product.price)}đ
             </p>
+            <DiscountLine product={product} />
           </div>
         </div>
 
@@ -105,6 +107,9 @@ export default function OptionSheet({ product, visible, onClose, onConfirm }: Op
                   </span>
                   <span className="flex-1 text-normal text-text-primary">{v.name}</span>
                   <span className="text-normal-sb font-semibold text-text-primary">
+                    {v.originalPrice != null && v.originalPrice > v.price && (
+                      <s className="mr-1.5 text-small font-normal text-text-secondary">{formatCurrency(v.originalPrice)}đ</s>
+                    )}
                     {formatCurrency(v.price)}đ
                   </span>
                 </button>

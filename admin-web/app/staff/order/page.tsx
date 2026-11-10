@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { listOpenTableSessions } from '@/lib/actions/table-session'
 import { listStaffUpcomingReservedTables } from '@/lib/actions/staff-reservations'
 import StaffOrderClient from './staff-order-client'
+import { loadActiveMenuDiscounts } from '@/lib/menu/active-discounts'
+import { discountMenuPrices } from '@/lib/menu/menu-discount'
 
 // Loader dùng client authenticated → RLS (is_store_scoped_operator) tự khoá theo quán của nhân viên.
 // Nhân viên bị tắt (is_active=false) sẽ đọc rỗng — nhưng layout đã chặn họ trước đó.
@@ -11,7 +13,7 @@ export default async function StaffOrderPage() {
   const storeId = operator.storeId
   const supabase = await createClient()
 
-  const [storeRes, tablesRes, areasRes, categoriesRes, toppingsRes, sessionsRes, reservedRes] = await Promise.all([
+  const [storeRes, tablesRes, areasRes, categoriesRes, toppingsRes, sessionsRes, reservedRes, discounts] = await Promise.all([
     supabase.from('stores').select('payment_timing').eq('id', storeId).single(),
     supabase.from('tables').select('id, table_number, area_id').eq('store_id', storeId).eq('is_active', true),
     // Khu (mig 097 cho nhân viên đọc). Lỗi / rỗng → màn chọn bàn hiện một lưới như trước.
@@ -28,6 +30,8 @@ export default async function StaffOrderPage() {
     listOpenTableSessions(),
     // Bàn đã có khách đặt trước (mig 084) — lỗi thì coi như không có, không chặn màn đặt món.
     listStaffUpcomingReservedTables(),
+    // Giảm giá món / danh mục đang hiệu lực (mig 115) — chỉ để vẽ giá; staff_create_order tự trừ ở server.
+    loadActiveMenuDiscounts(supabase, storeId),
   ])
 
   // Bàn: sắp xếp tự nhiên (Bàn 2 trước Bàn 10)
@@ -49,25 +53,34 @@ export default async function StaffOrderPage() {
       items: ((c.menu_items ?? []) as Array<Record<string, unknown>>)
         .filter((m) => m.is_available)
         .sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
-        .map((m) => ({
+        .map((m) => {
+          const priced = discountMenuPrices(
+            m.price as number,
+            ((m.menu_item_variants ?? []) as Array<{ id: string; name: string; price: number; is_available: boolean; sort_order: number }>)
+              .filter((v) => v.is_available)
+              .sort((a, b) => a.sort_order - b.sort_order)
+              .map((v) => ({ id: v.id, name: v.name, price: v.price })),
+            discounts.byItem.get(m.id as string),
+          )
+          return {
           id: m.id as string,
           name: m.name as string,
-          price: m.price as number,
+          price: priced.price,
+          originalPrice: priced.originalPrice,
+          discountBadge: priced.badge,
           imageUrl: (m.image_url as string | null) ?? null,
           toppings: ((m.menu_item_toppings ?? []) as Array<{ topping_id: string }>)
             .map((mt) => toppingById.get(mt.topping_id))
             .filter((t): t is { id: string; name: string; price: number } => !!t),
           // Lọc biến thể còn bán + sắp thứ tự NGAY Ở ĐÂY → client không phải biết tới is_available
-          variants: ((m.menu_item_variants ?? []) as Array<{ id: string; name: string; price: number; is_available: boolean; sort_order: number }>)
-            .filter((v) => v.is_available)
-            .sort((a, b) => a.sort_order - b.sort_order)
-            .map((v) => ({ id: v.id, name: v.name, price: v.price })),
+          variants: priced.variants,
           // Đếm mảng CHƯA lọc — khác hẳn `variants` ở trên. Đây là chỗ phân biệt "món thường"
           // với "món có biến thể nhưng tắt hết". staff_create_order cũng đếm TỔNG (không lọc
           // is_available) để quyết định bắt buộc chọn loại → client phải khớp với server.
           hasVariantGroup: ((m.menu_item_variants ?? []) as unknown[]).length > 0,
           variantGroupName: (m.variant_group_name as string | null) ?? null,
-        })),
+          }
+        }),
     }))
     .filter((c) => c.items.length > 0)
 

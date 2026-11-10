@@ -3,6 +3,8 @@ import MenuClient from './menu-client'
 import MenuAvailabilityClient from './menu-availability-client'
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { parsePrintSettings } from '@/lib/print/print-settings'
+import { loadActiveMenuDiscounts } from '@/lib/menu/active-discounts'
+import type { MenuDiscountRow } from '@/lib/menu/menu-discount'
 
 export default async function MenuPage() {
   const operator = await requireAdminPageOrRedirect('pos')
@@ -51,6 +53,17 @@ export default async function MenuPage() {
     .catch(() => null)
     .then((settings) => (settings?.stations ?? []).map((st) => ({ id: st.id, name: st.name })))
 
+  // Giảm giá món / danh mục (mig 115). Lỗi (mig chưa áp) → [] → trang vẫn chạy, chỉ không có mục Giảm giá.
+  const [{ data: discountRows }, active] = await Promise.all([
+    supabase
+      .from('menu_discounts')
+      .select('id, menu_item_id, category_id, name, discount_type, value, starts_on, ends_on, time_from, time_to, days_of_week, is_active')
+      .eq('store_id', storeId)
+      .order('created_at'),
+    loadActiveMenuDiscounts(supabase, storeId),
+  ])
+  const discounts = (discountRows ?? []) as MenuDiscountRow[]
+
   const menuVersion = (categories ?? [])
     .map((category) => `${category.id}:${category.sort_order}:${category.name}:${category.menu_items?.length ?? 0}`)
     .join('|')
@@ -59,9 +72,18 @@ export default async function MenuPage() {
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
         <h1 className="text-xl font-bold text-foreground">Quản lý menu</h1>
-        <p className="text-sm text-muted">Toggle hết hàng, thêm/sửa/xóa món</p>
+        <p className="text-sm text-muted">Toggle hết hàng, thêm/sửa/xóa món, giảm giá theo món / danh mục</p>
       </div>
-      <MenuClient key={menuVersion} categories={categories ?? []} toppings={toppings ?? []} stations={stations} storeId={storeId} />
+      <MenuClient
+        key={menuVersion}
+        categories={categories ?? []}
+        toppings={toppings ?? []}
+        stations={stations}
+        storeId={storeId}
+        discounts={discounts}
+        activeDiscountIds={[...active.activeIds]}
+        activeDiscountsByItem={Object.fromEntries(active.byItem)}
+      />
     </div>
   )
 }

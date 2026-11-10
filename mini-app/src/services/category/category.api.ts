@@ -2,6 +2,7 @@ import { supabase } from "../supabase";
 import { Category, CategoryWithProducts } from "@/types/category.types";
 import { Product, Topping, Variant } from "@/types/product.types";
 import { menuBadge } from "@/utils/menu-badge";
+import { applyMenuDiscount, discountBadge, parseActiveDiscounts, untilLabel, type ActiveRule } from "@/utils/menu-discount";
 
 function mapToppings(links: Record<string, unknown>[] | null | undefined): Topping[] {
   return (links ?? [])
@@ -28,18 +29,26 @@ function isRowSoldOut(row: Record<string, unknown>): boolean {
   return variants.length > 0 && !variants.some((v) => v.is_available === true);
 }
 
-function mapProduct(row: Record<string, unknown>): Product {
+function mapProduct(row: Record<string, unknown>, rules?: ActiveRule[]): Product {
+  // Giảm giá món / danh mục đang chạy (mig 115): áp cho giá món và từng giá lựa chọn.
+  const base = applyMenuDiscount(row.price as number, rules);
   return {
     id: row.id as string,
     name: row.name as string,
     description: (row.description as string | null) ?? null,
-    price: row.price as number,
+    price: base.price,
+    originalPrice: base.originalPrice,
+    discountBadge: base.rule ? discountBadge(base.rule) : null,
+    discountUntil: base.rule ? untilLabel(base.rule) : null,
     image: (row.image_url as string | null) ?? null,
     isAvailable: row.is_available as boolean,
     categoryId: row.category_id as string,
     sortOrder: row.sort_order as number,
     toppings: mapToppings(row.menu_item_toppings as Record<string, unknown>[] | undefined),
-    variants: mapVariants(row.menu_item_variants as Record<string, unknown>[] | undefined),
+    variants: mapVariants(row.menu_item_variants as Record<string, unknown>[] | undefined).map((v) => {
+      const d = applyMenuDiscount(v.price, rules);
+      return { ...v, price: d.price, originalPrice: d.originalPrice };
+    }),
     hasVariantGroup: ((row.menu_item_variants as unknown[] | undefined) ?? []).length > 0,
     variantGroupName: (row.variant_group_name as string | null) ?? null,
     badge: menuBadge(row.badge)?.key ?? null,
@@ -49,16 +58,21 @@ function mapProduct(row: Record<string, unknown>): Product {
 export const categoryService = {
   // Lấy menu đầy đủ (categories + items) theo storeId
   getMenuByStore: async (storeId: string): Promise<CategoryWithProducts[]> => {
-    const { data, error } = await supabase
-      .from("menu_categories")
-      .select(
-        "*, menu_items(*, menu_item_toppings(toppings(id, name, price, is_available, sort_order)), menu_item_variants(id, name, price, is_available, sort_order))",
-      )
-      .eq("store_id", storeId)
-      .eq("is_active", true)
-      .order("sort_order");
+    const [{ data, error }, discountRes] = await Promise.all([
+      supabase
+        .from("menu_categories")
+        .select(
+          "*, menu_items(*, menu_item_toppings(toppings(id, name, price, is_available, sort_order)), menu_item_variants(id, name, price, is_available, sort_order))",
+        )
+        .eq("store_id", storeId)
+        .eq("is_active", true)
+        .order("sort_order"),
+      // Lỗi ở đây KHÔNG được chặn menu: mất giá gạch thì vẫn đặt được, server vẫn trừ đúng.
+      Promise.resolve(supabase.rpc("get_active_menu_discounts", { p_store_id: storeId })).catch(() => ({ data: null, error: true })),
+    ]);
 
     if (error) throw error;
+    const discounts = parseActiveDiscounts(discountRes.error ? null : discountRes.data);
 
     return (data ?? []).map((cat) => ({
       id: cat.id,
@@ -72,7 +86,7 @@ export const categoryService = {
           if (availDiff !== 0) return availDiff;
           return (a.sort_order as number) - (b.sort_order as number);
         })
-        .map(mapProduct),
+        .map((row) => mapProduct(row, discounts.get(row.id as string))),
     }));
   },
 
