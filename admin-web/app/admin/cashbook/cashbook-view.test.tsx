@@ -93,14 +93,14 @@ describe('Sổ thu chi', () => {
 
   it('chủ quán / quản lý: có + Phiếu thu, + Phiếu chi, Danh mục, Xuất Excel theo bộ lọc', () => {
     const html = view()
-    for (const s of ['+ Phiếu thu', '+ Phiếu chi', 'Danh mục']) expect(disabledOf(html, s)).toBe(false)
+    for (const s of ['Phiếu thu', 'Phiếu chi', 'Danh mục']) expect(disabledOf(html, s)).toBe(false)
     expect(html).toContain('href="/admin/cashbook/export?from=2026-11-09&amp;to=2026-11-09"')
     expect(text(html)).toContain('Xuất Excel')
   })
 
   it('thu ngân: thấy sổ (phiếu của mình), không có nút Thêm phiếu / Huỷ / Danh mục', () => {
     const html = view({ canManage: false })
-    for (const s of ['+ Phiếu thu', '+ Phiếu chi', 'Danh mục', 'Huỷ phiếu']) expect(disabledOf(html, s)).toBeNull()
+    for (const s of ['Phiếu thu', 'Phiếu chi', 'Danh mục', 'Huỷ phiếu']) expect(disabledOf(html, s)).toBeNull()
     expect(text(html)).toContain('Đá')
     expect(text(html)).toContain('Phiếu do bạn ghi')
   })

@@ -195,8 +195,8 @@ export default function CashbookView({ list, categories, filters, today, inModal
       <div className="flex flex-wrap items-center justify-between gap-2">
         {canManage ? (
           <div className="flex flex-wrap gap-2">
-            <Button variant="primary" icon={<Plus />} onClick={() => setEntryKind('receipt')}>+ Phiếu thu</Button>
-            <Button variant="primary" icon={<Plus />} onClick={() => setEntryKind('payment')}>+ Phiếu chi</Button>
+            <Button variant="primary" icon={<Plus />} onClick={() => setEntryKind('receipt')}>Phiếu thu</Button>
+            <Button variant="primary" icon={<Plus />} onClick={() => setEntryKind('payment')}>Phiếu chi</Button>
             <Button icon={<Tags />} onClick={() => setCategoriesOpen(true)}>Danh mục</Button>
           </div>
         ) : (

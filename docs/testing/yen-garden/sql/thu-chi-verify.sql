@@ -88,9 +88,11 @@ BEGIN
   PERFORM pg_temp.must('bill_payments_shift_same_store', v_n = 0, v_n::text);
 
   -- 5) Neo cho mig sau + lời vá 122b còn nguyên.
+  -- Trước mig 123: dòng neo còn nguyên (đúng một lần). Sau 123: neo đã được thay bằng phép cộng debt_payments.
   PERFORM pg_temp.must('anchor_123_debt_cash',
-    (SELECT (length(d) - length(replace(d, '  v_debt_cash := 0; -- mevo-anchor:123 cash_shift_totals.debt_cash', '')))
-            / length('  v_debt_cash := 0; -- mevo-anchor:123 cash_shift_totals.debt_cash') = 1
+    (SELECT CASE WHEN position('FROM public.debt_payments dp WHERE dp.cash_shift_id = p_shift_id' IN d) > 0 THEN true
+                 ELSE (length(d) - length(replace(d, '  v_debt_cash := 0; -- mevo-anchor:123 cash_shift_totals.debt_cash', '')))
+                      / length('  v_debt_cash := 0; -- mevo-anchor:123 cash_shift_totals.debt_cash') = 1 END
        FROM (SELECT pg_get_functiondef('public.cash_shift_totals(uuid)'::regprocedure) AS d) x));
   PERFORM pg_temp.must('patch_122b_post',
     position('PERFORM public.inventory_receipt_cash_book(v_doc_id);'
@@ -100,7 +102,8 @@ BEGIN
              IN pg_get_functiondef('public.inventory_void_document(uuid,text)'::regprocedure)) > 0);
   PERFORM pg_temp.must('patch_122_collect_gate',
     position('public.require_open_cash_shift(v_store)'
-             IN pg_get_functiondef('public.collect_table_bill(uuid[],jsonb,integer,uuid)'::regprocedure)) > 0);
+             IN pg_get_functiondef((SELECT p.oid FROM pg_proc p WHERE p.proname = 'collect_table_bill' AND p.pronamespace = 'public'::regnamespace
+                                    ORDER BY p.pronargs DESC LIMIT 1))) > 0); -- 4 tham số (122) hoặc 6 tham số (123)
 
   -- 6) Hàm nội bộ không lộ cho client.
   SELECT string_agg(f, ', ') INTO v_bad FROM unnest(ARRAY[
