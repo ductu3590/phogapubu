@@ -22,9 +22,8 @@ export type ShiftReportSlipProps = {
 }
 
 /** Ca đã kết và có đủ số đã chốt (dự kiến, đếm được, chênh lệch) → in được. Thiếu số thì không in phiếu ghi 0đ. */
-export function shiftReportPrintable(r: CashShiftReport): boolean {
-  return r.status === 'closed' && r.expectedCash !== null && r.countedCash !== null && r.difference !== null
-}
+// shiftReportPrintable sống ở lib/cash-shift (server gọi nó — hàm trong file 'use client' không gọi được từ server).
+export { shiftReportPrintable } from '@/lib/cash-shift'
 
 function Row({ name, value, strong = false }: { name: string; value: string; strong?: boolean }) {
   return (

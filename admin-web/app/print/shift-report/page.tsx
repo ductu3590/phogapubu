@@ -3,7 +3,8 @@ import { ROLE_LABEL } from '@/lib/auth/roles'
 import { loadCashShiftReport } from '@/lib/actions/cash-shift-reads'
 import { loadDebtShiftSummary } from '@/lib/actions/debt-reads'
 import { createClient } from '@/lib/supabase/server'
-import ShiftReportSlip, { shiftReportPrintable } from './shift-report-slip'
+import ShiftReportSlip from './shift-report-slip'
+import { shiftReportPrintable } from '@/lib/cash-shift'
 
 // Phiếu bàn giao ca 80mm (mig 122), mở bằng printDocument({ kind: 'shift_report' }) → printInPlace (iframe ẩn).
 // Nằm NGOÀI khung /admin (như /print/day-report: trong khung sẽ in ra cả thanh bên / dựng cả realtime).

@@ -269,3 +269,11 @@ export function parseCashShiftCloseResult(raw: unknown): CashShiftCloseResult {
     difference: n.difference!,
   }
 }
+
+/**
+ * Ca đã kết VÀ server trả đủ ba số đã chốt (dự kiến, đếm, lệch). Thiếu một số thì KHÔNG in phiếu bàn giao (in ra 0đ sẽ
+ * đánh lừa người nhận két). Hàm thuần, dùng được cả ở server (trang in, action xếp lệnh in, loader phần mềm in) lẫn client.
+ */
+export function shiftReportPrintable(r: CashShiftReport): boolean {
+  return r.status === 'closed' && r.expectedCash !== null && r.countedCash !== null && r.difference !== null
+}

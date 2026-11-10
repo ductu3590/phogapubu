@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ShiftReportSlipProps } from '@/app/print/shift-report/shift-report-slip'
-import { shiftReportPrintable } from '@/app/print/shift-report/shift-report-slip'
+import { shiftReportPrintable } from '@/lib/cash-shift'
 import { parseCashShiftReport } from '@/lib/cash-shift'
 import { readDebtShiftSummary } from '@/lib/debt-shift-summary'
 

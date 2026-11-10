@@ -30,11 +30,8 @@ export function reportQuery(current: ReportQueryState, patch: Partial<ReportQuer
 
 const GRAINS: { value: RevenueGrain; label: string }[] = [{ value: 'day', label: 'Ngày' }, { value: 'month', label: 'Tháng' }]
 
-/**
- * Key cho <ReportToolbar>: đổi kỳ trong HỘP THOẠI dùng router.replace — component không bị gỡ nên ô ngày nháp
- * (state copy từ props một lần) sẽ giữ ngày cũ. Gắn key theo kỳ để kỳ mới là toolbar mới.
- */
-export const toolbarKey = (r: { preset: ReportPreset; from: string; to: string }): string => `${r.preset}|${r.from}|${r.to}`
+// toolbarKey sống ở lib (server component reports-screen gọi nó — hàm trong file 'use client' không gọi được từ server).
+export { toolbarKey } from '@/lib/reports/toolbar-key'
 
 // Thanh chọn kỳ + loại báo cáo + Xuất Excel. Cùng lý do với ReportDatePicker của trang Hoá đơn:
 // ở TRANG ĐẦY ĐỦ đổi bằng tải cứng (điều hướng mềm bị route chặn @modal/(.)reports bắt → hộp thoại đè lên chính

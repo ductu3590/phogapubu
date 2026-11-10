@@ -8,7 +8,7 @@ import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { loadOrderSlip } from '@/lib/print/load-order-slip'
 import { planDocumentJob, planOrderJobs, type PlannedJob } from '@/lib/print/print-plan'
 import { parseCashShiftReport } from '@/lib/cash-shift'
-import { shiftReportPrintable } from '@/app/print/shift-report/shift-report-slip'
+import { shiftReportPrintable } from '@/lib/cash-shift'
 import { AGENT_KINDS, PRINT_AGENT_MODE_OFF_ERROR, type PrintRequest } from '@/lib/print/print-request'
 
 type Result = { ok: true; queued: number } | { ok: false; error: string }
