@@ -12,14 +12,18 @@ export interface Topping {
 export interface Variant {
   id: string;
   name: string;
-  price: number;
+  price: number;                 // giá SAU giảm giá món/danh mục (mig 115)
+  originalPrice?: number | null; // giá gốc nếu đang giảm
 }
 
 export interface Product {
   id: string;
   name: string;
   description: string | null;
-  price: number;
+  price: number;                 // giá SAU giảm giá món/danh mục (mig 115); create_order tự tính lại ở server
+  originalPrice?: number | null; // giá gốc nếu đang giảm, null = không giảm
+  discountBadge?: string | null; // '−20%' / '−5.000đ'
+  discountUntil?: string | null; // 'đến 18:00' / 'đến hết 20/11'
   image: string | null;
   isAvailable: boolean;
   categoryId: string;

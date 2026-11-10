@@ -43,6 +43,7 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
           <BadgePill badge={product.badge} />
           <p className="line-clamp-2 text-small-m font-semibold text-text-primary">{product.name}</p>
           <span className="mt-auto whitespace-nowrap text-small-m font-bold text-primary">{price}</span>
+          <DiscountLine product={product} />
           {control && <div className="flex justify-end">{control}</div>}
         </div>
       </div>
@@ -57,8 +58,21 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
         <p className="line-clamp-2 text-normal-sb font-semibold text-text-primary">{product.name}</p>
         {product.description && <p className="mt-0.5 line-clamp-2 text-xxsmall text-text-secondary">{product.description}</p>}
         <p className="mt-1 whitespace-nowrap text-small-m font-bold text-primary">{price}</p>
+        <DiscountLine product={product} />
       </div>
       {control}
     </div>
+  );
+}
+
+// Giảm giá món / danh mục (mig 115): giá gốc gạch + chip mức giảm + đến lúc nào.
+export function DiscountLine({ product, className }: { product: Product; className?: string }) {
+  if (product.originalPrice == null || product.originalPrice <= product.price) return null;
+  return (
+    <span className={cn("flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xxsmall text-text-secondary", className)}>
+      <s>{formatCurrency(product.originalPrice)}đ</s>
+      {product.discountBadge && <span className="rounded bg-primary/10 px-1 font-bold text-primary">{product.discountBadge}</span>}
+      {product.discountUntil && <span>{product.discountUntil}</span>}
+    </span>
   );
 }

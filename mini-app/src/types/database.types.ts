@@ -325,6 +325,11 @@ export interface Database {
         Args: { p_order_id: string }
         Returns: Json
       }
+      // mig 115: chương trình giảm giá món / danh mục đang hiệu lực
+      get_active_menu_discounts: {
+        Args: { p_store_id: string }
+        Returns: Json
+      }
     }
   }
 }

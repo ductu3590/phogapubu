@@ -20,8 +20,9 @@ import { STATUS_TONE_CLASSES, TABLE_STATE } from '@/components/ui/status'
 import { cn } from '@/lib/utils'
 
 type Topping = { id: string; name: string; price: number }
-type Variant = { id: string; name: string; price: number }
-type Item = { id: string; name: string; price: number; imageUrl: string | null; toppings: Topping[]; variants: Variant[]; hasVariantGroup: boolean; variantGroupName: string | null }
+// price = giá SAU giảm giá món/danh mục (mig 115, tính ở page.tsx); originalPrice = giá gốc nếu đang giảm.
+type Variant = { id: string; name: string; price: number; originalPrice?: number | null }
+type Item = { id: string; name: string; price: number; originalPrice?: number | null; discountBadge?: string | null; imageUrl: string | null; toppings: Topping[]; variants: Variant[]; hasVariantGroup: boolean; variantGroupName: string | null }
 type Category = { id: string; name: string; items: Item[] }
 type Table = { id: string; tableNumber: string; area_id: string | null }
 
@@ -468,6 +469,12 @@ export default function StaffOrderClient({
                         lựa chọn cuối cùng nên số trơ trọi càng dễ hiểu nhầm. */}
                     <p className="text-sm text-muted tabular">
                       {item.variants.length > 0 || soldOutByVariants ? 'Từ ' : ''}{dong(item.price)}
+                      {item.originalPrice != null && item.originalPrice > item.price && (
+                        <s className="ml-1 text-muted/70">{dong(item.originalPrice)}</s>
+                      )}
+                      {item.discountBadge && (
+                        <span className="ml-1.5 rounded bg-primary-light px-1 text-[11px] font-semibold text-primary">{item.discountBadge}</span>
+                      )}
                     </p>
                     {item.toppings.length > 0 && <p className="text-[13px] text-muted">Có topping</p>}
                   </div>
@@ -666,7 +673,12 @@ function OptionSheet({ item, onClose, onAdd }: {
                 )}
               >
                 <span className="text-foreground">{v.name}</span>
-                <span className="font-medium text-foreground tabular">{v.price.toLocaleString('vi-VN')}đ</span>
+                <span className="font-medium text-foreground tabular">
+                  {v.price.toLocaleString('vi-VN')}đ
+                  {v.originalPrice != null && v.originalPrice > v.price && (
+                    <s className="ml-1 font-normal text-muted/70">{v.originalPrice.toLocaleString('vi-VN')}đ</s>
+                  )}
+                </span>
               </button>
             ))}
           </div>
