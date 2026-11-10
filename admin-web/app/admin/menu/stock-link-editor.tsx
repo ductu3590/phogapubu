@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/field'
 import { setMenuStockLink } from '@/lib/actions/inventory'
 import { formatQty, parseQty, qtyWarning, type MenuStockData } from '@/lib/inventory'
+import { runAction } from '@/lib/run-action'
 
 type Link_ = MenuStockData['links'][number]
 type Goods = MenuStockData['goods']
@@ -56,7 +57,7 @@ function LinkRow({ menuItemId, variantId, label, current, fallback, goods }: {
     if (n === null) { setError('Số lượng trừ phải lớn hơn 0, tối đa 3 chữ số thập phân'); return }
     setError(null)
     start(async () => {
-      const res = await setMenuStockLink({ menuItemId, variantId, inventoryItemId, qty: n })
+      const res = await runAction(() => setMenuStockLink({ menuItemId, variantId, inventoryItemId, qty: n }))
       if (!res.ok) setError(res.error)
       else router.refresh()
     })
@@ -64,7 +65,7 @@ function LinkRow({ menuItemId, variantId, label, current, fallback, goods }: {
   const unlink = () => {
     setError(null)
     start(async () => {
-      const res = await setMenuStockLink({ menuItemId, variantId, inventoryItemId: null, qty: null })
+      const res = await runAction(() => setMenuStockLink({ menuItemId, variantId, inventoryItemId: null, qty: null }))
       if (!res.ok) setError(res.error)
       else router.refresh()
     })

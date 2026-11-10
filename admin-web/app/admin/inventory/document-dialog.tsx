@@ -9,6 +9,7 @@ import { ErrorState, SkeletonList } from '@/components/ui/feedback'
 import { Field, Textarea } from '@/components/ui/field'
 import { useToast } from '@/components/ui/toast'
 import { loadInventoryDocument, voidInventoryDocument } from '@/lib/actions/inventory'
+import { runAction } from '@/lib/run-action'
 import { DOC_KIND_LABEL, formatQty, type DocDetail } from '@/lib/inventory'
 import { formatVND } from '@/lib/utils'
 import { formatDateTime, formatDocDate, paidLabel } from './doc-format'
@@ -47,7 +48,7 @@ export default function DocumentDialog({ id, onClose, onVoided }: {
     }
     setBusy(true)
     setVoidError(null)
-    const res = await voidInventoryDocument(doc.id, reason)
+    const res = await runAction(() => voidInventoryDocument(doc.id, reason))
     setBusy(false)
     if (!res.ok) {
       setVoidError(res.error)

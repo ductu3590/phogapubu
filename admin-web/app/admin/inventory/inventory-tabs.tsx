@@ -8,6 +8,7 @@ import { DOC_KIND_LABEL, type DocKind, type StockRow } from '@/lib/inventory'
 import DocumentsTab from './documents-tab'
 import LedgerDialog from './ledger-dialog'
 import StockTab from './stock-tab'
+import { runAction } from '@/lib/run-action'
 
 type TabValue = 'stock' | DocKind
 
@@ -43,7 +44,7 @@ export default function InventoryTabs(props: InventoryTabsProps) {
 
   // Lưu / huỷ phiếu xong: lấy lại tồn để tab Tồn kho đúng số ngay.
   async function refreshStock() {
-    const res = await loadInventoryStock()
+    const res = await runAction(() => loadInventoryStock())
     if (res.ok) setStock(res.rows)
     else toast({ tone: 'error', title: 'Không tải lại được tồn kho', description: res.error })
   }

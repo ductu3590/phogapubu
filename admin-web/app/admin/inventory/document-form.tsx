@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/toast'
 import { postInventoryDocument } from '@/lib/actions/inventory'
 import { buildDocumentLines, type DocKind, type DraftLine } from '@/lib/inventory'
 import ConfirmDialog from '../pos/confirm-dialog'
+import { runAction } from '@/lib/run-action'
 
 /** Ngày YYYY-MM-DD cộng n ngày (lịch, không theo giờ). */
 export function addDaysIso(date: string, n: number): string {
@@ -104,7 +105,8 @@ export function useDocumentSubmit(kind: DocKind, today: string, onSaved: () => v
     if (busy) return
     setBusy(true)
     setError(null)
-    const res = await send(header, drafts)
+    // Mất mạng: action ném → runAction trả lỗi, nút Lưu nhả ra. Bấm lại gửi CÙNG clientRequestId nên không ra phiếu đôi.
+    const res = await runAction(() => send(header, drafts))
     setBusy(false)
     if (!res.ok) {
       setError(res.error)

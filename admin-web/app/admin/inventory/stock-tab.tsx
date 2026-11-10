@@ -14,6 +14,7 @@ import { filterStockRows, formatQty, KIND_LABEL, stockStatus, type InventoryKind
 import { cn, formatVND } from '@/lib/utils'
 import ConfirmDialog from '../pos/confirm-dialog'
 import ItemDialog from './item-dialog'
+import { runAction } from '@/lib/run-action'
 
 type KindFilter = 'all' | InventoryKind
 
@@ -86,7 +87,7 @@ export default function StockTab({ rows, canEdit, onOpenLedger }: {
   const filtered = query.trim() !== '' || kind !== 'all'
 
   async function reload() {
-    const res = await loadInventoryStock()
+    const res = await runAction(() => loadInventoryStock())
     if (res.ok) setList(res.rows)
     else toast({ tone: 'error', title: 'Không tải lại được tồn kho', description: res.error })
   }
@@ -94,7 +95,7 @@ export default function StockTab({ rows, canEdit, onOpenLedger }: {
   async function deactivate() {
     if (!deactivating || busy) return
     setBusy(true)
-    const res = await setInventoryItemActive(deactivating.id, false)
+    const res = await runAction(() => setInventoryItemActive(deactivating.id, false))
     setBusy(false)
     if (!res.ok) {
       toast({ tone: 'error', title: 'Không ngừng dùng được', description: res.error })
@@ -112,7 +113,7 @@ export default function StockTab({ rows, canEdit, onOpenLedger }: {
   async function reactivate(row: StockRow) {
     if (busy) return
     setBusy(true)
-    const res = await setInventoryItemActive(row.id, true)
+    const res = await runAction(() => setInventoryItemActive(row.id, true))
     setBusy(false)
     if (!res.ok) {
       toast({ tone: 'error', title: 'Không dùng lại được', description: res.error })

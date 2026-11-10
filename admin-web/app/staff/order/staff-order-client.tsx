@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createStaffOrder, type StaffOrderItem } from '@/lib/actions/staff-order'
 import { listOpenTableSessions, type OpenTableSession } from '@/lib/actions/table-session'
 import { createClient } from '@/lib/supabase/client'
@@ -65,7 +66,9 @@ export default function StaffOrderClient({
   const [clockNow, setClockNow] = useState(() => Date.now())
   const [tableId, setTableId] = useState<string | null>(tables.length === 1 ? tables[0].id : null)
   const [cart, setCart] = useState<CartLine[]>([])
-  const [activeCat, setActiveCat] = useState<string>(categories[0]?.id ?? '')
+  const [pickedCat, setActiveCat] = useState<string>(categories[0]?.id ?? '')
+  // Danh mục đang xem có thể biến mất sau khi menu tải lại (tắt hết món trong danh mục) → về danh mục đầu.
+  const activeCat = categories.some((c) => c.id === pickedCat) ? pickedCat : (categories[0]?.id ?? '')
   const [search, setSearch] = useState('')
   const [sheetItem, setSheetItem] = useState<Item | null>(null)
   const [showCart, setShowCart] = useState(false)
@@ -132,6 +135,37 @@ export default function StaffOrderClient({
       void supabase.removeChannel(channel)
     }
   }, [storeId, reloadSessions])
+
+  // Thu ngân / quản lý bật-tắt "Tạm hết" ở máy khác → thực đơn ở đây phải đổi ngay, không bắt nhân viên F5.
+  // Menu do Server Component (page.tsx) dựng nên chỉ cần router.refresh(): giỏ, bàn đang chọn là state client nên giữ
+  // nguyên. Tên kênh có hậu tố ngẫu nhiên (client Supabase dùng chung một bản, xem orders-realtime.tsx).
+  // menu_item_variants / toppings không nằm trong publication realtime → bắt bù khi quay lại tab.
+  const router = useRouter()
+  useEffect(() => {
+    const supabase = createClient()
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let subscribedOnce = false
+    const bump = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => router.refresh(), 400)
+    }
+    const channel = supabase
+      .channel(`staff-order-menu-${storeId}-${Math.random().toString(36).slice(2, 10)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items', filter: `store_id=eq.${storeId}` }, bump)
+      .subscribe((status) => {
+        // Nối lại sau khi rớt mạng có thể đã lỡ sự kiện → tải lại (lần đầu thì page vừa dựng, khỏi tải).
+        if (status !== 'SUBSCRIBED') return
+        if (subscribedOnce) bump()
+        subscribedOnce = true
+      })
+    const onVisible = () => { if (document.visibilityState === 'visible') bump() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      if (timer) clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      void supabase.removeChannel(channel)
+    }
+  }, [storeId, router])
 
   // Nhóm bàn theo mâm cho màn chọn bàn: mỗi mâm một khối, bàn còn lại rơi xuống "Bàn khác".
   const { trayGroups, looseTables } = useMemo(() => {

@@ -6,6 +6,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Field, Input, Select } from '@/components/ui/field'
 import { useToast } from '@/components/ui/toast'
 import { saveInventoryItem } from '@/lib/actions/inventory'
+import { runAction } from '@/lib/run-action'
 import { formatQty, KIND_LABEL, parseQty, qtyWarning, type InventoryKind, type StockRow } from '@/lib/inventory'
 import { cn } from '@/lib/utils'
 import ConfirmDialog from '../pos/confirm-dialog'
@@ -60,14 +61,14 @@ export default function ItemDialog({ item, onClose, onSaved }: {
 
     setBusy(true)
     setError(null)
-    const res = await saveInventoryItem({
+    const res = await runAction(() => saveInventoryItem({
       id: item?.id ?? null,
       name,
       unit,
       kind: form.kind,
       sku: form.sku.trim() || null,
       minStock,
-    })
+    }))
     setBusy(false)
     if (!res.ok) {
       setError(res.error)
