@@ -10,11 +10,15 @@ import { Input } from '@/components/ui/field'
 import { cn } from '@/lib/utils'
 
 export type PosTopping = { id: string; name: string; price: number }
-export type PosVariant = { id: string; name: string; price: number }
+// price = giá SAU giảm giá món/danh mục (mig 115, tính ở page.tsx); originalPrice = giá gốc nếu đang giảm.
+// Giá lựa chọn là giá TUYỆT ĐỐI, thay giá món (mig 042) — không cộng vào giá món.
+export type PosVariant = { id: string; name: string; price: number; originalPrice?: number | null }
 export type PosMenuItem = {
   id: string
   name: string
   price: number
+  originalPrice?: number | null
+  discountBadge?: string | null
   toppings: PosTopping[]
   variants: PosVariant[]
   hasVariantGroup: boolean
@@ -24,6 +28,16 @@ export type PosMenuCategory = { id: string; name: string; items: PosMenuItem[] }
 type DraftLine = PosManualItem & { lineId: string; name: string; unitPrice: number }
 
 const dong = (n: number) => `${n.toLocaleString('vi-VN')}đ`
+
+// Giá đang giảm: giá giảm + giá gốc gạch.
+function PriceText({ price, originalPrice, className }: { price: number; originalPrice?: number | null; className?: string }) {
+  return (
+    <span className={cn('tabular', className)}>
+      {dong(price)}
+      {originalPrice != null && originalPrice > price && <s className="ml-1 text-muted/70">{dong(originalPrice)}</s>}
+    </span>
+  )
+}
 
 function Stepper({ value, onMinus, onPlus, label }: { value: number; onMinus: () => void; onPlus: () => void; label: string }) {
   return (
@@ -172,7 +186,10 @@ export default function ManualOrderSheet({
                   className="cursor-pointer rounded-xl border border-border-strong bg-surface p-3 text-left text-sm transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="block font-medium text-foreground">{item.name}</span>
-                  <span className="mt-1 block text-[13px] text-muted tabular">{dong(item.price)}</span>
+                  <span className="mt-1 flex flex-wrap items-center gap-1 text-[13px] text-muted">
+                    <PriceText price={item.price} originalPrice={item.originalPrice} />
+                    {item.discountBadge && <span className="rounded bg-primary-light px-1 text-[11px] font-semibold text-primary">{item.discountBadge}</span>}
+                  </span>
                   {soldOut && <span className="mt-1 block text-[13px] text-critical">Tạm hết lựa chọn</span>}
                 </button>
               )
@@ -219,7 +236,8 @@ function ItemOptions({ item, onClose, onAdd }: { item: PosMenuItem; onClose: () 
   const [quantity, setQuantity] = useState(1)
   const variant = item.variants.find((option) => option.id === variantId) ?? null
   const selectedToppings = item.toppings.filter((topping) => toppingIds.includes(topping.id))
-  const price = item.price + (variant?.price ?? 0) + selectedToppings.reduce((sum, topping) => sum + topping.price, 0)
+  // Giá lựa chọn là giá tuyệt đối (mig 042, add_order_line vá ở mig 115) — THAY giá món, không cộng.
+  const price = (variant ? variant.price : item.price) + selectedToppings.reduce((sum, topping) => sum + topping.price, 0)
 
   const toggleTopping = (id: string) => setToppingIds((previous) => previous.includes(id) ? previous.filter((value) => value !== id) : [...previous, id])
 
@@ -255,7 +273,7 @@ function ItemOptions({ item, onClose, onAdd }: { item: PosMenuItem; onClose: () 
               )}
             >
               <span className="font-medium text-foreground">{option.name}</span>
-              <span className="block text-[13px] text-muted tabular">+{dong(option.price)}</span>
+              <PriceText price={option.price} originalPrice={option.originalPrice} className="block text-[13px] text-muted" />
             </button>
           ))}
         </div>

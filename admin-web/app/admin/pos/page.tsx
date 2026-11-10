@@ -11,6 +11,8 @@ import { listOpenServiceRequests } from '@/lib/actions/service-requests'
 import { listReservationQueue } from '@/lib/actions/reservations'
 import { listReservationPreorderQueue } from '@/lib/actions/reservation-preorders'
 import { listReservationCustomerCalls } from '@/lib/actions/reservation-customer-calls'
+import { loadActiveMenuDiscounts } from '@/lib/menu/active-discounts'
+import { discountMenuPrices } from '@/lib/menu/menu-discount'
 
 function queueRange() {
   const now = Date.now()
@@ -67,6 +69,9 @@ export default async function PosPage() {
     .eq('is_available', true)
     .order('sort_order')
 
+  // Giảm giá món / danh mục đang hiệu lực (mig 115) — chỉ để vẽ giá; add_order_line tự trừ ở server.
+  const discounts = await loadActiveMenuDiscounts(supabase, operator.storeId)
+
   const toppingById = new Map((toppingRows ?? []).map((topping) => [topping.id as string, topping]))
   const categories: PosMenuCategory[] = (categoryRows ?? []).map((category) => ({
     id: category.id as string,
@@ -78,20 +83,29 @@ export default async function PosPage() {
     }>)
       .filter((item) => item.is_available)
       .sort((a, b) => a.sort_order - b.sort_order)
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        toppings: (item.menu_item_toppings ?? [])
-          .map((row) => toppingById.get(row.topping_id))
-          .filter((topping): topping is NonNullable<typeof topping> => !!topping)
-          .map((topping) => ({ id: topping.id as string, name: topping.name as string, price: topping.price as number })),
-        variants: (item.menu_item_variants ?? [])
-          .filter((variant) => variant.is_available)
-          .sort((a, b) => a.sort_order - b.sort_order)
-          .map((variant) => ({ id: variant.id, name: variant.name, price: variant.price })),
-        hasVariantGroup: (item.menu_item_variants ?? []).length > 0,
-      })),
+      .map((item) => {
+        const priced = discountMenuPrices(
+          item.price,
+          (item.menu_item_variants ?? [])
+            .filter((variant) => variant.is_available)
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map((variant) => ({ id: variant.id, name: variant.name, price: variant.price })),
+          discounts.byItem.get(item.id),
+        )
+        return {
+          id: item.id,
+          name: item.name,
+          price: priced.price,
+          originalPrice: priced.originalPrice,
+          discountBadge: priced.badge,
+          toppings: (item.menu_item_toppings ?? [])
+            .map((row) => toppingById.get(row.topping_id))
+            .filter((topping): topping is NonNullable<typeof topping> => !!topping)
+            .map((topping) => ({ id: topping.id as string, name: topping.name as string, price: topping.price as number })),
+          variants: priced.variants,
+          hasVariantGroup: (item.menu_item_variants ?? []).length > 0,
+        }
+      }),
   }))
 
   const [floor, res, requests, reservationQueue, preorderQueue, customerCalls, userRes] = await Promise.all([

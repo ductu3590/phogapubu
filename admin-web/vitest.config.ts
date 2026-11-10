@@ -8,6 +8,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('.', import.meta.url)),
+      // lib/menu/active-discounts.ts import 'server-only' (Next tự lo lúc build, gói không có trong node_modules).
+      'server-only': fileURLToPath(new URL('./test-stubs/server-only.ts', import.meta.url)),
     },
   },
 })
