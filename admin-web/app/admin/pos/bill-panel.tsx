@@ -928,6 +928,11 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
               Tiền mặt {dong(cashPart)} · Chuyển khoản {dong(bankPart)}{debtPart > 0 && ` · Ghi nợ ${dong(debtPart)}`}
             </p>
           )}
+          {/* Nút thu khoá mà không nói vì sao thì thu ngân tưởng máy treo (test CONG-NO bài 4). Chỉ khi CHƯA chọn ai:
+              lỗi của ô khách mới (tên / SĐT) đã hiện ngay dưới ô trong DebtCustomerPicker. */}
+          {debtPart > 0 && debtChoice === null && (
+            <p className="mb-2 text-center text-[13px] font-semibold text-amber-700">Chọn khách ghi nợ</p>
+          )}
           <Button variant="primary" size="touch" icon={<Banknote />} isLoading={busy} disabled={blocked} onClick={thu} className="w-full text-base font-bold whitespace-nowrap">
             {payButtonLabel(method, total)}
           </Button>
