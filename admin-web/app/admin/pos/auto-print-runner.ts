@@ -2,7 +2,7 @@ import type { OpenTableSession } from '@/lib/actions/table-session'
 import {
   AUTO_PRINT_BATCH_MAX,
   autoKitchenPrintCandidates,
-  autoPrintBanner,
+  autoPrintActive,
   createAutoPrintTracker,
   type AutoPrintConfig,
 } from '@/lib/print/auto-kitchen-print'
@@ -64,7 +64,7 @@ export function createAutoPrintRunner(deps: {
     // Lặp thay vì đệ quy: còn id đến hạn thì chạy lô kế ngay
     while (!running && deps.isAlive()) {
       const { cfg, sessions } = deps.getState()
-      if (!cfg || !autoPrintBanner(cfg)) return
+      if (!cfg || !autoPrintActive(cfg)) return
       const t = now()
       const candidates = autoKitchenPrintCandidates(sessions, cfg, t)
       const labelOf = new Map(candidates.map((c) => [c.orderId, c.tableLabel]))

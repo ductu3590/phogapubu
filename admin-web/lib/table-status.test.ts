@@ -37,6 +37,14 @@ describe('pendingCount — bỏ món ghi tay POS và món đặt trước', () =
   })
 })
 
+describe('pendingCount — cờ server mig 128', () => {
+  it('đơn tự vào bếp (needs_pos_confirmation false) không làm bàn vàng', () => {
+    const s: SessionStatusLike = { status: 'open', orders: [{ status: 'pending', order_source: 'staff', needs_pos_confirmation: false }] }
+    expect(pendingCount(s)).toBe(0)
+    expect(tableVisualState(s)).toBe('serving')
+  })
+})
+
 describe('pendingCount', () => {
   it('không có phiên → 0', () => {
     expect(pendingCount(undefined)).toBe(0)

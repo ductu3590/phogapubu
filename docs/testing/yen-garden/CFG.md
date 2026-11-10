@@ -45,8 +45,10 @@ Quán đang **Một nơi** với policy tự động.
 - **Mong đợi:** ô **Nhiều nơi** chọn được (không bị khoá), bật thành công.
 
 ### Bài 7 — POS mở, đơn nhân viên tự in
-Mở POS: có băng **Đơn tự vào bếp — giữ POS mở để in**. Từ `/staff`, nhân viên gửi một đơn.
+Mở POS (quán trả sau: **không** có băng thông báo nào về in tự động). Từ `/staff`, nhân viên gửi một đơn.
 - **Mong đợi:** trong vài giây ra **phiếu bếp đúng trạm + phiếu bàn**, không bấm gì trên POS. Kiểm bằng câu SQL ở đầu file.
+- **Mong đợi (mig 128 + 129):** POS **không** coi đơn đó là chờ duyệt — "Lượt món chờ duyệt" không tăng, ô bàn **xanh "Đang ăn"** (không
+  vàng), bill ghi "Chờ duyệt mới 0đ". Bấm **Thanh toán** thu được ngay, không báo "Còn 1 đơn chưa được chủ quán xác nhận".
 
 ### Bài 8 — Hai tab POS không in đôi
 Mở POS ở **hai tab**, gửi một đơn nhân viên.

@@ -3,6 +3,7 @@
 
 import type { StatusTone } from '@/components/ui/status'
 import type { TimelineBar } from './pos-timeline'
+import { isReviewableOrder } from './table-status'
 
 export type WorkFilter = 'all' | 'orders' | 'calls' | 'booking'
 
@@ -28,10 +29,8 @@ export type WorkItem =
 
 export type ReservationReason = 'conflict' | 'late' | 'due' | 'pending' | 'change' | 'upcoming'
 
-/** Đơn khách gọi mà thu ngân phải duyệt: bỏ món ghi tay (đã phục vụ) và món đặt trước (luồng riêng). */
-export function isReviewableOrder(order: { status: string; order_source: string }): boolean {
-  return order.status === 'pending' && order.order_source !== 'pos' && order.order_source !== 'reservation_preorder'
-}
+/** Đơn thu ngân phải duyệt — một nguồn với ô bàn (lib/table-status.ts), xem chú thích ở đó. */
+export { isReviewableOrder }
 
 /**
  * Số lượt gọi trong phiên (1, 2, 3…) theo giờ tạo, tính cả lượt đã duyệt — để thu ngân nói

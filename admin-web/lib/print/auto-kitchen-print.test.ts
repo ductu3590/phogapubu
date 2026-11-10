@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   autoKitchenPrintCandidates,
+  autoPrintActive,
   autoPrintBanner,
   createAutoPrintTracker,
   isAutoKitchenOrder,
@@ -81,9 +82,19 @@ describe('autoPrintBanner', () => {
     expect(autoPrintBanner({ ...cfg, mode: 'browser' })).toBeNull()
     expect(autoPrintBanner({ ...cfg, kitchenReleasePolicy: 'pos_confirmation', staffOrderReleasePolicy: 'pos_confirmation' })).toBeNull()
   })
-  it('trả sau: info; trả trước: warning', () => {
-    expect(autoPrintBanner(cfg)).toEqual({ tone: 'info', title: 'Đơn tự vào bếp — giữ POS mở để in' })
+  it('trả sau: không hiện gì (tự in bình thường); trả trước: warning', () => {
+    expect(autoPrintBanner(cfg)).toBeNull()
     expect(autoPrintBanner({ ...cfg, paymentTiming: 'prepay' })?.tone).toBe('warning')
+  })
+})
+
+describe('autoPrintActive', () => {
+  it('chỉ khi in qua phần mềm và có ít nhất một kênh tự vào bếp', () => {
+    expect(autoPrintActive(cfg)).toBe(true)
+    expect(autoPrintActive({ ...cfg, kitchenReleasePolicy: 'pos_confirmation' })).toBe(true)
+    expect(autoPrintActive({ ...cfg, kitchenReleasePolicy: 'pos_confirmation', staffOrderReleasePolicy: 'pos_confirmation' })).toBe(false)
+    expect(autoPrintActive({ ...cfg, mode: 'browser' })).toBe(false)
+    expect(autoPrintActive(null)).toBe(false)
   })
 })
 

@@ -91,12 +91,17 @@ export function autoKitchenPrintCandidates(
   return out
 }
 
+/** POS có phải tự xếp phiếu bếp không: quán in qua phần mềm và có ít nhất một kênh "tự vào bếp". */
+export function autoPrintActive(cfg: AutoPrintConfig | null): boolean {
+  if (!cfg || cfg.mode !== 'agent') return false
+  return !(cfg.kitchenReleasePolicy === 'pos_confirmation' && cfg.staffOrderReleasePolicy === 'pos_confirmation')
+}
+
+// Chỉ báo khi có việc người dùng phải làm. Quán trả sau tự in bình thường thì KHÔNG hiện gì (anh Tú, CFG bài 7: dòng
+// "Đơn tự vào bếp — giữ POS mở để in" là thông báo không cần thiết).
 export function autoPrintBanner(cfg: AutoPrintConfig | null): { tone: 'info' | 'warning'; title: string } | null {
-  if (!cfg || cfg.mode !== 'agent') return null
-  if (cfg.kitchenReleasePolicy === 'pos_confirmation' && cfg.staffOrderReleasePolicy === 'pos_confirmation') return null
-  if (cfg.paymentTiming === 'postpay') {
-    return { tone: 'info', title: 'Đơn tự vào bếp — giữ POS mở để in' }
-  }
+  if (!cfg || !autoPrintActive(cfg)) return null
+  if (cfg.paymentTiming === 'postpay') return null
   return {
     tone: 'warning',
     title: 'Quán trả trước chưa tự in được phiếu bếp cho đơn tự vào bếp — đặt hai mục “xuống bếp” về “Chờ POS xác nhận” ở Cài đặt',

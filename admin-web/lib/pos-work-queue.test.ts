@@ -20,6 +20,10 @@ describe('isReviewableOrder', () => {
     expect(isReviewableOrder({ status: 'pending', order_source: 'reservation_preorder' })).toBe(false)
     expect(isReviewableOrder({ status: 'confirmed', order_source: 'customer' })).toBe(false)
   })
+  it('mig 128: có cờ server thì theo cờ — đơn nhân viên "tự vào bếp" vẫn pending nhưng không chờ duyệt', () => {
+    expect(isReviewableOrder({ status: 'pending', order_source: 'staff', needs_pos_confirmation: false })).toBe(false)
+    expect(isReviewableOrder({ status: 'pending', order_source: 'customer_zalo', needs_pos_confirmation: true })).toBe(true)
+  })
 })
 
 describe('orderRound', () => {

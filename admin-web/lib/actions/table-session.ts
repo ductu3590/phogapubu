@@ -34,6 +34,8 @@ export type SessionOrderRow = {
   order_source: string
   confirmed_at: string | null
   payment_received_at: string | null
+  /** Mig 128: đơn còn chờ POS duyệt theo chính sách xuống bếp của KÊNH đơn (server tính). Thiếu = RPC cũ. */
+  needs_pos_confirmation?: boolean
   // Chỉ có ở rejected_orders (mig 089)
   rejected_at?: string | null
   rejection_reason_code?: string | null

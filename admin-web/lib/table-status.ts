@@ -19,7 +19,17 @@ export type TableDot = 'free' | 'busy'
 /** Chỉ đúng 2 field mà hai hàm dưới thật sự đọc → OpenTableSession truyền thẳng vào được. */
 export type SessionStatusLike = {
   status: string
-  orders: { status: string; order_source?: string }[]
+  orders: { status: string; order_source?: string; needs_pos_confirmation?: boolean }[]
+}
+
+/**
+ * Đơn thu ngân còn phải bấm Duyệt. Server (mig 128) tính cờ `needs_pos_confirmation` theo chính sách xuống bếp của
+ * kênh đơn: đơn "tự vào bếp" vẫn nằm ở status 'pending' trong DB nhưng KHÔNG chờ duyệt. Thiếu cờ (RPC cũ) → luật cũ:
+ * 'pending' trừ món ghi tay ('pos', đã phục vụ) và món đặt trước (luồng duyệt riêng).
+ */
+export function isReviewableOrder(order: { status: string; order_source?: string; needs_pos_confirmation?: boolean }): boolean {
+  if (typeof order.needs_pos_confirmation === 'boolean') return order.needs_pos_confirmation
+  return order.status === 'pending' && order.order_source !== 'pos' && order.order_source !== 'reservation_preorder'
 }
 
 export function tableDot(session: SessionStatusLike | undefined): TableDot {
@@ -35,7 +45,7 @@ export function pendingCount(session: SessionStatusLike | undefined): number {
   if (!session || session.status !== 'open') return 0
   // Món ghi tay ở POS ('pos') là thu ngân tự thêm = đã duyệt sẵn; món đặt trước có luồng duyệt riêng.
   // Đếm chúng thì bàn hiện "Chờ duyệt" mà không có nút duyệt nào (anh Tú báo 2026-10-03).
-  return session.orders.filter((o) => o.status === 'pending' && o.order_source !== 'pos' && o.order_source !== 'reservation_preorder').length
+  return session.orders.filter(isReviewableOrder).length
 }
 
 /**
