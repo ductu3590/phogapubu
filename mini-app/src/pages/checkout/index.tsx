@@ -20,7 +20,8 @@ import VoucherSection from "@/components/checkout/voucher-section";
 import { estimateDiscount, MyVoucher } from "@/services/voucher/voucher.api";
 import { clearTableOrderRequest, tableOrderRequestId } from "@/services/table-order-request";
 import { useTableSessionBill } from "@/services/order/order.queries";
-import { findOrderDuplicates } from "@/utils/order-duplicates";
+import { findPreorderDuplicates } from "@/utils/order-duplicates";
+import { vouchersEnabled, voucherForOrder } from "@/utils/store-model";
 import { afterOrderRoute } from "@/utils/after-order-route";
 import { ArmchairIcon, FootprintsIcon, BikeIcon, UtensilsIcon, CreditCardIcon, BanknoteIcon } from "@/components/common/icons";
 import SectionCard from "@/components/ui/section-card";
@@ -189,7 +190,11 @@ export default function CheckoutPage() {
   const { mutate: createOrder, isPending } = useCreateOrder();
 
   const totalAmount = calculateCartTotal(cartItems);
-  const discount = voucher ? estimateDiscount(voucher, totalAmount) : 0;
+  // Mã giảm giá chỉ có ở quán trả trước. Quán trả sau: không dựng VoucherSection (nên không gọi
+  // get_my_vouchers / check_voucher) và không bao giờ gửi mã kèm đơn.
+  const showVouchers = vouchersEnabled({ storeId, paymentTiming });
+  const appliedVoucher = voucherForOrder(showVouchers, voucher);
+  const discount = appliedVoucher ? estimateDiscount(appliedVoucher, totalAmount) : 0;
   const payableAmount = totalAmount - discount;
 
   // Bật/tắt banner ở cả ba nơi cùng lúc: state, localStorage, khoá giỏ hàng.
@@ -274,8 +279,10 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Chỉ nhắc khi món trùng với món khách ĐÃ ĐẶT TRƯỚC kèm đặt bàn. Gọi lại món của lượt trước
+    // (bia, đồ nhắm) là chuyện thường ở quán nhậu → không hỏi.
     const duplicates = sessionBill?.found
-      ? findOrderDuplicates(
+      ? findPreorderDuplicates(
           cartItems.map((item) => ({ productId: item.productId, variantId: item.variant?.id ?? null, toppingIds: item.selectedVariants.filter((v) => v.groupId === "topping").map((v) => v.optionId), quantity: item.quantity })),
           sessionBill.orders.map((order) => ({
             id: order.id, orderSource: order.order_source, status: order.status,
@@ -294,7 +301,7 @@ export default function CheckoutPage() {
     const clientRequestId = !isTakeaway && tableId
       ? tableOrderRequestId(tableId, tableSessionId, {
           items: cartItems.map((item) => ({ id: item.id, quantity: item.quantity })),
-          note: note.trim(), voucher: voucher?.code ?? null,
+          note: note.trim(), voucher: appliedVoucher?.code ?? null,
         })
       : undefined;
 
@@ -321,7 +328,7 @@ export default function CheckoutPage() {
         deviceId: deviceId || undefined,
         clientRequestId,
         expectedSessionId: tableSessionId,
-        voucherCode: voucher?.code,
+        voucherCode: appliedVoucher?.code,
         ...(isTakeaway && {
           orderType: takeawayType,
           customerName: customerName.trim(),
@@ -650,16 +657,18 @@ export default function CheckoutPage() {
           </SectionCard>
         )}
 
-        {/* Mã giảm giá */}
-        <div className={lockedClass}>
-          <VoucherSection
-            storeId={storeId ?? ""}
-            zaloUserId={zaloUserId || null}
-            subtotal={totalAmount}
-            selected={voucher}
-            onSelect={setVoucher}
-          />
-        </div>
+        {/* Mã giảm giá — chỉ quán trả trước; quán trả sau không có mã nên không dựng section */}
+        {showVouchers && (
+          <div className={lockedClass}>
+            <VoucherSection
+              storeId={storeId ?? ""}
+              zaloUserId={zaloUserId || null}
+              subtotal={totalAmount}
+              selected={voucher}
+              onSelect={setVoucher}
+            />
+          </div>
+        )}
 
         {/* Tóm tắt tiền */}
         <SectionCard>
@@ -750,8 +759,8 @@ export default function CheckoutPage() {
       {confirmingDuplicates && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/40 px-3 pb-4">
           <div className="w-full rounded-3xl bg-surface p-5 shadow-xl">
-            <p className="text-large-m font-bold text-text-primary">Món này đã có trong bill</p>
-            <p className="mt-1 text-small text-text-secondary">Bạn đang chọn món trùng với món đã đặt trước hoặc đã gọi. Vui lòng kiểm tra để tránh trùng món.</p>
+            <p className="text-large-m font-bold text-text-primary">Món này bạn đã đặt trước</p>
+            <p className="mt-1 text-small text-text-secondary">Món bạn đang chọn trùng với món đã đặt trước khi đặt bàn. Vui lòng kiểm tra để tránh gọi trùng.</p>
             <div className="mt-4 flex gap-2">
               <button className="flex-1 rounded-xl border border-neutral200 py-3 text-small-m font-semibold" onClick={() => setConfirmingDuplicates(false)}>Kiểm tra lại</button>
               <button className="flex-1 rounded-xl bg-primary py-3 text-small-m font-semibold text-white" onClick={() => { setConfirmingDuplicates(false); handleOrder(true); }}>Vẫn gọi thêm</button>

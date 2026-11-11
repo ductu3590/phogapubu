@@ -8,7 +8,8 @@ import { directionsUrl } from "@/utils/directions";
 import DirectionsButton from "@/components/ui/directions-button";
 import { CallPhoneSheet } from "@/components/ui/call-phone-button";
 import TermsSheet from "@/components/common/terms-sheet";
-import { DEFAULT_TERMS } from "@/constants/terms";
+import { resolveTerms } from "@/utils/terms";
+import { oaFollowCopy } from "@/utils/oa-follow-copy";
 import { ScanLineIcon, UtensilsIcon, MapPinIcon, BikeIcon, PhoneIcon, WifiIcon, FileTextIcon, MessageCircleIcon, BellIcon } from "@/components/common/icons";
 
 // "Bia lẩu Bảo Lương" → "BL" (giống chữ viết tắt trên thanh công cụ).
@@ -45,7 +46,7 @@ function InfoRow({
 }
 
 export default function StoreInfoPage() {
-  const { storeId, storeName, storeLogoUrl, storeAddress, googleMapsUrl, storePhone, zaloOaId, zaloOaUrl, aboutText, wifiName, wifiPassword, deliveryAreaNote, termsOfUse } =
+  const { storeId, storeName, storeLogoUrl, storeAddress, googleMapsUrl, storePhone, zaloOaId, zaloOaUrl, aboutText, wifiName, wifiPassword, deliveryAreaNote, termsOfUse, paymentTiming } =
     useAppStore();
   const { openSnackbar } = useSnackbar();
   const directions = directionsUrl(googleMapsUrl, storeAddress);
@@ -98,7 +99,9 @@ export default function StoreInfoPage() {
   const [showPermSheet, setShowPermSheet] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showCall, setShowCall] = useState(false);
-  const termsContent = termsOfUse.trim() || DEFAULT_TERMS;
+  // Quán chưa nhập điều khoản → mẫu mặc định theo mô hình quán (trả trước / trả sau).
+  const termsContent = resolveTerms(termsOfUse, paymentTiming);
+  const oaCopy = oaFollowCopy(paymentTiming);
 
   // Tự bật sheet 1 lần MỖI PHIÊN (khi chưa kết nối) — dùng sessionStorage để mỗi lần
   // mở lại app sẽ mời lại, nhưng không phiền trong cùng phiên.
@@ -206,7 +209,7 @@ export default function StoreInfoPage() {
 
       {/* Card: Điều khoản sử dụng (luôn hiện) + Trang Zalo chính thức (nếu có) */}
       <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
-        {/* Điều khoản sử dụng — luôn hiện; rỗng thì dùng DEFAULT_TERMS */}
+        {/* Điều khoản sử dụng — luôn hiện; rỗng thì dùng mẫu mặc định (utils/terms) */}
         <button
           onClick={() => setShowTerms(true)}
           className="flex w-full items-center gap-3 border-b border-neutral100 px-4 py-3 text-left last:border-0 active:bg-neutral50"
@@ -255,7 +258,7 @@ export default function StoreInfoPage() {
         <div className="mx-3 mt-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3">
           <p className="flex items-center gap-1.5 text-small-m font-semibold text-text-primary"><BellIcon className="size-4 text-primary" />Kết nối để nhận ưu đãi</p>
           <p className="mt-0.5 text-xxsmall text-text-secondary">
-            Thông báo khi món xong + điền form nhanh hơn.
+            {oaCopy.ctaDesc}
           </p>
           <button
             onClick={() => setShowPermSheet(true)}

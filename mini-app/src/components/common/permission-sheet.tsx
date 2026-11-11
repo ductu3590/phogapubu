@@ -1,8 +1,12 @@
-// Bottom sheet xin 3 quyền: Follow OA (ZNS) + tên + SĐT.
+// Bottom sheet xin 3 quyền: Follow OA + tên + SĐT.
 // Cả hai SDK calls trong cùng handler — lỗi bỏ qua, không block UX.
+// Lời giới thiệu lợi ích khác nhau theo mô hình quán (utils/oa-follow-copy): quán trả sau không có
+// ZNS "món xong" và không có mang về nên không được hứa hai điều đó.
 import { useState } from "react";
 import { followOA, authorize } from "zmp-sdk";
 import { BellIcon, UserIcon } from "@/components/common/icons";
+import { useAppStore } from "@/stores/app.store";
+import { oaFollowCopy } from "@/utils/oa-follow-copy";
 
 interface PermissionSheetProps {
   oaId: string;
@@ -19,6 +23,7 @@ export default function PermissionSheet({
   onGranted,
 }: PermissionSheetProps) {
   const [loading, setLoading] = useState(false);
+  const copy = oaFollowCopy(useAppStore((s) => s.paymentTiming));
 
   if (!visible) return null;
 
@@ -61,10 +66,10 @@ export default function PermissionSheet({
               </div>
               <div>
                 <p className="text-small-m font-semibold text-text-primary">
-                  Nhận thông báo Zalo (ZNS)
+                  {copy.followTitle}
                 </p>
                 <p className="text-xxsmall text-text-secondary">
-                  Biết ngay khi món xong. Hoàn toàn miễn phí.
+                  {copy.followDesc}
                 </p>
               </div>
             </div>
@@ -74,10 +79,10 @@ export default function PermissionSheet({
               </div>
               <div>
                 <p className="text-small-m font-semibold text-text-primary">
-                  Tên &amp; Số điện thoại
+                  {copy.contactTitle}
                 </p>
                 <p className="text-xxsmall text-text-secondary">
-                  Điền form mang về nhanh hơn. Không spam.
+                  {copy.contactDesc}
                 </p>
               </div>
             </div>
