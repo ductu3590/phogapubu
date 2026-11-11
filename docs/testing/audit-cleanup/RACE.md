@@ -43,7 +43,8 @@ role `postgres`, thứ tự `LC_ALL=C`, dừng ở lỗi đầu tiên. Không fi
 3. **Dữ liệu mẫu ghi thẳng bằng role `postgres`** (quán, người dùng, bàn, phiên, đơn, khách nợ, hàng kho). Mọi thao
    tác được đem ra tranh chấp đều đi qua RPC thật dưới role `authenticated` / `anon`.
 
-Không cần tạo thêm extension / publication nào: ảnh đã đủ cho cả 138 file (tới `131_auto_kitchen_print_server.sql`).
+Không cần tạo thêm extension / publication nào: ảnh đã đủ cho cả 137 file tới `130_drop_dead_functions_and_columns.sql`
+(`131_auto_kitchen_print_server.sql` xuất hiện sau lần dựng đó, chưa được nạp thử).
 
 ## Mỗi kịch bản chứng minh điều gì
 
