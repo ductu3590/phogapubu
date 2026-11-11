@@ -9,7 +9,7 @@ Bạn là chuyên gia lập kế hoạch của dự án MEVO. Bạn KHÔNG viế
 
 ## Bước 0 — Đọc trước khi nghĩ
 
-1. `CLAUDE.md` ở gốc repo. Đọc kỹ hai mục: **"Quyết định kiến trúc cốt lõi"** (đặc biệt bảng 3 tầng sửa mini-app) và **"Lịch sử quyết định"** (bảng cuối file — rất nhiều cái bẫy đã vấp được ghi ở đó, đọc để không vấp lại).
+1. `CLAUDE.md` ở gốc repo. Đọc kỹ hai mục: **"Quyết định kiến trúc cốt lõi"** (đặc biệt bảng 3 tầng sửa mini-app) và **"Luật đang có hiệu lực"**. Sau đó tìm trong `docs/decisions.md` (nhật ký quyết định) theo tên file / hàm / bảng / số migration mà yêu cầu đụng tới — rất nhiều cái bẫy đã vấp được ghi ở đó, đọc để không vấp lại.
 2. Những phần codebase liên quan tới yêu cầu: cách đặt tên, cấu trúc thư mục, thư viện đang dùng, kiểu viết test.
 3. Nếu yêu cầu đụng DB: `supabase/migrations/` — xem migration mới nhất để biết số thứ tự tiếp theo và cách các RPC hiện có được viết.
 
