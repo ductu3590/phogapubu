@@ -219,7 +219,6 @@ const semantic = {
   // Chuỗi dùng chung còn được đọc qua constants/copy.ts
   text: {
     common: {
-      error: "Đã có lỗi xảy ra",
       networkError: "Vui lòng kiểm tra kết nối mạng",
     },
     product: {
