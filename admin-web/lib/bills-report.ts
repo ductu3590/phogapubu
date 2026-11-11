@@ -236,6 +236,16 @@ export function billCashBank(row: BillRow): { cash: number | null; bank: number 
 }
 
 /**
+ * Dòng nhắc trong ngăn kéo "Xem bill" cho bill của PHIÊN BÀN còn chờ thu: A04 không thu tiền bàn trả sau, chỉ POS →
+ * Thanh toán thu (cả bàn một lần, có giảm giá / ghi nợ / kết hợp). null = không nhắc: bill đã thu, đơn huỷ, hoặc
+ * đơn chờ thu KHÔNG thuộc phiên (trả trước / mang về — vẫn có nút từng đơn trong ngăn kéo).
+ */
+export function sessionCollectHint(row: Pick<BillRow, 'kind' | 'sessionIds' | 'expired'>): string | null {
+  if (row.kind !== 'waiting' || row.sessionIds.length === 0) return null
+  return `${row.expired ? 'Bàn đã hết hạn nhưng còn nợ. ' : ''}Thu tiền ở POS (Thanh toán): thu cả bàn một lần, thu xong bill đóng lại.`
+}
+
+/**
  * Nhãn phương thức của một dòng: "Kết hợp" chỉ khi bill thu kết hợp có từng khoản (mig 112a); bill cũ trộn
  * nhiều phương tiện giữ "Nhiều phương thức". null khi dòng không có phương thức (chờ thu / huỷ).
  */

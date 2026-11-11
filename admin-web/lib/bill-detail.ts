@@ -42,8 +42,8 @@ const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
 /** Nút của một đơn — điều kiện trang Đơn hàng cũ, TRỪ lượt thuộc phiên bàn. `canManage` (chỉ chủ quán) xét ở UI. */
 export function orderActions(o: MoneyFields & { status: string }, spin: BillDetailSpin | null): BillDetailActions {
   const active = o.status !== 'paid' && o.status !== 'cancelled'
-  // Lượt thuộc PHIÊN BÀN (trả sau): quán thu CẢ BÀN một lần lúc khách về (anh Tú 2026-10-13) → thu bằng nút
-  // "Đã nhận tiền" của cả bill (close_table_session, như POS). Thu/hoàn tất từng lượt để lại bàn "thu một nửa".
+  // Lượt thuộc PHIÊN BÀN (trả sau): quán thu CẢ BÀN một lần lúc khách về (anh Tú 2026-10-13) và CHỈ thu ở
+  // POS → Thanh toán (collect_table_bill) — A04 không thu. Thu/hoàn tất từng lượt để lại bàn "thu một nửa".
   const inSession = Boolean(o.session_id)
   return {
     confirm: active && !inSession && isAwaitingPayment(o),

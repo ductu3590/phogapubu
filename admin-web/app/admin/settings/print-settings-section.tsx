@@ -39,12 +39,9 @@ function BrowserTestLink() {
 export default function PrintSettingsSection({
   storeId,
   initial,
-  paymentTiming = 'postpay',
 }: {
   storeId: string
   initial: PrintSettings | null
-  // Quán trả trước chưa có đường in tự động (POS chỉ thấy đơn trong phiên bàn, chỉ quán trả sau có phiên)
-  paymentTiming?: 'prepay' | 'postpay'
 }) {
   // Chưa có dữ liệu (mig 114 chưa áp hoặc RPC lỗi): giữ khối In ấn như trước, không văng trang.
   if (!initial) {
@@ -57,17 +54,15 @@ export default function PrintSettingsSection({
       </div>
     )
   }
-  return <PrintSettingsBody storeId={storeId} settings={initial} paymentTiming={paymentTiming} />
+  return <PrintSettingsBody storeId={storeId} settings={initial} />
 }
 
 function PrintSettingsBody({
   storeId,
   settings,
-  paymentTiming,
 }: {
   storeId: string
   settings: PrintSettings
-  paymentTiming: 'prepay' | 'postpay'
 }) {
   const router = useRouter()
   const [pending, start] = useTransition()
@@ -77,7 +72,7 @@ function PrintSettingsBody({
   const [confirm, setConfirm] = useState<null | { kind: 'revoke' } | { kind: 'delete'; station: PrintStation }>(null)
 
   const agentMode = settings.mode === 'agent'
-  // Còn đơn vào bếp tự động thì phiếu bếp chỉ ra khi POS đang mở (đường in tự động nằm ở POS)
+  // Còn đơn vào bếp tự động: server tự xếp phiếu mỗi lần phần mềm in hỏi việc (auto_kitchen_print_enqueue, mig 131)
   const hasAutoRelease =
     settings.kitchen_release_policy === 'automatic' || settings.staff_order_release_policy === 'automatic'
 
@@ -124,9 +119,8 @@ function PrintSettingsBody({
 
       {agentMode && hasAutoRelease && (
         <p className="text-sm text-muted">
-          {paymentTiming === 'prepay'
-            ? 'Quán trả trước chưa tự in được phiếu bếp cho đơn tự vào bếp. Đặt hai mục “xuống bếp” về “Chờ POS xác nhận” ở mục Quy trình vận hành.'
-            : 'Có đơn vào bếp tự động: phiếu bếp của các đơn này chỉ in khi màn POS đang mở ở quầy.'}
+          Có đơn vào bếp tự động: máy chủ tự xếp phiếu bếp và phiếu bàn của các đơn này mỗi khi phần mềm in ở quầy đang
+          chạy, không cần mở màn POS. Đơn đã vào bếp quá 30 phút trước khi phần mềm in chạy lại thì không được in.
         </p>
       )}
 

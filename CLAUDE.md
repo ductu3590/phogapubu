@@ -32,8 +32,10 @@ Vi phạm quy tắc này = build trên nền không ổn định = mất gấp �
 | Yên Garden | Trả sau (bia garden), cần kho / ca / sổ thu chi / công nợ / báo cáo | Go-live dự kiến 2026-12-01 |
 | Phở Gà Pubu (+ Căng tin PUBU) | Trả trước qua Zalo Checkout, có màn bếp, mang về / ship | Tạm dừng (`is_active = false`) |
 
-Hai mô hình **trả trước** và **trả sau** cùng sống trong code lõi (`stores.payment_timing`). Chỉ kiểm Mini App trên
-Bảo Lương; không cần kiểm Pubu, nhưng đừng làm hỏng nhánh trả trước khi chưa có quyết định bỏ nó.
+Hai mô hình **trả trước** và **trả sau** cùng sống trong code lõi (`stores.payment_timing`) và **đều được giữ lâu dài**
+(quyết định 2026-11-11): trả trước không phải mã thừa. Chỉ kiểm Mini App trên Bảo Lương, không cần kiểm Pubu, nhưng
+mọi thay đổi phải giữ đúng cả hai nhánh; UI chỉ có nghĩa với trả trước (mã giảm giá, lời hứa báo món xong…) thì
+không hiện cho quán trả sau.
 
 ---
 
@@ -146,7 +148,8 @@ Schema DB: không chép vào đây (bản chép cũ đã lệch xa). Xem `supaba
 
 **Tiền**
 - Tổng tiền, giảm giá, số phải thu do **server tính**; UI không tự nghĩ công thức. Doanh thu = tiền THẬT đã nhận.
-- Bàn trả sau **thu cả bàn một lần** qua `collect_table_bill` (POS → Thanh toán); không thu lẻ từng lượt.
+- Bàn trả sau **thu cả bàn một lần** qua `collect_table_bill`, và **chỉ thu ở POS** (Thanh toán); `/staff/tables` và
+  ngăn kéo A04 không có nút thu. Phiên hết hạn còn nợ vào POS qua khối "Bàn hết hạn còn tiền chưa thu".
 - Không chắc khách đã trả hay chưa thì rơi về "chờ xác nhận", KHÔNG BAO GIỜ suy đoán "khách chưa trả tiền".
 - Ô TIỀN dùng `parseVnd`, ô SỐ LƯỢNG kho dùng `parseQty` — dùng lẫn là sai 1000 lần.
 
@@ -166,7 +169,10 @@ Schema DB: không chép vào đây (bản chép cũ đã lệch xa). Xem `supaba
   `is_store_owner_of` trong DB).
 - Công thức TS phải khớp tay với SQL — đổi một bên phải đổi cả hai: `lib/bill-discount.ts` ↔ mig 107/108;
   `lib/menu/menu-discount.ts` + `mini-app/src/utils/menu-discount.ts` ↔ `menu_discount_amount` (mig 115);
-  `businessToday` (`lib/daily-report.ts`) ↔ `business_date_of` (mig 111).
+  `businessToday` (`lib/daily-report.ts`) ↔ `business_date_of` (mig 111);
+  `planOrderJobs` (`lib/print/print-plan.ts`) ↔ `auto_kitchen_print_enqueue` (mig 131, phiếu bếp của đơn tự vào bếp do
+  máy chủ xếp trong `print_agent_poll`).
+- Màn "nghe Realtime rồi tải lại" dùng lõi chung `lib/realtime-watch.ts`; đừng viết bộ theo dõi thứ tư.
 
 **Mini App**
 - Deploy: `git merge origin/main` vào worktree quán TRƯỚC rồi mới `zmp deploy`; nhắc anh Tú chọn Development hay Testing.

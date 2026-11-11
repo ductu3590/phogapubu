@@ -45,6 +45,7 @@ Quán đang **Một nơi** với policy tự động.
 - **Mong đợi:** ô **Nhiều nơi** chọn được (không bị khoá), bật thành công.
 
 ### Bài 7 — POS mở, đơn nhân viên tự in
+> ⚠️ Từ 2026-11-11 (mig 131) phiếu bếp của đơn tự vào bếp do MÁY CHỦ xếp mỗi khi phần mềm in hỏi việc, không cần POS mở và không còn băng "giữ POS mở để in". Bài thay thế: `docs/testing/audit-cleanup/IN-BEP-SERVER.md`.
 Mở POS (quán trả sau: **không** có băng thông báo nào về in tự động). Từ `/staff`, nhân viên gửi một đơn.
 - **Mong đợi:** trong vài giây ra **phiếu bếp đúng trạm + phiếu bàn**, không bấm gì trên POS. Kiểm bằng câu SQL ở đầu file.
 - **Mong đợi (mig 128 + 129):** POS **không** coi đơn đó là chờ duyệt — "Lượt món chờ duyệt" không tăng, ô bàn **xanh "Đang ăn"** (không

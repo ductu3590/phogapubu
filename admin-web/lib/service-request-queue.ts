@@ -1,5 +1,6 @@
 import type { ServiceRequestRow } from './actions/service-requests'
 import type { OpenTableSession } from './actions/table-session'
+import { watchRealtime } from './realtime-watch'
 import type { createClient } from './supabase/client'
 
 export type ServiceRequestResult =
@@ -12,6 +13,7 @@ export function serviceRequestSession(request: ServiceRequestRow, sessions: Open
   return sessions.find(s => s.status === 'open' && s.tables.some(t => t.id === request.table_id)) ?? null
 }
 
+// Chuông gọi nhân viên (POS, màn bếp, màn nhân viên): nghe bảng service_requests rồi tải lại snapshot.
 export function watchServiceRequests({ client, storeId, load, initial, onRows, onError, onNew, onConnected, fallbackIntervalMs = 2_000 }: {
   client: ReturnType<typeof createClient>
   storeId: string
@@ -23,62 +25,31 @@ export function watchServiceRequests({ client, storeId, load, initial, onRows, o
   onConnected: (connected: boolean) => void
   fallbackIntervalMs?: number
 }) {
-  let stopped = false
-  let running = false
-  let dirty = false
-  let timer: ReturnType<typeof setTimeout> | undefined
+  // id → last_ping_at của lần tải trước; null = chưa có snapshot nào nên lần đầu không kêu chuông.
   let known = initial === null ? null : new Map(initial.map(r => [r.id, r.last_ping_at]))
 
-  async function drain() {
-    if (stopped || running) return
-    running = true
-    try {
-      do {
-        dirty = false
-        try {
-          const result = await load()
-          if (stopped) return
-          if (!result.ok) { onError(result.error); continue }
-          const rows = result.requests.filter(r => r.store_id === storeId && r.resolved_at === null)
-          const fresh = known === null ? [] : rows.filter(r => known!.get(r.id) !== r.last_ping_at)
-          known = new Map(rows.map(r => [r.id, r.last_ping_at]))
-          onRows(rows)
-          onError(null)
-          if (fresh.length) onNew(fresh)
-        } catch {
-          if (!stopped) onError('Không tải được yêu cầu gọi nhân viên. Kiểm tra mạng rồi thử lại.')
-        }
-      } while (!stopped && dirty)
-    } finally {
-      running = false
-    }
-  }
-
-  function refresh() {
-    dirty = true
-    clearTimeout(timer)
-    timer = setTimeout(() => void drain(), 150)
-  }
-
-  const channel = client.channel(`call-staff-${storeId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'service_requests', filter: `store_id=eq.${storeId}` }, refresh)
-    .subscribe(status => {
-      if (stopped) return
-      onConnected(status === 'SUBSCRIBED')
-      if (status === 'SUBSCRIBED') refresh()
-    })
-  refresh()
-  // Browser POS/staff dùng session SSR; WebSocket có thể chỉ mang anon key nên event bị RLS
-  // chặn dù trạng thái channel vẫn là SUBSCRIBED. Poll Server Action đã xác thực là đường đảm
-  // bảo cho chuông gọi nhân viên, còn realtime vẫn giúp card lên ngay khi token có mặt.
-  const fallback = setInterval(refresh, fallbackIntervalMs)
-  return {
-    refresh,
-    dispose() {
-      stopped = true
-      clearTimeout(timer)
-      clearInterval(fallback)
-      void client.removeChannel(channel)
+  return watchRealtime({
+    client,
+    channel: `call-staff-${storeId}`,
+    sources: [{ table: 'service_requests', filter: `store_id=eq.${storeId}` }],
+    load: async (stopped) => {
+      try {
+        const result = await load()
+        if (stopped()) return
+        if (!result.ok) { onError(result.error); return }
+        const rows = result.requests.filter(r => r.store_id === storeId && r.resolved_at === null)
+        const fresh = known === null ? [] : rows.filter(r => known!.get(r.id) !== r.last_ping_at)
+        known = new Map(rows.map(r => [r.id, r.last_ping_at]))
+        onRows(rows)
+        onError(null)
+        if (fresh.length) onNew(fresh)
+      } catch {
+        if (!stopped()) onError('Không tải được yêu cầu gọi nhân viên. Kiểm tra mạng rồi thử lại.')
+      }
     },
-  }
+    onConnected,
+    debounceMs: 150,
+    intervalMs: fallbackIntervalMs,
+    loadOnStart: true,
+  })
 }

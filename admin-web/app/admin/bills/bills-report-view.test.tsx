@@ -4,9 +4,8 @@ import { parseBillsReport } from '@/lib/bills-report'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }) }))
 vi.mock('@/lib/actions/bill-detail', () => ({
-  collectSessionBill: vi.fn(), getSessionMoves: vi.fn(), loadBillDetail: vi.fn(), redeemBillSpin: vi.fn(), runBillOrderAction: vi.fn(),
+  getSessionMoves: vi.fn(), loadBillDetail: vi.fn(), redeemBillSpin: vi.fn(), runBillOrderAction: vi.fn(),
 }))
-vi.mock('@/lib/actions/table-session', () => ({ getSessionsBill: vi.fn() }))
 vi.mock('@/lib/print/print-document', () => ({ printDocument: vi.fn() }))
 
 const { default: BillsReportView } = await import('./bills-report-view')

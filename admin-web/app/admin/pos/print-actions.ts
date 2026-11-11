@@ -3,8 +3,8 @@ import type { PrintRequest } from '@/lib/print/print-request'
 type PrintResult = { ok: true } | { ok: false; error: string }
 
 /**
- * "Duyệt & in bếp": duyệt đơn rồi in qua printDocument (cùng khoá chống in trùng với đường tự in:
- * order:<id>:kitchen:<trạm> / order:<id>:table, nên không có thêm phiếu bếp thứ hai).
+ * "Duyệt & in bếp": duyệt đơn rồi in qua printDocument (cùng khoá chống in trùng với đường tự in của server —
+ * auto_kitchen_print_enqueue, mig 131: order:<id>:kitchen:<trạm> / order:<id>:table, nên không có thêm phiếu bếp thứ hai).
  * Duyệt lỗi → không in. Duyệt được mà in lỗi → vẫn ok kèm printError (đơn đã vào bếp, chỉ thiếu tờ giấy).
  * Đơn đã duyệt từ trước (already) vẫn gọi in: ở chế độ phần mềm in khoá tự nhiên chặn trùng; ở chế độ trình duyệt
  * thu ngân vốn cần tờ giấy.

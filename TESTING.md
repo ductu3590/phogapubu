@@ -6,8 +6,10 @@
 
 ## Chờ test
 
-- ⏳ [Dọn codebase sau audit](docs/testing/audit-cleanup/AUDIT-1.md) — chờ test (2026-11-11); mig 130 CHƯA áp prod
-- ⏳ [Đợt 1 C-0 — Máy in thật](docs/testing/dot1/C-0-may-in-that.md) — chưa chạy trên máy in thật (cổng của phần mềm in)
+- ⏳ [Dọn codebase sau audit](docs/testing/audit-cleanup/AUDIT-1.md) — chờ test (2026-11-11); mig 130 đã áp prod 2026-11-11
+- ⏳ [Thay đổi theo 14 câu trả lời: chỉ thu ở POS, realtime, /mevo, Mini App](docs/testing/audit-cleanup/AUDIT-2.md) — chờ test (2026-11-11), chưa merge main
+- ⏳ [In bếp do máy chủ tự xếp](docs/testing/audit-cleanup/IN-BEP-SERVER.md) — chờ test (2026-11-11); mig 131 đã áp prod 2026-11-11
+- [Đợt 1 C-0 — Máy in thật](docs/testing/dot1/C-0-may-in-that.md) — anh Tú báo in được (Canon 2900 + 2 trạm PDF, 2026-11-11); chưa điền số đo, chưa thử máy nhiệt 80mm
 - ⏳ [Đợt 1 C Part 2 — gọi in / in ghép](docs/testing/dot1/C-part2-goi-in.md), [in ghép](docs/testing/dot1/C-part2-in-ghep.md)
 - ⏳ [Đợt 1 — VietQR nền](docs/testing/dot1/vietqr-nen.md), [VietQR ghép](docs/testing/dot1/vietqr-ghep.md)
 - ⏳ [Đợt 1 — Thu tiền kết hợp](docs/testing/dot1/thu-tien-ket-hop.md)

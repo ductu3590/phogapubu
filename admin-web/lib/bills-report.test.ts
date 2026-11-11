@@ -15,6 +15,7 @@ import {
   filterBillRows,
   normalizeSearch,
   paginate,
+  sessionCollectHint,
   startedLabel,
   daySummary,
   vnDateTimeLabel,
@@ -209,6 +210,23 @@ describe('buildBillRows (A04-1)', () => {
   })
   it('đơn bị từ chối: lý do đọc thành chữ', () => {
     expect(rows.find((r) => r.kind === 'cancelled')).toMatchObject({ reasonText: 'Hết đồ', amount: 20000, code: '#DA5382' })
+  })
+})
+
+describe('sessionCollectHint — A04 không thu tiền bàn trả sau, chỉ nhắc thu ở POS', () => {
+  const POS = 'Thu tiền ở POS (Thanh toán): thu cả bàn một lần, thu xong bill đóng lại.'
+  it('bill của phiên bàn còn chờ thu → nhắc thu ở POS', () => {
+    expect(sessionCollectHint({ kind: 'waiting', sessionIds: [S1], expired: false })).toBe(POS)
+    expect(sessionCollectHint({ kind: 'waiting', sessionIds: [S1, S2], expired: false })).toBe(POS)
+  })
+  it('phiên hết hạn còn nợ → nói rõ rồi vẫn nhắc thu ở POS', () => {
+    expect(sessionCollectHint({ kind: 'waiting', sessionIds: [S1], expired: true })).toBe(`Bàn đã hết hạn nhưng còn nợ. ${POS}`)
+    expect(sessionCollectHint(rows.find((r) => r.kind === 'waiting')!)).toContain('Thu tiền ở POS (Thanh toán)')
+  })
+  it('đơn chờ thu KHÔNG thuộc phiên (trả trước / mang về), bill đã thu, đơn huỷ → không nhắc', () => {
+    expect(sessionCollectHint({ kind: 'waiting', sessionIds: [], expired: false })).toBeNull()
+    expect(sessionCollectHint({ kind: 'paid', sessionIds: [S1], expired: false })).toBeNull()
+    expect(sessionCollectHint({ kind: 'cancelled', sessionIds: [S1], expired: false })).toBeNull()
   })
 })
 

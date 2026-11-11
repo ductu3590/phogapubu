@@ -13,6 +13,10 @@ export type PlannedJob = {
  * Đơn không còn món → [] để action báo lỗi (không in tờ trắng).
  * Khoá chống trùng là khoá tự nhiên theo nguồn + trạm, nên bấm "Duyệt" hai lần không ra hai phiếu;
  * in lại (reprintToken) thêm hậu tố để ra phiếu mới.
+ *
+ * ⚠️ Hàm SQL auto_kitchen_print_enqueue (supabase/migrations/131_auto_kitchen_print_server.sql) dựng ĐÚNG các job này
+ * cho đơn "tự vào bếp" (cùng kind, trạm, dedupeKey, hình dạng ref — không có reprintToken). Đổi ở đây thì phải đổi cả
+ * hàm SQL đó và literal trong supabase/tests/131_auto_kitchen_print_server.test.mjs, nếu không một đơn ra hai phiếu.
  */
 export function planOrderJobs(input: {
   request: PrintRequest
