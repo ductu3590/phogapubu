@@ -50,10 +50,6 @@ export function setBellStyle(s: BellStyle): void {
   style = next
 }
 
-export function getBellStyle(): BellStyle {
-  return style
-}
-
 function tone(c: AudioContext, freq: number, at: number, peak: number, length: number) {
   const osc = c.createOscillator()
   const gain = c.createGain()

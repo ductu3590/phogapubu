@@ -37,26 +37,3 @@ export function Card({
     </section>
   )
 }
-
-/** Đầu trang: tiêu đề + mô tả bên trái, nhóm nút bên phải. Màn hẹp thì nút xuống dưới. */
-export function PageHeader({
-  title,
-  description,
-  actions,
-  className,
-}: {
-  title: ReactNode
-  description?: ReactNode
-  actions?: ReactNode
-  className?: string
-}) {
-  return (
-    <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between', className)}>
-      <div className="min-w-0">
-        <h1 className="text-xl font-semibold text-balance text-foreground md:text-2xl">{title}</h1>
-        {description ? <p className="mt-1 text-sm text-pretty text-muted">{description}</p> : null}
-      </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div> : null}
-    </div>
-  )
-}

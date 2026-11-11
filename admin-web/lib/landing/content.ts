@@ -5,17 +5,6 @@ import {
   Lightbulb, QrCode, Rocket, Search, Settings2, Smartphone, Soup, Beer, Printer, Wallet, Workflow,
 } from 'lucide-react'
 
-export type Feature = { icon: LucideIcon; title: string; body: string }
-
-export const FNB_FEATURES: Feature[] = [
-  { icon: QrCode, title: 'Gọi món qua QR tại bàn, tại phòng', body: 'Khách quét mã dán ở bàn hoặc phòng, xem menu có ảnh, chọn món, ghi chú và gửi đơn ngay trên điện thoại. Không cần tải app.' },
-  { icon: CalendarClock, title: 'Đặt bàn trước', body: 'Khách chọn giờ và số người, quán tiếp nhận trên admin. Bàn được giữ trên sơ đồ, tránh trùng giờ.' },
-  { icon: LayoutDashboard, title: 'Admin web realtime', body: 'Sơ đồ bàn, đơn mới có chuông báo, ghép bàn cho khách đoàn, thu ngân xem cả quán trên một màn hình.' },
-  { icon: Wallet, title: 'Thanh toán VietQR về thẳng tài khoản quán', body: 'Khách chuyển khoản bằng mã QR, tiền vào tài khoản của quán, không qua tài khoản trung gian.' },
-  { icon: Printer, title: 'In bill và phiếu bếp', body: 'In hoá đơn và phiếu cho bếp từ máy in nhiệt 80mm, món nào bếp làm món đó.' },
-  { icon: BellRing, title: 'Thông báo chuyển khoản', body: 'Có giao dịch là có thông báo, chủ quán và thu ngân đỡ phải nhìn app ngân hàng liên tục.' },
-]
-
 export type Model = { icon: LucideIcon; title: string; body: string; tag: string }
 
 export const FNB_MODELS: Model[] = [

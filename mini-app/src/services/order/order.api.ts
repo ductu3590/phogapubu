@@ -101,36 +101,6 @@ export const orderService = {
     return { kind: "settled" };
   },
 
-  // Chờ server xác nhận đơn đã trả tiền (qua webhook checkout-notify).
-  // Dùng cho chuyển khoản ngân hàng: Zalo báo notify trễ vài giây sau khi khách chuyển,
-  // client KHÔNG được huỷ đơn sớm. Poll trạng thái tới khi confirmed/có trans_id, hoặc hết giờ.
-  waitForConfirmation: async (orderId: string, timeoutMs = 12000): Promise<boolean> => {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      const { data } = await supabase
-        .from("orders")
-        .select("status, zalopay_trans_id, bank_handoff_at")
-        .eq("id", orderId)
-        .single();
-      if (data) {
-        const status = data.status as string;
-        if (status === "cancelled") return false;
-        // Ví: confirmed / có trans_id. Chuyển khoản (PM-1): notify CHỈ set bank_handoff_at, KHÔNG
-        // còn tự confirm nữa → coi handoff là "đã ghi nhận, chờ quán xác nhận" để KHÔNG chờ hết
-        // 12s rồi đòi khách thanh toán lại (bug UX sau khi vá notify).
-        if (
-          data.zalopay_trans_id ||
-          data.bank_handoff_at ||
-          (status !== "pending" && status !== "cancelled")
-        ) {
-          return true;
-        }
-      }
-      await new Promise((r) => setTimeout(r, 1500));
-    }
-    return false;
-  },
-
   confirmReceived: async (orderId: string, zaloUserId: string): Promise<void> => {
     // Khách bấm "Đã nhận" — guard bằng zalo_user_id trong RPC
     const { error } = await supabase.rpc("confirm_order_received", {

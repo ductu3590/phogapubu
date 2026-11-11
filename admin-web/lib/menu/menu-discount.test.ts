@@ -8,7 +8,6 @@ import {
   parseActiveDiscounts,
   parseDiscountInput,
   ruleStatus,
-  untilLabel,
   vnToday,
   type ActiveRule,
   type DiscountInput,
@@ -52,11 +51,6 @@ describe('nhãn', () => {
   it('chip mức giảm', () => {
     expect(discountBadge({ discount_type: 'percent', value: 20 })).toBe('−20%')
     expect(discountBadge({ discount_type: 'amount', value: 15_000 })).toBe('−15.000đ')
-  })
-  it('đến lúc nào', () => {
-    expect(untilLabel({ time_to: '18:00', ends_on: '2026-11-20' })).toBe('đến 18:00')
-    expect(untilLabel({ time_to: null, ends_on: '2026-11-20' })).toBe('đến hết 20/11')
-    expect(untilLabel({ time_to: null, ends_on: null })).toBeNull()
   })
   it('ngày trong tuần gom dải', () => {
     expect(daysLabel([1, 2, 3, 4, 5])).toBe('T2–T6')

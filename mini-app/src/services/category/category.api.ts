@@ -90,21 +90,4 @@ export const categoryService = {
     }));
   },
 
-  // Lấy danh sách categories (không kèm items)
-  getCategories: async (storeId: string): Promise<Category[]> => {
-    const { data, error } = await supabase
-      .from("menu_categories")
-      .select("id, name, sort_order")
-      .eq("store_id", storeId)
-      .eq("is_active", true)
-      .order("sort_order");
-
-    if (error) throw error;
-
-    return (data ?? []).map((cat) => ({
-      id: cat.id,
-      name: cat.name,
-      sortOrder: cat.sort_order,
-    }));
-  },
 };

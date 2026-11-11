@@ -24,7 +24,6 @@ const {
   cancelStoreReservation,
   confirmReservation,
   createManualReservation,
-  listReservations,
   listReservationQueue,
   markReservationNoShow,
   rejectReservation,
@@ -32,11 +31,6 @@ const {
   resolveReservationChange,
   snoozeReservationReminders,
 } = await import('./reservations')
-
-const RANGE = {
-  startsAt: '2026-09-20T00:00:00.000Z',
-  endsAt: '2026-09-21T00:00:00.000Z',
-}
 
 const QUEUE_RANGE = {
   recentSince: '2026-09-18T00:00:00.000Z',
@@ -71,43 +65,6 @@ describe('reservation actions', () => {
     mocks.operator.value = { userId: 'owner-1', role: 'store_owner', storeId: 'store-1' }
     mocks.requireOperator.mockImplementation(async () => mocks.operator.value)
     mocks.rpc.mockResolvedValue({ data: RPC_RESERVATION, error: null })
-  })
-
-  it('owner chỉ dùng store trong operator, gọi đúng khoảng thời gian và map camelCase', async () => {
-    mocks.rpc.mockResolvedValueOnce({ data: [RPC_RESERVATION], error: null })
-
-    await expect(listReservations(RANGE)).resolves.toEqual({
-      ok: true,
-      reservations: [{
-        reservationId: 'reservation-1',
-        storeId: 'store-1',
-        status: 'confirmed',
-        customerName: 'Nguyễn Văn A',
-        customerPhone: '0900000000',
-        partySize: 8,
-        arrivalAt: '2026-09-20T12:00:00.000Z',
-        note: 'Gần sân khấu',
-        requestedArrivalAt: null,
-        requestedPartySize: null,
-        changeNote: null,
-        createdAt: '2026-09-19T00:00:00.000Z',
-        updatedAt: '2026-09-19T00:00:00.000Z',
-        tableIds: ['table-1', 'table-2'],
-        tableNumbers: ['Bàn 1', 'Bàn 2'],
-        suggestedTableCount: 2,
-        planningHoldMinutes: 180,
-        sessionId: null,
-        sessionClosed: false,
-        already: false,
-        reminderSnoozedUntil: '2026-09-20T12:15:00.000Z',
-        reminderSnoozedBy: 'owner-1',
-      }],
-    })
-    expect(mocks.rpc).toHaveBeenCalledWith('list_store_reservations', {
-      p_store_id: 'store-1',
-      p_starts_at: RANGE.startsAt,
-      p_ends_at: RANGE.endsAt,
-    })
   })
 
   it.each([

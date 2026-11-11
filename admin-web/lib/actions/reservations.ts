@@ -43,11 +43,6 @@ export type ReservationRow = {
   reminderSnoozedBy: string | null
 }
 
-export type ReservationRange = {
-  startsAt: string
-  endsAt: string
-}
-
 export type ReservationQueueRange = {
   recentSince: string
   futureUntil: string
@@ -97,21 +92,6 @@ function rpcResult(data: unknown): ReservationResult {
     return { ok: false, error: 'Dữ liệu phản hồi đặt bàn không hợp lệ' }
   }
   return { ok: true, reservation: toReservationRow(data as ReservationRpcRow) }
-}
-
-export async function listReservations(range: ReservationRange): Promise<ListReservationsResult> {
-  const { supabase, storeId, error } = await ownerClient()
-  if (!supabase || !storeId) return { ok: false, error: error ?? 'Không có quyền xử lý đặt bàn' }
-
-  const { data, error: rpcError } = await supabase.rpc('list_store_reservations', {
-    p_store_id: storeId,
-    p_starts_at: range.startsAt,
-    p_ends_at: range.endsAt,
-  })
-  if (rpcError) return { ok: false, error: rpcError.message }
-
-  if (!Array.isArray(data)) return { ok: false, error: 'Dữ liệu phản hồi đặt bàn không hợp lệ' }
-  return { ok: true, reservations: data.map((row) => toReservationRow(row as ReservationRpcRow)) }
 }
 
 export async function listReservationQueue(

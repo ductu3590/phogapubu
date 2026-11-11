@@ -3,7 +3,6 @@ import {
   LAYOUT_COLS,
   layoutTables,
   moveTable,
-  changedPositions,
   type LayoutTable,
 } from './table-layout'
 
@@ -88,27 +87,5 @@ describe('moveTable', () => {
   it('toạ độ ngoài lưới → từ chối, trả nguyên danh sách', () => {
     expect(moveTable(base(), 'a', LAYOUT_COLS, 0)).toEqual(base())
     expect(moveTable(base(), 'a', -1, 0)).toEqual(base())
-  })
-})
-
-describe('changedPositions', () => {
-  it('không đổi gì → mảng rỗng', () => {
-    const p = layoutTables([ban('a', 'Bàn 1', 0, 0)])
-    expect(changedPositions(p, p)).toEqual([])
-  })
-
-  it('chỉ trả về bàn thực sự đổi toạ độ', () => {
-    const before = layoutTables([ban('a', 'Bàn 1'), ban('b', 'Bàn 2')])
-    const after = moveTable(before, 'a', 1, 0) // đổi chỗ a với b
-    expect(changedPositions(before, after).sort((x, y) => x.id.localeCompare(y.id))).toEqual([
-      { id: 'a', pos_x: 1, pos_y: 0 },
-      { id: 'b', pos_x: 0, pos_y: 0 },
-    ])
-  })
-
-  it('bàn lần đầu được xếp (pos NULL → có toạ độ) cũng phải được lưu', () => {
-    const chuaSap: LayoutTable[] = [ban('a', 'Bàn 1')]
-    const after = layoutTables(chuaSap)
-    expect(changedPositions([], after)).toEqual([{ id: 'a', pos_x: 0, pos_y: 0 }])
   })
 })

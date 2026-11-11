@@ -15,12 +15,6 @@ export function useCreateOrder() {
   });
 }
 
-export function useCancelOrder() {
-  return useMutation<CancelResult, Error, { orderId: string; token: string }>({
-    mutationFn: ({ orderId, token }) => orderService.cancelOrder(orderId, token),
-  });
-}
-
 export function useCallStaff() {
   return useMutation<void, Error, ServiceRequest>({
     mutationFn: (req) => sessionOrderService.callStaff(req),

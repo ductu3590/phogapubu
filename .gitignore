@@ -57,3 +57,6 @@ mini-app-instances/
 
 # Cau hinh MCP cuc bo cua tung may
 .mcp.json
+
+# Log của playwright-cli (đầu ra công cụ, không commit)
+.playwright-cli/

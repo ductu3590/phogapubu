@@ -68,11 +68,6 @@ export function formatReservationDateTime(value: string): string {
   return `${part('day')}/${part('month')} · ${part('hour')}:${part('minute')}`
 }
 
-export function reservationLocalDate(value: string): string | null {
-  const parts = localDateParts(value)
-  return parts ? `${parts.year}-${parts.month}-${parts.day}` : null
-}
-
 export function phoneHref(phone: string): string | null {
   const digits = phone.replace(/\D/g, '')
   if (digits.length < 8) return null
