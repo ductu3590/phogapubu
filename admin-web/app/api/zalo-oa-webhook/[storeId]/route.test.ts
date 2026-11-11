@@ -1,163 +1,36 @@
-import { createHash } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => {
-  const rows: Record<string, unknown> = {}
-  const rpc = vi.fn()
-  const admin = {
-    from: vi.fn((table: string) => {
-      const builder = {
-        select: vi.fn(() => builder),
-        eq: vi.fn(() => builder),
-        maybeSingle: vi.fn(async () => ({ data: rows[table] ?? null, error: null })),
-      }
-      return builder
-    }),
-    rpc,
-  }
-  return { rows, rpc, admin }
-})
+const { POST, GET } = await import('./route')
 
-vi.mock('@/lib/supabase/server', () => ({ createAdminClient: vi.fn(() => mocks.admin) }))
-
-const { POST } = await import('./route')
-
-function payload(overrides: Record<string, unknown> = {}) {
-  return {
-    app_id: 'oa-parent-app-1',
-    sender: { id: 'owner-uid-456' },
-    recipient: { id: 'oa-789' },
-    event_name: 'user_send_text',
-    message: { text: 'MEVO A1B2C3D4E5F60718293A4B5C', msg_id: 'msg-001' },
-    timestamp: '1789952400000',
-    ...overrides,
-  }
-}
-
-function signedRequest(body = payload(), secret = 'oa-secret-test') {
-  const raw = JSON.stringify(body)
-  const digest = createHash('sha256')
-    .update(`${String(body.app_id)}${raw}${String(body.timestamp)}${secret}`)
-    .digest('hex')
-  return new Request('https://mevo.test/api/zalo-oa-webhook/store-1', {
+function post(body: string, signature?: string) {
+  return POST(new Request('https://mevo.test/api/zalo-oa-webhook/store-1', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-zevent-signature': `mac=${digest}` },
-    body: raw,
-  })
+    headers: { 'content-type': 'application/json', ...(signature ? { 'x-zevent-signature': signature } : {}) },
+    body,
+  }))
 }
 
-async function post(request: Request) {
-  return POST(request, { params: Promise.resolve({ storeId: 'store-1' }) })
-}
-
-describe('Zalo OA owner onboarding webhook', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    Object.assign(mocks.rows, {
-      stores: { zalo_oa_id: 'oa-789' },
-      store_app_configs: { zalo_mini_app_id: 'restaurant-mini-app-1' },
-      store_zalo_configs: { zalo_oa_app_id: 'oa-parent-app-1', zalo_app_secret_key: 'oa-secret-test', is_enabled: true },
-    })
-    mocks.rpc.mockResolvedValue({ data: { status: 'claimed' }, error: null })
-  })
-
-  it('từ chối trước DB khi thiếu hoặc sai chữ ký', async () => {
-    const request = signedRequest()
-    request.headers.set('x-zevent-signature', 'mac=00')
-    const response = await post(request)
-    expect(response.status).toBe(401)
-    expect(mocks.rpc).not.toHaveBeenCalled()
-  })
-
-  it('xác nhận POST kiểm tra URL không có chữ ký từ Zalo mà không xử lý dữ liệu', async () => {
-    const response = await post(new Request('https://mevo.test/api/zalo-oa-webhook/store-1', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: '{}',
-    }))
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ ok: true })
-    expect(mocks.rpc).not.toHaveBeenCalled()
-  })
-
-  it('từ chối app không thuộc store trong URL', async () => {
-    mocks.rows.store_zalo_configs = { zalo_oa_app_id: 'oa-other-app', zalo_app_secret_key: 'oa-secret-test', is_enabled: true }
-    const response = await post(signedRequest())
-    expect(response.status).toBe(403)
-    expect(mocks.rpc).not.toHaveBeenCalled()
-  })
-
-  it('ACK OA khác cùng app nhưng không claim kể cả có mã MEVO hợp lệ', async () => {
-    const response = await post(signedRequest(payload({ recipient: { id: 'another-oa' } })))
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ ok: true })
-    expect(mocks.rpc).not.toHaveBeenCalled()
-  })
-
-  it('ACK payload mẫu Console có chữ ký hợp lệ mà không ghi dữ liệu', async () => {
-    const response = await post(signedRequest(payload({
-      recipient: { id: 'console-example-oa' },
-      message: { msg_id: 'This is message id', text: 'This is testing message' },
-    })))
-    expect(response.status).toBe(200)
-    expect(mocks.rpc).not.toHaveBeenCalled()
-  })
-
-  it('OA khác có chữ ký sai vẫn bị từ chối', async () => {
-    const response = await post(signedRequest(payload({ recipient: { id: 'another-oa' } }), 'wrong-secret'))
-    expect(response.status).toBe(401)
-    expect(mocks.rpc).not.toHaveBeenCalled()
-  })
-
-  it('bỏ qua event không phải user_send_text và không claim mã', async () => {
-    const response = await post(signedRequest(payload({ event_name: 'user_send_image' })))
-    expect(response.status).toBe(202)
-    expect(mocks.rpc).not.toHaveBeenCalled()
-  })
-
-  it('event hợp lệ chỉ gửi hash code và tenant identity vào RPC', async () => {
-    const response = await post(signedRequest())
-    expect(response.status).toBe(200)
-    const body = await response.json()
-    expect(body).toEqual({ ok: true })
-    expect(mocks.rpc).toHaveBeenCalledWith('claim_zalo_oa_onboarding_challenge', {
-      p_store_id: 'store-1',
-      p_app_id: 'oa-parent-app-1',
-      p_oa_id: 'oa-789',
-      p_oa_user_id: 'owner-uid-456',
-      p_message_id: 'msg-001',
-      p_code_hash: 'dd1a64dd3c7b400cef802f66cfb747337dd6a290d2aeeda2cb0c1e72db3ec6af',
-    })
-    expect(JSON.stringify(body)).not.toContain('owner-uid-456')
-  })
-
-  it('code sai/hết hạn vẫn trả phản hồi chung, không lộ nguyên nhân cho người gửi', async () => {
-    mocks.rpc.mockResolvedValue({ data: { status: 'invalid' }, error: null })
-    const response = await post(signedRequest())
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ ok: true })
-  })
-})
-
-describe('Webhook URL chung của tổ chức — chuyển tiếp Sổ Tay Buôn Đá', () => {
+describe('Webhook Zalo OA — chỉ ack và chuyển tiếp Sổ Tay Buôn Đá', () => {
   const fetchMock = vi.fn()
 
   beforeEach(() => {
-    vi.clearAllMocks()
     fetchMock.mockReset()
     vi.stubGlobal('fetch', fetchMock)
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('event Mini App của Sổ Tay → chuyển nguyên body + chữ ký, trả đúng status Supabase, không đụng DB', async () => {
+  it('GET và POST kiểm tra URL của Zalo đều trả 200', async () => {
+    expect((await GET()).status).toBe(200)
+    const response = await post('{}')
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('event Mini App của Sổ Tay → chuyển nguyên body + chữ ký, trả đúng status Supabase', async () => {
     fetchMock.mockResolvedValue(new Response('{"result":"deleted"}', { status: 200 }))
     const raw = '{"appId": 805750043345863894, "event":"user.revoke.consent","userId":"u1","timestamp":1}'
-    const response = await post(new Request('https://mevo.test/api/zalo-oa-webhook/store-1', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-zevent-signature': 'abc123' },
-      body: raw,
-    }))
+    const response = await post(raw, 'abc123')
 
     expect(response.status).toBe(200)
     expect(await response.text()).toBe('{"result":"deleted"}')
@@ -165,18 +38,12 @@ describe('Webhook URL chung của tổ chức — chuyển tiếp Sổ Tay Buôn
     expect(url).toBe('https://pasefbdemcxxwdquofzt.supabase.co/functions/v1/zalo-webhook')
     expect(init.body).toBe(raw)
     expect(init.headers['X-ZEvent-Signature']).toBe('abc123')
-    expect(mocks.admin.from).not.toHaveBeenCalled()
   })
 
-  it('event OA bình thường không bị chuyển tiếp', async () => {
-    Object.assign(mocks.rows, {
-      stores: { zalo_oa_id: 'oa-789' },
-      store_zalo_configs: { zalo_oa_app_id: 'oa-parent-app-1', zalo_app_secret_key: 'oa-secret-test', is_enabled: true },
-    })
-    mocks.rpc.mockResolvedValue({ data: { status: 'claimed' }, error: null })
-    const response = await post(signedRequest())
+  it('event OA bình thường chỉ được ack, không chuyển tiếp', async () => {
+    const raw = JSON.stringify({ app_id: 'oa-parent-app-1', event_name: 'user_send_text', message: { text: 'xin chào' } })
+    const response = await post(raw, 'mac=abc')
     expect(response.status).toBe(200)
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(mocks.rpc).toHaveBeenCalled()
   })
 })

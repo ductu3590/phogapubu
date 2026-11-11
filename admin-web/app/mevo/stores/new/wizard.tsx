@@ -84,10 +84,9 @@ export default function StoreWizard() {
           const oaId = (fd.get('zalo_oa_id') as string).trim()
           const token = (fd.get('zalo_oa_access_token') as string).trim()
           const secret = (fd.get('zalo_app_secret_key') as string).trim()
-          const oaAppId = (fd.get('zalo_oa_app_id') as string).trim()
           if (oaId) await updateStoreOaId(storeId, fd)
-          if (token || secret || oaAppId) await updateZaloConfig(storeId, fd)
-          setDone((d) => ({ ...d, oa: !!(oaId || token || secret || oaAppId) }))
+          if (token || secret) await updateZaloConfig(storeId, fd)
+          setDone((d) => ({ ...d, oa: !!(oaId || token || secret) }))
           goTo(5)
         })} />}
         {step === 5 && <Step5 pending={pending} storeId={storeId} onSkip={() => goTo(6)}
@@ -201,7 +200,6 @@ function Step4({ pending, storeId, onSubmit, onSkip }: {
   return (
     <form action={onSubmit} className="space-y-4">
       <Field label="Zalo OA ID (không phải secret)" name="zalo_oa_id" />
-      <Field label="OA API App ID — app cha nhận webhook (không phải Mini App ID)" name="zalo_oa_app_id" />
       <Field label="OA Access Token" name="zalo_oa_access_token" type="password" />
       <Field label="OA API App Secret Key — webhook" name="zalo_app_secret_key" type="password" />
       <div className="rounded-lg bg-background p-3 text-sm text-muted">

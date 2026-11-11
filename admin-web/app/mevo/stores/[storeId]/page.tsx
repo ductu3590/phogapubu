@@ -33,7 +33,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
 
   const { data: appConfig } = await admin.from('store_app_configs').select('*').eq('store_id', storeId).maybeSingle()
   const { data: checkoutConfig } = await admin.from('store_checkout_configs').select('zalo_mini_app_id, zalo_checkout_secret_key, is_enabled, updated_at').eq('store_id', storeId).maybeSingle()
-  const { data: zaloConfig } = await admin.from('store_zalo_configs').select('is_enabled, updated_at, zalo_oa_app_id, zalo_oa_access_token, zalo_app_secret_key').eq('store_id', storeId).maybeSingle()
+  const { data: zaloConfig } = await admin.from('store_zalo_configs').select('is_enabled, updated_at, zalo_oa_access_token, zalo_app_secret_key').eq('store_id', storeId).maybeSingle()
   const { data: operators } = await admin.from('mevo_operators').select('user_id, role, is_active').eq('store_id', storeId)
   // Ghép email để nhìn thấy AI đang giữ quyền quán này, thay vì chỉ đếm số dòng.
   const authUsers = operators && operators.length > 0 ? await listAllAuthUsers(admin) : []
@@ -116,7 +116,6 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
         </p>
         <p className="mb-3 text-sm text-muted">Trạng thái secret: <StatusText ok={!!zaloConfig?.is_enabled} /></p>
         <SaveForm action={updateZalo}>
-          <Field label="OA API App ID — app cha nhận webhook (không phải Mini App ID)" name="zalo_oa_app_id" defaultValue={zaloConfig?.zalo_oa_app_id ?? ''} />
           <SecretField label="OA Access Token (bỏ trống nếu không đổi)" name="zalo_oa_access_token" value={zaloConfig?.zalo_oa_access_token ?? ''} />
           <SecretField label="OA API App Secret Key — webhook (bỏ trống nếu không đổi)" name="zalo_app_secret_key" value={zaloConfig?.zalo_app_secret_key ?? ''} />
         </SaveForm>

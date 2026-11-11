@@ -8,7 +8,6 @@ const mocks = vi.hoisted(() => {
   const existingZaloConfig = { value: null as null | {
     zalo_oa_access_token: string | null
     zalo_app_secret_key: string | null
-    zalo_oa_app_id: string | null
   } }
   const eqCalls = { value: [] as Array<[string, unknown]> }
 
@@ -81,11 +80,10 @@ describe('updateStoreOaId', () => {
   })
 })
 
-function zaloConfigForm(token = '', secret = '', oaAppId = '') {
+function zaloConfigForm(token = '', secret = '') {
   const fd = new FormData()
   fd.set('zalo_oa_access_token', token)
   fd.set('zalo_app_secret_key', secret)
-  fd.set('zalo_oa_app_id', oaAppId)
   return fd
 }
 
@@ -97,8 +95,8 @@ describe('updateZaloConfig', () => {
     mocks.requireSuperadmin.mockResolvedValue({ userId: 'u1', role: 'mevo_superadmin', storeId: null })
   })
 
-  it('lần cấu hình đầu tiên bắt buộc có OA API App ID', async () => {
-    await expect(updateZaloConfig('store-1', zaloConfigForm('new-token', 'new-secret'))).rejects.toThrow('OA API App ID')
+  it('lần cấu hình đầu tiên bắt buộc có App Secret Key', async () => {
+    await expect(updateZaloConfig('store-1', zaloConfigForm('new-token'))).rejects.toThrow('App Secret Key')
     expect(mocks.upsertArgs.value).toBeNull()
   })
 
@@ -106,20 +104,18 @@ describe('updateZaloConfig', () => {
     mocks.existingZaloConfig.value = {
       zalo_oa_access_token: 'old-token',
       zalo_app_secret_key: 'old-secret',
-      zalo_oa_app_id: 'old-oa-app',
     }
     await updateZaloConfig('store-1', zaloConfigForm())
     expect(mocks.upsertArgs.value).toEqual({ store_id: 'store-1', is_enabled: true })
   })
 
-  it('credential và OA API App ID mới hợp lệ được lưu nhưng action không trả secret', async () => {
-    const result = await updateZaloConfig('store-1', zaloConfigForm('new-token', 'new-secret', 'oa-parent-app'))
+  it('credential mới hợp lệ được lưu nhưng action không trả secret', async () => {
+    const result = await updateZaloConfig('store-1', zaloConfigForm('new-token', 'new-secret'))
     expect(mocks.upsertArgs.value).toEqual({
       store_id: 'store-1',
       is_enabled: true,
       zalo_oa_access_token: 'new-token',
       zalo_app_secret_key: 'new-secret',
-      zalo_oa_app_id: 'oa-parent-app',
     })
     expect(result).toBeUndefined()
   })
