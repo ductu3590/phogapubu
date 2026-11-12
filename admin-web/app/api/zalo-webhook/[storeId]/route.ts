@@ -9,7 +9,6 @@
 
 import { createHash } from 'crypto'
 import { createAdminClient } from '@/lib/supabase/server'
-import { forwardToSoTay, isSoTayEvent } from '@/lib/zalo/so-tay-forward'
 
 function expectedSignature(payload: Record<string, unknown>, apiKey: string): string {
   const content = Object.keys(payload)
@@ -31,11 +30,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ sto
   try {
     const raw = await request.text()
     const payload = JSON.parse(raw) as Record<string, unknown>
-
-    // Phải đứng TRƯỚC bước tra cấu hình quán: storeId trong URL của Sổ Tay không phải quán MEVO.
-    if (isSoTayEvent(raw)) {
-      return forwardToSoTay(raw, request.headers.get('x-zevent-signature') ?? '')
-    }
 
     const admin = createAdminClient()
 

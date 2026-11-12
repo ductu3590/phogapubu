@@ -2,7 +2,7 @@
 
 import { printDocument } from '@/lib/print/print-document'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Banknote, Ellipsis, Landmark, Layers, Link2, Plus, Printer, RefreshCw, Trash2 } from 'lucide-react'
+import { Ellipsis, Plus, Printer, Trash2 } from 'lucide-react'
 import { StatusDot } from '@/components/ui/badge'
 import { Button, IconButton } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
@@ -14,11 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   addTableToSession,
   closeTableSession,
-  collectTableBill,
-  createTraySession,
   listOpenTableSessions,
-  mergeSessionIntoTray,
-  releaseTableSessionHost,
   type OpenTableSession,
   type SessionTable,
 } from '@/lib/actions/table-session'
@@ -27,12 +23,14 @@ import { billTotals } from '@/lib/bill-discount'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
 import { areaColorClasses } from '@/lib/area-colors'
 import { groupTablesByArea, type StaffArea } from '@/lib/staff-area-groups'
-import { runCollect } from '@/lib/collect-outcome'
 
 const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 
 const gio = (iso: string) =>
   new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+
+// Bàn trả sau thu CẢ BÀN một lần và chỉ ở POS — màn nhân viên chỉ nhắc, không có nút thu.
+const POS_ONLY_HINT = 'Thu tiền ở POS (Thanh toán)'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Chờ xử lý',
@@ -42,14 +40,13 @@ const STATUS_LABEL: Record<string, string> = {
   paid: 'Hoàn tất',
 }
 
+// Màn này KHÔNG thu tiền: bàn trả sau chỉ thu ở POS → Thanh toán (nơi duy nhất có giảm giá, ghi nợ,
+// kết hợp tiền mặt + chuyển khoản). Ở đây chỉ xem bill, in tạm tính, thêm bàn trống vào bàn đang có khách và bỏ
+// bàn (vai POS). Ghép mâm / nhập mâm / chuyển quyền gọi món là việc của POS (quyết định 2026-11-12, mig 133 chặn cả server).
 type Sheet =
   | { kind: 'none' }
-  // requestId sinh lúc mở sheet: bấm lại sau lỗi / mất mạng gửi lại đúng mã → server không ghi khoản thứ hai.
-  | { kind: 'pay'; sessions: OpenTableSession[]; requestId: string }
   | { kind: 'more'; session: OpenTableSession }
   | { kind: 'reset'; session: OpenTableSession }
-  | { kind: 'tray' }
-  | { kind: 'merge'; session: OpenTableSession }
   | { kind: 'addTable'; session: OpenTableSession }
 
 export default function TablesClient({
@@ -58,7 +55,7 @@ export default function TablesClient({
   allTables,
   initialSessions,
   initialError,
-  canClose,
+  canReset,
   areas,
 }: {
   storeId: string
@@ -66,20 +63,17 @@ export default function TablesClient({
   allTables: Array<SessionTable & { area_id: string | null }>
   initialSessions: OpenTableSession[]
   initialError: string | null
-  canClose: boolean
+  /** Chủ quán / quản lý / thu ngân: được "Bỏ bàn" (đóng phiên không thu tiền). Nhân viên phục vụ thì không. */
+  canReset: boolean
   areas: StaffArea[]
 }) {
   const [sessions, setSessions] = useState(initialSessions)
   const [error, setError] = useState(initialError)
   const [busy, setBusy] = useState(false)
-  // Lỗi hiện NGAY trong sheet đang mở (thu tiền / bỏ bàn) — Banner đầu trang bị sheet che mất.
+  // Lỗi hiện NGAY trong sheet đang mở (bỏ bàn) — Banner đầu trang bị sheet che mất.
   const [sheetError, setSheetError] = useState<string | null>(null)
   const [sheet, setSheet] = useState<Sheet>({ kind: 'none' })
   const [connected, setConnected] = useState(false)
-  // Chế độ gộp bill: tick nhiều mâm rồi thu một lần. Tách bill là MẶC ĐỊNH (mỗi mâm vốn là
-  // một bill con) — chỉ bật chế độ này khi trưởng đoàn trả chung.
-  const [picked, setPicked] = useState<Set<string>>(new Set())
-  const [pickTables, setPickTables] = useState<Set<string>>(new Set())
   const reloading = useRef(false)
 
   // Realtime: KHÔNG cộng dồn tại chỗ mà tải lại CẢ danh sách. Tổng tiền phải do server tính —
@@ -149,56 +143,20 @@ export default function TablesClient({
   // Cùng hàm với màn Chọn bàn (/staff/order) → một mâm chỉ có đúng một màu trên cả hai màn.
   const trayColors = useMemo(() => assignTrayColors(sessions), [sessions])
 
-  const openSessions = sessions.filter((s) => s.status === 'open')
   const liveSessions = sessions.filter((s) => !s.needs_review)
   const reviewSessions = sessions.filter((s) => s.needs_review)
-  const pickedSessions = sessions.filter((s) => picked.has(s.session_id))
-  // Số tiền thu = phần chưa thu trừ giảm giá đặt ở POS — đúng số collect_table_bill tự tính (mig 108, 112a).
-  const pickedTotal = billTotals(pickedSessions).payable
 
   const finish = async (msg?: string) => {
     setBusy(false)
     setSheetError(null)
     setSheet({ kind: 'none' })
-    setPicked(new Set())
-    setPickTables(new Set())
     if (msg) setError(msg)
     await reload()
   }
 
-  // Thu một bàn hoặc gộp N mâm, MỘT phương tiện (mig 112a: collect_table_bill). Số gửi lên = số đang hiện
-  // (billTotals); server tự tính lại và từ chối nếu bill vừa đổi. Kết quả xử lý chung bằng runCollect:
-  //   • bill vừa đổi → đóng sheet (bỏ số cũ), báo trên trang, tải lại; mở lại sheet sẽ có số mới + mã mới;
-  //   • lỗi khác / mất mạng → GIỮ sheet và requestId, báo ngay trong sheet; bấm lại không tạo khoản trùng.
-  const doCollect = async (list: OpenTableSession[], instrument: 'cash' | 'bank', requestId: string) => {
-    if (!canClose) return
-    setBusy(true)
-    setSheetError(null)
-    try {
-      const t = billTotals(list)
-      const out = await runCollect(() => collectTableBill({
-        sessionIds: list.map((s) => s.session_id),
-        lines: t.payable > 0 ? [{ instrument, amount: t.payable }] : [],
-        cashGiven: null,
-        clientRequestId: requestId,
-      }))
-      if (out.kind === 'done') {
-        await finish(out.message ?? undefined)
-      } else if (out.kind === 'stale') {
-        setSheet({ kind: 'none' })
-        setError(out.error)
-        await reload()
-      } else {
-        setSheetError(out.error)
-      }
-    } finally {
-      setBusy(false)
-    }
-  }
-
   // Bỏ bàn: đóng phiên không thu tiền. Server action ném (mất mạng) thì báo trong sheet, không kẹt busy.
   const doReset = async (session: OpenTableSession) => {
-    if (!canClose) return
+    if (!canReset) return
     setBusy(true)
     setSheetError(null)
     try {
@@ -234,39 +192,17 @@ export default function TablesClient({
     await finish()
   }
 
-  const togglePick = (id: string) =>
-    setPicked((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-
-  const toggleTable = (id: string) =>
-    setPickTables((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-
   const dongSheet = () => { if (!busy) { setSheetError(null); setSheet({ kind: 'none' }) } }
   const openSheet = (next: Sheet) => { setSheetError(null); setSheet(next) }
 
   const sheetTitle =
-    sheet.kind === 'pay'
-      ? `Thu ${dong(billTotals(sheet.sessions).payable)}${sheet.sessions.length === 1 ? ` — ${sheet.sessions[0].table_number}` : ` — ${sheet.sessions.length} mâm`}`
-      : sheet.kind === 'more'
-        ? sheet.session.table_number
-        : sheet.kind === 'reset'
-          ? `Bỏ ${sheet.session.table_number} mà KHÔNG thu tiền?`
-          : sheet.kind === 'tray'
-            ? 'Ghép bàn thành mâm'
-            : sheet.kind === 'merge'
-              ? `Nhập ${sheet.session.table_number} vào mâm nào?`
-              : sheet.kind === 'addTable'
-                ? `Thêm bàn vào ${sheet.session.table_number}`
-                : ''
+    sheet.kind === 'more'
+      ? sheet.session.table_number
+      : sheet.kind === 'reset'
+        ? `Bỏ ${sheet.session.table_number} mà KHÔNG thu tiền?`
+        : sheet.kind === 'addTable'
+          ? `Thêm bàn vào ${sheet.session.table_number}`
+          : ''
 
   const renderSession = (s: OpenTableSession) => {
         const tray = trayColors.get(s.session_id)
@@ -277,24 +213,17 @@ export default function TablesClient({
           id={`session-${s.session_id}`}
           className={cn(
             'rounded-xl border bg-surface p-3',
-            picked.has(s.session_id) ? 'border-primary ring-2 ring-primary/20' : s.needs_review ? 'border-critical-border' : 'border-border',
+            s.needs_review ? 'border-critical-border' : 'border-border',
             tray?.color.bar,
           )}
         >
           {s.needs_review && (
             <Banner tone="error" title={`${sessionTimeoutMessage(s.idle_timeout_minutes)} nên bàn được mở khoá`} className="mb-3 p-3">
-              Vẫn còn <b className="font-semibold tabular">{dong(s.unpaid_total)} chưa thu</b>. {canClose ? 'Xử lý nốt rồi đóng.' : 'Báo chủ quán xử lý bill.'}
+              Vẫn còn <b className="font-semibold tabular">{dong(s.unpaid_total)} chưa thu</b>.
             </Banner>
           )}
 
           <div className="mb-2 flex items-start gap-3">
-            {canClose && <input
-              type="checkbox"
-              checked={picked.has(s.session_id)}
-              onChange={() => togglePick(s.session_id)}
-              className="mt-1 size-5 shrink-0 accent-[var(--primary)]"
-              aria-label={`Chọn ${s.table_number} để gộp bill`}
-            />}
             <div className="min-w-0 flex-1">
               <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-semibold text-foreground">
                 {s.table_number}
@@ -329,12 +258,8 @@ export default function TablesClient({
             </ul>
           )}
 
-          <div className="flex gap-2">
-            {canClose && (
-              <Button variant="primary" onClick={() => openSheet({ kind: 'pay', sessions: [s], requestId: crypto.randomUUID() })} disabled={busy} className="flex-1">
-                Thu tiền &amp; đóng bàn
-              </Button>
-            )}
+          <div className="flex items-center gap-2">
+            <p className="min-w-0 flex-1 text-[13px] text-muted">{POS_ONLY_HINT}</p>
             <IconButton icon={<Printer />} label="In bill" onClick={() => printBill([s])} disabled={busy} className="border border-border-strong bg-surface" />
             <IconButton icon={<Ellipsis />} label="Thao tác khác" onClick={() => openSheet({ kind: 'more', session: s })} disabled={busy} className="border border-border-strong bg-surface" />
           </div>
@@ -349,9 +274,6 @@ export default function TablesClient({
           <StatusDot tone={connected ? 'success' : 'neutral'} />
           {connected ? 'Đang cập nhật trực tiếp' : 'Mất kết nối — đang thử lại...'}
         </span>
-        <Button icon={<Layers />} onClick={() => openSheet({ kind: 'tray' })} disabled={busy || freeTables.length === 0}>
-          Ghép mâm
-        </Button>
       </div>
 
       {error && (
@@ -360,7 +282,7 @@ export default function TablesClient({
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto pb-28">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-6">
         <div className="px-4 py-3">
         {sessions.length === 0 ? (
           <div className="py-8">
@@ -381,7 +303,7 @@ export default function TablesClient({
               <summary className="cursor-pointer text-sm font-semibold text-error-text">
                 Phiên hết hạn chưa thu ({reviewSessions.length}) · <span className="tabular">{dong(reviewSessions.reduce((n, s) => n + s.unpaid_total, 0))}</span>
               </summary>
-              <p className="mt-1 text-[13px] text-muted">{canClose ? 'Thu nốt tiền hoặc bỏ bàn để dọn khỏi danh sách.' : 'Báo thu ngân / chủ quán xử lý trên máy POS.'}</p>
+              <p className="mt-1 text-[13px] text-muted">{canReset ? 'Thu nốt tiền ở POS (Thanh toán) hoặc bỏ bàn để dọn khỏi danh sách.' : 'Báo thu ngân / chủ quán xử lý trên máy POS.'}</p>
               <ul className="mt-3 space-y-3">{reviewSessions.map(renderSession)}</ul>
             </details>
           )}
@@ -389,23 +311,6 @@ export default function TablesClient({
         )}
         </div>
       </div>
-
-      {/* Thanh gộp bill — chỉ hiện khi đã tick từ 2 mâm trở lên */}
-      {canClose && picked.size > 1 && (
-        <div className="absolute inset-x-0 bottom-0 mx-auto max-w-md border-t border-border bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-modal">
-          <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="text-muted">Gộp {picked.size} mâm</span>
-            <span className="font-semibold text-foreground tabular">{dong(pickedTotal)}</span>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => setPicked(new Set())}>Bỏ chọn</Button>
-            <Button icon={<Printer />} onClick={() => printBill(pickedSessions)}>In 1 hoá đơn</Button>
-            <Button variant="primary" onClick={() => openSheet({ kind: 'pay', sessions: pickedSessions, requestId: crypto.randomUUID() })} disabled={busy} className="flex-1">
-              Thu tiền
-            </Button>
-          </div>
-        </div>
-      )}
 
       {sheet.kind !== 'none' && (
         <Dialog
@@ -416,59 +321,16 @@ export default function TablesClient({
           dismissible={!busy}
           className="md:inset-x-0 md:top-auto md:bottom-0 md:mx-auto md:h-auto md:max-h-[85dvh] md:w-full md:max-w-md md:rounded-none md:rounded-t-2xl"
         >
-            {canClose && sheet.kind === 'pay' && (() => {
-              const t = billTotals(sheet.sessions)
-              return (
-              <>
-                {t.error && <Banner tone="error" title={t.error} className="mb-3">Sửa giảm giá ở POS → Thanh toán rồi thu lại.</Banner>}
-                {!t.error && t.discount > 0 && (
-                  <p className="mb-3 text-[13px] text-muted">
-                    Tiền hàng <span className="tabular">{dong(t.goods)}</span> · Giảm giá <span className="tabular">−{dong(t.discount)}</span> (đặt ở POS)
-                  </p>
-                )}
-                {sheetError && <Banner tone="error" title={sheetError} className="mb-3" />}
-                <p className="text-sm text-muted">Khách trả bằng gì?</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Button variant="primary" size="touch" icon={<Banknote />} onClick={() => void doCollect(sheet.sessions, 'cash', sheet.requestId)} disabled={busy || !!t.error}>
-                    Tiền mặt
-                  </Button>
-                  <Button size="touch" icon={<Landmark />} onClick={() => void doCollect(sheet.sessions, 'bank', sheet.requestId)} disabled={busy || !!t.error}>
-                    Chuyển khoản
-                  </Button>
-                </div>
-                <p className="mt-2 text-[13px] text-muted">
-                  Chuyển khoản: cho khách quét mã QR của quán, nghe loa báo tiền về rồi mới bấm.
-                </p>
-              </>
-              )
-            })()}
-
             {sheet.kind === 'more' && (
               <div className="space-y-2">
                 <ActionRow
                   icon={<Plus />}
                   title="Thêm bàn vào mâm"
-                  description="Đoàn đông thêm người. Thêm bàn xong là cả nhóm cùng gọi vào một bill."
+                  description="Khách đang ngồi có thêm bạn tới, kê thêm bàn trống cạnh nhau. Thêm xong cả nhóm gọi vào một bill."
                   onClick={() => openSheet({ kind: 'addTable', session: sheet.session })}
                   disabled={busy || freeTables.length === 0}
                 />
-                <ActionRow
-                  icon={<Link2 />}
-                  title="Nhập vào mâm khác"
-                  description="Khách quét QR trước khi kịp ghép bàn. Chuyển cả món lẫn bàn sang mâm đích."
-                  onClick={() => openSheet({ kind: 'merge', session: sheet.session })}
-                  disabled={busy || openSessions.length < 2}
-                />
-                {!sheet.session.is_open_ordering && (
-                  <ActionRow
-                    icon={<RefreshCw />}
-                    title="Chuyển quyền gọi món"
-                    description="Nhả máy đang giữ bàn. Máy nào gọi món tiếp theo sẽ thành chủ. Bàn vẫn mở, bill giữ nguyên."
-                    onClick={() => void doSimple(() => releaseTableSessionHost(sheet.session.session_id))}
-                    disabled={busy || sheet.session.status !== 'open'}
-                  />
-                )}
-                {canClose && (
+                {canReset && (
                   <ActionRow
                     danger
                     icon={<Trash2 />}
@@ -481,7 +343,7 @@ export default function TablesClient({
               </div>
             )}
 
-            {canClose && sheet.kind === 'reset' && (
+            {canReset && sheet.kind === 'reset' && (
               <>
                 {sheetError && <Banner tone="error" title={sheetError} className="mb-3" />}
                 <p className="text-sm text-muted">
@@ -492,69 +354,6 @@ export default function TablesClient({
                   <Button size="touch" onClick={() => openSheet({ kind: 'more', session: sheet.session })}>Quay lại</Button>
                   <Button variant="danger" size="touch" onClick={() => void doReset(sheet.session)} disabled={busy}>Bỏ bàn</Button>
                 </div>
-              </>
-            )}
-
-            {sheet.kind === 'tray' && (
-              <>
-                <p className="text-sm text-muted">
-                  Chọn các bàn đoàn đang ngồi. QR của bàn nào trong mâm cũng dẫn về đúng mâm này,
-                  và cả nhóm gọi thêm được — không khoá theo một máy.
-                </p>
-                <AreaTableGroups groups={freeByArea} className="mt-3" render={(t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      aria-pressed={pickTables.has(t.id)}
-                      onClick={() => toggleTable(t.id)}
-                      className={cn(
-                        'min-h-12 cursor-pointer rounded-lg border text-sm font-medium transition-colors',
-                        pickTables.has(t.id) ? 'border-primary bg-primary-light text-primary' : 'border-border-strong text-foreground active:bg-item-hover',
-                      )}
-                    >
-                      {t.table_number}
-                    </button>
-                )} />
-                {freeTables.length === 0 && <EmptyState>Không còn bàn trống nào.</EmptyState>}
-                <Button
-                  variant="primary"
-                  size="touch"
-                  onClick={() => void doSimple(() => createTraySession([...pickTables]))}
-                  disabled={busy || pickTables.size === 0}
-                  className="mt-4 w-full"
-                >
-                  Ghép {pickTables.size > 0 ? `${pickTables.size} bàn ` : ''}thành mâm
-                </Button>
-              </>
-            )}
-
-            {sheet.kind === 'merge' && (
-              <>
-                <p className="text-sm text-muted">
-                  Cả món đã gọi lẫn bàn sẽ chuyển sang mâm đích. Phiên này đóng lại, tiền gộp vào
-                  bill của mâm đích.
-                </p>
-                <ul className="mt-3 divide-y divide-border rounded-xl border border-border">
-                  {openSessions
-                    .filter((s) => s.session_id !== sheet.session.session_id)
-                    .map((s) => (
-                      <li key={s.session_id}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void doSimple(() =>
-                              mergeSessionIntoTray(sheet.session.session_id, s.session_id),
-                            )
-                          }
-                          disabled={busy}
-                          className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-3 px-3 text-left active:bg-item-hover disabled:opacity-50"
-                        >
-                          <span className="text-sm font-medium text-foreground">{s.table_number}</span>
-                          <span className="text-[13px] text-muted tabular">{s.order_count} đơn · {dong(s.total)}</span>
-                        </button>
-                      </li>
-                    ))}
-                </ul>
               </>
             )}
 

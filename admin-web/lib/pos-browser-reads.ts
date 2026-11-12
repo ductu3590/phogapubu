@@ -14,7 +14,6 @@ import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders
 import type { ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
 import type { BankAccountFields } from '@/lib/vietqr'
 import type { PrintRequest } from '@/lib/print/print-request'
-import type { AutoPrintConfig } from '@/lib/print/auto-kitchen-print'
 import { parseCashShiftReport, parseCashShiftState, type CashShiftReport, type CashShiftState } from '@/lib/cash-shift'
 import { CASH_BOOK_CATEGORY_COLUMNS, parseCashBookCategories, type CashBookCategory } from '@/lib/cash-book'
 import { parseDebtList, type DebtCustomerSummary } from '@/lib/debts'
@@ -149,30 +148,6 @@ export async function readPrintStatus(client: BrowserClient, storeId: string): P
       // Kiểm từng phần tử: một phần tử sai hình bị bỏ, không làm hỏng cả băng báo lỗi
       problem_jobs: Array.isArray(r.problem_jobs) ? r.problem_jobs.flatMap((j) => parseProblemJob(j) ?? []) : [],
     },
-  }
-}
-
-// Cấu hình để POS quyết định có tự in phiếu bếp không: chế độ in + 2 chính sách xuống bếp + trả trước/sau.
-// Đọc thẳng từ trình duyệt (không qua server action, xem quyết định 2026-10-04 ST-3).
-export async function readAutoPrintConfig(client: BrowserClient, storeId: string): Promise<
-  { ok: true; config: AutoPrintConfig } | { ok: false; error: string }
-> {
-  const [workflow, mode] = await Promise.all([
-    client.rpc('get_public_store_workflow', { p_store_id: storeId }),
-    client.rpc('get_print_mode'),
-  ])
-  if (workflow.error) return { ok: false, error: workflow.error.message }
-  if (mode.error) return { ok: false, error: mode.error.message }
-  const w = (workflow.data ?? {}) as Record<string, unknown>
-  const policy = (v: unknown) => (v === 'automatic' || v === 'pos_confirmation' ? v : null)
-  const kitchen = policy(w.kitchen_release_policy)
-  const staff = policy(w.staff_order_release_policy)
-  const timing = w.payment_timing === 'prepay' || w.payment_timing === 'postpay' ? w.payment_timing : null
-  if (!kitchen || !staff || !timing) return { ok: false, error: 'Cấu hình quán không hợp lệ' }
-  if (mode.data !== 'browser' && mode.data !== 'agent') return { ok: false, error: 'Chế độ in không hợp lệ' }
-  return {
-    ok: true,
-    config: { mode: mode.data, kitchenReleasePolicy: kitchen, staffOrderReleasePolicy: staff, paymentTiming: timing },
   }
 }
 

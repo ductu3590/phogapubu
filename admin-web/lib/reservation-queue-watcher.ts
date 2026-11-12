@@ -1,4 +1,5 @@
 import type { ReservationRow } from './actions/reservations'
+import { watchRealtime, type WatchEventTarget } from './realtime-watch'
 import type { createClient } from './supabase/client'
 
 type ReservationQueueClient = ReturnType<typeof createClient>
@@ -7,13 +8,9 @@ export type ReservationQueueLoadResult =
   | { ok: true; reservations: ReservationRow[] }
   | { ok: false; error: string }
 
-export type ReservationQueueEventTarget = {
-  addEventListener: (type: string, listener: () => void) => void
-  removeEventListener: (type: string, listener: () => void) => void
-}
+export type ReservationQueueEventTarget = WatchEventTarget
 
-let watcherSeq = 0
-
+// Hàng đợi đặt bàn (POS + trang Đặt bàn): nghe bảng reservations rồi tải lại snapshot.
 export function watchReservationQueue({
   client,
   storeId,
@@ -33,84 +30,28 @@ export function watchReservationQueue({
   eventTarget?: ReservationQueueEventTarget
   fallbackIntervalMs?: number
 }) {
-  let stopped = false
-  let running = false
-  let dirty = false
-  let timer: ReturnType<typeof setTimeout> | undefined
-
-  async function drain() {
-    if (stopped || running) return
-    running = true
-    try {
-      do {
-        dirty = false
-        try {
-          const result = await load()
-          if (stopped) return
-          if (!result.ok) {
-            onError(result.error)
-          } else {
-            onRows(result.reservations.filter((reservation) => reservation.storeId === storeId))
-            onError(null)
-          }
-        } catch {
-          if (!stopped) {
-            onError('Không tải được hàng đợi đặt bàn. Kiểm tra mạng rồi thử lại.')
-          }
+  return watchRealtime({
+    client,
+    channel: `reservation-queue-${storeId}`,
+    sources: [{ table: 'reservations', filter: `store_id=eq.${storeId}` }],
+    load: async (stopped) => {
+      try {
+        const result = await load()
+        if (stopped()) return
+        if (!result.ok) {
+          onError(result.error)
+        } else {
+          onRows(result.reservations.filter((reservation) => reservation.storeId === storeId))
+          onError(null)
         }
-      } while (!stopped && dirty)
-    } finally {
-      running = false
-    }
-  }
-
-  function refresh() {
-    if (stopped) return
-    dirty = true
-    clearTimeout(timer)
-    timer = setTimeout(() => void drain(), 100)
-  }
-
-  // Tên kênh RIÊNG cho mỗi lần theo dõi: client Supabase trình duyệt dùng chung một bản, gọi
-  // channel() trùng tên trả lại kênh ĐANG chạy → gắn thêm .on() sau subscribe() là lỗi. POS (phía sau)
-  // và trang Đặt bàn (hộp thoại đè lên POS) cùng theo dõi một quán → trước đây hộp thoại sập (2026-10-04).
-  const channel = client
-    .channel(`reservation-queue-${storeId}-${++watcherSeq}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'reservations', filter: `store_id=eq.${storeId}` },
-      refresh,
-    )
-    .subscribe((status) => {
-      if (stopped) return
-      const connected = status === 'SUBSCRIBED'
-      onConnected(connected)
-      if (connected) refresh()
-    })
-
-  const target = eventTarget ?? (typeof window === 'undefined'
-    ? null
-    : {
-        addEventListener: (type: string, listener: () => void) => window.addEventListener(type, listener),
-        removeEventListener: (type: string, listener: () => void) => window.removeEventListener(type, listener),
-      })
-  const onFocus = () => refresh()
-  const onOnline = () => refresh()
-  target?.addEventListener('focus', onFocus)
-  target?.addEventListener('online', onOnline)
-
-  refresh()
-  const fallback = setInterval(refresh, fallbackIntervalMs)
-
-  return {
-    refresh,
-    dispose() {
-      stopped = true
-      clearTimeout(timer)
-      clearInterval(fallback)
-      target?.removeEventListener('focus', onFocus)
-      target?.removeEventListener('online', onOnline)
-      void client.removeChannel(channel)
+      } catch {
+        if (!stopped()) onError('Không tải được hàng đợi đặt bàn. Kiểm tra mạng rồi thử lại.')
+      }
     },
-  }
+    onConnected,
+    debounceMs: 100,
+    intervalMs: fallbackIntervalMs,
+    loadOnStart: true,
+    eventTarget,
+  })
 }

@@ -42,9 +42,9 @@ Phần lớn giá trị của MEVO nằm ở chỗ máy không tự test đượ
 
 **Quy ước từ 2026-09-10 — bám đúng, đừng làm khác:**
 
-1. **KHÔNG** thêm checklist mới vào `TESTING.md`. File đó chỉ giữ lịch sử.
-2. Tạo file mới trong `docs/testing/<quan-hoac-mang>/` — đặt tên theo mẫu đang có ở đó (`SPRINT-BL-2B.md`, `PLAN-BL-1-2026-09-18.md`...). Mở một file gần nhất ra đọc trước để copy đúng cấu trúc.
-3. Thêm **một dòng liên kết** vào mục "Checklist mới tách riêng" ở đầu `TESTING.md`, trạng thái `⏳ ... — chờ PASS`.
+1. **KHÔNG** thêm checklist mới vào `TESTING.md`. File đó chỉ là mục lục.
+2. Tạo file mới trong `docs/testing/<quan-hoac-mang>/` — đặt tên theo mẫu đang có ở đó (`docs/testing/yen-garden/KHO.md`, `docs/testing/dot1/B1-ngay-kinh-doanh.md`...). Mở một file gần nhất ra đọc trước để copy đúng cấu trúc.
+3. Thêm **một dòng liên kết** vào mục "Chờ test" ở đầu `TESTING.md`, trạng thái `⏳ ... — chờ PASS`.
 
 Mỗi bài test trong checklist phải đủ: **Chuẩn bị** (đăng nhập vai nào, mở màn nào, dữ liệu nào) → **Thao tác** (đánh số từng bước bấm) → **✅ PASS khi** (mô tả kết quả quan sát được, không mô tả code). Viết cho người cầm điện thoại đọc, không viết cho lập trình viên.
 

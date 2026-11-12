@@ -223,6 +223,7 @@ Lý do: một lượt thu riêng trước khi chốt bill làm hoá đơn in "Kh
 ## Phần 9 — Thu tiền ngoài POS cũng trừ giảm giá (vá sau review cả nhánh)
 
 ### 13. A04 và màn nhân viên hiện đúng số SAU giảm giá
+> ⚠️ Từ 2026-11-11 bước 2 và phần "Thu tiền & đóng bàn" của bước 3 không còn áp dụng: A04 và `/staff/tables` không còn nút thu, tiền bàn chỉ thu ở POS. Hai nơi này chỉ còn HIỆN số tiền.
 Lý do: thu ở ngăn kéo A04 hoặc `/staff/tables` thì server vẫn trừ giảm giá đặt ở POS, nhưng trước đây hai chỗ này hiện số TRƯỚC giảm → thu ngân thu đủ, báo cáo ghi ít hơn, két lệch. **Bài này KHÔNG thu tiền thật** — chỉ xem số rồi bấm Huỷ/đóng.
 1. Dựng bill **Bàn 12** (Khách lẻ, 2 món, ví dụ tổng 100.000đ). POS → Thanh toán → Giảm giá **10%** → Lưu. Mong đợi POS: Khách cần trả **90.000đ**. Đóng màn Thanh toán (KHÔNG thu).
 2. `/admin/bills` → dòng **Chờ thu** Bàn 12 → **Xem bill** → bấm **Đã nhận tiền mặt**. Mong đợi hộp xác nhận ghi: **"Đã nhận 90.000đ (tạm tính 100.000đ, đã trừ giảm giá 10.000đ) bằng TIỀN MẶT…"**. Bấm **Huỷ** (Cancel) — KHÔNG thu.

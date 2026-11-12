@@ -270,6 +270,9 @@ export async function releaseTableSessionHost(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được chuyển quyền gọi món (làm ở POS)' }
+  }
 
   const { error: rpcErr } = await supabase.rpc('release_table_session_host', {
     p_session_id: sessionId,
@@ -283,10 +286,13 @@ export async function releaseTableSessionHost(
 
 export type SimpleResult = { ok: true } | { ok: false; error: string }
 
-// Ghép N bàn TRỐNG thành một mâm. Mâm mở nên cả đoàn cùng gọi vào một bill.
+// Ghép N bàn TRỐNG thành một mâm. Mâm mở nên cả đoàn cùng gọi vào một bill. Chỉ vai POS (mig 133).
 export async function createTraySession(tableIds: string[]): Promise<SimpleResult> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được ghép mâm (làm ở POS)' }
+  }
   if (tableIds.length === 0) return { ok: false, error: 'Chưa chọn bàn nào' }
 
   const { error: rpcErr } = await supabase.rpc('create_tray_session', {
@@ -297,7 +303,7 @@ export async function createTraySession(tableIds: string[]): Promise<SimpleResul
   return { ok: true }
 }
 
-// Thêm một bàn trống vào mâm đang mở (đoàn đông thêm người)
+// Thêm một bàn trống vào bàn / mâm đang có khách (khách có thêm bạn tới). Nhân viên phục vụ CŨNG được làm.
 export async function addTableToSession(sessionId: string, tableId: string): Promise<SimpleResult> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
@@ -365,6 +371,9 @@ export async function mergeSessionIntoTray(
 ): Promise<SimpleResult> {
   const { operator, supabase, error } = await staffClient()
   if (!operator || !supabase) return { ok: false, error: error ?? 'Không có quyền' }
+  if (!isPosRole(operator.role)) {
+    return { ok: false, error: 'Chỉ chủ quán, quản lý hoặc thu ngân được nhập mâm (làm ở POS)' }
+  }
 
   const { error: rpcErr } = await supabase.rpc('merge_session_into_tray', {
     p_session_id: sessionId,

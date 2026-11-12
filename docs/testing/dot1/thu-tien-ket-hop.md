@@ -1,7 +1,7 @@
 # A — Thu tiền kết hợp (mig 112a + 112b)
 
-Màn Thanh toán POS có ba lựa chọn: Tiền mặt · Chuyển khoản · **Kết hợp**. Mọi lần thu (POS, `/staff/tables`, ngăn
-kéo A04) đi qua RPC `collect_table_bill`: một lần thu = một khoản, mỗi phương tiện = một dòng. A04, Excel và hoá đơn
+Màn Thanh toán POS có ba lựa chọn: Tiền mặt · Chuyển khoản · **Kết hợp**. Mọi lần thu tiền bàn đi qua RPC `collect_table_bill`, và từ 2026-11-11 chỉ còn MỘT nơi thu là POS
+(`/staff/tables` và ngăn kéo A04 không còn nút thu): một lần thu = một khoản, mỗi phương tiện = một dòng. A04, Excel và hoá đơn
 in lại hiện từng khoản.
 
 Spec `docs/superpowers/specs/2026-11-05-dot1-thanh-toan-ca-in-vietqr-design.md` §3 · Plan
@@ -28,7 +28,7 @@ Spec `docs/superpowers/specs/2026-11-05-dot1-thanh-toan-ca-in-vietqr-design.md` 
 | 3 | Bàn 3 | ……… đ (kết hợp) |
 | 6 | Bàn 6 | ……… đ (kết hợp) |
 | 7 | Bàn 7 + Bàn 8 (hai bill riêng, gộp khi thu) | ……… đ (kết hợp) |
-| 10 | Bàn 10 (`/staff/tables`) + Bàn 11 (A04) | ……… đ + ……… đ |
+| 10 | (bỏ — xem bài 10) | — |
 | 13 | Bàn 13 (ngắt mạng) | ……… đ |
 | **Tổng doanh thu giả** | | **……… đ** |
 
@@ -45,7 +45,7 @@ Spec `docs/superpowers/specs/2026-11-05-dot1-thanh-toan-ca-in-vietqr-design.md` 
 | 7 | Hai bàn riêng → **Gộp bill** → Thanh toán → thu Kết hợp | A04 chỉ **một dòng** cho cả hai mâm (nhãn Ghép), từng khoản đúng |
 | 8 | Mở màn Thanh toán chọn Kết hợp (đã gõ đủ số), **máy khác** gọi thêm món cho bàn đó, rồi bấm thu | Báo "**Số tiền không khớp bill** … Tải lại bill rồi thu lại"; **bill chưa đóng**, không có khoản thu nào ghi; màn hiện số mới, thu lại được. Dọn — bỏ bàn hoặc thu |
 | 9 | Mở **hai tab** POS cùng một bàn, cùng vào Thanh toán; tab 1 thu xong (vd Tiền mặt), rồi tab 2 chọn **Chuyển khoản** bấm thu | Tab 2 báo "**Bàn đã được thu trước đó: Tiền mặt …đ**" (đúng khoản tab 1 đã ghi, không phải chuyển khoản); A04 chỉ **một** khoản cho bàn này |
-| 10 | Thu một bàn ở `/staff/tables` (tài khoản thu ngân) và một bàn ở **A04** → ngăn kéo bàn chờ thu → "Đã nhận tiền mặt" | Doanh thu tăng đúng hai số. A04 hiện **hộp xác nhận trong app** (không phải hộp thoại trình duyệt), ghi đúng số sau giảm giá |
+| 10 | ~~Thu ở `/staff/tables` và A04~~ — **bỏ từ 2026-11-11** (chỉ thu tiền bàn ở POS). Mở `/staff/tables` bằng tài khoản thu ngân và ngăn kéo A04 của một bàn chờ thu | Cả hai nơi KHÔNG còn nút thu, chỉ còn dòng "Thu tiền ở POS (Thanh toán)" |
 | 11 | Xem một bill **đã thu trước khi áp 112a** ở A04 và Excel | Hiện như cũ: một phương thức, hoặc "**Nhiều phương thức**" nếu bill đó trộn phương thức ("Kết hợp" chỉ dành cho bill thu sau 112a có từng khoản); không có khối "Các khoản đã thu"; Excel: TM hoặc CK đủ số, bill trộn / ví nằm ở cột **Khác** |
 | 12 | **Bỏ bàn** một bàn có món chưa nấu | Vẫn chạy như trước; bàn trống; **không** vào doanh thu, không có khoản thu |
 | 13 | Màn Thanh toán chọn **Tiền mặt**, **ngắt mạng** máy POS (tắt Wi-Fi) **ngay sau khi bấm** "Xác nhận đã nhận"; bật lại mạng; màn báo lỗi kết nối → **đổi sang Chuyển khoản** rồi bấm lại | Nếu lần đầu server đã ghi: báo "**Bàn đã được thu trước đó: Tiền mặt …đ**" (nói rõ ĐÃ GHI tiền mặt, không ghi thêm chuyển khoản); A04 chỉ **một** khoản, phương thức **Tiền mặt**. Nếu lần đầu chưa tới server: thu bình thường bằng Chuyển khoản |

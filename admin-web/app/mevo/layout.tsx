@@ -1,4 +1,4 @@
-import { LayoutDashboard, Palette, ShieldCheck, Store, Users, PlusSquare } from 'lucide-react'
+import { LayoutDashboard, ShieldCheck, Store, Users, PlusSquare } from 'lucide-react'
 import { requireOperatorOrRedirect } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
@@ -26,7 +26,6 @@ export default async function MevoLayout({ children }: { children: React.ReactNo
             { href: '/mevo/accounts', label: 'Tài khoản vận hành', icon: <Users /> },
           ],
         },
-        { label: 'Nội bộ', items: [{ href: '/mevo/ui-kit', label: 'Bộ giao diện', icon: <Palette /> }] },
       ]}
       footer={
         <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5">

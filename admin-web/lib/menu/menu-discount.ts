@@ -123,13 +123,6 @@ function ddmm(date: string): string {
   return `${d}/${m}`
 }
 
-/** 'đến 18:00' (có khung giờ) · 'đến hết 20/11' (có ngày kết thúc) · null. */
-export function untilLabel(rule: { time_to: string | null; ends_on: string | null }): string | null {
-  if (rule.time_to) return `đến ${rule.time_to.slice(0, 5)}`
-  if (rule.ends_on) return `đến hết ${ddmm(rule.ends_on)}`
-  return null
-}
-
 const DAY_SHORT: Record<number, string> = { 1: 'T2', 2: 'T3', 3: 'T4', 4: 'T5', 5: 'T6', 6: 'T7', 7: 'CN' }
 export const WEEKDAYS: { value: number; label: string }[] = [1, 2, 3, 4, 5, 6, 7].map((value) => ({ value, label: DAY_SHORT[value] }))
 

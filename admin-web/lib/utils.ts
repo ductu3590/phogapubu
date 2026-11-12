@@ -16,11 +16,3 @@ export function timeAgo(isoString: string): string {
   return `${Math.floor(diff / 3600)} giờ`
 }
 
-export const ORDER_STATUS_LABEL: Record<string, string> = {
-  pending: 'Chờ xác nhận',
-  confirmed: 'Đã xác nhận',
-  cooking: 'Đang làm',
-  ready: 'Xong',
-  paid: 'Đã thanh toán',
-  cancelled: 'Đã huỷ',
-}

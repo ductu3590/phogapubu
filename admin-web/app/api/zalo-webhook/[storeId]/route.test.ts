@@ -1,81 +1,73 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createHash } from 'node:crypto'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
+  const state = { config: null as null | { zalo_app_secret_key: string; is_enabled: boolean } }
+  const updates: Array<{ patch: unknown; eqs: Array<[string, unknown]> }> = []
   const admin = {
-    from: vi.fn(() => {
+    from: vi.fn((table: string) => {
+      const eqs: Array<[string, unknown]> = []
+      let patch: unknown = null
       const builder = {
         select: vi.fn(() => builder),
-        eq: vi.fn(() => builder),
-        maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+        update: vi.fn((p: unknown) => { patch = p; return builder }),
+        eq: vi.fn((k: string, v: unknown) => {
+          eqs.push([k, v])
+          // update(...).eq().eq() — ghi nhận khi đủ hai điều kiện
+          if (table === 'orders' && eqs.length === 2) updates.push({ patch, eqs: [...eqs] })
+          return table === 'orders' && eqs.length === 2 ? Promise.resolve({ error: null }) : builder
+        }),
+        maybeSingle: vi.fn(async () => ({ data: state.config, error: null })),
       }
       return builder
     }),
   }
-  return { admin }
+  return { admin, state, updates }
 })
 
 vi.mock('@/lib/supabase/server', () => ({ createAdminClient: vi.fn(() => mocks.admin) }))
 
 const { POST } = await import('./route')
 
-const SO_TAY_WEBHOOK = 'https://pasefbdemcxxwdquofzt.supabase.co/functions/v1/zalo-webhook'
+// Chữ ký Zalo: sha256(<giá trị sort theo key A→Z, nối lại> + secret)
+function sign(payload: Record<string, unknown>, secret: string) {
+  const content = Object.keys(payload).sort().map((k) => String(payload[k])).join('')
+  return createHash('sha256').update(`${content}${secret}`).digest('hex')
+}
 
-function request(raw: string, signature = 'sig-abc') {
-  return new Request('https://mevo.test/api/zalo-webhook/so-tay', {
+function post(payload: Record<string, unknown>, signature: string, storeId = 'store-1') {
+  return POST(new Request(`https://mevo.test/api/zalo-webhook/${storeId}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-zevent-signature': signature },
-    body: raw,
-  })
+    body: JSON.stringify(payload),
+  }), { params: Promise.resolve({ storeId }) })
 }
 
-async function post(req: Request, storeId = 'so-tay') {
-  return POST(req, { params: Promise.resolve({ storeId }) })
-}
-
-describe('zalo-webhook — chuyển tiếp Sổ Tay Buôn Đá', () => {
-  const fetchMock = vi.fn()
-
+describe('zalo-webhook — khách rút đồng ý (user.revoke.consent)', () => {
   beforeEach(() => {
-    fetchMock.mockReset()
     mocks.admin.from.mockClear()
-    vi.stubGlobal('fetch', fetchMock)
-  })
-  afterEach(() => vi.unstubAllGlobals())
-
-  it('chuyển nguyên body gốc + chữ ký, trả đúng status của Supabase', async () => {
-    fetchMock.mockResolvedValue(new Response('retry later', { status: 500 }))
-    // Khoảng trắng lạ cố ý: body phải được chuyển y nguyên, không JSON.stringify lại.
-    const raw = '{"appId": 805750043345863894, "event":"user.revoke.consent","userId":"u1"}'
-
-    const res = await post(request(raw))
-
-    expect(res.status).toBe(500)
-    expect(await res.text()).toBe('retry later')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe(SO_TAY_WEBHOOK)
-    expect(init.body).toBe(raw)
-    expect(init.headers['X-ZEvent-Signature']).toBe('sig-abc')
-    expect(mocks.admin.from).not.toHaveBeenCalled()
+    mocks.updates.length = 0
+    mocks.state.config = { zalo_app_secret_key: 'secret-1', is_enabled: true }
   })
 
-  it('appId dạng chuỗi cũng được chuyển tiếp', async () => {
-    fetchMock.mockResolvedValue(new Response('ok', { status: 200 }))
-    const res = await post(request('{"appId":"805750043345863894","event":"x"}'))
+  it('chữ ký đúng → gỡ zalo_user_id trong đúng quán', async () => {
+    const payload = { event: 'user.revoke.consent', userId: 'u1', timestamp: 1 }
+    const res = await post(payload, sign(payload, 'secret-1'))
     expect(res.status).toBe(200)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(mocks.updates).toEqual([{ patch: { zalo_user_id: null }, eqs: [['zalo_user_id', 'u1'], ['store_id', 'store-1']] }])
   })
 
-  it('Supabase không phản hồi → 502 để Zalo gửi lại', async () => {
-    fetchMock.mockRejectedValue(new Error('network down'))
-    const res = await post(request('{"appId":"805750043345863894"}'))
-    expect(res.status).toBe(502)
-  })
-
-  it('app MEVO khác → không chuyển tiếp, đi luồng cũ', async () => {
-    const res = await post(request('{"appId":"383290948854768685","event":"x"}'), 'store-1')
+  it('chữ ký sai → vẫn 200 nhưng không gỡ gì', async () => {
+    const res = await post({ event: 'user.revoke.consent', userId: 'u1' }, 'sai')
     expect(res.status).toBe(200)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(mocks.updates).toEqual([])
+  })
+
+  it('quán chưa cấu hình secret → 200, không gỡ gì', async () => {
+    mocks.state.config = null
+    const res = await post({ event: 'user.revoke.consent', userId: 'u1' }, 'x')
+    expect(res.status).toBe(200)
     expect(mocks.admin.from).toHaveBeenCalledWith('store_zalo_configs')
+    expect(mocks.updates).toEqual([])
   })
 })

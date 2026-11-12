@@ -9,7 +9,6 @@ node_modules/
 .env.development.local
 .env.test.local
 .env.production.local
-/.env.bl4-test.local
 
 # Build outputs
 .next/
@@ -57,3 +56,6 @@ mini-app-instances/
 
 # Cau hinh MCP cuc bo cua tung may
 .mcp.json
+
+# Log của playwright-cli (đầu ra công cụ, không commit)
+.playwright-cli/

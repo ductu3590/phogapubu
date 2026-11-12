@@ -29,6 +29,8 @@ export type KitchenPredicateFields = {
   storePaymentTiming: StorePaymentTiming
 }
 
+// ⚠️ Hàm SQL auto_kitchen_print_enqueue (mig 131: server tự xếp phiếu bếp cho đơn "tự vào bếp") chép tay luật này với
+// status coi như 'confirmed' và chính sách của kênh = automatic. Đổi luật ở đây thì phải đổi cả hàm SQL đó.
 export function orderInKitchen(o: KitchenPredicateFields): boolean {
   // Món thu ngân ghi bổ sung là món đã phục vụ, tuyệt đối không tạo phiếu/loa bếp.
   if (o.orderSource === 'pos') return false

@@ -51,6 +51,7 @@ import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { serviceRequestSession } from '@/lib/service-request-queue'
 import { buildWorkQueue, isReviewableOrder, type WorkFilter } from '@/lib/pos-work-queue'
 import { watchCashierSessions } from '@/lib/cashier-session-watcher'
+import { ExpiredSessions } from './expired-sessions'
 import { actionError, applyReloadError, type CashierError } from '@/lib/cashier-error-state'
 import {
   arriveReservation,
@@ -96,7 +97,6 @@ import ReservationDetail from './reservation-detail'
 import NewReservationSheet, { type NewReservationSubmit } from './new-reservation-sheet'
 import { useNow } from './use-now'
 import { useOnline } from './use-online'
-import { useAutoKitchenPrint } from './use-auto-kitchen-print'
 import { usePrintStatus } from './use-print-status'
 import PrintStatusBanner from './print-status-banner'
 import { dismissPrintJobs, markPrintedInBrowser, retryPrintJob } from '@/lib/actions/print-jobs'
@@ -255,7 +255,6 @@ export default function PosClient({
   const reportActionError = useCallback((message: string | null) => {
     setError(message ? actionError(message) : null)
   }, [])
-  const autoPrint = useAutoKitchenPrint({ supabase, storeId, sessions, onGiveUp: reportActionError })
   const printStatus = usePrintStatus(storeId)
   // Ca thu ngân (mig 122). Quán không bật "Bắt buộc mở ca" thì cashShift.state.required = false, POS như cũ.
   const cashShift = useCashShift(storeId)
@@ -1110,7 +1109,6 @@ export default function PosClient({
           onDismiss={(j) => void runPrintJobAction(j.id, markPrintedInBrowser)}
           onDismissAll={(jobs) => void onDismissAllPrintJobs(jobs)}
         />
-        {autoPrint.banner && <Banner tone={autoPrint.banner.tone} title={autoPrint.banner.title} className="mx-4 mt-2 md:mx-5" />}
         <ShiftStaleBanner
           state={cashShift.state}
           busy={shiftContinueBusy}
@@ -1348,6 +1346,7 @@ export default function PosClient({
           </h2>
           <IconButton icon={<X />} label="Đóng" onClick={() => setWorkOpen(false)} className="xl:hidden" />
         </header>
+        <ExpiredSessions sessions={sessions} selectedSessionId={selectedSessionId} onOpen={(id) => selectSession(id, false)} />
         <WorkQueue
           items={workItems}
           filter={workFilter}

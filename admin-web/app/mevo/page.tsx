@@ -2,11 +2,13 @@ import Link from 'next/link'
 import { Armchair, CircleAlert, Plus, Rocket, Store } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { loadMevoOverview } from '@/lib/mevo-overview'
+import { checkPhoneProxy, summarizeZcaRelay, type InfraCheck, type ZcaDeliveryRow } from '@/lib/mevo-infra-health'
+import { createAdminClient } from '@/lib/supabase/server'
 import { StoreCard } from './store-card'
 
 // Tổng quan MEVO theo bản Stitch A06: đầu trang + 4 thẻ số liệu + lưới thẻ quán.
 export default async function MevoDashboard() {
-  const { stores, totals } = await loadMevoOverview()
+  const [{ stores, totals }, infra] = await Promise.all([loadMevoOverview(), loadInfraHealth()])
   const failed = stores.filter((s) => s.lastError)
 
   return (
@@ -43,6 +45,8 @@ export default async function MevoDashboard() {
           />
         </div>
 
+        <InfraHealth checks={infra} />
+
         {failed.length > 0 ? (
           <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
             <p className="font-semibold">Lỗi deploy/publish gần nhất</p>
@@ -70,6 +74,51 @@ export default async function MevoDashboard() {
         </section>
       </div>
     </div>
+  )
+}
+
+// Hai dịch vụ chạy trên máy đặt tại Việt Nam; máy tắt là hỏng âm thầm nên phải hiện ở đây.
+async function loadInfraHealth(): Promise<InfraCheck[]> {
+  const admin = createAdminClient()
+  const [phone, deliveries] = await Promise.all([
+    checkPhoneProxy(process.env.MEVO_PHONE_PROXY_URL, (url, init) => fetch(url, init)),
+    admin
+      .from('reservation_notification_deliveries')
+      .select('status, created_at, queued_at, processing_started_at')
+      .eq('delivery_provider', 'zca_group')
+      .order('created_at', { ascending: false })
+      .limit(1),
+  ])
+  return [phone, summarizeZcaRelay((deliveries.data ?? []) as ZcaDeliveryRow[])]
+}
+
+const INFRA_TONE = {
+  ok: { dot: 'bg-emerald-500', text: 'text-emerald-700', word: 'Đang chạy' },
+  down: { dot: 'bg-red-500', text: 'text-red-700', word: 'Không hoạt động' },
+  unknown: { dot: 'bg-slate-400', text: 'text-slate-600', word: 'Chưa rõ' },
+} as const
+
+function InfraHealth({ checks }: { checks: InfraCheck[] }) {
+  const down = checks.some((c) => c.state === 'down')
+  return (
+    <section
+      role={down ? 'alert' : undefined}
+      className={cn('rounded-xl border p-4', down ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-white')}
+    >
+      <h2 className="text-sm font-semibold text-slate-900">Dịch vụ phụ trợ (máy đặt tại Việt Nam)</h2>
+      <ul className="mt-2 grid gap-2 md:grid-cols-2">
+        {checks.map((c) => (
+          <li key={c.key} className="flex items-start gap-2 text-sm">
+            <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', INFRA_TONE[c.state].dot)} aria-hidden />
+            <span className="min-w-0">
+              <span className="font-medium text-slate-900">{c.label}</span>
+              <span className={cn('ml-1.5 font-medium', INFRA_TONE[c.state].text)}>· {INFRA_TONE[c.state].word}</span>
+              <span className="block text-[13px] text-slate-600">{c.detail}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

@@ -79,4 +79,6 @@ Không đạt: dừng, báo anh Tú. Phần mềm không canh được hàng đ�
 
 KẾT QUẢ: PASS / FAIL
 
+> 2026-11-11 — anh Tú báo đã in thử: 1 máy Canon 2900 + 2 trạm chọn PDF printer, đều in được. Các ô đo ở trên chưa điền; Canon 2900 là máy laser, chưa phải máy nhiệt 80mm.
+
 Không đạt: dừng, báo anh Tú. Phương án lùi là mở bán chế độ `browser` với một máy in ở quầy, không làm ESC/POS.

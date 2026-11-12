@@ -232,7 +232,7 @@ export default function BillsReportView({ report, date, maxDate, today, dateTitl
         </section>
       </div>
 
-      {openRow && <BillDrawer key={openRow.key} row={openRow} canManage={canManage} onClose={() => setOpenKey(null)} onNotice={setNotice} />}
+      {openRow && <BillDrawer key={openRow.key} row={openRow} canManage={canManage} onClose={() => setOpenKey(null)} />}
     </div>
   )
 }

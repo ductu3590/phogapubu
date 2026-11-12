@@ -39,6 +39,7 @@ export function initTts(): void {
 const queue: string[] = []
 let speaking = false
 // Giữ tham chiếu utterance hiện tại để tránh bị GC giữa chừng (bug Chrome cũ)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- chỉ để giữ tham chiếu, không đọc lại
 let currentUtter: SpeechSynthesisUtterance | null = null
 
 function processQueue(): void {
@@ -92,11 +93,3 @@ export function unlockTts(): void {
   }
 }
 
-// Dừng đọc + xoá hàng đợi (dùng khi cần, vd unmount)
-export function stopTts(): void {
-  if (!isTtsSupported()) return
-  queue.length = 0
-  speaking = false
-  currentUtter = null
-  window.speechSynthesis.cancel()
-}

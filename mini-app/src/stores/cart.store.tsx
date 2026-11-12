@@ -7,18 +7,13 @@ interface CartStore {
   items: CartItem[];
   totalItems: number;
   totalAmount: number;
-  checkoutSheetVisible: boolean;
   addToCart: (item: Omit<CartItem, "id">) => void;
-  updateCartItem: (id: string, item: Omit<CartItem, "id">) => void;
   updateQuantity: (id: string, quantity: number) => void;
-  removeItem: (id: string) => void;
   clearCart: () => void;
   // Id đơn đang chờ thanh toán. Khác null = giỏ bị đóng băng vì đã chốt vào một đơn pending;
   // mọi thao tác sửa giỏ (kể cả từ trang menu) đều bị chặn cho tới khi đơn được huỷ hoặc trả xong.
   lockedByOrderId: string | null;
   setCartLock: (orderId: string | null) => void;
-  openCheckoutSheet: () => void;
-  closeCheckoutSheet: () => void;
 }
 
 // Helper function to calculate totals
@@ -85,7 +80,6 @@ export const useCartStore = create<CartStore>()(
   items: [],
   totalItems: 0,
   totalAmount: 0,
-  checkoutSheetVisible: false,
   lockedByOrderId: null,
 
   addToCart: (newItem) => {
@@ -113,32 +107,6 @@ export const useCartStore = create<CartStore>()(
     });
   },
 
-  updateCartItem: (id, updatedItem) => {
-    if (get().lockedByOrderId) return;
-    set((state) => {
-      // Remove the old item and add the updated one
-      const newItems = state.items.filter((item) => item.id !== id);
-      const newItemId = buildCartItemId(updatedItem);
-
-      // Check if the updated item matches an existing item
-      const existingItemIndex = newItems.findIndex((item) => item.id === newItemId);
-
-      if (existingItemIndex !== -1) {
-        // Merge quantities if the updated item matches an existing one
-        newItems[existingItemIndex] = {
-          ...newItems[existingItemIndex],
-          quantity: newItems[existingItemIndex].quantity + updatedItem.quantity,
-        };
-      } else {
-        // Add as new item
-        newItems.push({ ...updatedItem, id: newItemId });
-      }
-
-      const { totalItems, totalAmount } = calculateTotals(newItems);
-      return { items: newItems, totalItems, totalAmount };
-    });
-  },
-
   updateQuantity: (id, quantity) => {
     if (get().lockedByOrderId) return;
     set((state) => {
@@ -157,29 +125,12 @@ export const useCartStore = create<CartStore>()(
     });
   },
 
-  removeItem: (id) => {
-    if (get().lockedByOrderId) return;
-    set((state) => {
-      const newItems = state.items.filter((item) => item.id !== id);
-      const { totalItems, totalAmount } = calculateTotals(newItems);
-      return { items: newItems, totalItems, totalAmount };
-    });
-  },
-
   clearCart: () => {
     set({ items: [], totalItems: 0, totalAmount: 0, lockedByOrderId: null });
   },
 
   setCartLock: (orderId) => {
     set({ lockedByOrderId: orderId });
-  },
-
-  openCheckoutSheet: () => {
-    set({ checkoutSheetVisible: true });
-  },
-
-  closeCheckoutSheet: () => {
-    set({ checkoutSheetVisible: false });
   },
     }),
     {
@@ -189,7 +140,6 @@ export const useCartStore = create<CartStore>()(
       // sự thật lệch nhau; tính lại lúc khôi phục.
       // lockedByOrderId KHÔNG lưu: khoá do trang giỏ hàng / hộp thoại nhắc đặt lại sau khi
       // đã đối chiếu DB. Lưu khoá mà đơn đã chết thì giỏ đóng băng mà không ai mở ra được.
-      // checkoutSheetVisible là trạng thái UI nhất thời.
       partialize: (s) => ({ items: s.items }) as unknown as CartStore,
       onRehydrateStorage: () => (state) => {
         if (!state) return;

@@ -13,15 +13,12 @@ const mocks = vi.hoisted(() => {
   // Vai được isPosRole nhận thêm (giả lập vai quầy mới, vd. quản lý, thêm ở nhánh khác).
   const extraPosRoles = new Set<string>()
 
-  const revalidatePath = vi.fn()
-
-  return { operator, requireOperator, rpc, extraPosRoles, revalidatePath }
+  return { operator, requireOperator, rpc, extraPosRoles }
 })
 
 vi.mock('@/lib/auth/operator', () => ({
   requireOperator: mocks.requireOperator,
 }))
-vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 vi.mock('@/lib/auth/roles', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/auth/roles')>()
   return {
@@ -40,7 +37,6 @@ const {
   listOpenTableSessions,
 } = await import('./table-session')
 const { listOpenServiceRequests, resolveServiceRequest } = await import('./service-requests')
-const { collectSessionBill } = await import('./bill-detail')
 const { listStaffUpcomingReservedTables } = await import('./staff-reservations')
 
 const OPEN_REQUEST = {
@@ -187,46 +183,6 @@ describe('thu ngân ở quầy (PA-2)', () => {
 
   it('thu ngân bỏ bàn được', async () => {
     expect((await closeTableSession('session-1', 'staff_reset')).ok).toBe(true)
-  })
-
-  it('A04 collectSessionBill: một phương tiện, đúng số, mã chống trùng → collect_table_bill', async () => {
-    mocks.rpc.mockResolvedValue({ data: { ok: true, already: false, payment_id: 'p1', total: 90000, orders_settled: 2 }, error: null })
-    const a = '11111111-1111-4111-8111-111111111111'
-    const b = '22222222-2222-4222-8222-222222222222'
-    const rid = '33333333-3333-4333-8333-333333333333'
-    expect(await collectSessionBill([a, b], 'bank', 90000, rid)).toEqual({ ok: true, already: false, lines: [], cashGiven: null, changeAmount: null })
-    expect(mocks.rpc).toHaveBeenCalledWith('collect_table_bill', {
-      p_session_ids: [a, b], p_lines: [{ instrument: 'bank', amount: 90000 }], p_cash_given: null, p_client_request_id: rid,
-    })
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin/bills')
-  })
-
-  it('A04 collectSessionBill: bill 0đ gửi lines rỗng; số tiền xấu / phương tiện lạ / không có bàn bị chặn trước RPC', async () => {
-    mocks.rpc.mockResolvedValue({ data: { ok: true, already: false, payment_id: 'p1', total: 0, orders_settled: 1 }, error: null })
-    const a = '11111111-1111-4111-8111-111111111111'
-    expect(await collectSessionBill([a], 'cash', 0, a)).toMatchObject({ ok: true, already: false })
-    expect(mocks.rpc).toHaveBeenCalledWith('collect_table_bill', expect.objectContaining({ p_lines: [] }))
-    mocks.rpc.mockClear()
-    expect(await collectSessionBill([a], 'cash', -1, a)).toEqual({ ok: false, error: 'Số tiền không hợp lệ' })
-    expect(await collectSessionBill([a], 'cash', 1.5, a)).toEqual({ ok: false, error: 'Số tiền không hợp lệ' })
-    expect(await collectSessionBill([a], 'wallet' as never, 1000, a)).toEqual({ ok: false, error: 'Phương thức thanh toán không hợp lệ' })
-    expect(await collectSessionBill(['x'], 'cash', 1000, a)).toEqual({ ok: false, error: 'Không có bàn nào để thu' })
-    expect(mocks.rpc).not.toHaveBeenCalled()
-  })
-
-  it('A04 collectSessionBill: already → trả khoản đã ghi để ngăn kéo báo cho thu ngân', async () => {
-    mocks.rpc.mockResolvedValue({ data: { ok: true, already: true, payment_id: 'p1', total: 90000, orders_settled: 0,
-      lines: [{ instrument: 'cash', amount: 90000 }], cash_given: null, change_amount: null }, error: null })
-    const a = '11111111-1111-4111-8111-111111111111'
-    expect(await collectSessionBill([a], 'bank', 90000, a)).toEqual({ ok: true, already: true, lines: [{ instrument: 'cash', amount: 90000 }], cashGiven: null, changeAmount: null })
-  })
-
-  it('A04 collectSessionBill: lỗi server (vd số lệch) trả nguyên văn, không revalidate', async () => {
-    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'Số tiền không khớp bill: cần thu 100000, đang ghi 90000. Tải lại bill rồi thu lại' } })
-    const a = '11111111-1111-4111-8111-111111111111'
-    const res = await collectSessionBill([a], 'cash', 90000, a)
-    expect(res).toEqual({ ok: false, error: 'Số tiền không khớp bill: cần thu 100000, đang ghi 90000. Tải lại bill rồi thu lại' })
-    expect(mocks.revalidatePath).not.toHaveBeenCalled()
   })
 
   it('collectTableBill gửi đúng tham số RPC và đọc already thật', async () => {

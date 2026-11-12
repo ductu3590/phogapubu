@@ -13,14 +13,29 @@ extraResources:
   - from: agent.config.json
     to: agent.config.json
 win:
+  icon: assets/icon.ico
   target:
     - target: nsis
       arch:
         - x64
+# Người ở quầy chỉ cần bấm đúp file cài: cài một chạm vào máy của người dùng hiện tại (không hỏi
+# quyền quản trị), tạo lối tắt Desktop + Start menu, đăng ký tự chạy cùng Windows (installer/installer.nsh)
+# rồi mở phần mềm luôn để ghép máy.
 nsis:
-  oneClick: false
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: false
+  runAfterFinish: true
+  # "always": cài đè bản mới cũng tạo lại lối tắt nếu quán lỡ xoá
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: MEVO In
+  uninstallDisplayName: MEVO In
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+  # Gỡ cài đặt không xoá token ghép máy: cài lại không phải ghép lại
+  deleteAppDataOnUninstall: false
+  language: '1066'
+  include: installer/installer.nsh
 # Không tự cập nhật: phiên bản đầu MEVO cài tay
 publish: null
 npmRebuild: false

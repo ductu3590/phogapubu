@@ -1,5 +1,5 @@
-// Kết quả một lần bấm "Đã nhận tiền" (collect_table_bill, mig 112a) đổi sang việc UI phải làm. Dùng chung cho
-// POS, /staff/tables và ngăn kéo A04 để ba nơi xử lý mất mạng / bill đổi giống nhau.
+// Kết quả một lần bấm "Đã nhận tiền" (collect_table_bill, mig 112a) đổi sang việc UI phải làm. Chỉ POS → Thanh
+// toán thu tiền bàn trả sau (/staff/tables và ngăn kéo A04 đã bỏ nút thu); tách riêng để test được không cần UI.
 //   • done  — thu xong (hoặc đã thu từ trước: cùng mã gửi lại, hay máy khác vừa chốt) → đóng màn, tải lại.
 //   • stale — server tự tính ra số khác số đang hiện (bill vừa đổi) → bỏ số cũ, đọc bill mới rồi thu lại.
 //   • retry — lỗi khác hoặc mất mạng → GIỮ màn và GIỮ mã chống trùng; bấm lại an toàn vì lần lỗi không ghi gì,

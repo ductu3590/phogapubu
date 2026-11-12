@@ -1,6 +1,6 @@
 {
   "name": "mevo-print-agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "engines": { "node": ">=22.12" },
   "description": "Phan mem in ngam cho MEVO (quay)",

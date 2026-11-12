@@ -15,8 +15,6 @@ export type LayoutTable = {
 /** Bàn đã có chỗ đứng chắc chắn trên lưới. */
 export type PlacedTable = LayoutTable & { x: number; y: number }
 
-export type PositionPatch = { id: string; pos_x: number; pos_y: number }
-
 const key = (x: number, y: number) => `${x},${y}`
 
 function inGrid(x: number | null, y: number | null): boolean {
@@ -102,14 +100,3 @@ export function moveTable(
 }
 
 /** Những bàn có toạ độ khác trước → đúng phần cần ghi xuống DB, không ghi thừa. */
-export function changedPositions(before: PlacedTable[], after: PlacedTable[]): PositionPatch[] {
-  const cu = new Map(before.map((t) => [t.id, t]))
-  const out: PositionPatch[] = []
-  for (const t of after) {
-    const truoc = cu.get(t.id)
-    if (!truoc || truoc.x !== t.x || truoc.y !== t.y) {
-      out.push({ id: t.id, pos_x: t.x, pos_y: t.y })
-    }
-  }
-  return out
-}

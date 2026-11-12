@@ -25,7 +25,7 @@ Dùng **Bàn 20** làm bàn thử; xong **Bỏ bàn (không thu tiền)** để 
 
 Bài **bắt buộc đạt trước go-live:** 1, 2, 3, 5, 7, 11, 12.
 
-Không đạt bài nào → dừng, chụp màn hình + ghi "đang ở màn nào, bấm gì, chờ gì". Nếu lỗi tiền hoặc đơn không vào bếp, kèm kết quả câu SQL ở mục 6 của `TESTING-BAO-LUONG.md`.
+Không đạt bài nào → dừng, chụp màn hình + ghi "đang ở màn nào, bấm gì, chờ gì". Nếu lỗi tiền hoặc đơn không vào bếp, kèm số bàn + giờ xảy ra để MEVO tra trong DB.
 
 ## B. Danh sách cuối trước khi mở cửa
 

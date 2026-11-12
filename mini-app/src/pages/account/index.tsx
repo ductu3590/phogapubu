@@ -5,7 +5,7 @@ import SectionCard from "@/components/ui/section-card";
 import ConfirmSheet from "@/components/ui/confirm-sheet";
 import TermsSheet from "@/components/common/terms-sheet";
 import { FileTextIcon, LockIcon, PhoneIcon, UserIcon } from "@/components/common/icons";
-import { DEFAULT_TERMS } from "@/constants/terms";
+import { resolveTerms } from "@/utils/terms";
 import { useAppStore } from "@/stores/app.store";
 import { getReservationProfile, saveReservationProfile } from "@/services/reservation/reservation-storage";
 import { clearPersonalData } from "@/services/account-storage";
@@ -19,7 +19,7 @@ import type { ReservationProfile } from "@/types/reservation.types";
 const EMPTY: ReservationProfile = { customerName: "", customerPhone: "" };
 
 export default function AccountPage() {
-  const { storeId, termsOfUse } = useAppStore();
+  const { storeId, termsOfUse, paymentTiming } = useAppStore();
   const { openSnackbar } = useSnackbar();
 
   const [profile, setProfile] = useState<ReservationProfile>(() => getReservationProfile(storeId) ?? EMPTY);
@@ -253,7 +253,7 @@ export default function AccountPage() {
         onConfirm={clearAll}
         onClose={() => setConfirmClear(false)}
       />
-      <TermsSheet visible={termsOpen} content={termsOfUse.trim() || DEFAULT_TERMS} onClose={() => setTermsOpen(false)} />
+      <TermsSheet visible={termsOpen} content={resolveTerms(termsOfUse, paymentTiming)} onClose={() => setTermsOpen(false)} />
     </div>
   );
 }

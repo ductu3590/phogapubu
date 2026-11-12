@@ -70,20 +70,20 @@ describe('PrintSettingsSection', () => {
     expect(html).not.toMatch(/<input(?=[^>]*value="agent")(?=[^>]*disabled="")[^>]*>/)
   })
 
-  it('agent + một policy automatic: có ghi chú giữ POS mở', () => {
-    expect(render({ ...agentSettings, staff_order_release_policy: 'automatic' })).toContain('chỉ in khi màn POS đang mở ở quầy')
+  it('agent + một policy automatic: ghi chú máy chủ tự xếp phiếu, không còn bắt giữ POS mở', () => {
+    for (const patch of [{ staff_order_release_policy: 'automatic' as const }, { kitchen_release_policy: 'automatic' as const }]) {
+      const html = render({ ...agentSettings, ...patch })
+      expect(html).toContain('máy chủ tự xếp phiếu bếp và phiếu bàn')
+      expect(html).toContain('không cần mở màn POS')
+      expect(html).toContain('quá 30 phút trước khi phần mềm in chạy lại thì không được in')
+      expect(html).not.toContain('chỉ in khi màn POS đang mở')
+      expect(html).not.toContain('Quán trả trước chưa tự in được')
+    }
   })
 
-  it('agent + automatic + quán trả trước: nói rõ chưa tự in được, không hứa "giữ POS mở"', () => {
-    const html = renderToStaticMarkup(
-      <PrintSettingsSection storeId="store-1" initial={{ ...agentSettings, staff_order_release_policy: 'automatic' }} paymentTiming="prepay" />,
-    )
-    expect(html).toContain('Quán trả trước chưa tự in được phiếu bếp')
-    expect(html).not.toContain('chỉ in khi màn POS đang mở')
-  })
-
-  it('agent + cả hai pos_confirmation: không có ghi chú', () => {
-    expect(render(agentSettings)).not.toContain('chỉ in khi màn POS đang mở')
+  it('agent + cả hai pos_confirmation, hoặc chế độ trình duyệt: không có ghi chú', () => {
+    expect(render(agentSettings)).not.toContain('máy chủ tự xếp phiếu')
+    expect(render({ ...base, staff_order_release_policy: 'automatic' })).not.toContain('máy chủ tự xếp phiếu')
   })
 
   it('cả hai policy pos_confirmation: Nhiều nơi chọn được', () => {

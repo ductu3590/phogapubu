@@ -37,7 +37,7 @@ export default async function StaffTablesPage() {
   return (
     <TablesClient
       storeId={operator.storeId}
-      canClose={isPosRole(operator.role)}
+      canReset={isPosRole(operator.role)}
       areas={(areaRows ?? []).map((a) => ({ id: a.id as string, name: a.name as string, color: (a.color as string | null) ?? null }))}
       paymentTiming={(store?.payment_timing as 'prepay' | 'postpay' | null) ?? 'prepay'}
       allTables={allTables}
