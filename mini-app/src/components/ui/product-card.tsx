@@ -4,9 +4,10 @@ import type { Product } from "@/types/product.types";
 import { formatCurrency } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import BadgePill from "@/components/ui/badge-pill";
+import type { ProductLayout } from "@/utils/product-layout";
 
 export default function ProductCard({ product, layout, canOrder, count, onAdd, onDecrease }: {
-  product: Product; layout: "grid" | "list"; canOrder: boolean; count: number; onAdd: () => void; onDecrease: () => void;
+  product: Product; layout: ProductLayout; canOrder: boolean; count: number; onAdd: () => void; onDecrease: () => void;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const hasVariants = product.variants.length > 0;
@@ -31,6 +32,42 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
       </button>
     )
   ) : !available ? <span className="shrink-0 rounded-full bg-neutral100 px-2 py-0.5 text-xxxsmall font-semibold text-text-secondary">Tạm hết</span> : null;
+
+  // Theme garden: chữ đi trước, ảnh nhỏ bên phải, nút thêm gối lên góc ảnh. Không có thẻ bọc.
+  if (layout === "garden") {
+    const ring = "ring-[3px] ring-background";
+    const gardenControl = !available ? null : !canOrder ? null : !hasOptions && count > 0 ? (
+      <span className={cn("inline-flex items-center gap-1.5 rounded-full bg-primary p-[3px] text-white", ring)}>
+        <button type="button" aria-label="Giảm" onClick={onDecrease} className="grid size-7 place-items-center rounded-full bg-white/15 active:scale-90"><MinusIcon className="size-3.5" /></button>
+        <span className="tabular min-w-4 text-center text-small-m font-bold">{count}</span>
+        <button type="button" aria-label="Thêm" onClick={onAdd} className="grid size-7 place-items-center rounded-full bg-white/15 active:scale-90"><PlusIcon className="size-3.5" /></button>
+      </span>
+    ) : (
+      <button type="button" aria-label={`Thêm ${product.name}`} onClick={onAdd} className={cn("relative grid size-[34px] place-items-center rounded-full bg-primary text-white active:scale-90", ring)}>
+        <PlusIcon className="size-4" />
+        {hasOptions && count > 0 && <span className="absolute -right-1.5 -top-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-neutral900 px-1 text-xxxsmall font-bold">{count}</span>}
+      </button>
+    );
+    const soldOut = !available ? <span className="shrink-0 rounded-full bg-neutral100 px-2.5 py-1 text-xxxsmall font-semibold text-text-secondary">Tạm hết</span> : null;
+    return (
+      <div className={cn("flex items-center gap-3.5 border-b border-neutral100 py-3.5 last:border-b-0", !available && "opacity-60")}>
+        <div className="min-w-0 flex-1">
+          <BadgePill badge={product.badge} className="mb-1" />
+          <p className="line-clamp-2 text-normal-sb font-semibold text-text-primary">{product.name}</p>
+          {product.description && <p className="mt-0.5 line-clamp-2 text-xxsmall text-text-secondary">{product.description}</p>}
+          <p className="tabular mt-1.5 whitespace-nowrap text-small-m font-bold text-primary">{price}</p>
+          <DiscountLine product={product} />
+        </div>
+        {image ? (
+          <div className="relative mb-1.5 mr-1.5 shrink-0">
+            <img src={image} alt={product.name} loading="lazy" decoding="async" width={78} height={78} onError={() => setImageFailed(true)} className="size-[78px] rounded-[18px] object-cover" draggable={false} />
+            {gardenControl && <div className="absolute -bottom-2 -right-2">{gardenControl}</div>}
+            {soldOut && <div className="absolute inset-x-0 -bottom-2 flex justify-center">{soldOut}</div>}
+          </div>
+        ) : (gardenControl ?? soldOut)}
+      </div>
+    );
+  }
 
   if (layout === "grid") {
     return (
