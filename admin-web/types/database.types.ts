@@ -13,6 +13,8 @@ interface StoreRow {
   logo_url: string | null
   zalo_oa_id: string | null
   primary_color: string
+  /** mig 134 — bộ giao diện Mini App: 'classic' | 'garden'. */
+  mini_app_theme: string
   wifi_name: string | null
   wifi_password: string | null
   is_accepting_orders: boolean

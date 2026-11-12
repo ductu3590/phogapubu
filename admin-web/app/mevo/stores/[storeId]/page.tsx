@@ -4,8 +4,9 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ROLE_LABEL, type OperatorRole } from '@/lib/auth/roles'
 import {
-  updateStoreBasicInfo, updateStoreColor, updateAppConfig, updateCheckoutConfig, updateZaloConfig,
+  updateStoreBasicInfo, updateStoreColor, updateStoreTheme, updateAppConfig, updateCheckoutConfig, updateZaloConfig,
 } from '@/lib/actions/mevo-stores'
+import { MINI_APP_THEMES } from '@/lib/mini-app-themes'
 import AssignOwnerForm from './assign-owner-form'
 import SaveForm from './save-form'
 import WorkflowSettingsForm from '@/app/admin/settings/workflow-settings-form'
@@ -41,6 +42,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
 
   const updateInfo = updateStoreBasicInfo.bind(null, storeId)
   const updateColor = updateStoreColor.bind(null, storeId)
+  const updateTheme = updateStoreTheme.bind(null, storeId)
   const updateApp = updateAppConfig.bind(null, storeId)
   const updateCheckout = updateCheckoutConfig.bind(null, storeId)
   const updateZalo = updateZaloConfig.bind(null, storeId)
@@ -69,6 +71,14 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
         <SaveForm action={updateColor}>
           <ColorField label="Màu chủ đạo" name="primary_color" defaultValue={store.primary_color ?? '#A0673D'} />
         </SaveForm>
+        <div className="mt-5 border-t border-border pt-4">
+          <p className="mb-3 text-sm text-muted">
+            Bộ giao diện quyết định bố cục và tông nền của Mini App. Đổi xong khách mở lại app là thấy, không cần deploy lại.
+          </p>
+          <SaveForm action={updateTheme}>
+            <ThemeField defaultValue={store.mini_app_theme ?? 'classic'} />
+          </SaveForm>
+        </div>
       </Section>
 
       <Section title="Quy trình vận hành">
@@ -204,6 +214,23 @@ function ColorField({ label, name, defaultValue }: { label: string; name: string
         <span className="text-sm text-muted">{defaultValue}</span>
       </div>
     </label>
+  )
+}
+
+function ThemeField({ defaultValue }: { defaultValue: string }) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="mb-1 block text-sm font-medium text-foreground/80">Bộ giao diện</legend>
+      {MINI_APP_THEMES.map((t) => (
+        <label key={t.key} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+          <input type="radio" name="mini_app_theme" value={t.key} defaultChecked={defaultValue === t.key} className="mt-1" />
+          <span>
+            <span className="block text-sm font-medium text-foreground">{t.label}</span>
+            <span className="block text-sm text-muted">{t.hint}</span>
+          </span>
+        </label>
+      ))}
+    </fieldset>
   )
 }
 
