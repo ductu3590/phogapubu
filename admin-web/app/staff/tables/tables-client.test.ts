@@ -28,10 +28,12 @@ const COLLECT_UI = ['Thu tiền &amp; đóng bàn', 'Khách trả bằng gì', '
 const POS_HINT = 'Thu tiền ở POS (Thanh toán)'
 
 describe('staff tables permissions and timeout UI', () => {
-  it('nhân viên: xem bill, ghép mâm, in bill; không thu tiền, không bỏ bàn; được nhắc thu ở POS', () => {
+  it('nhân viên: xem bill, in bill; không thu tiền, không bỏ bàn, không ghép / nhập mâm; được nhắc thu ở POS', () => {
     const html = render(false)
     expect(html).toContain('20.000đ')
-    expect(html).toContain('Ghép mâm')
+    expect(html).not.toContain('Ghép mâm')
+    expect(html).not.toContain('Nhập vào mâm khác')
+    expect(html).not.toContain('Chuyển quyền gọi món')
     expect(html).toContain('In bill')
     // Phiên hết hạn còn nợ gom xuống mục riêng cuối danh sách (2026-10-09).
     expect(html).toContain('Phiên hết hạn chưa thu (1)')

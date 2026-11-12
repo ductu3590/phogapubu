@@ -2,7 +2,7 @@
 
 import { printDocument } from '@/lib/print/print-document'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Ellipsis, Layers, Link2, Plus, Printer, RefreshCw, Trash2 } from 'lucide-react'
+import { Ellipsis, Plus, Printer, Trash2 } from 'lucide-react'
 import { StatusDot } from '@/components/ui/badge'
 import { Button, IconButton } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
@@ -14,10 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   addTableToSession,
   closeTableSession,
-  createTraySession,
   listOpenTableSessions,
-  mergeSessionIntoTray,
-  releaseTableSessionHost,
   type OpenTableSession,
   type SessionTable,
 } from '@/lib/actions/table-session'
@@ -44,13 +41,12 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 // Màn này KHÔNG thu tiền: bàn trả sau chỉ thu ở POS → Thanh toán (nơi duy nhất có giảm giá, ghi nợ,
-// kết hợp tiền mặt + chuyển khoản). Ở đây chỉ xem bill, in tạm tính, ghép mâm và bỏ bàn.
+// kết hợp tiền mặt + chuyển khoản). Ở đây chỉ xem bill, in tạm tính, thêm bàn trống vào bàn đang có khách và bỏ
+// bàn (vai POS). Ghép mâm / nhập mâm / chuyển quyền gọi món là việc của POS (quyết định 2026-11-12, mig 133 chặn cả server).
 type Sheet =
   | { kind: 'none' }
   | { kind: 'more'; session: OpenTableSession }
   | { kind: 'reset'; session: OpenTableSession }
-  | { kind: 'tray' }
-  | { kind: 'merge'; session: OpenTableSession }
   | { kind: 'addTable'; session: OpenTableSession }
 
 export default function TablesClient({
@@ -78,7 +74,6 @@ export default function TablesClient({
   const [sheetError, setSheetError] = useState<string | null>(null)
   const [sheet, setSheet] = useState<Sheet>({ kind: 'none' })
   const [connected, setConnected] = useState(false)
-  const [pickTables, setPickTables] = useState<Set<string>>(new Set())
   const reloading = useRef(false)
 
   // Realtime: KHÔNG cộng dồn tại chỗ mà tải lại CẢ danh sách. Tổng tiền phải do server tính —
@@ -148,7 +143,6 @@ export default function TablesClient({
   // Cùng hàm với màn Chọn bàn (/staff/order) → một mâm chỉ có đúng một màu trên cả hai màn.
   const trayColors = useMemo(() => assignTrayColors(sessions), [sessions])
 
-  const openSessions = sessions.filter((s) => s.status === 'open')
   const liveSessions = sessions.filter((s) => !s.needs_review)
   const reviewSessions = sessions.filter((s) => s.needs_review)
 
@@ -156,7 +150,6 @@ export default function TablesClient({
     setBusy(false)
     setSheetError(null)
     setSheet({ kind: 'none' })
-    setPickTables(new Set())
     if (msg) setError(msg)
     await reload()
   }
@@ -199,14 +192,6 @@ export default function TablesClient({
     await finish()
   }
 
-  const toggleTable = (id: string) =>
-    setPickTables((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-
   const dongSheet = () => { if (!busy) { setSheetError(null); setSheet({ kind: 'none' }) } }
   const openSheet = (next: Sheet) => { setSheetError(null); setSheet(next) }
 
@@ -215,13 +200,9 @@ export default function TablesClient({
       ? sheet.session.table_number
       : sheet.kind === 'reset'
         ? `Bỏ ${sheet.session.table_number} mà KHÔNG thu tiền?`
-        : sheet.kind === 'tray'
-          ? 'Ghép bàn thành mâm'
-          : sheet.kind === 'merge'
-            ? `Nhập ${sheet.session.table_number} vào mâm nào?`
-            : sheet.kind === 'addTable'
-              ? `Thêm bàn vào ${sheet.session.table_number}`
-              : ''
+        : sheet.kind === 'addTable'
+          ? `Thêm bàn vào ${sheet.session.table_number}`
+          : ''
 
   const renderSession = (s: OpenTableSession) => {
         const tray = trayColors.get(s.session_id)
@@ -293,9 +274,6 @@ export default function TablesClient({
           <StatusDot tone={connected ? 'success' : 'neutral'} />
           {connected ? 'Đang cập nhật trực tiếp' : 'Mất kết nối — đang thử lại...'}
         </span>
-        <Button icon={<Layers />} onClick={() => openSheet({ kind: 'tray' })} disabled={busy || freeTables.length === 0}>
-          Ghép mâm
-        </Button>
       </div>
 
       {error && (
@@ -348,26 +326,10 @@ export default function TablesClient({
                 <ActionRow
                   icon={<Plus />}
                   title="Thêm bàn vào mâm"
-                  description="Đoàn đông thêm người. Thêm bàn xong là cả nhóm cùng gọi vào một bill."
+                  description="Khách đang ngồi có thêm bạn tới, kê thêm bàn trống cạnh nhau. Thêm xong cả nhóm gọi vào một bill."
                   onClick={() => openSheet({ kind: 'addTable', session: sheet.session })}
                   disabled={busy || freeTables.length === 0}
                 />
-                <ActionRow
-                  icon={<Link2 />}
-                  title="Nhập vào mâm khác"
-                  description="Khách quét QR trước khi kịp ghép bàn. Chuyển cả món lẫn bàn sang mâm đích."
-                  onClick={() => openSheet({ kind: 'merge', session: sheet.session })}
-                  disabled={busy || openSessions.length < 2}
-                />
-                {!sheet.session.is_open_ordering && (
-                  <ActionRow
-                    icon={<RefreshCw />}
-                    title="Chuyển quyền gọi món"
-                    description="Nhả máy đang giữ bàn. Máy nào gọi món tiếp theo sẽ thành chủ. Bàn vẫn mở, bill giữ nguyên."
-                    onClick={() => void doSimple(() => releaseTableSessionHost(sheet.session.session_id))}
-                    disabled={busy || sheet.session.status !== 'open'}
-                  />
-                )}
                 {canReset && (
                   <ActionRow
                     danger
@@ -392,69 +354,6 @@ export default function TablesClient({
                   <Button size="touch" onClick={() => openSheet({ kind: 'more', session: sheet.session })}>Quay lại</Button>
                   <Button variant="danger" size="touch" onClick={() => void doReset(sheet.session)} disabled={busy}>Bỏ bàn</Button>
                 </div>
-              </>
-            )}
-
-            {sheet.kind === 'tray' && (
-              <>
-                <p className="text-sm text-muted">
-                  Chọn các bàn đoàn đang ngồi. QR của bàn nào trong mâm cũng dẫn về đúng mâm này,
-                  và cả nhóm gọi thêm được — không khoá theo một máy.
-                </p>
-                <AreaTableGroups groups={freeByArea} className="mt-3" render={(t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      aria-pressed={pickTables.has(t.id)}
-                      onClick={() => toggleTable(t.id)}
-                      className={cn(
-                        'min-h-12 cursor-pointer rounded-lg border text-sm font-medium transition-colors',
-                        pickTables.has(t.id) ? 'border-primary bg-primary-light text-primary' : 'border-border-strong text-foreground active:bg-item-hover',
-                      )}
-                    >
-                      {t.table_number}
-                    </button>
-                )} />
-                {freeTables.length === 0 && <EmptyState>Không còn bàn trống nào.</EmptyState>}
-                <Button
-                  variant="primary"
-                  size="touch"
-                  onClick={() => void doSimple(() => createTraySession([...pickTables]))}
-                  disabled={busy || pickTables.size === 0}
-                  className="mt-4 w-full"
-                >
-                  Ghép {pickTables.size > 0 ? `${pickTables.size} bàn ` : ''}thành mâm
-                </Button>
-              </>
-            )}
-
-            {sheet.kind === 'merge' && (
-              <>
-                <p className="text-sm text-muted">
-                  Cả món đã gọi lẫn bàn sẽ chuyển sang mâm đích. Phiên này đóng lại, tiền gộp vào
-                  bill của mâm đích.
-                </p>
-                <ul className="mt-3 divide-y divide-border rounded-xl border border-border">
-                  {openSessions
-                    .filter((s) => s.session_id !== sheet.session.session_id)
-                    .map((s) => (
-                      <li key={s.session_id}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void doSimple(() =>
-                              mergeSessionIntoTray(sheet.session.session_id, s.session_id),
-                            )
-                          }
-                          disabled={busy}
-                          className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-3 px-3 text-left active:bg-item-hover disabled:opacity-50"
-                        >
-                          <span className="text-sm font-medium text-foreground">{s.table_number}</span>
-                          <span className="text-[13px] text-muted tabular">{s.order_count} đơn · {dong(s.total)}</span>
-                        </button>
-                      </li>
-                    ))}
-                </ul>
               </>
             )}
 
