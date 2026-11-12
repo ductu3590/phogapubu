@@ -1,4 +1,4 @@
-| A2 ✅ PASS 2026-11-12 || A1 ✅ PASS 2026-11-12 |# AUDIT-2 — Các thay đổi theo 14 câu trả lời của anh Tú (2026-11-11)
+# AUDIT-2 — Các thay đổi theo 14 câu trả lời của anh Tú (2026-11-11)
 
 Nhánh `claude/codebase-audit-cleanup-da23f0` (phần này CHƯA merge main). Test trên **Bảo Lương**.
 In bếp do máy chủ xếp có checklist riêng: [IN-BEP-SERVER.md](IN-BEP-SERVER.md). Test đua: [RACE.md](RACE.md).
@@ -10,8 +10,8 @@ hỏng có sẵn do thiếu `.env`), tsc giữ 4 dòng lỗi có sẵn. **Chưa 
 
 | # | Việc | Kỳ vọng |
 |---|---|---|
-| A1 | Tài khoản thu ngân mở `/staff/tables`, bấm vào một bàn đang có khách | Thấy bill, danh sách lượt, In bill, Thao tác khác (thêm bàn vào mâm, Bỏ bàn — từ mig 133 không còn nhập vào mâm, xem nhóm E). KHÔNG còn nút "Thu tiền & đóng bàn", không còn ô tick gộp bill; có dòng "Thu tiền ở POS (Thanh toán)" | ✅ PASS 2026-11-12 |
-| A2 | Tài khoản nhân viên phục vụ mở `/staff/tables` | Như A1 nhưng không có Bỏ bàn | ✅ PASS 2026-11-12 |
+| A1 ✅ PASS 2026-11-12 | Tài khoản thu ngân mở `/staff/tables`, bấm vào một bàn đang có khách | Thấy bill, danh sách lượt, In bill, Thao tác khác (thêm bàn vào mâm, Bỏ bàn — từ mig 133 không còn nhập vào mâm, xem nhóm E). KHÔNG còn nút "Thu tiền & đóng bàn", không còn ô tick gộp bill; có dòng "Thu tiền ở POS (Thanh toán)" |
+| A2 ✅ PASS 2026-11-12 | Tài khoản nhân viên phục vụ mở `/staff/tables` | Như A1 nhưng không có Bỏ bàn |
 | A3 | `/admin/bills` → dòng **Chờ thu** của một bàn đang mở → Xem bill | Không còn nút "Đã nhận tiền mặt / chuyển khoản"; có dòng "Thu tiền ở POS (Thanh toán): thu cả bàn một lần, thu xong bill đóng lại." và In tạm tính |
 | A4 | POS → chọn bàn đó → Thanh toán → thu (thử cả Kết hợp) | Thu được như cũ, bàn trống, A04 ghi đúng |
 | A5 | **Phiên hết hạn còn nợ**: nếu chưa có thì mở một bàn, gọi món, để quá hạn phiên (hoặc nhờ em dựng). Mở POS | Cột Việc cần xử lý có khối đỏ **"Bàn hết hạn còn tiền chưa thu (N)"** ghi tên bàn + số tiền |
