@@ -22,6 +22,10 @@ const STATUS_LABEL: Record<Status, string> = {
   needs_pair: 'Cần ghép máy',
 }
 
+// Tên dòng tự chạy trong HKCU\...\CurrentVersion\Run. PHẢI khớp MEVO_RUN_NAME ở installer/installer.nsh
+// (bản cài ghi sẵn dòng này), lệch nhau là Windows có hai dòng khởi động cho cùng một phần mềm
+const LOGIN_ITEM_NAME = 'MEVO In'
+
 const SPOOL_WARNING = 'Cảnh báo: không đọc được hàng đợi Windows, phiếu kẹt sẽ không bị phát hiện'
 
 let status: Status = 'offline'
@@ -91,7 +95,7 @@ async function start() {
   }
 
   // Chỉ bản đã cài mới tự chạy cùng Windows; chạy thử bằng npm start không được đăng ký electron.exe
-  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true })
+  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true, name: LOGIN_ITEM_NAME })
 
   const api: Api = createApi(config)
   const version = app.getVersion()
@@ -191,8 +195,16 @@ async function start() {
 }
 
 if (app.requestSingleInstanceLock()) {
+  // Bấm lối tắt Desktop khi phần mềm đã chạy: không mở bản thứ hai, chỉ cho người ở quầy biết nó đang ở đâu
   app.on('second-instance', () => {
-    if (status === 'needs_pair') openPairWindow()
+    if (status === 'needs_pair') {
+      openPairWindow()
+      return
+    }
+    tray?.displayBalloon({
+      title: 'MEVO In đang chạy',
+      content: `${STATUS_LABEL[status]}. Biểu tượng nằm ở khay hệ thống cạnh đồng hồ, bấm chuột phải để xem.`,
+    })
   })
   // Không có cửa sổ vẫn phải sống ở khay hệ thống
   app.on('window-all-closed', () => undefined)
