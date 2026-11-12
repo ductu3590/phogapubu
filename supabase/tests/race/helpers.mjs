@@ -387,9 +387,9 @@ export function report(name, lines) {
 }
 
 // Ba điều mọi kịch bản đều phải giữ: bất biến tiền sạch, không deadlock, không lỗi "bẩn" lọt ra người gọi.
-// knownBug: câu chú thích in kèm khi đỏ, cho các kịch bản đang lộ lỗi thật chưa vá (xem RACE.md).
+// knownBug: câu chú thích in kèm khi đỏ, cho các kịch bản từng lộ lỗi thật đã vá (xem RACE.md) — đỏ lại là hồi quy.
 export async function assertClean(assert, fixture, label, knownBug = '') {
-  const note = knownBug ? ` — LỖI THẬT (chưa vá): ${knownBug}` : ''
+  const note = knownBug ? ` — HỒI QUY lỗi đã vá: ${knownBug}` : ''
   assert.deepEqual(await fixture.audit(), [], `${label}: bất biến tiền bị vỡ${note}`)
   assert.deepEqual(fixture.deadlocks().map((o) => `${o.by} → ${o.expr}`), [],
     `${label}: có deadlock (SQLSTATE 40P01)${note}`)

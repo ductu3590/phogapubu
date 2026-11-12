@@ -83,63 +83,51 @@ Sau mỗi test, `assertClean` kiểm ba thứ cho cả quán của test đó (m�
 | 4a | `04-inventory` | Bốn `inventory_post_document` cùng lúc (4 phiếu nhập; rồi nhập / nhập đã trả / xuất huỷ / kiểm kho) trên cùng một hàng | Số phiếu khác nhau và **liền nhau** từ `PN-0001`; không `unique_violation` nào lọt ra |
 | 4b | | Cùng mã yêu cầu gửi 3 lần; cùng mã cho hai **loại** phiếu; xen kẽ | Một phiếu (và một phiếu chi), các lần kia `replayed: true` đúng phiếu đó; khác loại → "Mã yêu cầu đã dùng cho phiếu khác" |
 
-## Kết quả lần chạy gần nhất — 2026-11-11
+## Kết quả lần chạy gần nhất — 2026-11-12 (sau mig 132)
 
-> ⚠️ **Lần chạy này CHƯA TRỌN BỘ.** Chỉ file `01-collect-table-bill` đã chạy trên Postgres thật, với
-> `RACE_ITERATIONS=5`. Docker Desktop bị thoát (menu khay hệ thống → Quit, 20:22) giữa buổi nên file 02, 03, 04
-> **chưa chạy lần nào** và chưa có lần chạy 25 vòng. Bật lại Docker Desktop rồi chạy `npm run test:race`, sau đó
-> cập nhật bảng dưới. Container giữ lại từ lần dựng thử (`mevo-race-29168-3d703c`) cũng chưa xoá được vì daemon
-> đang tắt: `docker rm -f -v mevo-race-29168-3d703c`.
-
-Dựng schema: 137 file migration (tới mig 130) nạp xong trong ~8 giây sau khi container sẵn sàng (~35 giây).
+`RACE_ITERATIONS=25`, cả 4 file, Postgres thật trong Docker. **40/40 xanh**, 71 giây (dựng container + nạp 139
+file migration tới `132_fix_money_rpc_races.sql` mất 12,2 giây). Container tạm tự xoá sau khi chạy.
 
 | Kịch bản | Kết quả | Vòng | Bên thua nhận |
 |---|---|---|---|
-| 1a tự nhiên | ✅ | 5 | 5× `already: true` (kèm khoản đã ghi) |
-| 1a xen kẽ commit / rollback | ✅ ✅ | 1 + 1 | `already: true` / thu trọn vẹn |
-| 1b cùng mã, cùng bàn | ✅ | 5 | 5× `already: true` |
-| 1b cùng mã, hai bàn | ✅ | 5 | 5× "Mã thu tiền đã dùng cho bill khác" |
-| 1c ‖ `pos_add_manual_items` (tự nhiên / xen kẽ) | ✅ ✅ | 5 + 1 | thu: "Số tiền không khớp bill…" · thêm món: "Phiên bàn không còn mở" |
-| 1c ‖ `create_order` (tự nhiên / xen kẽ) | ✅ ✅ | 5 + 1 | thu: "Số tiền không khớp bill…" · khách: "Bàn vừa được đóng, vui lòng quét lại QR" |
-| 1c ‖ `staff_create_order` (tự nhiên / xen kẽ) | ❌ ❌ **lỗi thật #1** | 5 + 1 | nhân viên nhận **ok** — đơn lọt vào phiên đã thu |
-| 1d gộp `[A,B]` ‖ thu lẻ `A` | ✅ (đỏ ở lần chạy 5 vòng chỉ vì dùng chung quán với 1c — đã tách mỗi test một quán, chưa chạy lại) | 5 | gộp: 5× "Có mâm vừa được thu ở máy khác, tải lại bill" |
-| 1d ba lần gộp chéo | ✅ (như trên) | 5 | 10× "Có mâm vừa được thu ở máy khác, tải lại bill"; không deadlock |
-| 1e ‖ `pos_void_order_item` (tự nhiên / xen kẽ) | ❌ ❌ **lỗi thật #2** | 5 + 1 | 2/5 vòng deadlock (`40P01`), xen kẽ: deadlock chắc chắn |
-| 1e ‖ `pos_set_order_item_quantity` (tự nhiên / xen kẽ) | ❌ ❌ **lỗi thật #2** | 5 + 1 | 4/5 vòng deadlock, xen kẽ: deadlock chắc chắn |
-| 2a–2e, 3a–3c, 4a–4b | ⏳ chưa chạy | — | — |
+| 1a hai thu ngân, cùng bàn, khác mã | ✅ | 25 | 25× `already: true` (kèm khoản đã ghi) |
+| 1b cùng mã, cùng bàn / hai bàn | ✅ ✅ | 25 + 25 | `already: true` / "Mã thu tiền đã dùng cho bill khác" |
+| 1c ‖ `pos_add_manual_items` (tự nhiên / xen kẽ) | ✅ ✅ | 25 + 1 | thu: "Số tiền không khớp bill…" · thêm món: "Phiên bàn không còn mở" |
+| 1c ‖ `create_order` (tự nhiên / xen kẽ) | ✅ ✅ | 25 + 1 | khách: "Bàn vừa được đóng, vui lòng quét lại QR" |
+| 1c ‖ `staff_create_order` (tự nhiên / xen kẽ) | ✅ ✅ (**đã vá #1**) | 25 + 1 | nhân viên: "Bàn vừa được thu tiền ở quầy, bấm gửi lại để mở lượt mới cho bàn"; 0/25 vòng lọt đơn |
+| 1d gộp `[A,B]` ‖ thu lẻ `A`; ba lần gộp chéo | ✅ ✅ | 25 + 25 | "Có mâm vừa được thu ở máy khác, tải lại bill"; không deadlock |
+| 1e ‖ `pos_void_order_item` (tự nhiên / xen kẽ) | ✅ ✅ (**đã vá #2**) | 25 + 1 | 0/25 deadlock; sửa bill: "Bill này không còn được điều chỉnh" |
+| 1e ‖ `pos_set_order_item_quantity` (tự nhiên / xen kẽ) | ✅ ✅ (**đã vá #2**) | 25 + 1 | 0/25 deadlock; như trên |
+| 2a ba người mở ca | ✅ | 25 | 50× "Đã có ca đang mở" |
+| 2b thu tiền mặt ‖ kết ca | ✅ | 25 | 24× "Chưa mở ca" |
+| 2c phiếu chi ‖ kết ca; cùng mã phiếu chi | ✅ ✅ | 25 + 25 | "Chưa mở ca" / `already` |
+| 2d huỷ phiếu chi ‖ kết ca | ✅ | 25 | "Ca của phiếu này đã kết, không huỷ được" |
+| 2e phiếu nhập trả tiền mặt ‖ kết ca | ✅ | 25 | 24× "Chưa mở ca" |
+| 3a hai máy thu nợ một khách (100% / 60% / 50%); cùng mã | ✅ ✅ | 25 + 25 | "Số tiền trả vượt số nợ: còn nợ …"; 50%: cả hai được |
+| 3b thu nợ ‖ huỷ lần trả; hai người cùng huỷ | ✅ ✅ | 25 + 25 | 100% nợ gốc chỉ được khi huỷ xong trước / `already` |
+| 3c thu nợ / huỷ lần trả tiền mặt ‖ kết ca | ✅ ✅ | 25 + 25 | "Chưa mở ca" / "Ca của lần thu này đã kết, không huỷ được" |
+| 4a bốn phiếu nhập; bốn loại phiếu cùng lúc | ✅ ✅ | 25 + 25 | số phiếu liền nhau, không `unique_violation` |
+| 4b cùng mã ×3; cùng mã hai loại phiếu; xen kẽ | ✅ ✅ ✅ | 25 + 25 + 1 | `replayed` đúng phiếu / "Mã yêu cầu đã dùng cho phiếu khác" |
 
-### Lỗi thật #1 — `staff_create_order` ghi đơn vào phiên ĐÃ THU
+Chạy lại lần hai ngay sau đó (cùng ngày): 40/40 xanh, 84 giây.
 
-- **RPC**: `collect_table_bill` ‖ `staff_create_order` (nhân viên gọi món hộ ở `/staff/order`, quán trả sau).
-- **Xen kẽ**: (1) thu ngân bấm thu → `collect_table_bill` khoá phiên `FOR UPDATE`; (2) nhân viên gửi món cho đúng
-  bàn đó → `staff_create_order` lấy advisory lock theo bàn (lần thu không giữ khoá này), `open_session_id_for_table`
-  vẫn thấy phiên mở, rồi đứng chờ ở `perform 1 from table_sessions where id = v_session_id for update`; (3) lần thu
-  commit (phiên `closed` / `paid`, mọi đơn đã thu); (4) `staff_create_order` chạy tiếp và `INSERT orders` với
-  `session_id` của phiên vừa đóng.
-- **Thấy**: phiên `status='closed', close_reason='paid'` có thêm một đơn `order_source='staff', status='pending'`,
-  `payment_received_at IS NULL`, 30.000đ; nhân viên nhận kết quả thành công. Bàn hiện trống trên POS, đơn không nằm
-  trong bill nào → món ra bếp (chính sách `automatic`) mà không ai thu tiền.
-- **Mong**: lỗi nghiệp vụ như hai đường kia (`create_order`: "Bàn vừa được đóng, vui lòng quét lại QR";
-  `pos_add_manual_items`: "Phiên bàn không còn mở"), hoặc mở phiên mới cho bàn.
-- **Thiếu**: sau khi chờ được khoá phiên, `staff_create_order` **không kiểm lại `status = 'open'`** (khoá thì có,
-  kiểm thì không). `create_order` có đúng đoạn kiểm này (`IF NOT FOUND OR v_session.status <> 'open'`).
-- **Tái hiện**: `node scripts/test-race.mjs -- --test-name-pattern="staff_create_order"` — test xen kẽ đỏ 100%,
-  test tự nhiên đỏ ngay vòng thứ 3 trong lần chạy 5 vòng.
+⚠️ Lọc bằng `-- --test-name-pattern="^1"` đã TREO hơn 10 phút ở lần thử 2026-11-12 (Postgres không có truy vấn nào chờ khoá, nên kẹt ở phía Node; chưa rõ nguyên nhân). Tới khi tìm ra, chạy cả bộ.
 
-### Lỗi thật #2 — deadlock giữa thu tiền và sửa bill
+Chưa có test riêng: `pos_restore_order_item` ‖ thu tiền (cùng cấu trúc với bỏ món, được vá cùng lúc ở mig 132).
 
-- **RPC**: `collect_table_bill` ‖ `pos_void_order_item` / `pos_set_order_item_quantity` (và `pos_restore_order_item`
-  có cùng cấu trúc, chưa viết test riêng).
-- **Xen kẽ**: sửa bill khoá `order_items` → `orders FOR UPDATE`, ghi, rồi cuối hàm mới
-  `UPDATE table_sessions SET last_activity_at`; thu tiền khoá `table_sessions FOR UPDATE` trước rồi mới
-  `UPDATE orders`. Hai bên giữ khoá bên kia cần → Postgres huỷ một bên sau `deadlock_timeout` (1 giây).
-- **Thấy**: một bên nhận `deadlock detected` (SQLSTATE `40P01`) thay vì câu báo nghiệp vụ, cả hai máy đứng hình 1
-  giây. Dữ liệu **không** sai (bên bị huỷ rollback sạch, phép soát bất biến vẫn sạch). Chạy tự nhiên với độ trễ
-  0–4 ms: 2/5 và 4/5 vòng dính.
-- **Mong**: bên tới sau chờ rồi nhận "Bill này không còn được điều chỉnh" / "Số tiền không khớp bill…".
-- **Thiếu**: thứ tự khoá thống nhất — ba hàm sửa bill cần khoá phiên (`table_sessions … FOR UPDATE`) **trước** khi
-  khoá đơn, như `pos_add_manual_items` và `collect_table_bill` đang làm.
-- **Tái hiện**: `node scripts/test-race.mjs -- --test-name-pattern="1e"`.
+### Lỗi #1 (đã vá, mig 132) — `staff_create_order` ghi đơn vào phiên ĐÃ THU
 
-Hai nhóm test trên được **giữ đỏ có chủ ý** cho tới khi SQL được vá; câu báo lỗi của chúng bắt đầu bằng
-`LỖI THẬT (chưa vá)`. Chưa sửa migration nào.
+Thu ngân bấm thu (`collect_table_bill` khoá phiên) đúng lúc nhân viên gửi món cho bàn đó: `staff_create_order` thấy
+phiên còn mở, đứng chờ khoá phiên, rồi sau khi lần thu commit vẫn chèn đơn `pending` vào phiên đã đóng `paid` —
+bàn hiện trống, không ai thu khoản đó. Thiếu bước kiểm lại `status = 'open'` sau khi chờ khoá (`create_order` và
+`pos_add_manual_items` có). Vá: khoá phiên kèm điều kiện `status = 'open'`, không còn mở thì báo lỗi; nhân viên
+bấm gửi lại sẽ mở phiên mới cho bàn.
+
+### Lỗi #2 (đã vá, mig 132) — deadlock giữa thu tiền và sửa bill
+
+`collect_table_bill` khoá PHIÊN rồi ghi ĐƠN; `pos_void_order_item` / `pos_set_order_item_quantity` /
+`pos_restore_order_item` khoá ĐƠN rồi mới ghi PHIÊN → Postgres huỷ một bên (`40P01`) sau 1 giây, trước khi vá là
+2/5 và 4/5 vòng. Dữ liệu không sai nhưng thu ngân thấy lỗi lạ. Vá: ba hàm sửa bill khoá phiên của đơn trước khi khoá
+đơn; đơn bị dời sang mâm khác giữa hai bước thì báo "Bill vừa thay đổi ở máy khác, tải lại rồi thử lại".
+
+Hai nhóm test này giờ là test **hồi quy**: đỏ lại tức là một lần sửa sau đã làm hỏng thứ tự khoá.

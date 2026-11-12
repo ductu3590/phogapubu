@@ -158,6 +158,8 @@ Schema DB: không chép vào đây (bản chép cũ đã lệch xa). Xem `supaba
 - Sửa hàm đang chạy: vá tại chỗ bằng `pg_get_functiondef` + `replace` + `EXECUTE`, raise nếu không còn chuỗi neo.
   Áp migration lên prod phải áp NGUYÊN VĂN file.
 - Hàm nội bộ mới luôn `REVOKE … FROM PUBLIC, anon, authenticated` (REVOKE FROM PUBLIC không gỡ quyền cấp thẳng).
+- RPC đụng bill khoá **PHIÊN trước, ĐƠN sau** (như `collect_table_bill`); chờ được khoá phiên rồi phải kiểm lại
+  `status = 'open'`. Sửa RPC tiền xong chạy `cd admin-web && npm run test:race` (Postgres thật trong Docker).
 - Đơn "tự vào bếp" vẫn ở `status = 'pending'`: mọi chỗ suy "chờ duyệt" đi qua `isReviewableOrder` /
   `orderInKitchen`, đừng so status trần. Đơn `order_source` là `pos` / `reservation_preorder` nằm pending mãi.
 

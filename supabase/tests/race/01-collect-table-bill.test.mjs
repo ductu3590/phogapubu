@@ -169,7 +169,7 @@ const ADDERS = {
   },
   'staff_create_order (nhân viên gọi món hộ)': {
     role: 'staff',
-    knownBug: 'staff_create_order khoá phiên FOR UPDATE nhưng KHÔNG kiểm lại status = open sau khi chờ khoá',
+    knownBug: 'staff_create_order phải kiểm lại status = open sau khi chờ khoá phiên (mig 132)',
     run: (actor, fx, s) => actor.call('public.staff_create_order($1::uuid, $2::jsonb, $3::text, $4::uuid)',
       [s.table, beers(fx), 'cash', rid()]),
   },
@@ -207,7 +207,7 @@ for (const [name, adder] of Object.entries(ADDERS)) {
       'số vòng lọt đơn chưa thu vào phiên đã thu': `${leaks.length}/${ITER}`,
     })
     assert.deepEqual(leaks, [],
-      `phiên ĐÃ THU còn đơn chưa thu bên trong${adder.knownBug ? ` — LỖI THẬT (chưa vá): ${adder.knownBug}` : ''}`)
+      `phiên ĐÃ THU còn đơn chưa thu bên trong${adder.knownBug ? ` — HỒI QUY lỗi đã vá: ${adder.knownBug}` : ''}`)
     await assertClean(assert, fx, `1c ${name}`, adder.knownBug)
   }))
 
@@ -235,7 +235,7 @@ for (const [name, adder] of Object.entries(ADDERS)) {
     report(`1c thu tiền ‖ ${name} (dựng xen kẽ)`, { 'bên thêm món nhận': describe(a) })
     assert.deepEqual(await unpaidOrders(s.session), [],
       'lần thêm món phải bị từ chối vì phiên vừa được thu; thay vào đó đơn mới đã lọt vào phiên ĐÃ THU'
-      + (adder.knownBug ? ` — LỖI THẬT (chưa vá): ${adder.knownBug}` : ''))
+      + (adder.knownBug ? ` — HỒI QUY lỗi đã vá: ${adder.knownBug}` : ''))
     assert.equal(a.ok, false, 'lần thêm món phải nhận lỗi nghiệp vụ')
     await assertClean(assert, fx, `1c xen kẽ ${name}`, adder.knownBug)
   }))
@@ -308,8 +308,8 @@ test(`1d. ba lần gộp chéo [A,B] ‖ [B,C] ‖ [C,A]: không deadlock, đún
 // 1e (thêm ngoài đề bài). Thu tiền ‖ sửa bill (bỏ món / sửa số lượng) trên cùng phiên.
 //     Hai bên khoá NGƯỢC thứ tự: sửa bill khoá đơn → rồi mới ghi phiên; thu tiền khoá phiên → rồi mới ghi đơn.
 // ---------------------------------------------------------------------------------------------------
-const EDIT_BUG = 'pos_void_order_item / pos_set_order_item_quantity / pos_restore_order_item khoá đơn (orders FOR UPDATE) '
-  + 'rồi mới UPDATE table_sessions; collect_table_bill khoá phiên rồi mới UPDATE orders → hai thứ tự khoá ngược nhau'
+const EDIT_BUG = 'pos_void_order_item / pos_set_order_item_quantity / pos_restore_order_item phải khoá PHIÊN trước '
+  + 'rồi mới khoá ĐƠN, cùng thứ tự với collect_table_bill (mig 132)'
 const EDITS = {
   'pos_void_order_item (bỏ món)': (actor, s) => actor.call(
     'public.pos_void_order_item($1::uuid, $2::text, $3::text)', [s.items[1], 'cancelled', 'khách đổi ý']),
