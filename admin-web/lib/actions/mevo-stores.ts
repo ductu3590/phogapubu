@@ -158,6 +158,8 @@ export async function assignStoreOwner(storeId: string, formData: FormData) {
       email,
       password: tempPassword,
       email_confirm: true,
+      // Mật khẩu tạm → bắt đổi ở lần đăng nhập đầu (lib/auth/password-gate.ts).
+      app_metadata: { must_change_password: true },
     })
     if (createErr || !created.user) throw new Error(`assignStoreOwner(create): ${createErr?.message}`)
     userId = created.user.id

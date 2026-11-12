@@ -56,7 +56,10 @@ beforeEach(() => {
 describe('resetOperatorPassword', () => {
   it('đổi được mật khẩu cho tài khoản vận hành', async () => {
     const res = await resetOperatorPassword('owner-1', passwordForm('matkhaumoi123'))
-    expect(mocks.updateUserById).toHaveBeenCalledWith('owner-1', { password: 'matkhaumoi123' })
+    expect(mocks.updateUserById).toHaveBeenCalledWith('owner-1', {
+      password: 'matkhaumoi123',
+      app_metadata: { must_change_password: true },
+    })
     expect(res).toEqual({ email: 'chuquan@quan.vn' })
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/mevo/accounts')
   })

@@ -123,7 +123,11 @@ export async function resetOperatorPassword(
   if (targetError) throw new Error(`resetOperatorPassword(target): ${targetError.message}`)
   if (!target) throw new Error('Tài khoản này không phải tài khoản vận hành của MEVO')
 
-  const { data: updated, error } = await admin.auth.admin.updateUserById(userId, { password })
+  // Người nhận mật khẩu do người khác đặt phải đổi lại ở lần đăng nhập kế tiếp (lib/auth/password-gate.ts).
+  const { data: updated, error } = await admin.auth.admin.updateUserById(userId, {
+    password,
+    app_metadata: { must_change_password: true },
+  })
   if (error) throw new Error(`resetOperatorPassword: ${error.message}`)
 
   revalidatePath('/mevo/accounts')

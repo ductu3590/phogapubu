@@ -65,3 +65,20 @@ describe('signIn routing theo role', () => {
     expect(res.error).toContain('chưa được cấp quyền')
   })
 })
+
+describe('signIn khi còn cờ bắt đổi mật khẩu', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.supabase.auth.signInWithPassword.mockResolvedValue({
+      data: { user: { id: 'u1', app_metadata: { must_change_password: true } } },
+      error: null,
+    })
+  })
+
+  it('mọi vai → /change-password trước', async () => {
+    mocks.op.value = { role: 'store_staff', store_id: 'store-1' }
+    expect(await signIn(loginForm())).toEqual({ success: true, redirectTo: '/change-password' })
+    mocks.op.value = { role: 'store_owner', store_id: 'store-1' }
+    expect(await signIn(loginForm())).toEqual({ success: true, redirectTo: '/change-password' })
+  })
+})
