@@ -98,7 +98,7 @@
   .b-card .hot { position: absolute; left: 8px; top: 8px; margin: 0; background: rgba(251,250,246,.92); }
   .banner { margin: 0 16px 12px; border-radius: 20px; overflow: hidden; position: relative; flex: none; }
   .banner img { width: 100%; height: 112px; object-fit: cover; display: block; }
-  .fab { position: absolute; right: 16px; bottom: 148px; width: 50px; height: 50px; border-radius: 50%; background: var(--surface); color: var(--primary); display: grid; place-items: center; box-shadow: 0 6px 18px rgba(38,43,26,.18); }
+  .fab { position: absolute; right: 16px; bottom: 204px; width: 50px; height: 50px; border-radius: 50%; background: var(--surface); color: var(--primary); display: grid; place-items: center; box-shadow: 0 6px 18px rgba(38,43,26,.18); }
 
   /* C — mục lục trái */
   .split { flex: 1; min-height: 0; display: flex; }
@@ -113,6 +113,24 @@
   .c-item .add, .c-item .step { border-width: 0; flex: none; }
   .c-item .add { width: 30px; height: 30px; }
   .split .cat { padding: 16px 12px 2px; }
+
+  /* Dải gọi thêm nhanh: chỉ hiện khi bàn đã gọi bia / rượu trong bữa này */
+  .quick { flex: none; display: flex; align-items: center; gap: 10px; padding: 9px 0 3px 16px; border-top: 1px solid var(--line); background: var(--bg); }
+  .quick .ql { flex: none; display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--brown); letter-spacing: .02em; }
+  .quick .ql svg { width: 17px; height: 17px; }
+  .quick .qs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-right: 16px; }
+  .quick .qs::-webkit-scrollbar { display: none; }
+  .qc { flex: none; height: 40px; display: inline-flex; align-items: center; gap: 9px; padding: 0 5px 0 14px; border-radius: 99px; background: var(--surface); font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .qc small { font-weight: 500; color: var(--ink-2); font-size: 12px; }
+  .qc i { width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: #fff; display: grid; place-items: center; font-style: normal; font-size: 17px; line-height: 1; }
+  .qc.on { background: var(--primary); color: #fff; padding-right: 5px; }
+  .qc.on small { color: rgba(255,255,255,.8); }
+  .qc.on i { background: rgba(255,255,255,.18); }
+  .qc.on b { min-width: 14px; text-align: center; font-size: 13.5px; }
+  .note { margin-top: 18px; background: rgba(255,255,255,.55); border-radius: 18px; padding: 16px 20px; max-width: 900px; font-size: 13.5px; line-height: 1.55; color: #33382a; }
+  .note h3 { font-size: 15px; font-weight: 700; margin-bottom: 8px; color: var(--ink); }
+  .note li { margin: 4px 0 4px 18px; }
+  .note b { color: var(--ink); }
 
   /* Thanh giỏ + thanh tab */
   .cart { flex: none; margin: 8px 16px 10px; height: 54px; border-radius: 99px; background: var(--primary); color: #fff; display: flex; align-items: center; padding: 0 8px 0 20px; gap: 10px; box-shadow: 0 8px 22px rgba(62,71,40,.28); }
@@ -142,12 +160,23 @@
   <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
   <symbol id="menu" viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></symbol>
   <symbol id="list" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M12 11h4M12 16h4M8 11h.01M8 16h.01"/></symbol>
+  <symbol id="beer" viewBox="0 0 24 24"><path d="M17 11h1a3 3 0 0 1 0 6h-1M9 12v6M13 12v6"/><path d="M14 7.5c-1 0-1.44.5-3 .5s-2-.5-3-.5-1.72.5-2.5.5a2.5 2.5 0 0 1 0-5c.78 0 1.57.5 2.5.5S9.44 2 11 2s2 1.5 3 1.5 1.72-.5 2.5-.5a2.5 2.5 0 0 1 0 5c-.78 0-1.5-.5-2.5-.5Z"/><path d="M5 8v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/></symbol>
   <symbol id="leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></symbol>
 </svg>
 
 <div class="page">
   <h1>Yên Garden — 3 phương án màn Thực đơn</h1>
-  <p class="lead">Cả ba dùng chung bảng màu lấy từ logo (ô-liu trên nền kem), phẳng, không bóng đổ ở thẻ, không viền hộp. Khác nhau ở <b>cách bày món</b>. Cảnh trong ảnh: khách quét QR bàn A12, đã chọn 3 món, có một lượt đang chờ thu ngân duyệt. Tên món, giá và ảnh là <b>mẫu</b> (quán chưa gửi menu thật).</p>
+  <p class="lead">Cả ba dùng chung bảng màu lấy từ logo (ô-liu trên nền kem), phẳng, không bóng đổ ở thẻ, không viền hộp. Khác nhau ở <b>cách bày món</b>. Cảnh trong ảnh: bàn A12 đã gọi một lượt trước đó (có bia hơi, rượu táo mèo, Tiger), giờ khách mở lại để gọi thêm và đang có 3 món trong giỏ. Tên món, giá và ảnh là <b>mẫu</b> (quán chưa gửi menu thật).</p>
+
+  <div class="note">
+    <h3>Mới: dải "Gọi thêm" ngay trên thanh giỏ (có ở cả ba phương án)</h3>
+    <ul>
+      <li><b>Khi nào hiện:</b> chỉ khi bàn này đã gọi bia hoặc rượu trong bữa. Bàn chưa gọi đồ uống nào thì không có dải này, màn hình như cũ.</li>
+      <li><b>Hiện gì:</b> đúng những thứ bàn đã gọi, kèm đúng cỡ đã chọn (Ca 1 lít, Chai 500 ml…). Thứ gọi gần nhất đứng đầu, vuốt ngang để xem thêm.</li>
+      <li><b>Bấm dấu +:</b> thêm 1 vào giỏ ngay, không mở bảng chọn, không phải tìm món. Bấm tiếp để tăng số lượng (viên "Bia hơi" trong ảnh đang ở trạng thái đã thêm 1). Khách vẫn bấm "Xem giỏ" rồi gửi như mọi lượt gọi khác, thu ngân vẫn duyệt.</li>
+      <li><b>Dải này dính ở đáy</b>, cuộn menu tới đâu vẫn thấy, nằm trong tầm ngón cái.</li>
+    </ul>
+  </div>
 
   <div class="row" id="row"></div>
 
@@ -194,6 +223,15 @@ const MENU = [
     { n: "Cá hồi Sa Pa nướng mắc khén", d: "", p: "320.000đ", img: u("1519708227418-c8fd9a32b7a2"), out: 1 },
   ]},
 ];
+// Đồ uống bàn này ĐÃ gọi trong bữa (lấy từ các lượt gọi trước) — nguồn của dải "Gọi thêm".
+const QUICK = [
+  { n: "Bia hơi", v: "Ca 1 lít", qty: 1 },
+  { n: "Rượu táo mèo", v: "Chai 500 ml" },
+  { n: "Tiger Crystal", v: "lon" },
+];
+const quick = `<div class="quick"><span class="ql">${ic("beer")}Gọi thêm</span><div class="qs">${QUICK.map((q) => q.qty
+  ? `<span class="qc on">${q.n} <small>${q.v}</small><i>−</i><b>${q.qty}</b><i>+</i></span>`
+  : `<span class="qc">${q.n} <small>${q.v}</small><i>+</i></span>`).join("")}</div></div>`;
 const CATS = ["Nướng", "Bia & đồ uống", "Lẩu", "Khai vị", "Hải sản", "Rau & cơm", "Tráng miệng"];
 
 const img = (it, cls = "") => it.img ? `<img class="${cls}" src="${it.img}" alt="">` : `<div class="noimg ${cls}">${ic("leaf", "width:22px;height:22px")}</div>`;
@@ -207,7 +245,8 @@ const top = (r2) => `
     ${r2}
   </div>`;
 const bottom = `
-  <div class="cart"><div><b>395.000đ</b><br><span>3 món · Bàn A12</span></div><span class="go">Xem giỏ ${ic("arrow", "width:16px;height:16px")}</span></div>
+  ${quick}
+  <div class="cart"><div><b>390.000đ</b><br><span>3 món · Bàn A12</span></div><span class="go">Xem giỏ ${ic("arrow", "width:16px;height:16px")}</span></div>
   <div class="nav"><div class="on">${ic("menu")}Thực đơn</div><div>${ic("list")}<i class="dot"></i>Đơn gọi</div></div>`;
 const searchRow = `<div class="r2"><div class="search">${ic("search", "width:17px;height:17px")}Tìm món…</div><span class="bell">${ic("bell", "width:17px;height:17px")}Gọi nhân viên</span></div>`;
 
