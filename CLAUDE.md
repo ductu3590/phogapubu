@@ -74,7 +74,7 @@ tầng nào — nhầm tầng là lỗi hay gặp nhất khi có ≥2 quán:
 |---|---|---|---|
 | **1. Core code** (logic, UI, luồng đặt món...) | `mini-app/src/` (thư mục gốc repo, nhánh `main`) | Sửa bug, thêm tính năng dùng chung cho MỌI quán | Tất cả quán, sau khi mỗi quán tự `git merge origin/main` vào worktree của mình |
 | **2. Cấu hình riêng quán** (Zalo App ID, Supabase key, tên app hiển thị trên Zalo) | `mini-app-instances/<slug>/mini-app/.env` + `app-config.json` (KHÔNG tracked, mỗi quán 1 bản) | Onboard quán mới, đổi Zalo App ID | Chỉ 1 quán — không bao giờ sửa ở `mini-app/` gốc, gốc không có 2 file này |
-| **3. Nội dung/theme runtime** (tên quán, logo, banner, menu, **màu chủ đạo**) | Bảng `stores`/`menu_items`/... qua `/mevo` hoặc `/admin` | Đổi nội dung hiển thị, không đổi hành vi | Chỉ 1 quán — KHÔNG cần sửa code, KHÔNG cần deploy lại, chỉ cần quán đó đã `zmp deploy` ít nhất 1 lần |
+| **3. Nội dung/theme runtime** (tên quán, logo, banner, menu, **màu chủ đạo**, **bộ giao diện** `stores.mini_app_theme`) | Bảng `stores`/`menu_items`/... qua `/mevo` hoặc `/admin` | Đổi nội dung hiển thị, không đổi hành vi | Chỉ 1 quán — KHÔNG cần sửa code, KHÔNG cần deploy lại, chỉ cần quán đó đã `zmp deploy` ít nhất 1 lần |
 
 **Quy tắc:**
 - `mini-app/` (thư mục gốc) = **source lõi**, không `npm run dev`/`zmp deploy` trực tiếp từ đây
