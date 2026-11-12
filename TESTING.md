@@ -10,7 +10,7 @@
 - ✅ [Thay đổi theo 14 câu trả lời + nhân viên chỉ thêm bàn vào mâm](docs/testing/audit-cleanup/AUDIT-2.md) — PASS 2026-11-12 (anh Tú); mig 133 đã áp prod
 - ✅ [Test đua nhiều kết nối cho RPC tiền](docs/testing/audit-cleanup/RACE.md) — 40/40 xanh (2026-11-12, 25 vòng) sau khi mig 132 vá 2 lỗi; chạy lại: `cd admin-web && npm run test:race`
 - ✅ [In bếp do máy chủ tự xếp](docs/testing/audit-cleanup/IN-BEP-SERVER.md) — PASS 2026-11-12 (anh Tú); mig 131 đã áp prod
-- ⏳ [Bản cài phần mềm in (MEVO In 0.2.0)](docs/testing/dot1/C-cai-dat-phan-mem-in.md) — chờ test trên máy quầy (2026-11-12); cài/gỡ/cài đè đã tự kiểm trên máy dev
+- ✅ [Bản cài phần mềm in (MEVO In 0.2.0)](docs/testing/dot1/C-cai-dat-phan-mem-in.md) — PASS 2026-11-12 (anh Tú)
 - [Đợt 1 C-0 — Máy in thật](docs/testing/dot1/C-0-may-in-that.md) — anh Tú báo in được (Canon 2900 + 2 trạm PDF, 2026-11-11); chưa điền số đo, chưa thử máy nhiệt 80mm
 - ⏳ [Đợt 1 C Part 2 — gọi in / in ghép](docs/testing/dot1/C-part2-goi-in.md), [in ghép](docs/testing/dot1/C-part2-in-ghep.md)
 - ⏳ [Đợt 1 — VietQR nền](docs/testing/dot1/vietqr-nen.md), [VietQR ghép](docs/testing/dot1/vietqr-ghep.md)

@@ -59,4 +59,4 @@ Làm trên **máy quầy** (hoặc một máy Windows chưa từng cài MEVO In)
 
 - [ ] Phần mềm lên thẳng "Đang chạy", KHÔNG hỏi ghép lại (token được giữ)
 
-KẾT QUẢ: PASS / FAIL
+KẾT QUẢ: PASS (anh Tú, 2026-11-12)
