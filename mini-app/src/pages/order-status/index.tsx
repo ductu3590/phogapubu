@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSnackbar } from "zmp-ui";
 import { useOrderWithItems } from "@/services/order/order.queries";
 import { useConfirmReceived } from "@/services/order/order.mutations";
-import { supabase } from "@/services/supabase";
+import { realtime } from "@/services/supabase-realtime";
 import { Order, OrderState } from "@/types/order.types";
 import { formatCurrency } from "@/utils/format";
 import { getItemLineTotal } from "@/utils/order-pricing";
@@ -121,7 +121,7 @@ export default function OrderStatusPage() {
   useEffect(() => {
     if (!orderId) return;
 
-    const channel = supabase
+    const channel = realtime()
       .channel(`order-status-${orderId}`)
       .on(
         "postgres_changes",
@@ -151,7 +151,7 @@ export default function OrderStatusPage() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void realtime().removeChannel(channel);
     };
   }, [orderId]);
 

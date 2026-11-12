@@ -20,10 +20,12 @@
     "start": "zmp start",
     "deploy": "zmp deploy",
     "typecheck": "tsc --noEmit --pretty false",
-    "test": "vitest run"
+    "test": "vitest run",
+    "measure": "vite build --config vite.measure.config.mts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.105.4",
+    "@supabase/postgrest-js": "2.105.4",
+    "@supabase/realtime-js": "2.105.4",
     "@tanstack/react-query": "^5.90.14",
     "clsx": "^2.1.1",
     "react": "^18.3.1",

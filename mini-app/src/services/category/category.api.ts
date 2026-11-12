@@ -55,15 +55,51 @@ function mapProduct(row: Record<string, unknown>, rules?: ActiveRule[]): Product
   };
 }
 
+const MENU_SELECT =
+  "*, menu_items(*, menu_item_toppings(toppings(id, name, price, is_available, sort_order)), menu_item_variants(id, name, price, is_available, sort_order))";
+
+export type MenuCategoryRow = { id: string; name: string; sort_order: number; menu_items?: unknown };
+
+/** Dòng menu_categories (kèm menu_items) + giảm giá đang chạy → menu hiển thị. Một chỗ duy nhất
+ *  cho cả đường đọc theo storeId lẫn đường khởi động theo slug. */
+export function buildMenu(rows: MenuCategoryRow[], discounts: Map<string, ActiveRule[]>): CategoryWithProducts[] {
+  return rows.map((cat) => ({
+    id: cat.id,
+    name: cat.name,
+    sortOrder: cat.sort_order,
+    products: ((cat.menu_items as unknown as Record<string, unknown>[]) ?? [])
+      // Giữ cả món hết hàng để hiện mờ + badge "Tạm hết";
+      // món còn hàng lên trước, hết hàng dồn xuống cuối, rồi theo sort_order
+      .sort((a, b) => {
+        const availDiff = (isRowSoldOut(a) ? 1 : 0) - (isRowSoldOut(b) ? 1 : 0);
+        if (availDiff !== 0) return availDiff;
+        return (a.sort_order as number) - (b.sort_order as number);
+      })
+      .map((row) => mapProduct(row, discounts.get(row.id as string))),
+  }));
+}
+
 export const categoryService = {
+  // Khởi động: đọc menu THEO SLUG, chạy song song với get_mini_app_bootstrap (chưa cần store_id).
+  // Cùng select và cùng RLS với getMenuByStore, chỉ lọc qua quan hệ stores thay vì store_id.
+  getMenuRowsBySlug: async (slug: string): Promise<MenuCategoryRow[]> => {
+    const { data, error } = await supabase
+      .from("menu_categories")
+      .select(`${MENU_SELECT}, stores!inner(slug)`)
+      .eq("stores.slug", slug)
+      .eq("stores.is_active", true)
+      .eq("is_active", true)
+      .order("sort_order");
+    if (error) throw error;
+    return (data ?? []) as unknown as MenuCategoryRow[];
+  },
+
   // Lấy menu đầy đủ (categories + items) theo storeId
   getMenuByStore: async (storeId: string): Promise<CategoryWithProducts[]> => {
     const [{ data, error }, discountRes] = await Promise.all([
       supabase
         .from("menu_categories")
-        .select(
-          "*, menu_items(*, menu_item_toppings(toppings(id, name, price, is_available, sort_order)), menu_item_variants(id, name, price, is_available, sort_order))",
-        )
+        .select(MENU_SELECT)
         .eq("store_id", storeId)
         .eq("is_active", true)
         .order("sort_order"),
@@ -74,20 +110,7 @@ export const categoryService = {
     if (error) throw error;
     const discounts = parseActiveDiscounts(discountRes.error ? null : discountRes.data);
 
-    return (data ?? []).map((cat) => ({
-      id: cat.id,
-      name: cat.name,
-      sortOrder: cat.sort_order,
-      products: ((cat.menu_items as Record<string, unknown>[]) ?? [])
-        // Giữ cả món hết hàng để hiện mờ + badge "Tạm hết";
-        // món còn hàng lên trước, hết hàng dồn xuống cuối, rồi theo sort_order
-        .sort((a, b) => {
-          const availDiff = (isRowSoldOut(a) ? 1 : 0) - (isRowSoldOut(b) ? 1 : 0);
-          if (availDiff !== 0) return availDiff;
-          return (a.sort_order as number) - (b.sort_order as number);
-        })
-        .map((row) => mapProduct(row, discounts.get(row.id as string))),
-    }));
+    return buildMenu((data ?? []) as unknown as MenuCategoryRow[], discounts);
   },
 
   // Lấy danh sách categories (không kèm items)

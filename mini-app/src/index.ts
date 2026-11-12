@@ -11,6 +11,13 @@ import { createRoot } from "react-dom/client";
 
 // Mount the app
 import MiniApp from "./app";
+import { readThemeSeed } from "./stores/app.store";
+import { applyPrimaryColor, applyTheme } from "./utils/theme-color";
+
+// Áp theme + màu của lần mở trước TRƯỚC khi vẽ, để khung chờ đầu tiên đã đúng tông của quán.
+const seed = readThemeSeed();
+applyTheme(seed.theme);
+if (seed.primary) applyPrimaryColor(seed.primary);
 
 // Expose app configuration
 import appConfig from "../app-config.json";

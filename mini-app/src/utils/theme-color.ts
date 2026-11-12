@@ -3,7 +3,15 @@
 // cho Tailwind `rgb(var(--color-primary-rgb) / <alpha-value>)`). Thiếu biến rgb thì các class
 // có độ mờ như `bg-primary/10` không ra màu nào — var(hex) không nhận được alpha.
 
+import type { ThemeKey } from "./theme";
+
 export const DEFAULT_PRIMARY = "#A0673D";
+
+/** Bật bộ giao diện của quán: đặt data-theme trên <html> để khối biến màu tương ứng trong
+ *  css/app.scss có hiệu lực. 'classic' không khớp khối nào → đúng bảng màu gốc. */
+export function applyTheme(theme: ThemeKey, root: HTMLElement = document.documentElement) {
+  root.setAttribute("data-theme", theme);
+}
 
 /** "#C0341A" | "#c34" → "192 52 26". Mã không hợp lệ → null. */
 export function hexToRgbChannels(hex: string): string | null {

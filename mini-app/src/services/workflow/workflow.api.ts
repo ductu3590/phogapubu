@@ -17,7 +17,12 @@ export async function getPublicWorkflow(storeId: string): Promise<PublicWorkflow
   if (error) throw error;
   if (!data) throw new Error("Không tải được cấu hình quán");
 
-  const workflow = data as unknown as PublicWorkflowPayload;
+  return mapPublicWorkflow(data);
+}
+
+/** Payload của get_public_store_workflow → kiểu dùng trong app (dùng chung với get_mini_app_bootstrap). */
+export function mapPublicWorkflow(data: unknown): PublicWorkflow {
+  const workflow = data as PublicWorkflowPayload;
   return {
     tableOrderingEnabled: workflow.table_ordering_enabled,
     takeawayEnabled: workflow.takeaway_enabled,

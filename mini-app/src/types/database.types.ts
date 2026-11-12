@@ -26,6 +26,7 @@ export interface Database {
           wifi_name: string | null
           wifi_password: string | null
           primary_color: string
+          mini_app_theme: string
           is_accepting_orders: boolean
           serving_hours: Json
           delivery_area_note: string | null
@@ -328,6 +329,10 @@ export interface Database {
       // mig 115: chương trình giảm giá món / danh mục đang hiệu lực
       get_active_menu_discounts: {
         Args: { p_store_id: string }
+        Returns: Json
+      }
+      get_mini_app_bootstrap: {
+        Args: { p_slug: string; p_table_id?: string | null }
         Returns: Json
       }
     }

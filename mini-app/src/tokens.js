@@ -70,13 +70,16 @@ const base = {
     white: "#FFFFFF",
 
     // Họ xám slate — cùng bảng với admin-web (app/globals.css). Chốt 2026-10-02.
-    neutral50: "#F8FAFC",
-    neutral100: "#E2E8F0",
-    neutral200: "#E2E8F0",
-    neutral300: "#64748B",
-    neutral900: "#0F172A",
-    neutral500: "#E2E8F0",
-    neutral400: "#F8FAFC",
+    // Đọc qua biến CSS để theme theo quán (stores.mini_app_theme) đổi được tông trung tính lúc chạy.
+    // Giá trị dự phòng sau dấu phẩy = bảng 'classic' → chưa đặt biến thì ra đúng màu cũ.
+    // Biến khai ở css/app.scss (:root và :root[data-theme="garden"]).
+    neutral50: "rgb(var(--c-neutral50, 248 250 252) / <alpha-value>)",
+    neutral100: "rgb(var(--c-neutral100, 226 232 240) / <alpha-value>)",
+    neutral200: "rgb(var(--c-neutral100, 226 232 240) / <alpha-value>)",
+    neutral300: "rgb(var(--c-neutral300, 100 116 139) / <alpha-value>)",
+    neutral900: "rgb(var(--c-neutral900, 15 23 42) / <alpha-value>)",
+    neutral500: "rgb(var(--c-neutral100, 226 232 240) / <alpha-value>)",
+    neutral400: "rgb(var(--c-neutral50, 248 250 252) / <alpha-value>)",
     peach100: "#FFECE2",
 
     yellow100: "#FFF8E0",
@@ -131,21 +134,21 @@ const semantic = {
     // Dạng rgb(... / <alpha-value>) để `bg-primary/10` ra được màu nhạt theo quán.
     // Biến đặt ở utils/theme-color.ts (applyPrimaryColor); mặc định #A0673D = 160 103 61.
     primary: "rgb(var(--color-primary-rgb, 160 103 61) / <alpha-value>)",
-    background: "#F1F5F9",
-    surface: "#FFFFFF",
+    background: "rgb(var(--c-background, 241 245 249) / <alpha-value>)",
+    surface: "rgb(var(--c-surface, 255 255 255) / <alpha-value>)",
     text: {
       primary: base.colors.neutral900,
-      secondary: "#475569",
-      tertiary: "#64748B",
-      disabled: "#94A3B8",
+      secondary: "rgb(var(--c-text-secondary, 71 85 105) / <alpha-value>)",
+      tertiary: "rgb(var(--c-text-tertiary, 100 116 139) / <alpha-value>)",
+      disabled: "rgb(var(--c-text-disabled, 148 163 184) / <alpha-value>)",
       title: base.colors.neutral900,
     },
     border: {
-      primary: "#E2E8F0",
-      strong: "#CBD5E1",
+      primary: "rgb(var(--c-neutral100, 226 232 240) / <alpha-value>)",
+      strong: "rgb(var(--c-border-strong, 203 213 225) / <alpha-value>)",
     },
     icon: {
-      tertiary: "#64748B",
+      tertiary: "rgb(var(--c-text-tertiary, 100 116 139) / <alpha-value>)",
     },
     // Năm tông trạng thái — CÙNG bảng với admin-web (components/ui/status.ts).
     // Không có tông cam: màu chính của quán chỉ dành cho nút / mục đang chọn. Luôn kèm chữ.

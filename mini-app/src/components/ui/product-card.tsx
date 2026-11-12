@@ -36,7 +36,7 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
     return (
       <div className={cn("flex min-w-0 flex-col overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]", !available && "opacity-60")}>
         <div className="aspect-[4/3] w-full bg-primary/5">
-          {image ? <img src={image} alt={product.name} onError={() => setImageFailed(true)} className="h-full w-full object-cover" draggable={false} />
+          {image ? <img src={image} alt={product.name} loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="h-full w-full object-cover" draggable={false} />
             : <div className="grid h-full place-items-center text-primary/40"><UtensilsIcon className="size-8" /></div>}
         </div>
         <div className="flex flex-1 flex-col gap-1 p-2.5">
@@ -52,7 +52,7 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
 
   return (
     <div className={cn("flex items-center gap-3 px-4 py-3", !available && "opacity-60")}>
-      {image && <img src={image} alt={product.name} onError={() => setImageFailed(true)} className="size-16 shrink-0 rounded-xl object-cover" draggable={false} />}
+      {image && <img src={image} alt={product.name} loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="size-16 shrink-0 rounded-xl object-cover" draggable={false} />}
       <div className="min-w-0 flex-1">
         <BadgePill badge={product.badge} className="mb-0.5" />
         <p className="line-clamp-2 text-normal-sb font-semibold text-text-primary">{product.name}</p>

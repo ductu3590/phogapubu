@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Sheet } from "zmp-ui";
+import { useEffect, useState } from "react";
+import BottomSheet, { preloadClassicSheet } from "@/components/ui/bottom-sheet";
+import { useAppStore } from "@/stores/app.store";
 import { Product, Variant } from "@/types/product.types";
 import { SelectedVariant } from "@/types/cart.types";
 import { formatCurrency } from "@/utils/format";
@@ -22,6 +23,10 @@ export default function OptionSheet({ product, visible, onClose, onConfirm }: Op
   // KHÔNG chọn sẵn lựa chọn đầu tiên: bắt khách nhìn giá rồi mới bấm,
   // tránh cảnh vô ý đặt tháp bia 200k.
   const [variantId, setVariantId] = useState<string | null>(null);
+  const theme = useAppStore((s) => s.theme);
+  useEffect(() => {
+    if (theme === "classic") preloadClassicSheet();
+  }, [theme]);
 
   const reset = () => {
     setSelectedToppings(new Set());
@@ -70,7 +75,7 @@ export default function OptionSheet({ product, visible, onClose, onConfirm }: Op
   };
 
   return (
-    <Sheet autoHeight visible={visible} onClose={handleClose}>
+    <BottomSheet visible={visible} onClose={handleClose}>
       <div className="flex max-h-[75vh] flex-col bg-surface">
         <div className="flex items-center gap-3 border-b border-neutral100 px-4 py-3">
           {product.image ? (
@@ -155,6 +160,6 @@ export default function OptionSheet({ product, visible, onClose, onConfirm }: Op
           </button>
         </div>
       </div>
-    </Sheet>
+    </BottomSheet>
   );
 }
