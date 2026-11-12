@@ -335,12 +335,21 @@ export async function deleteMenuItem(itemId: string) {
   revalidatePath('/admin/menu')
 }
 
+// Ô "Gợi ý gọi thêm nhanh" của danh mục (mig 136). Checkbox không tick thì trình duyệt không gửi
+// gì, nên form kèm một trường mốc quick_reorder_field: có mốc mới ghi cột (tick → true, bỏ → false);
+// form khác không có mốc thì KHÔNG đụng cột.
+function readQuickReorder(formData: FormData): boolean | undefined {
+  if (formData.get('quick_reorder_field') === null) return undefined
+  return formData.get('quick_reorder') === 'on'
+}
+
 // Thêm danh mục
 async function addCategoryImpl(formData: FormData): Promise<void> {
   const storeId = await getStoreId()
   const admin = createAdminClient()
   const prefix = readPrefix(formData) // trống → DB tự sinh từ tên (trigger mig 095)
   const printStation = await readPrintStation(formData, storeId)
+  const quickReorder = readQuickReorder(formData)
   const { data: maxRow } = await admin
     .from('menu_categories')
     .select('sort_order')
@@ -356,6 +365,7 @@ async function addCategoryImpl(formData: FormData): Promise<void> {
     is_active: true,
     ...(prefix ? { sku_prefix: prefix } : {}),
     ...(printStation ? { print_station_id: printStation } : {}),
+    ...(quickReorder ? { quick_reorder: true } : {}),
   })
   if (error?.code === '23505' && prefix) throw await friendlyUniqueError(admin, storeId, 'prefix', prefix)
   if (error) throw new Error(`addCategory: ${error.message}`)
@@ -368,12 +378,14 @@ async function updateCategoryImpl(categoryId: string, formData: FormData): Promi
   const admin = createAdminClient()
   const prefix = readPrefix(formData) // trống → giữ tiền tố cũ; đổi tiền tố KHÔNG đổi mã các món cũ
   const printStation = await readPrintStation(formData, storeId)
+  const quickReorder = readQuickReorder(formData)
   const { error } = await admin
     .from('menu_categories')
     .update({
       name: formData.get('name') as string,
       ...(prefix ? { sku_prefix: prefix } : {}),
       ...(printStation !== undefined ? { print_station_id: printStation } : {}),
+      ...(quickReorder !== undefined ? { quick_reorder: quickReorder } : {}),
     })
     .eq('id', categoryId)
     .eq('store_id', storeId)

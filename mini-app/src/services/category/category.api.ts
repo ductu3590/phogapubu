@@ -58,7 +58,7 @@ function mapProduct(row: Record<string, unknown>, rules?: ActiveRule[]): Product
 const MENU_SELECT =
   "*, menu_items(*, menu_item_toppings(toppings(id, name, price, is_available, sort_order)), menu_item_variants(id, name, price, is_available, sort_order))";
 
-export type MenuCategoryRow = { id: string; name: string; sort_order: number; menu_items?: unknown };
+export type MenuCategoryRow = { id: string; name: string; sort_order: number; quick_reorder?: boolean | null; menu_items?: unknown };
 
 /** Dòng menu_categories (kèm menu_items) + giảm giá đang chạy → menu hiển thị. Một chỗ duy nhất
  *  cho cả đường đọc theo storeId lẫn đường khởi động theo slug. */
@@ -67,6 +67,7 @@ export function buildMenu(rows: MenuCategoryRow[], discounts: Map<string, Active
     id: cat.id,
     name: cat.name,
     sortOrder: cat.sort_order,
+    quickReorder: cat.quick_reorder === true,
     products: ((cat.menu_items as unknown as Record<string, unknown>[]) ?? [])
       // Giữ cả món hết hàng để hiện mờ + badge "Tạm hết";
       // món còn hàng lên trước, hết hàng dồn xuống cuối, rồi theo sort_order
