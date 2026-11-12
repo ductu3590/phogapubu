@@ -148,7 +148,7 @@ export default function ReservationPreorderPage() {
                 {layout === "grid" ? (
                   <div className="grid grid-cols-2 gap-3 px-3">{c.products.map(card)}</div>
                 ) : (
-                  <div className="mx-3 divide-y divide-neutral100 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">{c.products.map(card)}</div>
+                  <div className="mx-3 divide-y divide-neutral100 overflow-hidden rounded-2xl bg-surface shadow-card">{c.products.map(card)}</div>
                 )}
               </section>
             );

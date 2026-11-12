@@ -34,7 +34,7 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
 
   if (layout === "grid") {
     return (
-      <div className={cn("flex min-w-0 flex-col overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]", !available && "opacity-60")}>
+      <div className={cn("flex min-w-0 flex-col overflow-hidden rounded-2xl bg-surface shadow-card", !available && "opacity-60")}>
         <div className="aspect-[4/3] w-full bg-primary/5">
           {image ? <img src={image} alt={product.name} loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="h-full w-full object-cover" draggable={false} />
             : <div className="grid h-full place-items-center text-primary/40"><UtensilsIcon className="size-8" /></div>}

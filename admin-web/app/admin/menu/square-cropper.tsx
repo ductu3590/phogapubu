@@ -4,7 +4,9 @@ import { ImagePlus } from 'lucide-react'
 import { useEffect, useRef, useState, useCallback } from 'react'
 
 const VIEWPORT = 260 // kích thước khung crop hiển thị (px)
-const OUTPUT = 800 // kích thước ảnh xuất ra (px, vuông 1:1)
+// Kích thước ảnh xuất ra (px, vuông 1:1). Mini App vẽ ảnh món rộng nhất ~180px (lưới 2 cột),
+// màn 3x cần ~540px → 600 là đủ nét; 800 chỉ làm ảnh nặng gần gấp đôi mà mắt không thấy khác.
+const OUTPUT = 600
 
 // Cropper vuông tự chứa: chọn ảnh → kéo để di chuyển + thanh kéo để phóng to →
 // xuất file JPEG 1:1 800x800. Không phụ thuộc thư viện ngoài.
@@ -81,12 +83,24 @@ export default function SquareCropper({
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, OUTPUT, OUTPUT)
       ctx.drawImage(img, dx, dy, w, h)
+      // WebP nhẹ hơn JPEG khoảng một nửa ở cùng độ nét. Trình duyệt không mã hoá được WebP
+      // (Safari cũ) sẽ trả blob loại khác → xuất lại JPEG như trước.
       out.toBlob(
-        (blob) => {
-          if (blob) onChange(new File([blob], 'menu.jpg', { type: 'image/jpeg' }))
+        (webp) => {
+          if (webp && webp.type === 'image/webp') {
+            onChange(new File([webp], 'menu.webp', { type: 'image/webp' }))
+            return
+          }
+          out.toBlob(
+            (jpeg) => {
+              if (jpeg) onChange(new File([jpeg], 'menu.jpg', { type: 'image/jpeg' }))
+            },
+            'image/jpeg',
+            0.85,
+          )
         },
-        'image/jpeg',
-        0.85,
+        'image/webp',
+        0.8,
       )
     }, 120)
     return () => clearTimeout(t)

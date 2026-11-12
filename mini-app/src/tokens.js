@@ -114,6 +114,10 @@ const base = {
   opacity: {
     opacity10: "0.1",
   },
+  boxShadow: {
+    // Bóng mảnh của thẻ nội dung. Theme garden đặt --shadow-card: none (phẳng hoàn toàn).
+    card: "var(--shadow-card, 0 1px 2px rgba(15,23,42,0.06))",
+  },
   borderWidth: {
     divider01: "0.5px",
   },

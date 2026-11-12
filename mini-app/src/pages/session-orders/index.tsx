@@ -301,7 +301,7 @@ function RoundCard({
   );
 
   return (
-    <section className={cn("mx-3 rounded-2xl border-l-4 bg-surface p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)]", TONE_BAR[status.tone], rejected && "bg-critical-bg/40")}>
+    <section className={cn("mx-3 rounded-2xl border-l-4 bg-surface p-4 shadow-card", TONE_BAR[status.tone], rejected && "bg-critical-bg/40")}>
       {lazy ? (
         <button type="button" onClick={lazy.onToggle} className="block w-full text-left">
           {header}
@@ -556,7 +556,7 @@ function TakeawayOrderCard({
   const isDone = !!order.completedAt;
 
   return (
-    <div className="rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+    <div className="rounded-2xl bg-surface shadow-card">
       <button
         onClick={onToggle}
         className="flex w-full items-center justify-between px-4 py-3 text-left"

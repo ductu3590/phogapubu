@@ -164,6 +164,8 @@ function OrderingUnavailableBanner({
 
 export default function MenuPage() {
   const navigate = useNavigate();
+  const theme = useAppStore((s) => s.theme);
+  const bootDone = useAppStore((s) => s.bootDone);
   const { storeId, storeName, storeLogoUrl, storeAddress, googleMapsUrl, storePhone, tableId, tableNumber, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState, entryContext, workflow, workflowError } = useAppStore();
   const { data: menu, isLoading, error, refetch, isRefetching } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
@@ -298,6 +300,10 @@ export default function MenuPage() {
   };
 
   if (isLoading) return <MenuSkeleton />;
+
+  // Theme garden: trong lúc còn đang đọc quán thì hiện khung chờ của thực đơn (đúng tông quán),
+  // không chớp màn MEVO rồi mới sang menu. Classic giữ nguyên: màn MEVO cho tới khi có quán.
+  if (!storeId && theme === "garden" && !bootDone) return <MenuSkeleton />;
 
   // Chưa có store context (cold start / chưa quét QR) — splash thương hiệu MEVO
   if (!storeId) {
@@ -519,7 +525,7 @@ function CategorySection({
       ) : layout === "grid" ? (
         <div className="grid grid-cols-2 gap-3 px-3">{category.products.map(card)}</div>
       ) : (
-        <div className="mx-3 divide-y divide-neutral100 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+        <div className="mx-3 divide-y divide-neutral100 overflow-hidden rounded-2xl bg-surface shadow-card">
           {category.products.map(card)}
         </div>
       )}

@@ -213,7 +213,7 @@ export default function OrderStatusPage() {
       <div className="no-scrollbar flex-1 overflow-y-auto pb-8">
 
         {/* Status hero */}
-        <div className="mx-3 mt-3 flex flex-col items-center rounded-2xl bg-surface px-6 pb-7 pt-8 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+        <div className="mx-3 mt-3 flex flex-col items-center rounded-2xl bg-surface px-6 pb-7 pt-8 shadow-card">
           <div className={cn("mb-3", config.color)}>{config.icon}</div>
           <h1 className={cn("text-2xl font-bold", config.color)}>
             {config.label}

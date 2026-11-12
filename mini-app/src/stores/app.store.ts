@@ -32,6 +32,8 @@ export function readThemeSeed(): ThemeSeed {
 interface AppStore {
   /** Bộ giao diện của quán (stores.mini_app_theme, mig 134). */
   theme: ThemeKey;
+  /** Đã đọc xong quán lúc mở app (có quán hay không). false = còn đang tải. */
+  bootDone: boolean;
   storeSlug: string;
   storeId: string;
   storeName: string;
@@ -92,10 +94,12 @@ interface AppStore {
   setEntryContext: (entryContext: EntryContext) => void;
   setWorkflow: (workflow: PublicWorkflow) => void;
   setWorkflowError: (message: string) => void;
+  setBootDone: () => void;
 }
 
 export const useAppStore = create<AppStore>((set) => ({
   theme: readThemeSeed().theme,
+  bootDone: false,
   storeSlug: "",
   storeId: "",
   storeName: "",
@@ -134,6 +138,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setEntryContext: (entryContext) => set({ entryContext }),
   setWorkflow: (workflow) => set({ workflow, workflowError: null }),
   setWorkflowError: (workflowError) => set({ workflow: null, workflowError }),
+  setBootDone: () => set({ bootDone: true }),
 }));
 
 export function parseQRParams(): {

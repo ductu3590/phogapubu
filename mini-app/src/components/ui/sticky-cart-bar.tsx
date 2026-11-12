@@ -9,8 +9,8 @@ export default function StickyCartBar({ count, total, tableLabel, aboveTabBar }:
   if (count === 0) return null;
   return (
     <StickyActionBar variant="dark" aboveTabBar={aboveTabBar}>
-      <button type="button" onClick={() => navigate("/checkout")} className="flex w-full items-center gap-3 rounded-2xl bg-neutral900 px-3 py-2.5 text-left text-white shadow-lg active:opacity-90">
-        <span className="relative grid size-10 shrink-0 place-items-center rounded-xl bg-white/10">
+      <button type="button" onClick={() => navigate("/checkout")} className="flex w-full items-center gap-3 rounded-2xl bg-neutral900 px-3 py-2.5 text-left text-white shadow-lg active:opacity-90 garden:rounded-full garden:bg-primary garden:py-2 garden:pl-5 garden:pr-2 garden:shadow-[0_8px_22px_rgb(var(--color-primary-rgb)/0.28)]">
+        <span className="relative grid size-10 shrink-0 place-items-center rounded-xl bg-white/10 garden:hidden">
           <ShoppingCartIcon className="size-5" />
           <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-critical px-1 text-xxxsmall font-bold">{count > 99 ? "99+" : count}</span>
         </span>
@@ -18,7 +18,7 @@ export default function StickyCartBar({ count, total, tableLabel, aboveTabBar }:
           <span className="block truncate text-small-m font-semibold">{tableLabel ? `${count} món · ${tableLabel}` : `${count} món đã chọn`}</span>
           <span className="block text-normal-sb font-bold">{formatCurrency(total)}đ</span>
         </span>
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-primary px-3.5 py-2 text-small-m font-bold">Xem đơn<ArrowRightIcon className="size-4" /></span>
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-primary px-3.5 py-2 text-small-m font-bold garden:h-10 garden:rounded-full garden:bg-white/15 garden:px-4">Xem đơn<ArrowRightIcon className="size-4" /></span>
       </button>
     </StickyActionBar>
   );

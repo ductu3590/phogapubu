@@ -90,7 +90,7 @@ function ActiveBookingCard({ booking, directions }: { booking: CustomerReservati
   const status = reservationTone(booking.status);
   const actions = reservationActions(booking);
   return (
-    <section className="mx-3 rounded-2xl bg-surface p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+    <section className="mx-3 rounded-2xl bg-surface p-4 shadow-card">
       <div className="flex items-start justify-between gap-3">
         <p className="text-large-m font-bold text-text-primary">{formatReservationTime(booking.arrivalAt)}</p>
         <StatusPill tone={status.tone}>{status.label}</StatusPill>
@@ -140,7 +140,7 @@ function ActiveBookingCard({ booking, directions }: { booking: CustomerReservati
 function HistorySection({ bookings }: { bookings: CustomerReservation[] }) {
   const [open, setOpen] = useState(false);
   return (
-    <section className="mx-3 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+    <section className="mx-3 overflow-hidden rounded-2xl bg-surface shadow-card">
       <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between px-4 py-3 text-left">
         <span className="text-small-m font-semibold text-text-primary">Lịch sử đặt bàn ({bookings.length})</span>
         <span className={cn("text-text-secondary transition-transform", open && "rotate-90")} aria-hidden>›</span>

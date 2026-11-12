@@ -26,7 +26,7 @@ const SnackbarProvider = ZaSnackbarProvider as unknown as React.ComponentType<{ 
 function AppInit() {
   const {
     setStoreInfo, setTableInfo, setZaloUserId, setOrderMode, setDeviceId, setSessionState,
-    setEntryContext, setWorkflow, setWorkflowError,
+    setEntryContext, setWorkflow, setWorkflowError, setBootDone,
   } = useAppStore();
   const queryClient = useQueryClient();
   const storeId = useAppStore((s) => s.storeId);
@@ -53,7 +53,10 @@ function AppInit() {
 
   useEffect(() => {
     const { storeSlug, entryContext } = parseQRParams();
-    if (!storeSlug) return;
+    if (!storeSlug) {
+      setBootDone();
+      return;
+    }
 
     setEntryContext(entryContext);
     const entryTableId = entryContext.kind === "table" ? entryContext.tableId : null;
@@ -168,11 +171,18 @@ function AppInit() {
         if (error) throw error;
         boot = parseBootstrap(data);
       } catch {
-        if (!cancelled) await loadLegacy();
+        if (!cancelled) {
+          await loadLegacy().catch(() => undefined);
+          if (!cancelled) setBootDone();
+        }
         return;
       }
+      if (cancelled) return;
       // null = không có quán đang hoạt động với slug này → giữ màn chờ, giống đường cũ.
-      if (!boot || cancelled) return;
+      if (!boot) {
+        setBootDone();
+        return;
+      }
       const rows = await menuRows;
       if (cancelled) return;
       if (rows) {
@@ -185,9 +195,10 @@ function AppInit() {
       if (boot.workflow) applyWorkflow(mapPublicWorkflow(boot.workflow));
       else setWorkflowError("Không tải được cấu hình đặt món của quán.");
       if (boot.table) setTableInfo({ tableId: boot.table.id, tableNumber: boot.table.table_number });
+      setBootDone();
     })();
     return () => { cancelled = true; };
-  }, [setStoreInfo, setTableInfo, setOrderMode, setEntryContext, setWorkflow, setWorkflowError, queryClient]);
+  }, [setStoreInfo, setTableInfo, setOrderMode, setEntryContext, setWorkflow, setWorkflowError, setBootDone, queryClient]);
 
   // Trạng thái phiên bàn — effect RIÊNG, chạy sau khi store + bàn + hai chân định danh đã sẵn
   // sàng. KHÔNG gộp vào effect load store phía trên: lúc đó zaloUserId thường còn rỗng

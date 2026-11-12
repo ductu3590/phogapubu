@@ -60,7 +60,7 @@ export default function AppToolbar({ title, back, mode, cartCount }: { title?: s
   );
 
   return (
-    <header className="shrink-0 bg-surface shadow-[0_1px_0_rgba(15,23,42,0.06)]" style={{ paddingTop: "var(--zaui-safe-area-inset-top, 0px)" }}>
+    <header className="shrink-0 bg-surface shadow-[0_1px_0_rgba(15,23,42,0.06)] garden:bg-background garden:shadow-none" style={{ paddingTop: "var(--zaui-safe-area-inset-top, 0px)" }}>
       {(back || title) && (
         <div className="flex h-11 items-center gap-1 pl-2" style={{ paddingRight: ZALO_CAPSULE_GAP }}>
           {back ? (
@@ -99,7 +99,7 @@ export default function AppToolbar({ title, back, mode, cartCount }: { title?: s
         <div className="flex h-11 items-center gap-2 px-3 pb-2">
           <CallStaffButton tableId={tableId!} />
           {mode.tableChip && tableNumber && (
-            <span className="inline-flex h-8 max-w-[96px] shrink-0 items-center truncate whitespace-nowrap rounded-full bg-neutral100 px-3 text-small-m font-semibold text-text-primary">{tableNumber}</span>
+            <span className="inline-flex h-8 max-w-[96px] shrink-0 items-center truncate whitespace-nowrap rounded-full bg-neutral100 px-3 text-small-m font-semibold text-text-primary garden:h-9">{tableNumber}</span>
           )}
           {!title && (
             <>

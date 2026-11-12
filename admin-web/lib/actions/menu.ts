@@ -22,7 +22,8 @@ async function uploadMenuImage(
   const path = `${storeId}/${crypto.randomUUID()}.${ext}`
   const { error } = await admin.storage
     .from(MENU_BUCKET)
-    .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false })
+    // Tên file là UUID, không bao giờ ghi đè → cho trình duyệt giữ ảnh 1 năm, lần mở sau khỏi tải lại.
+    .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false, cacheControl: '31536000' })
   if (error) throw new Error(`uploadMenuImage: ${error.message}`)
   return admin.storage.from(MENU_BUCKET).getPublicUrl(path).data.publicUrl
 }
