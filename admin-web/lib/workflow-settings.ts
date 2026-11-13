@@ -1,5 +1,5 @@
 export type ReleasePolicy = 'automatic' | 'pos_confirmation'
-export type WorkflowPresetKey = 'pubu' | 'bao_luong' | 'custom'
+export type WorkflowPresetKey = 'prepay' | 'postpay_pos' | 'custom'
 
 export interface StoreWorkflowSettings {
   paymentTiming: 'prepay' | 'postpay'
@@ -56,7 +56,12 @@ const WORKFLOW_FIELD_LABELS = [
   ['reservationPreorderEditCutoffMinutes', 'Mốc khóa sửa món đặt trước'],
 ] as const satisfies ReadonlyArray<readonly [keyof StoreWorkflowSettings, string]>
 
-export const PUBU_PRESET = {
+// Hai mục chủ quán còn tự đổi được (anh Tú chốt 2026-11-13); mọi mục khác của quy trình chỉ MEVO sửa.
+// Server action saveOwnerWorkflowSettings chỉ lấy hai khoá này; DB chặn cùng luật (mig 139).
+export const OWNER_EDITABLE_WORKFLOW_KEYS = ['isAcceptingOrders', 'servingHours'] as const satisfies ReadonlyArray<keyof StoreWorkflowSettings>
+
+// Mẫu điền nhanh (chỉ hiện ở /mevo) — đặt tên theo MÔ HÌNH, không theo tên quán: chủ quán không được thấy tên quán khác.
+export const PREPAY_PRESET = {
   paymentTiming: 'prepay',
   paymentMethods: ['zalo_checkout'],
   isAcceptingOrders: true,
@@ -78,8 +83,8 @@ export const PUBU_PRESET = {
   reservationPreorderEditCutoffMinutes: 30,
 } satisfies StoreWorkflowSettings
 
-export const BAO_LUONG_PRESET = {
-  ...PUBU_PRESET,
+export const POSTPAY_POS_PRESET = {
+  ...PREPAY_PRESET,
   paymentTiming: 'postpay',
   paymentMethods: ['cash'],
   servingHours: [],
@@ -102,7 +107,7 @@ function cloneWorkflowSettings(settings: StoreWorkflowSettings): StoreWorkflowSe
 export function applyWorkflowPreset(
   preset: Exclude<WorkflowPresetKey, 'custom'>,
 ): StoreWorkflowSettings {
-  return cloneWorkflowSettings(preset === 'pubu' ? PUBU_PRESET : BAO_LUONG_PRESET)
+  return cloneWorkflowSettings(preset === 'prepay' ? PREPAY_PRESET : POSTPAY_POS_PRESET)
 }
 
 export function normalizeWorkflowSettings(
@@ -147,7 +152,7 @@ export function workflowSettingsEqual(
 }
 
 export function getWorkflowPresetKey(settings: StoreWorkflowSettings): WorkflowPresetKey {
-  if (workflowSettingsEqual(settings, PUBU_PRESET)) return 'pubu'
-  if (workflowSettingsEqual(settings, BAO_LUONG_PRESET)) return 'bao_luong'
+  if (workflowSettingsEqual(settings, PREPAY_PRESET)) return 'prepay'
+  if (workflowSettingsEqual(settings, POSTPAY_POS_PRESET)) return 'postpay_pos'
   return 'custom'
 }

@@ -6,6 +6,7 @@
 
 ## Chờ test
 
+- ⏳ [Yên Garden — Đóng/mở lại bàn + khoá cấu hình quy trình cho chủ quán](docs/testing/yen-garden/FIX-BAN-CAU-HINH.md) — chờ test (2026-11-13); mig 138 + 139 đã áp prod
 - ⏳ [Dọn codebase sau audit](docs/testing/audit-cleanup/AUDIT-1.md) — chờ test (2026-11-11); mig 130 đã áp prod 2026-11-11
 - ✅ [Thay đổi theo 14 câu trả lời + nhân viên chỉ thêm bàn vào mâm](docs/testing/audit-cleanup/AUDIT-2.md) — PASS 2026-11-12 (anh Tú); mig 133 đã áp prod
 - ✅ [Test đua nhiều kết nối cho RPC tiền](docs/testing/audit-cleanup/RACE.md) — 40/40 xanh (2026-11-12, 25 vòng) sau khi mig 132 vá 2 lỗi; chạy lại: `cd admin-web && npm run test:race`
