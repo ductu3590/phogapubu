@@ -6,6 +6,7 @@
 
 ## Chờ test
 
+- ⏳ [Yên Garden — DB chặn người chưa đổi mật khẩu (mig 137)](docs/testing/yen-garden/TAI-KHOAN-DB.md) — chờ test (2026-11-13); mig 137 CHƯA áp prod; nhánh `claude/sleepy-hertz-e2461e`, chưa merge
 - ✅ [Yên Garden — Tài khoản + bắt đổi mật khẩu lần đầu](docs/testing/yen-garden/TAI-KHOAN.md) — PASS 2026-11-13 (anh Tú); 5 tài khoản đã tạo prod; code nhánh `claude/yg-accounts-force-password-8d711a`, chưa merge/deploy
 - ⏳ [Dọn codebase sau audit](docs/testing/audit-cleanup/AUDIT-1.md) — chờ test (2026-11-11); mig 130 đã áp prod 2026-11-11
 - ✅ [Thay đổi theo 14 câu trả lời + nhân viên chỉ thêm bàn vào mâm](docs/testing/audit-cleanup/AUDIT-2.md) — PASS 2026-11-12 (anh Tú); mig 133 đã áp prod

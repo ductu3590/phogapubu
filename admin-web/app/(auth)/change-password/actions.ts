@@ -6,6 +6,9 @@ import { mustChangePassword, parseNewPassword, passwordUpdateError } from '@/lib
 
 export type ChangeInitialPasswordResult = { ok: true; redirectTo: string } | { ok: false; error: string }
 
+const PASSWORD_CHANGED_RELOGIN_ERROR =
+  'Đã đổi mật khẩu. Bấm Đăng xuất rồi đăng nhập lại bằng mật khẩu mới để tiếp tục.'
+
 // Đổi mật khẩu bắt buộc lần đầu (YG 2026-11-12). Chỉ dành cho người CÒN cờ app_metadata.must_change_password —
 // người đã hết cờ đổi mật khẩu ở trang Tài khoản (phải nhập mật khẩu hiện tại). Không gọi requireOperator: guard đó
 // chặn đúng người còn cờ. TRẢ {ok,error}, không ném (Next prod giấu nội dung lỗi ném).
@@ -41,6 +44,14 @@ export async function changeInitialPassword(formData: FormData): Promise<ChangeI
   })
   if (flagError) {
     return { ok: false, error: 'Đã đổi mật khẩu nhưng chưa mở khoá được tài khoản. Báo MEVO để được hỗ trợ.' }
+  }
+
+  // Làm mới phiên NGAY: DB (mig 137) đọc cờ từ JWT, mà JWT đang cầm vẫn mang cờ cũ tới lần làm mới kế tiếp (≤ 1 giờ).
+  // Không làm mới thì người vừa đổi xong vào POS sẽ thấy trống / bị từ chối. Cookie phiên mới ghi qua setAll của
+  // client server (server action được ghi cookie); trình duyệt tải cứng sau đó nên client trình duyệt đọc phiên mới.
+  const { error: refreshError } = await supabase.auth.refreshSession()
+  if (refreshError) {
+    return { ok: false, error: PASSWORD_CHANGED_RELOGIN_ERROR }
   }
 
   return { ok: true, redirectTo: home }
