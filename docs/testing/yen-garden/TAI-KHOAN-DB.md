@@ -30,12 +30,16 @@ Claude đã kiểm:
   đó prod không đổi gì.
 - `npm run test:race` (Postgres thật, nạp toàn bộ migration): xem kết quả ở cuối file.
 
-## ⚠️ Trước khi test: áp mig 137 lên prod
+## Mig 137 đã áp prod (2026-11-13)
 
-**Chưa áp.** Prod đang có 5 tài khoản Yên Garden còn cờ. `mevo.vn` chạy bản `main`, chưa có màn Đổi mật khẩu. Áp
-mig 137 xong thì 5 tài khoản này vào `mevo.vn` sẽ thấy POS trống / "không có quyền" và không tự gỡ cờ được, cho tới
-khi nhánh này được merge và deploy. Muốn dùng một tài khoản Yên Garden trên `mevo.vn` trước lúc đó thì đổi mật khẩu
-của nó ở bản chạy local trước. Tài khoản Bảo Lương và superadmin không có cờ nên không bị ảnh hưởng.
+Áp nguyên văn file, đã kiểm ngay sau khi áp: 14 hàm mang dấu `mig 137`, hai policy cấu hình quy trình là
+`is_store_owner_or_admin(store_id)`, `authenticated` không gọi thẳng được `operator_password_ok()`. Chủ quán Bảo Lương
+(token không cờ) vẫn có quyền POS và đọc được sơ đồ. Thu ngân Yên Garden (cờ `true`) mất quyền, sơ đồ báo "Chỉ chủ
+quán được xem sơ đồ POS".
+
+⚠️ `mevo.vn` vẫn chạy bản `main`, chưa có màn Đổi mật khẩu. Tài khoản Yên Garden còn cờ mà vào `mevo.vn` sẽ thấy POS
+trống / "không có quyền" và không tự gỡ cờ được, cho tới khi nhánh được merge và deploy. Muốn dùng một tài khoản Yên
+Garden trên `mevo.vn` trước lúc đó thì đổi mật khẩu của nó ở bản chạy local trước. Bảo Lương và superadmin không có cờ.
 
 ## Cách chạy
 
