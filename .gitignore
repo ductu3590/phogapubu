@@ -59,3 +59,17 @@ mini-app-instances/
 
 # Log của playwright-cli (đầu ra công cụ, không commit)
 .playwright-cli/
+
+# harness runtime
+__pycache__/
+.harness/run/
+.harness/screens/
+.harness/reports/
+.harness/verify/
+.harness/tmp/
+.harness/unlocks.json
+.harness/gate-events.log
+.harness/notify.log
+.harness/adopt-report.json
+.env.*
+!.env.example

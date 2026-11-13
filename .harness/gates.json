@@ -1,0 +1,81 @@
+{
+  "_doc": "Cổng cứng bằng máy. Sửa file này cần: python scripts/approve.py harness 1. Mỗi cổng mở khoá tạm bằng: python scripts/approve.py <tên> <giờ>.",
+  "protected_paths": [
+    ".claude/**",
+    ".harness/gates.json",
+    ".harness/unlocks.json",
+    ".harness/gate-events.log",
+    "scripts/baseline.py",
+    ".harness/baseline.json",
+    "scripts/verify.py",
+    "scripts/approve.py",
+    "scripts/hk_common.py",
+    ".github/workflows/**"
+  ],
+  "gated_paths": {
+    "auth": {
+      "scope": "all",
+      "globs": [
+        "**/auth/**",
+        "middleware.*",
+        "src/middleware.*",
+        "supabase/config.toml",
+        "**/*rls*.sql",
+        "**/*polic*.sql"
+      ],
+      "reason": "Sửa luồng đăng nhập / phân quyền / RLS đang chạy"
+    },
+    "test_config": {
+      "scope": "all",
+      "skip_during_scaffold": true,
+      "globs": [
+        "vitest.config.*",
+        "vitest.workspace.*",
+        "jest.config.*",
+        "playwright.config.*",
+        "eslint.config.*",
+        ".eslintrc*",
+        "biome.json",
+        "tsconfig.json",
+        "tsconfig.*.json"
+      ],
+      "reason": "Sửa cấu hình test/lint/typecheck có thể làm verify xanh giả"
+    },
+    "contracts": {
+      "scope": "worktree",
+      "skip_during_scaffold": true,
+      "globs": [
+        "src/contracts/**",
+        "packages/contracts/**"
+      ],
+      "reason": "Contracts dùng chung giữa FE/BE — chỉ orchestrator đổi trên main kèm ADR"
+    },
+    "legacy": {
+      "scope": "all",
+      "globs": [],
+      "reason": "Vùng code cũ anh Tú đánh dấu 'không đụng' khi adopt (đang chạy production / dễ vỡ)"
+    }
+  },
+  "immutable_existing": {
+    "globs": [
+      "supabase/migrations/*.sql",
+      "migrations/*.sql",
+      "prisma/migrations/**"
+    ],
+    "reason": "Migration đã commit là bất biến — tạo migration mới thay vì sửa"
+  },
+  "test_globs": [
+    "**/*.test.*",
+    "**/*.spec.*",
+    "tests/**",
+    "e2e/**",
+    "**/__tests__/**"
+  ],
+  "extra_bash_block": [
+    {
+      "pattern": "\\bprisma\\s+migrate\\s+reset\\b",
+      "gate": "data",
+      "reason": "Reset DB qua Prisma"
+    }
+  ]
+}

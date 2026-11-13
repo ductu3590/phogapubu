@@ -1,0 +1,9 @@
+{
+  "main_branch": "main",
+  "max_parallel": 3,
+  "retry_per_task": 1,
+  "dev_cmd": "pnpm dev",
+  "port": 3000,
+  "install_cmd": "pnpm install --frozen-lockfile --prefer-offline || pnpm install --prefer-offline",
+  "adopted": true
+}
