@@ -1,6 +1,6 @@
 # Yên Garden — DB chặn người chưa đổi mật khẩu lần đầu (mig 137)
 
-Ngày làm: 2026-11-13. Nhánh `claude/sleepy-hertz-e2461e`, cắt từ `claude/yg-accounts-force-password-8d711a`
+**✅ PASS 2026-11-13 (anh Tú).** Ngày làm: 2026-11-13. Nhánh `claude/sleepy-hertz-e2461e`, cắt từ `claude/yg-accounts-force-password-8d711a`
 (chứa luôn phần [TAI-KHOAN.md](TAI-KHOAN.md)). Chưa merge, chưa push.
 
 ## Đã làm gì
