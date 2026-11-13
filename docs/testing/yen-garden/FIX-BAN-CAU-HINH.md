@@ -53,7 +53,6 @@ phục vụ" mở, phần dưới có dòng khoá và mọi ô bị vô hiệu, 
 | A9 | Bấm **Đóng bàn** ở bàn **A1** (đang có khách) → OK | Báo: *Bàn "A1" đang có khách (phiên chưa đóng). Thu tiền hoặc đóng phiên ở POS rồi mới đóng bàn.* — thẻ trở lại "Đang dùng" | |
 | A10 | Bấm **Mở lại bàn** ở Bàn mẫu 1 | Nhãn về "Đang dùng", ô bàn hiện lại trên POS, có lại nút In QR | |
 | A11 | Đóng lại Bàn mẫu 1 lần nữa (để dọn) | Như A4 | |
-| A12 | (Quan sát, không bắt buộc) Quét QR của Bàn mẫu 1 khi đã đóng bằng Mini App Yên Garden | Không gọi món được. Hiện tại thanh gọi món **quay mãi**, chưa có câu "Bàn đang tạm đóng" — ghi lại em làm ở việc sau | |
 
 ## B. Chủ quán chỉ xem quy trình, trừ Đang nhận đơn + Giờ phục vụ (đăng nhập chủ quán, **Cài đặt**)
 
