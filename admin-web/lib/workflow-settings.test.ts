@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  BAO_LUONG_PRESET,
-  PUBU_PRESET,
+  POSTPAY_POS_PRESET,
+  PREPAY_PRESET,
   applyWorkflowPreset,
   getWorkflowPresetKey,
   getWorkflowSettingsChanges,
@@ -10,7 +10,7 @@ import {
   type StoreWorkflowSettings,
 } from './workflow-settings'
 
-const PUBU_EXPECTED: StoreWorkflowSettings = {
+const PREPAY_EXPECTED: StoreWorkflowSettings = {
   paymentTiming: 'prepay',
   paymentMethods: ['zalo_checkout'],
   isAcceptingOrders: true,
@@ -32,7 +32,7 @@ const PUBU_EXPECTED: StoreWorkflowSettings = {
   reservationPreorderEditCutoffMinutes: 30,
 }
 
-const BAO_LUONG_EXPECTED: StoreWorkflowSettings = {
+const POSTPAY_POS_EXPECTED: StoreWorkflowSettings = {
   paymentTiming: 'postpay',
   paymentMethods: ['cash'],
   isAcceptingOrders: true,
@@ -55,38 +55,38 @@ const BAO_LUONG_EXPECTED: StoreWorkflowSettings = {
 }
 
 describe('workflow presets', () => {
-  it('Pubu giữ đầy đủ cấu hình trả trước hiện tại', () => {
-    expect(applyWorkflowPreset('pubu')).toEqual(PUBU_EXPECTED)
-    expect(PUBU_PRESET).toEqual(PUBU_EXPECTED)
+  it('mẫu Trả trước giữ đầy đủ cấu hình trả trước hiện tại', () => {
+    expect(applyWorkflowPreset('prepay')).toEqual(PREPAY_EXPECTED)
+    expect(PREPAY_PRESET).toEqual(PREPAY_EXPECTED)
   })
 
-  it('Bảo Lương có đầy đủ cấu hình POS kiểm soát', () => {
-    expect(applyWorkflowPreset('bao_luong')).toEqual(BAO_LUONG_EXPECTED)
-    expect(BAO_LUONG_PRESET).toEqual(BAO_LUONG_EXPECTED)
+  it('mẫu Trả sau, POS duyệt có đầy đủ cấu hình POS kiểm soát', () => {
+    expect(applyWorkflowPreset('postpay_pos')).toEqual(POSTPAY_POS_EXPECTED)
+    expect(POSTPAY_POS_PRESET).toEqual(POSTPAY_POS_EXPECTED)
   })
 
   it('mỗi lần áp preset trả về các mảng độc lập', () => {
-    const first = applyWorkflowPreset('pubu')
-    const second = applyWorkflowPreset('pubu')
+    const first = applyWorkflowPreset('prepay')
+    const second = applyWorkflowPreset('prepay')
 
     first.paymentMethods.push('cash')
     first.servingHours.push({ open: '10:00', close: '22:00' })
 
     expect(second.paymentMethods).toEqual(['zalo_checkout'])
     expect(second.servingHours).toEqual([])
-    expect(PUBU_PRESET.paymentMethods).toEqual(['zalo_checkout'])
-    expect(PUBU_PRESET.servingHours).toEqual([])
+    expect(PREPAY_PRESET.paymentMethods).toEqual(['zalo_checkout'])
+    expect(PREPAY_PRESET.servingHours).toEqual([])
   })
 
   it('hai hằng preset không chia sẻ mảng lồng', () => {
-    expect(PUBU_PRESET.paymentMethods).not.toBe(BAO_LUONG_PRESET.paymentMethods)
-    expect(PUBU_PRESET.servingHours).not.toBe(BAO_LUONG_PRESET.servingHours)
+    expect(PREPAY_PRESET.paymentMethods).not.toBe(POSTPAY_POS_PRESET.paymentMethods)
+    expect(PREPAY_PRESET.servingHours).not.toBe(POSTPAY_POS_PRESET.servingHours)
   })
 })
 
 describe('normalizeWorkflowSettings', () => {
   it('giữ preorder hiệu lực khi đặt bàn đang bật', () => {
-    const value = normalizeWorkflowSettings(applyWorkflowPreset('bao_luong'))
+    const value = normalizeWorkflowSettings(applyWorkflowPreset('postpay_pos'))
 
     expect(value.reservationPreorderEnabled).toBe(true)
     expect(value.effectiveReservationPreorderEnabled).toBe(true)
@@ -94,7 +94,7 @@ describe('normalizeWorkflowSettings', () => {
 
   it('chuẩn hóa tổ hợp không hợp lệ trước khi persist mà không mutate draft', () => {
     const draft = {
-      ...applyWorkflowPreset('bao_luong'),
+      ...applyWorkflowPreset('postpay_pos'),
       reservationsEnabled: false,
     }
 
@@ -108,7 +108,7 @@ describe('normalizeWorkflowSettings', () => {
 
   it('clone sâu paymentMethods và servingHours khỏi draft', () => {
     const draft: StoreWorkflowSettings = {
-      ...applyWorkflowPreset('bao_luong'),
+      ...applyWorkflowPreset('postpay_pos'),
       servingHours: [{ open: '10:00', close: '22:00' }],
     }
 
@@ -124,11 +124,11 @@ describe('normalizeWorkflowSettings', () => {
 
 describe('workflow form state', () => {
   it('nhận diện preset theo toàn bộ snapshot, kể cả mảng lồng', () => {
-    expect(getWorkflowPresetKey(PUBU_EXPECTED)).toBe('pubu')
-    expect(getWorkflowPresetKey(BAO_LUONG_EXPECTED)).toBe('bao_luong')
+    expect(getWorkflowPresetKey(PREPAY_EXPECTED)).toBe('prepay')
+    expect(getWorkflowPresetKey(POSTPAY_POS_EXPECTED)).toBe('postpay_pos')
     expect(
       getWorkflowPresetKey({
-        ...PUBU_EXPECTED,
+        ...PREPAY_EXPECTED,
         servingHours: [{ open: '08:00', close: '22:00' }],
       }),
     ).toBe('custom')
@@ -136,12 +136,12 @@ describe('workflow form state', () => {
 
   it('liệt kê đúng thay đổi để preview và phát hiện draft chưa lưu', () => {
     const draft: StoreWorkflowSettings = {
-      ...PUBU_EXPECTED,
+      ...PREPAY_EXPECTED,
       takeawayEnabled: false,
       bookingHorizonDays: 14,
     }
 
-    expect(getWorkflowSettingsChanges(PUBU_EXPECTED, draft)).toEqual([
+    expect(getWorkflowSettingsChanges(PREPAY_EXPECTED, draft)).toEqual([
       {
         key: 'takeawayEnabled',
         label: 'Mang về',
@@ -155,13 +155,13 @@ describe('workflow form state', () => {
         after: 14,
       },
     ])
-    expect(workflowSettingsEqual(PUBU_EXPECTED, draft)).toBe(false)
-    expect(workflowSettingsEqual(PUBU_EXPECTED, { ...PUBU_EXPECTED })).toBe(true)
+    expect(workflowSettingsEqual(PREPAY_EXPECTED, draft)).toBe(false)
+    expect(workflowSettingsEqual(PREPAY_EXPECTED, { ...PREPAY_EXPECTED })).toBe(true)
   })
 
   it('coi thứ tự phương thức và giờ phục vụ là một phần của snapshot', () => {
     const baseline: StoreWorkflowSettings = {
-      ...PUBU_EXPECTED,
+      ...PREPAY_EXPECTED,
       paymentMethods: ['zalo_checkout', 'cash'],
       servingHours: [
         { open: '08:00', close: '11:00' },
