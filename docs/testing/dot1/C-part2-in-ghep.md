@@ -1,6 +1,6 @@
 # Test in hai nơi ghép đủ (Đợt 1, mục C Part 2, Task 13)
 
-> **Agent 2026-11-15 (T-002):** vitest admin-web 178 file / 1627 test xanh, print-agent 8 file / 103 test xanh, `node --test supabase/tests/*.test.mjs` 588/589 (1 đỏ = nợ cũ 048 trên Windows). "Agent ✓" = đã kiểm đủ bằng máy; bài có chữ 👤 vẫn cần anh Tú (phần Agent ✓ đi kèm chỉ là logic đã có test, không thay cho nhìn bằng mắt / thiết bị thật). Gom thứ tự chạy ở [../TRUOC-GO-LIVE.md](../TRUOC-GO-LIVE.md).
+> **Agent 2026-11-15 (T-002):** vitest admin-web 178 file / 1627 test xanh, print-agent 8 file / 103 test xanh, `node --test supabase/tests/*.test.mjs` 588/589 (1 đỏ = nợ cũ 048 trên Windows; sau T-003 cùng ngày: 603/603 xanh). "Agent ✓" = đã kiểm đủ bằng máy; bài có chữ 👤 vẫn cần anh Tú (phần Agent ✓ đi kèm chỉ là logic đã có test, không thay cho nhìn bằng mắt / thiết bị thật). Gom thứ tự chạy ở [../TRUOC-GO-LIVE.md](../TRUOC-GO-LIVE.md).
 
 Cần hai máy in thật đúng model (Quầy + Bếp) và phần mềm in ở chế độ `agent`. Cổng `C-0-may-in-that.md` chưa có KẾT QUẢ PASS: làm bước C-0 trước hoặc song song, các bài dưới là bài ghép.
 
