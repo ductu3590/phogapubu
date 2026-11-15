@@ -37,3 +37,15 @@ Mẫu:
   NGUYÊN VĂN file đã commit, kiểm neo `pg_get_functiondef` trước, không sửa migration cũ.
 - Quy tắc test của CLAUDE.md đứng trên `/build`: xong task có thay đổi hành vi → checklist ở `docs/testing/<đợt>/`,
   dừng chờ anh Tú PASS rồi mới giao task phụ thuộc.
+
+## D-003 · 2026-11-15 · gate: data · task: T-003 · trạng thái: chờ
+- Cần làm: xoá cache type cũ của Next ở checkout gốc: thư mục `admin-web/.next/types` (và `admin-web/.next/dev/types` nếu có).
+  `.next` đã gitignore, Next tự sinh lại khi `npm run dev` / `npm run build`.
+- Vì sao: sau T-003 (hết test chập chờn), bước verify `10-admin-web` lần đầu chạy tới `tsc` ở checkout gốc và đỏ vì
+  `.next/types/validator.ts` (ngày 12/11) còn trỏ tới trang đã xoá (`admin/spin`, `admin/orders`, `admin/dashboard`,
+  `mevo/ui-kit`…). Worktree task không có `.next` nên xanh — chỉ checkout gốc bị.
+- Phương án đề xuất (khuyến nghị): anh tự xoá thư mục đó trong Explorer rồi nói "xong D-003"; hoặc mở cổng `data` 1 giờ
+  (lệnh duyệt như mẫu đầu file) rồi nói "áp dụng D-003" để agent xoá. Sau đó agent chạy lại verify trên main.
+- Phương án khác: để nguyên — verify trên main đỏ mãi ở admin-web (máy khác / CI không bị).
+- Rủi ro nếu duyệt: không có — chỉ là cache, Next sinh lại.
+- Trả lời của anh:

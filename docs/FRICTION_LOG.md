@@ -51,4 +51,16 @@ Tag gợi ý: `tim-file` · `mu-ui` (báo xong mà chưa nhìn giao diện) · `
 - Vấp: hook `secrets` chặn subagent 2 lần (lệnh ghi `.harness/reports/T-001.md` và lệnh sửa test) chỉ vì nội dung nhắc tên file cấu hình trong chú thích/văn bản — không lệnh nào đọc/ghi file secret. Orchestrator cũng bị chặn 1 lần khi `ls` liệt kê tên file
 - Sửa: chưa sửa (không tự sửa `.claude/`) — đề xuất cho `/harness-review`: hook chỉ chặn khi đường dẫn file secret là ĐỐI SỐ của lệnh đọc/ghi (cat/type/Get-Content/Write/Edit vào file đó), không chặn khi chuỗi chỉ xuất hiện trong nội dung
 - Dự đoán: còn chặn nhầm cho tới khi hook được chỉnh; mỗi lần mất 1 vòng của subagent
+- Thực tế: lặp lại cùng ngày — T-003/T-005 bị chặn vì nội dung nhắc thư mục/tên script verify; orchestrator bị cổng `human-only` chặn khi GHI tài liệu có nhắc tên script duyệt (không chạy nó). Dự đoán đúng → cần `/harness-review`
+
+### F-006 · 2026-11-15 · T-005 · tag: thieu-lenh
+- Vấp: áp mig 140 lên prod qua MCP `apply_migration` bằng cách gõ lại SQL → orchestrator gõ lệch câu `COMMENT ON FUNCTION` so với file (thân hàm đúng), phải chạy lại câu COMMENT nguyên văn
+- Sửa: lần sau Read file migration rồi dán NGUYÊN khối, không gõ lại; nếu lặp → script in đúng nội dung file để dán
+- Dự đoán: không lệch nữa khi dán từ Read
+- Thực tế: (điền khi gặp lại)
+
+### F-007 · 2026-11-15 · T-003 · tag: moi-truong
+- Vấp: verify main đỏ `10-admin-web` sau T-003 — bước này chạy vitest rồi `tsc` (set -e); test chập chờn trước đây luôn đỏ nên `tsc` chưa từng chạy ở checkout gốc, che lỗi cache `.next/types` cũ (12/11) trỏ tới trang đã xoá. Xoá cache bị cổng `data` chặn → D-003
+- Sửa: chờ D-003; đề xuất `/harness-review`: bước 10 chạy cả vitest lẫn tsc rồi gộp kết quả (lỗi bước trước không che bước sau)
+- Dự đoán: sau khi xoá cache, verify main xanh hoàn toàn
 - Thực tế: (điền khi gặp lại)
