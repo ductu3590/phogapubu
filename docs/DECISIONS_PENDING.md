@@ -49,3 +49,12 @@ Mẫu:
 - Phương án khác: để nguyên — verify trên main đỏ mãi ở admin-web (máy khác / CI không bị).
 - Rủi ro nếu duyệt: không có — chỉ là cache, Next sinh lại.
 - Trả lời của anh:
+
+## D-004 · 2026-11-15 · gate: deploy · task: — · trạng thái: chờ mở cổng
+- Cần làm: `git push origin main` (60+ commit: T-000..T-007, mig 140 đã áp prod). Push kích hoạt Vercel deploy admin-web.
+- Vì sao: anh Tú bảo "Push main" trong chat 2026-11-15; hook cổng `deploy` chặn agent push nhánh chính.
+- Phương án đề xuất (khuyến nghị): anh mở cổng `deploy` 1 giờ (lệnh duyệt như mẫu đầu file) rồi nói "push tiếp", agent push và báo kết quả.
+  Hoặc anh tự chạy `git push origin main` trong terminal.
+- Rủi ro nếu duyệt: thấp — mọi task đã qua reviewer, verify xanh trên worktree; admin-web thêm ô chọn giao diện `/mevo`, ô
+  "Gợi ý gọi thêm nhanh", ảnh món WebP; không cần env mới trên Vercel. Mini App KHÔNG tự lên Zalo (cần `zmp deploy` riêng).
+- Trả lời của anh: Push main (chat 2026-11-15) — chờ mở cổng
