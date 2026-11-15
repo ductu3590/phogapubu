@@ -2,7 +2,7 @@
 id: T-006
 title: Sửa checklist thu tiền + trang gom trước go-live theo review đợt T-002
 agent: qa-tester
-status: review
+status: done
 depends_on: []
 paths:
   - docs/testing/dot1/thu-tien-ket-hop.md
