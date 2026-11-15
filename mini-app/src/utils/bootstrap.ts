@@ -1,5 +1,6 @@
 // Đọc kết quả get_mini_app_bootstrap (mig 135). Hàm thuần: nhận JSON thô, trả dữ liệu đã kiểm
-// hình dạng hoặc null. Sai hình dạng thì coi như không có — app rơi về đường đọc cũ, không vỡ.
+// hình dạng hoặc null. Sai hình dạng thì coi như không có (trả null): app.tsx chỉ setBootDone(), app dừng ở màn chờ,
+// KHÔNG gọi đường đọc cũ. Chỉ khi RPC lỗi / ném mới chạy loadLegacy.
 
 /** Đúng các cột mini-app đọc từ bảng stores (cùng danh sách ở app.tsx và trong hàm SQL). */
 export interface StoreBootRow {
