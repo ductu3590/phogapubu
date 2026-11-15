@@ -2,7 +2,7 @@
 id: T-005
 title: get_mini_app_bootstrap lọc bàn theo quán + test PGlite (SHOULD từ review T-001)
 agent: backend-dev
-status: in_progress
+status: review
 depends_on: [T-001]
 paths:
   - supabase/migrations/140_*.sql
