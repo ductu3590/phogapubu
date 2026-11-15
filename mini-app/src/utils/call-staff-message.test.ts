@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Hàm thuần không gọi mạng; thay client thật để test chạy được ở checkout không có cấu hình Supabase cục bộ.
+vi.mock("@/services/supabase", () => ({ supabase: {} }));
+
 import { CallStaffCooldownError } from "@/services/service-request";
 import { callStaffMessage } from "./call-staff-message";
 

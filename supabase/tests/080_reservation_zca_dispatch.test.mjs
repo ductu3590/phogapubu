@@ -25,7 +25,8 @@ async function setup(t) {
     );
   `)
   const source = await readFile(migrationUrl, 'utf8')
-  await db.exec(source.replace('CREATE EXTENSION IF NOT EXISTS pg_net;\n', ''))
+  // \r? : worktree mới trên Windows (autocrlf) checkout migration với CRLF
+  await db.exec(source.replace(/CREATE EXTENSION IF NOT EXISTS pg_net;\r?\n/, ''))
   return db
 }
 

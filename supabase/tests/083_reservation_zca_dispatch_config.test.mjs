@@ -25,7 +25,7 @@ test('dispatcher lấy URL từ schema kín và vẫn phát đúng một request
       updated_at timestamptz NOT NULL DEFAULT now()
     );
   `)
-  await db.exec((await readFile(baseMigrationUrl, 'utf8')).replace('CREATE EXTENSION IF NOT EXISTS pg_net;\n', ''))
+  await db.exec((await readFile(baseMigrationUrl, 'utf8')).replace(/CREATE EXTENSION IF NOT EXISTS pg_net;\r?\n/, ''))
   await db.exec(await readFile(migrationUrl, 'utf8'))
   await db.query(`INSERT INTO mevo_private.runtime_settings(setting_key,setting_value)
     VALUES('reservation_zca_notify_url','https://project.supabase.co/functions/v1/reservation-zca-notify')`)
