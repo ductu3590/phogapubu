@@ -29,6 +29,12 @@ while i < len(a):
         name = a[i]
     i += 1
 
+# Git Bash (MSYS) tự đổi "/login" thành "C:/Program Files/Git/login" trước khi Python nhận được → lấy lại phần sau thư mục Git.
+import re  # noqa: E402
+_m = re.match(r"^[A-Za-z]:[/\\].*?[/\\]Git([/\\].*)?$", target)
+if _m:
+    target = (_m.group(1) or "/").replace("\\", "/")
+
 if target.startswith(("http://", "https://")):
     url = target
 else:
