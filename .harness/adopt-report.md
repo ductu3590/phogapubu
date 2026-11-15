@@ -8,10 +8,9 @@
 - Dữ liệu: Supabase không · migrations {'supabase/migrations': 143} · docker compose không
 
 ## Git (việc đang dở)
-- Nhánh hiện tại: `main` · nhánh chính: `main` · 925 commit · gần nhất: 2026-11-13 Merge branch 'main' into claude/sleepy-hertz-e2461e
-- File chưa commit (của anh, không tính harness): 1
-  - .env.bl4-test.local
-- Nhánh chưa merge (ứng viên chuyển thành task bằng `{{PY}} scripts/task.py start <ID> --from <nhánh>`):
+- Nhánh hiện tại: `main` · nhánh chính: `main` · 926 commit · gần nhất: 2026-11-13 chore: adopt harness
+- File chưa commit (của anh, không tính harness): 0
+- Nhánh chưa merge (ứng viên chuyển thành task bằng `python scripts/task.py start <ID> --from <nhánh>`):
   - `claude/yen-garden-mini-app-aa37d2` +12 commit · 2026-11-12 · docs: checklist test Mini App Yen Garden, nhat ky quyet dinh theme garden / khoi
   - `deploy/yen-garden` +12 commit · 2026-11-12 · docs: checklist test Mini App Yen Garden, nhat ky quyet dinh theme garden / khoi
   - `claude/yen-garden-survey-e9a44a` +1 commit · 2026-11-12 · chore: them logo, banner va ma mau thuong hieu Yen Garden

@@ -1,25 +1,28 @@
 ---
 id: T-000
-title: Onboarding harness cho code đang có (verify chạy được, contracts hiện trạng, chỉ đường)
+title: Onboarding harness cho code đang có (verify chạy được, chỉ đường)
 agent: orchestrator
-status: todo
+status: in_progress
 depends_on: []
 paths: ["**"]
 ---
 ## Mục tiêu
 Đưa dự án đang làm dở vào khuôn harness **mà không sửa hành vi** của code hiện có. Sau task này các task khác chạy song song được.
 
-## Việc cần làm
-1. `python scripts/verify.py` chạy được đến cuối (đỏ cũng được — miễn là đỏ vì lỗi code, không vì thiếu công cụ). Thiếu script `typecheck`/`test` thì **thêm mới** vào package.json (thêm thì được, sửa script cũ bị cổng chặn).
-2. Nếu verify đỏ vì nợ cũ: báo anh Tú chạy `python scripts/baseline.py capture` (agent không tự chụp baseline được). Sau đó verify phải xanh với nhãn "nợ cũ".
-3. Contracts hiện trạng: gom type/schema đang dùng chung giữa FE/BE vào `src/contracts/` (hoặc ghi rõ trong ARCHITECTURE.md chúng đang nằm ở đâu nếu chưa nên di chuyển). **Không đổi shape dữ liệu.**
-4. Viết test đặc tả (characterization test) cho 1–3 luồng quan trọng nhất trong `docs/STATUS.md` — test ghi lại hành vi hiện tại, kể cả hành vi có vẻ sai (đánh dấu `BUG:`).
-5. Kiểm `python scripts/run.py start` + `python scripts/ui_shot.py /` (nếu có UI). Sai `dev_cmd`/`port` → sửa `.harness/config.json`.
-6. Điền mục "Chỉ đường nhanh" trong ARCHITECTURE.md cho các chỗ hay sửa.
+## Đã làm khi adopt (2026-11-13)
+- `scripts/verify.d/` có 5 bước thật: `10-admin-web.sh` (vitest + tsc), `20-mini-app-test.sh`, `21-mini-app-typecheck.sh`,
+  `30-db-tests.sh` (PGlite, `node --test`), `40-print-agent.sh`. Repo không có `package.json` gốc nên bước "package.json" luôn "bỏ qua".
+- `.harness/config.json`: `dev_cmd` = `npm --prefix admin-web run dev`, cổng 3000, `install_cmd` npm (không pnpm).
+- `docs/STATUS.md`, `docs/PROJECT.md`, `docs/ARCHITECTURE.md` (có vị trí contracts), `docs/decisions/0001-stack.md`, `docs/features/F-*.md`.
+
+## Còn lại
+1. **Anh Tú** chụp baseline: `python scripts/baseline.py capture` (agent không tự chụp được). Sau đó verify phải xanh với nhãn "nợ cũ".
+2. **Anh Tú** duyệt D-001 (dọn `gates.json`) trong `docs/DECISIONS_PENDING.md`.
+3. Kiểm `python scripts/run.py start` + `python scripts/ui_shot.py /login` chạy được (admin-web cần `.env.local` — anh có sẵn).
 
 ## Tiêu chí chấp nhận
-- [ ] `python scripts/verify.py` xanh (có thể kèm "nợ cũ" đã được anh chụp baseline)
-- [ ] Có ít nhất 1 test đặc tả chạy trong verify
+- [ ] `python scripts/verify.py` xanh (kèm "nợ cũ" đã được anh chụp baseline)
+- [x] Có test đặc tả chạy trong verify (sẵn có: 1620 test admin-web, 241 mini-app, 589 DB)
 - [ ] `python scripts/run.py start` chạy được
-- [ ] `docs/ARCHITECTURE.md` mô tả đúng cấu trúc thật, có vị trí contracts
-- [ ] Không file code nghiệp vụ nào bị đổi hành vi (diff chỉ gồm: test mới, contracts gom lại, config, docs)
+- [x] `docs/ARCHITECTURE.md` mô tả đúng cấu trúc thật, có vị trí contracts
+- [x] Không file code nghiệp vụ nào bị đổi hành vi

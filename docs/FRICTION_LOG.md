@@ -22,3 +22,15 @@ Tag gợi ý: `tim-file` · `mu-ui` (báo xong mà chưa nhìn giao diện) · `
 ---
 
 <!-- Các mục mới thêm bên dưới, mới nhất ở cuối -->
+
+### F-001 · 2026-11-13 · T-000 · tag: moi-truong
+- Vấp: `new_project.py --adopt` chạy `adopt_scan.py --apply` crash `UnicodeDecodeError` (Windows đọc `gates.json` bằng cp1252) → config/gates không được điền, verify "xanh" mà không chạy gì
+- Sửa: chạy lại `PYTHONUTF8=1 python scripts/adopt_scan.py --apply`; thêm `scripts/verify.d/*.sh` vì repo không có `package.json` gốc. Gốc rễ ở harness-kit: `open()` thiếu `encoding="utf-8"`
+- Dự đoán: dự án Windows tiếp theo không vấp nếu kit được vá
+- Thực tế: (điền khi gặp lại)
+
+### F-002 · 2026-11-13 · T-000 · tag: gate
+- Vấp: hook `harness_guard.py` chặn `sed -n` (chỉ đọc) trên `scripts/verify.py`, và chặn lệnh Bash có heredoc ghi vào `docs/` chỉ vì NỘI DUNG heredoc nhắc tới đường dẫn được bảo vệ
+- Sửa: đọc bằng Read, ghi docs bằng Write/Edit (cổng kiểm theo file đích) — không lách
+- Dự đoán: guard nên coi `sed -n`/`cat` là đọc, và chỉ xét đường dẫn đích của redirect, không quét chuỗi trong heredoc
+- Thực tế: (điền khi gặp lại)
