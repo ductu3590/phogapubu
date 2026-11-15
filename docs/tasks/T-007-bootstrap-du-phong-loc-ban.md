@@ -21,6 +21,6 @@ thì bỏ bàn nếu `table.store_id !== store.id`. Logic so khớp nên tách h
 Không đổi đường chính (bootstrap). Theme / trả trước / trả sau không đổi.
 
 ## Tiêu chí chấp nhận
-- [ ] Test vitest cho hàm thuần: bàn đúng quán → giữ; bàn quán khác → bỏ (`table` null, app vào như lối thường)
-- [ ] `python scripts/verify.py` xanh, nợ cũ không tăng
-- [ ] Checklist ngắn `docs/testing/mini-app-core/BOOTSTRAP-DU-PHONG.md` cho anh Tú (cách ép rơi về đường dự phòng trên máy dev, ca bàn quán khác) — dừng chờ PASS theo CLAUDE.md
+- [x] Test vitest cho hàm thuần: bàn đúng quán → giữ; bàn quán khác → bỏ (`table` null, app vào như lối thường)
+- [x] `python scripts/verify.py` xanh, nợ cũ không tăng
+- [x] Checklist ngắn `docs/testing/mini-app-core/BOOTSTRAP-DU-PHONG.md` cho anh Tú (cách ép rơi về đường dự phòng trên máy dev, ca bàn quán khác) — dừng chờ PASS theo CLAUDE.md

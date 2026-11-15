@@ -9,7 +9,7 @@ import { sessionOrderService } from "./services/order/order.api";
 import { getOrCreateDeviceId } from "./services/device-id";
 import { getPublicWorkflow, mapPublicWorkflow } from "./services/workflow/workflow.api";
 import { buildMenu, categoryService } from "./services/category/category.api";
-import { parseBootstrap, type BootstrapPayload, type StoreBootRow } from "@/utils/bootstrap";
+import { parseBootstrap, pickTableForStore, type BootstrapPayload, type StoreBootRow } from "@/utils/bootstrap";
 import { parseActiveDiscounts } from "@/utils/menu-discount";
 import { GET_STORE_MENU_KEY } from "@/constants/api";
 import { useQueryClient } from "@tanstack/react-query";
@@ -134,7 +134,7 @@ function AppInit() {
       const tableQuery = entryTableId
         ? supabase
             .from("tables")
-            .select("id, table_number")
+            .select("id, table_number, store_id")
             .eq("id", entryTableId)
             .eq("is_active", true)
             .single()
@@ -152,10 +152,12 @@ function AppInit() {
           if (!cancelled) setWorkflowError("Không tải được cấu hình đặt món của quán.");
         }
       }
-      if (tableRes.data) {
+      // Chỉ nhận bàn thuộc đúng quán của slug (khớp mig 140); bàn quán khác → bỏ.
+      const table = pickTableForStore(tableRes.data, storeRes.data?.id);
+      if (table) {
         setTableInfo({
-          tableId: tableRes.data.id,
-          tableNumber: tableRes.data.table_number,
+          tableId: table.id,
+          tableNumber: table.table_number,
         });
       }
     };

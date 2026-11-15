@@ -53,3 +53,15 @@ export function parseBootstrap(data: unknown): BootstrapPayload | null {
     discounts: data.discounts ?? null,
   };
 }
+
+/**
+ * Đường đọc dự phòng (loadLegacy): chỉ nhận bàn thuộc ĐÚNG quán của slug — khớp mig 140
+ * (`t.store_id = s.id`). Bàn quán khác (hoặc thiếu store_id) → null, app vào như lối thường.
+ */
+export function pickTableForStore<T extends { store_id: string | null }>(
+  table: T | null | undefined,
+  storeId: string | null | undefined,
+): T | null {
+  if (!table || !storeId || table.store_id !== storeId) return null;
+  return table;
+}
