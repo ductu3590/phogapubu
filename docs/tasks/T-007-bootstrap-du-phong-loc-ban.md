@@ -2,7 +2,7 @@
 id: T-007
 title: Đường đọc dự phòng của Mini App lọc bàn theo quán (khớp mig 140)
 agent: frontend-dev
-status: todo
+status: in_progress
 depends_on: [T-005]
 paths:
   - mini-app/src/app.tsx
