@@ -60,5 +60,6 @@ function boundaryViolations(): string[] {
 describe('ranh giới server / client', () => {
   it('không file server nào gọi hàm export từ file use client', () => {
     expect(boundaryViolations()).toEqual([])
-  })
+    // Quét đồng bộ toàn bộ cây file nên chậm khi cả bộ test chạy song song: timeout riêng 30s.
+  }, 30_000)
 })
