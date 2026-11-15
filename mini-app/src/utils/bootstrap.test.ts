@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBootstrap } from "./bootstrap";
+import { parseBootstrap, pickTableForStore } from "./bootstrap";
 
 const store = { id: "s1", slug: "yen-garden", name: "Yên Garden", primary_color: "#3E4728", mini_app_theme: "garden" };
 
@@ -33,5 +33,20 @@ describe("parseBootstrap", () => {
     for (const data of [null, undefined, "x", [], {}, { store: null }, { store: { slug: "a", name: "b" } }, { store: { id: "", slug: "a", name: "b" } }]) {
       expect(parseBootstrap(data)).toBeNull();
     }
+  });
+});
+
+describe("pickTableForStore", () => {
+  const t = { id: "t1", table_number: "A1", store_id: "s1" };
+  it("bàn đúng quán → giữ", () => {
+    expect(pickTableForStore(t, "s1")).toBe(t);
+  });
+  it("bàn quán khác → null", () => {
+    expect(pickTableForStore(t, "s2")).toBeNull();
+  });
+  it("thiếu bàn / quán / store_id → null", () => {
+    expect(pickTableForStore(null, "s1")).toBeNull();
+    expect(pickTableForStore(t, null)).toBeNull();
+    expect(pickTableForStore({ ...t, store_id: null }, "s1")).toBeNull();
   });
 });
