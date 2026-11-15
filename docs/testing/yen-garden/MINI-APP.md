@@ -114,6 +114,17 @@ khung "Quý khách đang ngồi tại quán?", bên dưới là thực đơn tha
 
 **E4. Ảnh món mới nhẹ hơn.** `/admin/menu` → thêm một món có ảnh. File lưu lên Storage phải là `.webp`, cạnh 600px (trước là `.jpg` 800px).
 
+## Nhóm F — Trước khi `zmp deploy` (mỗi quán)
+
+**F1. Merge trước khi deploy.** Code lõi nằm ở `main`; worktree quán chỉ nhận khi merge. Trước MỖI lần `zmp deploy` của Yên Garden:
+```bash
+cd mini-app-instances/yen-garden
+git fetch origin && git merge origin/main
+cd mini-app && npm run build   # hoặc zmp deploy, chọn Development (tự test) hoặc Testing (release)
+```
+Quên bước merge = deploy ra bản code cũ (không có theme `garden`, không có nút gọi thêm). Kiểm: `git log -1 --oneline` trong worktree quán phải có commit của nhánh này.
+Nhắc: chọn **Development** hay **Testing** (Zalo giới hạn số lần deploy mỗi tháng). Bảo Lương cũng cần merge + deploy lại mới có khởi động một lượt; giao diện vẫn là classic.
+
 ## Chưa kiểm được ngoài Zalo thật
 
 Yên Garden chưa có Zalo App ID nên mọi thứ trên mới chạy trong trình duyệt. Cần kiểm lại sau `zmp deploy`:
