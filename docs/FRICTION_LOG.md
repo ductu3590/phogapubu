@@ -40,3 +40,15 @@ Tag gợi ý: `tim-file` · `mu-ui` (báo xong mà chưa nhìn giao diện) · `
 - Sửa: `scripts/ui_shot.py` nhận ra đường dẫn đã bị MSYS đổi (`<ổ>:/…/Git/<path>`) và khôi phục `/<path>`
 - Dự đoán: agent gọi `ui_shot.py /path` từ Git Bash chụp được ngay lần đầu, không cần biến môi trường
 - Thực tế: (điền khi gặp lại)
+
+### F-004 · 2026-11-15 · T-001 · tag: moi-truong
+- Vấp: verify trong `.worktrees/T-001` đỏ 3 test mà `main` xanh — worktree mới checkout `.sql` với CRLF (`core.autocrlf=true`) nên test 080/083 xoá dòng `pg_net` bằng chuỗi `'…;\n'` trượt; test `call-staff-message` nạp `services/supabase.ts` vốn ném khi thiếu `VITE_SUPABASE_*` (checkout gốc có file cấu hình cục bộ, worktree không). Subagent mất 1 vòng, orchestrator mở ~6 file mới ra gốc
+- Sửa: 60bb34e — 080/083 dùng regex `;\r?\n`; test `call-staff-message` `vi.mock("@/services/supabase")`. Không đổi code nghiệp vụ
+- Dự đoán: worktree task kế tiếp (T-002/T-003) verify ra cùng kết quả như main; nếu còn test nào phụ thuộc file cấu hình cục bộ thì lộ ra ở đây
+- Thực tế: (điền khi gặp lại)
+
+### F-005 · 2026-11-15 · T-001 · tag: gate
+- Vấp: hook `secrets` chặn subagent 2 lần (lệnh ghi `.harness/reports/T-001.md` và lệnh sửa test) chỉ vì nội dung nhắc tên file cấu hình trong chú thích/văn bản — không lệnh nào đọc/ghi file secret. Orchestrator cũng bị chặn 1 lần khi `ls` liệt kê tên file
+- Sửa: chưa sửa (không tự sửa `.claude/`) — đề xuất cho `/harness-review`: hook chỉ chặn khi đường dẫn file secret là ĐỐI SỐ của lệnh đọc/ghi (cat/type/Get-Content/Write/Edit vào file đó), không chặn khi chuỗi chỉ xuất hiện trong nội dung
+- Dự đoán: còn chặn nhầm cho tới khi hook được chỉnh; mỗi lần mất 1 vòng của subagent
+- Thực tế: (điền khi gặp lại)
