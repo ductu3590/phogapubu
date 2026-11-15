@@ -152,6 +152,35 @@ describe('mã món + nhãn + tiền tố (PA-4)', () => {
 })
 
 // Trạm in của danh mục (mig 114): chủ quán gán trạm bếp cho danh mục; trạm quán khác bị từ chối.
+describe('gợi ý gọi thêm nhanh của danh mục (mig 136)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.state.writes = []
+    mocks.state.uniqueError = false
+    mocks.state.conflict = null
+  })
+
+  it('tick → ghi true; bỏ tick (chỉ còn trường mốc) → ghi false', async () => {
+    await updateCategory('c1', form({ name: 'Bia', quick_reorder_field: '1', quick_reorder: 'on' }))
+    expect(lastWrite('menu_categories').payload).toMatchObject({ quick_reorder: true })
+    await updateCategory('c1', form({ name: 'Bia', quick_reorder_field: '1' }))
+    expect(lastWrite('menu_categories').payload).toMatchObject({ quick_reorder: false })
+    expect(lastWrite('menu_categories').eq).toEqual(expect.arrayContaining([['id', 'c1'], ['store_id', 'store-1']]))
+  })
+
+  it('form không có trường mốc: không đụng cột', async () => {
+    await updateCategory('c1', form({ name: 'Bia' }))
+    expect(lastWrite('menu_categories').payload).not.toHaveProperty('quick_reorder')
+  })
+
+  it('thêm danh mục có tick → ghi true; không tick → để mặc định của DB', async () => {
+    await addCategory(form({ name: 'Rượu', quick_reorder_field: '1', quick_reorder: 'on' }))
+    expect(lastWrite('menu_categories').payload).toMatchObject({ name: 'Rượu', quick_reorder: true })
+    await addCategory(form({ name: 'Lẩu', quick_reorder_field: '1' }))
+    expect(lastWrite('menu_categories').payload).not.toHaveProperty('quick_reorder')
+  })
+})
+
 describe('trạm in của danh mục (Đợt 1 C, Task 9)', () => {
   beforeEach(() => {
     vi.clearAllMocks()

@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { pickProductLayout } from "./product-layout";
+import { pickProductLayout, productLayoutFor } from "./product-layout";
+
+describe("productLayoutFor", () => {
+  const img = { image: "https://x/a.jpg" };
+  it("theme garden luôn là danh sách thoáng, kể cả khi món nào cũng có ảnh", () => {
+    expect(productLayoutFor("garden", [img, img, img])).toBe("garden");
+    expect(productLayoutFor("garden", [])).toBe("garden");
+  });
+  it("classic và theme lạ giữ luật cũ", () => {
+    expect(productLayoutFor("classic", [img, img, img])).toBe("grid");
+    expect(productLayoutFor("classic", [img, { image: null }, { image: null }])).toBe("list");
+    expect(productLayoutFor("gì-đó", [img, img])).toBe("grid");
+  });
+});
 
 describe("pickProductLayout", () => {
   const img = { image: "https://x/a.jpg" };

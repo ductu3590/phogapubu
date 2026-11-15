@@ -18,7 +18,8 @@ import mevoLogo from "@/static/mevo-logo.png";
 import ProductCard from "@/components/ui/product-card";
 import CategoryChips from "@/components/ui/category-chips";
 import SectionHeading from "@/components/ui/section-heading";
-import { pickProductLayout } from "@/utils/product-layout";
+import { productLayoutFor } from "@/utils/product-layout";
+import ProductListFrame from "@/components/ui/product-list-frame";
 import { matchesQuery } from "@/utils/search-fold";
 import { activeCategoryAt } from "@/utils/active-category";
 import { callStaffMessage } from "@/utils/call-staff-message";
@@ -164,6 +165,8 @@ function OrderingUnavailableBanner({
 
 export default function MenuPage() {
   const navigate = useNavigate();
+  const theme = useAppStore((s) => s.theme);
+  const bootDone = useAppStore((s) => s.bootDone);
   const { storeId, storeName, storeLogoUrl, storeAddress, googleMapsUrl, storePhone, tableId, tableNumber, takeawayBannerUrl, isAcceptingOrders, servingHours, sessionState, entryContext, workflow, workflowError } = useAppStore();
   const { data: menu, isLoading, error, refetch, isRefetching } = useStoreMenu(storeId);
   const { items: cartItems, addToCart, updateQuantity } = useCartStore();
@@ -299,6 +302,10 @@ export default function MenuPage() {
 
   if (isLoading) return <MenuSkeleton />;
 
+  // Theme garden: trong lúc còn đang đọc quán thì hiện khung chờ của thực đơn (đúng tông quán),
+  // không chớp màn MEVO rồi mới sang menu. Classic giữ nguyên: màn MEVO cho tới khi có quán.
+  if (!storeId && theme === "garden" && !bootDone) return <MenuSkeleton />;
+
   // Chưa có store context (cold start / chưa quét QR) — splash thương hiệu MEVO
   if (!storeId) {
     return (
@@ -432,7 +439,7 @@ export default function MenuPage() {
 
         {/* Ô tìm + chip danh mục — DÍNH trên đầu vùng cuộn (Stitch m06); lối thường thì cuộn qua phần đầu Trang chủ rồi mới dính */}
         <div ref={stickyRef} className="sticky top-0 z-10 bg-background/95 pb-0.5 backdrop-blur">
-          <label className="mx-3 mt-2.5 flex h-10 items-center gap-2 rounded-full border border-neutral200 bg-surface px-3.5">
+          <label className="mx-3 mt-2.5 flex h-10 items-center gap-2 rounded-full border border-neutral200 bg-surface px-3.5 garden:mx-4 garden:mt-1 garden:h-[42px] garden:border-0 garden:bg-neutral100">
             <SearchIcon className="size-4 shrink-0 text-text-secondary" />
             <input
               value={query}
@@ -499,7 +506,8 @@ function CategorySection({
   onDecrease: (product: Product) => void;
 }) {
   // Danh mục nhiều ảnh → lưới 2 cột; ít/không ảnh → danh sách gọn (spec Q4).
-  const layout = pickProductLayout(category.products);
+  const theme = useAppStore((s) => s.theme);
+  const layout = productLayoutFor(theme, category.products);
   const card = (product: Product) => (
     <ProductCard
       key={product.id}
@@ -516,12 +524,8 @@ function CategorySection({
       <SectionHeading id={category.id} title={category.name} count={category.products.length} />
       {category.products.length === 0 ? (
         <p className="px-4 py-6 text-center text-small text-text-secondary">Chưa có món trong danh mục này</p>
-      ) : layout === "grid" ? (
-        <div className="grid grid-cols-2 gap-3 px-3">{category.products.map(card)}</div>
       ) : (
-        <div className="mx-3 divide-y divide-neutral100 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
-          {category.products.map(card)}
-        </div>
+        <ProductListFrame layout={layout}>{category.products.map(card)}</ProductListFrame>
       )}
     </section>
   );

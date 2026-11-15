@@ -2,6 +2,14 @@
 // tránh hàng loạt ô ảnh trống (Bảo Lương 0/65 món có ảnh). 1 món thì lưới chỉ còn nửa hàng → danh sách.
 const GRID_MIN_RATIO = 0.6;
 
+export type ProductLayout = "grid" | "list" | "garden";
+
+/** Bố cục danh sách món theo bộ giao diện của quán. Theme garden LUÔN là danh sách thoáng một cột
+ *  (chữ trước, ảnh nhỏ bên phải) — món không ảnh vẫn gọn; classic giữ luật lưới / danh sách cũ. */
+export function productLayoutFor(theme: string, products: Array<{ image?: string | null }>): ProductLayout {
+  return theme === "garden" ? "garden" : pickProductLayout(products);
+}
+
 export function pickProductLayout(products: Array<{ image?: string | null }>): "grid" | "list" {
   if (products.length < 2) return "list";
   const withImage = products.filter((p) => typeof p.image === "string" && p.image.trim() !== "").length;

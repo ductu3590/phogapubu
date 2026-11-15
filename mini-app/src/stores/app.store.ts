@@ -3,6 +3,7 @@ import type { ServingShift } from "@/utils/store-hours";
 import type { TableSessionState } from "@/types/order.types";
 import type { EntryContext, PublicWorkflow } from "@/types/workflow.types";
 import { parseEntryContext } from "@/utils/entry-context";
+import { THEME_CACHE_KEY, initialThemeSeed, type ThemeKey, type ThemeSeed } from "@/utils/theme";
 
 export type { TableSessionState };
 
@@ -13,7 +14,26 @@ export type OrderMode = "dine_in" | "takeaway";
 export type PaymentTiming = "prepay" | "postpay";
 
 
+/** Theme + màu cho khung hình đầu tiên: lần mở trước (localStorage) → gợi ý .env của instance → classic. */
+export function readThemeSeed(): ThemeSeed {
+  let cached: string | null = null;
+  try {
+    cached = window.localStorage.getItem(THEME_CACHE_KEY);
+  } catch {
+    // localStorage bị chặn — coi như chưa có cache
+  }
+  return initialThemeSeed(
+    cached,
+    import.meta.env.VITE_INITIAL_THEME as string | undefined,
+    import.meta.env.VITE_INITIAL_PRIMARY as string | undefined,
+  );
+}
+
 interface AppStore {
+  /** Bộ giao diện của quán (stores.mini_app_theme, mig 134). */
+  theme: ThemeKey;
+  /** Đã đọc xong quán lúc mở app (có quán hay không). false = còn đang tải. */
+  bootDone: boolean;
   storeSlug: string;
   storeId: string;
   storeName: string;
@@ -45,6 +65,7 @@ interface AppStore {
   sessionState: TableSessionState | null;
 
   setStoreInfo: (info: {
+    theme: ThemeKey;
     storeSlug: string;
     storeId: string;
     storeName: string;
@@ -73,9 +94,12 @@ interface AppStore {
   setEntryContext: (entryContext: EntryContext) => void;
   setWorkflow: (workflow: PublicWorkflow) => void;
   setWorkflowError: (message: string) => void;
+  setBootDone: () => void;
 }
 
 export const useAppStore = create<AppStore>((set) => ({
+  theme: readThemeSeed().theme,
+  bootDone: false,
   storeSlug: "",
   storeId: "",
   storeName: "",
@@ -114,6 +138,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setEntryContext: (entryContext) => set({ entryContext }),
   setWorkflow: (workflow) => set({ workflow, workflowError: null }),
   setWorkflowError: (workflowError) => set({ workflow: null, workflowError }),
+  setBootDone: () => set({ bootDone: true }),
 }));
 
 export function parseQRParams(): {

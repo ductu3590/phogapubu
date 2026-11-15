@@ -16,7 +16,8 @@ import type { SelectedVariant } from "@/types/cart.types";
 import { formatCurrency } from "@/utils/format";
 import { formatReservationTime } from "@/utils/reservation-display";
 import { matchesQuery } from "@/utils/search-fold";
-import { pickProductLayout } from "@/utils/product-layout";
+import { productLayoutFor } from "@/utils/product-layout";
+import ProductListFrame from "@/components/ui/product-list-frame";
 import { activeCategoryAt } from "@/utils/active-category";
 import { preorderTotals } from "@/utils/preorder-totals";
 
@@ -25,7 +26,7 @@ import { preorderTotals } from "@/utils/preorder-totals";
 export default function ReservationPreorderPage() {
   const { reservationId = "" } = useParams();
   const navigate = useNavigate();
-  const { storeId } = useAppStore();
+  const { storeId, theme } = useAppStore();
   const access = getBookingAccess(storeId, reservationId);
   const booking = useCustomerReservation(access, reservationId);
   const { data: menu } = useStoreMenu(storeId);
@@ -116,7 +117,7 @@ export default function ReservationPreorderPage() {
         </section>
 
         <div ref={stickyRef} className="sticky top-0 z-10 bg-background/95 pb-0.5 backdrop-blur">
-          <label className="mx-3 mt-2.5 flex h-10 items-center gap-2 rounded-full border border-neutral200 bg-surface px-3.5">
+          <label className="mx-3 mt-2.5 flex h-10 items-center gap-2 rounded-full border border-neutral200 bg-surface px-3.5 garden:mx-4 garden:h-[42px] garden:border-0 garden:bg-neutral100">
             <SearchIcon className="size-4 shrink-0 text-text-secondary" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm món…" enterKeyHint="search" className="min-w-0 flex-1 bg-transparent text-small outline-none" />
           </label>
@@ -127,7 +128,7 @@ export default function ReservationPreorderPage() {
           <p className="px-6 py-10 text-center text-small text-text-secondary">Không tìm thấy món phù hợp.</p>
         ) : (
           visibleMenu.map((c) => {
-            const layout = pickProductLayout(c.products);
+            const layout = productLayoutFor(theme, c.products);
             const card = (p: Product) => {
               const hasOptions = p.variants.length > 0 || p.toppings.length > 0;
               return (
@@ -145,11 +146,7 @@ export default function ReservationPreorderPage() {
             return (
               <section key={c.id}>
                 <SectionHeading id={`pre-${c.id}`} title={c.name} count={c.products.length} />
-                {layout === "grid" ? (
-                  <div className="grid grid-cols-2 gap-3 px-3">{c.products.map(card)}</div>
-                ) : (
-                  <div className="mx-3 divide-y divide-neutral100 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">{c.products.map(card)}</div>
-                )}
+                <ProductListFrame layout={layout}>{c.products.map(card)}</ProductListFrame>
               </section>
             );
           })

@@ -1,0 +1,112 @@
+<style>
+  /* Nút gọi thêm bia — 3 vị trí. Chỉ MỘT món: đúng loại + cỡ bàn đã gọi trước đó. */
+  .qbtn { height: 36px; padding: 0 14px 0 10px; border-radius: 99px; background: var(--primary); color: #fff; display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; flex: none; white-space: nowrap; }
+  .qbtn svg { width: 15px; height: 15px; stroke-width: 2.6; }
+  .qstep { height: 36px; border-radius: 99px; background: var(--primary); color: #fff; display: inline-flex; align-items: center; gap: 9px; padding: 0 4px; font-size: 14px; font-weight: 700; flex: none; }
+  .qstep i { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,.18); display: grid; place-items: center; font-style: normal; font-size: 16px; }
+  .qname { min-width: 0; flex: 1; }
+  .qname p { font-size: 13.5px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qname small { font-size: 12px; color: var(--ink-2); font-weight: 500; }
+  .qico { width: 34px; height: 34px; border-radius: 50%; background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; flex: none; }
+  .qico svg { width: 18px; height: 18px; }
+
+  /* 1 — dải đáy, ngay trên thanh giỏ */
+  .q1 { flex: none; margin: 8px 16px 0; height: 52px; border-radius: 99px; background: var(--surface); display: flex; align-items: center; gap: 10px; padding: 0 8px 0 9px; }
+
+  /* 2 — nút nổi góc phải, đè lên danh sách */
+  .q2 { position: absolute; right: 16px; bottom: 150px; height: 50px; border-radius: 99px; background: var(--surface); color: var(--primary); display: flex; align-items: center; gap: 8px; padding: 0 16px 0 7px; font-size: 13.5px; font-weight: 700; box-shadow: 0 8px 22px rgba(38,43,26,.22); }
+  .q2 .plus { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: #fff; display: grid; place-items: center; }
+  .q2 .plus svg { width: 17px; height: 17px; stroke-width: 2.6; }
+  .q2 small { display: block; font-size: 11.5px; font-weight: 500; color: var(--ink-2); line-height: 1.1; }
+  .q2.on { background: var(--primary); color: #fff; padding: 0 7px; gap: 10px; }
+  .q2.on i { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.18); display: grid; place-items: center; font-style: normal; font-size: 18px; }
+
+  /* 3 — thẻ ghim đầu danh sách, ngay dưới hàng danh mục */
+  .q3 { margin: 12px 16px 0; padding: 12px 12px 12px 14px; border-radius: 20px; background: var(--primary-soft); display: flex; align-items: center; gap: 12px; }
+  .q3 .lb { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--brown); margin-bottom: 2px; }
+
+  .after { margin-top: 12px; display: flex; align-items: center; gap: 12px; font-size: 13px; color: #33382a; background: rgba(255,255,255,.55); border-radius: 14px; padding: 10px 14px; }
+  .after > span:first-child { flex: none; font-weight: 700; }
+  .after .q1, .after .q3 { margin: 0; flex: 1; min-width: 0; }
+  .after .q2 { position: static; box-shadow: none; }
+</style>
+
+<div class="page">
+  <h1>Yên Garden — nút gọi thêm bia: 3 vị trí</h1>
+  <p class="lead">Bố cục là <b>phương án A</b> anh đã chọn. Nút giờ chỉ đề xuất <b>một món</b>: đúng loại bia (hoặc rượu) và đúng cỡ mà bàn đã gọi gần nhất. Cảnh trong ảnh: bàn A12 đã gọi <b>Bia hơi Hà Nội, Ca 1 lít</b> ở lượt trước; khách mở lại app, trong giỏ đang có 2 món nướng. Tên món, giá, ảnh là <b>mẫu</b>.</p>
+
+  <div class="note">
+    <h3>Giống nhau ở cả ba vị trí</h3>
+    <ul>
+      <li><b>Chỉ hiện khi</b> bàn đã gọi bia hoặc rượu trong bữa này. Chưa gọi thì không có nút.</li>
+      <li><b>Bấm một lần</b> là thêm 1 vào giỏ, không mở bảng chọn cỡ. Nút đổi thành <b>− 1 +</b> để tăng giảm. Khách bấm "Xem giỏ" rồi gửi như mọi lượt khác, thu ngân vẫn duyệt.</li>
+      <li>Bàn đổi sang loại khác (ví dụ từ bia hơi sang Tiger) thì nút đổi theo loại vừa gọi sau cùng.</li>
+    </ul>
+  </div>
+
+  <div class="row" id="row"></div>
+</div>
+
+<script>
+const LOGO = "{{LOGO}}";
+const u = (id) => `https://images.unsplash.com/photo-${id}?w=400&q=70&auto=format&fit=crop`;
+const ic = (n, s = "") => `<svg class="i" style="${s}"><use href="#${n}"/></svg>`;
+const MENU = [
+  { cat: "Nướng", items: [
+    { n: "Sườn nướng mật ong", d: "Sườn non ướp mật ong rừng, nướng than hoa", p: "165.000đ", img: u("1544025162-d76694265947"), hot: 1, qty: 2 },
+    { n: "Ba chỉ nướng riềng mẻ", d: "Ăn kèm bún, rau thơm, mắm tôm", p: "145.000đ", img: u("1529692236671-f1f6cf9683ba") },
+    { n: "Gà đồi nướng lá móc mật nguyên con (1,6–1,8 kg)", d: "Đặt trước 30 phút", p: "420.000đ", img: u("1598515214211-89d3c73ae83b") },
+    { n: "Xiên nướng thập cẩm", d: "", p: "Từ 25.000đ", img: u("1555939594-58d7cb561ad1") },
+  ]},
+  { cat: "Bia & đồ uống", items: [
+    { n: "Bia hơi Hà Nội", d: "Tháp · Ca · Cốc", p: "Từ 15.000đ", img: u("1535958636474-b021ee887b13") },
+    { n: "Tiger Crystal lon", d: "", p: "25.000đ", img: u("1608270586620-248524c67de9") },
+  ]},
+];
+const CATS = ["Nướng", "Bia & đồ uống", "Lẩu", "Khai vị", "Hải sản", "Rau & cơm"];
+const ctl = (it) => it.qty ? `<span class="step"><i>−</i>${it.qty}<i>+</i></span>` : `<span class="add">${ic("plus")}</span>`;
+const rows = MENU.map((g) => `<div class="cat">${g.cat}<small>${g.items.length} món</small></div>` + g.items.map((it) => `
+  <div class="a-item"><div class="txt">${it.hot ? `<span class="hot">Bán chạy</span>` : ""}<p class="nm">${it.n}</p>${it.d ? `<p class="ds">${it.d}</p>` : ""}<p class="pr">${it.p}</p></div>
+  <div class="ph"><img src="${it.img}" alt="">${ctl(it)}</div></div>`).join("")).join("");
+
+const name = `<div class="qname"><p>Bia hơi Hà Nội</p><small>Ca 1 lít · 60.000đ</small></div>`;
+const addBtn = `<span class="qbtn">${ic("plus")}Thêm 1</span>`;
+const stepper = `<span class="qstep"><i>−</i>1<i>+</i></span>`;
+// Ba vị trí; mỗi vị trí có trạng thái chưa bấm (trong khung điện thoại) và đã bấm (ô "Sau khi bấm").
+const Q1 = (on) => `<div class="q1"><span class="qico">${ic("beer")}</span>${name}${on ? stepper : addBtn}</div>`;
+const Q2 = (on) => on
+  ? `<span class="q2 on"><i>−</i>1 ca<i>+</i></span>`
+  : `<span class="q2"><span class="plus">${ic("plus")}</span><span>Thêm bia<small>Ca 1 lít</small></span></span>`;
+const Q3 = (on) => `<div class="q3"><div class="qname"><p class="lb">Bàn đang uống</p><p>Bia hơi Hà Nội</p><small>Ca 1 lít · 60.000đ</small></div>${on ? stepper : addBtn}</div>`;
+
+const phone = ({ top3 = "", above = "", float = "" }) => `<div class="phone">
+  <div class="statusbar"></div>
+  <div class="top">
+    <div class="r1"><img class="logo" src="${LOGO}" alt=""><div><p class="name">Yên Garden</p><p class="meta">Bàn A12</p></div><span class="capsule"><span>···</span><span>✕</span></span></div>
+    <div class="r2"><div class="search">${ic("search", "width:17px;height:17px")}Tìm món…</div><span class="bell">${ic("bell", "width:17px;height:17px")}Gọi nhân viên</span></div>
+  </div>
+  <div class="tabs">${CATS.map((c, i) => `<span class="${i ? "" : "on"}">${c}</span>`).join("")}</div>
+  <div class="scroll">${top3}${rows}<div style="height:16px"></div></div>
+  ${float}${above}
+  <div class="cart"><div><b>330.000đ</b><br><span>2 món · Bàn A12</span></div><span class="go">Xem giỏ ${ic("arrow", "width:16px;height:16px")}</span></div>
+  <div class="nav"><div class="on">${ic("menu")}Thực đơn</div><div>${ic("list")}Đơn gọi</div></div>
+</div>`;
+
+const OPTS = [
+  { k: "1", t: "Dải đáy, trên thanh giỏ", rec: 1, phone: phone({ above: Q1(false) }), after: Q1(true),
+    sub: "Một hàng riêng dính ở đáy, ngay trên thanh giỏ. Cuộn menu tới đâu vẫn thấy.",
+    why: ["<b>Được:</b> nằm sẵn trong tầm ngón cái, luôn thấy, đọc rõ loại và cỡ bia nên không bấm nhầm. Bấm xong mắt nhìn ngay xuống thanh giỏ bên dưới.", "<b>Mất:</b> khoảng 60px chiều cao danh sách món (chỉ khi bàn đã gọi bia)."] },
+  { k: "2", t: "Nút nổi góc phải", phone: phone({ float: Q2(false) }), after: Q2(true),
+    sub: "Một nút tròn dài nổi trên danh sách, góc dưới bên phải.",
+    why: ["<b>Được:</b> không chiếm hàng nào, danh sách món giữ nguyên chiều cao. Cũng luôn thấy và gần ngón cái.", "<b>Mất:</b> đè lên ảnh và nút + của món nằm dưới nó, dễ bấm nhầm giữa hai nút +. Chỗ chữ ít nên không ghi được tên bia, chỉ ghi cỡ."] },
+  { k: "3", t: "Thẻ ghim đầu danh sách", phone: phone({ top3: Q3(false) }), after: Q3(true),
+    sub: "Một thẻ ở đầu thực đơn, ngay dưới hàng danh mục. Cuộn xuống thì trôi theo.",
+    why: ["<b>Được:</b> là thứ đầu tiên khách thấy khi mở lại app; rộng rãi, ghi đủ tên, cỡ, giá. Không che gì.", "<b>Mất:</b> đang xem món ở giữa menu thì phải kéo ngược lên đầu mới bấm được; xa ngón cái nhất trong ba."] },
+];
+document.getElementById("row").innerHTML = OPTS.map((o) => `
+  <section class="opt"><h2>Vị trí ${o.k} — ${o.t}${o.rec ? `<span class="tag">Khuyên dùng</span>` : ""}</h2><p class="sub">${o.sub}</p>${o.phone}
+  <div class="after"><span>Sau khi bấm:</span>${o.after}</div>
+  <div class="why">${o.why.map((w) => `<p>${w}</p>`).join("")}</div></section>`).join("");
+</script>
+</body>
+</html>

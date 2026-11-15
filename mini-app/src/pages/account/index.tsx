@@ -136,7 +136,7 @@ export default function AccountPage() {
   return (
     <div className="pb-6">
       {/* Thẻ hồ sơ */}
-      <section className="mx-3 mt-3 flex items-center gap-3 rounded-2xl bg-surface p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+      <section className="mx-3 mt-3 flex items-center gap-3 rounded-2xl bg-surface p-4 shadow-card">
         {zaloUser?.avatar ? (
           <img src={zaloUser.avatar} alt="" className="size-14 shrink-0 rounded-full object-cover" />
         ) : (

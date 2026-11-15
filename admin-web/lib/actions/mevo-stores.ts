@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { requireSuperadmin } from '@/lib/auth/operator'
 import { findAuthUserByEmail } from '@/lib/supabase/auth-users'
 import { revalidatePath } from 'next/cache'
+import { isMiniAppTheme } from '@/lib/mini-app-themes'
 
 // Tạo quán mới: row `stores` + config rỗng `store_app_configs`.
 export async function createStore(formData: FormData) {
@@ -55,6 +56,20 @@ export async function updateStoreColor(storeId: string, formData: FormData) {
   if (!/^#[0-9a-fA-F]{6}$/.test(color)) throw new Error('Mã màu không hợp lệ')
   const { error } = await admin.from('stores').update({ primary_color: color }).eq('id', storeId)
   if (error) throw new Error(`updateStoreColor: ${error.message}`)
+  revalidatePath(`/mevo/stores/${storeId}`)
+}
+
+// Đổi bộ giao diện Mini App của quán (mig 134). Mini-app đọc lúc chạy — không cần deploy lại.
+// Form không gửi field này (wizard cũ) thì bỏ qua, không đụng DB.
+export async function updateStoreTheme(storeId: string, formData: FormData) {
+  await requireSuperadmin()
+  const raw = formData.get('mini_app_theme')
+  if (raw === null) return
+  const theme = String(raw).trim()
+  if (!isMiniAppTheme(theme)) throw new Error('Giao diện không hợp lệ')
+  const admin = createAdminClient()
+  const { error } = await admin.from('stores').update({ mini_app_theme: theme }).eq('id', storeId)
+  if (error) throw new Error(`updateStoreTheme: ${error.message}`)
   revalidatePath(`/mevo/stores/${storeId}`)
 }
 

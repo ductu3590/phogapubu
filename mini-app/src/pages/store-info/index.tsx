@@ -137,7 +137,7 @@ export default function StoreInfoPage() {
       className="flex h-full flex-col overflow-y-auto bg-background pb-6"
     >
       {/* Card thông tin quán */}
-      <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)] p-4">
+      <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface shadow-card p-4">
         <div className="flex items-center gap-4">
           {storeLogoUrl ? (
             <img
@@ -162,7 +162,7 @@ export default function StoreInfoPage() {
 
       {/* Card liên hệ */}
       {(storeAddress || storePhone || wifiName || deliveryAreaNote) && (
-        <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+        <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface shadow-card">
           <p className="px-4 pb-1 pt-3 text-xxsmall font-bold uppercase tracking-wide text-text-secondary">Liên hệ</p>
           {storeAddress && (
             <div className="flex items-start gap-3 border-b border-neutral100 px-4 py-3 last:border-0">
@@ -208,7 +208,7 @@ export default function StoreInfoPage() {
       )}
 
       {/* Card: Điều khoản sử dụng (luôn hiện) + Trang Zalo chính thức (nếu có) */}
-      <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+      <div className="mx-3 mt-3 overflow-hidden rounded-2xl bg-surface shadow-card">
         {/* Điều khoản sử dụng — luôn hiện; rỗng thì dùng mẫu mặc định (utils/terms) */}
         <button
           onClick={() => setShowTerms(true)}

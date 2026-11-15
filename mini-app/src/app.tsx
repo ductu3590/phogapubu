@@ -2,21 +2,33 @@ import { RouterProvider } from "react-router-dom";
 import router from "./router";
 import { ReactQueryProvider } from "./lib/react-query-provider";
 import React, { useEffect, useRef } from "react";
-import { SnackbarProvider, useSnackbar } from "zmp-ui";
+import { SnackbarProvider as ZaSnackbarProvider, useSnackbar } from "zmp-ui";
 import { useAppStore, parseQRParams, PaymentMethod, PaymentTiming } from "./stores/app.store";
 import { supabase } from "./services/supabase";
 import { sessionOrderService } from "./services/order/order.api";
 import { getOrCreateDeviceId } from "./services/device-id";
-import { getPublicWorkflow } from "./services/workflow/workflow.api";
-import { applyPrimaryColor } from "@/utils/theme-color";
+import { getPublicWorkflow, mapPublicWorkflow } from "./services/workflow/workflow.api";
+import { buildMenu, categoryService } from "./services/category/category.api";
+import { parseBootstrap, type BootstrapPayload, type StoreBootRow } from "@/utils/bootstrap";
+import { parseActiveDiscounts } from "@/utils/menu-discount";
+import { GET_STORE_MENU_KEY } from "@/constants/api";
+import { useQueryClient } from "@tanstack/react-query";
+import type { PublicWorkflow } from "@/types/workflow.types";
+import { applyPrimaryColor, applyTheme } from "@/utils/theme-color";
+import { THEME_CACHE_KEY, encodeThemeSeed, resolveTheme } from "@/utils/theme";
 import { movedTableNotice } from "@/utils/session-moved";
 import { getUserID } from "zmp-sdk";
+
+// zmp-ui khai kiểu SnackbarProvider thiếu export mặc định nên tsc không coi nó là component.
+// Lúc chạy vẫn là component bình thường — chỉ ép kiểu, không đổi hành vi.
+const SnackbarProvider = ZaSnackbarProvider as unknown as React.ComponentType<{ children: React.ReactNode }>;
 
 function AppInit() {
   const {
     setStoreInfo, setTableInfo, setZaloUserId, setOrderMode, setDeviceId, setSessionState,
-    setEntryContext, setWorkflow, setWorkflowError,
+    setEntryContext, setWorkflow, setWorkflowError, setBootDone,
   } = useAppStore();
+  const queryClient = useQueryClient();
   const storeId = useAppStore((s) => s.storeId);
   const tableId = useAppStore((s) => s.tableId);
   const zaloUserId = useAppStore((s) => s.zaloUserId);
@@ -41,80 +53,101 @@ function AppInit() {
 
   useEffect(() => {
     const { storeSlug, entryContext } = parseQRParams();
-    if (!storeSlug) return;
+    if (!storeSlug) {
+      setBootDone();
+      return;
+    }
 
     setEntryContext(entryContext);
+    const entryTableId = entryContext.kind === "table" ? entryContext.tableId : null;
+    let cancelled = false;
 
-    const storeQuery = supabase
-      .from("stores")
-      .select("id, name, slug, logo_url, address, google_maps_url, phone, zalo_oa_id, zalo_oa_url, payment_methods, payment_timing, takeaway_banner_url, about_text, wifi_name, wifi_password, primary_color, is_accepting_orders, serving_hours, delivery_area_note, terms_of_use")
-      .eq("slug", storeSlug)
-      .eq("is_active", true)
-      .single();
+    const applyStore = (row: StoreBootRow) => {
+      // Màu chủ đạo theo quán (theme runtime) — set CSS var để mọi class Tailwind
+      // dùng theme("colors.primary") (đã trỏ sang var(--color-primary) trong tokens.js)
+      // đổi màu ngay không cần build lại.
+      applyPrimaryColor(row.primary_color);
+      // Bộ giao diện theo quán (mig 134). Nhớ lại để lần mở sau vẽ đúng ngay từ khung đầu.
+      const theme = resolveTheme(row.mini_app_theme);
+      applyTheme(theme);
+      try {
+        window.localStorage.setItem(THEME_CACHE_KEY, encodeThemeSeed({ theme, primary: row.primary_color }));
+      } catch {
+        // không ghi được cache thì lần sau vẫn chạy, chỉ là nháy màu một nhịp
+      }
+      setStoreInfo({
+        theme,
+        storeSlug: row.slug,
+        storeId: row.id,
+        storeName: row.name,
+        storeLogoUrl: row.logo_url ?? "",
+        storeAddress: row.address ?? "",
+        googleMapsUrl: row.google_maps_url ?? "",
+        storePhone: row.phone ?? "",
+        zaloOaId: row.zalo_oa_id ?? "",
+        zaloOaUrl: row.zalo_oa_url ?? "",
+        paymentMethods: (() => {
+          const raw = (row.payment_methods ?? []) as string[];
+          // Chuẩn hoá tên cũ 'zalopay' → 'zalo_checkout' (đề phòng config cache/cũ sau rename).
+          const norm = raw.map((m) => (m === "zalopay" ? "zalo_checkout" : m));
+          const valid = norm.filter((m): m is PaymentMethod =>
+            m === "zalo_checkout" || m === "cash"
+          );
+          return valid.length > 0 ? valid : ["zalo_checkout", "cash"];
+        })(),
+        paymentTiming: (row.payment_timing === "postpay"
+          ? "postpay"
+          : "prepay") as PaymentTiming,
+        takeawayBannerUrl: row.takeaway_banner_url ?? "",
+        aboutText: row.about_text ?? "",
+        wifiName: row.wifi_name ?? "",
+        wifiPassword: row.wifi_password ?? "",
+        isAcceptingOrders: row.is_accepting_orders ?? true,
+        servingHours: Array.isArray(row.serving_hours)
+          ? (row.serving_hours as unknown as import("@/utils/store-hours").ServingShift[])
+          : [],
+        deliveryAreaNote: row.delivery_area_note ?? "",
+        termsOfUse: row.terms_of_use ?? "",
+      });
+    };
 
-    const tableQuery =
-      entryContext.kind === "table"
+    const applyWorkflow = (workflow: PublicWorkflow) => {
+      setWorkflow(workflow);
+      setOrderMode(
+        entryContext.kind === "table"
+          ? "dine_in"
+          : workflow.takeawayEnabled || workflow.shippingEnabled
+            ? "takeaway"
+            : "dine_in",
+      );
+    };
+
+    // Đường đọc gốc (2 lượt nối tiếp): chỉ chạy khi get_mini_app_bootstrap gọi lỗi.
+    const loadLegacy = async () => {
+      const storeQuery = supabase
+        .from("stores")
+        .select("id, name, slug, logo_url, address, google_maps_url, phone, zalo_oa_id, zalo_oa_url, payment_methods, payment_timing, takeaway_banner_url, about_text, wifi_name, wifi_password, primary_color, mini_app_theme, is_accepting_orders, serving_hours, delivery_area_note, terms_of_use")
+        .eq("slug", storeSlug)
+        .eq("is_active", true)
+        .single();
+
+      const tableQuery = entryTableId
         ? supabase
             .from("tables")
             .select("id, table_number")
-            .eq("id", entryContext.tableId)
+            .eq("id", entryTableId)
             .eq("is_active", true)
             .single()
         : Promise.resolve({ data: null, error: null });
 
-    let cancelled = false;
-    void Promise.all([storeQuery, tableQuery]).then(async ([storeRes, tableRes]) => {
+      const [storeRes, tableRes] = await Promise.all([storeQuery, tableQuery]);
       if (cancelled) return;
       if (storeRes.data) {
-        // Màu chủ đạo theo quán (theme runtime) — set CSS var để mọi class Tailwind
-        // dùng theme("colors.primary") (đã trỏ sang var(--color-primary) trong tokens.js)
-        // đổi màu ngay không cần build lại.
-        applyPrimaryColor(storeRes.data.primary_color);
-        setStoreInfo({
-          storeSlug: storeRes.data.slug,
-          storeId: storeRes.data.id,
-          storeName: storeRes.data.name,
-          storeLogoUrl: storeRes.data.logo_url ?? "",
-          storeAddress: storeRes.data.address ?? "",
-          googleMapsUrl: (storeRes.data as { google_maps_url?: string | null }).google_maps_url ?? "",
-          storePhone: storeRes.data.phone ?? "",
-          zaloOaId: storeRes.data.zalo_oa_id ?? "",
-          zaloOaUrl: storeRes.data.zalo_oa_url ?? "",
-          paymentMethods: (() => {
-            const raw = (storeRes.data.payment_methods ?? []) as string[];
-            // Chuẩn hoá tên cũ 'zalopay' → 'zalo_checkout' (đề phòng config cache/cũ sau rename).
-            const norm = raw.map((m) => (m === "zalopay" ? "zalo_checkout" : m));
-            const valid = norm.filter((m): m is PaymentMethod =>
-              m === "zalo_checkout" || m === "cash"
-            );
-            return valid.length > 0 ? valid : ["zalo_checkout", "cash"];
-          })(),
-          paymentTiming: (storeRes.data.payment_timing === "postpay"
-            ? "postpay"
-            : "prepay") as PaymentTiming,
-          takeawayBannerUrl: storeRes.data.takeaway_banner_url ?? "",
-          aboutText: storeRes.data.about_text ?? "",
-          wifiName: storeRes.data.wifi_name ?? "",
-          wifiPassword: storeRes.data.wifi_password ?? "",
-          isAcceptingOrders: storeRes.data.is_accepting_orders ?? true,
-          servingHours: Array.isArray(storeRes.data.serving_hours)
-            ? (storeRes.data.serving_hours as unknown as import("@/utils/store-hours").ServingShift[])
-            : [],
-          deliveryAreaNote: storeRes.data.delivery_area_note ?? "",
-          termsOfUse: storeRes.data.terms_of_use ?? "",
-        });
-
+        applyStore(storeRes.data as StoreBootRow);
         try {
           const workflow = await getPublicWorkflow(storeRes.data.id);
           if (cancelled) return;
-          setWorkflow(workflow);
-          setOrderMode(
-            entryContext.kind === "table"
-              ? "dine_in"
-              : workflow.takeawayEnabled || workflow.shippingEnabled
-                ? "takeaway"
-                : "dine_in",
-          );
+          applyWorkflow(workflow);
         } catch {
           if (!cancelled) setWorkflowError("Không tải được cấu hình đặt món của quán.");
         }
@@ -125,9 +158,47 @@ function AppInit() {
           tableNumber: tableRes.data.table_number,
         });
       }
-    });
+    };
+
+    // Khởi động MỘT lượt (mig 135): quán + bàn + workflow + giảm giá trong một lần gọi theo slug,
+    // menu đọc song song cũng theo slug. Có đủ cả hai thì nạp sẵn menu vào cache TRƯỚC khi đặt
+    // storeId, để trang menu vẽ ngay và không gọi lại. Thiếu menu thì useStoreMenu tự đọc như cũ.
+    const menuRows = categoryService.getMenuRowsBySlug(storeSlug).catch(() => null);
+    void (async () => {
+      let boot: BootstrapPayload | null;
+      try {
+        const { data, error } = await supabase.rpc("get_mini_app_bootstrap", { p_slug: storeSlug, p_table_id: entryTableId });
+        if (error) throw error;
+        boot = parseBootstrap(data);
+      } catch {
+        if (!cancelled) {
+          await loadLegacy().catch(() => undefined);
+          if (!cancelled) setBootDone();
+        }
+        return;
+      }
+      if (cancelled) return;
+      // null = không có quán đang hoạt động với slug này → giữ màn chờ, giống đường cũ.
+      if (!boot) {
+        setBootDone();
+        return;
+      }
+      const rows = await menuRows;
+      if (cancelled) return;
+      if (rows) {
+        queryClient.setQueryData(
+          [GET_STORE_MENU_KEY, boot.store.id],
+          buildMenu(rows, parseActiveDiscounts(boot.discounts)),
+        );
+      }
+      applyStore(boot.store);
+      if (boot.workflow) applyWorkflow(mapPublicWorkflow(boot.workflow));
+      else setWorkflowError("Không tải được cấu hình đặt món của quán.");
+      if (boot.table) setTableInfo({ tableId: boot.table.id, tableNumber: boot.table.table_number });
+      setBootDone();
+    })();
     return () => { cancelled = true; };
-  }, [setStoreInfo, setTableInfo, setOrderMode, setEntryContext, setWorkflow, setWorkflowError]);
+  }, [setStoreInfo, setTableInfo, setOrderMode, setEntryContext, setWorkflow, setWorkflowError, setBootDone, queryClient]);
 
   // Trạng thái phiên bàn — effect RIÊNG, chạy sau khi store + bàn + hai chân định danh đã sẵn
   // sàng. KHÔNG gộp vào effect load store phía trên: lúc đó zaloUserId thường còn rỗng

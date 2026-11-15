@@ -62,7 +62,7 @@ type MenuItem = {
   // Lựa chọn quyết định giá — giá TUYỆT ĐỐI, thay giá món (khác topping: cộng thêm)
   menu_item_variants?: { id: string; name: string; price: number; is_available: boolean; sort_order: number }[]
 }
-type Category = { id: string; name: string; sort_order: number; sku_prefix?: string | null; print_station_id?: string | null; menu_items: MenuItem[] }
+type Category = { id: string; name: string; sort_order: number; sku_prefix?: string | null; print_station_id?: string | null; quick_reorder?: boolean; menu_items: MenuItem[] }
 type PrintStationOption = { id: string; name: string }
 
 function moveArrayItem<T>(items: T[], oldIndex: number, newIndex: number): T[] {
@@ -540,6 +540,7 @@ export default function MenuClient({
             </div>
             <PrefixField />
             <StationField stations={stations} />
+            <QuickReorderField />
             {formError && <p role="alert" className="text-sm text-danger">{formError}</p>}
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setShowAddCat(false)} className="flex-1 rounded-lg border border-border-strong py-2.5 text-sm font-medium text-foreground hover:bg-button-hover">Huỷ</button>
@@ -568,6 +569,7 @@ export default function MenuClient({
             </div>
             <PrefixField current={editCat.sku_prefix ?? null} />
             <StationField stations={stations} current={editCat.print_station_id ?? null} />
+            <QuickReorderField current={editCat.quick_reorder === true} />
             {formError && <p role="alert" className="text-sm text-danger">{formError}</p>}
             <div className="flex gap-2 pt-1">
               <button
@@ -731,6 +733,21 @@ function submitKeepingForm(handler: (fd: FormData) => Promise<void>) {
     e.preventDefault()
     void handler(new FormData(e.currentTarget))
   }
+}
+
+// Ô "Gợi ý gọi thêm nhanh" của danh mục (mig 136): Mini App hiện nút gọi thêm đúng món (kèm cỡ)
+// mà bàn đã gọi gần nhất trong các danh mục được tick — dành cho bia, rượu.
+function QuickReorderField({ current = false }: { current?: boolean }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3">
+      <input type="hidden" name="quick_reorder_field" value="1" />
+      <input type="checkbox" name="quick_reorder" defaultChecked={current} className="mt-0.5 size-4" />
+      <span>
+        <span className="block text-sm font-medium text-foreground">Gợi ý gọi thêm nhanh</span>
+        <span className="block text-sm text-muted">Dành cho bia, rượu. Bàn đã gọi món trong danh mục này thì Mini App hiện nút gọi thêm đúng loại và cỡ đó.</span>
+      </span>
+    </label>
+  )
 }
 
 // Ô chọn trạm in của danh mục (mig 114). Chỉ vẽ khi quán có trạm (đã bật phần mềm in); trống = trạm bếp mặc định.

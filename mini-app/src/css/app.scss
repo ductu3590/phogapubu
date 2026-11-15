@@ -1,4 +1,7 @@
-/* Font chung toàn hệ MEVO (chốt 2026-10-02). Google Fonts tự gửi đủ subset tiếng Việt qua unicode-range. */
+/* Font chung toàn hệ MEVO (chốt 2026-10-02). Google Fonts tự gửi đủ subset tiếng Việt qua unicode-range.
+   PHẢI nạp bằng @import ở đây, KHÔNG chuyển sang <link> trong index.html: trong Zalo, app được nạp
+   theo danh sách listCSS / listSyncJS của app-config.json (zmp-vite-plugin sinh ra), index.html của
+   mình không được dùng tới. Chỉ 4 độ đậm đang dùng thật (400/500/600/700). */
 @import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap");
 
 :root {
@@ -6,6 +9,25 @@
   /* Màu chính mặc định trước khi app.tsx đọc màu quán (applyPrimaryColor ghi đè). */
   --color-primary: #A0673D;
   --color-primary-rgb: 160 103 61;
+}
+
+/* Tông trung tính theo theme (stores.mini_app_theme). tokens.js đọc các biến này dạng
+   rgb(var(--c-x, <mặc định classic>) / alpha) nên theme 'classic' KHÔNG cần khai gì ở đây.
+   Màu trạng thái (success / info / warning / critical) cố ý không đổi theo theme. */
+:root[data-theme="garden"] {
+  --c-background: 242 239 230;     /* #F2EFE6 kem — nền trang */
+  --c-surface: 251 250 246;        /* #FBFAF6 kem sáng — thẻ, thanh nổi */
+  --c-neutral50: 245 242 234;      /* #F5F2EA */
+  --c-neutral100: 229 224 210;     /* #E5E0D2 kem trầm — nét kẻ, ô tìm, nền phụ */
+  --c-neutral300: 116 122 86;      /* #747A56 ô-liu nhạt — icon phụ */
+  --c-neutral900: 38 43 26;        /* #262B1A */
+  --c-text-secondary: 90 96 69;    /* #5A6045 — 5,0:1 trên nền kem */
+  --c-text-tertiary: 90 96 69;
+  --c-text-disabled: 143 146 122;  /* #8F927A */
+  --c-border-strong: 205 199 180;  /* #CDC7B4 */
+  --shadow-card: none;                /* thẻ phẳng, không bóng */
+  --g-brown: #5C4636;              /* nâu chữ "GARDEN" — nhãn danh mục */
+  --g-sand: 203 164 115;           /* #CBA473 be vàng — nhãn Bán chạy */
 }
 
 * {
@@ -46,6 +68,14 @@
 .zaui-bottom-navigation-item-active .zaui-bottom-navigation-item-label {
   color: var(--color-primary);
 }
+
+// Bảng trượt nhẹ của theme garden (components/ui/bottom-sheet.tsx).
+@keyframes mevo-sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.mevo-sheet-up { animation: mevo-sheet-up 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) { .mevo-sheet-up { animation: none; } }
 
 // Chuông nút Gọi NV lắc nhẹ mỗi 3 giây; tắt hẳn khi người dùng bật giảm chuyển động.
 @keyframes mevo-bell-ring {

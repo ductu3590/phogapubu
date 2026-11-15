@@ -4,8 +4,9 @@ import { StatusDot } from '@/components/ui/badge'
 
 import {
   assignStoreOwner, createStore, updateAppConfig, updateCheckoutConfig,
-  updateStoreColor, updateStoreOaId, updateZaloConfig,
+  updateStoreColor, updateStoreOaId, updateStoreTheme, updateZaloConfig,
 } from '@/lib/actions/mevo-stores'
+import { MINI_APP_THEMES } from '@/lib/mini-app-themes'
 import { SLUG_RE, suggestSlug } from '@/lib/slugify'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
@@ -68,6 +69,7 @@ export default function StoreWizard() {
         })} />}
         {step === 2 && <Step2 pending={pending} onSkip={() => goTo(3)} onSubmit={wrap(async (fd) => {
           await updateStoreColor(storeId, fd)
+          await updateStoreTheme(storeId, fd)
           setDone((d) => ({ ...d, color: true }))
           goTo(3)
         })} />}
@@ -170,6 +172,14 @@ function Step2({ pending, onSubmit, onSkip }: { pending: boolean; onSubmit: (fd:
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-foreground/80">Màu chủ đạo</span>
         <input type="color" name="primary_color" defaultValue="#A0673D" className="h-10 w-16 rounded-lg border border-border-strong" />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-sm font-medium text-foreground/80">Bộ giao diện</span>
+        <select name="mini_app_theme" defaultValue="classic" className="h-10 w-full rounded-lg border border-border-strong bg-surface px-3 text-sm">
+          {MINI_APP_THEMES.map((t) => (
+            <option key={t.key} value={t.key}>{t.label} — {t.hint}</option>
+          ))}
+        </select>
       </label>
       <Buttons pending={pending} onSkip={onSkip} />
     </form>

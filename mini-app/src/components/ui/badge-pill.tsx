@@ -7,7 +7,7 @@ export default function BadgePill({ badge, className }: { badge: Product["badge"
   const b = menuBadge(badge);
   if (!b) return null;
   return (
-    <span className={`inline-flex w-fit shrink-0 items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-xxxsmall font-bold text-primary ${className ?? ""}`}>
+    <span className={`inline-flex w-fit shrink-0 items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-xxxsmall font-bold text-primary garden:bg-[rgb(var(--g-sand)/0.38)] garden:px-2 garden:text-[#4A3518] ${className ?? ""}`}>
       {b.label}
     </span>
   );

@@ -22,6 +22,7 @@
 
 ## Vừa xong (giữ tới khi Yên Garden go-live)
 
+- ✅ [Yên Garden — Mini App (theme garden, tải nhanh, gọi thêm bia)](docs/testing/yen-garden/MINI-APP.md) — PASS A–E 2026-11-15 (nhóm F làm khi zmp deploy)
 - ✅ [Yên Garden — Báo cáo](docs/testing/yen-garden/BAO-CAO.md) · [Sổ thu chi + ca](docs/testing/yen-garden/THU-CHI.md) · [Công nợ](docs/testing/yen-garden/CONG-NO.md) — 0 FAIL (2026-11-10)
 - [Yên Garden — Kho](docs/testing/yen-garden/KHO.md) · [Vai Quản lý](docs/testing/yen-garden/QUAN-LY.md) · [Cấu hình + in tự động](docs/testing/yen-garden/CFG.md)
 - ✅ [Giảm giá theo món / danh mục](docs/testing/menu-discount/MD-1.md) — PASS 2026-11-10

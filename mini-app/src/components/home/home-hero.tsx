@@ -45,7 +45,7 @@ export default function HomeHero({
 
   return (
     <div className="px-3 pt-3">
-      <section className="overflow-hidden rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+      <section className="overflow-hidden rounded-2xl bg-surface shadow-card">
         {/* Ảnh bìa: banner quán; chưa có thì khối màu chủ đạo + logo/chữ viết tắt + tên quán */}
         {bannerUrl ? (
           <div className="relative">
@@ -81,7 +81,7 @@ export default function HomeHero({
             <button
               type="button"
               onClick={onReserve}
-              className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-normal-sb font-bold text-white shadow active:opacity-90"
+              className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-normal-sb font-bold text-white shadow active:opacity-90 garden:rounded-full garden:shadow-none"
             >
               <CalendarDaysIcon className="size-5" />
               Đặt bàn trước

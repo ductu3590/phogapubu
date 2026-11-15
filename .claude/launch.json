@@ -11,6 +11,17 @@
       "cwd": "admin-web",
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "mini-app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "cwd": "mini-app",
+      "port": 5173,
+      "autoPort": true
     }
   ]
 }

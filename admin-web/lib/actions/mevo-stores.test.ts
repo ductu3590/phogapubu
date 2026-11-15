@@ -41,7 +41,46 @@ vi.mock('@/lib/auth/operator', () => ({ requireSuperadmin: mocks.requireSuperadm
 vi.mock('@/lib/supabase/server', () => ({ createAdminClient: vi.fn(() => mocks.admin) }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
-const { updateStoreOaId, updateZaloConfig } = await import('./mevo-stores')
+const { updateStoreOaId, updateStoreTheme, updateZaloConfig } = await import('./mevo-stores')
+
+function themeForm(theme?: string) {
+  const fd = new FormData()
+  if (theme !== undefined) fd.set('mini_app_theme', theme)
+  return fd
+}
+
+describe('updateStoreTheme', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.admin._updateArgs.value = null
+    mocks.admin._eqCalls.value = []
+    mocks.requireSuperadmin.mockResolvedValue({ userId: 'u1', role: 'mevo_superadmin', storeId: null })
+  })
+
+  it('ghi mini_app_theme đúng quán', async () => {
+    await updateStoreTheme('store-1', themeForm(' garden '))
+    expect(mocks.admin.from).toHaveBeenCalledWith('stores')
+    expect(mocks.admin._updateArgs.value).toEqual({ mini_app_theme: 'garden' })
+    expect(mocks.admin._eqCalls.value).toContainEqual(['id', 'store-1'])
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/mevo/stores/store-1')
+  })
+
+  it('theme lạ bị từ chối, không ghi DB', async () => {
+    await expect(updateStoreTheme('store-1', themeForm('neon'))).rejects.toThrow('Giao diện không hợp lệ')
+    expect(mocks.admin._updateArgs.value).toBeNull()
+  })
+
+  it('form không gửi field thì bỏ qua', async () => {
+    await updateStoreTheme('store-1', themeForm())
+    expect(mocks.admin._updateArgs.value).toBeNull()
+  })
+
+  it('không phải superadmin thì dừng trước khi ghi', async () => {
+    mocks.requireSuperadmin.mockRejectedValue(new Error('forbidden'))
+    await expect(updateStoreTheme('store-1', themeForm('garden'))).rejects.toThrow('forbidden')
+    expect(mocks.admin._updateArgs.value).toBeNull()
+  })
+})
 
 function oaForm(oaId: string) {
   const fd = new FormData()

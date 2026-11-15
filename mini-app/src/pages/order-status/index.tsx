@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSnackbar } from "zmp-ui";
 import { useOrderWithItems } from "@/services/order/order.queries";
 import { useConfirmReceived } from "@/services/order/order.mutations";
-import { supabase } from "@/services/supabase";
+import { realtime } from "@/services/supabase-realtime";
 import { Order, OrderState } from "@/types/order.types";
 import { formatCurrency } from "@/utils/format";
 import { getItemLineTotal } from "@/utils/order-pricing";
@@ -121,7 +121,7 @@ export default function OrderStatusPage() {
   useEffect(() => {
     if (!orderId) return;
 
-    const channel = supabase
+    const channel = realtime()
       .channel(`order-status-${orderId}`)
       .on(
         "postgres_changes",
@@ -151,7 +151,7 @@ export default function OrderStatusPage() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void realtime().removeChannel(channel);
     };
   }, [orderId]);
 
@@ -213,7 +213,7 @@ export default function OrderStatusPage() {
       <div className="no-scrollbar flex-1 overflow-y-auto pb-8">
 
         {/* Status hero */}
-        <div className="mx-3 mt-3 flex flex-col items-center rounded-2xl bg-surface px-6 pb-7 pt-8 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+        <div className="mx-3 mt-3 flex flex-col items-center rounded-2xl bg-surface px-6 pb-7 pt-8 shadow-card">
           <div className={cn("mb-3", config.color)}>{config.icon}</div>
           <h1 className={cn("text-2xl font-bold", config.color)}>
             {config.label}

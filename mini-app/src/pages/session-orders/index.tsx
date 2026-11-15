@@ -6,7 +6,7 @@ import { useAppStore } from "@/stores/app.store";
 import { useSessionOrders, useTableSessionBill, useTakeawayOrders } from "@/services/order/order.queries";
 import { useConfirmReceived } from "@/services/order/order.mutations";
 import { orderService } from "@/services/order/order.api";
-import { supabase } from "@/services/supabase";
+import { realtime } from "@/services/supabase-realtime";
 import { formatCurrency } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import { lineLabel, reconcileRounds, rejectionReasonLabel, roundDiscount, roundNumbers, roundSourceLabel, roundStatus, type RoundContext, type RoundTone } from "@/utils/round-status";
@@ -128,7 +128,7 @@ function DineInOrdersView() {
   // Realtime: tự cập nhật khi thu ngân xác nhận / nhân viên thêm món
   useEffect(() => {
     if (!tableId) return;
-    const channel = supabase
+    const channel = realtime()
       .channel(`session-orders-${tableId}`)
       .on(
         "postgres_changes",
@@ -141,7 +141,7 @@ function DineInOrdersView() {
         },
       )
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => { void realtime().removeChannel(channel); };
   }, [tableId, queryClient]);
 
   // Chưa quét QR. Ở trả sau chỉ cần MỘT trong hai chân định danh (PB5): khách không lấy được
@@ -301,7 +301,7 @@ function RoundCard({
   );
 
   return (
-    <section className={cn("mx-3 rounded-2xl border-l-4 bg-surface p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)]", TONE_BAR[status.tone], rejected && "bg-critical-bg/40")}>
+    <section className={cn("mx-3 rounded-2xl border-l-4 bg-surface p-4 shadow-card", TONE_BAR[status.tone], rejected && "bg-critical-bg/40")}>
       {lazy ? (
         <button type="button" onClick={lazy.onToggle} className="block w-full text-left">
           {header}
@@ -556,7 +556,7 @@ function TakeawayOrderCard({
   const isDone = !!order.completedAt;
 
   return (
-    <div className="rounded-2xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+    <div className="rounded-2xl bg-surface shadow-card">
       <button
         onClick={onToggle}
         className="flex w-full items-center justify-between px-4 py-3 text-left"
