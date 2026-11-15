@@ -19,7 +19,7 @@
 - [Đợt 1 C-0 — Máy in thật](docs/testing/dot1/C-0-may-in-that.md) — anh Tú báo in được (Canon 2900 + 2 trạm PDF, 2026-11-11); chưa điền số đo, chưa thử máy nhiệt 80mm — ⏳ agent không làm được phần nào (đo máy thật), chờ anh Tú khi lắp 24–25/11
 - ⏳ [Đợt 1 C Part 2 — gọi in](docs/testing/dot1/C-part2-goi-in.md), [in ghép](docs/testing/dot1/C-part2-in-ghep.md) — agent ✓ logic cả 31 bài, chờ anh Tú ~13 bài cần máy in / phần mềm in thật (khi lắp máy 24–25/11)
 - ⏳ [Đợt 1 — VietQR nền](docs/testing/dot1/vietqr-nen.md), [VietQR ghép](docs/testing/dot1/vietqr-ghep.md) — agent ✓ nền 1/7, ghép 7/10; chờ anh Tú nền 6 bài (2–7) + ghép 3 bài (6–8, cần app ngân hàng + máy nhiệt thật)
-- ⏳ [Đợt 1 — Thu tiền kết hợp](docs/testing/dot1/thu-tien-ket-hop.md) — agent ✓ bài 8–15 (logic + DB 112a/112b), chờ anh Tú bài 1–7 (thu thật) + SQL bất biến; bài 8, 9, 11, 13 tuỳ chọn; đã sửa checklist (4 lựa chọn, bài 14 không dựng lại được)
+- ⏳ [Đợt 1 — Thu tiền kết hợp](docs/testing/dot1/thu-tien-ket-hop.md) — agent ✓ bài 8, 9 bằng test đua `npm run test:race` (40/40, 15/11), bài 11, 14, 15 bằng DB 112a/112b; chờ anh Tú bài 1–7 (thu thật), bài 12 (Bỏ bàn, chưa có test cho đường đóng phiên sau mig 129), bài 13 (BẮT BUỘC, ngắt Wi-Fi), bài 10 (xem lướt) + SQL bất biến; bài 8, 9, 11 tuỳ chọn; đã sửa checklist (4 lựa chọn, bài 14 không dựng lại được)
 - ⏳ [Đợt 1 C Part 1 — In hai nơi](docs/testing/dot1/C-part1-in-hai-noi.md) — agent ✓ DB mig 114 (bài 2, 5, 7, 11, 12), bài 3 lỗi thời (mig 121), chờ anh Tú 4, 6, 8, 9, 10, 1 (cần phần mềm in thật)
 
 ## Vừa xong (giữ tới khi Yên Garden go-live)

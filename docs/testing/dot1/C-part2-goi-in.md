@@ -1,6 +1,6 @@
 # Test đổi mọi nơi gọi in qua printDocument (Đợt 1, mục C Part 2, Task 11)
 
-> **Agent 2026-11-15 (T-002):** vitest admin-web 178 file / 1627 test xanh, print-agent 8 file / 103 test xanh, `node --test supabase/tests/*.test.mjs` 588/589 (1 đỏ = nợ cũ 048 trên Windows). "Agent ✓" = đã kiểm đủ bằng máy; bài có chữ 👤 vẫn cần anh Tú (phần Agent ✓ đi kèm chỉ là logic đã có test, không thay cho nhìn bằng mắt / thiết bị thật). Gom thứ tự chạy ở [../TRUOC-GO-LIVE.md](../TRUOC-GO-LIVE.md).
+> **Agent 2026-11-15 (T-002):** vitest admin-web 178 file / 1627 test xanh, print-agent 8 file / 103 test xanh, `node --test supabase/tests/*.test.mjs` 603/603 xanh (T-006 chạy lại 15/11 sau khi T-003 sửa 048; con số cũ 588/589). "Agent ✓" = đã kiểm đủ bằng máy; bài có chữ 👤 vẫn cần anh Tú (phần Agent ✓ đi kèm chỉ là logic đã có test, không thay cho nhìn bằng mắt / thiết bị thật). Gom thứ tự chạy ở [../TRUOC-GO-LIVE.md](../TRUOC-GO-LIVE.md).
 
 Cần máy in thật và phần mềm in ở quầy: thử ở CẢ HAI chế độ (`browser` và `agent`) trên Bảo Lương. Dựng đơn bằng Khách lẻ / đơn khách gọi, dọn bằng Bỏ bàn.
 
