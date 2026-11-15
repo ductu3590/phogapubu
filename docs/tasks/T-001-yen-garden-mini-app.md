@@ -24,9 +24,9 @@ Bắt đầu bằng `python scripts/task.py start T-001 --from claude/yen-garden
 - Theme classic (Bảo Lương) phải giữ nguyên hành vi.
 
 ## Tiêu chí chấp nhận
-- [ ] Gộp `main` mới nhất vào nhánh, `python scripts/verify.py` không tệ hơn baseline
-- [ ] Anh Tú PASS `docs/testing/yen-garden/MINI-APP.md` (dừng chờ PASS theo quy tắc test của CLAUDE.md)
-- [ ] Theme classic trên Bảo Lương không đổi (chụp màn đối chiếu)
+- [x] Gộp `main` mới nhất vào nhánh, `python scripts/verify.py` không tệ hơn baseline — 964f310, typecheck nợ cũ 5→1
+- [x] Anh Tú PASS `docs/testing/yen-garden/MINI-APP.md` (dừng chờ PASS theo quy tắc test của CLAUDE.md) — PASS hết A–E 2026-11-15
+- [x] Theme classic trên Bảo Lương không đổi (chụp màn đối chiếu) — bài A2 anh Tú PASS, đối chiếu `screens/bl-*.png`
 - [ ] Gộp vào `main`; nhắc anh Tú `git merge origin/main` ở `mini-app-instances/yen-garden` TRƯỚC khi `zmp deploy` (chọn Development/Testing)
 
 ## Ghi chú
