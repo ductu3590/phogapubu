@@ -7,8 +7,8 @@ Kết quả của đúng bài (phần "Agent ✓" ghi sẵn trong bài là chỗ
 lỗi, báo để tạo task sửa riêng.
 
 Agent đã chạy ngày 2026-11-15: vitest admin-web 178 file / 1627 test xanh · print-agent 8 file / 103 test xanh ·
-`node --test supabase/tests/*.test.mjs` 588/589 xanh (1 đỏ = nợ cũ `048_pos_table_areas` trên Windows, không liên quan).
-Các bài KHÔNG có trong trang này là bài agent đã kiểm đủ bằng máy (xem "Agent ✓" ở file gốc), trừ các bài ghi "tuỳ chọn" ở cuối.
+`node --test supabase/tests/*.test.mjs` 603/603 xanh (T-006, sau khi T-003 sửa 048; trước đó 588/589) · `npm run test:race` 40/40 xanh (orchestrator, `main` @ dd971b3, áp migration tới 140, log `.harness/verify/race-2026-11-15.log`).
+Các bài KHÔNG có trong trang này là bài agent đã kiểm đủ bằng máy (xem "Agent ✓" ở file gốc), trừ các bài ghi "tuỳ chọn" ở cuối. Đối chiếu T-006: bài 👤 bắt buộc ở file `dot1/` đều có mặt ở đây (xem ghi chú cuối trang cho phần còn lại).
 
 > Quán thật: mọi bài **thu tiền** cộng vào doanh thu và không xoá được. Làm ngoài giờ mở cửa, dùng món rẻ nhất, ghi số đã
 > thu ở bảng đầu `thu-tien-ket-hop.md`.
@@ -46,13 +46,16 @@ Thứ tự gợi ý: khai tài khoản nhận tiền TRƯỚC, rồi dựng bill
 - [ ] [thu-tien 1](dot1/thu-tien-ket-hop.md) — Thu Tiền mặt, tiền thối đúng (thu thật)
 - [ ] [thu-tien 2](dot1/thu-tien-ket-hop.md) — Thu Chuyển khoản (thu thật). Làm cùng lúc [vietqr-ghep 1 và 7](dot1/vietqr-ghep.md): có mã QR, rồi in lại bill đã thu ở A04 không có QR
 - [ ] [thu-tien 3, 4](dot1/thu-tien-ket-hop.md) — Kết hợp 400k/600k (hoặc món rẻ), rồi xem A04 + ngăn kéo + Xuất Excel + phiếu cuối ngày + In lại hoá đơn
+- [ ] [thu-tien 12](dot1/thu-tien-ket-hop.md) — Bỏ bàn một bàn có món chưa nấu: bàn trống, không khoản thu, doanh thu không tăng (máy chưa có test cho đường đóng phiên sau mig 129)
+- [ ] [thu-tien 13](dot1/thu-tien-ket-hop.md) — BẮT BUỘC: Tiền mặt, ngắt Wi-Fi ngay sau khi bấm, bật lại, đổi sang Chuyển khoản bấm lại: không bao giờ thấy câu "đã được chốt" chung chung, câu báo nêu đúng phương tiện đã ghi; A04 một khoản (thu thật)
 - [ ] [thu-tien 5](dot1/thu-tien-ket-hop.md) — gõ lệch hai ô: chữ đỏ, nút thu khoá (không thu tiền)
 - [ ] [thu-tien 6](dot1/thu-tien-ket-hop.md) — giảm giá 10% rồi thu Kết hợp (thu thật)
 - [ ] [thu-tien 7](dot1/thu-tien-ket-hop.md) — hai bàn, Gộp bill, thu Kết hợp, A04 một dòng nhãn Ghép (thu thật)
 - [ ] [vietqr-ghep 8](dot1/vietqr-ghep.md) — đăng nhập thu ngân: thấy QR ở màn Thanh toán
 - [ ] [vietqr-nen 7](dot1/vietqr-nen.md) — LÀM CUỐI và chỉ nếu quán chưa muốn bật: để trống ba ô, Lưu, QR biến mất
 - [ ] SQL kiểm bất biến trong [thu-tien](dot1/thu-tien-ket-hop.md) (mục "SQL kiểm bất biến") + `docs/testing/chuyen-ban-giam-gia/sql/gg-verify.sql`, `gg2-verify.sql` — dán vào Supabase SQL Editor, kỳ vọng 0 dòng / "TẤT CẢ CA ĐÃ PASS" (agent không có quyền SQL prod)
-- [ ] Tuỳ chọn (hai máy / ngắt Wi-Fi, agent đã kiểm logic): [thu-tien 8, 9, 13](dot1/thu-tien-ket-hop.md), [thu-tien 11](dot1/thu-tien-ket-hop.md) (mở một bill cũ ở A04)
+- [ ] Tuỳ chọn (hai máy / hai tab, agent đã kiểm bằng test đua 15/11): [thu-tien 8, 9](dot1/thu-tien-ket-hop.md), [thu-tien 11](dot1/thu-tien-ket-hop.md) (mở một bill cũ ở A04)
+- [ ] [thu-tien 10](dot1/thu-tien-ket-hop.md) — xem lướt (1 phút): `/staff/tables` (tài khoản thu ngân) và ngăn kéo A04 không còn nút thu, chỉ còn dòng "Thu tiền ở POS (Thanh toán)"
 
 ## Phần 4 — Điện thoại
 
@@ -76,6 +79,7 @@ Làm trên máy quầy Windows thật; bài nào cần cả quán trả sau Bả
 - [ ] [C-part2-in-ghep 1–2, 5](dot1/C-part2-in-ghep.md) — 2 phiếu bếp đúng trạm + 1 phiếu bàn; một trạm; in tạm tính/gộp/A04/cuối ngày/bàn giao ca/`/staff/tables`/QR bàn
 - [ ] [C-part2-in-ghep 3, 4, 6, 7, 8, 10, 11](dot1/C-part2-in-ghep.md) — bấm đúp không in trùng; đặt trước đúng trạm; tắt phần mềm 40 giây; rút dây máy in bếp; In bằng trình duyệt; chế độ `browser`; phiếu bàn giao ca so với bản trình duyệt
 - [ ] [C-part2-goi-in 1, 2, 4, 5, 6, 7](dot1/C-part2-goi-in.md) — hai chế độ `browser` / `agent`: Duyệt và in bếp, In lại, các nơi in, tắt phần mềm
+- [ ] [C-part2-goi-in 8](dot1/C-part2-goi-in.md) — chuyển một danh mục sang trạm khác SAU khi đơn đã tự in, rồi Duyệt & in bếp: in thêm một phiếu ở trạm mới (hành vi đã biết, anh xác nhận chấp nhận được)
 - [ ] [C-part2-goi-in 9, 10, 11, 20](dot1/C-part2-goi-in.md) — băng đỏ máy in chưa kết nối, phiếu lỗi (rút giấy), In bằng trình duyệt, nút khoá
 - [ ] [C-part1 4, 6, 8](dot1/C-part1-in-hai-noi.md) — ghép máy bằng mã 6 số, In thử từng trạm, tắt phần mềm 40 giây rồi tự in lại. Bài này có bằng chứng gián tiếp ở [C-cai-dat-phan-mem-in](dot1/C-cai-dat-phan-mem-in.md) Test 2 (PASS 2026-11-12): anh quyết có coi là đủ không
 - [ ] [C-part1 1, 9, 10](dot1/C-part1-in-hai-noi.md) — "Một nơi" như cũ; gán trạm cho danh mục ở trang Món; Gỡ máy
