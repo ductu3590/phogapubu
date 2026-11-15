@@ -2,7 +2,7 @@
 id: T-002
 title: Đóng các checklist test tay còn chờ trước go-live (sửa lỗi phát sinh)
 agent: qa-tester
-status: in_progress
+status: review
 depends_on: [T-000]
 paths:
   - docs/testing/**
