@@ -1,5 +1,7 @@
 # C-Part1 — In hai nơi: trạm in, hàng đợi, phần mềm in (Đợt 1 mục C, Part 1)
 
+> **Agent 2026-11-15 (T-002):** vitest admin-web 178 file / 1627 test xanh, print-agent 8 file / 103 test xanh, `node --test supabase/tests/*.test.mjs` 588/589 (1 đỏ = nợ cũ 048 trên Windows). Cột "Ghi chú" ở bảng cuối ghi phần Agent ✓; cột PASS / FAIL để trống cho anh Tú ở bài có 👤 (cần phần mềm in thật + máy in). **Không dùng mig 114 nữa như điều kiện**: 114 đã áp prod. Gom thứ tự chạy ở [../TRUOC-GO-LIVE.md](../TRUOC-GO-LIVE.md).
+
 Code đã gộp vào nhánh phiên `claude/mevo-vs-kiosviet-features-c14e43` (không dùng các nhánh `feat/dot1-*`) · Plan `docs/superpowers/plans/2026-11-05-dot1-c-in-hai-noi.md` · Spec `docs/superpowers/specs/2026-11-05-dot1-thanh-toan-ca-in-vietqr-design.md` §5, §7, §9
 Test trên **quán thử** (khuyến nghị) hoặc Bia lẩu Bảo Lương. **Migration 114 phải được áp lên prod TRƯỚC** (việc của người quản lý hệ thống, không phải của người test).
 
@@ -136,18 +138,18 @@ Chuyển sang Part 2: nút In lại nằm ở POS, Part 1 chưa nối nên chưa
 
 | Bài | PASS / FAIL | Ghi chú |
 |---|---|---|
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
-| 5 | | |
-| 6 | | |
-| 7 | | |
-| 7b | Part 2 | |
-| 8 | | |
-| 9 | | |
-| 10 | | |
-| 11 | | |
-| 12 | | |
+| 1 |  | Agent ✓ logic: `print-document.test.ts` "browser: gọi printInPlace…, không gọi enqueuePrint" (15/11). 👤 anh Tú xác nhận phiếu bếp vẫn có giá + không có dòng mới trong `print_jobs`. |
+| 2 |  | Agent ✓ DB: `114_*` "bật agent tạo Quầy + Bếp đúng một lần"; `print-settings-section.test.tsx` "agent: có trạm…", "trạm Quầy và Bếp mặc định không có nút Xoá" (15/11). 👤 tuỳ chọn nhìn thật. |
+| 3 | N/A | Đã lỗi thời (mig 121 gỡ khoá hai chiều). Agent ✓ DB: `121_print_policy_guard_drop.test.mjs` xanh (15/11). Không còn bài cho anh. |
+| 4 |  | 👤 anh Tú (ghép máy thật). Agent ✓ DB: `114_*` "mã ghép 6 chữ số, hết hạn sau 10 phút", "ghép đúng mã trả token" (15/11). Bằng chứng gián tiếp: `C-cai-dat-phan-mem-in.md` Test 2 PASS 2026-11-12 (ghép máy + in thử) — anh quyết có tính không. |
+| 5 |  | Agent ✓ DB: `114_*` "sai 20 lần thì mã đang sống bị huỷ", "ghép bằng mã quá hạn bị từ chối" (15/11). 👤 tuỳ chọn (cửa sổ ghép thật). |
+| 6 |  | 👤 anh Tú (máy in thật hoặc MEVO PDF). Agent ✓ logic: `print-jobs.test.ts` + `print-agent` vitest (`job-loop`, `spooler`) xanh (15/11). Bằng chứng gián tiếp: `C-cai-dat-phan-mem-in.md` Test 2 + `C-0-may-in-that.md` ghi chú 2026-11-11. |
+| 7 |  | Agent ✓ DB: `114_*` "poll: trạm chưa có máy thì job failed, lấy job kế tiếp" (15/11). |
+| 7b | Part 2 | Part 2 (đã có test tự động `retried` ở 114). |
+| 8 |  | 👤 anh Tú (tắt phần mềm 40 giây). Agent ✓ DB: `114_*` "agent_online: last_seen 29 giây true, 31 giây false", "poll: một job chỉ giao một lần"; `print-agent/src/job-loop.test.ts` xanh (15/11). |
+| 9 |  | 👤 anh Tú (trang Món). Agent ✓ DB: `114_*` "không gán được trạm của quán khác vào danh mục", "xoá trạm: danh mục về NULL" (15/11). |
+| 10 |  | 👤 anh Tú. Agent ✓ DB: `114_*` "revoke_print_agent: chỉ chủ quán, đặt token_hash NULL", "poll sau revoke_print_agent trả revoked" (15/11). |
+| 11 |  | Agent ✓ DB: `114_*` "xoá trạm khi job queued: loại phiếu khác (phiếu bàn) về Quầy" + "…phiếu bếp ra trạm bếp mặc định, ghi lại station_id" (15/11). |
+| 12 |  | Agent ✓ DB: `114_*` "printing quá 2 phút: failed Không rõ đã in chưa, KHÔNG về queued" (15/11). Phần đổi tên máy in ảo: 👤 tuỳ chọn. |
 
 Kết luận: **PASS** / **FAIL**. FAIL thì chép nguyên văn thông báo lỗi và dòng `print_jobs` liên quan.

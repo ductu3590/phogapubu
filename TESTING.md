@@ -6,19 +6,21 @@
 
 ## Chờ test
 
+- 👉 [**Trước go-live: việc còn lại của anh Tú, gom theo màn / thiết bị**](docs/testing/TRUOC-GO-LIVE.md) — T-002 2026-11-15; hạn 24/11
+
 - ✅ [Yên Garden — DB chặn người chưa đổi mật khẩu (mig 137)](docs/testing/yen-garden/TAI-KHOAN-DB.md) — PASS 2026-11-13 (anh Tú); mig 137 đã áp prod 2026-11-13; đã merge main (chưa push / deploy)
 - ✅ [Yên Garden — Tài khoản + bắt đổi mật khẩu lần đầu](docs/testing/yen-garden/TAI-KHOAN.md) — PASS 2026-11-13 (anh Tú); 5 tài khoản đã tạo prod; đã merge main cùng mig 137 (chưa push / deploy)
-- ⏳ [Yên Garden — Đóng/mở lại bàn + khoá cấu hình quy trình cho chủ quán](docs/testing/yen-garden/FIX-BAN-CAU-HINH.md) — chờ test (2026-11-13); mig 138 + 139 đã áp prod
-- ⏳ [Dọn codebase sau audit](docs/testing/audit-cleanup/AUDIT-1.md) — chờ test (2026-11-11); mig 130 đã áp prod 2026-11-11
+- ⏳ [Yên Garden — Đóng/mở lại bàn + khoá cấu hình quy trình cho chủ quán](docs/testing/yen-garden/FIX-BAN-CAU-HINH.md) — ⏳ agent ✓ 6/23 bài (B1–B3, B6, C1, C5; DB 138/139 15/15), chờ anh Tú 17 bài (A1–A11, B4–B5, B7, C2–C4); mig 138 + 139 đã áp prod
+- ⏳ [Dọn codebase sau audit](docs/testing/audit-cleanup/AUDIT-1.md) — ⏳ agent ✓ A6, A9, C3 (+ A7/A8 phần "ô đã bỏ"), chờ anh Tú A1–A5, A7–A8, A10, B1–B5, C2, C3 (xoá function trên Dashboard); mig 130 đã áp prod 2026-11-11
 - ✅ [Thay đổi theo 14 câu trả lời + nhân viên chỉ thêm bàn vào mâm](docs/testing/audit-cleanup/AUDIT-2.md) — PASS 2026-11-12 (anh Tú); mig 133 đã áp prod
 - ✅ [Test đua nhiều kết nối cho RPC tiền](docs/testing/audit-cleanup/RACE.md) — 40/40 xanh (2026-11-12, 25 vòng) sau khi mig 132 vá 2 lỗi; chạy lại: `cd admin-web && npm run test:race`
 - ✅ [In bếp do máy chủ tự xếp](docs/testing/audit-cleanup/IN-BEP-SERVER.md) — PASS 2026-11-12 (anh Tú); mig 131 đã áp prod
 - ✅ [Bản cài phần mềm in (MEVO In 0.2.0)](docs/testing/dot1/C-cai-dat-phan-mem-in.md) — PASS 2026-11-12 (anh Tú)
-- [Đợt 1 C-0 — Máy in thật](docs/testing/dot1/C-0-may-in-that.md) — anh Tú báo in được (Canon 2900 + 2 trạm PDF, 2026-11-11); chưa điền số đo, chưa thử máy nhiệt 80mm
-- ⏳ [Đợt 1 C Part 2 — gọi in / in ghép](docs/testing/dot1/C-part2-goi-in.md), [in ghép](docs/testing/dot1/C-part2-in-ghep.md)
-- ⏳ [Đợt 1 — VietQR nền](docs/testing/dot1/vietqr-nen.md), [VietQR ghép](docs/testing/dot1/vietqr-ghep.md)
-- ⏳ [Đợt 1 — Thu tiền kết hợp](docs/testing/dot1/thu-tien-ket-hop.md)
-- ⏳ [Đợt 1 C Part 1 — In hai nơi](docs/testing/dot1/C-part1-in-hai-noi.md)
+- [Đợt 1 C-0 — Máy in thật](docs/testing/dot1/C-0-may-in-that.md) — anh Tú báo in được (Canon 2900 + 2 trạm PDF, 2026-11-11); chưa điền số đo, chưa thử máy nhiệt 80mm — ⏳ agent không làm được phần nào (đo máy thật), chờ anh Tú khi lắp 24–25/11
+- ⏳ [Đợt 1 C Part 2 — gọi in](docs/testing/dot1/C-part2-goi-in.md), [in ghép](docs/testing/dot1/C-part2-in-ghep.md) — agent ✓ logic cả 31 bài, chờ anh Tú ~13 bài cần máy in / phần mềm in thật (khi lắp máy 24–25/11)
+- ⏳ [Đợt 1 — VietQR nền](docs/testing/dot1/vietqr-nen.md), [VietQR ghép](docs/testing/dot1/vietqr-ghep.md) — agent ✓ nền 1/7, ghép 7/10; chờ anh Tú nền 6 bài (2–7) + ghép 3 bài (6–8, cần app ngân hàng + máy nhiệt thật)
+- ⏳ [Đợt 1 — Thu tiền kết hợp](docs/testing/dot1/thu-tien-ket-hop.md) — agent ✓ bài 8–15 (logic + DB 112a/112b), chờ anh Tú bài 1–7 (thu thật) + SQL bất biến; bài 8, 9, 11, 13 tuỳ chọn; đã sửa checklist (4 lựa chọn, bài 14 không dựng lại được)
+- ⏳ [Đợt 1 C Part 1 — In hai nơi](docs/testing/dot1/C-part1-in-hai-noi.md) — agent ✓ DB mig 114 (bài 2, 5, 7, 11, 12), bài 3 lỗi thời (mig 121), chờ anh Tú 4, 6, 8, 9, 10, 1 (cần phần mềm in thật)
 
 ## Vừa xong (giữ tới khi Yên Garden go-live)
 

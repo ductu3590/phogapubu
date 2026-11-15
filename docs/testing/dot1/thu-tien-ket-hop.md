@@ -1,6 +1,6 @@
 # A — Thu tiền kết hợp (mig 112a + 112b)
 
-Màn Thanh toán POS có ba lựa chọn: Tiền mặt · Chuyển khoản · **Kết hợp**. Mọi lần thu tiền bàn đi qua RPC `collect_table_bill`, và từ 2026-11-11 chỉ còn MỘT nơi thu là POS
+Màn Thanh toán POS có bốn lựa chọn: Tiền mặt · Chuyển khoản · **Kết hợp** · Ghi nợ (Ghi nợ thêm từ mig 123, kiểm ở `docs/testing/yen-garden/CONG-NO.md`, không thuộc bài này). Mọi lần thu tiền bàn đi qua RPC `collect_table_bill`, và từ 2026-11-11 chỉ còn MỘT nơi thu là POS
 (`/staff/tables` và ngăn kéo A04 không còn nút thu): một lần thu = một khoản, mỗi phương tiện = một dòng. A04, Excel và hoá đơn
 in lại hiện từng khoản.
 
@@ -9,7 +9,7 @@ Spec `docs/superpowers/specs/2026-11-05-dot1-thanh-toan-ca-in-vietqr-design.md` 
 
 ## Trước khi test
 
-- **Thứ tự áp:** mig **112a** lên prod → merge + Vercel lên code mới → test **bài 1–13** → nhờ quán **tải lại POS** →
+- **(Đã lỗi thời 2026-11-15)** mig 112a→129 đã áp prod (ghi chú dự án) nên bỏ qua thứ tự áp dưới đây; bài 14 không dựng lại được (xem bài 14). Gốc: mig **112a** lên prod → merge + Vercel lên code mới → test **bài 1–13** → nhờ quán **tải lại POS** →
   áp mig **112b** → test **bài 14, 15**. Áp 112b sớm hơn thì tab POS cũ bấm Thanh toán sẽ báo "tải lại trang".
 - Test trên **Bia lẩu Bảo Lương** (hoặc Yên Garden nếu đã có bàn), đăng nhập POS bằng chủ quán; bài 10 cần thêm tài
   khoản thu ngân.
@@ -34,25 +34,27 @@ Spec `docs/superpowers/specs/2026-11-05-dot1-thanh-toan-ca-in-vietqr-design.md` 
 
 ## Các bài
 
-| Bài | Việc | Mong đợi |
-|---|---|---|
-| 1 | Thu **Tiền mặt**, ô khách đưa gõ số lớn hơn bill (hoặc bấm nút gợi ý, có mốc làm tròn 10.000) | Hiện "Tiền thối lại cho khách" đúng số; thu xong bàn trống. A04: dòng bill ghi **Tiền mặt** |
-| 2 | Thu **Chuyển khoản** | Có câu nhắc "nghe loa báo tiền về đủ …"; không có ô khách đưa. A04 ghi **Chuyển khoản** |
-| 3 | Bill 1.000.000: chọn **Kết hợp**, gõ ô Tiền mặt 400.000 → ô Chuyển khoản **tự thành 600.000**; khách đưa 500.000 | Tiền thối **100.000** (so với phần tiền mặt, không so cả bill). Trên nút thu có dòng "Tiền mặt 400.000đ · Chuyển khoản 600.000đ"; nhắc nghe loa đủ **600.000đ** |
-| 4 | Xem bill bài 3 ở **A04** (bảng + ngăn kéo Xem bill), **Xuất Excel**, **phiếu cuối ngày**, **In lại hoá đơn** | Nhãn **"Kết hợp"**. Ngăn kéo có khối "Các khoản đã thu": Tiền mặt 400.000 · Chuyển khoản 600.000 · Khách đưa 500.000 · Tiền thối 100.000. Excel: cột Tiền mặt 400.000, Chuyển khoản 600.000, Khác trống. Hoá đơn in lại có đủ 4 dòng đó dưới tổng. Thẻ TM + CK + khác của A04 và phiếu cuối ngày **cộng đúng doanh thu** |
-| 5 | Kết hợp, gõ hai ô **không** cộng đúng tổng (vd sửa ô Chuyển khoản thành số khác) | Chữ đỏ "Tổng hai khoản phải đúng …đ"; **nút thu khoá**; không có câu nhắc nghe loa. Dọn — bỏ bàn |
-| 6 | Bill có **giảm giá %** (Thanh toán → Thêm giảm giá → 10%), thu Kết hợp | Gõ một ô, ô kia tự điền theo **số SAU giảm**; thu được; A04 đúng số sau giảm |
-| 7 | Hai bàn riêng → **Gộp bill** → Thanh toán → thu Kết hợp | A04 chỉ **một dòng** cho cả hai mâm (nhãn Ghép), từng khoản đúng |
-| 8 | Mở màn Thanh toán chọn Kết hợp (đã gõ đủ số), **máy khác** gọi thêm món cho bàn đó, rồi bấm thu | Báo "**Số tiền không khớp bill** … Tải lại bill rồi thu lại"; **bill chưa đóng**, không có khoản thu nào ghi; màn hiện số mới, thu lại được. Dọn — bỏ bàn hoặc thu |
-| 9 | Mở **hai tab** POS cùng một bàn, cùng vào Thanh toán; tab 1 thu xong (vd Tiền mặt), rồi tab 2 chọn **Chuyển khoản** bấm thu | Tab 2 báo "**Bàn đã được thu trước đó: Tiền mặt …đ**" (đúng khoản tab 1 đã ghi, không phải chuyển khoản); A04 chỉ **một** khoản cho bàn này |
-| 10 | ~~Thu ở `/staff/tables` và A04~~ — **bỏ từ 2026-11-11** (chỉ thu tiền bàn ở POS). Mở `/staff/tables` bằng tài khoản thu ngân và ngăn kéo A04 của một bàn chờ thu | Cả hai nơi KHÔNG còn nút thu, chỉ còn dòng "Thu tiền ở POS (Thanh toán)" |
-| 11 | Xem một bill **đã thu trước khi áp 112a** ở A04 và Excel | Hiện như cũ: một phương thức, hoặc "**Nhiều phương thức**" nếu bill đó trộn phương thức ("Kết hợp" chỉ dành cho bill thu sau 112a có từng khoản); không có khối "Các khoản đã thu"; Excel: TM hoặc CK đủ số, bill trộn / ví nằm ở cột **Khác** |
-| 12 | **Bỏ bàn** một bàn có món chưa nấu | Vẫn chạy như trước; bàn trống; **không** vào doanh thu, không có khoản thu |
-| 13 | Màn Thanh toán chọn **Tiền mặt**, **ngắt mạng** máy POS (tắt Wi-Fi) **ngay sau khi bấm** "Xác nhận đã nhận"; bật lại mạng; màn báo lỗi kết nối → **đổi sang Chuyển khoản** rồi bấm lại | Nếu lần đầu server đã ghi: báo "**Bàn đã được thu trước đó: Tiền mặt …đ**" (nói rõ ĐÃ GHI tiền mặt, không ghi thêm chuyển khoản); A04 chỉ **một** khoản, phương thức **Tiền mặt**. Nếu lần đầu chưa tới server: thu bình thường bằng Chuyển khoản |
-| 14 | **Sau khi áp 112b:** một tab POS **chưa tải lại** (code cũ) bấm Thanh toán → thu | Báo "**Màn thu tiền đã cập nhật, tải lại trang rồi thu lại**"; bill chưa đóng. Tải lại trang thì thu được bình thường |
-| 15 | **Sau khi áp 112b:** chủ quán thử huỷ / sửa tiền một đơn **đã thu** bằng cách gọi thẳng API (Supabase dashboard dưới vai chủ quán, hoặc nhờ Claude chạy SQL `SET ROLE authenticated`) | Báo "**Đơn đã thu tiền, không huỷ hay sửa số tiền được**"; nút "Hoàn tất" ở A04 (đóng đơn) vẫn chạy |
+| Bài | Việc | Mong đợi | Kết quả |
+|---|---|---|---|
+| 1 | Thu **Tiền mặt**, ô khách đưa gõ số lớn hơn bill (hoặc bấm nút gợi ý, có mốc làm tròn 10.000) | Hiện "Tiền thối lại cho khách" đúng số; thu xong bàn trống. A04: dòng bill ghi **Tiền mặt** | 👤 anh Tú (thu thật). Agent ✓ logic: `cash-change.test`, `payment-method-fields.test` "tiền mặt: có ô tiền khách đưa", SQL `112a_collect_table_bill` "một phương tiện" (15/11). |
+| 2 | Thu **Chuyển khoản** | Có câu nhắc "nghe loa báo tiền về đủ …"; không có ô khách đưa. A04 ghi **Chuyển khoản** | 👤 anh Tú (thu thật). Agent ✓ logic: `payment-method-fields.test` "chuyển khoản: nhắc nghe loa, không có ô khách đưa"; SQL 112a "chuyển khoản một phương tiện" (15/11). |
+| 3 | Bill 1.000.000: chọn **Kết hợp**, gõ ô Tiền mặt 400.000 → ô Chuyển khoản **tự thành 600.000**; khách đưa 500.000 | Tiền thối **100.000** (so với phần tiền mặt, không so cả bill). Trên nút thu có dòng "Tiền mặt 400.000đ · Chuyển khoản 600.000đ"; nhắc nghe loa đủ **600.000đ** | 👤 anh Tú (thu thật). Agent ✓ logic: `collect-payment.test`, `payment-method-fields.test` "kết hợp: tiền thối theo PHẦN TIỀN MẶT" + "nhắc nghe loa đúng số chuyển khoản"; SQL 112a "kết hợp: 2 dòng… thối theo phần tiền mặt" (15/11). |
+| 4 | Xem bill bài 3 ở **A04** (bảng + ngăn kéo Xem bill), **Xuất Excel**, **phiếu cuối ngày**, **In lại hoá đơn** | Nhãn **"Kết hợp"**. Ngăn kéo có khối "Các khoản đã thu": Tiền mặt 400.000 · Chuyển khoản 600.000 · Khách đưa 500.000 · Tiền thối 100.000. Excel: cột Tiền mặt 400.000, Chuyển khoản 600.000, Khác trống. Hoá đơn in lại có đủ 4 dòng đó dưới tổng. Thẻ TM + CK + khác của A04 và phiếu cuối ngày **cộng đúng doanh thu** | 👤 anh Tú nhìn A04 / Excel / hoá đơn in lại. Agent ✓ logic: `app/print/bill/print-bill.test.tsx` "in lại bill đã thu: từng khoản, khách đưa, tiền thối"; SQL `112a_payment_readers` "TM + CK + khác = doanh thu" (15/11). |
+| 5 | Kết hợp, gõ hai ô **không** cộng đúng tổng (vd sửa ô Chuyển khoản thành số khác) | Chữ đỏ "Tổng hai khoản phải đúng …đ"; **nút thu khoá**; không có câu nhắc nghe loa. Dọn — bỏ bàn | 👤 anh Tú (không thu tiền, làm cùng bàn bài 3). Agent ✓ logic: `collect-payment.test` "tổng đổi hoặc gõ sai: không có dòng, có lỗi", `payment-method-fields.test` "kết hợp còn lệch: hiện lỗi" + "đang lệch: ẩn nhắc nghe loa" (15/11). |
+| 6 | Bill có **giảm giá %** (Thanh toán → Thêm giảm giá → 10%), thu Kết hợp | Gõ một ô, ô kia tự điền theo **số SAU giảm**; thu được; A04 đúng số sau giảm | 👤 anh Tú (thu thật). Agent ✓ logic: SQL 112a "gộp 2 mâm có giảm giá: chia xong mới so ở cấp cả nhóm", `bill-qr.test` (số sau giảm) (15/11). |
+| 7 | Hai bàn riêng → **Gộp bill** → Thanh toán → thu Kết hợp | A04 chỉ **một dòng** cho cả hai mâm (nhãn Ghép), từng khoản đúng | 👤 anh Tú (thu thật). Agent ✓ logic: SQL 112a "gộp 2 mâm…", `112a_payment_readers` "gộp N mâm thu một lần: MỘT dòng bill" (15/11). |
+| 8 | Mở màn Thanh toán chọn Kết hợp (đã gõ đủ số), **máy khác** gọi thêm món cho bàn đó, rồi bấm thu | Báo "**Số tiền không khớp bill** … Tải lại bill rồi thu lại"; **bill chưa đóng**, không có khoản thu nào ghi; màn hiện số mới, thu lại được. Dọn — bỏ bàn hoặc thu | Agent ✓ logic: SQL 112a "lệch một đồng: huỷ toàn bộ, không ghi gì"; `collect-outcome.test` "bill vừa đổi (số lệch): stale, giữ nguyên câu của server" (15/11). 👤 tuỳ chọn (hai máy). |
+| 9 | Mở **hai tab** POS cùng một bàn, cùng vào Thanh toán; tab 1 thu xong (vd Tiền mặt), rồi tab 2 chọn **Chuyển khoản** bấm thu | Tab 2 báo "**Bàn đã được thu trước đó: Tiền mặt …đ**" (đúng khoản tab 1 đã ghi, không phải chuyển khoản); A04 chỉ **một** khoản cho bàn này | Agent ✓ logic: SQL 112a "hai máy: một mâm đã thu…" + "already trả ĐÚNG khoản đã ghi"; `collect-outcome.test` "already kèm khoản đã ghi: báo ĐÚNG cái đã ghi" (15/11). 👤 tuỳ chọn (hai tab). |
+| 10 | ~~Thu ở `/staff/tables` và A04~~ — **bỏ từ 2026-11-11** (chỉ thu tiền bàn ở POS). Mở `/staff/tables` bằng tài khoản thu ngân và ngăn kéo A04 của một bàn chờ thu | Cả hai nơi KHÔNG còn nút thu, chỉ còn dòng "Thu tiền ở POS (Thanh toán)" | Agent ✓ đọc code: `app/staff/tables/tables-client.tsx:33` (`Thu tiền ở POS (Thanh toán)`), `lib/bills-report.ts:245` cho ngăn kéo A04 (15/11). 👤 xem lướt nếu tiện. |
+| 11 | Xem một bill **đã thu trước khi áp 112a** ở A04 và Excel | Hiện như cũ: một phương thức, hoặc "**Nhiều phương thức**" nếu bill đó trộn phương thức ("Kết hợp" chỉ dành cho bill thu sau 112a có từng khoản); không có khối "Các khoản đã thu"; Excel: TM hoặc CK đủ số, bill trộn / ví nằm ở cột **Khác** | Agent ✓ DB: `112a_payment_readers` "bill cũ chưa có bill_payment_id: khoá và số giữ nguyên như trước" (15/11). 👤 tuỳ chọn: mở một bill cũ trên A04. |
+| 12 | **Bỏ bàn** một bàn có món chưa nấu | Vẫn chạy như trước; bàn trống; **không** vào doanh thu, không có khoản thu | Agent ✓ DB: `112b_lock_old_paid_path` "Bỏ bàn vẫn chạy, không tạo khoản thu" (15/11). |
+| 13 | Màn Thanh toán chọn **Tiền mặt**, **ngắt mạng** máy POS (tắt Wi-Fi) **ngay sau khi bấm** "Xác nhận đã nhận"; bật lại mạng; màn báo lỗi kết nối → **đổi sang Chuyển khoản** rồi bấm lại | Nếu lần đầu server đã ghi: báo "**Bàn đã được thu trước đó: Tiền mặt …đ**" (nói rõ ĐÃ GHI tiền mặt, không ghi thêm chuyển khoản); A04 chỉ **một** khoản, phương thức **Tiền mặt**. Nếu lần đầu chưa tới server: thu bình thường bằng Chuyển khoản | Agent ✓ logic: `collect-outcome.test` "server action ném (mất mạng): retry, KHÔNG ném" + "already kèm khoản đã ghi"; SQL 112a "mất phản hồi rồi đổi cách thu, bấm lại cùng mã: already trả ĐÚNG khoản đã ghi" (15/11). 👤 tuỳ chọn: thử ngắt Wi-Fi thật (thu tiền thật). |
+| 14 | **Sau khi áp 112b:** một tab POS **chưa tải lại** (code cũ) bấm Thanh toán → thu | Báo "**Màn thu tiền đã cập nhật, tải lại trang rồi thu lại**"; bill chưa đóng. Tải lại trang thì thu được bình thường | Không dựng lại được (112b đã áp prod, không còn tab "code cũ + DB cũ"). Agent ✓ DB: `112b_lock_old_paid_path` "thu bằng đường cũ bị từ chối, đơn không đổi" (15/11). |
+| 15 | **Sau khi áp 112b:** chủ quán thử huỷ / sửa tiền một đơn **đã thu** bằng cách gọi thẳng API (Supabase dashboard dưới vai chủ quán, hoặc nhờ Claude chạy SQL `SET ROLE authenticated`) | Báo "**Đơn đã thu tiền, không huỷ hay sửa số tiền được**"; nút "Hoàn tất" ở A04 (đóng đơn) vẫn chạy | Agent ✓ DB: `112b_lock_old_paid_path` "đơn ĐÃ THU: client không huỷ, không sửa tiền được; đóng đơn vẫn được" (15/11). |
 
 ## SQL kiểm bất biến (controller, chỉ đọc)
+
+> Agent không có quyền SQL prod: 👤 anh Tú (hoặc phiên có Supabase MCP) chạy trên prod sau khi làm xong bài 1–13. Phiên bản chạy trên PGlite đã nằm trong `112a_payment_readers.test.mjs` (xanh 15/11).
 
 Chạy sau bài 1–13 và sau bài 15. Kết quả phải **0 dòng**: mỗi khoản thu có tổng các dòng = tổng khoản = tổng các đơn
 mang khoản đó.

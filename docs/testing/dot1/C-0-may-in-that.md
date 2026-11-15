@@ -1,5 +1,7 @@
 # C-0 — Bài thử in ngầm 80mm trên máy nhiệt thật
 
+> **Agent 2026-11-15 (T-002):** bài này 100% là đo trên máy in nhiệt 80mm thật (khổ giấy, dao cắt, dấu tiếng Việt, QR bằng thước, rút dây mạng) nên agent KHÔNG làm được phần nào. `print-agent` vitest 8 file / 103 test xanh (`slip-size`, `spooler`, `print-page` kiểm logic khổ giấy / tên việc, không thay cho đo thật). Việc của anh Tú: 👤 khi lắp máy nhiệt 24–25/11, điền mục 1–5 và dòng KẾT QUẢ. Gom ở [../TRUOC-GO-LIVE.md](../TRUOC-GO-LIVE.md). Số đo hiện tại: chỉ có ghi chú 2026-11-11 ở cuối file (Canon 2900 laser + 2 trạm PDF), chưa có số đo.
+
 Mục đích: xác nhận Electron in ngầm được khổ 80mm, dài theo nội dung, trên đúng model máy in của quán. Chưa đạt thì dừng, báo anh Tú.
 
 Chạy trên máy quầy (hoặc máy cùng driver với máy quầy), trong thư mục `print-agent`:
