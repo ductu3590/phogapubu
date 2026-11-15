@@ -34,3 +34,9 @@ Tag gợi ý: `tim-file` · `mu-ui` (báo xong mà chưa nhìn giao diện) · `
 - Sửa: đọc bằng Read, ghi docs bằng Write/Edit (cổng kiểm theo file đích) — không lách
 - Dự đoán: guard nên coi `sed -n`/`cat` là đọc, và chỉ xét đường dẫn đích của redirect, không quét chuỗi trong heredoc
 - Thực tế: (điền khi gặp lại)
+
+### F-003 · 2026-11-15 · T-000 · tag: moi-truong
+- Vấp: `python scripts/ui_shot.py /login` trong Git Bash → MSYS đổi `/login` thành `C:/Program Files/Git/login`, Playwright báo "invalid URL"; lần 2 mới qua bằng `MSYS_NO_PATHCONV=1`
+- Sửa: `scripts/ui_shot.py` nhận ra đường dẫn đã bị MSYS đổi (`<ổ>:/…/Git/<path>`) và khôi phục `/<path>`
+- Dự đoán: agent gọi `ui_shot.py /path` từ Git Bash chụp được ngay lần đầu, không cần biến môi trường
+- Thực tế: (điền khi gặp lại)
