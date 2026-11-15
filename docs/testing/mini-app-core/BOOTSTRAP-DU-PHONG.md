@@ -1,6 +1,6 @@
 # T-007 — Đường đọc dự phòng lọc bàn theo quán
 
-Trạng thái: chờ 👤 anh Tú (chưa PASS).
+Trạng thái: ✅ anh Tú PASS Test 1–3 (2026-11-15).
 
 Chuẩn bị: code này CHƯA vào main (chờ anh PASS) → worktree quán merge nhánh task: `cd mini-app-instances/bia-lau-bao-luong && git merge task/T-007`,
 rồi `cd mini-app && npm run dev`. Ép rơi về đường dự phòng: DevTools → Network → chuột phải request
