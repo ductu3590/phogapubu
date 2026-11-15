@@ -2,7 +2,14 @@
 import { before, after, beforeEach, afterEach, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-const { PGlite } = await import(process.env.PGLITE_MODULE ?? '@electric-sql/pglite')
+import { pathToFileURL } from 'node:url'
+// Trên Windows import() không nhận đường dẫn ổ đĩa trần -> đổi sang file:// URL (như 049).
+const pgliteModule = process.env.PGLITE_MODULE
+  ? process.env.PGLITE_MODULE.startsWith('file:')
+    ? process.env.PGLITE_MODULE
+    : pathToFileURL(process.env.PGLITE_MODULE).href
+  : '@electric-sql/pglite'
+const { PGlite } = await import(pgliteModule)
 const db = new PGlite()
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`
 const owner = id(1), staff = id(2), disabled = id(3), store = id(10), otherStore = id(11)

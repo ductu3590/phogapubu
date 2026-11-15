@@ -2,7 +2,7 @@
 id: T-001
 title: Mini App Yên Garden (theme garden) — qua test và lên main
 agent: frontend-dev
-status: review
+status: done
 depends_on: [T-000]
 from_branch: claude/yen-garden-mini-app-aa37d2
 paths:

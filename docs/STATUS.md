@@ -8,7 +8,7 @@
 - **Đã chạy được:** Mini App gọi món (trả trước + trả sau), POS thu ngân `/admin/pos`, màn nhân viên `/staff`, cockpit `/mevo`,
   đặt bàn, mâm/ghép bàn, chuyển bàn, giảm giá bill + theo món, thu kết hợp + VietQR, ngày kinh doanh + ca + sổ thu chi,
   kho + giá vốn, công nợ, báo cáo, vai Quản lý, in 2 nơi (trình duyệt + phần mềm MEVO In), tài khoản bắt đổi mật khẩu.
-- **Đang dở:** Mini App Yên Garden (theme `garden`) trên nhánh `claude/yen-garden-mini-app-aa37d2`, chờ test; dữ liệu
+- **Đang dở:** Mini App Yên Garden (theme `garden`) đã vào main 2026-11-15, chờ `zmp deploy`; dữ liệu
   thật của Yên Garden (menu, Zalo App ID, sơ đồ bàn) chưa có; một số đợt Đợt 1 chờ anh Tú test tay.
 - **Chưa làm:** go-live Yên Garden 2026-12-01 (lắp máy 24–25/11, chạy thử 27–30/11), máy in nhiệt 80mm thật.
 - **Nợ kỹ thuật lớn nhất:** `verify` đỏ ở 3 bước có sẵn từ trước (xem "Nợ cũ"); repo không có `package.json` gốc nên
@@ -20,7 +20,7 @@
 | Mini App: menu, giỏ (lưu 6h), gọi món, Món đã gọi | ✅ | `mini-app/src/pages/{menu,checkout,session-orders}`, [F-mini-app-goi-mon](features/F-mini-app-goi-mon.md) | có (vitest 241 test) | Chỉ kiểm trên Bảo Lương |
 | Mini App: thanh toán Zalo Checkout (ví + chuyển khoản), thanh toán lại | ✅ | `supabase/functions/checkout-{create-mac,notify}`, `mini-app/src/pages/checkout` | một phần | **Vùng không đụng** — Pubu (trả trước) đang tạm dừng |
 | Mini App: đặt bàn, đặt món trước, trang Tài khoản | ✅ | `mini-app/src/pages/{reservations,account}` | có | |
-| Mini App theme `garden` (Yên Garden) | 🟡 | nhánh `claude/yen-garden-mini-app-aa37d2`, mig 134–136 đã áp prod | có | → T-001 |
+| Mini App theme `garden` (Yên Garden) | ✅ | main 8f212b8 (T-001), mig 134–136 prod, [T-001](features/T-001-mini-app-theme-garden.md) | có | PASS `MINI-APP.md` A–E 2026-11-15; chưa `zmp deploy` |
 | POS thu ngân `/admin/pos` (timeline, việc cần xử lý, bill, thu tiền, in) | ✅ | `admin-web/app/admin/pos/`, [F-pos-thu-ngan](features/F-pos-thu-ngan.md) | có | |
 | Phiên bàn trả sau, mâm, ghép/chuyển bàn | ✅ | mig 039/040/104–106/133, `lib/table-status.ts` | có (PGlite + race) | |
 | Giảm giá bill + giảm giá theo món/danh mục | ✅ | mig 107/108/115, `lib/bill-discount.ts`, `lib/menu/menu-discount.ts` | có | Công thức TS ↔ SQL phải khớp tay |
@@ -43,7 +43,7 @@ Danh sách đầy đủ checklist test: [TESTING.md](../TESTING.md).
 ## Việc đang dở khi áp harness
 | Nguồn | Nội dung | Xử lý |
 |---|---|---|
-| nhánh `claude/yen-garden-mini-app-aa37d2` | +12 commit, Mini App theme garden, chờ test | → T-001 (`python scripts/task.py start T-001 --from claude/yen-garden-mini-app-aa37d2`) |
+| nhánh `claude/yen-garden-mini-app-aa37d2` | +12 commit, Mini App theme garden | ✅ T-001 done, merge main 8f212b8 — trước đây: T-001 (`python scripts/task.py start T-001 --from claude/yen-garden-mini-app-aa37d2`) |
 | nhánh `claude/yen-garden-survey-e9a44a` | 1 commit logo/banner | Đã nằm trong nhánh T-001 — bỏ qua, KHÔNG xoá |
 | nhánh `claude/discount-item-category-feature-c6612e`, `claude/so-tay-webhook-mevo-56088d`, `ductu3590/remora` | Nội dung tương đương đã có trong `main` | Bỏ qua, KHÔNG xoá |
 | nhánh `deploy/bia-lau-bao-luong`, `deploy/yen-garden` | Nhánh worktree của từng quán (`mini-app-instances/`) | Không phải task — đồng bộ bằng `git merge origin/main` |
