@@ -2,7 +2,7 @@
 
 Trạng thái: chờ 👤 anh Tú (chưa PASS).
 
-Chuẩn bị: worktree quán phải `git merge main` trước (`cd mini-app-instances/bia-lau-bao-luong && git merge main`),
+Chuẩn bị: code này CHƯA vào main (chờ anh PASS) → worktree quán merge nhánh task: `cd mini-app-instances/bia-lau-bao-luong && git merge task/T-007`,
 rồi `cd mini-app && npm run dev`. Ép rơi về đường dự phòng: DevTools → Network → chuột phải request
 `rpc/get_mini_app_bootstrap` → Block request URL → tải lại trang.
 
@@ -10,7 +10,7 @@ rồi `cd mini-app && npm run dev`. Ép rơi về đường dự phòng: DevTool
 Mở link kèm slug Bảo Lương + id một bàn của Bảo Lương (đang chặn RPC). Kỳ vọng: menu hiện, đầu trang có đúng số bàn.
 
 ## Test 2 — 👤 anh Tú: bàn quán khác bị bỏ
-Mở link slug Bảo Lương + id bàn của quán khác (vd. Yên Garden). Kỳ vọng: vào như lối thường (không bàn), KHÔNG hiện số bàn quán khác.
+Mở `http://localhost:5173/?store=bia-lau-bao-luong&table=4f99f479-4cbe-49b7-89fe-029d3216c576` (Bàn mẫu 1 của Yên Garden). Kỳ vọng: vào như lối thường (không bàn), KHÔNG hiện số bàn quán khác.
 
 ## Test 3 — 👤 anh Tú: đối chứng đường chính
 Bỏ chặn RPC, lặp lại Test 2. Kỳ vọng: kết quả y hệt Test 2.
