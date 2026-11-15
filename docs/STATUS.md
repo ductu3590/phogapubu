@@ -11,8 +11,8 @@
 - **Đang dở:** Mini App Yên Garden (theme `garden`) đã vào main 2026-11-15, chờ `zmp deploy`; dữ liệu
   thật của Yên Garden (menu, Zalo App ID, sơ đồ bàn) chưa có; một số đợt Đợt 1 chờ anh Tú test tay.
 - **Chưa làm:** go-live Yên Garden 2026-12-01 (lắp máy 24–25/11, chạy thử 27–30/11), máy in nhiệt 80mm thật.
-- **Nợ kỹ thuật lớn nhất:** `verify` đỏ ở 3 bước có sẵn từ trước (xem "Nợ cũ"); repo không có `package.json` gốc nên
-  verify chạy qua `scripts/verify.d/*.sh`.
+- **Nợ kỹ thuật lớn nhất:** nợ verify đã trả (T-003, 2026-11-15); checkout gốc còn cache `.next/types` cũ làm
+  `10-admin-web` đỏ cục bộ → D-003. Repo không có `package.json` gốc nên verify chạy qua `scripts/verify.d/*.sh`.
 
 ## Tính năng
 | Tính năng | Trạng thái | Bằng chứng | Có test? | Ghi chú |
@@ -20,7 +20,7 @@
 | Mini App: menu, giỏ (lưu 6h), gọi món, Món đã gọi | ✅ | `mini-app/src/pages/{menu,checkout,session-orders}`, [F-mini-app-goi-mon](features/F-mini-app-goi-mon.md) | có (vitest 241 test) | Chỉ kiểm trên Bảo Lương |
 | Mini App: thanh toán Zalo Checkout (ví + chuyển khoản), thanh toán lại | ✅ | `supabase/functions/checkout-{create-mac,notify}`, `mini-app/src/pages/checkout` | một phần | **Vùng không đụng** — Pubu (trả trước) đang tạm dừng |
 | Mini App: đặt bàn, đặt món trước, trang Tài khoản | ✅ | `mini-app/src/pages/{reservations,account}` | có | |
-| Mini App theme `garden` (Yên Garden) | ✅ | main 8f212b8 (T-001), mig 134–136 prod, [T-001](features/T-001-mini-app-theme-garden.md) | có | PASS `MINI-APP.md` A–E 2026-11-15; chưa `zmp deploy` |
+| Mini App theme `garden` (Yên Garden) | ✅ | main 8f212b8 (T-001), mig 134–136 + 140 (T-005, bàn lọc theo quán) prod, [T-001](features/T-001-mini-app-theme-garden.md) | có | PASS `MINI-APP.md` A–E 2026-11-15; chưa `zmp deploy` |
 | POS thu ngân `/admin/pos` (timeline, việc cần xử lý, bill, thu tiền, in) | ✅ | `admin-web/app/admin/pos/`, [F-pos-thu-ngan](features/F-pos-thu-ngan.md) | có | |
 | Phiên bàn trả sau, mâm, ghép/chuyển bàn | ✅ | mig 039/040/104–106/133, `lib/table-status.ts` | có (PGlite + race) | |
 | Giảm giá bill + giảm giá theo món/danh mục | ✅ | mig 107/108/115, `lib/bill-discount.ts`, `lib/menu/menu-discount.ts` | có | Công thức TS ↔ SQL phải khớp tay |
@@ -73,4 +73,6 @@ Anh Tú chỉ định 2026-11-13 — agent KHÔNG sửa nếu chưa hỏi:
 | 30-db-tests | ✗ 1/589 | `048_pos_table_areas.test.mjs` import thẳng `PGLITE_MODULE` → hỏng trên Windows (31 file khác tự `pathToFileURL`) |
 | 40-print-agent | ✓ | |
 
-Trả nợ: T-003. Mục tiêu: về 0.
+Trả nợ: **T-003 done 2026-11-15** — cả 3 bước xanh trong worktree (timeout riêng cho test quét, 048 dùng `pathToFileURL`,
+khai báo type `app-config.json`; 2 lỗi typecheck kia hết nhờ T-001 bỏ `supabase-js`). Trên checkout gốc: mini-app-typecheck ✓,
+db-tests ✓; admin-web còn đỏ cục bộ vì cache `.next/types` cũ (D-003), không phải lỗi code.

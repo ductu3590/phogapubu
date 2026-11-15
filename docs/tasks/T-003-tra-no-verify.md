@@ -2,7 +2,7 @@
 id: T-003
 title: Trả nợ verify — test chập chờn, typecheck mini-app, test DB 048 trên Windows
 agent: backend-dev
-status: review
+status: done
 depends_on: [T-000, T-001]
 paths:
   - admin-web/lib/server-client-boundary.test.ts

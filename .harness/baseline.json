@@ -5,7 +5,7 @@
     "failing": []
   },
   "21-mini-app-typecheck": {
-    "count": 5,
+    "count": 1,
     "method": "(?i)\\berror\\b",
     "failing": []
   },
