@@ -184,3 +184,7 @@ Schema DB: không chép vào đây (bản chép cũ đã lệch xa). Xem `supaba
 
 Quyết định lớn / bẫy vừa vấp: thêm MỘT dòng vào cuối bảng chính của [docs/decisions.md](docs/decisions.md).
 Chỉ sửa file này khi một điều ở trên không còn đúng.
+
+
+## Harness — quy trình agent (đọc trước khi làm)
+@docs/HARNESS.md

@@ -108,11 +108,13 @@ async function loadWorkflowSettings(storeId: string): Promise<StoreWorkflowSetti
   return fromWorkflowRpcPayload(data as WorkflowRpcPayload)
 }
 
+export type SaveWorkflowResult = { ok: true } | { ok: false; error: string }
+
 async function saveWorkflowSettings(
   storeId: string,
   input: StoreWorkflowSettings,
   changedVia: 'owner' | 'mevo',
-): Promise<void> {
+): Promise<SaveWorkflowResult> {
   const supabase = await createClient()
   const { error } = await supabase.rpc('update_store_workflow_settings', {
     p_store_id: storeId,
@@ -120,7 +122,8 @@ async function saveWorkflowSettings(
     p_changed_via: changedVia,
   })
 
-  if (error) throw new Error(error.message)
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
 }
 
 export async function loadOwnerWorkflowSettings(): Promise<StoreWorkflowSettings> {
@@ -133,15 +136,40 @@ export async function loadMevoWorkflowSettings(storeId: string): Promise<StoreWo
   return loadWorkflowSettings(storeId)
 }
 
-export async function saveOwnerWorkflowSettings(input: StoreWorkflowSettings): Promise<void> {
-  const storeId = await requireOwnerStoreId()
-  await saveWorkflowSettings(storeId, input, 'owner')
+function isServingHours(value: unknown): value is StoreWorkflowSettings['servingHours'] {
+  return Array.isArray(value) && value.every((shift) =>
+    !!shift && typeof shift === 'object'
+    && typeof (shift as { open?: unknown }).open === 'string'
+    && typeof (shift as { close?: unknown }).close === 'string')
+}
+
+// Chủ quán lưu (OWNER_EDITABLE_WORKFLOW_KEYS, mig 139): CHỈ lấy Đang nhận đơn + Giờ phục vụ từ client, các mục còn lại đọc lại từ DB rồi gửi y nguyên —
+// client có gửi mục khác cũng bị bỏ qua. Lỗi trả {ok:false}, không ném (Next production giấu nội dung lỗi ném).
+export async function saveOwnerWorkflowSettings(input: StoreWorkflowSettings): Promise<SaveWorkflowResult> {
+  try {
+    const storeId = await requireOwnerStoreId()
+    if (typeof input?.isAcceptingOrders !== 'boolean' || !isServingHours(input.servingHours)) {
+      return { ok: false, error: 'Dữ liệu không hợp lệ' }
+    }
+    const current = await loadWorkflowSettings(storeId)
+    return await saveWorkflowSettings(storeId, {
+      ...current,
+      isAcceptingOrders: input.isAcceptingOrders,
+      servingHours: input.servingHours.map((shift) => ({ open: shift.open, close: shift.close })),
+    }, 'owner')
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Không lưu được' }
+  }
 }
 
 export async function saveMevoWorkflowSettings(
   storeId: string,
   input: StoreWorkflowSettings,
-): Promise<void> {
-  await requireMevoSuperadmin()
-  await saveWorkflowSettings(storeId, input, 'mevo')
+): Promise<SaveWorkflowResult> {
+  try {
+    await requireMevoSuperadmin()
+    return await saveWorkflowSettings(storeId, input, 'mevo')
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Không lưu được' }
+  }
 }

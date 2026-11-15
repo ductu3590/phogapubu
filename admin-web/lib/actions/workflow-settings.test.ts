@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  BAO_LUONG_PRESET,
-  PUBU_PRESET,
+  POSTPAY_POS_PRESET,
+  PREPAY_PRESET,
   type StoreWorkflowSettings,
 } from '@/lib/workflow-settings'
 
@@ -31,7 +31,7 @@ const {
   saveOwnerWorkflowSettings,
 } = await import('./workflow-settings')
 
-const BAO_LUONG_RPC_SNAPSHOT = {
+const POSTPAY_POS_RPC_SNAPSHOT = {
   payment_timing: 'postpay',
   payment_methods: ['cash'],
   is_accepting_orders: true,
@@ -53,8 +53,8 @@ const BAO_LUONG_RPC_SNAPSHOT = {
   reservation_preorder_edit_cutoff_minutes: 30,
 }
 
-const BAO_LUONG_LOADED: StoreWorkflowSettings = {
-  ...BAO_LUONG_PRESET,
+const POSTPAY_POS_LOADED: StoreWorkflowSettings = {
+  ...POSTPAY_POS_PRESET,
   servingHours: [{ open: '10:00', close: '23:00' }],
 }
 
@@ -63,11 +63,11 @@ describe('workflow settings actions', () => {
     vi.clearAllMocks()
     mocks.operator.value = { userId: 'owner-1', role: 'store_owner', storeId: 'store-1' }
     mocks.requireOperator.mockImplementation(async () => mocks.operator.value)
-    mocks.rpc.mockResolvedValue({ data: BAO_LUONG_RPC_SNAPSHOT, error: null })
+    mocks.rpc.mockResolvedValue({ data: POSTPAY_POS_RPC_SNAPSHOT, error: null })
   })
 
   it('owner tải cấu hình của store trong operator và nhận model camelCase', async () => {
-    await expect(loadOwnerWorkflowSettings()).resolves.toEqual(BAO_LUONG_LOADED)
+    await expect(loadOwnerWorkflowSettings()).resolves.toEqual(POSTPAY_POS_LOADED)
 
     expect(mocks.rpc).toHaveBeenCalledWith('get_store_workflow_settings', {
       p_store_id: 'store-1',
@@ -77,32 +77,60 @@ describe('workflow settings actions', () => {
   it('MEVO tải cấu hình của store đích và nhận model camelCase', async () => {
     mocks.operator.value = { userId: 'mevo-1', role: 'mevo_superadmin', storeId: null }
 
-    await expect(loadMevoWorkflowSettings('store-2')).resolves.toEqual(BAO_LUONG_LOADED)
+    await expect(loadMevoWorkflowSettings('store-2')).resolves.toEqual(POSTPAY_POS_LOADED)
 
     expect(mocks.rpc).toHaveBeenCalledWith('get_store_workflow_settings', {
       p_store_id: 'store-2',
     })
   })
 
-  it('owner gửi storeId từ operator cùng payload snake_case đầy đủ', async () => {
-    const input: StoreWorkflowSettings = {
-      ...BAO_LUONG_PRESET,
-      servingHours: [{ open: '10:00', close: '23:00' }],
-    }
+  it('owner: chỉ lấy Đang nhận đơn + Giờ phục vụ từ client, mục khác đọc lại từ DB rồi gửi y nguyên', async () => {
+    // DB đang lưu cấu hình Trả sau, POS duyệt; client cố gửi cả mẫu Trả trước (đổi mục khoá)
+    mocks.rpc.mockImplementation(async (fn: string) =>
+      fn === 'get_store_workflow_settings'
+        ? { data: POSTPAY_POS_RPC_SNAPSHOT, error: null }
+        : { data: null, error: null })
 
-    await saveOwnerWorkflowSettings(input)
+    const r = await saveOwnerWorkflowSettings({
+      ...PREPAY_PRESET,
+      isAcceptingOrders: false,
+      servingHours: [{ open: '16:00', close: '23:30' }],
+    })
 
+    expect(r).toEqual({ ok: true })
+    expect(mocks.rpc).toHaveBeenCalledWith('get_store_workflow_settings', { p_store_id: 'store-1' })
     expect(mocks.rpc).toHaveBeenCalledWith('update_store_workflow_settings', {
       p_store_id: 'store-1',
-      p_settings: BAO_LUONG_RPC_SNAPSHOT,
+      p_settings: {
+        ...POSTPAY_POS_RPC_SNAPSHOT,
+        is_accepting_orders: false,
+        serving_hours: [{ open: '16:00', close: '23:30' }],
+      },
       p_changed_via: 'owner',
     })
   })
 
-  it('MEVO gửi store đích, preset Pubu và changed_via=mevo', async () => {
+  it('owner: DB từ chối (mig 139) → {ok:false} kèm đúng câu của DB, không ném', async () => {
+    const msg = 'Chủ quán chỉ đổi được Đang nhận đơn và Giờ phục vụ. Các mục quy trình khác do MEVO cấu hình — cần đổi thì liên hệ MEVO.'
+    mocks.rpc.mockImplementation(async (fn: string) =>
+      fn === 'get_store_workflow_settings'
+        ? { data: POSTPAY_POS_RPC_SNAPSHOT, error: null }
+        : { data: null, error: { message: msg } })
+    await expect(saveOwnerWorkflowSettings(POSTPAY_POS_PRESET)).resolves.toEqual({ ok: false, error: msg })
+  })
+
+  it('owner: dữ liệu sai kiểu → {ok:false}, không gọi RPC', async () => {
+    const bad = { ...POSTPAY_POS_PRESET, isAcceptingOrders: 'yes' } as unknown as StoreWorkflowSettings
+    await expect(saveOwnerWorkflowSettings(bad)).resolves.toEqual({ ok: false, error: 'Dữ liệu không hợp lệ' })
+    const badHours = { ...POSTPAY_POS_PRESET, servingHours: [{ open: 8 }] } as unknown as StoreWorkflowSettings
+    await expect(saveOwnerWorkflowSettings(badHours)).resolves.toEqual({ ok: false, error: 'Dữ liệu không hợp lệ' })
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('MEVO gửi store đích, mẫu Trả trước và changed_via=mevo', async () => {
     mocks.operator.value = { userId: 'mevo-1', role: 'mevo_superadmin', storeId: null }
 
-    await saveMevoWorkflowSettings('store-2', PUBU_PRESET)
+    await saveMevoWorkflowSettings('store-2', PREPAY_PRESET)
 
     expect(mocks.rpc).toHaveBeenCalledWith('update_store_workflow_settings', {
       p_store_id: 'store-2',
@@ -131,13 +159,14 @@ describe('workflow settings actions', () => {
     })
   })
 
-  it('chuẩn hóa preorder phụ thuộc trước khi lưu mà không mutate draft form', async () => {
+  it('MEVO: chuẩn hóa preorder phụ thuộc trước khi lưu mà không mutate draft form', async () => {
+    mocks.operator.value = { userId: 'mevo-1', role: 'mevo_superadmin', storeId: null }
     const draft: StoreWorkflowSettings = {
-      ...BAO_LUONG_PRESET,
+      ...POSTPAY_POS_PRESET,
       reservationsEnabled: false,
     }
 
-    await saveOwnerWorkflowSettings(draft)
+    await saveMevoWorkflowSettings('store-2', draft)
 
     expect(mocks.rpc).toHaveBeenCalledWith(
       'update_store_workflow_settings',
@@ -154,7 +183,16 @@ describe('workflow settings actions', () => {
   it('staff bị chặn trước RPC', async () => {
     mocks.operator.value = { userId: 'staff-1', role: 'store_staff', storeId: 'store-1' }
 
-    await expect(saveOwnerWorkflowSettings(PUBU_PRESET)).rejects.toThrow('Chỉ chủ quán')
+    const r = await saveOwnerWorkflowSettings(PREPAY_PRESET)
+    expect(r.ok).toBe(false)
+    expect(r.ok ? '' : r.error).toContain('Chỉ chủ quán')
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('chủ quán gọi đường lưu của MEVO → {ok:false}, không gọi RPC', async () => {
+    const r = await saveMevoWorkflowSettings('store-1', PREPAY_PRESET)
+    expect(r.ok).toBe(false)
+    expect(r.ok ? '' : r.error).toContain('Chỉ MEVO superadmin')
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
@@ -163,11 +201,13 @@ describe('workflow settings actions', () => {
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
-  it('trả nguyên văn lỗi nghiệp vụ từ RPC', async () => {
+  it('MEVO: trả nguyên văn lỗi nghiệp vụ từ RPC, không ném', async () => {
+    mocks.operator.value = { userId: 'mevo-1', role: 'mevo_superadmin', storeId: null }
     mocks.rpc.mockResolvedValue({ data: null, error: { message: 'Còn phiên đang hoạt động' } })
 
-    await expect(saveOwnerWorkflowSettings(BAO_LUONG_PRESET)).rejects.toThrow(
-      'Còn phiên đang hoạt động',
-    )
+    await expect(saveMevoWorkflowSettings('store-2', POSTPAY_POS_PRESET)).resolves.toEqual({
+      ok: false,
+      error: 'Còn phiên đang hoạt động',
+    })
   })
 })

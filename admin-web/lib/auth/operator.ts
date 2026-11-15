@@ -2,6 +2,7 @@ import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { isBackOfficeRole, isPosRole, parseOperatorRow } from './roles'
+import { CHANGE_PASSWORD_PATH, MUST_CHANGE_PASSWORD_ERROR, mustChangePassword } from './password-gate'
 
 export type Operator =
   | { userId: string; role: 'mevo_superadmin'; storeId: null }
@@ -16,8 +17,9 @@ export type AdminPageOperator = { userId: string; role: 'store_owner' | 'store_c
 // cache(): MỘT lần hỏi phiên + quyền cho mỗi request. Layout, page, vỏ hộp thoại cấu hình và các
 // hàm con đều gọi requireOperator… — trước đây mỗi lần là 2 chặng mạng tới Supabase (getUser + bảng
 // mevo_operators), cộng dồn thành ~1 giây mỗi lần mở trang cấu hình (2026-10-04).
+// mustChangePassword: cờ app_metadata (lib/auth/password-gate.ts) đọc từ getUser (bản mới nhất ở máy chủ Auth).
 const loadOperator = cache(async function loadOperator(): Promise<
-  { user: { id: string }; op: { role: string; store_id: string | null } } | null
+  { user: { id: string }; op: { role: string; store_id: string | null }; mustChangePassword: boolean } | null
 > {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -31,7 +33,7 @@ const loadOperator = cache(async function loadOperator(): Promise<
   // Nhân viên đã bị vô hiệu hoá (is_active=false) coi như không có quyền vận hành.
   if (!op || op.is_active === false) return null
 
-  return { user: { id: user.id }, op }
+  return { user: { id: user.id }, op, mustChangePassword: mustChangePassword(user.app_metadata) }
 })
 
 function toOperator(userId: string, op: { role: string; store_id: string | null }): Operator | null {
@@ -47,6 +49,9 @@ export async function requireOperatorOrRedirect(): Promise<Operator> {
   if (!loaded) redirect('/login?error=not_operator')
   const operator = toOperator(loaded.user.id, loaded.op)
   if (!operator) redirect('/login?error=not_operator')
+  // Còn cờ bắt đổi mật khẩu → mọi trang vận hành (layout /admin, /staff, /mevo, trang in) dừng ở đây. Proxy bỏ qua
+  // request RSC (điều hướng mềm) nên chặn ở proxy là chưa đủ.
+  if (loaded.mustChangePassword) redirect(CHANGE_PASSWORD_PATH)
   return operator
 }
 
@@ -56,6 +61,9 @@ export async function requireOperator(): Promise<Operator> {
   if (!loaded) throw new Error('Tài khoản chưa được cấp quyền vận hành')
   const operator = toOperator(loaded.user.id, loaded.op)
   if (!operator) throw new Error('Tài khoản chưa được cấp quyền vận hành')
+  // Server action: proxy KHÔNG chặn request next-action (quyết định 2026-10-04) → từ chối ở đây. Mọi requireXxx
+  // (chủ quán / POS / hậu cần / superadmin) đi qua hàm này.
+  if (loaded.mustChangePassword) throw new Error(MUST_CHANGE_PASSWORD_ERROR)
   return operator
 }
 

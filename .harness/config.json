@@ -1,0 +1,9 @@
+{
+  "main_branch": "main",
+  "max_parallel": 3,
+  "retry_per_task": 1,
+  "dev_cmd": "npm --prefix admin-web run dev",
+  "port": 3000,
+  "install_cmd": "npm --prefix admin-web ci --no-audit --no-fund && npm --prefix mini-app ci --no-audit --no-fund",
+  "adopted": true
+}

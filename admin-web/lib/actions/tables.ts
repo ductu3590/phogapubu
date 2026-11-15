@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 import { previewBulkTables } from '@/lib/bulk-tables'
+import { DELETE_TABLE_HAS_ORDERS_ERROR } from '@/lib/table-close'
 
 async function getStoreId(): Promise<string> {
   return requireStoreOwnerStoreId()
@@ -29,18 +30,36 @@ export async function addTable(formData: FormData) {
   revalidatePath('/admin/pos')
 }
 
-// Bật/tắt bàn
-export async function toggleTable(tableId: string, isActive: boolean) {
-  const storeId = await getStoreId()
+// Đóng bàn (is_active=false) / Mở lại bàn (true). Bàn đóng biến khỏi sơ đồ POS, màn nhân viên, in QR
+// hàng loạt; khách quét QR bàn đóng không gọi món được. Tên bàn vẫn còn trên hoá đơn / báo cáo cũ.
+// Bàn đang có khách hoặc đang giữ cho lượt đặt bàn thì DB từ chối (trigger mig 138) — câu báo lỗi
+// của trigger trả thẳng ra giao diện. Lỗi trả {ok:false}, không ném.
+export async function setTableActive(
+  tableId: string,
+  isActive: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  let storeId: string
+  try {
+    storeId = await getStoreId()
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Không có quyền' }
+  }
+  if (typeof tableId !== 'string' || !tableId || typeof isActive !== 'boolean') {
+    return { ok: false, error: 'Dữ liệu không hợp lệ' }
+  }
   const admin = createAdminClient()
-  // Lọc store_id (vá 2026-10-08): trước đây biết id bàn là bật/tắt được bàn của quán khác.
-  const { error } = await admin
+  // Lọc store_id (vá 2026-10-08): biết id bàn quán khác cũng không đổi được.
+  const { data, error } = await admin
     .from('tables')
     .update({ is_active: isActive })
     .eq('id', tableId)
     .eq('store_id', storeId)
-  if (error) throw new Error(`toggleTable: ${error.message}`)
+    .select('id')
+  if (error) return { ok: false, error: error.message }
+  if (!data || data.length === 0) return { ok: false, error: 'Không tìm thấy bàn' }
   revalidatePath('/admin/tables')
+  revalidatePath('/admin/pos')
+  return { ok: true }
 }
 
 // Xoá bàn — trả về { error } thay vì throw để không làm crash trang.
@@ -49,13 +68,14 @@ export async function deleteTable(tableId: string): Promise<{ error?: string }> 
   const admin = createAdminClient()
 
   // Bàn đã có đơn hàng thì KHÔNG xoá cứng: orders.table_id là khoá ngoại RESTRICT,
-  // xoá sẽ vỡ và làm mất liên kết lịch sử đơn/doanh thu. Hướng dẫn "Đóng" bàn thay vì xoá.
+  // xoá sẽ vỡ và làm mất liên kết lịch sử đơn/doanh thu. Hướng dẫn "Đóng bàn" thay vì xoá —
+  // chữ trong câu phải khớp đúng nhãn nút trên thẻ bàn (lib/table-close.ts).
   const { count } = await admin
     .from('orders')
     .select('id', { count: 'exact', head: true })
     .eq('table_id', tableId)
   if (count && count > 0) {
-    return { error: 'Bàn này đã có đơn hàng nên không thể xoá. Bấm "Đóng" để ẩn bàn thay vì xoá.' }
+    return { error: DELETE_TABLE_HAS_ORDERS_ERROR }
   }
 
   const { error } = await admin

@@ -112,7 +112,7 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, goog
                 name="name"
                 required
                 defaultValue={name}
-                placeholder="VD: Phở Gà Pubu"
+                placeholder="VD: Quán Nhà Mình"
                 className="input"
               />
             </div>
@@ -193,7 +193,7 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, goog
                     name="wifi_name"
                     required
                     defaultValue={wifiName}
-                    placeholder="VD: PhoGaPubu_Free"
+                    placeholder="VD: QuanNhaMinh_Free"
                     className="input"
                   />
                 </div>
@@ -302,7 +302,7 @@ export default function SettingsClient({ name, logoUrl, zaloOaUrl, address, goog
             <textarea
               name="about_text"
               defaultValue={aboutText}
-              placeholder="VD: Cảm ơn bạn đã ghé Phở Gà Pubu! Hotline: 0901234567"
+              placeholder="VD: Cảm ơn bạn đã ghé quán! Hotline: 0901234567"
               rows={3}
               className="input resize-none"
             />

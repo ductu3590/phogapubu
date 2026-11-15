@@ -1,11 +1,12 @@
 'use client'
 
-import { Download, Plus, Printer, Settings2, Trash2 } from 'lucide-react'
+import { Ban, Download, Plus, Printer, RotateCcw, Settings2, Trash2 } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { addTable, toggleTable, deleteTable } from '@/lib/actions/tables'
+import { addTable, setTableActive, deleteTable } from '@/lib/actions/tables'
 import { setTableArea } from '@/lib/actions/table-areas'
 import { buildTableQRUrl } from '@/lib/qr'
+import { CLOSE_TABLE_LABEL, REOPEN_TABLE_LABEL, closeTableConfirmText } from '@/lib/table-close'
 import { areaColorClasses } from '@/lib/area-colors'
 import { groupTablesByArea, type GroupArea } from '@/lib/table-groups'
 import { getButtonClasses } from '@/components/ui/button-classes'
@@ -42,10 +43,17 @@ export default function TablesClient({
   const groups = groupTablesByArea(areas, tables)
   const usedColors = areas.map((a) => a.color)
 
-  const handleToggle = (tableId: string, current: boolean) => {
-    // Optimistic update
-    setTables((prev) => prev.map((t) => t.id === tableId ? { ...t, is_active: !current } : t))
-    startTransition(() => toggleTable(tableId, !current))
+  // Đóng bàn / Mở lại bàn. Server (trigger mig 138) từ chối đóng bàn đang có khách hoặc đang giữ cho
+  // lượt đặt bàn → hoàn tác và báo đúng câu của server.
+  const handleSetActive = (table: Table, next: boolean) => {
+    if (!next && !confirm(closeTableConfirmText(table.table_number))) return
+    const snapshot = tables
+    setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, is_active: next } : t))
+    startTransition(async () => {
+      const res = await setTableActive(table.id, next)
+      if (!res.ok) { setTables(snapshot); alert(res.error); return }
+      router.refresh()
+    })
   }
 
   const handleDelete = (tableId: string, name: string) => {
@@ -99,7 +107,10 @@ export default function TablesClient({
     <div className="flex-1 overflow-y-auto p-4 md:p-6">
       {/* Thanh trên: đếm + thêm khu / thêm bàn / in cả quán */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted">{tables.length} bàn · {areas.length} khu</p>
+        <p className="text-sm text-muted">
+          {tables.length} bàn · {areas.length} khu
+          {tables.some((t) => !t.is_active) && <> · {tables.filter((t) => !t.is_active).length} bàn đã đóng</>}
+        </p>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setAreaDialog({ mode: 'create' })} className={getButtonClasses('outline')}>
             <Plus className="size-4" aria-hidden />Thêm khu
@@ -165,18 +176,14 @@ export default function TablesClient({
                         <p className={`font-bold ${table.is_active ? 'text-foreground' : 'text-muted'}`}>
                           {table.table_number}
                         </p>
-                        {/* Toggle active */}
-                        <button
-                          onClick={() => handleToggle(table.id, table.is_active)}
-                          disabled={isPending}
-                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                            table.is_active
-                              ? 'bg-success-bg text-success'
-                              : 'bg-secondary text-muted'
+                        {/* Nhãn trạng thái — chỉ để đọc; nút đổi trạng thái nằm ở hàng nút bên dưới */}
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                            table.is_active ? 'bg-success-bg text-success' : 'bg-secondary text-muted'
                           }`}
                         >
-                          {table.is_active ? 'Mở' : 'Đóng'}
-                        </button>
+                          {table.is_active ? 'Đang dùng' : 'Đã đóng'}
+                        </span>
                       </div>
 
                       {/* Ảnh QR hiện sẵn trên trang */}
@@ -226,6 +233,18 @@ export default function TablesClient({
                             <Printer className="size-3.5" aria-hidden />In QR
                           </a>
                         )}
+
+                        {/* Đóng bàn / Mở lại bàn — tên nút khớp câu báo lỗi của deleteTable */}
+                        <button
+                          type="button"
+                          onClick={() => handleSetActive(table, !table.is_active)}
+                          disabled={isPending}
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-strong py-2 text-[13px] font-medium text-foreground hover:bg-button-hover disabled:opacity-50"
+                        >
+                          {table.is_active
+                            ? <><Ban className="size-3.5" aria-hidden />{CLOSE_TABLE_LABEL}</>
+                            : <><RotateCcw className="size-3.5" aria-hidden />{REOPEN_TABLE_LABEL}</>}
+                        </button>
 
                         {/* Xoá */}
                         <button

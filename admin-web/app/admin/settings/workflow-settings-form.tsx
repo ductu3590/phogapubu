@@ -11,12 +11,21 @@ import {
   type WorkflowSettingChange,
 } from '@/lib/workflow-settings'
 import { Switch } from '@/components/ui/switch'
+import { Lock } from 'lucide-react'
 
 type Props = {
   initial: StoreWorkflowSettings
+  // owner = /admin (chủ quán): chỉ đổi được Đang nhận đơn + Giờ phục vụ, phần còn lại chỉ xem (mig 139).
+  // mevo = /mevo (superadmin): sửa hết, có mẫu điền nhanh.
   context: 'owner' | 'mevo'
-  onSave: (value: StoreWorkflowSettings) => Promise<void>
+  onSave: (value: StoreWorkflowSettings) => Promise<{ ok: true } | { ok: false; error: string }>
 }
+
+// Nhãn mẫu điền nhanh theo MÔ HÌNH vận hành, không theo tên quán (khách của quán này không được thấy tên quán khác).
+const PRESET_LABELS = {
+  prepay: { title: 'Trả trước', description: 'Tự động vào bếp, có Mang về và Ship' },
+  postpay_pos: { title: 'Trả sau, POS duyệt', description: 'Đặt bàn, đơn chờ POS xác nhận rồi mới vào bếp' },
+} as const
 
 type PaymentMethod = StoreWorkflowSettings['paymentMethods'][number]
 type ServingShift = StoreWorkflowSettings['servingHours'][number]
@@ -72,8 +81,10 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
     value: StoreWorkflowSettings[Key],
   ) => setDraft((current) => ({ ...current, [key]: value }))
 
-  const applyPreset = (key: 'pubu' | 'bao_luong') => {
-    const label = key === 'pubu' ? 'Trả trước như Pubu' : 'POS kiểm soát như Bảo Lương'
+  const ownerLocked = context === 'owner'
+
+  const applyPreset = (key: 'prepay' | 'postpay_pos') => {
+    const label = PRESET_LABELS[key].title
     if (!window.confirm(`Điền nhanh cấu hình “${label}”? Bạn vẫn cần bấm Lưu để áp dụng.`)) return
     setDraft(applyWorkflowPreset(key))
     setError('')
@@ -106,7 +117,11 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
     setSaved(false)
     setError('')
     try {
-      await onSave(valueToSave)
+      const result = await onSave(valueToSave)
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
       const savedSnapshot = cloneSettings(valueToSave)
       setDraft(savedSnapshot)
       setBaseline(cloneSettings(savedSnapshot))
@@ -128,38 +143,40 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
         <p className="text-sm text-muted">
           {context === 'mevo'
             ? 'Bạn đang cấu hình thay mặt quán. Mọi lần lưu đều được ghi audit với nguồn MEVO.'
-            : 'Thay đổi áp dụng cho yêu cầu mới của quán và được ghi audit theo tài khoản chủ quán.'}
+            : 'Bạn tự đổi được Đang nhận đơn và Giờ phục vụ. Các mục còn lại do MEVO cấu hình để tránh sửa nhầm gây lỗi vận hành — cần đổi thì liên hệ MEVO.'}
         </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <PresetButton
-            active={preset === 'pubu'}
-            onClick={() => applyPreset('pubu')}
-            title="Trả trước như Pubu"
-            description="Tự động vào bếp, có Mang về và Ship"
-          />
-          <PresetButton
-            active={preset === 'bao_luong'}
-            onClick={() => applyPreset('bao_luong')}
-            title="POS kiểm soát như Bảo Lương"
-            description="Trả sau, đặt bàn và chờ POS xác nhận"
-          />
-          <PresetButton
-            active={preset === 'custom'}
-            onClick={() => undefined}
-            title="Tùy chỉnh"
-            description="Chỉnh từng mục theo cách quán vận hành"
-          />
-        </div>
+        {context === 'mevo' && (
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <PresetButton
+              active={preset === 'prepay'}
+              onClick={() => applyPreset('prepay')}
+              title={PRESET_LABELS.prepay.title}
+              description={PRESET_LABELS.prepay.description}
+            />
+            <PresetButton
+              active={preset === 'postpay_pos'}
+              onClick={() => applyPreset('postpay_pos')}
+              title={PRESET_LABELS.postpay_pos.title}
+              description={PRESET_LABELS.postpay_pos.description}
+            />
+            <PresetButton
+              active={preset === 'custom'}
+              onClick={() => undefined}
+              title="Tùy chỉnh"
+              description="Chỉnh từng mục theo cách quán vận hành"
+            />
+          </div>
+        )}
       </div>
 
       <ChangePreview changes={changes} />
 
-      {/* PC: các nhóm cấu hình xếp 2 cột cho đỡ cuộn; mobile 1 cột */}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <WorkflowSection
-          title="Kênh nhận đơn"
-          description="Chọn lúc quán nhận đơn và những cách khách có thể sử dụng MEVO."
-        >
+      {/* Hai mục chủ quán tự đổi được — luôn mở */}
+      <WorkflowSection
+        title="Nhận đơn và giờ phục vụ"
+        description="Tạm ngừng nhận đơn mới hoặc đổi giờ phục vụ của quán."
+      >
+        <div className="grid items-start gap-3 lg:grid-cols-2">
           <Toggle
             name="isAcceptingOrders"
             label="Đang nhận đơn"
@@ -224,6 +241,24 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
               + Thêm ca phục vụ
             </button>
           </div>
+        </div>
+      </WorkflowSection>
+
+      {ownerLocked && (
+        <p className="flex items-center gap-2 rounded-xl bg-background px-4 py-3 text-sm text-muted">
+          <Lock className="size-4 shrink-0" aria-hidden />
+          Các mục dưới đây chỉ MEVO sửa được. Bạn xem để biết quán đang vận hành thế nào.
+        </p>
+      )}
+
+      {/* Chủ quán: fieldset disabled khoá mọi ô bên trong (chỉ xem). Server + DB cũng chặn (mig 139). */}
+      <fieldset disabled={ownerLocked} className="m-0 min-w-0 border-0 p-0">
+      {/* PC: các nhóm cấu hình xếp 2 cột cho đỡ cuộn; mobile 1 cột */}
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <WorkflowSection
+          title="Kênh nhận đơn"
+          description="Những cách khách có thể sử dụng MEVO."
+        >
           <Toggle
             name="tableOrderingEnabled"
             label="Gọi món tại bàn"
@@ -425,6 +460,7 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
           />
         </WorkflowSection>
       </div>
+      </fieldset>
 
       {error && (
         <p role="alert" className="rounded-lg bg-critical-bg p-3 text-sm text-danger">
@@ -438,7 +474,7 @@ export default function WorkflowSettingsForm({ initial, context, onSave }: Props
           disabled={saving || !isDirty}
           className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {saving ? 'Đang lưu…' : 'Lưu quy trình'}
+          {saving ? 'Đang lưu…' : ownerLocked ? 'Lưu' : 'Lưu quy trình'}
         </button>
         {saved && <span className="text-sm text-success">✓ Đã lưu</span>}
         {isDirty && !saving && (

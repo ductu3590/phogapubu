@@ -1,0 +1,112 @@
+{
+  "_doc": "Cổng cứng bằng máy. Sửa file này cần: python scripts/approve.py harness 1. Mỗi cổng mở khoá tạm bằng: python scripts/approve.py <tên> <giờ>.",
+  "protected_paths": [
+    ".claude/**",
+    ".harness/gates.json",
+    ".harness/unlocks.json",
+    ".harness/gate-events.log",
+    "scripts/baseline.py",
+    ".harness/baseline.json",
+    "scripts/verify.py",
+    "scripts/approve.py",
+    "scripts/hk_common.py",
+    ".github/workflows/**"
+  ],
+  "gated_paths": {
+    "auth": {
+      "scope": "all",
+      "globs": [
+        "**/auth/**",
+        "middleware.*",
+        "src/middleware.*",
+        "supabase/config.toml",
+        "**/*rls*.sql",
+        "**/*polic*.sql",
+        "admin-web/app/(auth)/login/**",
+        "admin-web/lib/auth/**",
+        "admin-web/lib/session-timeout.test.ts",
+        "admin-web/lib/session-timeout.ts",
+        "admin-web/lib/supabase/auth-users.test.ts",
+        "admin-web/lib/supabase/auth-users.ts"
+      ],
+      "reason": "Sửa luồng đăng nhập / phân quyền / RLS đang chạy"
+    },
+    "test_config": {
+      "scope": "all",
+      "skip_during_scaffold": true,
+      "globs": [
+        "vitest.config.*",
+        "vitest.workspace.*",
+        "jest.config.*",
+        "playwright.config.*",
+        "eslint.config.*",
+        ".eslintrc*",
+        "biome.json",
+        "tsconfig.json",
+        "tsconfig.*.json"
+      ],
+      "reason": "Sửa cấu hình test/lint/typecheck có thể làm verify xanh giả"
+    },
+    "contracts": {
+      "scope": "worktree",
+      "skip_during_scaffold": true,
+      "globs": [
+        "src/contracts/**",
+        "packages/contracts/**"
+      ],
+      "reason": "Contracts dùng chung giữa FE/BE — chỉ orchestrator đổi trên main kèm ADR"
+    },
+    "legacy": {
+      "scope": "all",
+      "globs": [
+        "mini-app-instances/**"
+      ],
+      "reason": "Vùng code cũ anh Tú đánh dấu 'không đụng' khi adopt (đang chạy production / dễ vỡ)"
+    },
+    "payments": {
+      "scope": "all",
+      "globs": [
+        "admin-web/app/admin/pos/payment-method-fields.test.tsx",
+        "admin-web/app/admin/pos/payment-method-fields.tsx",
+        "admin-web/app/admin/pos/payment-vietqr.test.tsx",
+        "admin-web/app/admin/pos/payment-vietqr.tsx",
+        "admin-web/components/vietqr-code.test.tsx",
+        "admin-web/components/vietqr-code.tsx",
+        "admin-web/lib/collect-payment.test.ts",
+        "admin-web/lib/collect-payment.ts",
+        "admin-web/lib/order-payment-badge.test.ts",
+        "admin-web/lib/order-payment-badge.ts",
+        "admin-web/lib/vietqr-banks.ts",
+        "admin-web/lib/vietqr.test.ts",
+        "admin-web/lib/vietqr.ts",
+        "mini-app/src/pages/checkout/**",
+        "mini-app/src/components/checkout/**",
+        "supabase/functions/checkout-create-mac/**",
+        "supabase/functions/checkout-notify/**"
+      ],
+      "reason": "Luồng thanh toán đang chạy"
+    }
+  },
+  "immutable_existing": {
+    "globs": [
+      "supabase/migrations/*.sql",
+      "migrations/*.sql",
+      "prisma/migrations/**"
+    ],
+    "reason": "Migration đã commit là bất biến — tạo migration mới thay vì sửa"
+  },
+  "test_globs": [
+    "**/*.test.*",
+    "**/*.spec.*",
+    "tests/**",
+    "e2e/**",
+    "**/__tests__/**"
+  ],
+  "extra_bash_block": [
+    {
+      "pattern": "\\bprisma\\s+migrate\\s+reset\\b",
+      "gate": "data",
+      "reason": "Reset DB qua Prisma"
+    }
+  ]
+}

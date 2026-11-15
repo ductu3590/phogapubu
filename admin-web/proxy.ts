@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { hasSupabaseSessionCookie } from '@/lib/auth/session-cookie'
+import { passwordGateRedirect, mustChangePassword } from '@/lib/auth/password-gate'
 import { adminPathAllowed, canEnterAdmin, canEnterStaffArea, homeForRole, parseOperatorRow, type OperatorRole } from '@/lib/auth/roles'
 
 export async function proxy(request: NextRequest) {
@@ -53,6 +54,12 @@ export async function proxy(request: NextRequest) {
   // (2026-10-04: proxy tốn 300–1700ms MỖI request khi mở hộp thoại cấu hình). Vẫn getUser ở trên để
   // làm mới phiên đăng nhập.
   if (request.headers.has('next-action') || request.headers.get('rsc') === '1') return supabaseResponse
+
+  // Bắt đổi mật khẩu lần đầu (YG 2026-11-12): còn cờ app_metadata.must_change_password thì mở trang vận hành / /login
+  // đều về trang đổi mật khẩu. Cờ đọc từ getUser ở trên (bản mới nhất, không tốn thêm chặng mạng). Request
+  // next-action / RSC đã bỏ qua ở trên → guard dùng chung (lib/auth/operator.ts) chặn tiếp phần đó.
+  const gate = user ? passwordGateRedirect(path, mustChangePassword(user.app_metadata)) : null
+  if (gate) return NextResponse.redirect(new URL(gate, request.url))
 
   // Role-aware routing (Onboarding Cockpit + Staff Assisted Ordering): mevo_operators.role
   // quyết định /admin, /mevo hay /staff. RLS mới là lớp khoá thật — đây chỉ là cổng UX redirect sớm.

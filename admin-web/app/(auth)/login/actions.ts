@@ -2,7 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { homeForRole, parseOperatorRow } from '@/lib/auth/roles'
+import { parseOperatorRow } from '@/lib/auth/roles'
+import { landingAfterLogin, mustChangePassword } from '@/lib/auth/password-gate'
 
 export async function signIn(formData: FormData) {
   const supabase = await createClient()
@@ -32,7 +33,8 @@ export async function signIn(formData: FormData) {
   // Không gọi redirect() trong Server Action được invoke từ Client Component —
   // React 19 sẽ treat NEXT_REDIRECT throw như unhandled error.
   // Trả về success + đích đến, để client tự navigate.
-  return { success: true, redirectTo: homeForRole(parsed.role) }
+  // Còn cờ bắt đổi mật khẩu (tài khoản mới / vừa bị đặt lại mật khẩu) → trang đổi mật khẩu trước.
+  return { success: true, redirectTo: landingAfterLogin(parsed.role, mustChangePassword(data.user.app_metadata)) }
 }
 
 export async function signOut() {

@@ -1,0 +1,17 @@
+{
+  "10-admin-web": {
+    "count": 1,
+    "method": "(?i)\\berror\\b",
+    "failing": []
+  },
+  "21-mini-app-typecheck": {
+    "count": 5,
+    "method": "(?i)\\berror\\b",
+    "failing": []
+  },
+  "30-db-tests": {
+    "count": 1,
+    "method": "(?i)\\berror\\b",
+    "failing": []
+  }
+}

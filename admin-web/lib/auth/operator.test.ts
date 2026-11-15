@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // requireSuperadmin giờ là cửa duy nhất của toàn khu /mevo — mọi action ở đó gọi nó,
 // nên nó phải fail closed với đúng ba ca: không đăng nhập, sai role, tài khoản đã khoá.
 const mocks = vi.hoisted(() => {
-  const user = { value: null as null | { id: string } }
+  const user = { value: null as null | { id: string; app_metadata?: Record<string, unknown> } }
   const operatorRow = { value: null as null | { role: string; store_id: string | null; is_active: boolean } }
 
   const supabase = {
@@ -149,5 +149,37 @@ describe('quản lý (QL)', () => {
     as('store_manager', false)
     await expect(requireAdminPageOrRedirect('pos')).rejects.toThrow('REDIRECT:/login?error=not_operator')
     await expect(requireBackOfficeStoreId()).rejects.toThrow('chưa được cấp quyền')
+  })
+})
+
+// Bắt đổi mật khẩu lần đầu (YG 2026-11-12): proxy bỏ qua request next-action / RSC nên guard dùng chung phải tự chặn.
+describe('còn cờ must_change_password', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.user.value = { id: 'u1', app_metadata: { must_change_password: true } }
+  })
+
+  it('server action của mọi vai bị từ chối bằng câu dễ hiểu', async () => {
+    mocks.operatorRow.value = { role: 'store_owner', store_id: 'store-1', is_active: true }
+    await expect(requireStoreOwnerStoreId()).rejects.toThrow('cần đổi mật khẩu')
+    await expect(requirePosOperatorStoreId()).rejects.toThrow('cần đổi mật khẩu')
+    await expect(requireBackOfficeStoreId()).rejects.toThrow('cần đổi mật khẩu')
+    mocks.operatorRow.value = { role: 'mevo_superadmin', store_id: null, is_active: true }
+    await expect(requireSuperadmin()).rejects.toThrow('cần đổi mật khẩu')
+  })
+
+  it('trang /admin, /staff bị đưa tới trang đổi mật khẩu', async () => {
+    mocks.operatorRow.value = { role: 'store_owner', store_id: 'store-1', is_active: true }
+    await expect(requireAdminPageOrRedirect('pos')).rejects.toThrow('REDIRECT:/change-password')
+    mocks.operatorRow.value = { role: 'store_staff', store_id: 'store-1', is_active: true }
+    await expect(requireStaffAreaOrRedirect()).rejects.toThrow('REDIRECT:/change-password')
+  })
+
+  it('cờ false / thiếu → đi qua như cũ', async () => {
+    mocks.operatorRow.value = { role: 'store_owner', store_id: 'store-1', is_active: true }
+    mocks.user.value = { id: 'u1', app_metadata: { must_change_password: false } }
+    await expect(requireStoreOwnerStoreId()).resolves.toBe('store-1')
+    mocks.user.value = { id: 'u1' }
+    await expect(requireStoreOwnerStoreId()).resolves.toBe('store-1')
   })
 })

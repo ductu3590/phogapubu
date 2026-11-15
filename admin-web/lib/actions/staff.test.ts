@@ -118,7 +118,9 @@ describe('createStoreStaff', () => {
 
   it('tạo user mới kèm mật khẩu tạm khi email chưa tồn tại và trả về 1 lần', async () => {
     const res = await createStoreStaff(emailForm('moi@x.vn'))
-    expect(mocks.admin.auth.admin.createUser).toHaveBeenCalled()
+    expect(mocks.admin.auth.admin.createUser).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'moi@x.vn', email_confirm: true, app_metadata: { must_change_password: true } }),
+    )
     expect(res.email).toBe('moi@x.vn')
     expect(res.tempPassword).toBeTruthy()
   })
@@ -299,7 +301,10 @@ describe('resetStaffPassword', () => {
   it('đặt mật khẩu cho nhân viên đúng quán, scope theo store_id + vai trò phục vụ/thu ngân', async () => {
     const res = await resetStaffPassword('u1', pwForm('matkhau123'))
     expect(res).toEqual({ ok: true, email: 'a@b.vn' })
-    expect(mocks.admin.auth.admin.updateUserById).toHaveBeenCalledWith('u1', { password: 'matkhau123' })
+    expect(mocks.admin.auth.admin.updateUserById).toHaveBeenCalledWith('u1', {
+      password: 'matkhau123',
+      app_metadata: { must_change_password: true },
+    })
     expect(mocks.admin._eqCalls.value).toContainEqual(['store_id', 'store-1'])
     expect(mocks.admin._eqCalls.value).toContainEqual(['in:role', ['store_staff', 'store_cashier', 'store_manager']])
   })

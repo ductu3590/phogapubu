@@ -4,26 +4,36 @@ const mocks = vi.hoisted(() => {
   const state = {
     areas: [] as Array<{ id: string; store_id: string; name: string; color: string; sort_order: number }>,
     tables: [] as Array<{ id: string; store_id: string; area_id: string | null; table_number?: string }>,
+    orders: [{ id: 'o1', table_id: 't1' }] as Array<{ id: string; table_id: string }>,
     writes: [] as Array<{ table: string; op: string; payload?: unknown; eq: Array<[string, unknown]> }>,
+    // Lỗi DB giả cho lệnh ghi kế tiếp (vd. trigger mig 138 từ chối đóng bàn đang có khách)
+    writeError: null as null | { message: string },
   }
   const from = vi.fn((table: string) => {
     const eq: Array<[string, unknown]> = []
     let op = 'select'
     let payload: unknown
+    let returning = false
     const rows = () => {
-      const src = table === 'table_areas' ? state.areas : state.tables
+      const src = table === 'table_areas' ? state.areas : table === 'orders' ? state.orders : state.tables
       return (src as Array<Record<string, unknown>>).filter((r) => eq.every(([c, v]) => r[c] === v))
     }
     const b: Record<string, unknown> = {}
-    b.select = vi.fn(() => b)
+    b.select = vi.fn(() => { if (op !== 'select') returning = true; return b })
     b.eq = vi.fn((c: string, v: unknown) => { eq.push([c, v]); return b })
     b.insert = vi.fn((p: unknown) => { op = 'insert'; payload = p; return b })
     b.update = vi.fn((p: unknown) => { op = 'update'; payload = p; return b })
     b.delete = vi.fn(() => { op = 'delete'; return b })
     b.maybeSingle = vi.fn(async () => ({ data: rows()[0] ?? null, error: null }))
     b.then = (resolve: (v: unknown) => void) => {
+      if (op !== 'select' && state.writeError) {
+        const error = state.writeError
+        state.writeError = null
+        resolve({ data: null, error, count: null })
+        return
+      }
       if (op !== 'select') state.writes.push({ table, op, payload, eq: [...eq] })
-      resolve({ data: op === 'select' ? rows() : null, error: null, count: rows().length })
+      resolve({ data: op === 'select' || returning ? rows() : null, error: null, count: rows().length })
     }
     return b
   })
@@ -34,11 +44,12 @@ vi.mock('@/lib/auth/operator', () => ({ requireStoreOwnerStoreId: mocks.requireS
 vi.mock('@/lib/supabase/server', () => ({ createAdminClient: vi.fn(() => ({ from: mocks.from })) }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
-const { addTable, addTablesBulk, toggleTable } = await import('./tables')
+const { addTable, addTablesBulk, setTableActive, deleteTable } = await import('./tables')
 
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.state.writes = []
+  mocks.state.writeError = null
   mocks.state.areas = [
     { id: 'a1', store_id: 'store-1', name: 'Trong nhà', color: 'violet', sort_order: 1 },
     { id: 'x1', store_id: 'store-2', name: 'Khu quán khác', color: 'pink', sort_order: 1 },
@@ -68,9 +79,61 @@ describe('bàn (PA-3)', () => {
     await expect(addTable(form('Bàn 23', 'x1'))).rejects.toThrow('Không tìm thấy khu')
     expect(mocks.state.writes).toEqual([])
   })
-  it('bật/tắt bàn chỉ trong quán mình', async () => {
-    await toggleTable('t1', false)
+  it('bàn chưa có đơn → xoá được', async () => {
+    const r = await deleteTable('t2')
+    expect(r).toEqual({})
+    expect(mocks.state.writes[0]).toMatchObject({ table: 'tables', op: 'delete' })
+  })
+})
+
+describe('setTableActive — Đóng bàn / Mở lại bàn', () => {
+  it('đóng bàn của quán mình → {ok:true}, chỉ cập nhật đúng id + store_id', async () => {
+    const r = await setTableActive('t1', false)
+    expect(r).toEqual({ ok: true })
+    expect(mocks.state.writes[0]).toMatchObject({ table: 'tables', op: 'update', payload: { is_active: false } })
     expect(mocks.state.writes[0].eq).toEqual(expect.arrayContaining([['id', 't1'], ['store_id', 'store-1']]))
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin/tables')
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin/pos')
+  })
+  it('mở lại bàn → {ok:true}, is_active=true', async () => {
+    const r = await setTableActive('t1', true)
+    expect(r).toEqual({ ok: true })
+    expect(mocks.state.writes[0]).toMatchObject({ payload: { is_active: true } })
+  })
+  it('bàn của quán khác → {ok:false, "Không tìm thấy bàn"}', async () => {
+    const r = await setTableActive('t9', false)
+    expect(r).toEqual({ ok: false, error: 'Không tìm thấy bàn' })
+  })
+  it('DB từ chối (bàn đang có khách) → trả đúng câu của DB, không ném', async () => {
+    const msg = 'Bàn "A1" đang có khách (phiên chưa đóng). Thu tiền hoặc đóng phiên ở POS rồi mới đóng bàn.'
+    mocks.state.writeError = { message: msg }
+    const r = await setTableActive('t1', false)
+    expect(r).toEqual({ ok: false, error: msg })
+    expect(mocks.revalidatePath).not.toHaveBeenCalled()
+  })
+  it('không phải chủ quán → {ok:false}, không ném, không ghi', async () => {
+    mocks.requireStoreOwnerStoreId.mockRejectedValueOnce(new Error('Không có quyền'))
+    const r = await setTableActive('t1', false)
+    expect(r).toEqual({ ok: false, error: 'Không có quyền' })
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+  it('đầu vào sai kiểu → {ok:false}, không chạm DB', async () => {
+    expect((await setTableActive('', false)).ok).toBe(false)
+    expect((await setTableActive('t1', 'false' as never)).ok).toBe(false)
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteTable', () => {
+  it('bàn đã có đơn → câu báo nhắc đúng tên nút "Đóng bàn"', async () => {
+    const r = await deleteTable('t1')
+    expect(r.error).toContain('Bấm "Đóng bàn"')
+    expect(mocks.state.writes).toEqual([])
+  })
+  it('bàn chưa có đơn → xoá được', async () => {
+    const r = await deleteTable('t2')
+    expect(r).toEqual({})
+    expect(mocks.state.writes[0]).toMatchObject({ table: 'tables', op: 'delete' })
   })
 })
 

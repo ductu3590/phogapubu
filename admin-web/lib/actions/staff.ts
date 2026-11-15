@@ -62,6 +62,8 @@ export async function createStoreStaff(formData: FormData): Promise<{ email: str
       email,
       password: tempPassword,
       email_confirm: true,
+      // Mật khẩu tạm → bắt đổi ở lần đăng nhập đầu (lib/auth/password-gate.ts).
+      app_metadata: { must_change_password: true },
     })
     if (createErr || !created.user) throw new Error(`createStoreStaff(create): ${createErr?.message}`)
     userId = created.user.id
@@ -175,7 +177,11 @@ export async function resetStaffPassword(
   if (targetError) return { ok: false, error: 'Không kiểm tra được tài khoản, thử lại sau' }
   if (!target) return { ok: false, error: 'Tài khoản này không phải nhân viên của quán anh' }
 
-  const { data: updated, error } = await admin.auth.admin.updateUserById(userId, { password })
+  // Người nhận mật khẩu do người khác đặt phải đổi lại ở lần đăng nhập kế tiếp (lib/auth/password-gate.ts).
+  const { data: updated, error } = await admin.auth.admin.updateUserById(userId, {
+    password,
+    app_metadata: { must_change_password: true },
+  })
   if (error) return { ok: false, error: 'Không đổi được mật khẩu, thử lại sau' }
 
   return { ok: true, email: updated.user?.email ?? '' }
