@@ -9,13 +9,13 @@ const W = 720, H = 300, L = 12, R = 12, T = 34, B = 40
 export function Waterfall({ steps, formatValue, ariaLabel = 'Từ doanh thu đến lãi ròng' }: {
   steps: WaterfallStep[]; formatValue: (n: number) => string; ariaLabel?: string
 }) {
-  let run = 0
-  const bars = steps.map((s) => {
-    const from = s.kind === 'total' ? 0 : run
-    const to = s.kind === 'total' ? s.value : run + s.value
-    run = to
-    return { ...s, from, to }
-  })
+  // Mức đang chạy tính thuần bằng reduce, không gán lại biến trong lúc render.
+  const bars = steps.reduce<{ label: string; value: number; kind: WaterfallStep['kind']; from: number; to: number }[]>((acc, s) => {
+    const prev = acc.length ? acc[acc.length - 1].to : 0
+    const from = s.kind === 'total' ? 0 : prev
+    const to = s.kind === 'total' ? s.value : prev + s.value
+    return [...acc, { ...s, from, to }]
+  }, [])
   const levels = [0, ...bars.flatMap((b) => [b.from, b.to])]
   const hi = Math.max(...levels), lo = Math.min(...levels)
   const span = hi - lo || 1
