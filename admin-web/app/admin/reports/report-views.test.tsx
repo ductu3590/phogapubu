@@ -475,9 +475,19 @@ describe('tab tài chính', async () => {
     expect(html).toContain('Từ doanh thu đến lãi ròng')
     expect(html).toContain('Biên')
     expect(count(html, 'role="img"')).toBeGreaterThanOrEqual(1)
-    expect(html).toContain('bg-success-bg')
+    // Dòng Lãi ròng của bảng dọc (cắt khỏi KPI/chip có thể trùng tên lớp).
+    const netRow = (h: string) => {
+      const table = h.slice(h.indexOf('<section class="min-w-0 divide-y'))
+      const at = table.lastIndexOf('Lãi ròng')
+      return table.slice(table.lastIndexOf('<div class="px-4 py-3', at))
+    }
+    const profitRow = netRow(html)
+    expect(profitRow).toContain('bg-success-bg text-success')
+    expect(profitRow).not.toContain('bg-critical-bg')
     const loss = renderToStaticMarkup(<ProfitLossView report={{ ...r, netProfit: -150000 }} />)
-    expect(loss).toContain('bg-critical-bg text-critical')
+    const lossRow = netRow(loss)
+    expect(lossRow).toContain('bg-critical-bg text-critical')
+    expect(lossRow).not.toContain('bg-success-bg')
     // Không hạng mục chi phí: ẩn donut nhưng vẫn còn khối
     const noOpex = renderToStaticMarkup(<ProfitLossView report={{ ...r, operatingExpenses: { total: 0, rows: [] } }} />)
     expect(noOpex).toContain('Chi phí hoạt động')
@@ -496,5 +506,34 @@ describe('tab tài chính', async () => {
     const empty = renderToStaticMarkup(<ReceivablesView report={{ ...r, rows: [], totals: { ...r.totals, opening: 0, incurred: 0, collected: 0, closing: 0 } }} />)
     expect(empty).not.toContain('NaN')
     expect(empty).not.toContain('Infinity')
+  })
+
+  it('Lãi lỗ: lãi gộp và lãi ròng đều âm → thác nước không NaN, cột Lãi ròng nằm dưới trục 0', () => {
+    const r = as('pnl', rpc125.report_profit_loss)
+    const neg = {
+      ...r, revenue: 1000000, cogsGoods: 1500000, cogsIngredient: 0, cogsTotal: 1500000, grossProfit: -500000,
+      operatingExpenses: { total: 100000, rows: [{ categoryId: 'x', name: 'Điện nước', amount: 100000 }] },
+      writeoffCost: 0, otherIncome: { total: 0, rows: [] }, netProfit: -600000,
+    }
+    const html = renderToStaticMarkup(<ProfitLossView report={neg} />)
+    expect(html).not.toContain('NaN')
+    expect(html).not.toContain('Infinity')
+    const zero = Number(/data-zero-y="([\d.]+)"/.exec(html)?.[1])
+    expect(Number.isFinite(zero)).toBe(true)
+    const barY = (step: string) => Number(new RegExp(`<rect data-step="${step}"[^>]*? y="([0-9.]+)"`).exec(html)?.[1])
+    expect(barY('Lãi ròng')).toBeGreaterThanOrEqual(zero)
+    expect(barY('Lãi gộp')).toBeGreaterThanOrEqual(zero)
+    expect(barY('Doanh thu')).toBeLessThan(zero)
+    expect(html).toContain('bg-critical-bg text-critical')
+  })
+
+  it('Công nợ: nợ đúng 30 ngày không có nhãn đỏ, 31 ngày có "31 ngày"', () => {
+    const r = as('debts', rpc125.report_receivables)
+    const row = r.rows[0]
+    const at = (oldest: string) => renderToStaticMarkup(<ReceivablesView report={{ ...r, head: { ...r.head, to: '2026-12-31' }, rows: [{ ...row, oldestOpenDate: oldest }] }} />)
+    const d30 = at('2026-12-01') // 30 ngày trước 31/12
+    expect(d30).not.toMatch(/\d+ ngày<\/span>/)
+    const d31 = at('2026-11-30')
+    expect(d31).toContain('31 ngày</span>')
   })
 })
