@@ -6,7 +6,16 @@ export function formatPercent(value: number): string {
   return `${value.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
 }
 
-export const formatQty = (n: number): string => n.toLocaleString('vi-VN')
+/** Số tiền rút gọn cho nhãn trục biểu đồ: 17800000 → '17,8tr', 56000 → '56k', âm giữ dấu. */
+export function shortMoney(n: number): string {
+  const sign = n < 0 ? '-' : ''
+  const a = Math.abs(n)
+  if (a >= 1_000_000) return `${sign}${(a / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}tr`
+  if (a >= 1_000) return `${sign}${Math.round(a / 1_000)}k`
+  return `${sign}${Math.round(a)}`
+}
+
+export const formatQty =(n: number): string => n.toLocaleString('vi-VN')
 
 /** Giờ VN 'HH:mm', kèm 'dd/MM' phía trước khi `withDate`. */
 export function formatClock(iso: string, withDate = false): string {
