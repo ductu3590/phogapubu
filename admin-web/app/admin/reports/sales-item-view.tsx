@@ -80,10 +80,10 @@ export default function SalesItemView({ rows, itemsAmount, qtySold }: { rows: Sa
                   <span data-rank={i + 1} className="grid size-6 place-items-center rounded-full text-xs font-bold text-white" style={{ background: CHART_COLORS[i] }}>{i + 1}</span>
                   <span className="grid size-10 place-items-center rounded-xl text-[15px] font-bold" style={tint(colorOfKey(key))} aria-hidden>{Array.from(r.itemName)[0]?.toUpperCase()}</span>
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-foreground">{r.itemName}</p>
+                    <p className="line-clamp-2 font-semibold text-foreground">{r.itemName}</p>
                     <p className="tabular text-[12.5px] text-muted">{formatQty(r.qtySold)} phần · {r.categoryName}</p>
                   </div>
-                  <div className="text-right">
+                  <div className="whitespace-nowrap text-right">
                     <p className="tabular font-bold text-foreground">{formatVND(r.amount)}</p>
                     <p className="tabular text-[12.5px] text-muted">{formatPercent(percentOf(r.amount, itemsAmount))}</p>
                   </div>
@@ -94,7 +94,7 @@ export default function SalesItemView({ rows, itemsAmount, qtySold }: { rows: Sa
         </SectionCard>
 
         <SectionCard title="Tỉ trọng theo danh mục" hint="Theo tiền món">
-          <div className="flex flex-wrap items-center gap-5 px-5 pb-1 pt-4">
+          <div className="flex flex-col items-center gap-5 px-5 pb-1 pt-4 sm:flex-row">
             <Donut slices={shares.map((s, i) => ({ label: s.label, value: s.value, color: CHART_COLORS[i] }))} center={formatQty(totalQty)} caption="MÓN BÁN RA" />
             <ChartLegend items={shares.map((s, i) => ({
               label: s.label, color: CHART_COLORS[i], percent: percentOf(s.value, shareTotal),

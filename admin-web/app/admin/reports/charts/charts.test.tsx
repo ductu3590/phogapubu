@@ -117,6 +117,13 @@ describe('KpiCard', () => {
     expect(h).toContain('text-success')
     expect(h).toContain('so với kỳ trước')
   })
+  it('hẹp: chip không bẻ dòng, dòng delta wrap, nhãn so sánh nowrap 12px', () => {
+    const h = render({ delta: -36.7, note: 'Tặng 2' })
+    expect(h).toContain('whitespace-nowrap rounded-md')
+    expect(h).toContain('flex flex-wrap items-center gap-x-1.5 gap-y-0.5')
+    expect(h).toContain('<span class="whitespace-nowrap text-xs">so với kỳ trước</span>')
+    expect(h).toContain('<span class="text-xs">Tặng 2</span>')
+  })
   it('inverse → xấu', () => {
     expect(render({ delta: 8.2, inverse: true })).toContain('text-critical')
   })

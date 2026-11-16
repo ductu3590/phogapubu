@@ -126,6 +126,13 @@ describe('Theo món (kiểu mới)', () => {
     expect(html).toContain('Theo SL')
   })
 
+  it('mobile: tên món line-clamp-2, donut xếp dọc dưới sm', () => {
+    const html = renderToStaticMarkup(<SalesItemView rows={MANY} itemsAmount={280000} />)
+    expect(html).toContain('line-clamp-2 font-semibold')
+    expect(html).not.toContain('truncate font-semibold')
+    expect(html).toContain('flex-col items-center gap-5 px-5 pb-1 pt-4 sm:flex-row')
+  })
+
   it('bảng có ShareBar trong cột %', () => {
     const html = renderToStaticMarkup(<SalesItemView rows={ITEMS} itemsAmount={SUMMARY.itemsAmount} />)
     expect(html).toContain('rounded-full bg-secondary')
@@ -161,6 +168,11 @@ describe('Theo giờ', () => {
     expect(html).toContain('18:00')
     expect(html.indexOf('18:00')).toBeLessThan(html.indexOf('04:00'))
     expect(count(html, 'Cao điểm')).toBe(1) // chỉ ở bảng, đúng một dòng
+  })
+
+  it('ô tóm tắt không cắt chữ (không truncate)', () => {
+    const html = renderToStaticMarkup(<SalesHourView rows={HOURS} />)
+    expect(html).not.toContain('tabular truncate')
   })
 
   it('bảng Giờ, Lượt gọi, SL món, Tiền và thẻ mobile', () => {
@@ -593,6 +605,13 @@ describe('rà soát cuối', async () => {
     const html = renderToStaticMarkup(<RevenueView report={as('revenue', rpc125.report_revenue_series_day)} />)
     expect(html).toContain('Theo cách khách trả')
     expect(html).not.toContain('Theo tiền thật đã nhận')
+  })
+
+  it('Doanh thu: biểu đồ desktop vẽ khung 720, dải cực trị không cắt chữ', () => {
+    const html = renderToStaticMarkup(<RevenueView report={as('revenue', rpc125.report_revenue_series_day)} />)
+    expect(html).toContain('viewBox="0 0 720 ')
+    expect(html).toContain('viewBox="0 0 420 ')
+    expect(html).not.toContain('tabular truncate')
   })
 
   it('Doanh thu: chỉ 1 điểm → ẩn biểu đồ vùng và dải cao/thấp nhất, vẫn còn KPI, donut, bảng', () => {

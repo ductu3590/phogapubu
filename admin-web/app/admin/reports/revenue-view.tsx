@@ -33,7 +33,7 @@ function StripCell({ icon: Icon, label, children }: { icon: LucideIcon; label: s
       <Icon className="size-5 shrink-0 text-primary" aria-hidden />
       <div className="min-w-0">
         <div className="text-xs text-muted">{label}</div>
-        <div className="tabular truncate text-[14.5px] font-bold">{children}</div>
+        <div className="tabular text-[14.5px] font-bold">{children}</div>
       </div>
     </div>
   )
@@ -95,7 +95,7 @@ export default function RevenueView({ report, prev, compareLabel }: {
                       <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-3)' }} />Số bill</span>
                 </div>
                 {/* SVG co theo bề rộng nên chữ nhỏ đi trên điện thoại: hai bản, mobile vẽ khung hẹp hơn để chữ đọc được. */}
-                <div className="hidden md:block px-3 pt-1"><AreaChart {...chartProps} /></div>
+                <div className="hidden md:block px-3 pt-1"><AreaChart {...chartProps} width={720} /></div>
                 <div className="px-1 pt-1 md:hidden"><AreaChart {...chartProps} width={420} height={280} /></div>
                 {ext ? (
                   <div className="mx-5 mb-5 mt-1 grid grid-cols-1 overflow-hidden rounded-xl border border-orange-100 bg-orange-50/40 sm:grid-cols-3">

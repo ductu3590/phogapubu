@@ -22,7 +22,7 @@ function StripCell({ icon: Icon, label, children }: { icon: LucideIcon; label: s
       <Icon className="size-5 shrink-0 text-primary" aria-hidden />
       <div className="min-w-0">
         <div className="text-xs text-muted">{label}</div>
-        <div className="tabular truncate text-[14.5px] font-bold">{children}</div>
+        <div className="tabular text-[14.5px] font-bold">{children}</div>
       </div>
     </div>
   )

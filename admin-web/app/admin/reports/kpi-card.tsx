@@ -25,10 +25,10 @@ export function KpiCard({ icon: Icon, tone, label, value, unit, delta, inverse =
     const cls = delta === 0 ? 'bg-secondary text-muted' : good ? 'bg-success-bg text-success' : 'bg-critical-bg text-critical'
     const text = delta === 0 ? '— 0%' : `${delta > 0 ? '↑' : '↓'} ${formatPercent(Math.abs(delta))}`
     chip = (
-      <span className="flex items-center gap-1.5">
-        <span className={`tabular inline-flex items-center rounded-md px-1.5 py-px text-[12.5px] font-semibold ${cls}`}>{text}</span>
-        {compareLabel ? <span>{compareLabel}</span> : null}
-      </span>
+      <>
+        <span className={`tabular inline-flex items-center whitespace-nowrap rounded-md px-1.5 py-px text-[12.5px] font-semibold ${cls}`}>{text}</span>
+        {compareLabel ? <span className="whitespace-nowrap text-xs">{compareLabel}</span> : null}
+      </>
     )
   }
   return (
@@ -42,9 +42,9 @@ export function KpiCard({ icon: Icon, tone, label, value, unit, delta, inverse =
         {unit ? <small className="ml-px text-[15px] font-semibold text-muted">{unit}</small> : null}
       </div>
       {chip || note ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-muted">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12.5px] text-muted">
           {chip}
-          {note ? <span>{note}</span> : null}
+          {note ? <span className="text-xs">{note}</span> : null}
         </div>
       ) : null}
     </div>
