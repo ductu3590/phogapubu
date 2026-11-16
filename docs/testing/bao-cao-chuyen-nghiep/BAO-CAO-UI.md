@@ -34,10 +34,10 @@ Mỗi thẻ số có chip % (xanh ↑ tăng tốt, đỏ ↓ giảm) và chữ *
 2. **Hôm qua**: ghi **so với hôm kia**.
 3. **7 ngày**: ghi **so với 7 ngày trước**.
 4. **Tháng này**: ghi **so với tháng trước**. Ví dụ hôm nay là mùng 16 thì so với **16 ngày đầu** của tháng trước, không phải cả tháng trước.
-5. **Tháng trước**: ghi **so với tháng trước** (tức tháng liền trước nữa, trọn tháng).
+5. **Tháng trước**: chip vẫn ghi **so với tháng trước**, nhưng thực ra so với **tháng liền trước nữa** (ví dụ đang xem tháng 10 thì so với tháng 9), trọn tháng.
 6. **Tuỳ chọn** (chọn 5 ngày): ghi **so với kỳ trước**; kỳ trước là 5 ngày liền ngay trước đó.
 7. Tính tay một thẻ: lấy Doanh thu kỳ này và kỳ trước (chọn đúng kỳ trước ở bước 1–6 rồi đọc số), % = (nay − trước) ÷ trước. Đạt: khớp, làm tròn 1 chữ số thập phân.
-8. **Màu đảo**: thẻ Giảm giá (tab Bán hàng), Chi phí hoạt động (Lãi lỗ), Nợ cuối kỳ (Công nợ), 3 thẻ ở Món huỷ — **tăng thì đỏ, giảm thì xanh** (mũi tên vẫn theo chiều số thật: tăng là ↑).
+8. **Màu đảo**: thẻ Giảm giá (tab Bán hàng), Chi phí hoạt động (Lãi lỗ), Nợ cuối kỳ (Công nợ), 3 thẻ ở Món huỷ (Tiền bỏ, Tiền tặng, Giảm SL) — **tăng thì đỏ, giảm thì xanh** (mũi tên vẫn theo chiều số thật: tăng là ↑).
 9. **Kỳ trước = 0đ**: chọn một kỳ mà kỳ liền trước không có bill nào (ví dụ Tuỳ chọn 1 ngày đầu tiên quán có dữ liệu, hoặc một kỳ trước ngày quán bắt đầu bán).
    - Đạt: thẻ số **không có chip %**, không chữ "Infinity%" hay "NaN%". Số vẫn hiện bình thường.
 10. Hai kỳ **bằng nhau** (nếu gặp, ví dụ cùng 0 bill): chip xám **— 0%**.
@@ -49,10 +49,10 @@ Mỗi thẻ số có chip % (xanh ↑ tăng tốt, đỏ ↓ giảm) và chữ *
 
 **Theo món**
 1. 4 thẻ: Doanh thu, Tiền món, Giảm giá, SL bán. **Tiền món − Giảm giá = Doanh thu**. Không có banner vàng "Chênh lệch …".
-2. Khối **Món bán chạy**: 5 món, huy hiệu hạng 1→5, tên, "x phần · danh mục", tiền và %. Bấm **Theo SL**: danh sách xếp lại theo số lượng; bấm **Theo tiền**: xếp lại theo tiền.
+2. Khối **Món bán chạy**: 5 món, huy hiệu hạng 1→5, tên, "x phần · danh mục", tiền và %. Ở nút **Xếp hạng theo**, bấm **Theo SL**: danh sách xếp lại theo số lượng; bấm **Theo tiền**: xếp lại theo tiền.
 3. Khối **Tỉ trọng theo danh mục**: donut, tâm ghi tổng SL "MÓN BÁN RA". Chú giải cộng lại 100%. Nhận xét cam ghi danh mục đứng đầu và % — đúng với danh mục có tiền lớn nhất trong bảng.
 4. Quán có **hơn 5 danh mục** (hoặc món không còn danh mục): donut chỉ 5 lát + 1 lát **Khác**, không có hai dòng "Khác".
-5. Bảng **Tất cả món**: lọc theo danh mục, đổi sắp xếp vẫn chạy; cột % có thanh nhỏ; dòng **Tổng** khớp thẻ số.
+5. Bảng món bên dưới: nút **Sắp theo** (Tiền | Số lượng) và ô chọn **Danh mục** hoạt động; đổi qua lại thì thứ tự và danh sách món đổi theo. Cột tỉ trọng có thanh nhỏ. (Bảng không có dòng Tổng: muốn đối chiếu thì cộng tay hoặc so với 4 thẻ số phía trên.)
 6. Dòng "Chưa gồm n bàn đang mở" (nếu đang có bàn chưa thu) vẫn còn.
 
 **Theo danh mục**
@@ -61,20 +61,20 @@ Mỗi thẻ số có chip % (xanh ↑ tăng tốt, đỏ ↓ giảm) và chữ *
 
 **Theo giờ**
 9. Biểu đồ vùng **hai đường**: Tiền món (cam, trục trái) và Lượt gọi (xanh lá, trục phải). Điểm cao nhất có vạch đứng và nhãn số.
-10. Dải tóm tắt 4 ô: **Giờ cao điểm**, **Lượt gọi đông nhất**, **Tổng lượt gọi**, **TB tiền / lượt gọi**. Giờ cao điểm trùng giờ có tiền lớn nhất trong bảng.
+10. Dải tóm tắt 4 ô: **Giờ cao điểm**, **Lượt gọi đông nhất**, **Tổng lượt gọi**, **TB / lượt gọi**. Giờ cao điểm trùng giờ có tiền lớn nhất trong bảng.
 11. Bảng giờ: dòng giờ cao nhất có nhãn **Cao điểm**, cột thanh so với giờ cao nhất.
 12. Kỳ **không có bill** (ví dụ Hôm nay lúc quán chưa bán): 4 thẻ hiện **0đ / 0**, các khối biểu đồ thay bằng **"Chưa có dữ liệu trong kỳ này"**, không lỗi, không NaN.
 
 # Test 4 — Món huỷ và Doanh thu
 
 **Món huỷ** (cần một ngày có bỏ món, tặng món, giảm SL; nếu chưa có, làm vài thao tác trên POS trước)
-1. 3 thẻ: Tiền bỏ, Tiền tặng, Giảm SL, mỗi thẻ ghi chú "n lần …" và chip % (màu đảo: tăng là đỏ).
+1. 3 thẻ: Tiền bỏ, Tiền tặng, Giảm SL, mỗi thẻ ghi chú "n lần bỏ món" / "n lần tặng món" / "n lần giảm số lượng" và chip % (màu đảo: tăng là đỏ).
 2. **Món bị huỷ nhiều nhất**: top 4, gộp cả bỏ + tặng + giảm SL, theo tổng số lượng.
 3. **Lý do hay gặp**: đếm theo lý do; lần nào không ghi lý do thì gom thành **"Không ghi lý do"**.
 4. Bảng chi tiết bên dưới giữ nguyên, nhãn loại Bỏ / Tặng / Giảm SL có màu.
 
 **Doanh thu — chế độ Ngày** (chọn Tháng này)
-5. 4 thẻ: Doanh thu, Số bill, TB / bill, Giảm giá. Có chip % so với tháng trước.
+5. 4 thẻ: Doanh thu, Số bill, TB/bill, Giảm giá. Có chip % so với tháng trước.
 6. Biểu đồ vùng hai đường (doanh thu + số bill) theo ngày. Dải 3 ô: **Ngày cao nhất**, **TB / ngày**, **Ngày thấp nhất** (chỉ tính ngày có bill). Đối chiếu với bảng: ngày cao nhất đúng là ngày có tiền lớn nhất, dòng đó có nhãn **Cao nhất**.
 7. **Cơ cấu thanh toán**: donut **Tiền mặt (xanh lá), Chuyển khoản (xanh trời), Ghi nợ (hổ phách)**; có thêm **Ví / khác (tím)** chỉ khi có tiền loại đó. Tổng % = 100.
 8. Bấm **Tháng**: biểu đồ đổi sang 12 tháng, nhãn dải tóm tắt đổi thành "Tháng cao nhất / TB / tháng / Tháng thấp nhất", **không còn chip so sánh** (đã kiểm ở Test 2 bước 11).
@@ -88,7 +88,7 @@ Mỗi thẻ số có chip % (xanh ↑ tăng tốt, đỏ ↓ giảm) và chữ *
 
 **Lãi lỗ**
 4. 4 thẻ: Doanh thu thuần, Lãi gộp, Chi phí hoạt động, Lãi ròng; Lãi ròng có thêm **Biên x%** (= Lãi ròng ÷ Doanh thu thuần, tự tính tay thử).
-5. **Thác nước 6 cột**: Doanh thu → −Giá vốn → Lãi gộp → −Chi phí hoạt động → −(Hàng huỷ − Thu nhập khác) → Lãi ròng. Cột cuối bằng số ở thẻ Lãi ròng.
+5. **Thác nước 6 cột**, nhãn dưới cột: **Doanh thu, Giá vốn, Lãi gộp, Chi phí, Huỷ + khác, Lãi ròng** (cột "Huỷ + khác" = hàng huỷ trừ đi thu nhập khác). Cột cuối bằng số ở thẻ Lãi ròng.
 6. Chọn kỳ mà **chi phí lớn hơn lãi gộp** (ví dụ ngày đầu tháng có tiền thuê nhà/điện): Lãi ròng **âm** → cột xuống **dưới trục 0**, không tràn khỏi khung; dòng Lãi ròng trong bảng dọc **nền đỏ nhạt** (còn lãi thì nền xanh nhạt).
 7. Donut **Chi phí hoạt động** theo hạng mục (top 4 + Khác) và khối xám **Không tính vào lãi lỗ**. Hai banner cảnh báo giá vốn (nếu có) vẫn hiện đầu tab.
 
