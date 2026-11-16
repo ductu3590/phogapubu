@@ -19,12 +19,12 @@ const MAX_DAYS = 366
 
 const toDate = (ymd: string): Date => new Date(`${ymd}T00:00:00Z`)
 const toYmd = (d: Date): string => d.toISOString().slice(0, 10)
-const addDays = (ymd: string, days: number): string => {
+export const addDays = (ymd: string, days: number): string => {
   const d = toDate(ymd)
   d.setUTCDate(d.getUTCDate() + days)
   return toYmd(d)
 }
-const daysBetween = (from: string, to: string): number => Math.round((toDate(to).getTime() - toDate(from).getTime()) / 86_400_000)
+export const daysBetween = (from: string, to: string): number => Math.round((toDate(to).getTime() - toDate(from).getTime()) / 86_400_000)
 
 function presetRange(preset: Exclude<ReportPreset, 'custom'>, today: string): { from: string; to: string } {
   switch (preset) {
