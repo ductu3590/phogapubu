@@ -37,7 +37,7 @@ export function KpiCard({ icon: Icon, tone, label, value, unit, delta, inverse =
         <span className={`grid size-9 shrink-0 place-items-center rounded-[10px] ${TONES[tone]}`}><Icon className="size-[18px]" aria-hidden /></span>
         <span className="text-[13px] font-medium text-muted">{label}</span>
       </div>
-      <div className={`tabular whitespace-nowrap text-[21px] font-bold leading-[1.1] tracking-tight md:text-[28px] ${valueClassName}`}>
+      <div className={`tabular min-w-0 text-lg font-bold leading-[1.1] tracking-tight [overflow-wrap:anywhere] sm:text-[21px] md:text-[28px] ${valueClassName}`}>
         {value}
         {unit ? <small className="ml-px text-[15px] font-semibold text-muted">{unit}</small> : null}
       </div>

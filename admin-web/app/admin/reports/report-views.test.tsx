@@ -29,6 +29,13 @@ describe('dòng phạm vi dưới tiêu đề', () => {
     expect(screen).toContain('previousRange(range.preset, range.from, range.to)')
   })
 
+  it('ReportBody truyền kỳ trước đúng tab và nhãn so sánh cho 3 tab bán hàng', () => {
+    const screen = readFileSync(join(__dirname, 'reports-screen.tsx'), 'utf8')
+    for (const tab of ['item', 'category', 'hour']) expect(screen).toContain(`prevOf(compare, '${tab}')`)
+    expect(count(screen, 'prev={prev?.summary}')).toBe(3)
+    expect(count(screen, 'compareLabel={compare.label}')).toBe(3)
+  })
+
   it('màn hình chỉ mở tab tài chính cho vai hậu cần (isBackOfficeRole), thu ngân về Theo món', () => {
     const screen = readFileSync(join(__dirname, 'reports-screen.tsx'), 'utf8')
     expect(screen).toContain('const canSeeFinance = isBackOfficeRole(operator.role)')

@@ -101,6 +101,14 @@ describe('Waterfall', () => {
 })
 
 describe('KpiCard', () => {
+  it('giá trị tiền dài: cỡ chữ theo màn và tự xuống dòng trong thẻ, không tràn ở 375px', () => {
+    const html = renderToStaticMarkup(<KpiCard icon={Receipt} tone="orange" label="DT" value="350.000.000đ" />)
+    const valueDiv = html.slice(html.indexOf('350.000.000đ') - 200, html.indexOf('350.000.000đ'))
+    for (const c of ['text-lg', 'sm:text-[21px]', 'md:text-[28px]', '[overflow-wrap:anywhere]']) expect(valueDiv).toContain(c)
+    expect(valueDiv).not.toContain('whitespace-nowrap')
+    expect(html).toContain('min-w-0')
+  })
+
   const render = (p: Partial<Parameters<typeof KpiCard>[0]>) =>
     renderToStaticMarkup(<KpiCard icon={Receipt} tone="orange" label="DT" value="1" compareLabel="so với kỳ trước" {...p} />)
   it('tăng = tốt', () => {
