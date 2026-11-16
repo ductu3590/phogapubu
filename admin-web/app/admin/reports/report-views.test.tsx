@@ -10,7 +10,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: vi.fn(), refres
 
 const { default: SalesItemView, categoryOptions, filterItemRows } = await import('./sales-item-view')
 const { default: SalesCategoryView } = await import('./sales-category-view')
-const { default: SalesHourView, HourBars } = await import('./sales-hour-view')
+const { default: SalesHourView } = await import('./sales-hour-view')
 const { default: VoidsView } = await import('./voids-view')
 const { default: ReportToolbar, reportQuery, toolbarKey } = await import('./report-toolbar')
 const { default: SalesSummaryBlock } = await import('./report-summary')
@@ -79,7 +79,7 @@ describe('Theo món', () => {
     const html = renderToStaticMarkup(<SalesItemView rows={ITEMS} itemsAmount={SUMMARY.itemsAmount} />)
     expect(html).toContain('hidden md:table')
     expect(html).toContain('md:hidden')
-    for (const r of ITEMS) expect(count(html, `>${r.itemName}<`), r.itemName).toBe(2) // một ở bảng, một ở thẻ
+    for (const r of ITEMS) expect(count(html, `>${r.itemName}<`), r.itemName).toBe(3) // bảng, thẻ mobile và danh sách Món bán chạy (top 5 = cả 5 món)
     expect(html).toContain('28,6%')
     expect(html).toContain('5,7%')
     expect(html).toContain('300.000đ')
@@ -101,6 +101,26 @@ describe('Theo món', () => {
   })
 })
 
+describe('Theo món (kiểu mới)', () => {
+  const MANY: SalesItemRow[] = Array.from({ length: 7 }, (_, i) => item(`Món số ${i + 1}`, i < 4 ? 'c-a' : 'c-b', i < 4 ? 'Nhóm A' : 'Nhóm B', 3, 0, (7 - i) * 10000))
+
+  it('có Món bán chạy, đúng 5 dòng hạng khi > 5 món, ô nhận xét và donut', () => {
+    const html = renderToStaticMarkup(<SalesItemView rows={MANY} itemsAmount={280000} />)
+    expect(html).toContain('Món bán chạy')
+    expect(count(html, 'data-rank=')).toBe(5)
+    expect(html).toContain('mang lại nhiều tiền nhất kỳ này')
+    expect(html).toContain('MÓN BÁN RA')
+    expect(html).toContain('lg:grid-cols-[1.65fr_1fr]')
+    expect(html).toContain('Theo tiền')
+    expect(html).toContain('Theo SL')
+  })
+
+  it('bảng có ShareBar trong cột %', () => {
+    const html = renderToStaticMarkup(<SalesItemView rows={ITEMS} itemsAmount={SUMMARY.itemsAmount} />)
+    expect(html).toContain('rounded-full bg-secondary')
+  })
+})
+
 describe('Theo danh mục', () => {
   it('mỗi danh mục một <details>, tối đa 10 món khi mở', () => {
     const many = Array.from({ length: 12 }, (_, i) => ({ itemName: `Món ${i + 1}`, qtySold: 1, qtyGift: 0, amount: 1000 }))
@@ -115,29 +135,42 @@ describe('Theo danh mục', () => {
     expect(html).toContain('>Món 10<')
     expect(html).not.toContain('>Món 11<')
     expect(html).toContain('Còn 2 món khác')
+    expect(html).toContain('TIỀN MÓN') // donut bên phải
+    expect(html).toContain('lg:grid-cols-[1.65fr_1fr]')
   })
 })
 
 describe('Theo giờ', () => {
-  it('Theo giờ: thanh dài nhất là 18:00, 04:00 đứng sau', () => {
-    const html = renderToStaticMarkup(<HourBars rows={HOURS} />)
-    expect(html.indexOf('18:00')).toBeGreaterThan(-1)
+  it('biểu đồ vùng có hai bản (desktop và gọn cho mobile), dải 4 ô, 18:00 đứng trước 04:00', () => {
+    const html = renderToStaticMarkup(<SalesHourView rows={HOURS} />)
+    expect(count(html, 'aria-label="Tiền món và lượt gọi theo giờ"')).toBe(2)
+    expect(html).toContain('hidden md:block')
+    expect(html).toContain('md:hidden')
+    for (const l of ['Giờ cao điểm', 'Lượt gọi đông nhất', 'Tổng lượt gọi', 'TB / lượt gọi']) expect(html).toContain(l)
+    expect(html).toContain('18:00')
     expect(html.indexOf('18:00')).toBeLessThan(html.indexOf('04:00'))
-    const widths = [...html.matchAll(/width:\s*([\d.]+)%/g)].map((m) => Number(m[1]))
-    expect(widths).toEqual([100, 25])
+    expect(count(html, 'Cao điểm')).toBe(1) // chỉ ở bảng, đúng một dòng
   })
 
   it('bảng Giờ, Lượt gọi, SL món, Tiền và thẻ mobile', () => {
     const html = renderToStaticMarkup(<SalesHourView rows={HOURS} />)
     for (const head of ['Giờ', 'Lượt gọi', 'SL món', 'Tiền']) expect(html).toContain(`>${head}</th>`)
     expect(html).toContain('hidden md:table')
-    expect(html).toContain('md:hidden')
     expect(html).toContain('840.000đ')
   })
 
-  it('tất cả 0đ: không chia cho 0', () => {
-    const html = renderToStaticMarkup(<HourBars rows={[{ hour: 9, ordersCount: 1, itemsQty: 1, amount: 0 }]} />)
-    expect(html).toContain('width:0%')
+  it('0 lượt gọi: ẩn ô Lượt gọi đông nhất và TB / lượt gọi; không NaN', () => {
+    const html = renderToStaticMarkup(<SalesHourView rows={[{ hour: 9, ordersCount: 0, itemsQty: 0, amount: 50000 }]} />)
+    expect(html).not.toContain('Lượt gọi đông nhất')
+    expect(html).not.toContain('TB / lượt gọi')
+    expect(html).toContain('Giờ cao điểm')
+    expect(html).not.toContain('NaN')
+  })
+
+  it('mọi số 0: báo rỗng, không chia cho 0', () => {
+    const html = renderToStaticMarkup(<SalesHourView rows={[{ hour: 9, ordersCount: 0, itemsQty: 0, amount: 0 }]} />)
+    expect(html).toContain('Chưa có dữ liệu trong kỳ này')
+    expect(html).not.toContain('NaN')
   })
 })
 
@@ -167,6 +200,7 @@ describe('rỗng', () => {
     for (const html of htmls) {
       expect(html).toContain('Chưa có dữ liệu trong kỳ này')
       expect(html).not.toContain('<table')
+      expect(html).not.toContain('NaN')
     }
   })
 })
@@ -180,6 +214,16 @@ describe('tóm tắt', () => {
     expect(html).toContain('md:grid-cols-4')
     expect(html).not.toContain('Chênh lệch')
     expect(html).not.toContain('bàn đang mở')
+  })
+
+  it('delta so với kỳ trước: ↑ 8,2% kèm nhãn; không có kỳ trước thì không chip', () => {
+    const prev = { ...SUMMARY, revenue: Math.round(SUMMARY.revenue / 1.082) }
+    const html = renderToStaticMarkup(<SalesSummaryBlock summary={SUMMARY} prev={prev} compareLabel="so với hôm qua" />)
+    expect(html).toContain('↑ 8,2%')
+    expect(html).toContain('so với hôm qua')
+    const none = renderToStaticMarkup(<SalesSummaryBlock summary={SUMMARY} prev={null} compareLabel="so với hôm qua" />)
+    expect(none).not.toContain('↑')
+    expect(none).not.toContain('so với hôm qua')
   })
 
   it('có bàn mở và chênh lệch: dòng nhỏ + banner cảnh báo', () => {

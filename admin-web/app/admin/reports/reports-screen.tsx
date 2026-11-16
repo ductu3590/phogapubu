@@ -1,7 +1,7 @@
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { isBackOfficeRole } from '@/lib/auth/roles'
 import { loadReport, resolveReportRange, type ReportData } from '@/lib/actions/reports'
-import { compareLabel, previousRange, type Compare } from '@/lib/reports/compare'
+import { compareLabel, prevOf, previousRange, type Compare } from '@/lib/reports/compare'
 import { periodLabel } from '@/lib/reports/period'
 import { parseReportTab, reportTabsFor } from '@/lib/reports/tabs'
 import { shownPeriod } from '@/lib/reports/finance'
@@ -80,15 +80,21 @@ export default async function ReportsScreen({ searchParams, inModal }: {
   )
 }
 
-// compare chưa truyền xuống view: từng view nhận prop này ở các task sau (prevOf(compare, tab)).
-function ReportBody({ report, compare: _compare }: { report: ReportData; compare: Compare }) {
+// compare đã truyền cho 3 tab bán hàng; các tab còn lại nhận ở task sau (prevOf(compare, tab)).
+function ReportBody({ report, compare }: { report: ReportData; compare: Compare }) {
   switch (report.tab) {
-    case 'item':
-      return <><SalesSummaryBlock summary={report.summary} /><SalesItemView rows={report.rows} itemsAmount={report.summary.itemsAmount} /></>
-    case 'category':
-      return <><SalesSummaryBlock summary={report.summary} /><SalesCategoryView rows={report.rows} itemsAmount={report.summary.itemsAmount} /></>
-    case 'hour':
-      return <><SalesSummaryBlock summary={report.summary} /><SalesHourView rows={report.rows} /></>
+    case 'item': {
+      const prev = prevOf(compare, 'item')
+      return <><SalesSummaryBlock summary={report.summary} prev={prev?.summary} compareLabel={compare.label} /><SalesItemView rows={report.rows} itemsAmount={report.summary.itemsAmount} qtySold={report.summary.qtySold} /></>
+    }
+    case 'category': {
+      const prev = prevOf(compare, 'category')
+      return <><SalesSummaryBlock summary={report.summary} prev={prev?.summary} compareLabel={compare.label} /><SalesCategoryView rows={report.rows} itemsAmount={report.summary.itemsAmount} /></>
+    }
+    case 'hour': {
+      const prev = prevOf(compare, 'hour')
+      return <><SalesSummaryBlock summary={report.summary} prev={prev?.summary} compareLabel={compare.label} /><SalesHourView rows={report.rows} /></>
+    }
     case 'voids':
       return <VoidsView totals={report.totals} rows={report.rows} />
     case 'revenue':

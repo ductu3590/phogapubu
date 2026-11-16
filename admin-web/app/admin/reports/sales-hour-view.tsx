@@ -1,43 +1,66 @@
 'use client'
 
+import { Clock, Flame, Receipt, Wallet, type LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { EmptyState } from '@/components/ui/feedback'
 import { formatVND } from '@/lib/utils'
+import { hourSummary } from '@/lib/reports/insights'
 import type { SalesHourRow } from '@/lib/reports/sales'
-import { EMPTY_TEXT, formatQty, hourLabel } from './report-format'
+import { AreaChart } from './charts/area-chart'
+import { ShareBar } from './charts/share-bar'
+import { SectionCard } from './section-card'
+import { EMPTY_TEXT, formatQty, hourLabel, shortMoney } from './report-format'
 
 // Tab "Theo giờ": giờ món VÀO BẾP, đã xếp theo ngày kinh doanh ở server (quán 05:00 → 18h đứng trước 04h).
 // Giữ nguyên thứ tự server, không sắp lại theo đồng hồ.
 
-/** Biểu đồ cột ngang bằng CSS: thanh rộng theo tiền / giờ đông nhất. */
-export function HourBars({ rows }: { rows: SalesHourRow[] }) {
-  const max = Math.max(0, ...rows.map((r) => r.amount))
+const ARIA = 'Tiền món và lượt gọi theo giờ'
+
+function StripCell({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
   return (
-    <ul className="space-y-2" aria-label="Tiền món theo giờ">
-      {rows.map((r) => {
-        const pct = max > 0 ? Math.round((r.amount / max) * 1000) / 10 : 0
-        return (
-          <li key={r.hour} className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 text-sm">
-            <span className="tabular text-muted">{hourLabel(r.hour)}</span>
-            <span className="h-3 overflow-hidden rounded-full bg-secondary" aria-hidden>
-              <span className="block h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
-            </span>
-            <span className="min-w-24 text-right font-medium tabular text-foreground">{formatVND(r.amount)}</span>
-          </li>
-        )
-      })}
-    </ul>
+    <div className="flex min-w-0 items-center gap-2.5 px-3.5 py-3">
+      <Icon className="size-5 shrink-0 text-primary" aria-hidden />
+      <div className="min-w-0">
+        <div className="text-xs text-muted">{label}</div>
+        <div className="tabular truncate text-[14.5px] font-bold">{children}</div>
+      </div>
+    </div>
   )
 }
 
 export default function SalesHourView({ rows }: { rows: SalesHourRow[] }) {
-  if (rows.length === 0) return <section className="rounded-xl border border-border bg-surface"><EmptyState>{EMPTY_TEXT}</EmptyState></section>
+  const sum = hourSummary(rows)
+  // Không có dòng nào, hoặc mọi số đều 0 (hourSummary = null) → báo rỗng, khỏi vẽ biểu đồ phẳng.
+  if (rows.length === 0 || !sum) return <section className="rounded-xl border border-border bg-surface"><EmptyState>{EMPTY_TEXT}</EmptyState></section>
+
+  const labels = rows.map((r) => `${r.hour}h`)
+  const series = [
+    { name: 'Tiền món', values: rows.map((r) => r.amount), color: 'var(--chart-1)' },
+    { name: 'Lượt gọi', values: rows.map((r) => r.ordersCount), color: 'var(--chart-3)', axis: 'right' as const },
+  ]
+  const chartProps = { labels, series, formatLeft: shortMoney, formatRight: (n: number) => String(Math.round(n)), ariaLabel: ARIA }
+  // Có tiền mà 0 lượt gọi (dữ liệu lạ): chỉ giữ 2 ô có nghĩa, khỏi hiện "0 lượt" / chia 0.
+  const hasOrders = sum.totalOrders > 0
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-xl border border-border bg-surface p-4 md:p-5">
-        <h2 className="mb-4 text-sm font-semibold text-foreground">Tiền món theo giờ vào bếp</h2>
-        <HourBars rows={rows} />
-      </section>
+    <div className="space-y-4">
+      <SectionCard title="Tiền món & lượt gọi theo giờ" hint="Giờ món vào bếp, xếp theo ngày kinh doanh">
+        <div className="flex gap-4 px-5 pt-2.5 text-[12.5px] text-muted">
+          <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-1)' }} />Tiền món</span>
+          <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-3)' }} />Lượt gọi</span>
+        </div>
+        {/* SVG co theo bề rộng nên chữ nhỏ đi trên điện thoại: hai bản, mobile vẽ khung hẹp hơn để chữ đọc được. */}
+        <div className="hidden md:block px-3 pt-1"><AreaChart {...chartProps} /></div>
+        <div className="px-1 pt-1 md:hidden"><AreaChart {...chartProps} width={420} height={280} /></div>
+        <div
+          className={`mx-5 mb-5 mt-1 grid overflow-hidden rounded-xl border border-orange-100 bg-orange-50/40 ${hasOrders ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1'}`}
+        >
+          <StripCell icon={Flame} label="Giờ cao điểm">{hourLabel(sum.peakHour)} · {shortMoney(sum.peakAmount)}</StripCell>
+          {hasOrders ? <StripCell icon={Receipt} label="Lượt gọi đông nhất">{formatQty(sum.busiestOrders)} lượt · {hourLabel(sum.busiestHour)}</StripCell> : null}
+          <StripCell icon={Clock} label="Tổng lượt gọi">{formatQty(sum.totalOrders)} lượt</StripCell>
+          {hasOrders ? <StripCell icon={Wallet} label="TB / lượt gọi">{formatVND(sum.avgPerOrder)}</StripCell> : null}
+        </div>
+      </SectionCard>
 
       <section className="min-w-0 rounded-xl border border-border bg-surface">
         <table className="hidden md:table w-full text-left text-sm">
@@ -47,15 +70,20 @@ export default function SalesHourView({ rows }: { rows: SalesHourRow[] }) {
               <th className="px-4 py-2.5 text-right">Lượt gọi</th>
               <th className="px-4 py-2.5 text-right">SL món</th>
               <th className="px-4 py-2.5 text-right">Tiền</th>
+              <th className="px-4 py-2.5 text-right"><span className="sr-only">So với giờ đông nhất</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map((r) => (
               <tr key={r.hour}>
-                <td className="px-4 py-3 font-medium tabular text-foreground">{hourLabel(r.hour)}</td>
+                <td className="px-4 py-3 font-medium tabular text-foreground">
+                  {hourLabel(r.hour)}
+                  {r.hour === sum.peakHour ? <span className="ml-2 rounded-md bg-primary-light px-1.5 py-px text-[12px] font-semibold text-primary">Cao điểm</span> : null}
+                </td>
                 <td className="px-4 py-3 text-right tabular">{formatQty(r.ordersCount)}</td>
                 <td className="px-4 py-3 text-right tabular">{formatQty(r.itemsQty)}</td>
                 <td className="px-4 py-3 text-right font-semibold tabular text-foreground">{formatVND(r.amount)}</td>
+                <td className="px-4 py-3"><ShareBar ratio={sum.peakAmount > 0 ? r.amount / sum.peakAmount : 0} className="ml-auto w-40" /></td>
               </tr>
             ))}
           </tbody>
