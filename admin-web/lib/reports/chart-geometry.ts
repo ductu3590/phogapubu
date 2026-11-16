@@ -9,6 +9,11 @@ export function niceMax(value: number): number {
   return Math.ceil(value / step / 2) * step * 2
 }
 
+/** Mốc trục cho SỐ ĐẾM (lượt gọi, số bill): bội của 4 và ≥ 4 để cả 5 mốc 0,¼,½,¾,1 đều là số nguyên. */
+export function niceCountMax(value: number): number {
+  return Math.max(4, Math.ceil(niceMax(value) / 4) * 4)
+}
+
 const f1 = (n: number) => n.toFixed(1)
 
 /** Đường cong mượt Catmull-Rom → Bézier bậc 3 qua các điểm. */

@@ -5,12 +5,12 @@ export function SectionCard({ title, hint, action, className = '', children }: {
 }) {
   return (
     <section className={`min-w-0 rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgb(15_23_42/0.04)] ${className}`}>
-      <div className="flex items-center justify-between gap-3 px-5 pt-4">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 pt-4">
+        <div className="min-w-0">
           <h2 className="text-[15px] font-semibold">{title}</h2>
           {hint ? <div className="text-[12.5px] text-muted">{hint}</div> : null}
         </div>
-        {action}
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
       {children}
     </section>

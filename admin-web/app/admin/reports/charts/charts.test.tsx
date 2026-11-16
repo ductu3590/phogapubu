@@ -129,3 +129,28 @@ describe('KpiCard', () => {
     expect(render({ delta: 0 })).toContain('— 0%')
   })
 })
+
+describe('AreaChart trục đếm và nhãn x (rà soát cuối)', () => {
+  it('số đếm nhỏ: 5 mốc trục phải là số nguyên phân biệt', () => {
+    for (const v of [1, 2, 5, 9, 18]) {
+      const html = renderToStaticMarkup(
+        <AreaChart labels={['a', 'b']} formatLeft={fmt} formatRight={(n) => `${n}c`}
+          series={[{ name: 'x', values: [1, 2], color: '#111' }, { name: 'y', values: [v, v], color: '#222', axis: 'right' }]} />,
+      )
+      const ticks = [...html.matchAll(/fill="var\(--muted\)">([\d.]+)c<\/text>/g)].map((m) => m[1])
+      expect(ticks.length, String(v)).toBe(5)
+      expect(new Set(ticks).size, `${v}: ${ticks}`).toBe(5)
+      for (const t of ticks) expect(Number.isInteger(Number(t)), `${v}: ${ticks}`).toBe(true)
+    }
+  })
+  it('30 điểm trên khung 420: không hai nhãn x gần nhau hơn `every` bước', () => {
+    const labels = Array.from({ length: 30 }, (_, i) => `N${i}`)
+    const html = renderToStaticMarkup(
+      <AreaChart labels={labels} formatLeft={fmt} width={420} height={280} series={[{ name: 'x', values: labels.map((_, i) => i), color: '#111' }]} />,
+    )
+    const idx = [...html.matchAll(/>N(\d+)<\/text>/g)].map((m) => Number(m[1]))
+    const every = Math.ceil(30 / 12)
+    expect(idx[idx.length - 1]).toBe(29)
+    for (let i = 1; i < idx.length; i++) expect(idx[i] - idx[i - 1], idx.join(',')).toBeGreaterThanOrEqual(every)
+  })
+})

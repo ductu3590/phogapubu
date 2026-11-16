@@ -3,7 +3,7 @@ import rpc125 from './__fixtures__/rpc-125.json'
 import { parseFinanceReport } from './finance'
 import type { CashFlowOutLine, ReceivableRow, RevenueRow } from './finance'
 import {
-  categoryShares, collectedRate, debtAgeDays, hourSummary, itemCategoryShares, marginPercent, opexShares, outflowBars,
+  categoryShares, collectedRate, debtAgeDays, fillHourGaps, hourSummary, itemCategoryShares, marginPercent, opexShares, outflowBars,
   paymentMix, revenueExtremes, topDebtors, topItems, topWithRest, voidReasons, voidTopItems, waterfallSteps,
 } from './insights'
 import type { SalesCategoryRow, SalesHourRow, SalesItemRow, VoidRow } from './sales'
@@ -178,5 +178,22 @@ describe('lãi lỗ và công nợ', () => {
   it('debtAgeDays', () => {
     expect(debtAgeDays('2026-10-09', '2026-11-16')).toBe(38)
     expect(debtAgeDays(null, '2026-11-16')).toBeNull()
+  })
+})
+
+describe('fillHourGaps', () => {
+  const r = (hour: number, amount = 1000, ordersCount = 1): SalesHourRow => ({ hour, ordersCount, itemsQty: ordersCount, amount })
+  it('lấp giờ trống giữa hai dòng bằng dòng 0', () => {
+    const out = fillHourGaps([r(11), r(14)])
+    expect(out.map((x) => x.hour)).toEqual([11, 12, 13, 14])
+    expect(out[1]).toEqual({ hour: 12, ordersCount: 0, itemsQty: 0, amount: 0 })
+    expect(out[0].amount).toBe(1000)
+  })
+  it('qua nửa đêm theo ngày kinh doanh: 18..23,0,1', () => {
+    expect(fillHourGaps([r(18), r(21), r(0), r(1)]).map((x) => x.hour)).toEqual([18, 19, 20, 21, 22, 23, 0, 1])
+  })
+  it('một dòng hoặc rỗng: giữ nguyên', () => {
+    expect(fillHourGaps([r(9)])).toEqual([r(9)])
+    expect(fillHourGaps([])).toEqual([])
   })
 })

@@ -41,7 +41,7 @@ export default async function ReportsScreen({ searchParams, inModal }: {
   const prev = previousRange(range.preset, range.from, range.to)
   const [res, prevRes] = await Promise.all([
     loadReport(tab, range.from, range.to, grain),
-    needPrev ? loadReport(tab, prev.from, prev.to, grain) : Promise.resolve(null),
+    needPrev ? loadReport(tab, prev.from, prev.to, grain).catch(() => null) : Promise.resolve(null),
   ])
   const compare: Compare = { prev: prevRes?.ok ? prevRes.report : null, label: compareLabel(range.preset) }
   const periodText = periodLabel(shownPeriod(res.ok ? res.report : { tab }, range))

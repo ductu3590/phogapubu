@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { donutArcs, niceMax, smoothPath } from './chart-geometry'
+import { donutArcs, niceCountMax, niceMax, smoothPath } from './chart-geometry'
 import { shortMoney } from '@/app/admin/reports/report-format'
 
 describe('niceMax', () => {
@@ -53,5 +53,15 @@ describe('shortMoney', () => {
     expect(shortMoney(56_000)).toBe('56k')
     expect(shortMoney(0)).toBe('0')
     expect(shortMoney(-1_500_000)).toBe('-1,5tr')
+  })
+})
+
+describe('niceCountMax', () => {
+  it('luôn là bội của 4 và >= 4 để 5 mốc đều là số nguyên', () => {
+    for (const v of [0, 1, 2, 3, 5, 9, 18, 47, 130]) {
+      const m = niceCountMax(v)
+      expect(m % 4, String(v)).toBe(0)
+      expect(m).toBeGreaterThanOrEqual(Math.max(4, v))
+    }
   })
 })

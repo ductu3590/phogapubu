@@ -63,6 +63,25 @@ export function hourSummary(rows: SalesHourRow[]): {
   }
 }
 
+/**
+ * Chỉ dùng cho BIỂU ĐỒ: server chỉ trả giờ có hoạt động, nên giờ trống giữa hai dòng được lấp bằng dòng 0
+ * (không thì đường cong nối thẳng 11h với 18h). Đi theo thứ tự ngày kinh doanh của server: từ giờ của dòng đầu
+ * bước (h+1)%24 tới giờ của dòng cuối, nên 18,19,…,23,0,1 vẫn đúng. Bảng giữ nguyên dòng gốc.
+ */
+export function fillHourGaps(rows: SalesHourRow[]): SalesHourRow[] {
+  if (rows.length < 2) return rows
+  const byHour = new Map(rows.map((r) => [r.hour, r]))
+  const last = rows[rows.length - 1].hour
+  const out: SalesHourRow[] = []
+  let h = rows[0].hour
+  for (let guard = 0; guard < 24; guard++) {
+    out.push(byHour.get(h) ?? { hour: h, ordersCount: 0, itemsQty: 0, amount: 0 })
+    if (h === last) break
+    h = (h + 1) % 24
+  }
+  return out
+}
+
 export function voidTopItems(rows: VoidRow[], n = 4): { itemName: string; quantity: number }[] {
   const map = new Map<string, number>()
   for (const r of rows) map.set(r.itemName, (map.get(r.itemName) ?? 0) + r.quantity)

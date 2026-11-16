@@ -1,5 +1,5 @@
 import { ChevronDown, Percent, PiggyBank, ReceiptText, TrendingUp } from 'lucide-react'
-import { Banner } from '@/components/ui/feedback'
+import { Banner, EmptyState } from '@/components/ui/feedback'
 import { cn, formatVND } from '@/lib/utils'
 import { deltaPercent } from '@/lib/reports/compare'
 import type { PnlCategoryRow, ProfitLossReport } from '@/lib/reports/finance'
@@ -10,7 +10,7 @@ import { Donut } from './charts/donut'
 import { Waterfall } from './charts/waterfall'
 import { KpiCard } from './kpi-card'
 import { SectionCard } from './section-card'
-import { VOID_LATER_NOTE, formatPercent, shortMoney } from './report-format'
+import { EMPTY_TEXT, VOID_LATER_NOTE, formatPercent, shortMoney } from './report-format'
 
 // Tab "Lãi lỗ" (report_profit_loss, mig 125), bảng dọc theo spec §4.3:
 // Doanh thu thuần − Giá vốn = Lãi gộp − Chi phí hoạt động − Hàng huỷ + Thu nhập khác = Lãi ròng.
@@ -71,7 +71,9 @@ export default function ProfitLossView({ report: p, prev, compareLabel }: {
   const netMargin = marginPercent(p.netProfit, p.revenue)
   // Hạng mục ≤ 0 (hoàn chi) không vẽ được lát donut → bỏ trước khi gom.
   const opex = opexShares({ ...p, operatingExpenses: { ...p.operatingExpenses, rows: p.operatingExpenses.rows.filter((r) => r.amount > 0) } })
-  const opexTotal = opex.reduce((a, s) => a + s.value, 0)
+  const opexTotal = opex.reduce((a, s) => a + s.value, 0) // chỉ để tính % lát
+  const steps = waterfallSteps(p)
+  const waterfallEmpty = steps.every((s) => s.value === 0)
   return (
     <div className="space-y-4">
       {p.warnings.ingredientUncounted ? (
@@ -103,11 +105,15 @@ export default function ProfitLossView({ report: p, prev, compareLabel }: {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <SectionCard title="Từ doanh thu đến lãi ròng" hint="Mỗi bước trừ / cộng dần">
           {/* Vẽ một lần ở bề rộng vừa phải; điện thoại cuộn ngang trong khung để chữ vẫn đọc được (trang không cuộn ngang). */}
-          <div className="overflow-x-auto px-3 pb-4 pt-2">
-            <div className="min-w-[560px]">
-              <Waterfall steps={waterfallSteps(p)} formatValue={shortMoney} ariaLabel="Từ doanh thu đến lãi ròng" />
+          {waterfallEmpty ? (
+            <EmptyState>{EMPTY_TEXT}</EmptyState>
+          ) : (
+            <div className="overflow-x-auto px-3 pb-4 pt-2">
+              <div className="min-w-[560px]">
+                <Waterfall steps={steps} formatValue={shortMoney} ariaLabel="Từ doanh thu đến lãi ròng" />
+              </div>
             </div>
-          </div>
+          )}
         </SectionCard>
 
         <section className="min-w-0 divide-y divide-border self-start overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
@@ -131,7 +137,7 @@ export default function ProfitLossView({ report: p, prev, compareLabel }: {
             <div className="flex flex-col items-center gap-5 px-5 pb-5 pt-4 sm:flex-row">
               <Donut
                 slices={opex.map((s, i) => ({ label: s.label, value: s.value, color: CHART_COLORS[i] }))}
-                center={shortMoney(opexTotal)}
+                center={shortMoney(p.operatingExpenses.total)}
                 caption="CHI PHÍ"
               />
               <ChartLegend

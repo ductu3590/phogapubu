@@ -537,3 +537,83 @@ describe('tab tài chính', async () => {
     expect(d31).toContain('31 ngày</span>')
   })
 })
+
+// ================================================================================================================
+// Rà soát cuối nhánh báo cáo.
+// ================================================================================================================
+describe('rà soát cuối', async () => {
+  const rpc125 = (await import('@/lib/reports/__fixtures__/rpc-125.json')).default
+  const { parseFinanceReport } = await import('@/lib/reports/finance')
+  const { default: RevenueView } = await import('./revenue-view')
+  const { default: ProfitLossView } = await import('./profit-loss-view')
+  const { SectionCard } = await import('./section-card')
+  const as = <T extends string>(tab: T, raw: unknown) => {
+    const r = parseFinanceReport(tab as never, raw)
+    if (r.tab !== tab) throw new Error('sai tab')
+    return r as Extract<typeof r, { tab: T }>
+  }
+
+  it('Theo giờ: biểu đồ lấp giờ trống bằng 0, bảng giữ nguyên dòng server', () => {
+    const rows = [
+      { hour: 11, ordersCount: 2, itemsQty: 3, amount: 100000 },
+      { hour: 18, ordersCount: 4, itemsQty: 5, amount: 400000 },
+    ]
+    const html = renderToStaticMarkup(<SalesHourView rows={rows} />)
+    for (const h of [12, 13, 14, 15, 16, 17]) expect(html).toContain(`>${h}h<`) // giờ trống được lấp trong biểu đồ
+    expect(count(html, '<tr>')).toBe(1 + 2) // thead + 2 dòng gốc
+  })
+
+  it('Lãi lỗ: kỳ toàn 0 → báo rỗng thay vì vẽ thác nước', () => {
+    const r = as('pnl', rpc125.report_profit_loss)
+    const zero = {
+      ...r, revenue: 0, cogsGoods: 0, cogsIngredient: 0, cogsTotal: 0, grossProfit: 0, writeoffCost: 0, netProfit: 0,
+      operatingExpenses: { total: 0, rows: [] }, otherIncome: { total: 0, rows: [] },
+    }
+    const html = renderToStaticMarkup(<ProfitLossView report={zero} />)
+    expect(html).toContain('Chưa có dữ liệu trong kỳ này')
+    expect(html).not.toContain('aria-label="Từ doanh thu đến lãi ròng"')
+    expect(renderToStaticMarkup(<ProfitLossView report={r} />)).toContain('aria-label="Từ doanh thu đến lãi ròng"')
+  })
+
+  it('Lãi lỗ: tâm donut chi phí = tổng chi phí của KPI, kể cả khi có hạng mục hoàn chi âm', () => {
+    const r = as('pnl', rpc125.report_profit_loss)
+    const p = {
+      ...r,
+      operatingExpenses: { total: 1500000, rows: [
+        { categoryId: 'a', name: 'Điện nước', amount: 1000000 }, { categoryId: 'b', name: 'Lương', amount: 700000 },
+        { categoryId: 'c', name: 'Hoàn chi', amount: -200000 },
+      ] },
+    }
+    const html = renderToStaticMarkup(<ProfitLossView report={p} />)
+    expect(html).toContain('aria-label="1,5tr CHI PHÍ"') // tổng KPI, không phải 1,7tr (tổng các hạng mục dương)
+    expect(html).not.toContain('aria-label="1,7tr CHI PHÍ"')
+  })
+
+  it('Doanh thu: Cơ cấu thanh toán ghi "Theo cách khách trả" (có cả Ghi nợ)', () => {
+    const html = renderToStaticMarkup(<RevenueView report={as('revenue', rpc125.report_revenue_series_day)} />)
+    expect(html).toContain('Theo cách khách trả')
+    expect(html).not.toContain('Theo tiền thật đã nhận')
+  })
+
+  it('Doanh thu: chỉ 1 điểm → ẩn biểu đồ vùng và dải cao/thấp nhất, vẫn còn KPI, donut, bảng', () => {
+    const r = as('revenue', rpc125.report_revenue_series_day)
+    const html = renderToStaticMarkup(<RevenueView report={{ ...r, rows: r.rows.slice(0, 1) }} />)
+    expect(html).not.toContain('aria-label="Doanh thu và số bill theo thời gian"')
+    expect(html).not.toContain('Ngày cao nhất')
+    expect(html).not.toContain('Ngày thấp nhất')
+    expect(html).toContain('Cơ cấu thanh toán')
+    expect(html).toContain('>Tổng<')
+    expect(html).toContain('>Doanh thu<')
+  })
+
+  it('SectionCard: tiêu đề + nút xếp hạng wrap được, action không bị co (375px)', () => {
+    const html = renderToStaticMarkup(<SectionCard title="T" action={<button>A</button>}><p>x</p></SectionCard>)
+    expect(html).toContain('flex-wrap')
+    expect(html).toContain('shrink-0')
+  })
+
+  it('Doanh thu: không còn use client (không có state/handler); reports-screen chặn lỗi kỳ trước', () => {
+    expect(readFileSync(join(__dirname, 'revenue-view.tsx'), 'utf8')).not.toContain("'use client'")
+    expect(readFileSync(join(__dirname, 'reports-screen.tsx'), 'utf8')).toContain('.catch(() => null)')
+  })
+})

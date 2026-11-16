@@ -4,7 +4,7 @@ import { Clock, Flame, Receipt, Wallet, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { EmptyState } from '@/components/ui/feedback'
 import { formatVND } from '@/lib/utils'
-import { hourSummary } from '@/lib/reports/insights'
+import { fillHourGaps, hourSummary } from '@/lib/reports/insights'
 import type { SalesHourRow } from '@/lib/reports/sales'
 import { AreaChart } from './charts/area-chart'
 import { ShareBar } from './charts/share-bar'
@@ -33,10 +33,12 @@ export default function SalesHourView({ rows }: { rows: SalesHourRow[] }) {
   // Không có dòng nào, hoặc mọi số đều 0 (hourSummary = null) → báo rỗng, khỏi vẽ biểu đồ phẳng.
   if (rows.length === 0 || !sum) return <section className="rounded-xl border border-border bg-surface"><EmptyState>{EMPTY_TEXT}</EmptyState></section>
 
-  const labels = rows.map((r) => `${r.hour}h`)
+  // Biểu đồ lấp giờ trống bằng 0 (đường không nối 11h với 18h); bảng bên dưới vẫn là các dòng gốc.
+  const chartRows = fillHourGaps(rows)
+  const labels = chartRows.map((r) => `${r.hour}h`)
   const series = [
-    { name: 'Tiền món', values: rows.map((r) => r.amount), color: 'var(--chart-1)' },
-    { name: 'Lượt gọi', values: rows.map((r) => r.ordersCount), color: 'var(--chart-3)', axis: 'right' as const },
+    { name: 'Tiền món', values: chartRows.map((r) => r.amount), color: 'var(--chart-1)' },
+    { name: 'Lượt gọi', values: chartRows.map((r) => r.ordersCount), color: 'var(--chart-3)', axis: 'right' as const },
   ]
   const chartProps = { labels, series, formatLeft: shortMoney, formatRight: (n: number) => String(Math.round(n)), ariaLabel: ARIA }
   // Có tiền mà 0 lượt gọi (dữ liệu lạ): chỉ giữ 2 ô có nghĩa, khỏi hiện "0 lượt" / chia 0.

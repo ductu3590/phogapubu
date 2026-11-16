@@ -1,5 +1,3 @@
-'use client'
-
 import { ArrowDownToLine, ArrowUpToLine, Receipt, Scale, Tag, Users, Wallet, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { EmptyState } from '@/components/ui/feedback'
@@ -55,7 +53,9 @@ export default function RevenueView({ report, prev, compareLabel }: {
   const cmp = isMonth ? undefined : compareLabel
 
   const showBody = rows.length > 0 && hasRevenue
-  const ext = showBody ? revenueExtremes(rows) : null
+  // Chỉ 1 điểm (Hôm nay/Hôm qua): không có đường để vẽ, dải cao nhất/thấp nhất sẽ chỉ lặp cùng một ngày.
+  const multi = rows.length >= 2
+  const ext = showBody && multi ? revenueExtremes(rows) : null
   const mix = paymentMix(totals)
   const mixTotal = mix.reduce((a, s) => a + s.value, 0)
 
@@ -84,28 +84,30 @@ export default function RevenueView({ report, prev, compareLabel }: {
         <section className="rounded-xl border border-border bg-surface"><EmptyState>{EMPTY_TEXT}</EmptyState></section>
       ) : (
         <>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-            <SectionCard
-              title={`Doanh thu & số bill theo ${unitLower}`}
-              hint={isMonth ? `12 tháng, ${labels[0]} – ${labels[labels.length - 1]}` : undefined}
-            >
-              <div className="flex gap-4 px-5 pt-2.5 text-[12.5px] text-muted">
-                <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-1)' }} />Doanh thu</span>
-                <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-3)' }} />Số bill</span>
-              </div>
-              {/* SVG co theo bề rộng nên chữ nhỏ đi trên điện thoại: hai bản, mobile vẽ khung hẹp hơn để chữ đọc được. */}
-              <div className="hidden md:block px-3 pt-1"><AreaChart {...chartProps} /></div>
-              <div className="px-1 pt-1 md:hidden"><AreaChart {...chartProps} width={420} height={280} /></div>
-              {ext ? (
-                <div className="mx-5 mb-5 mt-1 grid grid-cols-1 overflow-hidden rounded-xl border border-orange-100 bg-orange-50/40 sm:grid-cols-3">
-                  <StripCell icon={ArrowUpToLine} label={`${unit} cao nhất`}>{revenueRowLabel(ext.best, grain)} · {shortMoney(ext.best.revenue)}</StripCell>
-                  <StripCell icon={Scale} label={`TB / ${unitLower}`}>{formatVND(ext.avg)}</StripCell>
-                  <StripCell icon={ArrowDownToLine} label={`${unit} thấp nhất`}>{revenueRowLabel(ext.worst, grain)} · {shortMoney(ext.worst.revenue)}</StripCell>
+          <div className={multi ? 'grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]' : 'grid gap-4'}>
+            {multi ? (
+              <SectionCard
+                title={`Doanh thu & số bill theo ${unitLower}`}
+                hint={isMonth ? `12 tháng, ${labels[0]} – ${labels[labels.length - 1]}` : undefined}
+              >
+                <div className="flex gap-4 px-5 pt-2.5 text-[12.5px] text-muted">
+                      <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-1)' }} />Doanh thu</span>
+                      <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-3)' }} />Số bill</span>
                 </div>
-              ) : null}
-            </SectionCard>
+                {/* SVG co theo bề rộng nên chữ nhỏ đi trên điện thoại: hai bản, mobile vẽ khung hẹp hơn để chữ đọc được. */}
+                <div className="hidden md:block px-3 pt-1"><AreaChart {...chartProps} /></div>
+                <div className="px-1 pt-1 md:hidden"><AreaChart {...chartProps} width={420} height={280} /></div>
+                {ext ? (
+                  <div className="mx-5 mb-5 mt-1 grid grid-cols-1 overflow-hidden rounded-xl border border-orange-100 bg-orange-50/40 sm:grid-cols-3">
+                    <StripCell icon={ArrowUpToLine} label={`${unit} cao nhất`}>{revenueRowLabel(ext.best, grain)} · {shortMoney(ext.best.revenue)}</StripCell>
+                    <StripCell icon={Scale} label={`TB / ${unitLower}`}>{formatVND(ext.avg)}</StripCell>
+                    <StripCell icon={ArrowDownToLine} label={`${unit} thấp nhất`}>{revenueRowLabel(ext.worst, grain)} · {shortMoney(ext.worst.revenue)}</StripCell>
+                  </div>
+                ) : null}
+              </SectionCard>
+            ) : null}
 
-            <SectionCard title="Cơ cấu thanh toán" hint="Theo tiền thật đã nhận trong kỳ">
+            <SectionCard title="Cơ cấu thanh toán" hint="Theo cách khách trả">
               {mix.length === 0 ? (
                 <EmptyState>{EMPTY_TEXT}</EmptyState>
               ) : (

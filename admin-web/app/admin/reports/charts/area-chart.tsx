@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { niceMax, smoothPath } from '@/lib/reports/chart-geometry'
+import { niceCountMax, niceMax, smoothPath } from '@/lib/reports/chart-geometry'
 
 export type AreaSeries = { name: string; values: number[]; color: string; axis?: 'left' | 'right' }
 
@@ -21,7 +21,8 @@ export function AreaChart({
   const n = labels.length
   const x = (i: number) => (n <= 1 ? L + iw / 2 : L + (i * iw) / (n - 1))
   const maxOf = (right: boolean) =>
-    niceMax(Math.max(0, ...series.filter((s) => (s.axis === 'right') === right).flatMap((s) => s.values)))
+    // Trục phải luôn là SỐ ĐẾM → mốc nguyên (bội của 4); trục trái là tiền → mốc "đẹp".
+    (right ? niceCountMax : niceMax)(Math.max(0, ...series.filter((s) => (s.axis === 'right') === right).flatMap((s) => s.values)))
   const maxL = maxOf(false)
   const maxR = formatRight ? maxOf(true) : 1
   const every = Math.max(1, Math.ceil(n / 12))
@@ -56,7 +57,8 @@ export function AreaChart({
         )
       })}
       {labels.map((lb, i) =>
-        i % every === 0 || i === n - 1 ? (
+        // Nhãn cuối luôn giữ; nhãn thường nằm sát nhãn cuối (< every bước) thì bỏ để không đè nhau.
+        i === n - 1 || (i % every === 0 && n - 1 - i >= every) ? (
           <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill="var(--muted)">{lb}</text>
         ) : null,
       )}
