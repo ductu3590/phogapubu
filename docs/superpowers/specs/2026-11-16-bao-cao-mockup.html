@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup Báo cáo MEVO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#c2410c;--primary-hover:#9a3412;--primary-light:#fff7ed;--accent:#f97316;--accent-border:#fed7aa;
+  --bg:#f1f5f9;--surface:#fff;--fg:#0f172a;--muted:#475569;--subtle:#94a3b8;--border:#e2e8f0;--secondary:#f1f5f9;
+  --success:#047857;--success-bg:#ecfdf5;--success-dot:#10b981;--warning:#b45309;--warning-bg:#fffbeb;--warning-dot:#f59e0b;
+  --danger:#b91c1c;--danger-bg:#fef2f2;--danger-dot:#ef4444;--violet:#6d28d9;--violet-bg:#f5f3ff;--sky:#0284c7;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:'Be Vietnam Pro',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+.tab{font-variant-numeric:tabular-nums}
+.wrap{max-width:1280px;margin:0 auto;padding:24px}
+.mock-bar{background:#0f172a;color:#e2e8f0;font-size:12.5px;padding:8px 24px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.mock-bar label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.mock-bar b{color:#fdba74}
+/* header */
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+h1{font-size:24px;font-weight:700;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin-top:4px;font-size:13.5px}
+.sub b{color:var(--fg);font-weight:600}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px;border:1px solid var(--border);background:var(--surface);border-radius:10px;font-weight:500;font-size:13.5px}
+.btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:10px;font-weight:600;font-size:13.5px;border:0;cursor:pointer;font-family:inherit}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 1px 2px rgb(194 65 12/.25),0 4px 12px -4px rgb(194 65 12/.45)}
+.btn-primary:hover{background:var(--primary-hover)}
+.ico{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* toolbar */
+.toolbar{margin-top:20px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;flex-wrap:wrap}
+.seg button{height:34px;padding:0 14px;border:0;background:transparent;border-radius:8px;font:500 13.5px inherit;font-family:inherit;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--primary-light);color:var(--primary);font-weight:600;box-shadow:inset 0 0 0 1px var(--accent-border)}
+.tabs{margin-top:16px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:6px}
+.tabs .grp{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--subtle);padding:0 6px 0 8px}
+.tabs .sep{width:1px;height:24px;background:var(--border);margin:0 6px}
+.tabs button{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 14px;border:0;border-radius:10px;background:transparent;font:500 13.5px inherit;font-family:inherit;color:var(--muted);cursor:pointer}
+.tabs button:hover{background:var(--secondary);color:var(--fg)}
+.tabs button.on{background:var(--primary);color:#fff;font-weight:600;box-shadow:0 4px 10px -4px rgb(194 65 12/.6)}
+/* cards */
+.grid{display:grid;gap:16px;margin-top:16px}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g-main{grid-template-columns:minmax(0,1.65fr) minmax(0,1fr)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 1px 2px rgb(15 23 42/.04);min-width:0;position:relative}
+.card.pad{padding:18px 20px}
+.card-h{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px 0}
+.card-h h2{font-size:15px;font-weight:600;margin:0}
+.card-h .hint{font-size:12.5px;color:var(--muted)}
+.mini-seg{display:inline-flex;background:var(--secondary);border-radius:8px;padding:3px;gap:2px}
+.mini-seg span{padding:4px 10px;border-radius:6px;font-size:12.5px;color:var(--muted);font-weight:500}
+.mini-seg span.on{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgb(15 23 42/.1)}
+/* KPI */
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.kpi-top{display:flex;align-items:center;gap:10px}
+.kpi-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex:none}
+.kpi-ic .ico{width:18px;height:18px}
+.kpi-l{font-size:13px;color:var(--muted);font-weight:500}
+.kpi-row{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;min-height:38px}
+.kpi-v{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.1;white-space:nowrap}
+.kpi-v small{font-size:15px;font-weight:600;color:var(--muted);margin-left:1px}
+.kpi-note{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.delta{display:inline-flex;align-items:center;gap:2px;font-weight:600;font-size:12.5px;padding:1px 6px;border-radius:6px}
+.up{color:var(--success);background:var(--success-bg)}
+.down{color:var(--danger);background:var(--danger-bg)}
+.flat{color:var(--muted);background:var(--secondary)}
+.spark{width:96px;height:38px;flex:none}
+/* tones */
+.t-orange{background:#fff7ed;color:#c2410c}.t-green{background:#ecfdf5;color:#047857}.t-amber{background:#fffbeb;color:#b45309}
+.t-sky{background:#f0f9ff;color:#0369a1}.t-red{background:#fef2f2;color:#b91c1c}.t-violet{background:#f5f3ff;color:#6d28d9}.t-slate{background:#f1f5f9;color:#475569}
+/* table */
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:10px 20px;background:#f8fafc;border-bottom:1px solid var(--border)}
+td{padding:12px 20px;border-bottom:1px solid #f1f5f9}
+tbody tr:hover td{background:#fffaf5}
+tfoot td{font-weight:700;background:#f8fafc;border-top:1px solid var(--border);border-bottom:0}
+.r{text-align:right}
+.mut{color:var(--muted)}
+.strong{font-weight:600}
+.bar-cell{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+.pbar{width:90px;height:6px;border-radius:9px;background:#f1f5f9;overflow:hidden;flex:none}
+.pbar i{display:block;height:100%;border-radius:9px;background:var(--accent)}
+.tbl-tools{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 20px;flex-wrap:wrap}
+.select{height:36px;border:1px solid var(--border);border-radius:9px;padding:0 12px;font:inherit;font-size:13px;background:#fff;color:var(--fg)}
+/* rank list */
+.rank{list-style:none;margin:0;padding:8px 20px 16px}
+.rank li{display:grid;grid-template-columns:28px 40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px dashed #eef2f6}
+.rank li:last-child{border-bottom:0}
+.rk{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
+.av{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-weight:700;font-size:15px}
+.rank .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank .sm{font-size:12.5px;color:var(--muted)}
+/* legend */
+.legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;flex:1;min-width:0}
+.legend li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:start}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:4px}
+.legend .nm{font-weight:600;font-size:13.5px}
+.legend .sm{font-size:12px;color:var(--muted)}
+.legend .pc{font-weight:700}
+/* insight */
+.insight{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:12px;margin:12px 20px 0;overflow:hidden}
+.insight div{padding:12px 14px}
+.insight div:nth-child(odd){border-right:1px solid var(--border)}
+.insight div:nth-child(-n+2){border-bottom:1px solid var(--border)}
+.insight .l{font-size:12px;color:var(--muted)}
+.insight .v{font-weight:700;font-size:15px;margin-top:4px}
+.callout{margin:12px 20px 18px;padding:12px 14px;border-radius:12px;background:var(--primary-light);border:1px solid var(--accent-border);display:flex;gap:12px;align-items:center;font-size:13px}
+.callout b{color:var(--primary)}
+.callout .ci{width:34px;height:34px;border-radius:10px;background:#fff;display:grid;place-items:center;color:var(--primary);flex:none;border:1px solid var(--accent-border)}
+.strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin:4px 20px 18px;background:#fffaf5;border:1px solid #ffedd5;border-radius:12px}
+.strip>div{padding:12px 14px;display:flex;gap:10px;align-items:center;min-width:0}
+.strip>div+div{border-left:1px solid #ffedd5}
+.strip>div>div{min-width:0}
+.strip .l{font-size:12px;color:var(--muted)}
+.strip .v{font-weight:700;font-size:14.5px}
+.strip .ico{color:var(--primary);width:20px;height:20px}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px}
+.foot-note{font-size:12.5px;color:var(--muted);margin-top:14px}
+/* pnl */
+.pl-row{display:flex;justify-content:space-between;gap:12px;padding:13px 20px;border-bottom:1px solid #f1f5f9;align-items:baseline}
+.pl-row.total{background:#f8fafc;font-weight:700}
+.pl-row.net{background:var(--success-bg);color:var(--success);font-weight:700;font-size:15px;border-bottom:0;border-radius:0 0 16px 16px}
+.pl-row .s{display:inline-block;width:16px;color:var(--subtle)}
+.pl-sub{padding:0 20px 10px 56px;margin-top:-6px;font-size:12.5px;color:var(--muted);border-bottom:1px solid #f1f5f9}
+.pl-sub div{display:flex;justify-content:space-between;padding:2px 0}
+/* new-marker */
+body.show-new .new{outline:2px dashed #f97316;outline-offset:3px}
+body.show-new .new::after{content:'MỚI';position:absolute;top:-10px;right:12px;background:#f97316;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;letter-spacing:.05em;z-index:2}
+body.show-new .new-inline{outline:2px dashed #f97316;outline-offset:2px;border-radius:6px}
+.hide{display:none!important}
+@media (max-width:1024px){.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.g-main{grid-template-columns:1fr}.strip{grid-template-columns:repeat(2,minmax(0,1fr))}.strip>div:nth-child(3){border-left:0}.strip>div:nth-child(-n+2){border-bottom:1px solid #ffedd5}}
+@media (max-width:640px){.wrap{padding:16px}.g3,.g2{grid-template-columns:1fr}.kpi-v{font-size:21px}.spark{width:70px}.hide-sm{display:none}th,td{padding:10px 12px}.tabs .grp,.tabs .sep{display:none}}
+</style>
+</head>
+<body>
+<div class="mock-bar">
+  <span><b>MOCKUP</b> · dữ liệu mẫu, không phải số thật</span>
+  <label><input type="checkbox" id="toggleRole"> Xem như <b>thu ngân</b> (ẩn 4 tab tài chính)</label>
+</div>
+
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>Báo cáo</h1>
+      <div class="sub" id="sub"></div>
+    </div>
+    <div class="actions">
+      <span class="chip"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span id="dateChip" class="tab">16/11/2026</span></span>
+      <button class="btn btn-primary"><svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Xuất Excel</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="seg" id="periods"></div>
+    <div id="grainBox"></div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div id="view"></div>
+</div>
+
+<script>
+// ---------- tiện ích ----------
+const vnd = n => Math.round(n).toLocaleString('vi-VN') + 'đ'
+const num = n => n.toLocaleString('vi-VN')
+const pct = n => n.toLocaleString('vi-VN',{minimumFractionDigits:1,maximumFractionDigits:1}) + '%'
+const short = n => n >= 1e6 ? (n/1e6).toLocaleString('vi-VN',{maximumFractionDigits:1})+'tr' : n >= 1e3 ? Math.round(n/1e3)+'k' : String(n)
+const I = {
+  utensils:'<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
+  layers:'<path d="m12 2 10 5-10 5L2 7l10-5Z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  trend:'<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
+  wallet:'<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+  scale:'<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1ZM2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1ZM7 21h10M12 3v18M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  coins:'<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/>',
+  receipt:'<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 17.5v-11"/>',
+  tag:'<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42Z"/><circle cx="7.5" cy="7.5" r=".5"/>',
+  box:'<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>',
+  gift:'<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C9 3 12 8 12 8s3-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
+  minus:'<path d="M3 12h18M3 6h18M3 18h12"/>',
+  crown:'<path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>',
+  bulb:'<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/>',
+  flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  bank:'<path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l8 5H4l8-5Z"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',
+}
+const ic = (name, cls='') => `<svg class="ico ${cls}" viewBox="0 0 24 24">${I[name]}</svg>`
+const delta = (v, inverse=false) => {
+  if (v === 0) return `<span class="delta flat">— 0%</span>`
+  const good = inverse ? v < 0 : v > 0
+  return `<span class="delta ${good?'up':'down'}">${v>0?'↑':'↓'} ${pct(Math.abs(v))}</span>`
+}
+function smooth(p){
+  let d = `M${p[0][0]},${p[0][1]}`
+  for (let i=0;i<p.length-1;i++){
+    const p0=p[i-1]||p[i], p1=p[i], p2=p[i+1], p3=p[i+2]||p2
+    const c1=[p1[0]+(p2[0]-p0[0])/6, p1[1]+(p2[1]-p0[1])/6], c2=[p2[0]-(p3[0]-p1[0])/6, p2[1]-(p3[1]-p1[1])/6]
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`
+  }
+  return d
+}
+let gid = 0
+function spark(values, color){
+  const w=96,h=38,max=Math.max(...values),min=Math.min(...values)
+  const pts = values.map((v,i)=>[2+i*(w-4)/(values.length-1), h-4-((v-min)/((max-min)||1))*(h-10)])
+  const id='sg'+(gid++)
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".28"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+  <path d="${smooth(pts)} L${pts.at(-1)[0]},${h} L${pts[0][0]},${h} Z" fill="url(#${id})"/><path d="${smooth(pts)}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/></svg>`
+}
+function kpi({icon,tone,label,value,unit='',d=null,inverse=false,note='',sparkVals=null,color='#f97316',isNew=false}){
+  return `<div class="card kpi">
+    <div class="kpi-top"><span class="kpi-ic ${tone}">${ic(icon)}</span><span class="kpi-l">${label}</span></div>
+    <div class="kpi-v tab">${value}${unit?`<small>${unit}</small>`:''}</div>
+    <div class="kpi-note">${d!==null?`<span>${delta(d,inverse)} <span>so với kỳ trước</span></span>`:''}${note?`<span>${note}</span>`:''}</div>
+  </div>`
+}
+// Biểu đồ vùng: 1–2 đường, trục trái (tiền) + trục phải (số lượng) tuỳ chọn, đánh dấu điểm cao nhất.
+function areaChart({labels, series, h=300, w=1040, peakOf=0, fmtL=short, fmtR=null}){
+  const W=w, H=h, L=48, R=fmtR?40:16, T=26, B=30
+  const iw=W-L-R, ih=H-T-B, n=labels.length
+  const x = i => L + (n===1?iw/2:i*iw/(n-1))
+  const axisMax = vals => { const m=Math.max(...vals); const step=Math.pow(10,Math.floor(Math.log10(m||1))); return Math.ceil(m/step/2)*step*2 || 1 }
+  const maxL = axisMax(series.filter(s=>s.axis!=='right').flatMap(s=>s.values))
+  const maxR = fmtR ? axisMax(series.filter(s=>s.axis==='right').flatMap(s=>s.values)) : 1
+  let g=''
+  for (let k=0;k<=4;k++){
+    const yy=T+ih-k*ih/4
+    g+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="#e2e8f0" stroke-dasharray="${k?'3 4':''}"/>`
+    g+=`<text x="${L-8}" y="${yy+4}" text-anchor="end" font-size="11" fill="#64748b">${fmtL(maxL*k/4)}</text>`
+    if (fmtR) g+=`<text x="${W-R+8}" y="${yy+4}" font-size="11" fill="#64748b">${fmtR(maxR*k/4)}</text>`
+  }
+  const every = Math.ceil(n/12)
+  labels.forEach((lb,i)=>{ if(i%every===0||i===n-1) g+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="#64748b">${lb}</text>` })
+  let paths=''
+  series.forEach(s=>{
+    const mx = s.axis==='right'?maxR:maxL
+    const pts = s.values.map((v,i)=>[x(i), T+ih-(v/mx)*ih])
+    s._pts = pts
+    const id='ag'+(gid++)
+    paths+=`<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.color}" stop-opacity="${s.fill??.22}"/><stop offset="1" stop-color="${s.color}" stop-opacity="0"/></linearGradient></defs>
+    <path d="${smooth(pts)} L${pts.at(-1)[0]},${T+ih} L${pts[0][0]},${T+ih} Z" fill="url(#${id})"/>
+    <path d="${smooth(pts)}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round"/>`
+  })
+  // điểm cao nhất của series đầu
+  const s0=series[peakOf], pi=s0.values.indexOf(Math.max(...s0.values)), [px,py]=s0._pts[pi]
+  const topY = Math.min(...series.map(s=>s._pts[pi][1]))
+  let peak=`<line x1="${px}" x2="${px}" y1="${topY}" y2="${T+ih}" stroke="#94a3b8" stroke-dasharray="3 3"/>
+    <circle cx="${px}" cy="${py}" r="5" fill="#fff" stroke="${s0.color}" stroke-width="2.5"/>
+    <rect x="${px-34}" y="${topY-32}" width="68" height="22" rx="6" fill="${s0.color}"/>
+    <text x="${px}" y="${topY-17}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff">${short(s0.values[pi])}</text>`
+  series.slice(1).forEach(s=>{ const [qx,qy]=s._pts[pi]; peak+=`<circle cx="${qx}" cy="${qy}" r="4.5" fill="#fff" stroke="${s.color}" stroke-width="2.5"/>
+    <rect x="${qx+10}" y="${qy-10}" width="32" height="20" rx="6" fill="${s.color}"/><text x="${qx+26}" y="${qy+4}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${s.values[pi]}</text>` })
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;font-family:inherit">${g}${paths}${peak}</svg>`
+}
+function donut(segs, center, sub, size=190){
+  const r=70, c=2*Math.PI*r, total=segs.reduce((a,s)=>a+s.v,0)
+  let off=0, arcs=''
+  segs.forEach(s=>{ const len=s.v/total*c; arcs+=`<circle cx="95" cy="95" r="${r}" fill="none" stroke="${s.color}" stroke-width="26" stroke-dasharray="${Math.max(len-2,0)} ${c}" stroke-dashoffset="${-off}" transform="rotate(-90 95 95)"/>`; off+=len })
+  return `<svg viewBox="0 0 190 190" width="${size}" height="${size}" style="flex:none">${arcs}
+    <text x="95" y="92" text-anchor="middle" font-size="22" font-weight="700" fill="#0f172a" font-family="inherit">${center}</text>
+    <text x="95" y="112" text-anchor="middle" font-size="10.5" fill="#64748b" font-weight="600" letter-spacing=".5" font-family="inherit">${sub}</text></svg>`
+}
+function legend(segs, total, fmt){
+  return `<ul class="legend">${segs.map(s=>`<li><span class="dot" style="background:${s.color}"></span><div><div class="nm">${s.name}</div><div class="sm tab">${fmt(s)}</div></div><span class="pc tab">${pct(s.v/total*100)}</span></li>`).join('')}</ul>`
+}
+const PALETTE = ['#ea580c','#f59e0b','#10b981','#0ea5e9','#8b5cf6','#94a3b8']
+const AVATAR_TONE = {'Lẩu':'t-orange','Bia':'t-amber','Món nhậu':'t-green','Đồ uống':'t-sky','Gọi thêm':'t-violet'}
+const RANK_BG = ['#ea580c','#f59e0b','#10b981','#0ea5e9','#64748b']
+
+// ---------- dữ liệu mẫu (Bia lẩu Bảo Lương, hôm nay) ----------
+const ITEMS = [
+  ['Lẩu riêu cua bắp bò','Lẩu',18,0,5940000],['Lẩu gà lá é','Lẩu',9,0,2970000],['Bia Hà Nội chai','Bia',142,0,2556000],
+  ['Bò nhúng giấm','Món nhậu',11,0,1980000],['Bia Tiger tháp 3L','Bia',6,1,1680000],['Nem chua rán','Món nhậu',22,0,1320000],
+  ['Ngô chiên bơ','Món nhậu',15,1,750000],['Rau nhúng thêm','Gọi thêm',30,0,450000],['Coca lon','Đồ uống',24,0,360000],['Trà đá','Đồ uống',40,4,120000],
+].map(([name,cat,qty,gift,amt])=>({name,cat,qty,gift,amt}))
+const ITEMS_AMT = ITEMS.reduce((a,r)=>a+r.amt,0), DISCOUNT=326000, REVENUE=ITEMS_AMT-DISCOUNT
+const QTY = ITEMS.reduce((a,r)=>a+r.qty,0), GIFT = ITEMS.reduce((a,r)=>a+r.gift,0)
+const CATS = Object.entries(ITEMS.reduce((m,r)=>{(m[r.cat]??={name:r.cat,v:0,qty:0,items:[]}); m[r.cat].v+=r.amt; m[r.cat].qty+=r.qty; m[r.cat].items.push(r); return m},{}))
+  .map(([,c])=>c).sort((a,b)=>b.v-a.v).map((c,i)=>({...c,color:PALETTE[i]}))
+const HOURS = [10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+const HOUR_AMT = [320,1250,1980,860,240,180,420,1350,3120,4260,2680,1020,380,66].map(v=>v*1000)
+const HOUR_ORD = [2,6,9,4,1,1,3,7,14,18,11,5,2,1]
+const VOIDS = [
+  ['21:42','Bàn 7','Lẩu gà lá é',1,330000,'cancelled','Khách đổi món','Hương'],
+  ['20:15','Bàn 12','Bia Tiger tháp 3L',1,0,'gift','Khách quen','Anh Tú'],
+  ['19:58','Bàn 3','Bia Hà Nội chai',4,72000,'quantity','Gọi nhầm số lượng','Hương'],
+  ['19:30','Bàn 9','Nem chua rán',2,120000,'cancelled','Bếp hết hàng','Long'],
+  ['18:47','Bàn 5','Ngô chiên bơ',1,0,'gift','Bù khách chờ lâu','Anh Tú'],
+  ['18:20','Bàn 2','Bò nhúng giấm',1,90000,'cancelled','Khách đổi món','Long'],
+  ['12:05','Bàn 1','Coca lon',1,18000,'quantity',null,'Hương'],
+]
+const DAYS = ['10/11','11/11','12/11','13/11','14/11','15/11','16/11']
+const DAY_REV = [12.4,9.8,14.2,11.6,21.3,24.8,17.8].map(v=>v*1e6)
+const DAY_BILL = [22,18,25,21,38,44,31]
+
+const TABS = [
+  {v:'item',l:'Theo món',i:'utensils',f:false},{v:'category',l:'Theo danh mục',i:'layers',f:false},
+  {v:'hour',l:'Theo giờ',i:'clock',f:false},{v:'voids',l:'Món huỷ',i:'undo',f:false},
+  {v:'revenue',l:'Doanh thu',i:'trend',f:true},{v:'cashflow',l:'Thu chi',i:'wallet',f:true},
+  {v:'pnl',l:'Lãi lỗ',i:'scale',f:true},{v:'debts',l:'Công nợ',i:'users',f:true},
+]
+const NOTE = {
+  voids:'theo ngày kinh doanh, theo giờ thao tác (gồm cả bàn chưa thu)', cashflow:'theo ngày kinh doanh, tiền thật vào và ra két, tài khoản',
+  pnl:'theo ngày kinh doanh, doanh thu đã thu trừ giá vốn và chi phí', debts:'nợ của khách theo ngày kinh doanh: đầu kỳ, phát sinh, đã thu, cuối kỳ',
+}
+const PERIODS = ['Hôm nay','Hôm qua','7 ngày','Tháng này','Tháng trước','Tuỳ chọn']
+let state = { tab:'item', period:0, cashier:false }
+
+// ---------- khối dùng chung ----------
+const salesKpis = () => `<div class="grid g4">
+  ${kpi({icon:'receipt',tone:'t-orange',label:'Doanh thu',value:num(REVENUE),unit:'đ',d:8.2,sparkVals:HOUR_AMT,color:'#ea580c'})}
+  ${kpi({icon:'utensils',tone:'t-amber',label:'Tiền món',value:num(ITEMS_AMT),unit:'đ',d:7.4,sparkVals:HOUR_AMT.map((v,i)=>v*(1+(i%3)*.04)),color:'#f59e0b'})}
+  ${kpi({icon:'tag',tone:'t-violet',label:'Giảm giá',value:num(DISCOUNT),unit:'đ',d:-12.5,inverse:true,note:`${pct(DISCOUNT/ITEMS_AMT*100)} tiền món`})}
+  ${kpi({icon:'box',tone:'t-green',label:'SL bán',value:num(QTY),d:6.1,note:`Tặng ${GIFT}`,sparkVals:HOUR_ORD,color:'#10b981'})}
+</div>`
+const card = (title, body, {hint='', right='', isNew=false, cls=''}={}) =>
+  `<section class="card ${isNew?'new':''} ${cls}"><div class="card-h"><div><h2>${title}</h2>${hint?`<div class="hint">${hint}</div>`:''}</div>${right}</div>${body}</section>`
+const topList = (rows) => `<ol class="rank">${rows.map((r,i)=>`<li><span class="rk" style="background:${RANK_BG[i]}">${i+1}</span>
+  <span class="av ${AVATAR_TONE[r.cat]||'t-slate'}">${r.name[0]}</span>
+  <div style="min-width:0"><div class="nm">${r.name}</div><div class="sm tab">${num(r.qty)} phần · ${r.cat}</div></div>
+  <div class="r"><div class="strong tab">${vnd(r.amt)}</div><div class="sm tab">${pct(r.amt/ITEMS_AMT*100)}</div></div></li>`).join('')}</ol>`
+const catDonutCard = (title='Tỉ trọng theo danh mục', isNew=true) => card(title, `<div style="display:flex;gap:20px;align-items:center;padding:16px 20px 4px;flex-wrap:wrap">
+    ${donut(CATS, num(QTY), 'MÓN BÁN RA', 176)}${legend(CATS, ITEMS_AMT, s=>`${num(s.qty)} món · ${vnd(s.v)}`)}</div>
+    <div class="callout"><span class="ci">${ic('crown')}</span><div><b>${CATS[0].name}</b> mang lại nhiều tiền nhất kỳ này — ${pct(CATS[0].v/ITEMS_AMT*100)} tiền món.</div></div>`,
+  {isNew, right:`<span class="hint">Theo tiền món</span>`})
+
+// ---------- từng tab ----------
+const VIEWS = {
+item(){
+  const top=[...ITEMS].sort((a,b)=>b.amt-a.amt)
+  return salesKpis() + `<div class="grid g-main">
+    ${card('Món bán chạy', topList(top.slice(0,5)), {hint:'5 món nhiều tiền nhất trong kỳ', right:`<div class="mini-seg"><span class="on">Theo tiền</span><span>Theo SL</span></div>`, isNew:true})}
+    ${catDonutCard()}
+  </div>
+  <section class="card" style="margin-top:16px">
+    <div class="tbl-tools"><h2 style="margin:0;font-size:15px">Tất cả món <span class="mut" style="font-weight:500">(${ITEMS.length})</span></h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="mini-seg"><span class="on">Tiền</span><span>Số lượng</span></div>
+      <select class="select"><option>Tất cả danh mục</option>${CATS.map(c=>`<option>${c.name}</option>`)}</select></div></div>
+    <table><thead><tr><th>Món</th><th class="r">SL bán</th><th class="r hide-sm">SL tặng</th><th class="r">Tiền</th><th class="r hide-sm">Tỉ trọng</th></tr></thead>
+    <tbody>${top.map(r=>`<tr><td><div class="strong">${r.name}</div><div class="mut" style="font-size:12.5px">${r.cat}</div></td>
+      <td class="r tab">${num(r.qty)}</td><td class="r tab mut hide-sm">${r.gift||'—'}</td><td class="r tab strong">${vnd(r.amt)}</td>
+      <td class="r hide-sm"><div class="bar-cell"><span class="pbar new-inline"><i style="width:${r.amt/top[0].amt*100}%"></i></span><span class="tab mut" style="width:44px">${pct(r.amt/ITEMS_AMT*100)}</span></div></td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Tổng</td><td class="r tab">${num(QTY)}</td><td class="r tab hide-sm">${GIFT}</td><td class="r tab">${vnd(ITEMS_AMT)}</td><td class="r hide-sm">100%</td></tr></tfoot></table>
+  </section>`
+},
+category(){
+  return salesKpis() + `<div class="grid g-main">
+    ${card('Danh mục', `<div style="padding:8px 0 4px">${CATS.map((c,ci)=>`<details ${ci===0?'open':''} style="border-top:1px solid #f1f5f9">
+      <summary style="list-style:none;cursor:pointer;display:grid;grid-template-columns:12px minmax(0,1fr) 140px auto;gap:14px;align-items:center;padding:14px 20px">
+        <span class="dot" style="background:${c.color};margin:0"></span>
+        <div><div class="strong">${c.name}</div><div class="mut tab" style="font-size:12.5px">Bán ${num(c.qty)} · ${c.items.length} món</div></div>
+        <span class="pbar new-inline hide-sm" style="width:140px"><i style="width:${c.v/CATS[0].v*100}%;background:${c.color}"></i></span>
+        <div class="r"><div class="strong tab">${vnd(c.v)}</div><div class="mut tab" style="font-size:12.5px">${pct(c.v/ITEMS_AMT*100)}</div></div></summary>
+      <div style="background:#f8fafc;padding:4px 20px 10px 46px">${c.items.map(i=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed #e2e8f0;font-size:13px"><span>${i.name} <span class="mut">· Bán ${num(i.qty)}${i.gift?` · Tặng ${i.gift}`:''}</span></span><span class="tab">${vnd(i.amt)}</span></div>`).join('')}</div>
+    </details>`).join('')}</div>`, {hint:'Bấm để xem món trong danh mục'})}
+    ${card('Tỉ trọng theo danh mục', `<div style="display:grid;place-items:center;padding:20px 20px 8px">${donut(CATS, short(ITEMS_AMT), 'TIỀN MÓN', 210)}</div>
+      ${legend(CATS, ITEMS_AMT, s=>`${num(s.qty)} món`).replace('class="legend"','class="legend" style="padding:8px 20px 20px"')}`, {isNew:true})}
+  </div>`
+},
+hour(){
+  const pi = HOUR_AMT.indexOf(Math.max(...HOUR_AMT)), oi = HOUR_ORD.indexOf(Math.max(...HOUR_ORD))
+  const lunch = HOUR_AMT.slice(0,4).reduce((a,b)=>a+b,0), eve = HOUR_AMT.slice(7,12).reduce((a,b)=>a+b,0)
+  return salesKpis() + card('Tiền món & lượt gọi theo giờ',
+    `<div style="display:flex;gap:16px;padding:10px 20px 0;font-size:12.5px" class="mut"><span><span class="dot" style="display:inline-block;background:#ea580c;margin:0 6px 0 0"></span>Tiền món</span><span><span class="dot" style="display:inline-block;background:#10b981;margin:0 6px 0 0"></span>Lượt gọi</span></div>
+    <div style="padding:4px 12px 0">${areaChart({labels:HOURS.map(h=>h+'h'), series:[{values:HOUR_AMT,color:'#ea580c'},{values:HOUR_ORD,color:'#10b981',axis:'right',fill:.16}], fmtR:v=>Math.round(v)})}</div>
+    <div class="strip new">
+      <div>${ic('flame')}<div><div class="l">Giờ cao điểm</div><div class="v tab">${HOURS[pi]}:00 · ${short(HOUR_AMT[pi])}</div></div></div>
+      <div>${ic('receipt')}<div><div class="l">Lượt gọi đông nhất</div><div class="v tab">${HOUR_ORD[oi]} lượt · ${HOURS[oi]}:00</div></div></div>
+      <div>${ic('clock')}<div><div class="l">Ca trưa (10–14h)</div><div class="v tab">${short(lunch)} · ${pct(lunch/ITEMS_AMT*100)}</div></div></div>
+      <div>${ic('clock')}<div><div class="l">Ca tối (17–22h)</div><div class="v tab">${short(eve)} · ${pct(eve/ITEMS_AMT*100)}</div></div></div>
+    </div>`, {hint:'Giờ món vào bếp, xếp theo ngày kinh doanh', right:`<div class="mini-seg"><span class="on">Biểu đồ vùng</span></div>`, cls:'', isNew:false}).replace('<section class="card','<section style="margin-top:16px" class="card') +
+  `<section class="card" style="margin-top:16px"><table><thead><tr><th>Giờ</th><th class="r">Lượt gọi</th><th class="r hide-sm">SL món</th><th class="r">Tiền</th><th class="r hide-sm">So với giờ đông nhất</th></tr></thead>
+    <tbody>${HOURS.map((h,i)=>`<tr><td class="strong tab">${String(h).padStart(2,'0')}:00 ${i===pi?'<span class="tag t-orange new-inline">Cao điểm</span>':''}</td><td class="r tab">${HOUR_ORD[i]}</td><td class="r tab hide-sm">${HOUR_ORD[i]*4}</td><td class="r tab strong">${vnd(HOUR_AMT[i])}</td>
+      <td class="r hide-sm"><div class="bar-cell"><span class="pbar" style="width:160px"><i style="width:${HOUR_AMT[i]/HOUR_AMT[pi]*100}%"></i></span></div></td></tr>`).join('')}</tbody></table></section>`
+},
+voids(){
+  const T = {cancelled:['Bỏ','t-red','undo'],gift:['Tặng','t-violet','gift'],quantity:['Giảm SL','t-amber','minus']}
+  const sum = t => VOIDS.filter(v=>v[5]===t).reduce((a,v)=>a+v[4],0), cnt = t => VOIDS.filter(v=>v[5]===t).length
+  const giftVal = 280000+35000
+  const reasons = Object.entries(VOIDS.reduce((m,v)=>{const k=v[6]||'Không ghi lý do'; m[k]=(m[k]||0)+1; return m},{})).sort((a,b)=>b[1]-a[1])
+  const byItem = Object.entries(VOIDS.reduce((m,v)=>{m[v[2]]=(m[v[2]]||0)+v[3]; return m},{})).sort((a,b)=>b[1]-a[1]).slice(0,4)
+  return `<div class="grid g3">
+    ${kpi({icon:'undo',tone:'t-red',label:'Tiền bỏ món',value:num(sum('cancelled')),unit:'đ',d:14.0,inverse:true,note:`${cnt('cancelled')} lần bỏ món`})}
+    ${kpi({icon:'gift',tone:'t-violet',label:'Tiền tặng',value:num(giftVal),unit:'đ',d:0,note:`${cnt('gift')} lần tặng món`})}
+    ${kpi({icon:'minus',tone:'t-amber',label:'Giảm số lượng',value:num(sum('quantity')),unit:'đ',d:-30,inverse:true,note:`${cnt('quantity')} lần giảm SL`})}
+  </div>
+  <div class="grid g2">
+    ${card('Món bị huỷ nhiều nhất', `<ol class="rank">${byItem.map(([n,q],i)=>`<li><span class="rk" style="background:${RANK_BG[i]}">${i+1}</span><span class="av t-red">${n[0]}</span><div class="nm">${n}</div><div class="strong tab">${q} phần</div></li>`).join('')}</ol>`, {isNew:true, hint:'Gộp bỏ + tặng + giảm SL'})}
+    ${card('Lý do hay gặp', `<div style="padding:14px 20px 18px;display:flex;flex-direction:column;gap:12px">${reasons.map(([r,c])=>`<div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>${r}</span><span class="tab strong">${c} lần</span></div><span class="pbar" style="width:100%;display:block;height:8px"><i style="width:${c/reasons[0][1]*100}%;background:#ef4444"></i></span></div>`).join('')}</div>`, {isNew:true})}
+  </div>
+  <section class="card" style="margin-top:16px"><table><thead><tr><th>Giờ</th><th>Bàn</th><th>Món</th><th class="r">SL</th><th class="r">Tiền</th><th>Loại</th><th class="hide-sm">Lý do</th><th class="hide-sm">Người làm</th></tr></thead>
+  <tbody>${VOIDS.map(v=>`<tr><td class="tab mut">${v[0]}</td><td>${v[1]}</td><td class="strong">${v[2]}</td><td class="r tab">${v[3]}</td><td class="r tab strong">${vnd(v[4])}</td>
+    <td><span class="tag ${T[v[5]][1]}">${ic(T[v[5]][2])}${T[v[5]][0]}</span></td><td class="mut hide-sm">${v[6]??'—'}</td><td class="mut hide-sm">${v[7]}</td></tr>`).join('')}</tbody></table></section>`
+},
+revenue(){
+  const tot = DAY_REV.reduce((a,b)=>a+b,0), bills = DAY_BILL.reduce((a,b)=>a+b,0)
+  const pay = [{name:'Tiền mặt',v:tot*.48,color:'#10b981'},{name:'Chuyển khoản',v:tot*.44,color:'#0ea5e9'},{name:'Ghi nợ',v:tot*.08,color:'#f59e0b'}]
+  const best = DAY_REV.indexOf(Math.max(...DAY_REV)), worst = DAY_REV.indexOf(Math.min(...DAY_REV))
+  return `<div class="grid g4">
+    ${kpi({icon:'trend',tone:'t-orange',label:'Doanh thu',value:num(tot),unit:'đ',d:11.3,sparkVals:DAY_REV,color:'#ea580c'})}
+    ${kpi({icon:'receipt',tone:'t-green',label:'Số bill',value:num(bills),d:6.4,sparkVals:DAY_BILL,color:'#10b981'})}
+    ${kpi({icon:'coins',tone:'t-amber',label:'Trung bình / bill',value:num(Math.round(tot/bills)),unit:'đ',d:4.6,sparkVals:DAY_REV.map((v,i)=>v/DAY_BILL[i]),color:'#f59e0b'})}
+    ${kpi({icon:'tag',tone:'t-violet',label:'Giảm giá',value:num(2180000),unit:'đ',d:-3.2,inverse:true,note:'1,9% doanh thu'})}
+  </div>
+  <div class="grid g-main">
+    ${card('Doanh thu & số bill theo ngày', `<div style="display:flex;gap:16px;padding:10px 20px 0;font-size:12.5px" class="mut"><span><span class="dot" style="display:inline-block;background:#ea580c;margin:0 6px 0 0"></span>Doanh thu</span><span><span class="dot" style="display:inline-block;background:#10b981;margin:0 6px 0 0"></span>Số bill</span></div>
+      <div style="padding:4px 12px 0">${areaChart({w:760, h:290, labels:DAYS, series:[{values:DAY_REV,color:'#ea580c'},{values:DAY_BILL,color:'#10b981',axis:'right',fill:.14}], fmtR:v=>Math.round(v)})}</div>
+      <div class="strip new" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div>${ic('crown')}<div><div class="l">Ngày cao nhất</div><div class="v tab">${DAYS[best]} · ${short(DAY_REV[best])}</div></div></div>
+        <div>${ic('calendar')}<div><div class="l">Trung bình / ngày</div><div class="v tab">${short(tot/7)}</div></div></div>
+        <div>${ic('alert')}<div><div class="l">Ngày thấp nhất</div><div class="v tab">${DAYS[worst]} · ${short(DAY_REV[worst])}</div></div></div>
+      </div>`, {right:`<div class="mini-seg"><span class="on">Ngày</span><span>Tháng</span></div>`})}
+    ${card('Cơ cấu thanh toán', `<div style="display:grid;place-items:center;padding:16px 20px 4px">${donut(pay, short(tot), 'DOANH THU', 190)}</div>
+      ${legend(pay, tot, s=>vnd(s.v)).replace('class="legend"','class="legend" style="padding:10px 20px 18px"')}`, {isNew:true})}
+  </div>
+  <section class="card" style="margin-top:16px"><table><thead><tr><th>Ngày</th><th class="r">Doanh thu</th><th class="r hide-sm">Giảm giá</th><th class="r hide-sm">Tiền mặt</th><th class="r hide-sm">Chuyển khoản</th><th class="r hide-sm">Ghi nợ</th><th class="r">Số bill</th><th class="r">TB/bill</th></tr></thead>
+  <tbody>${DAYS.map((d,i)=>`<tr><td class="strong tab">${d} ${i===best?'<span class="tag t-orange new-inline">Cao nhất</span>':''}</td><td class="r tab strong">${vnd(DAY_REV[i])}</td><td class="r tab mut hide-sm">${vnd(DAY_REV[i]*.019)}</td><td class="r tab hide-sm">${vnd(DAY_REV[i]*.48)}</td><td class="r tab hide-sm">${vnd(DAY_REV[i]*.44)}</td><td class="r tab hide-sm">${vnd(DAY_REV[i]*.08)}</td><td class="r tab">${DAY_BILL[i]}</td><td class="r tab">${vnd(DAY_REV[i]/DAY_BILL[i])}</td></tr>`).join('')}</tbody>
+  <tfoot><tr><td>Tổng</td><td class="r tab">${vnd(tot)}</td><td class="r tab hide-sm">${vnd(2180000)}</td><td class="r tab hide-sm">${vnd(tot*.48)}</td><td class="r tab hide-sm">${vnd(tot*.44)}</td><td class="r tab hide-sm">${vnd(tot*.08)}</td><td class="r tab">${bills}</td><td class="r tab">${vnd(tot/bills)}</td></tr></tfoot></table></section>`
+},
+cashflow(){
+  const funds=[{t:'Tiền mặt',i:'coins',tone:'t-green',in:53700000,out:12450000},{t:'Ngân hàng',i:'bank',tone:'t-sky',in:49200000,out:18000000}]
+  const ins=[['Thu bill',51200000,47600000],['Khách trả nợ',2300000,1600000],['Thu khác',200000,0]]
+  const outs=[['Nhập hàng',6200000,9800000],['Lương nhân viên',0,8200000],['Điện, nước, gas',3150000,0],['Chủ quán rút',2500000,0],['Chi khác',600000,0]]
+  const maxOut = Math.max(...outs.map(o=>o[1]+o[2]))
+  const fund = f => `<section class="card pad"><div class="kpi-top"><span class="kpi-ic ${f.tone}">${ic(f.i)}</span><span class="strong" style="font-size:15px">${f.t}</span><span style="margin-left:auto">${delta(9.1)}</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:14px"><div><div class="kpi-l">Chênh lệch trong kỳ</div><div class="kpi-v tab" style="color:${f.in-f.out<0?'#b91c1c':'#047857'}">${f.in-f.out>=0?'+':''}${num(f.in-f.out)}<small>đ</small></div></div></div>
+    <div class="new-inline" style="margin-top:14px;display:flex;height:10px;border-radius:9px;overflow:hidden;background:#f1f5f9"><i style="width:${f.in/(f.in+f.out)*100}%;background:#10b981"></i><i style="width:${f.out/(f.in+f.out)*100}%;background:#f87171"></i></div>
+    <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px"><span><span class="dot" style="display:inline-block;background:#10b981;margin:0 6px 0 0"></span>Vào <b class="tab">${vnd(f.in)}</b></span><span><span class="dot" style="display:inline-block;background:#f87171;margin:0 6px 0 0"></span>Ra <b class="tab">${vnd(f.out)}</b></span></div></section>`
+  const list = (title, rows, color, total) => card(title, `<table style="margin-top:12px"><thead><tr><th>Khoản</th><th class="r">Tiền mặt</th><th class="r">Chuyển khoản</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r[0]}</td><td class="r tab">${vnd(r[1])}</td><td class="r tab">${vnd(r[2])}</td></tr>`).join('')}</tbody><tfoot><tr><td>Tổng</td><td class="r tab">${vnd(total[0])}</td><td class="r tab">${vnd(total[1])}</td></tr></tfoot></table>`,
+    {right:`<span class="tag ${color}">${vnd(total[0]+total[1])}</span>`})
+  return `<div class="grid g2">${fund(funds[0])}${fund(funds[1])}</div>
+  ${card('Tiền ra đi đâu', `<div style="padding:16px 20px 18px;display:flex;flex-direction:column;gap:12px">${outs.map(o=>`<div style="display:grid;grid-template-columns:150px minmax(0,1fr) 120px;gap:12px;align-items:center;font-size:13px"><span>${o[0]}</span><span style="display:flex;height:12px;border-radius:9px;overflow:hidden;background:#f1f5f9"><i style="width:${o[1]/maxOut*100}%;background:#10b981"></i><i style="width:${o[2]/maxOut*100}%;background:#0ea5e9"></i></span><span class="r tab strong">${vnd(o[1]+o[2])}</span></div>`).join('')}
+    <div class="mut" style="font-size:12px;display:flex;gap:14px"><span><span class="dot" style="display:inline-block;background:#10b981;margin:0 6px 0 0"></span>Tiền mặt</span><span><span class="dot" style="display:inline-block;background:#0ea5e9;margin:0 6px 0 0"></span>Chuyển khoản</span></div></div>`, {isNew:true, hint:'Xếp theo tổng tiền'}).replace('<section class="card','<section style="margin-top:16px" class="card')}
+  <div class="grid g2">${list('Tiền vào', ins, 't-green', [53700000,49200000])}${list('Tiền ra', outs, 't-red', [12450000,18000000])}</div>
+  <p class="foot-note">Ghi nợ không tính là tiền vào. Không có số dư đầu kỳ. Phiếu huỷ sau này không còn tính vào kỳ đã qua.</p>`
+},
+pnl(){
+  const rev=111900000, cogs=41200000, gross=rev-cogs, opex=24500000, wo=650000, oth=300000, net=gross-opex-wo+oth
+  // thác nước
+  const steps=[['Doanh thu',rev,0,'#ea580c'],['Giá vốn',-cogs,rev,'#f87171'],['Lãi gộp',gross,0,'#f59e0b'],['Chi phí',-opex,gross,'#f87171'],['Huỷ + khác',-(wo-oth),gross-opex,'#fca5a5'],['Lãi ròng',net,0,'#10b981']]
+  const W=720,H=240,T=28,B=30,bw=72,gap=(W-40-steps.length*bw)/(steps.length-1),sc=(H-T-B)/rev
+  const bars = steps.map((s,i)=>{const x=20+i*(bw+gap); const top = s[2]? s[2] : s[1]; const hgt=Math.abs(s[1])*sc; const y = s[2]? (H-B-s[2]*sc) : (H-B-hgt);
+    return `<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(hgt,2)}" rx="6" fill="${s[3]}"/><text x="${x+bw/2}" y="${y-8}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0f172a">${s[1]<0?'−':''}${short(Math.abs(s[1]))}</text><text x="${x+bw/2}" y="${H-10}" text-anchor="middle" font-size="11.5" fill="#64748b">${s[0]}</text>`}).join('')
+  return `<div class="grid g4">
+    ${kpi({icon:'trend',tone:'t-orange',label:'Doanh thu thuần',value:num(rev),unit:'đ',d:11.3})}
+    ${kpi({icon:'box',tone:'t-amber',label:'Lãi gộp',value:num(gross),unit:'đ',d:9.8,note:`<span class="new-inline">Biên ${pct(gross/rev*100)}</span>`})}
+    ${kpi({icon:'receipt',tone:'t-red',label:'Chi phí hoạt động',value:num(opex),unit:'đ',d:2.1,inverse:true})}
+    ${kpi({icon:'scale',tone:'t-green',label:'Lãi ròng',value:num(net),unit:'đ',d:15.4,note:`<span class="new-inline">Biên ${pct(net/rev*100)}</span>`})}
+  </div>
+  <div class="grid g-main">
+    ${card('Từ doanh thu đến lãi ròng', `<div style="padding:8px 16px 8px"><svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;font-family:inherit"><line x1="10" x2="${W-10}" y1="${H-B}" y2="${H-B}" stroke="#e2e8f0"/>${bars}</svg></div>`, {isNew:true})}
+    <section class="card">
+      <div class="pl-row total"><span>Doanh thu thuần</span><span class="tab">${vnd(rev)}</span></div>
+      <div class="pl-row"><span><span class="s">−</span>Giá vốn hàng bán</span><span class="tab">${vnd(cogs)}</span></div>
+      <div class="pl-sub"><div><span>Hàng bán</span><span class="tab">${vnd(18600000)}</span></div><div><span>Nguyên liệu</span><span class="tab">${vnd(22600000)}</span></div></div>
+      <div class="pl-row total"><span><span class="s">=</span>Lãi gộp</span><span class="tab">${vnd(gross)}</span></div>
+      <div class="pl-row"><span><span class="s">−</span>Chi phí hoạt động ▾</span><span class="tab">${vnd(opex)}</span></div>
+      <div class="pl-row"><span><span class="s">−</span>Hàng huỷ</span><span class="tab">${vnd(wo)}</span></div>
+      <div class="pl-row"><span><span class="s">+</span>Thu nhập khác</span><span class="tab">${vnd(oth)}</span></div>
+      <div class="pl-row net"><span><span class="s" style="color:inherit">=</span>Lãi ròng</span><span class="tab">${vnd(net)}</span></div>
+    </section>
+  </div>
+  <div class="grid g2">
+    ${card('Chi phí hoạt động', `<div style="display:flex;gap:20px;align-items:center;padding:16px 20px 18px;flex-wrap:wrap">${donut([{name:'Lương',v:16e6,color:'#ea580c'},{name:'Điện nước',v:4.2e6,color:'#f59e0b'},{name:'Gas',v:2.8e6,color:'#0ea5e9'},{name:'Khác',v:1.5e6,color:'#94a3b8'}], short(opex),'CHI PHÍ',150)}${legend([{name:'Lương',v:16e6,color:'#ea580c'},{name:'Điện nước',v:4.2e6,color:'#f59e0b'},{name:'Gas',v:2.8e6,color:'#0ea5e9'},{name:'Khác',v:1.5e6,color:'#94a3b8'}], opex, s=>vnd(s.v))}</div>`, {isNew:true})}
+    <section class="card pad" style="background:#f8fafc"><div class="strong">Không tính vào lãi lỗ</div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;font-size:13.5px" class="mut">
+      <div style="display:flex;justify-content:space-between"><span>Nhập hàng (đã nằm trong giá vốn)</span><span class="tab">${vnd(16000000)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Chủ quán rút</span><span class="tab">${vnd(2500000)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Chuyển quỹ (tổng phiếu, không tính)</span><span class="tab">${vnd(5000000)}</span></div></div></section>
+  </div>
+  <p class="foot-note">Phiếu huỷ sau này không còn tính vào kỳ đã qua. Cảnh báo "thiếu giá nhập / chưa kiểm kho" vẫn hiện ở đầu tab như hiện nay.</p>`
+},
+debts(){
+  const ages=[{name:'0–7 ngày',v:5300000,color:'#10b981'},{name:'8–30 ngày',v:3250000,color:'#f59e0b'},{name:'Trên 30 ngày',v:1200000,color:'#ef4444'}]
+  const rows=[['Anh Hùng','Cty Sao Mai',2800000,3400000,2000000,4200000,'02/11'],['Chị Lan','0912 345 678',1200000,1950000,1000000,2150000,'08/11'],['Anh Tuấn','Xe khách Lào Cai',900000,2400000,1500000,1800000,'05/11'],['Bác Minh','0987 222 111',1200000,0,0,1200000,'09/10'],['Đội bóng Phố Mới','',100000,1200000,900000,400000,'14/11']]
+  const tot=9750000
+  return `<div class="grid g4">
+    ${kpi({icon:'users',tone:'t-orange',label:'Nợ cuối kỳ',value:num(tot),unit:'đ',d:57.3,inverse:true,note:'5 khách đang nợ'})}
+    ${kpi({icon:'calendar',tone:'t-slate',label:'Nợ đầu kỳ',value:num(6200000),unit:'đ'})}
+    ${kpi({icon:'receipt',tone:'t-amber',label:'Phát sinh',value:num(8950000),unit:'đ'})}
+    ${kpi({icon:'coins',tone:'t-green',label:'Đã thu',value:num(5400000),unit:'đ',note:`<span class="new-inline">Thu được ${pct(5400000/(6200000+8950000)*100)}</span>`})}
+  </div>
+  <div class="grid g-main">
+    ${card('Tuổi nợ', `<div style="padding:18px 20px 6px"><div style="display:flex;height:18px;border-radius:10px;overflow:hidden;gap:2px">${ages.map(a=>`<i style="width:${a.v/tot*100}%;background:${a.color}"></i>`).join('')}</div></div>
+      <div class="grid g3" style="padding:0 20px 18px;margin-top:12px">${ages.map(a=>`<div style="border:1px solid ${a.color}55;border-radius:12px;padding:12px 14px;background:${a.color}0d"><div class="kpi-l" style="display:flex;gap:6px;align-items:center"><span class="dot" style="background:${a.color};margin:0"></span>${a.name}</div><div class="strong tab" style="font-size:19px;margin-top:4px">${vnd(a.v)}</div><div class="mut tab" style="font-size:12px">${pct(a.v/tot*100)}</div></div>`).join('')}</div>`, {hint:'Tính trên phần còn nợ cuối kỳ', isNew:false})}
+    ${card('Nợ nhiều nhất', `<ol class="rank">${rows.slice(0,4).map((r,i)=>`<li><span class="rk" style="background:${RANK_BG[i]}">${i+1}</span><span class="av t-orange">${r[0].split(' ').at(-1)[0]}</span><div style="min-width:0"><div class="nm" style="color:var(--primary)">${r[0]}</div><div class="sm">Nợ từ ${r[6]}</div></div><div class="strong tab">${vnd(r[5])}</div></li>`).join('')}</ol>`, {isNew:true})}
+  </div>
+  <section class="card" style="margin-top:16px"><table><thead><tr><th>Tên</th><th class="r hide-sm">Nợ đầu kỳ</th><th class="r hide-sm">Phát sinh</th><th class="r hide-sm">Đã thu</th><th class="r">Nợ cuối kỳ</th><th>Bill nợ cũ nhất</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr><td><a style="color:var(--primary);font-weight:600;text-decoration:none" href="#">${r[0]}</a><div class="mut" style="font-size:12.5px">${r[1]||'—'}</div></td><td class="r tab hide-sm">${vnd(r[2])}</td><td class="r tab hide-sm">${vnd(r[3])}</td><td class="r tab hide-sm">${vnd(r[4])}</td><td class="r tab strong">${vnd(r[5])}</td><td class="tab">${r[6]}/2026 ${r[6]==='09/10'?'<span class="tag t-red">38 ngày</span>':''}</td></tr>`).join('')}</tbody>
+  <tfoot><tr><td>Tổng</td><td class="r tab hide-sm">${vnd(6200000)}</td><td class="r tab hide-sm">${vnd(8950000)}</td><td class="r tab hide-sm">${vnd(5400000)}</td><td class="r tab">${vnd(tot)}</td><td></td></tr></tfoot></table></section>`
+},
+}
+
+// ---------- vẽ ----------
+function render(){
+  const tabs = TABS.filter(t=>!state.cashier||!t.f)
+  if (!tabs.some(t=>t.v===state.tab)) state.tab='item'
+  const isFin = TABS.find(t=>t.v===state.tab).f
+  if (state.tab==='revenue' && state.period<2) state.period=2
+  document.getElementById('sub').innerHTML = `Bia lẩu Bảo Lương · Kỳ <b class="tab">${state.tab==='revenue'||isFin?'10/11 – 16/11/2026':'16/11/2026'}</b> · ${NOTE[state.tab]||'theo ngày kinh doanh, chỉ tính bill đã thu tiền'}`
+  document.getElementById('dateChip').textContent = isFin ? '10/11 – 16/11/2026' : '16/11/2026'
+  document.getElementById('periods').innerHTML = PERIODS.map((p,i)=>`<button class="${(isFin?2:state.period)===i?'on':''}" data-p="${i}">${p}</button>`).join('')
+  const sales = tabs.filter(t=>!t.f), fin = tabs.filter(t=>t.f)
+  const btn = t => `<button class="${t.v===state.tab?'on':''}" data-t="${t.v}">${ic(t.i)}${t.l}</button>`
+  document.getElementById('tabs').innerHTML = `<span class="grp">Bán hàng</span>${sales.map(btn).join('')}${fin.length?`<span class="sep"></span><span class="grp">Tài chính</span>${fin.map(btn).join('')}`:''}`
+  document.getElementById('view').innerHTML = VIEWS[state.tab]()
+}
+document.addEventListener('click', e=>{
+  const t = e.target.closest('[data-t]'); if (t){ state.tab=t.dataset.t; render() }
+  const p = e.target.closest('[data-p]'); if (p){ state.period=+p.dataset.p; render() }
+})
+document.getElementById('toggleRole').onchange = e => { state.cashier = e.target.checked; render() }
+render()
+</script>
+</body>
+</html>
