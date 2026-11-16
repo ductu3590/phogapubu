@@ -92,3 +92,16 @@ Mẫu:
   `baoluong@`, `baoluong-pos@`, `baoluong-quanly@`, chạy Playwright, rồi xoá các file cookie tạm trong `public/`.
 - Lần 2 (2026-11-16, xoá bàn + chọn nhiều bàn): cổng hết hạn, agent xin anh mở lại `secrets` 1 giờ để tạo phiên test
   `baoluong@` cho Playwright (cùng cách trên).
+
+## D-007 · 2026-11-16 · gate: harness · task: báo cáo chuyên nghiệp · trạng thái: chờ
+- Cần làm: sửa cổng `harness` để không chặn nhầm lệnh shell chỉ vì đường dẫn có `.claude`.
+- Vì sao: worktree của phiên nằm ở `D:\Code\mevo\.claude\worktrees\<tên>\`, nên mọi lệnh có đường dẫn tuyệt đối tới chính
+  file dự án (vd `cp … D:/Code/mevo/.claude/worktrees/…/docs/x.html`) và mọi script của skill superpowers (nằm ở
+  `C:\Users\ductu\.claude\plugins\…`) đều bị chặn là "đụng file harness". Agent đang chạy được bằng đường dẫn TƯƠNG ĐỐI
+  từ gốc worktree và tự làm bằng tay phần việc của script skill (ledger, gói review), không đụng `.harness/` hay `.claude/`
+  thật.
+- Phương án đề xuất (khuyến nghị): cổng `harness` chỉ khớp `.harness/**`, `.claude/settings*.json`, `.claude/hooks/**`,
+  `.claude/agents/**`, `.claude/skills/**` của repo gốc — không khớp `.claude/worktrees/**` và `~/.claude/plugins/**`.
+  Phương án khác: để nguyên, agent tiếp tục dùng đường dẫn tương đối.
+- Rủi ro nếu duyệt: thấp — chỉ thu hẹp mẫu khớp đường dẫn, các file harness thật vẫn bị gác.
+- Trả lời của anh:
