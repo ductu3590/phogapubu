@@ -29,10 +29,28 @@ export default async function PosPage() {
 
   const supabase = await createClient()
 
-  const { data: workflow } = await supabase.rpc('get_public_store_workflow', {
-    p_store_id: operator.storeId,
-  })
-  const { data: storeRow } = await supabase.from('stores').select('name, bank_bin, bank_account_number, bank_account_name').eq('id', operator.storeId).maybeSingle()
+  // Thực đơn + topping + giảm giá không phụ thuộc gì → bắt đầu ngay, chạy song song với quy trình / thông tin quán
+  // (2026-11-16: trước đây 5 câu hỏi DB nối tiếp nhau, mỗi câu một chặng mạng).
+  // Promise.resolve(...): query builder supabase-js chỉ GỬI request khi bị then/await — bọc lại để nó chạy ngay.
+  const categoriesPromise = Promise.resolve(supabase
+    .from('menu_categories')
+    .select('id, name, sort_order, menu_items(id, name, price, is_available, sort_order, menu_item_toppings(topping_id), menu_item_variants(id, name, price, is_available, sort_order))')
+    .eq('store_id', operator.storeId)
+    .eq('is_active', true)
+    .order('sort_order'))
+  const toppingsPromise = Promise.resolve(supabase
+    .from('toppings')
+    .select('id, name, price, is_available, sort_order')
+    .eq('store_id', operator.storeId)
+    .eq('is_available', true)
+    .order('sort_order'))
+  // Giảm giá món / danh mục đang hiệu lực (mig 115) — chỉ để vẽ giá; add_order_line tự trừ ở server.
+  const discountsPromise = loadActiveMenuDiscounts(supabase, operator.storeId)
+
+  const [{ data: workflow }, { data: storeRow }] = await Promise.all([
+    supabase.rpc('get_public_store_workflow', { p_store_id: operator.storeId }),
+    supabase.from('stores').select('name, bank_bin, bank_account_number, bank_account_name').eq('id', operator.storeId).maybeSingle(),
+  ])
 
   const workflowSettings = workflow as {
     payment_timing?: 'prepay' | 'postpay'
@@ -55,22 +73,9 @@ export default async function PosPage() {
     : Promise.resolve(null)
   const customerCallsPromise = reservationsEnabled ? listReservationCustomerCalls() : Promise.resolve(null)
 
-  const { data: categoryRows } = await supabase
-    .from('menu_categories')
-    .select('id, name, sort_order, menu_items(id, name, price, is_available, sort_order, menu_item_toppings(topping_id), menu_item_variants(id, name, price, is_available, sort_order))')
-    .eq('store_id', operator.storeId)
-    .eq('is_active', true)
-    .order('sort_order')
-
-  const { data: toppingRows } = await supabase
-    .from('toppings')
-    .select('id, name, price, is_available, sort_order')
-    .eq('store_id', operator.storeId)
-    .eq('is_available', true)
-    .order('sort_order')
-
-  // Giảm giá món / danh mục đang hiệu lực (mig 115) — chỉ để vẽ giá; add_order_line tự trừ ở server.
-  const discounts = await loadActiveMenuDiscounts(supabase, operator.storeId)
+  const [{ data: categoryRows }, { data: toppingRows }, discounts] = await Promise.all([
+    categoriesPromise, toppingsPromise, discountsPromise,
+  ])
 
   const toppingById = new Map((toppingRows ?? []).map((topping) => [topping.id as string, topping]))
   const categories: PosMenuCategory[] = (categoryRows ?? []).map((category) => ({

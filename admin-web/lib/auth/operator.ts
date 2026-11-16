@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { isBackOfficeRole, isPosRole, parseOperatorRow } from './roles'
 import { CHANGE_PASSWORD_PATH, MUST_CHANGE_PASSWORD_ERROR, mustChangePassword } from './password-gate'
+import { jwtSubject } from './jwt-subject'
 
 export type Operator =
   | { userId: string; role: 'mevo_superadmin'; storeId: null }
@@ -18,23 +19,39 @@ export type AdminPageOperator = { userId: string; role: 'store_owner' | 'store_c
 // hàm con đều gọi requireOperator… — trước đây mỗi lần là 2 chặng mạng tới Supabase (getUser + bảng
 // mevo_operators), cộng dồn thành ~1 giây mỗi lần mở trang cấu hình (2026-10-04).
 // mustChangePassword: cờ app_metadata (lib/auth/password-gate.ts) đọc từ getUser (bản mới nhất ở máy chủ Auth).
+// 2026-11-16: getUser (xác thực ở máy chủ Auth) và câu hỏi mevo_operators chạy SONG SONG thay vì nối tiếp — bớt một
+// chặng mạng mỗi lần mở trang. Id để hỏi trước lấy từ token trong cookie (getSession chỉ đọc cookie, không gọi mạng khi
+// token còn hạn; jwtSubject không xác thực). Bản ghi quyền chỉ được dùng khi id đó TRÙNG id getUser đã xác thực;
+// lệch (token lạ / bị sửa) thì hỏi lại theo id đã xác thực. RLS mevo_operators (operator_read_self) vẫn là lớp khoá.
 const loadOperator = cache(async function loadOperator(): Promise<
-  { user: { id: string }; op: { role: string; store_id: string | null }; mustChangePassword: boolean } | null
+  { user: { id: string; email: string | null }; op: { role: string; store_id: string | null }; mustChangePassword: boolean } | null
 > {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: op } = await supabase
+  const readOperator = (userId: string) => Promise.resolve(supabase
     .from('mevo_operators')
     .select('role, store_id, is_active')
-    .eq('user_id', user.id)
-    .maybeSingle()
+    .eq('user_id', userId)
+    .maybeSingle())
+  const { data: { session } } = await supabase.auth.getSession()
+  const guessedId = jwtSubject(session?.access_token)
+  const [{ data: { user } }, guessed] = await Promise.all([
+    supabase.auth.getUser(),
+    guessedId ? readOperator(guessedId) : Promise.resolve(null),
+  ])
+  if (!user) return null
+
+  const { data: op } = guessed && guessedId === user.id ? guessed : await readOperator(user.id)
   // Nhân viên đã bị vô hiệu hoá (is_active=false) coi như không có quyền vận hành.
   if (!op || op.is_active === false) return null
 
-  return { user: { id: user.id }, op, mustChangePassword: mustChangePassword(user.app_metadata) }
+  return { user: { id: user.id, email: user.email ?? null }, op, mustChangePassword: mustChangePassword(user.app_metadata) }
 })
+
+/** Email người đang đăng nhập (đã xác thực) — dùng lại kết quả loadOperator trong cùng request, KHÔNG gọi getUser thêm.
+ *  Gọi sau requireXxx (khi đó chắc chắn đã có người dùng). */
+export async function signedInEmail(): Promise<string | null> {
+  return (await loadOperator())?.user.email ?? null
+}
 
 function toOperator(userId: string, op: { role: string; store_id: string | null }): Operator | null {
   // Luật vai trò ở MỘT chỗ (lib/auth/roles.ts). is_active đã lọc ở loadOperator.

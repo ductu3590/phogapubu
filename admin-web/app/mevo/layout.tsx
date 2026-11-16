@@ -1,6 +1,5 @@
 import { LayoutDashboard, ShieldCheck, Store, Users, PlusSquare } from 'lucide-react'
-import { requireOperatorOrRedirect } from '@/lib/auth/operator'
-import { createClient } from '@/lib/supabase/server'
+import { requireOperatorOrRedirect, signedInEmail } from '@/lib/auth/operator'
 import { redirect } from 'next/navigation'
 import SignOutButton from '@/components/sign-out-button'
 import { AppShell } from '@/components/ui/app-shell'
@@ -10,8 +9,8 @@ import { AppShell } from '@/components/ui/app-shell'
 export default async function MevoLayout({ children }: { children: React.ReactNode }) {
   const operator = await requireOperatorOrRedirect()
   if (operator.role !== 'mevo_superadmin') redirect('/admin')
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // Email lấy lại từ lần kiểm phiên ở trên (cùng request) — không gọi getUser thêm một chặng mạng (2026-11-16).
+  const user = { email: await signedInEmail() }
 
   return (
     <AppShell

@@ -59,6 +59,26 @@ Mẫu:
   "Gợi ý gọi thêm nhanh", ảnh món WebP; không cần env mới trên Vercel. Mini App KHÔNG tự lên Zalo (cần `zmp deploy` riêng).
 - Trả lời của anh: Push main (chat 2026-11-15), đã mở cổng → **đã push 2026-11-15** `00bde28..460e79e`
 
+## D-006 · 2026-11-16 · gate: auth · task: tăng tốc bấm nút admin (sau đổi vùng bom1) · trạng thái: xong
+- Cần làm: sửa 2 file luồng đăng nhập để bớt chặng mạng tới Supabase Auth mỗi lần bấm nút:
+  1. `admin-web/proxy.ts`: request điều hướng mềm / server action (header `RSC: 1` / `Next-Action`) đang gọi
+     `supabase.auth.getUser()` (một chuyến mạng) rồi trả về NGAY mà không dùng kết quả. Đổi sang `getSession()` — chỉ đọc
+     cookie, chỉ gọi mạng khi token hết hạn cần làm mới (vẫn giữ việc làm mới phiên ở proxy). Tải trang cứng giữ nguyên `getUser`.
+  2. `admin-web/lib/auth/operator.ts` `loadOperator`: đang `getUser` XONG mới hỏi `mevo_operators` (2 chặng nối tiếp).
+     Đổi thành chạy song song: hỏi `mevo_operators` theo id đọc từ token trong cookie (`lib/auth/jwt-subject.ts`, không
+     xác thực) cùng lúc với `getUser`; CHỈ dùng bản ghi khi id đó trùng id `getUser` đã xác thực, lệch thì hỏi lại theo id
+     thật. Kèm trả email để layout /admin + POS khỏi gọi `getUser` thêm lần nữa.
+- Vì sao: đo prod sau khi chuyển bom1, mỗi lần bấm vẫn ~500–800ms; 2 chặng thừa này mỗi chặng ~50–100ms (proxy) + một
+  chặng nối tiếp trong `loadOperator`.
+- Phương án đề xuất (khuyến nghị): anh mở cổng `auth` 1 giờ (lệnh duyệt như mẫu đầu file), agent sửa + test (vitest
+  `operator.test.ts`, test mới cho id lệch) + Playwright đăng nhập 3 vai, rồi deploy.
+  Phương án khác: chỉ làm phần gộp truy vấn ở các trang (không đụng auth) — được ít hơn.
+- Rủi ro nếu duyệt: thấp–vừa. Xác thực vẫn do `getUser` (máy chủ Auth) + RLS; id đoán chỉ để chạy trước, không dùng cấp
+  quyền. Proxy không còn chặn gì ở request RSC từ 2026-10-04 (chỉ làm mới phiên) nên `getSession` đủ cho việc đó.
+- Trả lời của anh: "Đã mở cả hai cổng" (chat 2026-11-16) → đã làm cả 2 mục + bỏ `getUser` thừa ở layout /admin, /staff,
+  /mevo. Test: `lib/auth/operator.test.ts` (thêm ca token mang id lệch → hỏi lại theo id thật), Playwright 3 vai + tài
+  khoản còn cờ đổi mật khẩu (vẫn bị chặn cả tải cứng lẫn điều hướng mềm).
+
 ## D-005 · 2026-11-16 · gate: secrets · task: rail POS + nút Mở bàn · trạng thái: xong
 - Cần làm: chép `admin-web/.env.local` từ repo gốc sang worktree `timeline-ui-buttons-43fcde/admin-web/` để chạy dev
   server xem trước giao diện (rail mới, nút "+ Mở bàn").

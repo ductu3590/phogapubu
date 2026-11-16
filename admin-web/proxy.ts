@@ -40,20 +40,25 @@ export async function proxy(request: NextRequest) {
     },
   )
 
-  // Refresh session (bắt buộc — đừng xoá)
+  // Server action (header Next-Action) và request RSC của điều hướng mềm / prefetch (header RSC) KHÔNG
+  // cần cổng redirect theo role: layout /admin, /mevo, /staff tự kiểm quyền (requireOperatorOrRedirect…)
+  // và RLS là lớp khoá thật. Bỏ bước tra mevo_operators cho chúng → mỗi request bớt 1 chặng tới Supabase
+  // (2026-10-04: proxy tốn 300–1700ms MỖI request khi mở hộp thoại cấu hình).
+  // 2026-11-16: với chúng cũng KHÔNG gọi getUser (một chuyến mạng tới máy chủ Auth mà kết quả không dùng): getSession
+  // chỉ đọc cookie và CHỈ gọi mạng khi token sắp hết hạn để làm mới — vẫn giữ việc làm mới phiên ở proxy (Server
+  // Component không ghi được cookie). Xác thực thật nằm ở loadOperator (getUser) + RLS.
+  if (request.headers.has('next-action') || request.headers.get('rsc') === '1') {
+    await supabase.auth.getSession()
+    return supabaseResponse
+  }
+
+  // Tải trang cứng: làm mới phiên + xác thực (bắt buộc — đừng xoá), dùng cho cổng redirect theo vai bên dưới.
   const { data: { user } } = await supabase.auth.getUser()
 
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
   const isMevoRoute = request.nextUrl.pathname.startsWith('/mevo')
   const isStaffRoute = request.nextUrl.pathname.startsWith('/staff')
   const isLoginPage = request.nextUrl.pathname === '/login'
-
-  // Server action (header Next-Action) và request RSC của điều hướng mềm / prefetch (header RSC) KHÔNG
-  // cần cổng redirect theo role: layout /admin, /mevo, /staff tự kiểm quyền (requireOperatorOrRedirect…)
-  // và RLS là lớp khoá thật. Bỏ bước tra mevo_operators cho chúng → mỗi request bớt 1 chặng tới Supabase
-  // (2026-10-04: proxy tốn 300–1700ms MỖI request khi mở hộp thoại cấu hình). Vẫn getUser ở trên để
-  // làm mới phiên đăng nhập.
-  if (request.headers.has('next-action') || request.headers.get('rsc') === '1') return supabaseResponse
 
   // Bắt đổi mật khẩu lần đầu (YG 2026-11-12): còn cờ app_metadata.must_change_password thì mở trang vận hành / /login
   // đều về trang đổi mật khẩu. Cờ đọc từ getUser ở trên (bản mới nhất, không tốn thêm chặng mạng). Request

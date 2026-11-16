@@ -19,17 +19,18 @@ export default async function MenuPage() {
   if (operator.role !== 'store_owner') {
     // Quản lý (hậu cần): thêm ô Trừ kho → cần lựa chọn của món + dữ liệu kho. Thu ngân giữ nguyên như cũ.
     const backOffice = isBackOfficeRole(operator.role)
-    const stockPromise = backOffice ? readMenuStock(storeId) : Promise.resolve(null)
-    const { data: cashierCategories } = await supabase
-      .from('menu_categories')
-      .select(backOffice
-        ? 'id, name, sort_order, menu_items(id, name, price, is_available, sort_order, sku, menu_item_variants(id, name, sort_order))'
-        : 'id, name, sort_order, menu_items(id, name, price, is_available, sort_order, sku)')
-      .eq('store_id', storeId)
-      .eq('is_active', true)
-      .order('sort_order')
-      .order('sort_order', { referencedTable: 'menu_items' })
-    const stock = await stockPromise
+    const [{ data: cashierCategories }, stock] = await Promise.all([
+      Promise.resolve(supabase
+        .from('menu_categories')
+        .select(backOffice
+          ? 'id, name, sort_order, menu_items(id, name, price, is_available, sort_order, sku, menu_item_variants(id, name, sort_order))'
+          : 'id, name, sort_order, menu_items(id, name, price, is_available, sort_order, sku)')
+        .eq('store_id', storeId)
+        .eq('is_active', true)
+        .order('sort_order')
+        .order('sort_order', { referencedTable: 'menu_items' })),
+      backOffice ? readMenuStock(storeId) : Promise.resolve(null),
+    ])
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-shrink-0 border-b border-border bg-surface px-4 py-4 md:px-6">
@@ -43,38 +44,34 @@ export default async function MenuPage() {
     )
   }
 
-  // Lấy categories + items (mỗi món kèm topping_id đã gán + danh sách lựa chọn quyết định giá)
-  const { data: categories } = await supabase
-    .from('menu_categories')
-    .select('*, menu_items(*, menu_item_toppings(topping_id), menu_item_variants(id, name, price, is_available, sort_order))')
-    .eq('store_id', storeId)
-    .eq('is_active', true)
-    .order('sort_order')
-
-  // Kho topping dùng chung của quán
-  const { data: toppings } = await supabase
-    .from('toppings')
-    .select('id, name, price, is_available, sort_order')
-    .eq('store_id', storeId)
-    .order('sort_order')
-
-  // Ô "Trừ kho" trong hộp sửa món (mig 118). Chạy song song với trạm in; RPC lỗi (mig chưa áp) → null → không vẽ ô.
-  const stockPromise = readMenuStock(storeId)
-
-  // Trạm in (mig 114) cho ô "Trạm in" của danh mục. RPC lỗi (vd. mig chưa áp) → [] → không vẽ ô chọn, trang vẫn chạy.
-  const stations = await Promise.resolve(supabase.rpc('get_print_settings', { p_store_id: storeId }))
-    .then(({ data, error }) => (error ? null : parsePrintSettings(data)))
-    .catch(() => null)
-    .then((settings) => (settings?.stations ?? []).map((st) => ({ id: st.id, name: st.name })))
-
-  const stock = await stockPromise
-  // Giảm giá món / danh mục (mig 115). Lỗi (mig chưa áp) → [] → trang vẫn chạy, chỉ không có mục Giảm giá.
-  const [{ data: discountRows }, active] = await Promise.all([
-    supabase
+  // Sáu nguồn dữ liệu độc lập → hỏi CÙNG LÚC (2026-11-16: trước đây 4 chặng nối tiếp).
+  const [{ data: categories }, { data: toppings }, stock, stations, { data: discountRows }, active] = await Promise.all([
+    // Danh mục + món (mỗi món kèm topping_id đã gán + danh sách lựa chọn quyết định giá)
+    Promise.resolve(supabase
+      .from('menu_categories')
+      .select('*, menu_items(*, menu_item_toppings(topping_id), menu_item_variants(id, name, price, is_available, sort_order))')
+      .eq('store_id', storeId)
+      .eq('is_active', true)
+      .order('sort_order')),
+    // Kho topping dùng chung của quán
+    Promise.resolve(supabase
+      .from('toppings')
+      .select('id, name, price, is_available, sort_order')
+      .eq('store_id', storeId)
+      .order('sort_order')),
+    // Ô "Trừ kho" trong hộp sửa món (mig 118). RPC lỗi (mig chưa áp) → null → không vẽ ô.
+    readMenuStock(storeId),
+    // Trạm in (mig 114) cho ô "Trạm in" của danh mục. RPC lỗi (vd. mig chưa áp) → [] → không vẽ ô chọn, trang vẫn chạy.
+    Promise.resolve(supabase.rpc('get_print_settings', { p_store_id: storeId }))
+      .then(({ data, error }) => (error ? null : parsePrintSettings(data)))
+      .catch(() => null)
+      .then((settings) => (settings?.stations ?? []).map((st) => ({ id: st.id, name: st.name }))),
+    // Giảm giá món / danh mục (mig 115). Lỗi (mig chưa áp) → [] → trang vẫn chạy, chỉ không có mục Giảm giá.
+    Promise.resolve(supabase
       .from('menu_discounts')
       .select('id, menu_item_id, category_id, name, discount_type, value, starts_on, ends_on, time_from, time_to, days_of_week, is_active')
       .eq('store_id', storeId)
-      .order('created_at'),
+      .order('created_at')),
     loadActiveMenuDiscounts(supabase, storeId),
   ])
   const discounts = (discountRows ?? []) as MenuDiscountRow[]

@@ -1,4 +1,4 @@
-import { requireStaffAreaOrRedirect } from '@/lib/auth/operator'
+import { requireStaffAreaOrRedirect, signedInEmail } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import SignOutButton from '@/components/sign-out-button'
 import StaffNav from './staff-nav'
@@ -11,7 +11,8 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   const operator = await requireStaffAreaOrRedirect()
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // Email lấy lại từ lần kiểm phiên ở trên (cùng request) — không gọi getUser thêm một chặng mạng (2026-11-16).
+  const user = { email: await signedInEmail() }
   const [{ data: store }, requests] = await Promise.all([
     supabase.from('stores').select('name, bell_style').eq('id', operator.storeId).single(),
     listOpenServiceRequests(),

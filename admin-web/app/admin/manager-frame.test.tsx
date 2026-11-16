@@ -20,6 +20,7 @@ function builder(table: string) {
 vi.mock('@/lib/auth/operator', () => ({
   requireOperatorOrRedirect: vi.fn(async () => mocks.operator),
   requireAdminPageOrRedirect: vi.fn(async () => mocks.operator),
+  signedInEmail: vi.fn(async () => 'ql@yengarden.vn'),
 }))
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({

@@ -1,4 +1,4 @@
-import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
+import { requireAdminPageOrRedirect, signedInEmail } from '@/lib/auth/operator'
 import { createClient } from '@/lib/supabase/server'
 import SignOutButton from '@/components/sign-out-button'
 import { IconRailShell } from '@/components/ui/icon-rail-shell'
@@ -13,7 +13,8 @@ export default async function AdminLayout({ children, modal }: { children: React
   const operator = await requireAdminPageOrRedirect('pos')
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // Email lấy lại từ lần kiểm phiên ở trên (cùng request) — không gọi getUser thêm một chặng mạng (2026-11-16).
+  const user = { id: operator.userId, email: await signedInEmail() }
 
   const [storeResult, workflowResult] = await Promise.all([
     supabase.from('stores').select('name, bell_style').eq('id', operator.storeId).single(),

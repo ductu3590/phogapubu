@@ -6,17 +6,31 @@ const mocks = vi.hoisted(() => {
   const user = { value: null as null | { id: string; app_metadata?: Record<string, unknown> } }
   const operatorRow = { value: null as null | { role: string; store_id: string | null; is_active: boolean } }
 
+  // sub trong access token của cookie (getSession, không xác thực). null = không có phiên trong cookie.
+  const tokenSub = { value: null as null | string }
+  const operatorQueries: string[] = []
+  const b64url = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url')
   const supabase = {
-    auth: { getUser: vi.fn(async () => ({ data: { user: user.value } })) },
+    auth: {
+      getUser: vi.fn(async () => ({ data: { user: user.value } })),
+      getSession: vi.fn(async () => ({
+        data: { session: tokenSub.value ? { access_token: `${b64url({})}.${b64url({ sub: tokenSub.value })}.x` } : null },
+      })),
+    },
     from: vi.fn(() => {
       const builder: Record<string, unknown> = {}
+      let userId = ''
       builder.select = vi.fn(() => builder)
-      builder.eq = vi.fn(() => builder)
-      builder.maybeSingle = vi.fn(async () => ({ data: operatorRow.value }))
+      builder.eq = vi.fn((_c: string, v: string) => { userId = v; return builder })
+      // Chỉ trả bản ghi quyền khi hỏi đúng id người dùng thật (như RLS operator_read_self)
+      builder.maybeSingle = vi.fn(async () => {
+        operatorQueries.push(userId)
+        return { data: userId === user.value?.id ? operatorRow.value : null }
+      })
       return builder
     }),
   }
-  return { supabase, user, operatorRow }
+  return { supabase, user, operatorRow, tokenSub, operatorQueries }
 })
 
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn(async () => mocks.supabase) }))
@@ -181,5 +195,39 @@ describe('còn cờ must_change_password', () => {
     await expect(requireStoreOwnerStoreId()).resolves.toBe('store-1')
     mocks.user.value = { id: 'u1' }
     await expect(requireStoreOwnerStoreId()).resolves.toBe('store-1')
+  })
+})
+
+describe('loadOperator — kiểm phiên và đọc quyền chạy song song (2026-11-16)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.operatorQueries.length = 0
+    mocks.user.value = { id: 'u1' }
+    mocks.operatorRow.value = { role: 'store_owner', store_id: 'store-1', is_active: true }
+  })
+
+  it('token trong cookie đúng người → một lần hỏi quyền, chạy cùng lúc với getUser', async () => {
+    mocks.tokenSub.value = 'u1'
+    await expect(requireStoreOwnerStoreId()).resolves.toBe('store-1')
+    expect(mocks.operatorQueries).toEqual(['u1'])
+    expect(mocks.supabase.auth.getUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('token mang id KHÁC người getUser xác thực → bỏ kết quả đoán, hỏi lại theo id thật', async () => {
+    mocks.tokenSub.value = 'ke-gia-mao'
+    await expect(requireStoreOwnerStoreId()).resolves.toBe('store-1')
+    expect(mocks.operatorQueries).toEqual(['ke-gia-mao', 'u1'])
+  })
+
+  it('token có id nhưng getUser báo chưa đăng nhập → chặn, dù bản ghi đoán có quyền', async () => {
+    mocks.tokenSub.value = 'u1'
+    mocks.user.value = null
+    await expect(requireStoreOwnerStoreId()).rejects.toThrow('chưa được cấp quyền')
+  })
+
+  it('không có phiên trong cookie → hỏi tuần tự như cũ', async () => {
+    mocks.tokenSub.value = null
+    await expect(requireStoreOwnerStoreId()).resolves.toBe('store-1')
+    expect(mocks.operatorQueries).toEqual(['u1'])
   })
 })
