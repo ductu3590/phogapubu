@@ -96,6 +96,25 @@ tính doanh thu.
 | G6 | Nút Xoá lẻ trên một thẻ bàn | Như G4 cho một bàn |
 | G7 | Báo cáo (Theo món / Doanh thu) hôm qua trước và sau khi xoá một bàn có đơn đã thu | Số tiền không đổi |
 
+## H. Mở lại trang đã xem: hiện ngay, dữ liệu mới về sau (2026-11-16)
+
+`next.config.ts` `experimental.staleTimes.dynamic = 300`: trình duyệt giữ trang vừa xem 5 phút. `components/revisit-refresh.tsx`
+(gắn ở layout /admin, /staff, /mevo) thấy trang hiện TỪ CACHE (không có request tải trang) thì gọi `router.refresh()` phía
+sau → dữ liệu mới thay vào, không mất ô đang nhập / vị trí cuộn. Trang nào cache đã bị xoá (vd. Hoá đơn nghe Realtime)
+thì Next tự hỏi máy chủ như cũ, không tải hai lần.
+
+**Agent đã chạy:** 8 test `lib/revisit-refresh.test.ts`; Playwright trên bản BUILD production chạy tại máy (dev không
+giống production ở phần cache): mở lại Món 37ms, Báo cáo 37–40ms (lần đầu ~850–930ms) + đúng 1 lần tải nền; Hoá đơn
+~1,1 s, 1 request (như cũ). Dữ liệu mới: thêm bàn "Thử cache" thẳng vào DB khi đang ở trang khác → quay lại Sơ đồ bàn
+thấy ngay "25 bàn", tự đổi thành "26 bàn" (đã xoá bàn thử). ✅ H1, H2, H3.
+
+| # | Bước | Kỳ vọng |
+|---|---|---|
+| H1 | Mở Món → Báo cáo → bấm lại Món | Lần quay lại hiện gần như tức thì |
+| H2 | Đang ở trang khác, dùng điện thoại (/staff) đổi "Tạm hết" một món → quay lại Món ở máy POS | Hiện bản cũ ngay, ~0,5 s sau tự cập nhật đúng |
+| H3 | Mở lại Hoá đơn | Như trước (Hoá đơn tự làm mới theo Realtime) |
+| H4 | Đang gõ dở trong ô tìm món → chuyển trang → quay lại | Không lỗi; nếu ô còn chữ thì chữ không mất khi dữ liệu mới về |
+
 ## E. Đổi vùng máy chủ sang Mumbai (`admin-web/vercel.json`: `sin1` → `bom1`)
 
 | # | Bước | Kỳ vọng |

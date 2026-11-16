@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import SignOutButton from '@/components/sign-out-button'
 import StaffNav from './staff-nav'
 import BellStyleSync from '@/components/bell-style-sync'
+import RevisitRefresh from '@/components/revisit-refresh'
 import ServiceCallBar from './service-call-bar'
 import { listOpenServiceRequests } from '@/lib/actions/service-requests'
 
@@ -23,6 +24,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     // trang tự dài ra gây scroll thừa/khoảng trống.
     <div className="flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-background">
       <BellStyleSync style={store?.bell_style as string | undefined} />
+      <RevisitRefresh />
       <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface pr-2 pl-4">
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand text-sm font-bold text-white" aria-hidden>M</span>

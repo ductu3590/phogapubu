@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '4mb',
     },
+    // Trình duyệt giữ trang vừa xem 5 phút → mở lại là hiện ngay (mặc định Next 16 = 0, lần nào cũng chờ máy chủ).
+    // Phải khớp CLIENT_CACHE_SECONDS (lib/revisit-refresh.ts) — components/revisit-refresh.tsx dựa vào đó để tự tải
+    // bản mới phía sau khi trang mở lại từ cache.
+    staleTimes: {
+      dynamic: 300,
+    },
   },
 };
 

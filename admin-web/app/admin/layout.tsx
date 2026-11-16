@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import SignOutButton from '@/components/sign-out-button'
 import { IconRailShell } from '@/components/ui/icon-rail-shell'
 import BellStyleSync from '@/components/bell-style-sync'
+import RevisitRefresh from '@/components/revisit-refresh'
 import { PosLockProvider } from '@/components/pos-lock'
 import { ROLE_LABEL } from '@/lib/auth/roles'
 import { adminBottomItems, adminRailItems } from './admin-nav'
@@ -44,6 +45,7 @@ export default async function AdminLayout({ children, modal }: { children: React
       >
         <div className="flex h-full min-h-0 flex-col">{children}</div>
         <BellStyleSync style={storeResult.data?.bell_style as string | undefined} />
+        <RevisitRefresh />
         {modal}
       </IconRailShell>
     </PosLockProvider>

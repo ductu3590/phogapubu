@@ -2,6 +2,7 @@ import { LayoutDashboard, ShieldCheck, Store, Users, PlusSquare } from 'lucide-r
 import { requireOperatorOrRedirect, signedInEmail } from '@/lib/auth/operator'
 import { redirect } from 'next/navigation'
 import SignOutButton from '@/components/sign-out-button'
+import RevisitRefresh from '@/components/revisit-refresh'
 import { AppShell } from '@/components/ui/app-shell'
 
 // Khu MEVO superadmin — sidebar rộng theo bản Stitch A07/A10 (ST-4): logo "MEVO Cockpit", nhóm
@@ -40,6 +41,7 @@ export default async function MevoLayout({ children }: { children: React.ReactNo
       }
     >
       <div className="flex h-full min-h-0 flex-col">{children}</div>
+      <RevisitRefresh />
     </AppShell>
   )
 }
