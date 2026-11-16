@@ -6,6 +6,7 @@
 
 ## Chờ test
 
+- ⏳ [POS — "+ Mở bàn" trên Timeline, rail gọn, Báo cáo thành trang (RAIL-1)](docs/testing/pos-rail/RAIL-1.md) — A–F PASS 2026-11-16 (anh Tú); nhóm G (xoá bàn đã có đơn + chọn nhiều bàn, mig 141–142 đã áp prod) agent ✓ G1–G6, chờ anh Tú G7 + xem lại; nhánh `claude/timeline-ui-buttons-43fcde`, chưa commit
 - 👉 [**Trước go-live: việc còn lại của anh Tú, gom theo màn / thiết bị**](docs/testing/TRUOC-GO-LIVE.md) — T-002 2026-11-15; hạn 24/11
 
 - ✅ [Yên Garden — DB chặn người chưa đổi mật khẩu (mig 137)](docs/testing/yen-garden/TAI-KHOAN-DB.md) — PASS 2026-11-13 (anh Tú); mig 137 đã áp prod 2026-11-13; đã merge main (chưa push / deploy)

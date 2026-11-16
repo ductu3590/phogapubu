@@ -15,8 +15,8 @@ describe('hộp thoại cấu hình (ST-3)', () => {
     }
   })
 
-  it('POS, Bếp KHÔNG mở thành hộp thoại (Đặt bàn thì có, từ 2026-10-04)', () => {
-    for (const segment of ['pos', 'kitchen']) {
+  it('POS, Bếp, Báo cáo (2026-11-16) KHÔNG mở thành hộp thoại (Đặt bàn thì có, từ 2026-10-04)', () => {
+    for (const segment of ['pos', 'kitchen', 'reports']) {
       expect(existsSync(join(__dirname, '@modal', '(config)', `(.)${segment}`))).toBe(false)
     }
   })
@@ -36,9 +36,9 @@ describe('Sổ thu chi (mig 122)', () => {
 })
 
 describe('tab trong ⚙ Cài đặt (2026-10-13)', () => {
-  it('chủ quán: Cài đặt chung · Nhân viên · Ưu đãi & Vòng quay · Bảo mật', () => {
+  it('chủ quán: Cài đặt chung · Sơ đồ bàn & QR (2026-11-16) · Nhân viên · Ưu đãi & Vòng quay · Bảo mật', () => {
     expect(settingsTabs('store_owner').map((t) => t.href))
-      .toEqual(['/admin/settings', '/admin/staff', '/admin/vouchers', '/admin/account'])
+      .toEqual(['/admin/settings', '/admin/tables', '/admin/staff', '/admin/vouchers', '/admin/account'])
   })
   it('thu ngân chỉ có Bảo mật (một tab → không hiện hàng tab), và mở được trang đó', () => {
     const tabs = settingsTabs('store_cashier')

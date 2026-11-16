@@ -85,6 +85,24 @@ export async function deleteArea(areaId: string): Promise<Result> {
   return done()
 }
 
+// Chuyển NHIỀU bàn sang một khu cùng lúc (tích chọn ở trang Sơ đồ bàn & QR, 2026-11-16). Một lệnh UPDATE lọc
+// store_id; id bàn quán khác (hoặc đã bị xoá) thì từ chối cả lô, không chuyển nửa vời.
+export async function setTablesArea(tableIds: string[], areaId: string | null): Promise<Result> {
+  const o = await owner()
+  if ('error' in o) return { ok: false, error: o.error }
+  if (!Array.isArray(tableIds) || tableIds.length === 0 || !tableIds.every((x) => typeof x === 'string' && x)) {
+    return { ok: false, error: 'Chưa chọn bàn nào' }
+  }
+  const ids = [...new Set(tableIds)]
+  const admin = createAdminClient()
+  const { data: mine } = await admin.from('tables').select('id').eq('store_id', o.storeId).in('id', ids)
+  if ((mine ?? []).length !== ids.length) return { ok: false, error: 'Có bàn không thuộc quán hoặc đã bị xoá. Tải lại trang rồi chọn lại.' }
+  if (areaId && !(await storeAreas(o.storeId)).some((a) => a.id === areaId)) return { ok: false, error: 'Không tìm thấy khu' }
+  const { error } = await admin.from('tables').update({ area_id: areaId }).eq('store_id', o.storeId).in('id', ids)
+  if (error) return { ok: false, error: `Không chuyển được bàn: ${error.message}` }
+  return done()
+}
+
 export async function setTableArea(tableId: string, areaId: string | null): Promise<Result> {
   const o = await owner()
   if ('error' in o) return { ok: false, error: o.error }

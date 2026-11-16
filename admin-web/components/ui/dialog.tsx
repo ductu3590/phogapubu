@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { IconButton } from './button'
+import { useBackdropDismiss } from './use-backdrop-dismiss'
 
 /** Esc gọi gì: đóng được thì onClose; khoá (`dismissible=false`) thì onEscape nếu có, không thì không làm gì. */
 export function escapeHandler(dismissible: boolean, onClose: () => void, onEscape?: () => void): (() => void) | undefined {
@@ -43,6 +44,7 @@ export function Dialog({
   children?: ReactNode
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  const backdrop = useBackdropDismiss(onClose, dismissible)
 
   useEffect(() => {
     const dialog = ref.current
@@ -59,9 +61,8 @@ export function Dialog({
         event.preventDefault()
         escapeHandler(dismissible, onClose, onEscape)?.()
       }}
-      onClick={(event) => {
-        if (dismissible && event.target === ref.current) onClose()
-      }}
+      // Bấm nền để đóng: chỉ khi nhấn VÀ thả đều trên nền (quét chọn chữ lỡ thả ra ngoài không đóng, 2026-11-16).
+      {...backdrop}
       className={cn(
         'ui-dialog m-0 flex-col overflow-hidden border border-border bg-surface p-0 text-foreground shadow-modal open:flex',
         placement === 'center' &&

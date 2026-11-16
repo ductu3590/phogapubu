@@ -74,7 +74,7 @@ import {
   type PreorderPrintKind,
   type ReservationPreorderRow,
 } from '@/lib/actions/reservation-preorders'
-import { buildTimeline, servingShiftEnd, timelineWindow, type ServingPeriod, type TimelineBar } from '@/lib/pos-timeline'
+import { buildTimeline, timelineWindow, type ServingPeriod, type TimelineBar } from '@/lib/pos-timeline'
 import { cn } from '@/lib/utils'
 import { heldTableIdsForReservationWindow } from '../reservations/reservation-table-picker'
 import { useFloorLayout } from './use-floor-layout'
@@ -417,6 +417,7 @@ export default function PosClient({
   const selected = sessions.find((s) => s.session_id === selectedSessionId) ?? null
   const pickedSessions = sessions.filter((s) => pickedSessionIds.has(s.session_id))
   const freeTables = placed.filter((t) => !stateByTable.has(t.id))
+  const freeTableIds = useMemo(() => new Set(placed.filter((t) => !stateByTable.has(t.id)).map((t) => t.id)), [placed, stateByTable])
   const pickReservation = reservationPick
     ? reservations.find((reservation) => reservation.reservationId === reservationPick.reservationId) ?? null
     : null
@@ -1257,15 +1258,13 @@ export default function PosClient({
               selectedReservationId={selectedReservationId}
               onSelectSession={selectSession}
               onSelectReservation={selectReservation}
-              slotMinutes={slotIntervalMinutes}
-              holdMinutes={planningHoldMinutes}
-              bookUntil={servingShiftEnd(servingHours, now)}
               toolbarExtra={mergeButton}
-              onPickSlot={reservationsEnabled && !mergeMode && !arrange && !reservationPick ? (tableId, at) => {
-                const table = placed.find((t) => t.id === tableId)
-                if (!table || arrange || reservationPick) return
-                setBookingError(null)
-                setNewBooking({ table: { id: table.id, table_number: table.table_number }, arrivalAt: new Date(at).toISOString() })
+              openableTableIds={freeTableIds}
+              onOpenTable={!mergeMode && !arrange && !reservationPick && !busy ? (tableId) => {
+                // "+ Mở bàn" = Khách lẻ đã chọn sẵn bàn: vào thẳng bước chọn món (bàn chỉ mở khi gửi món, mig 099).
+                const table = freeTables.find((t) => t.id === tableId)
+                if (!table) return
+                setWalkIn({ step: 'menu', tableId: table.id, tableNumber: table.table_number })
               } : undefined}
             />
           )}

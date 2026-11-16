@@ -34,6 +34,7 @@ import type { MenuStockData } from '@/lib/inventory'
 import StockLinkEditor from './stock-link-editor'
 import { applyMenuDiscount, discountBadge, type ActiveRule, type MenuDiscountRow } from '@/lib/menu/menu-discount'
 import { DiscountOverview, TargetDiscounts } from './menu-discounts'
+import { useBackdropDismiss } from '@/components/ui/use-backdrop-dismiss'
 
 // Topping trong kho dùng chung của quán
 type Topping = {
@@ -783,10 +784,12 @@ function PrefixField({ current = null }: { current?: string | null }) {
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  // Bấm nền để đóng: chỉ khi nhấn VÀ thả đều trên nền (quét chọn chữ lỡ thả ra ngoài không đóng form).
+  const backdrop = useBackdropDismiss(onClose)
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" {...backdrop}>
       {/* text-foreground + bg-surface explicit để tránh inherit dark mode từ body */}
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-6 text-foreground shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-6 text-foreground shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-foreground">{title}</h3>
           <button onClick={onClose} className="text-muted hover:text-foreground">✕</button>

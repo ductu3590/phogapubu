@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { IconButton } from './button'
+import { useBackdropDismiss } from './use-backdrop-dismiss'
 
 export type AppNavItem = {
   href: string
@@ -116,6 +117,7 @@ export function AppShell({
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const drawerRef = useRef<HTMLDialogElement>(null)
+  const drawerBackdrop = useBackdropDismiss(() => setIsDrawerOpen(false))
 
   useEffect(() => {
     const drawer = drawerRef.current
@@ -178,9 +180,7 @@ export function AppShell({
           event.preventDefault()
           setIsDrawerOpen(false)
         }}
-        onClick={(event) => {
-          if (event.target === drawerRef.current) setIsDrawerOpen(false)
-        }}
+        {...drawerBackdrop}
         className="ui-dialog m-0 h-dvh max-h-none w-[min(320px,86vw)] max-w-none flex-col border-r border-border bg-surface p-0 text-foreground shadow-modal open:flex lg:hidden"
       >
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border pr-2 pl-4">

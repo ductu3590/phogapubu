@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { requireStoreOwnerStoreId } from '@/lib/auth/operator'
 import { previewBulkTables } from '@/lib/bulk-tables'
-import { DELETE_TABLE_HAS_ORDERS_ERROR } from '@/lib/table-close'
+import { pickHistoryTarget, type DeletableTable } from '@/lib/table-delete'
 
 async function getStoreId(): Promise<string> {
   return requireStoreOwnerStoreId()
@@ -62,30 +62,48 @@ export async function setTableActive(
   return { ok: true }
 }
 
-// Xoá bàn — trả về { error } thay vì throw để không làm crash trang.
-export async function deleteTable(tableId: string): Promise<{ error?: string }> {
-  const storeId = await getStoreId() // xác thực user + lấy đúng quán
-  const admin = createAdminClient()
-
-  // Bàn đã có đơn hàng thì KHÔNG xoá cứng: orders.table_id là khoá ngoại RESTRICT,
-  // xoá sẽ vỡ và làm mất liên kết lịch sử đơn/doanh thu. Hướng dẫn "Đóng bàn" thay vì xoá —
-  // chữ trong câu phải khớp đúng nhãn nút trên thẻ bàn (lib/table-close.ts).
-  const { count } = await admin
-    .from('orders')
-    .select('id', { count: 'exact', head: true })
-    .eq('table_id', tableId)
-  if (count && count > 0) {
-    return { error: DELETE_TABLE_HAS_ORDERS_ERROR }
+// Xoá một hoặc nhiều bàn — KỂ CẢ bàn đã từng có đơn (anh Tú 2026-11-16). Đơn, phiên, đặt bàn cũ… của bàn bị xoá
+// dồn sang "bàn nhận" (pickHistoryTarget: bàn đầu tiên theo tên tự nhiên trong số bàn còn lại — cùng bàn mà câu xác
+// nhận ở giao diện đã nêu) để báo cáo không mất doanh thu. Mọi việc chạy trong MỘT giao dịch ở RPC
+// delete_tables_keep_history (mig 142, chỉ service_role); RPC tự chặn bàn đang có khách / đang giữ cho đặt bàn.
+// Lỗi người dùng trả {ok:false}, không ném.
+export async function deleteTables(tableIds: string[]): Promise<
+  { ok: true; deleted: number; movedOrders: number; targetName: string | null } | { ok: false; error: string }
+> {
+  let storeId: string
+  try {
+    storeId = await getStoreId()
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Không có quyền' }
   }
+  if (!Array.isArray(tableIds) || tableIds.length === 0 || !tableIds.every((x) => typeof x === 'string' && x)) {
+    return { ok: false, error: 'Chưa chọn bàn nào để xoá' }
+  }
+  const ids = [...new Set(tableIds)]
+  const admin = createAdminClient()
+  const { data, error: readErr } = await admin.from('tables').select('id, table_number, is_active').eq('store_id', storeId)
+  if (readErr) return { ok: false, error: `Không đọc được danh sách bàn: ${readErr.message}` }
+  const tables = (data ?? []) as DeletableTable[]
+  if (!ids.every((x) => tables.some((t) => t.id === x))) {
+    return { ok: false, error: 'Có bàn không thuộc quán hoặc đã bị xoá. Tải lại trang rồi chọn lại.' }
+  }
+  const target = pickHistoryTarget(tables, ids)
 
-  const { error } = await admin
-    .from('tables')
-    .delete()
-    .eq('id', tableId)
-    .eq('store_id', storeId) // chỉ xoá bàn của đúng quán mình
-  if (error) return { error: `Không xoá được bàn: ${error.message}` }
+  const { data: res, error } = await admin.rpc('delete_tables_keep_history', {
+    p_store_id: storeId,
+    p_table_ids: ids,
+    p_target_table_id: target?.id ?? null,
+  })
+  if (error) return { ok: false, error: error.message }
+  const r = (res ?? {}) as { deleted?: number; moved_orders?: number; target_table_id?: string | null }
   revalidatePath('/admin/tables')
-  return {}
+  revalidatePath('/admin/pos')
+  return {
+    ok: true,
+    deleted: r.deleted ?? 0,
+    movedOrders: r.moved_orders ?? 0,
+    targetName: r.target_table_id ? (tables.find((t) => t.id === r.target_table_id)?.table_number ?? null) : null,
+  }
 }
 
 // Tạo nhiều bàn một lần ("A" + 1→20), vào một khu. Tên trùng bàn đang có (kể cả bàn đã Đóng) bị bỏ qua.

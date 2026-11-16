@@ -8,7 +8,7 @@ import { STATUS_TONE_CLASSES, TABLE_STATE, type TableVisualState } from '@/compo
 import type { OpenTableSession } from '@/lib/actions/table-session'
 import type { ReservationRow } from '@/lib/actions/reservations'
 import type { AreaPlacedTable, TableArea } from '@/lib/area-layout'
-import { clock, hourTicks, nextBookableSlot, percentOf, type TimelineBar, type TimelineWindow } from '@/lib/pos-timeline'
+import { clock, hourTicks, percentOf, type TimelineBar, type TimelineWindow } from '@/lib/pos-timeline'
 import type { TrayAssignment } from '@/lib/tray-colors'
 import { cn } from '@/lib/utils'
 import { areaColorClasses } from '@/lib/area-colors'
@@ -54,10 +54,8 @@ export default function TimelineView({
   selectedReservationId,
   onSelectSession,
   onSelectReservation,
-  onPickSlot,
-  slotMinutes,
-  holdMinutes,
-  bookUntil,
+  onOpenTable,
+  openableTableIds,
   toolbarExtra,
 }: {
   /** Nút đặt cạnh "Về Bây giờ" (vd. Gộp bill) — cùng một hàng thao tác của Timeline. */
@@ -77,13 +75,10 @@ export default function TimelineView({
   selectedReservationId: string | null
   onSelectSession: (sessionId: string, additive: boolean) => void
   onSelectReservation: (reservationId: string) => void
-  /** Nút "+ Đặt lúc HH:MM" ở mốc trống đầu tiên của mỗi bàn → đặt bàn lúc đó. */
-  onPickSlot?: (tableId: string, at: number) => void
-  /** Bước giờ đặt bàn + khoảng giữ bàn của quán (Cài đặt quán) — để tìm mốc trống. */
-  slotMinutes: number
-  holdMinutes: number
-  /** Giờ đóng ca — nút "+ Đặt lúc" không vượt quá. */
-  bookUntil: number | null
+  /** Nút "+ Mở bàn" ở vạch "bây giờ" của bàn trống → mở khách lẻ ngay trên bàn đó (bỏ bước chọn bàn). */
+  onOpenTable?: (tableId: string) => void
+  /** Bàn đang KHÔNG có phiên mở — chỉ những bàn này mới hiện nút "+ Mở bàn". */
+  openableTableIds: ReadonlySet<string>
 }) {
   const scroller = useRef<HTMLDivElement>(null)
   // Bề ngang khung nhìn thật — để thước giờ luôn đủ dài phía trước "bây giờ" (màn rộng 1920px
@@ -129,7 +124,7 @@ export default function TimelineView({
   useEffect(() => scrollToNow('auto'), [window.start, window.end, viewportPx])
 
   if (tables.length === 0) {
-    return <EmptyState className="m-4">Chưa có bàn nào trong khu vực này. Thêm bàn ở Bàn &amp; QR hoặc đổi khu vực.</EmptyState>
+    return <EmptyState className="m-4">Chưa có bàn nào trong khu vực này. Thêm bàn ở ⚙ Cài đặt › Sơ đồ bàn &amp; QR hoặc đổi khu vực.</EmptyState>
   }
 
   const renderBar = (bar: TimelineBar) => {
@@ -221,19 +216,21 @@ export default function TimelineView({
 
   const laneCount = (bars: TimelineBar[]) => Math.max(1, ...bars.map((b) => b.lane + 1))
 
-  // Bấm nhầm vào khoảng trắng từng mở form đặt bàn liên tục → chỉ còn MỘT nút rõ ràng ở mốc trống đầu tiên.
-  const slotButton = (tableId: string, bars: TimelineBar[]) => {
-    if (!onPickSlot) return null
-    const at = nextBookableSlot({ bars, now, window, slotMinutes, holdMinutes, until: bookUntil })
-    if (at === null) return null
+  // "+ Mở bàn" (anh Tú 2026-11-16, thay "+ Đặt lúc"): bàn trống thì một nút ở vạch "bây giờ" → mở khách lẻ
+  // trên đúng bàn đó. Có thanh đặt bàn đang phủ "bây giờ" (khách hẹn trễ) thì nút lùi ra sau thanh cho khỏi đè.
+  const openButton = (tableId: string, bars: TimelineBar[]) => {
+    if (!onOpenTable || !openableTableIds.has(tableId)) return null
+    const covering = bars.filter((b) => b.lane === 0 && b.start <= now && b.end > now)
+    const at = Math.max(now, ...covering.map((b) => b.end))
+    if (at >= window.end) return null
     return (
       <button
         type="button"
-        onClick={() => onPickSlot(tableId, at)}
+        onClick={() => onOpenTable(tableId)}
         style={{ left: `${percentOf(window, at)}%`, top: 8, height: LANE_PX - 16 }}
         className="absolute ml-1 inline-flex cursor-pointer items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 text-[13px] font-semibold whitespace-nowrap text-slate-500 hover:border-orange-500 hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-2 focus-visible:outline-orange-600"
       >
-        <Plus className="size-3.5" aria-hidden />Đặt lúc {clock(at)}
+        <Plus className="size-3.5" aria-hidden />Mở bàn
       </button>
     )
   }
@@ -256,7 +253,7 @@ export default function TimelineView({
       </div>
       <div className="relative shrink-0" style={{ width, height: laneCount(bars) * LANE_PX }}>
         {bars.map(renderBar)}
-        {tableId ? slotButton(tableId, bars) : null}
+        {tableId ? openButton(tableId, bars) : null}
       </div>
     </div>
   )
@@ -265,7 +262,7 @@ export default function TimelineView({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-2 bg-white px-4 py-1.5 md:px-5">
         <p className="min-w-0 truncate text-[13px] text-slate-500 tabular">
-          Bấm thanh để mở bill{onPickSlot ? ' · "+ Đặt lúc" để đặt bàn' : ''}
+          Bấm thanh để mở bill{onOpenTable ? ' · "+ Mở bàn" để gọi món khách lẻ' : ''}
         </p>
         <div className="flex shrink-0 items-center gap-2">
           {toolbarExtra}

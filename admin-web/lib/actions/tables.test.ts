@@ -3,24 +3,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => {
   const state = {
     areas: [] as Array<{ id: string; store_id: string; name: string; color: string; sort_order: number }>,
-    tables: [] as Array<{ id: string; store_id: string; area_id: string | null; table_number?: string }>,
+    tables: [] as Array<{ id: string; store_id: string; area_id: string | null; table_number?: string; is_active?: boolean }>,
     orders: [{ id: 'o1', table_id: 't1' }] as Array<{ id: string; table_id: string }>,
-    writes: [] as Array<{ table: string; op: string; payload?: unknown; eq: Array<[string, unknown]> }>,
+    writes: [] as Array<{ table: string; op: string; payload?: unknown; eq: Array<[string, unknown]>; in?: Array<[string, unknown[]]> }>,
     // Lỗi DB giả cho lệnh ghi kế tiếp (vd. trigger mig 138 từ chối đóng bàn đang có khách)
     writeError: null as null | { message: string },
+    rpcCalls: [] as Array<{ fn: string; args: Record<string, unknown> }>,
+    rpcResult: { data: null as unknown, error: null as null | { message: string } },
   }
   const from = vi.fn((table: string) => {
     const eq: Array<[string, unknown]> = []
+    const inF: Array<[string, unknown[]]> = []
     let op = 'select'
     let payload: unknown
     let returning = false
     const rows = () => {
       const src = table === 'table_areas' ? state.areas : table === 'orders' ? state.orders : state.tables
-      return (src as Array<Record<string, unknown>>).filter((r) => eq.every(([c, v]) => r[c] === v))
+      return (src as Array<Record<string, unknown>>).filter((r) => eq.every(([c, v]) => r[c] === v) && inF.every(([c, v]) => v.includes(r[c])))
     }
     const b: Record<string, unknown> = {}
     b.select = vi.fn(() => { if (op !== 'select') returning = true; return b })
     b.eq = vi.fn((c: string, v: unknown) => { eq.push([c, v]); return b })
+    b.in = vi.fn((c: string, v: unknown[]) => { inF.push([c, v]); return b })
     b.insert = vi.fn((p: unknown) => { op = 'insert'; payload = p; return b })
     b.update = vi.fn((p: unknown) => { op = 'update'; payload = p; return b })
     b.delete = vi.fn(() => { op = 'delete'; return b })
@@ -32,32 +36,35 @@ const mocks = vi.hoisted(() => {
         resolve({ data: null, error, count: null })
         return
       }
-      if (op !== 'select') state.writes.push({ table, op, payload, eq: [...eq] })
+      if (op !== 'select') state.writes.push({ table, op, payload, eq: [...eq], in: [...inF] })
       resolve({ data: op === 'select' || returning ? rows() : null, error: null, count: rows().length })
     }
     return b
   })
-  return { state, from, requireStoreOwnerStoreId: vi.fn(async () => 'store-1'), revalidatePath: vi.fn() }
+  const rpc = vi.fn(async (fn: string, args: Record<string, unknown>) => { state.rpcCalls.push({ fn, args }); return state.rpcResult })
+  return { state, from, rpc, requireStoreOwnerStoreId: vi.fn(async () => 'store-1'), revalidatePath: vi.fn() }
 })
 
 vi.mock('@/lib/auth/operator', () => ({ requireStoreOwnerStoreId: mocks.requireStoreOwnerStoreId }))
-vi.mock('@/lib/supabase/server', () => ({ createAdminClient: vi.fn(() => ({ from: mocks.from })) }))
+vi.mock('@/lib/supabase/server', () => ({ createAdminClient: vi.fn(() => ({ from: mocks.from, rpc: mocks.rpc })) }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
-const { addTable, addTablesBulk, setTableActive, deleteTable } = await import('./tables')
+const { addTable, addTablesBulk, setTableActive, deleteTables } = await import('./tables')
 
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.state.writes = []
   mocks.state.writeError = null
+  mocks.state.rpcCalls = []
+  mocks.state.rpcResult = { data: { deleted: 1, moved_orders: 0, moved_sessions: 0, target_table_id: null }, error: null }
   mocks.state.areas = [
     { id: 'a1', store_id: 'store-1', name: 'Trong nhà', color: 'violet', sort_order: 1 },
     { id: 'x1', store_id: 'store-2', name: 'Khu quán khác', color: 'pink', sort_order: 1 },
   ]
   mocks.state.tables = [
-    { id: 't1', store_id: 'store-1', area_id: 'a1', table_number: 'A1' },
-    { id: 't2', store_id: 'store-1', area_id: 'a1', table_number: ' a3 ' },
-    { id: 't9', store_id: 'store-2', area_id: null, table_number: 'A2' },
+    { id: 't1', store_id: 'store-1', area_id: 'a1', table_number: 'A1', is_active: true },
+    { id: 't2', store_id: 'store-1', area_id: 'a1', table_number: ' a3 ', is_active: true },
+    { id: 't9', store_id: 'store-2', area_id: null, table_number: 'A2', is_active: true },
   ]
   mocks.requireStoreOwnerStoreId.mockResolvedValue('store-1')
 })
@@ -78,11 +85,6 @@ describe('bàn (PA-3)', () => {
   it('khu của quán khác → báo lỗi, không thêm', async () => {
     await expect(addTable(form('Bàn 23', 'x1'))).rejects.toThrow('Không tìm thấy khu')
     expect(mocks.state.writes).toEqual([])
-  })
-  it('bàn chưa có đơn → xoá được', async () => {
-    const r = await deleteTable('t2')
-    expect(r).toEqual({})
-    expect(mocks.state.writes[0]).toMatchObject({ table: 'tables', op: 'delete' })
   })
 })
 
@@ -124,16 +126,34 @@ describe('setTableActive — Đóng bàn / Mở lại bàn', () => {
   })
 })
 
-describe('deleteTable', () => {
-  it('bàn đã có đơn → câu báo nhắc đúng tên nút "Đóng bàn"', async () => {
-    const r = await deleteTable('t1')
-    expect(r.error).toContain('Bấm "Đóng bàn"')
-    expect(mocks.state.writes).toEqual([])
+describe('deleteTables — xoá cả bàn đã có đơn, lịch sử dồn sang bàn nhận (mig 142)', () => {
+  it('gọi RPC với đúng quán, danh sách bàn và bàn nhận = bàn đầu tiên còn lại theo tên', async () => {
+    mocks.state.rpcResult = { data: { deleted: 1, moved_orders: 3, moved_sessions: 1, target_table_id: 't2' }, error: null }
+    const r = await deleteTables(['t1', 't1'])
+    expect(mocks.state.rpcCalls).toEqual([{ fn: 'delete_tables_keep_history', args: { p_store_id: 'store-1', p_table_ids: ['t1'], p_target_table_id: 't2' } }])
+    expect(r).toEqual({ ok: true, deleted: 1, movedOrders: 3, targetName: ' a3 ' })
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin/pos')
   })
-  it('bàn chưa có đơn → xoá được', async () => {
-    const r = await deleteTable('t2')
-    expect(r).toEqual({})
-    expect(mocks.state.writes[0]).toMatchObject({ table: 'tables', op: 'delete' })
+  it('xoá hết bàn của quán → bàn nhận null (RPC tự từ chối nếu có đơn cũ)', async () => {
+    await deleteTables(['t1', 't2'])
+    expect(mocks.state.rpcCalls[0].args.p_target_table_id).toBeNull()
+  })
+  it('bàn của quán khác → {ok:false}, không gọi RPC', async () => {
+    const r = await deleteTables(['t1', 't9'])
+    expect(r.ok).toBe(false)
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+  it('RPC từ chối (bàn đang có khách) → trả đúng câu của DB, không ném', async () => {
+    const msg = 'Bàn "A1" đang có khách (phiên chưa đóng). Thu tiền hoặc đóng phiên ở POS rồi mới xoá bàn.'
+    mocks.state.rpcResult = { data: null, error: { message: msg } }
+    expect(await deleteTables(['t1'])).toEqual({ ok: false, error: msg })
+    expect(mocks.revalidatePath).not.toHaveBeenCalled()
+  })
+  it('danh sách rỗng / không phải chủ quán → {ok:false}, không chạm DB', async () => {
+    expect((await deleteTables([])).ok).toBe(false)
+    mocks.requireStoreOwnerStoreId.mockRejectedValueOnce(new Error('Không có quyền'))
+    expect(await deleteTables(['t1'])).toEqual({ ok: false, error: 'Không có quyền' })
+    expect(mocks.from).not.toHaveBeenCalled()
   })
 })
 

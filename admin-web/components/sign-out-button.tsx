@@ -6,13 +6,14 @@ import { LogOut } from 'lucide-react'
 import { signOut } from '@/app/(auth)/login/actions'
 import { Button, IconButton } from '@/components/ui/button'
 import { getButtonClasses } from '@/components/ui/button-classes'
+import { useBackdropDismiss } from '@/components/ui/use-backdrop-dismiss'
 import { cn } from '@/lib/utils'
 
 // Nút đăng xuất DÙNG CHUNG cho mọi khu (/staff, POS/admin, /mevo) — bấm là hỏi lại rồi mới thoát
 // (2026-10-14): chạm nhầm giữa ca là văng ra màn đăng nhập, phải gõ lại mật khẩu.
 // Kiểu nút là chuỗi (không nhận hàm render) để layout server truyền vào được.
 //  - icon: nút vuông chỉ icon (thanh trên /staff, thẻ tài khoản /mevo)
-//  - rail: ô icon + chữ trên thanh icon dọc POS/admin
+//  - rail: ô chỉ icon ở chân thanh icon dọc POS/admin (tên ở title/aria-label, 2026-11-16)
 //  - row:  dòng ghost rộng hết khung (ngăn kéo menu màn hẹp)
 
 function ConfirmButton() {
@@ -37,6 +38,7 @@ export default function SignOutButton({
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const show = () => setOpen(true)
+  const backdrop = useBackdropDismiss(() => setOpen(false))
 
   useEffect(() => {
     const dialog = ref.current
@@ -51,14 +53,14 @@ export default function SignOutButton({
       <button
         type="button"
         onClick={show}
+        aria-label="Đăng xuất"
         title={email ? `Đăng xuất (${email})` : 'Đăng xuất'}
         className={cn(
-          'flex w-16 cursor-pointer flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[12px] leading-tight font-medium text-slate-500 transition-colors hover:bg-red-50 hover:text-red-700 [&>svg]:size-[18px]',
+          'flex min-h-11 w-16 cursor-pointer items-center justify-center rounded-xl px-1 py-1.5 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-700 [&>svg]:size-5',
           className,
         )}
       >
         <LogOut aria-hidden />
-        Đăng xuất
       </button>
     )
   } else if (variant === 'row') {
@@ -81,7 +83,7 @@ export default function SignOutButton({
         ref={ref}
         aria-labelledby={titleId}
         onCancel={(event) => { event.preventDefault(); setOpen(false) }}
-        onClick={(event) => { if (event.target === ref.current) setOpen(false) }}
+        {...backdrop}
         className="ui-dialog m-auto w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-border bg-surface p-0 text-foreground shadow-modal"
       >
         {/* Đệm nằm ở div trong: đệm trên chính <dialog> thì bấm vào đệm bị tính là bấm ra ngoài. */}

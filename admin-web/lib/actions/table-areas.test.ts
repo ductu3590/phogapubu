@@ -4,25 +4,27 @@ const mocks = vi.hoisted(() => {
   const state = {
     areas: [] as Array<{ id: string; store_id: string; name: string; color: string; sort_order: number }>,
     tables: [] as Array<{ id: string; store_id: string; area_id: string | null }>,
-    writes: [] as Array<{ table: string; op: string; payload?: unknown; eq: Array<[string, unknown]> }>,
+    writes: [] as Array<{ table: string; op: string; payload?: unknown; eq: Array<[string, unknown]>; in?: Array<[string, unknown[]]> }>,
   }
   const from = vi.fn((table: string) => {
     const eq: Array<[string, unknown]> = []
+    const inF: Array<[string, unknown[]]> = []
     let op = 'select'
     let payload: unknown
     const rows = () => {
       const src = table === 'table_areas' ? state.areas : state.tables
-      return (src as Array<Record<string, unknown>>).filter((r) => eq.every(([c, v]) => r[c] === v))
+      return (src as Array<Record<string, unknown>>).filter((r) => eq.every(([c, v]) => r[c] === v) && inF.every(([c, v]) => v.includes(r[c])))
     }
     const b: Record<string, unknown> = {}
     b.select = vi.fn(() => b)
     b.eq = vi.fn((c: string, v: unknown) => { eq.push([c, v]); return b })
+    b.in = vi.fn((c: string, v: unknown[]) => { inF.push([c, v]); return b })
     b.insert = vi.fn((p: unknown) => { op = 'insert'; payload = p; return b })
     b.update = vi.fn((p: unknown) => { op = 'update'; payload = p; return b })
     b.delete = vi.fn(() => { op = 'delete'; return b })
     b.maybeSingle = vi.fn(async () => ({ data: rows()[0] ?? null, error: null }))
     b.then = (resolve: (v: unknown) => void) => {
-      if (op !== 'select') state.writes.push({ table, op, payload, eq: [...eq] })
+      if (op !== 'select') state.writes.push({ table, op, payload, eq: [...eq], in: [...inF] })
       resolve({ data: op === 'select' ? rows() : null, error: null, count: rows().length })
     }
     return b
@@ -34,7 +36,7 @@ vi.mock('@/lib/auth/operator', () => ({ requireStoreOwnerStoreId: mocks.requireS
 vi.mock('@/lib/supabase/server', () => ({ createAdminClient: vi.fn(() => ({ from: mocks.from })) }))
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 
-const { createArea, deleteArea, setTableArea, updateArea } = await import('./table-areas')
+const { createArea, deleteArea, setTableArea, setTablesArea, updateArea } = await import('./table-areas')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -46,6 +48,7 @@ beforeEach(() => {
   ]
   mocks.state.tables = [
     { id: 't1', store_id: 'store-1', area_id: 'a1' },
+    { id: 't2', store_id: 'store-1', area_id: null },
     { id: 'tx', store_id: 'store-2', area_id: 'x1' },
   ]
 })
@@ -87,6 +90,20 @@ describe('khu (PA-3)', () => {
     await expect(setTableArea('t1', null)).resolves.toEqual({ ok: true })
     await expect(setTableArea('tx', 'a1')).resolves.toEqual({ ok: false, error: 'Không tìm thấy bàn' })
     await expect(setTableArea('t1', 'x1')).resolves.toEqual({ ok: false, error: 'Không tìm thấy khu' })
+  })
+  it('chuyển NHIỀU bàn sang khu (2026-11-16): một lệnh update lọc store_id + danh sách id', async () => {
+    await expect(setTablesArea(['t1', 't2', 't1'], 'a2')).resolves.toEqual({ ok: true })
+    expect(mocks.state.writes).toHaveLength(1)
+    expect(mocks.state.writes[0]).toMatchObject({ table: 'tables', op: 'update', payload: { area_id: 'a2' } })
+    expect(mocks.state.writes[0].eq).toEqual([['store_id', 'store-1']])
+    expect(mocks.state.writes[0].in).toEqual([['id', ['t1', 't2']]])
+    await expect(setTablesArea(['t1', 't2'], null)).resolves.toEqual({ ok: true })
+  })
+  it('chuyển nhiều bàn: có bàn quán khác / khu quán khác / rỗng → lỗi cả lô, không ghi', async () => {
+    await expect(setTablesArea(['t1', 'tx'], 'a2')).resolves.toMatchObject({ ok: false })
+    await expect(setTablesArea(['t1'], 'x1')).resolves.toEqual({ ok: false, error: 'Không tìm thấy khu' })
+    await expect(setTablesArea([], 'a2')).resolves.toEqual({ ok: false, error: 'Chưa chọn bàn nào' })
+    expect(mocks.state.writes).toEqual([])
   })
   it('không phải chủ quán → lỗi, không ghi', async () => {
     mocks.requireStoreOwnerStoreId.mockRejectedValueOnce(new Error('Chỉ chủ quán mới thao tác được ở đây'))

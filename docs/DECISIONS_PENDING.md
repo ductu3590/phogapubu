@@ -58,3 +58,17 @@ Mẫu:
 - Rủi ro nếu duyệt: thấp — mọi task đã qua reviewer, verify xanh trên worktree; admin-web thêm ô chọn giao diện `/mevo`, ô
   "Gợi ý gọi thêm nhanh", ảnh món WebP; không cần env mới trên Vercel. Mini App KHÔNG tự lên Zalo (cần `zmp deploy` riêng).
 - Trả lời của anh: Push main (chat 2026-11-15), đã mở cổng → **đã push 2026-11-15** `00bde28..460e79e`
+
+## D-005 · 2026-11-16 · gate: secrets · task: rail POS + nút Mở bàn · trạng thái: xong
+- Cần làm: chép `admin-web/.env.local` từ repo gốc sang worktree `timeline-ui-buttons-43fcde/admin-web/` để chạy dev
+  server xem trước giao diện (rail mới, nút "+ Mở bàn").
+- Vì sao: worktree không có `.env.local` (gitignored) nên agent không dựng được bản chạy thử; cổng secrets chặn lệnh chép.
+- Cập nhật 2026-11-16: anh Tú yêu cầu agent tự test UI bằng Playwright → cần (1) chép `.env.local` sang worktree,
+  (2) chạy script tạo phiên test (đọc service key trong `.env.local`, token không in ra, chỉ ghi file cookie tạm rồi xoá).
+- Phương án đề xuất (khuyến nghị): anh mở cổng `secrets` 1 giờ (lệnh duyệt như mẫu đầu file) để agent làm (1)+(2).
+  Phương án khác: anh tự chép `.env.local` — vẫn cần cổng cho (2) vì script đọc service key.
+- Rủi ro nếu duyệt: thấp — chỉ chép file sang thư mục gitignored trên máy anh, không in nội dung.
+- Trả lời của anh: "Đã mở cổng" (chat 2026-11-16) → agent đã chép `.env.local` vào worktree, tạo phiên test cho
+  `baoluong@`, `baoluong-pos@`, `baoluong-quanly@`, chạy Playwright, rồi xoá các file cookie tạm trong `public/`.
+- Lần 2 (2026-11-16, xoá bàn + chọn nhiều bàn): cổng hết hạn, agent xin anh mở lại `secrets` 1 giờ để tạo phiên test
+  `baoluong@` cho Playwright (cùng cách trên).

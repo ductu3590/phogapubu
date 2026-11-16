@@ -3,8 +3,9 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, ChartColumn, HandCoins, Package, ReceiptText, QrCode, Settings, ShieldCheck, Ticket, Users, UtensilsCrossed, Wallet, X } from 'lucide-react'
+import { CalendarDays, HandCoins, Package, ReceiptText, QrCode, Settings, ShieldCheck, Ticket, Users, UtensilsCrossed, Wallet, X } from 'lucide-react'
 import { IconButton } from '@/components/ui/button'
+import { useBackdropDismiss } from '@/components/ui/use-backdrop-dismiss'
 import { cn } from '@/lib/utils'
 import type { OperatorRole } from '@/lib/auth/roles'
 
@@ -12,18 +13,18 @@ import type { OperatorRole } from '@/lib/auth/roles'
 // Mở bằng intercepting route (app/admin/@modal/(.)<trang>): bấm link trong ứng dụng thì trang cấu hình
 // hiện trong hộp thoại, trang đang mở phía sau (POS) KHÔNG bị gỡ — đơn mới, chuông vẫn chạy.
 // Mở thẳng URL / F5 thì ra trang đầy đủ như cũ (Next không chặn khi tải cứng).
-// 2026-10-13: mục hằng ngày (Đặt bàn, Món, Bàn QR, Báo cáo) nằm trên thanh icon dọc (admin-nav.tsx); hộp
+// 2026-10-13: mục hằng ngày (Đặt bàn, Món, Hoá đơn…) nằm trên thanh icon dọc (admin-nav.tsx); hộp
 // thoại chừa thanh đó ra (md:left-[76px]) nên bấm icon là chuyển mục ngay. Riêng nhóm ⚙ Cài đặt còn hàng
-// tab: Cài đặt chung · Nhân viên · Ưu đãi & Vòng quay · Bảo mật.
+// tab: Cài đặt chung · Sơ đồ bàn & QR · Nhân viên · Ưu đãi & Vòng quay · Bảo mật.
+// 2026-11-16: Báo cáo KHÔNG có ở đây (bỏ @modal/(.)reports) → bấm là mở trang riêng /admin/reports.
 
 export const CONFIG_TABS = [
   { href: '/admin/reservations', label: 'Đặt bàn', icon: <CalendarDays /> },
   { href: '/admin/settings', label: 'Cài đặt chung', icon: <Settings />, settings: true },
+  { href: '/admin/tables', label: 'Sơ đồ bàn & QR', icon: <QrCode />, settings: true },
   { href: '/admin/menu', label: 'Thực đơn & Giá', icon: <UtensilsCrossed /> },
-  { href: '/admin/tables', label: 'Sơ đồ bàn & QR', icon: <QrCode /> },
   { href: '/admin/bills', label: 'Hoá đơn', icon: <ReceiptText /> },
   { href: '/admin/debts', label: 'Công nợ', icon: <HandCoins /> },
-  { href: '/admin/reports', label: 'Báo cáo', icon: <ChartColumn /> },
   { href: '/admin/cashbook', label: 'Sổ thu chi', icon: <Wallet /> },
   { href: '/admin/inventory', label: 'Kho', icon: <Package /> },
   { href: '/admin/staff', label: 'Nhân viên', icon: <Users />, settings: true },
@@ -86,6 +87,8 @@ export default function ConfigDialog({ storeName, role, children }: { storeName:
     const steps = base === null ? 1 : Math.max(1, window.history.length - base)
     window.history.go(-steps)
   }
+  // Bấm nền tối để đóng: chỉ khi nhấn VÀ thả đều trên nền — quét chọn chữ trong ô nhập lỡ thả ra ngoài không đóng.
+  const backdrop = useBackdropDismiss(close)
 
   // Chỉ khoá cuộn trang nền + bắt Esc khi hộp thoại đang hiện (đã ẩn vì sang trang khác thì nhả ra).
   useEffect(() => {
@@ -103,7 +106,7 @@ export default function ConfigDialog({ storeName, role, children }: { storeName:
   if (!open) return <ModalBaseReset />
 
   return (
-    <div className="fixed inset-0 z-50 flex md:left-[76px] items-stretch justify-center bg-slate-900/60 backdrop-blur-[2px] md:items-center md:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) close() }}>
+    <div className="fixed inset-0 z-50 flex md:left-[76px] items-stretch justify-center bg-slate-900/60 backdrop-blur-[2px] md:items-center md:p-6" {...backdrop}>
       <div
         ref={panel}
         tabIndex={-1}

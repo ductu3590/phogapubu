@@ -1,7 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import TablesClient from './tables-client'
 import { tablesVersion } from '@/lib/table-groups'
-import { generateTableQR } from '@/lib/qr'
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 
 export default async function TablesPage() {
@@ -35,14 +34,8 @@ export default async function TablesPage() {
     a.table_number.localeCompare(b.table_number, 'vi', { numeric: true, sensitivity: 'base' })
   )
 
-  // Sinh sẵn QR (data URL) phía server để hiển thị luôn trên trang, khỏi chờ client vẽ.
-  // Nếu quán chưa cấu hình zalo_mini_app_id thì để trống, client hiện placeholder.
-  const tablesWithQr = await Promise.all(
-    sortedTables.map(async (t) => ({
-      ...t,
-      qrDataUrl: zaloAppId ? await generateTableQR(zaloAppId, storeSlug, t.id) : '',
-    }))
-  )
+  // QR KHÔNG dựng ở máy chủ nữa (2026-11-16): trước đây 61 bàn = 61 ảnh PNG 500px data-URL, trang nặng 384KB và
+  // mất ~3 giây mỗi lần mở. Giờ mỗi thẻ bàn tự vẽ QR dạng SVG ở trình duyệt (TableQrImage trong tables-client).
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -51,8 +44,8 @@ export default async function TablesPage() {
         <p className="text-sm text-muted">Nhóm bàn theo khu, in mã QR dán bàn. Vị trí bàn trên sơ đồ chỉnh ở POS → Sắp xếp bàn.</p>
       </div>
       <TablesClient
-        key={tablesVersion(tablesWithQr)}
-        tables={tablesWithQr}
+        key={tablesVersion(sortedTables)}
+        tables={sortedTables}
         areas={(areaRows ?? []) as Array<{ id: string; name: string; color: string; sort_order: number }>}
         storeId={storeId}
         storeSlug={storeSlug}
