@@ -3,7 +3,8 @@ import { join } from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { SalesHourRow, SalesItemRow, SalesSummary, VoidRow } from '@/lib/reports/sales'
-import { REPORT_TABS } from '@/lib/reports/tabs'
+import { REPORT_TABS, reportTabsFor } from '@/lib/reports/tabs'
+import { getButtonClasses } from '@/components/ui/button-classes'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }))
 
@@ -23,6 +24,9 @@ describe('dòng phạm vi dưới tiêu đề', () => {
     const screen = readFileSync(join(__dirname, 'reports-screen.tsx'), 'utf8')
     expect(screen).not.toContain('chỉ tính bill đã thu tiền')
     expect(screen).toContain('reportScopeNote(tab)')
+    // Kỳ trước tải song song với kỳ hiện tại.
+    expect(screen).toContain('Promise.all(')
+    expect(screen).toContain('previousRange(range.preset, range.from, range.to)')
   })
 
   it('màn hình chỉ mở tab tài chính cho vai hậu cần (isBackOfficeRole), thu ngân về Theo món', () => {
@@ -186,7 +190,7 @@ describe('tóm tắt', () => {
 })
 
 describe('toolbar', () => {
-  const base = { tab: 'item' as const, preset: 'today' as const, from: '2026-11-20', to: '2026-11-20', today: '2026-11-20', tabs: REPORT_TABS, inModal: false }
+  const base = { periodText: '16/11/2026', tab: 'item' as const, preset: 'today' as const, from: '2026-11-20', to: '2026-11-20', today: '2026-11-20', tabs: REPORT_TABS, inModal: false }
 
   it('toolbar: 6 nút kỳ, nút Xuất Excel trỏ /admin/reports/export?tab=item&from=…&to=…', () => {
     const exportHref = '/admin/reports/export?tab=item&from=2026-11-20&to=2026-11-20'
@@ -198,8 +202,16 @@ describe('toolbar', () => {
     expect(periodList).toMatch(/aria-pressed="true"[^>]*>Hôm nay</)
     for (const l of ['Hôm nay', 'Hôm qua', '7 ngày', 'Tháng này', 'Tháng trước', 'Tuỳ chọn']) expect(periodList).toContain(l)
     const tabs = slice(html, 'aria-label="Loại báo cáo"')
-    for (const l of ['Theo món', 'Theo danh mục', 'Theo giờ', 'Món huỷ']) expect(count(tabs, `>${l}<`), l).toBe(2) // md + điện thoại
-    expect(html).toContain('aria-label="Loại báo cáo (điện thoại)" class="grid grid-cols-2')
+    for (const l of ['Theo món', 'Theo danh mục', 'Theo giờ', 'Món huỷ']) expect(count(tabs, `>${l}<`), l).toBe(1) // một thanh duy nhất
+    expect(html).not.toContain('Loại báo cáo (điện thoại)')
+    expect(html).toContain('>Bán hàng<')
+    expect(html).toContain('>Tài chính<') // đủ 8 tab
+    const cashier = renderToStaticMarkup(<ReportToolbar {...base} tabs={reportTabsFor(false)} exportHref="/x" />)
+    expect(cashier).toContain('>Bán hàng<')
+    expect(cashier).not.toContain('>Tài chính<') // thu ngân chỉ thấy 4 tab bán hàng
+    expect(tabs).toMatch(/aria-pressed="true"[^>]*class="[^"]*bg-primary[^"]*"[^>]*>(<svg.*?<\/svg>)?Theo món</)
+    expect(html).toContain('>16/11/2026<')
+    expect(html).toContain(getButtonClasses('primary'))
     expect(html).toContain(`href="${exportHref.replace(/&/g, '&amp;')}"`)
     expect(html).toContain('Xuất Excel')
     expect(html).not.toContain('type="date"')
@@ -237,7 +249,7 @@ describe('toolbar', () => {
     expect(reportQuery(cur, { grain: 'month' })).toBe('tab=revenue&period=7d&grain=month')
     expect(reportQuery({ ...cur, grain: 'month' }, { tab: 'pnl' })).toBe('tab=pnl&period=7d')
     expect(reportQuery(cur, {})).toBe('tab=revenue&period=7d')
-    const html = renderToStaticMarkup(<ReportToolbar tab="revenue" grain="month" preset="7d" from="2026-11-14" to="2026-11-20"
+    const html = renderToStaticMarkup(<ReportToolbar periodText="x" tab="revenue" grain="month" preset="7d" from="2026-11-14" to="2026-11-20"
       today="2026-11-20" tabs={REPORT_TABS} inModal={false} exportHref={null} />)
     const g = slice(html, 'aria-label="Chế độ xem"')
     const group = g.slice(0, g.indexOf('</div>'))
@@ -245,7 +257,7 @@ describe('toolbar', () => {
     expect(group).toContain('>Ngày<')
     // Chưa có Excel cho tab tài chính (Task 11): không hiện nút.
     expect(html).not.toContain('Xuất Excel')
-    const item = renderToStaticMarkup(<ReportToolbar tab="item" preset="7d" from="2026-11-14" to="2026-11-20"
+    const item = renderToStaticMarkup(<ReportToolbar periodText="x" tab="item" preset="7d" from="2026-11-14" to="2026-11-20"
       today="2026-11-20" tabs={REPORT_TABS} inModal={false} exportHref="/x" />)
     expect(item).not.toContain('aria-label="Chế độ xem"')
   })

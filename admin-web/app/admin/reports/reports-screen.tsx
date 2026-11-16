@@ -1,6 +1,7 @@
 import { requireAdminPageOrRedirect } from '@/lib/auth/operator'
 import { isBackOfficeRole } from '@/lib/auth/roles'
 import { loadReport, resolveReportRange, type ReportData } from '@/lib/actions/reports'
+import { compareLabel, previousRange, type Compare } from '@/lib/reports/compare'
 import { periodLabel } from '@/lib/reports/period'
 import { parseReportTab, reportTabsFor } from '@/lib/reports/tabs'
 import { shownPeriod } from '@/lib/reports/finance'
@@ -34,7 +35,16 @@ export default async function ReportsScreen({ searchParams, inModal }: {
   const tabs = reportTabsFor(canSeeFinance)
   const tab = parseReportTab(sp.tab, canSeeFinance)
   const grain = tab === 'revenue' && sp.grain === 'month' ? 'month' : 'day'
-  const res = await loadReport(tab, range.from, range.to, grain)
+  // Kỳ trước tải song song để so sánh. Công nợ (so với đầu kỳ) và Doanh thu chế độ tháng không cần.
+  // Kỳ trước lỗi → prev = null, chỉ ẩn phần so sánh, trang vẫn hiện.
+  const needPrev = tab !== 'debts' && !(tab === 'revenue' && grain === 'month')
+  const prev = previousRange(range.preset, range.from, range.to)
+  const [res, prevRes] = await Promise.all([
+    loadReport(tab, range.from, range.to, grain),
+    needPrev ? loadReport(tab, prev.from, prev.to, grain) : Promise.resolve(null),
+  ])
+  const compare: Compare = { prev: prevRes?.ok ? prevRes.report : null, label: compareLabel(range.preset) }
+  const periodText = periodLabel(shownPeriod(res.ok ? res.report : { tab }, range))
   const exportQuery = new URLSearchParams({ tab, from: range.from, to: range.to })
   if (grain === 'month') exportQuery.set('grain', 'month')
   const exportHref = `/admin/reports/export?${exportQuery}`
@@ -43,15 +53,16 @@ export default async function ReportsScreen({ searchParams, inModal }: {
     <div className="flex-1 overflow-y-auto bg-background">
       <div className="mx-auto w-full max-w-7xl space-y-5 p-4 md:p-6">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-foreground md:text-2xl">Báo cáo</h1>
+          <h1 className="text-2xl font-bold text-foreground">Báo cáo</h1>
           <p className="mt-1 text-sm text-muted">
             {/* Doanh thu chế độ tháng: kỳ thật là 12 tháng server trả về, không phải kỳ đang chọn. */}
-            Kỳ <span className="font-medium text-foreground tabular">{periodLabel(shownPeriod(res.ok ? res.report : { tab }, range))}</span> · {reportScopeNote(tab)}
+            Kỳ <span className="font-medium text-foreground tabular">{periodText}</span> · {reportScopeNote(tab)}
           </p>
         </div>
 
         <ReportToolbar
           key={toolbarKey(range)}
+          periodText={periodText}
           tab={tab}
           grain={grain}
           preset={range.preset}
@@ -63,13 +74,14 @@ export default async function ReportsScreen({ searchParams, inModal }: {
           exportHref={exportHref}
         />
 
-        {res.ok ? <ReportBody report={res.report} /> : <ErrorState title="Không tải được báo cáo" reason={res.error} />}
+        {res.ok ? <ReportBody report={res.report} compare={compare} /> : <ErrorState title="Không tải được báo cáo" reason={res.error} />}
       </div>
     </div>
   )
 }
 
-function ReportBody({ report }: { report: ReportData }) {
+// compare chưa truyền xuống view: từng view nhận prop này ở các task sau (prevOf(compare, tab)).
+function ReportBody({ report, compare: _compare }: { report: ReportData; compare: Compare }) {
   switch (report.tab) {
     case 'item':
       return <><SalesSummaryBlock summary={report.summary} /><SalesItemView rows={report.rows} itemsAmount={report.summary.itemsAmount} /></>
