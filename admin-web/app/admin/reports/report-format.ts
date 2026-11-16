@@ -15,7 +15,7 @@ export function shortMoney(n: number): string {
   return `${sign}${Math.round(a)}`
 }
 
-export const formatQty =(n: number): string => n.toLocaleString('vi-VN')
+export const formatQty = (n: number): string => n.toLocaleString('vi-VN')
 
 /** Giờ VN 'HH:mm', kèm 'dd/MM' phía trước khi `withDate`. */
 export function formatClock(iso: string, withDate = false): string {

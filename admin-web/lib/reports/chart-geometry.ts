@@ -20,8 +20,11 @@ export function smoothPath(p: [number, number][]): string {
     const p1 = p[i]
     const p2 = p[i + 1]
     const p3 = p[i + 2] ?? p2
-    const c1: [number, number] = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6]
-    const c2: [number, number] = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6]
+    // Kẹp y của điểm điều khiển trong khoảng y hai đầu đoạn để đường không lõm xuống dưới trục / vọt quá đỉnh.
+    const lo = Math.min(p1[1], p2[1]), hi = Math.max(p1[1], p2[1])
+    const clampY = (v: number) => Math.min(Math.max(v, lo), hi)
+    const c1: [number, number] = [p1[0] + (p2[0] - p0[0]) / 6, clampY(p1[1] + (p2[1] - p0[1]) / 6)]
+    const c2: [number, number] = [p2[0] - (p3[0] - p1[0]) / 6, clampY(p2[1] - (p3[1] - p1[1]) / 6)]
     d += ` C${f1(c1[0])},${f1(c1[1])} ${f1(c2[0])},${f1(c2[1])} ${f1(p2[0])},${f1(p2[1])}`
   }
   return d

@@ -6,7 +6,9 @@ const W = 720, H = 300, L = 12, R = 12, T = 34, B = 40
  * Thác nước Doanh thu → Lãi ròng. Cột "total" đi từ trục 0 tới giá trị; cột "delta" trôi từ mức đang chạy.
  * Miền trục luôn gồm 0 nên giá trị âm vẽ xuống dưới trục, không tràn khung.
  */
-export function Waterfall({ steps, formatValue }: { steps: WaterfallStep[]; formatValue: (n: number) => string }) {
+export function Waterfall({ steps, formatValue, ariaLabel = 'Từ doanh thu đến lãi ròng' }: {
+  steps: WaterfallStep[]; formatValue: (n: number) => string; ariaLabel?: string
+}) {
   let run = 0
   const bars = steps.map((s) => {
     const from = s.kind === 'total' ? 0 : run
@@ -24,7 +26,7 @@ export function Waterfall({ steps, formatValue }: { steps: WaterfallStep[]; form
   const bw = Math.min(slot * 0.6, 64)
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }} data-zero-y={zeroY} role="img">
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }} data-zero-y={zeroY} role="img" aria-label={ariaLabel}>
       <line x1={L} x2={W - R} y1={zeroY} y2={zeroY} stroke="var(--border-strong)" />
       {bars.map((b, i) => {
         const cx = L + slot * i + slot / 2

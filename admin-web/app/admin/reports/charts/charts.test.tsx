@@ -45,7 +45,35 @@ describe('AreaChart', () => {
   })
 })
 
+describe('AreaChart nhãn đỉnh và aria', () => {
+  it('đỉnh ở cột cuối / cột đầu: nhãn không bị cắt khỏi viewBox', () => {
+    for (const vals of [[1, 2, 3, 4, 9], [9, 4, 3, 2, 1]]) {
+      const html = renderToStaticMarkup(
+        <AreaChart labels={['a', 'b', 'c', 'd', 'e']} formatLeft={fmt} formatRight={fmt}
+          series={[{ name: 'x', values: vals, color: '#111' }, { name: 'y', values: vals, color: '#222', axis: 'right' }]} />,
+      )
+      const rects = [...html.matchAll(/<rect[^>]*>/g)].map((m) => m[0])
+      expect(rects.length).toBe(2)
+      for (const r of rects) {
+        const rx = Number(/ x="(-?[\d.]+)"/.exec(r)![1])
+        const rw = Number(/ width="([\d.]+)"/.exec(r)![1])
+        expect(rx).toBeGreaterThanOrEqual(0)
+        expect(rx + rw).toBeLessThanOrEqual(1040)
+      }
+    }
+  })
+  it('có aria-label mặc định và tuỳ chỉnh', () => {
+    const base = { labels: ['a'], formatLeft: fmt, series: [{ name: 'x', values: [1], color: '#111' }] }
+    expect(renderToStaticMarkup(<AreaChart {...base} />)).toContain('aria-label="Biểu đồ theo thời gian"')
+    expect(renderToStaticMarkup(<AreaChart {...base} ariaLabel="X" />)).toContain('aria-label="X"')
+  })
+})
+
 describe('Waterfall', () => {
+  it('có aria-label', () => {
+    const steps = [{ label: 'a', value: 1, kind: 'total' as const }]
+    expect(renderToStaticMarkup(<Waterfall steps={steps} formatValue={fmt} />)).toContain('aria-label="Từ doanh thu đến lãi ròng"')
+  })
   it('lãi ròng âm: không NaN, y/height >= 0, cột lãi ròng dưới trục 0', () => {
     const html = renderToStaticMarkup(
       <Waterfall formatValue={fmt} steps={[
@@ -55,11 +83,20 @@ describe('Waterfall', () => {
       ]} />,
     )
     expect(html).not.toContain('NaN')
-    for (const m of html.matchAll(/<rect[^>]*\s(?:y|height)="(-?[\d.]+)"/g)) expect(Number(m[1])).toBeGreaterThanOrEqual(0)
+    const PLOT_BOTTOM = 260 // H - B trong waterfall.tsx
+    const rects = [...html.matchAll(/<rect[^>]*>/g)].map((m) => m[0])
+    expect(rects.length).toBe(6)
+    for (const r of rects) {
+      const ry = Number(/ y="(-?[\d.]+)"/.exec(r)![1])
+      const rh = Number(/ height="(-?[\d.]+)"/.exec(r)![1])
+      expect(ry).toBeGreaterThanOrEqual(0)
+      expect(rh).toBeGreaterThanOrEqual(0)
+      expect(ry + rh).toBeLessThanOrEqual(PLOT_BOTTOM + 0.001)
+    }
     const zero = Number(/data-zero-y="([\d.]+)"/.exec(html)![1])
-    const rects = [...html.matchAll(/<rect[^>]*data-step="Lãi ròng"[^>]*>/g)]
-    expect(rects.length).toBe(1)
-    expect(Number(/ y="([\d.]+)"/.exec(rects[0][0])![1])).toBeGreaterThanOrEqual(zero)
+    const net = [...html.matchAll(/<rect[^>]*data-step="Lãi ròng"[^>]*>/g)]
+    expect(net.length).toBe(1)
+    expect(Number(/ y="([\d.]+)"/.exec(net[0][0])![1])).toBeGreaterThanOrEqual(zero)
   })
 })
 

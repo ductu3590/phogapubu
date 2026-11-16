@@ -4,7 +4,7 @@ import { niceMax, smoothPath } from '@/lib/reports/chart-geometry'
 export type AreaSeries = { name: string; values: number[]; color: string; axis?: 'left' | 'right' }
 
 export function AreaChart({
-  labels, series, formatLeft, formatRight, width = 1040, height = 300,
+  labels, series, formatLeft, formatRight, width = 1040, height = 300, ariaLabel = 'Biểu đồ theo thời gian',
 }: {
   labels: string[]
   series: AreaSeries[]
@@ -12,6 +12,7 @@ export function AreaChart({
   formatRight?: (n: number) => string
   width?: number
   height?: number
+  ariaLabel?: string
 }) {
   const uid = useId().replace(/:/g, '')
   const W = width, H = height
@@ -37,11 +38,13 @@ export function AreaChart({
     const [px, py] = lines[0][pi]
     const topY = Math.min(...lines.map((l) => l[pi]?.[1] ?? py))
     const labelY = Math.max(topY - 32, 2)
-    return { px, py, topY, labelY }
+    // Kẹp nhãn trong khung [0, W] để không bị cắt ở cột đầu / cột cuối.
+    const labelX = Math.min(Math.max(px - 34, 0), W - 68)
+    return { px, py, topY, labelY, labelX }
   })() : null
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }} role="img">
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }} role="img" aria-label={ariaLabel}>
       {[0, 1, 2, 3, 4].map((k) => {
         const yy = T + ih - (k * ih) / 4
         return (
@@ -79,16 +82,17 @@ export function AreaChart({
         <g>
           <line x1={peak.px} x2={peak.px} y1={peak.topY} y2={T + ih} stroke="var(--neutral-dot)" strokeDasharray="3 3" />
           <circle cx={peak.px} cy={peak.py} r="5" fill="#fff" stroke={s0.color} strokeWidth="2.5" />
-          <rect x={peak.px - 34} y={peak.labelY} width="68" height="22" rx="6" fill={s0.color} />
-          <text x={peak.px} y={peak.labelY + 15} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="#fff">{formatLeft(s0.values[pi])}</text>
+          <rect x={peak.labelX} y={peak.labelY} width="68" height="22" rx="6" fill={s0.color} />
+          <text x={peak.labelX + 34} y={peak.labelY + 15} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="#fff">{formatLeft(s0.values[pi])}</text>
           {series.slice(1).map((s, k) => {
             const [qx, qy] = lines[k + 1][pi] ?? [peak.px, peak.py]
             const fmt = s.axis === 'right' && formatRight ? formatRight : formatLeft
+            const bx = Math.min(Math.max(qx + 10, 0), W - 36)
             return (
               <g key={k}>
                 <circle cx={qx} cy={qy} r="4.5" fill="#fff" stroke={s.color} strokeWidth="2.5" />
-                <rect x={qx + 10} y={qy - 10} width="36" height="20" rx="6" fill={s.color} />
-                <text x={qx + 28} y={qy + 4} textAnchor="middle" fontSize="11" fontWeight="700" fill="#fff">{fmt(s.values[pi])}</text>
+                <rect x={bx} y={qy - 10} width="36" height="20" rx="6" fill={s.color} />
+                <text x={bx + 18} y={qy + 4} textAnchor="middle" fontSize="11" fontWeight="700" fill="#fff">{fmt(s.values[pi])}</text>
               </g>
             )
           })}
