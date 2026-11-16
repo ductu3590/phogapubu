@@ -33,7 +33,9 @@ describe('dòng phạm vi dưới tiêu đề', () => {
     const screen = readFileSync(join(__dirname, 'reports-screen.tsx'), 'utf8')
     for (const tab of ['item', 'category', 'hour']) expect(screen).toContain(`prevOf(compare, '${tab}')`)
     expect(count(screen, 'prev={prev?.summary}')).toBe(3)
-    expect(count(screen, 'compareLabel={compare.label}')).toBe(5) // 3 tab bán hàng + Món huỷ + Doanh thu
+    expect(count(screen, 'compareLabel={compare.label}')).toBe(7) // 3 tab bán hàng + Món huỷ + Doanh thu + Thu chi + Lãi lỗ (Công nợ so với đầu kỳ, không cần)
+    expect(screen).toContain("prevOf(compare, 'cashflow')?.funds")
+    expect(screen).toContain("prevOf(compare, 'pnl')")
     expect(screen).toContain("prevOf(compare, 'voids')")
     expect(screen).toContain("report.grain === 'month' ? null : prevOf(compare, 'revenue')")
   })
@@ -410,7 +412,9 @@ describe('tab tài chính', async () => {
     expect(html).toContain('Giá vốn nguyên liệu chưa tính — cần kiểm kho')
     expect(html).toContain('Thiếu giá nhập: Đá viên')
     const order = ['Doanh thu thuần', 'Giá vốn hàng bán', 'Lãi gộp', 'Chi phí hoạt động', 'Hàng huỷ', 'Thu nhập khác', 'Lãi ròng']
-    const pos = order.map((l) => html.indexOf(l))
+    // Thứ tự dòng chỉ kiểm trong bảng lãi lỗ dọc (thẻ KPI phía trên cũng có tên "Lãi gộp", "Lãi ròng"…).
+    const table = html.slice(html.indexOf('<section class="min-w-0 divide-y'))
+    const pos = order.map((l) => table.indexOf(l))
     expect(pos.every((x) => x >= 0)).toBe(true)
     expect([...pos].sort((a, b) => a - b)).toEqual(pos)
     expect(html).toContain('2.950.000đ')
@@ -444,5 +448,53 @@ describe('tab tài chính', async () => {
     expect(html).toContain('>Tổng<')
     expect(html).toContain('650.000đ')
     expect(renderToStaticMarkup(<ReceivablesView report={{ ...r, rows: [] }} />)).toContain('Chưa có dữ liệu trong kỳ này')
+  })
+
+  it('Thu chi kiểu mới: Chênh lệch trong kỳ + chip, Tiền ra đi đâu không có chuyển quỹ', () => {
+    const r = as('cashflow', rpc125.report_cash_flow)
+    const withTransfer = { ...r, outflows: [...r.outflows, { key: 'cat:x', label: 'Chuyển quỹ két sang bank', cash: 700000, bank: 0, reportGroup: 'cash_transfer' }] }
+    const prev = { ...r.funds, cash: { ...r.funds.cash, net: 500000 }, bank: { ...r.funds.bank, net: 660000 } }
+    const html = renderToStaticMarkup(<CashFlowView report={withTransfer} prev={prev} compareLabel="so với kỳ trước" />)
+    expect(html).toContain('Chênh lệch trong kỳ')
+    expect(html).toContain('Tiền ra đi đâu')
+    expect(html).toContain('Không gồm chuyển quỹ')
+    expect(html).toContain('so với kỳ trước')
+    const block = slice(html, 'Tiền ra đi đâu')
+    const blockOnly = block.slice(0, block.indexOf('Tiền vào'))
+    expect(blockOnly).toContain('Lương - thưởng')
+    expect(blockOnly).not.toContain('Chuyển quỹ két sang bank')
+    // Không có chi thật nào → ẩn khối
+    const none = renderToStaticMarkup(<CashFlowView report={{ ...r, outflows: [] }} />)
+    expect(none).not.toContain('Tiền ra đi đâu')
+    expect(none).not.toContain('NaN')
+  })
+
+  it('Lãi lỗ kiểu mới: thác nước, Biên, dòng Lãi ròng đỏ khi âm', () => {
+    const r = as('pnl', rpc125.report_profit_loss)
+    const html = renderToStaticMarkup(<ProfitLossView report={r} />)
+    expect(html).toContain('Từ doanh thu đến lãi ròng')
+    expect(html).toContain('Biên')
+    expect(count(html, 'role="img"')).toBeGreaterThanOrEqual(1)
+    expect(html).toContain('bg-success-bg')
+    const loss = renderToStaticMarkup(<ProfitLossView report={{ ...r, netProfit: -150000 }} />)
+    expect(loss).toContain('bg-critical-bg text-critical')
+    // Không hạng mục chi phí: ẩn donut nhưng vẫn còn khối
+    const noOpex = renderToStaticMarkup(<ProfitLossView report={{ ...r, operatingExpenses: { total: 0, rows: [] } }} />)
+    expect(noOpex).toContain('Chi phí hoạt động')
+    expect(noOpex).not.toContain('NaN')
+    expect(noOpex).not.toContain('Infinity')
+  })
+
+  it('Công nợ kiểu mới: Nợ nhiều nhất, so với đầu kỳ, Thu được; nhãn đỏ chỉ khi quá 30 ngày', () => {
+    const r = as('debts', rpc125.report_receivables)
+    const html = renderToStaticMarkup(<ReceivablesView report={r} />)
+    expect(html).toContain('Nợ nhiều nhất')
+    expect(html).toContain('so với đầu kỳ')
+    expect(html).toContain('Thu được')
+    expect(html).toContain('khách đang nợ')
+    expect(html).toMatch(/\d+ ngày<\/span>/)
+    const empty = renderToStaticMarkup(<ReceivablesView report={{ ...r, rows: [], totals: { ...r.totals, opening: 0, incurred: 0, collected: 0, closing: 0 } }} />)
+    expect(empty).not.toContain('NaN')
+    expect(empty).not.toContain('Infinity')
   })
 })

@@ -80,7 +80,7 @@ export default async function ReportsScreen({ searchParams, inModal }: {
   )
 }
 
-// compare đã truyền cho 3 tab bán hàng + Món huỷ + Doanh thu; các tab tài chính còn lại nhận ở task sau.
+// compare đã truyền cho mọi tab trừ Công nợ (so với đầu kỳ của chính nó).
 function ReportBody({ report, compare }: { report: ReportData; compare: Compare }) {
   switch (report.tab) {
     case 'item': {
@@ -105,10 +105,11 @@ function ReportBody({ report, compare }: { report: ReportData; compare: Compare 
       return <RevenueView report={report} prev={prev?.totals} compareLabel={compare.label} />
     }
     case 'cashflow':
-      return <CashFlowView report={report} />
+      return <CashFlowView report={report} prev={prevOf(compare, 'cashflow')?.funds} compareLabel={compare.label} />
     case 'pnl':
-      return <ProfitLossView report={report} />
+      return <ProfitLossView report={report} prev={prevOf(compare, 'pnl')} compareLabel={compare.label} />
     case 'debts':
+      // Công nợ không tải kỳ trước: so cuối kỳ với đầu kỳ ngay trong view.
       return <ReceivablesView report={report} />
   }
 }
