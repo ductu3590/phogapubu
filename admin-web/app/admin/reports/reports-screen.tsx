@@ -80,7 +80,7 @@ export default async function ReportsScreen({ searchParams, inModal }: {
   )
 }
 
-// compare đã truyền cho 3 tab bán hàng; các tab còn lại nhận ở task sau (prevOf(compare, tab)).
+// compare đã truyền cho 3 tab bán hàng + Món huỷ + Doanh thu; các tab tài chính còn lại nhận ở task sau.
 function ReportBody({ report, compare }: { report: ReportData; compare: Compare }) {
   switch (report.tab) {
     case 'item': {
@@ -95,10 +95,15 @@ function ReportBody({ report, compare }: { report: ReportData; compare: Compare 
       const prev = prevOf(compare, 'hour')
       return <><SalesSummaryBlock summary={report.summary} prev={prev?.summary} compareLabel={compare.label} /><SalesHourView rows={report.rows} /></>
     }
-    case 'voids':
-      return <VoidsView totals={report.totals} rows={report.rows} />
-    case 'revenue':
-      return <RevenueView report={report} />
+    case 'voids': {
+      const prev = prevOf(compare, 'voids')
+      return <VoidsView totals={report.totals} rows={report.rows} prev={prev?.totals} compareLabel={compare.label} />
+    }
+    case 'revenue': {
+      // Chế độ tháng: compare.prev = null nên không có chip (RevenueView cũng tự chặn).
+      const prev = report.grain === 'month' ? null : prevOf(compare, 'revenue')
+      return <RevenueView report={report} prev={prev?.totals} compareLabel={compare.label} />
+    }
     case 'cashflow':
       return <CashFlowView report={report} />
     case 'pnl':

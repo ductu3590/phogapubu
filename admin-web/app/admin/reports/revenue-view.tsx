@@ -1,38 +1,24 @@
+'use client'
+
+import { ArrowDownToLine, ArrowUpToLine, Receipt, Scale, Tag, Users, Wallet, type LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { EmptyState } from '@/components/ui/feedback'
 import { formatVND } from '@/lib/utils'
-import { avgPerBill, revenueRowLabel, type RevenueGrain, type RevenueReport, type RevenueRow } from '@/lib/reports/finance'
-import { EMPTY_TEXT, formatQty } from './report-format'
+import { deltaPercent } from '@/lib/reports/compare'
+import { avgPerBill, revenueRowLabel, type RevenueReport, type RevenueRow, type RevenueTotals } from '@/lib/reports/finance'
+import { revenueExtremes, paymentMix } from '@/lib/reports/insights'
+import { percentOf } from '@/lib/reports/sales'
+import { AreaChart } from './charts/area-chart'
+import { ChartLegend } from './charts/chart-legend'
+import { Donut } from './charts/donut'
+import { PAYMENT_COLORS } from './charts/palette'
+import { KpiCard } from './kpi-card'
+import { SectionCard } from './section-card'
+import { EMPTY_TEXT, formatPercent, formatQty, shortMoney } from './report-format'
 
 // Tab "Doanh thu": mỗi ngày (hoặc mỗi tháng trong 12 tháng) một dòng, số = A04 ngày đó (report_day_totals, mig 125).
 
-const W = 600
-const H = 160
-const PAD = 8
-
-/** Biểu đồ đường SVG: viewBox cố định, giãn theo bề ngang khung (preserveAspectRatio none). Nhãn trục là HTML để không méo. */
-export function RevenueLine({ rows, grain }: { rows: RevenueRow[]; grain: RevenueGrain }) {
-  if (rows.length === 0) return null
-  const max = Math.max(0, ...rows.map((r) => r.revenue))
-  const x = (i: number) => (rows.length === 1 ? W / 2 : PAD + (i * (W - 2 * PAD)) / (rows.length - 1))
-  const y = (v: number) => (max > 0 ? H - PAD - (v / max) * (H - 2 * PAD) : H - PAD)
-  const pts = rows.map((r, i) => [Math.round(x(i) * 10) / 10, Math.round(y(r.revenue) * 10) / 10] as const)
-  return (
-    <figure className="space-y-1">
-      <p className="text-[12px] tabular text-muted">Cao nhất {formatVND(max)}</p>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" width="100%" height="160" role="img"
-        aria-label="Doanh thu theo thời gian" className="block h-40 text-primary">
-        <line x1={0} y1={H - PAD} x2={W} y2={H - PAD} stroke="var(--border)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-        <polyline points={pts.map(([px, py]) => `${px},${py}`).join(' ')} fill="none" stroke="currentColor" strokeWidth={2}
-          strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        {pts.map(([px, py], i) => <circle key={rows[i].date || i} cx={px} cy={py} r={3} fill="currentColor" />)}
-      </svg>
-      <figcaption className="flex justify-between text-[12px] tabular text-muted">
-        <span>{revenueRowLabel(rows[0], grain)}</span>
-        {rows.length > 1 ? <span>{revenueRowLabel(rows[rows.length - 1], grain)}</span> : null}
-      </figcaption>
-    </figure>
-  )
-}
+const ARIA = 'Doanh thu và số bill theo thời gian'
 
 const COLS = ['Doanh thu', 'Giảm giá', 'Tiền mặt', 'Chuyển khoản', 'Ghi nợ', 'Số bill', 'TB/bill'] as const
 
@@ -43,32 +29,104 @@ function cells(r: Omit<RevenueRow, 'date'>): string[] {
   ]
 }
 
-export default function RevenueView({ report }: { report: RevenueReport }) {
+function StripCell({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2.5 px-3.5 py-3">
+      <Icon className="size-5 shrink-0 text-primary" aria-hidden />
+      <div className="min-w-0">
+        <div className="text-xs text-muted">{label}</div>
+        <div className="tabular truncate text-[14.5px] font-bold">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+export default function RevenueView({ report, prev, compareLabel }: {
+  report: RevenueReport; prev?: RevenueTotals | null; compareLabel?: string
+}) {
   const { rows, totals, grain } = report
-  const unit = grain === 'month' ? 'Tháng' : 'Ngày'
+  const isMonth = grain === 'month'
+  const unit = isMonth ? 'Tháng' : 'Ngày'
+  const unitLower = isMonth ? 'tháng' : 'ngày'
   const hasRevenue = rows.some((r) => r.revenue !== 0 || r.billsCount !== 0)
+  // Chế độ tháng luôn là 12 tháng gần nhất, không có kỳ trước tương ứng → không so sánh.
+  const base = isMonth ? null : prev
+  const d = (cur: number, p: number | undefined) => deltaPercent(cur, p)
+  const cmp = isMonth ? undefined : compareLabel
+
+  const showBody = rows.length > 0 && hasRevenue
+  const ext = showBody ? revenueExtremes(rows) : null
+  const mix = paymentMix(totals)
+  const mixTotal = mix.reduce((a, s) => a + s.value, 0)
+
+  const labels = rows.map((r) => revenueRowLabel(r, grain))
+  const series = [
+    { name: 'Doanh thu', values: rows.map((r) => r.revenue), color: 'var(--chart-1)' },
+    { name: 'Số bill', values: rows.map((r) => r.billsCount), color: 'var(--chart-3)', axis: 'right' as const },
+  ]
+  const chartProps = { labels, series, formatLeft: shortMoney, formatRight: (n: number) => String(Math.round(n)), ariaLabel: ARIA }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Doanh thu" value={formatVND(totals.revenue)} />
-        <Stat label="Số bill" value={formatQty(totals.billsCount)} />
-        <Stat label="TB/bill" value={formatVND(avgPerBill(totals.revenue, totals.billsCount))} />
-        <Stat label="Giảm giá" value={formatVND(totals.discountTotal)} />
+        <KpiCard icon={Receipt} tone="orange" label="Doanh thu" value={formatVND(totals.revenue)}
+          delta={d(totals.revenue, base?.revenue)} compareLabel={cmp} />
+        <KpiCard icon={Users} tone="sky" label="Số bill" value={formatQty(totals.billsCount)}
+          delta={d(totals.billsCount, base?.billsCount)} compareLabel={cmp} />
+        <KpiCard icon={Wallet} tone="green" label="TB/bill" value={formatVND(avgPerBill(totals.revenue, totals.billsCount))}
+          delta={d(avgPerBill(totals.revenue, totals.billsCount), base ? avgPerBill(base.revenue, base.billsCount) : undefined)} compareLabel={cmp} />
+        <KpiCard icon={Tag} tone="violet" label="Giảm giá" value={formatVND(totals.discountTotal)} inverse
+          delta={d(totals.discountTotal, base?.discountTotal)} compareLabel={cmp}
+          note={`${formatPercent(percentOf(totals.discountTotal, totals.revenue))} doanh thu`} />
       </div>
 
-      {rows.length === 0 || !hasRevenue ? (
+      {!showBody ? (
         <section className="rounded-xl border border-border bg-surface"><EmptyState>{EMPTY_TEXT}</EmptyState></section>
       ) : (
         <>
-          <section className="rounded-xl border border-border bg-surface p-4 md:p-5">
-            <h2 className="mb-3 text-sm font-semibold text-foreground">
-              {grain === 'month'
-                ? `Doanh thu 12 tháng, ${revenueRowLabel(rows[0], 'month')} – ${revenueRowLabel(rows[rows.length - 1], 'month')}`
-                : 'Doanh thu theo ngày'}
-            </h2>
-            <RevenueLine rows={rows} grain={grain} />
-          </section>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+            <SectionCard
+              title={`Doanh thu & số bill theo ${unitLower}`}
+              hint={isMonth ? `12 tháng, ${labels[0]} – ${labels[labels.length - 1]}` : undefined}
+            >
+              <div className="flex gap-4 px-5 pt-2.5 text-[12.5px] text-muted">
+                <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-1)' }} />Doanh thu</span>
+                <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-3)' }} />Số bill</span>
+              </div>
+              {/* SVG co theo bề rộng nên chữ nhỏ đi trên điện thoại: hai bản, mobile vẽ khung hẹp hơn để chữ đọc được. */}
+              <div className="hidden md:block px-3 pt-1"><AreaChart {...chartProps} /></div>
+              <div className="px-1 pt-1 md:hidden"><AreaChart {...chartProps} width={420} height={280} /></div>
+              {ext ? (
+                <div className="mx-5 mb-5 mt-1 grid grid-cols-1 overflow-hidden rounded-xl border border-orange-100 bg-orange-50/40 sm:grid-cols-3">
+                  <StripCell icon={ArrowUpToLine} label={`${unit} cao nhất`}>{revenueRowLabel(ext.best, grain)} · {shortMoney(ext.best.revenue)}</StripCell>
+                  <StripCell icon={Scale} label={`TB / ${unitLower}`}>{formatVND(ext.avg)}</StripCell>
+                  <StripCell icon={ArrowDownToLine} label={`${unit} thấp nhất`}>{revenueRowLabel(ext.worst, grain)} · {shortMoney(ext.worst.revenue)}</StripCell>
+                </div>
+              ) : null}
+            </SectionCard>
+
+            <SectionCard title="Cơ cấu thanh toán" hint="Theo tiền thật đã nhận trong kỳ">
+              {mix.length === 0 ? (
+                <EmptyState>{EMPTY_TEXT}</EmptyState>
+              ) : (
+                <div className="flex flex-col items-center gap-5 px-5 pb-5 pt-4 sm:flex-row">
+                  <Donut
+                    slices={mix.map((s) => ({ label: s.label, value: s.value, color: PAYMENT_COLORS[s.key as keyof typeof PAYMENT_COLORS] }))}
+                    center={shortMoney(totals.revenue)}
+                    caption="DOANH THU"
+                  />
+                  <ChartLegend
+                    items={mix.map((s) => ({
+                      label: s.label,
+                      sub: formatVND(s.value),
+                      percent: percentOf(s.value, mixTotal),
+                      color: PAYMENT_COLORS[s.key as keyof typeof PAYMENT_COLORS],
+                    }))}
+                  />
+                </div>
+              )}
+            </SectionCard>
+          </div>
 
           <section className="min-w-0 overflow-x-auto rounded-xl border border-border bg-surface">
             <table className="hidden md:table w-full text-left text-sm">
@@ -81,7 +139,10 @@ export default function RevenueView({ report }: { report: RevenueReport }) {
               <tbody className="divide-y divide-border">
                 {rows.map((r) => (
                   <tr key={r.date}>
-                    <td className="px-4 py-3 font-medium tabular text-foreground">{revenueRowLabel(r, grain)}</td>
+                    <td className="px-4 py-3 font-medium tabular text-foreground">
+                      {revenueRowLabel(r, grain)}
+                      {ext && r === ext.best ? <span className="ml-2 rounded-md bg-primary-light px-1.5 py-px text-[12px] font-semibold text-primary">Cao nhất</span> : null}
+                    </td>
                     {cells(r).map((v, i) => <td key={COLS[i]} className="px-4 py-3 text-right tabular">{v}</td>)}
                   </tr>
                 ))}
@@ -118,18 +179,6 @@ export default function RevenueView({ report }: { report: RevenueReport }) {
           </section>
         </>
       )}
-      {totals.other > 0 ? (
-        <p className="text-[13px] text-muted">Có {formatVND(totals.other)} thu qua ví / phương thức khác (không nằm trong TM, CK, nợ).</p>
-      ) : null}
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-xl border border-border bg-surface p-3 md:p-4">
-      <p className="text-[13px] font-medium text-muted">{label}</p>
-      <p className="mt-1 truncate text-lg font-semibold tabular text-foreground md:text-2xl">{value}</p>
     </div>
   )
 }

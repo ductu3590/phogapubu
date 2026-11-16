@@ -33,7 +33,9 @@ describe('dòng phạm vi dưới tiêu đề', () => {
     const screen = readFileSync(join(__dirname, 'reports-screen.tsx'), 'utf8')
     for (const tab of ['item', 'category', 'hour']) expect(screen).toContain(`prevOf(compare, '${tab}')`)
     expect(count(screen, 'prev={prev?.summary}')).toBe(3)
-    expect(count(screen, 'compareLabel={compare.label}')).toBe(3)
+    expect(count(screen, 'compareLabel={compare.label}')).toBe(5) // 3 tab bán hàng + Món huỷ + Doanh thu
+    expect(screen).toContain("prevOf(compare, 'voids')")
+    expect(screen).toContain("report.grain === 'month' ? null : prevOf(compare, 'revenue')")
   })
 
   it('màn hình chỉ mở tab tài chính cho vai hậu cần (isBackOfficeRole), thu ngân về Theo món', () => {
@@ -194,6 +196,20 @@ describe('Món huỷ', () => {
     expect(html).toContain('hidden md:table')
     expect(html).toContain('18:55')
   })
+
+  it('Món huỷ (kiểu mới): top món, lý do hay gặp, chip so kỳ trước, lý do trống gộp "Không ghi lý do"', () => {
+    const prev = { cancelledAmount: 500000, giftAmount: 120000, reducedAmount: 20000, count: 5 }
+    const html = renderToStaticMarkup(<VoidsView totals={VOID_TOTALS} rows={VOIDS} prev={prev} compareLabel="so với hôm qua" />)
+    for (const l of ['Món bị huỷ nhiều nhất', 'Gộp bỏ + tặng + giảm SL', 'Lý do hay gặp', 'Không ghi lý do', 'Lẩu riêu']) expect(html).toContain(l)
+    expect(html).toContain('so với hôm qua')
+    // Tiền bỏ giảm 50% là tốt (inverse) → chip xanh
+    expect(html).toMatch(/bg-success-bg text-success[^>]*>↓ 50,0%/)
+    // Lý do chỉ có khoảng trắng cũng là "Không ghi lý do"
+    const blank = VOIDS.map((r) => (r.reason === null ? { ...r, reason: '   ' } : r))
+    expect(count(renderToStaticMarkup(<VoidsView totals={VOID_TOTALS} rows={blank} />), 'Không ghi lý do')).toBeGreaterThanOrEqual(2)
+    // Không có kỳ trước: không chip
+    expect(renderToStaticMarkup(<VoidsView totals={VOID_TOTALS} rows={VOIDS} />)).not.toContain('so với')
+  })
 })
 
 describe('rỗng', () => {
@@ -320,7 +336,7 @@ describe('toolbar', () => {
 describe('tab tài chính', async () => {
   const rpc125 = (await import('@/lib/reports/__fixtures__/rpc-125.json')).default
   const { parseFinanceReport } = await import('@/lib/reports/finance')
-  const { default: RevenueView, RevenueLine } = await import('./revenue-view')
+  const { default: RevenueView } = await import('./revenue-view')
   const { default: CashFlowView } = await import('./cash-flow-view')
   const { default: ProfitLossView } = await import('./profit-loss-view')
   const { default: ReceivablesView } = await import('./receivables-view')
@@ -330,19 +346,17 @@ describe('tab tài chính', async () => {
     return r as Extract<typeof r, { tab: T }>
   }
 
-  it('Doanh thu: SVG có một polyline, số điểm bằng số dòng; 375px bảng thành thẻ', () => {
+  it('Doanh thu: biểu đồ vùng 2 đường, dải 3 ô, cơ cấu thanh toán; 375px bảng thành thẻ', () => {
     const r = as('revenue', rpc125.report_revenue_series_day)
-    const chart = renderToStaticMarkup(<RevenueLine rows={r.rows} grain="day" />)
-    expect(count(chart, '<polyline')).toBe(1)
-    const points = /points="([^"]*)"/.exec(chart)![1].trim().split(/\s+/)
-    expect(points).toHaveLength(3)
-    expect(count(chart, '<circle')).toBe(3)
-    expect(chart).toContain('viewBox="0 0 600 160"')
-    expect(chart).toContain('preserveAspectRatio="none"')
-    expect(chart).toContain('width="100%"')
-    expect(chart).toContain('>01/12<')
-    expect(chart).toContain('>03/12<')
     const html = renderToStaticMarkup(<RevenueView report={r} />)
+    // Hai bản biểu đồ (desktop + gọn mobile), mỗi bản 2 đường (doanh thu, số bill)
+    expect(count(html, 'aria-label="Doanh thu và số bill theo thời gian"')).toBe(2)
+    expect(count(html, 'fill="none" stroke="var(--chart-1)" stroke-width="2.5"')).toBe(2)
+    expect(count(html, 'fill="none" stroke="var(--chart-3)" stroke-width="2.5"')).toBe(2)
+    expect(html).not.toContain('<polyline')
+    expect(html).toContain('>01/12<')
+    expect(html).toContain('>03/12<')
+    for (const l of ['Doanh thu &amp; số bill theo ngày', 'Ngày cao nhất', 'TB / ngày', 'Ngày thấp nhất', 'Cơ cấu thanh toán', 'Tiền mặt', 'Chuyển khoản', 'DOANH THU', 'Cao nhất']) expect(html).toContain(l)
     expect(html).toContain('hidden md:table')
     expect(html).toContain('md:hidden')
     for (const head of ['Ngày', 'Doanh thu', 'Giảm giá', 'Tiền mặt', 'Chuyển khoản', 'Ghi nợ', 'Số bill', 'TB/bill']) {
@@ -352,11 +366,22 @@ describe('tab tài chính', async () => {
     expect(html).toContain('528.333đ') // 3.170.000 / 6 bill
     expect(html).toContain('>Tổng<')
     expect(html).toContain('3.470.000đ')
-    const month = renderToStaticMarkup(<RevenueView report={as('revenue', rpc125.report_revenue_series_month)} />)
+    expect(html).not.toContain('so với') // không có kỳ trước
+    // Có kỳ trước: chip; Giảm giá có ghi chú % doanh thu
+    const withPrev = renderToStaticMarkup(<RevenueView report={r} prev={{ ...r.totals, revenue: r.totals.revenue * 2 }} compareLabel="so với hôm qua" />)
+    expect(withPrev).toContain('so với hôm qua')
+    expect(withPrev).toContain('doanh thu')
+    // Chế độ tháng: dù lỡ truyền kỳ trước cũng không hiện "so với"
+    const month = renderToStaticMarkup(<RevenueView report={as('revenue', rpc125.report_revenue_series_month)} prev={r.totals} compareLabel="so với hôm qua" />)
     expect(month).toContain('>Tháng</th>')
     expect(month).toContain('>12/2026<')
-    // Kỳ không có dòng nào: không chia cho 0, không vẽ đường.
-    expect(renderToStaticMarkup(<RevenueLine rows={[]} grain="day" />)).not.toContain('<polyline')
+    expect(month).toContain('Doanh thu &amp; số bill theo tháng')
+    expect(month).not.toContain('so với')
+    // Kỳ không có dòng nào: báo rỗng, không vẽ biểu đồ, không NaN
+    const empty = renderToStaticMarkup(<RevenueView report={{ ...r, rows: [] }} />)
+    expect(empty).toContain('Chưa có dữ liệu trong kỳ này')
+    expect(empty).not.toContain('role="img"')
+    expect(empty).not.toContain('NaN')
   })
 
   it('Thu chi: hai quỹ, âm tô đỏ, quỹ ngân hàng ghi "Ngân hàng / ví" khi có ví, chú thích', () => {

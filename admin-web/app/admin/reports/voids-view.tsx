@@ -4,7 +4,12 @@ import type { ReactNode } from 'react'
 import { Gift, ListOrdered, Undo2 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/feedback'
 import { cn, formatVND } from '@/lib/utils'
+import { deltaPercent } from '@/lib/reports/compare'
+import { voidReasons, voidTopItems } from '@/lib/reports/insights'
 import { VOID_TYPE_LABEL, type VoidRow, type VoidTotals, type VoidType } from '@/lib/reports/sales'
+import { ShareBar } from './charts/share-bar'
+import { KpiCard } from './kpi-card'
+import { SectionCard } from './section-card'
 import { EMPTY_TEXT, formatClock, formatQty } from './report-format'
 
 // Tab "Món huỷ": mỗi lần bỏ món / tặng món / giảm số lượng trong kỳ, theo GIỜ THAO TÁC (server đã sắp mới nhất trước).
@@ -24,30 +29,64 @@ function TypeTag({ type }: { type: VoidType }) {
   )
 }
 
-function Total({ label, value, note }: { label: string; value: number; note: string }) {
+/** Hàng xếp hạng: tên + số + thanh tỉ trọng so với hàng đầu. */
+function RankRow({ label, value, ratio, color }: { label: string; value: string; ratio: number; color: string }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
-      <p className="text-[13px] font-medium text-muted">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular text-foreground md:text-2xl">{formatVND(value)}</p>
-      <p className="mt-0.5 text-[12px] text-muted">{note}</p>
-    </div>
+    <li className="space-y-1.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="min-w-0 truncate text-[13.5px] font-medium text-foreground">{label}</span>
+        <span className="tabular shrink-0 text-[13px] font-semibold">{value}</span>
+      </div>
+      <ShareBar ratio={ratio} color={color} />
+    </li>
   )
 }
 
 /** Kỳ nhiều ngày thì kèm ngày trước giờ. */
 const spansDays = (rows: VoidRow[]) => new Set(rows.map((r) => formatClock(r.at, true).slice(0, 5))).size > 1
 
-export default function VoidsView({ totals, rows }: { totals: VoidTotals; rows: VoidRow[] }) {
+export default function VoidsView({ totals, rows: rawRows, prev, compareLabel }: {
+  totals: VoidTotals; rows: VoidRow[]; prev?: VoidTotals | null; compareLabel?: string
+}) {
+  // Lý do chỉ có khoảng trắng coi như không ghi (voidReasons chỉ gom null) — chuẩn hoá một lần cho cả bảng lẫn xếp hạng.
+  const rows = rawRows.map((r) => (r.reason !== null && !r.reason.trim() ? { ...r, reason: null } : r))
   const withDate = spansDays(rows)
   const countOf = (t: VoidType) => rows.filter((r) => r.type === t).length
+  const d = (cur: number, p: number | undefined) => deltaPercent(cur, p)
+  const topItems = voidTopItems(rows)
+  const reasons = voidReasons(rows)
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Total label="Tiền bỏ" value={totals.cancelledAmount} note={`${countOf('cancelled')} lần bỏ món`} />
-        <Total label="Tiền tặng" value={totals.giftAmount} note={`${countOf('gift')} lần tặng món`} />
-        <Total label="Giảm SL" value={totals.reducedAmount} note={`${countOf('quantity')} lần giảm số lượng`} />
+        <KpiCard icon={Undo2} tone="red" label="Tiền bỏ" value={formatVND(totals.cancelledAmount)} inverse
+          delta={d(totals.cancelledAmount, prev?.cancelledAmount)} compareLabel={compareLabel} note={`${countOf('cancelled')} lần bỏ món`} />
+        <KpiCard icon={Gift} tone="violet" label="Tiền tặng" value={formatVND(totals.giftAmount)} inverse
+          delta={d(totals.giftAmount, prev?.giftAmount)} compareLabel={compareLabel} note={`${countOf('gift')} lần tặng món`} />
+        <KpiCard icon={ListOrdered} tone="amber" label="Giảm SL" value={formatVND(totals.reducedAmount)} inverse
+          delta={d(totals.reducedAmount, prev?.reducedAmount)} compareLabel={compareLabel} note={`${countOf('quantity')} lần giảm số lượng`} />
       </div>
+
+      {rows.length > 0 ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <SectionCard title="Món bị huỷ nhiều nhất" hint="Gộp bỏ + tặng + giảm SL">
+            <ul className="space-y-3.5 px-5 pb-5 pt-3">
+              {topItems.map((it) => (
+                <RankRow key={it.itemName} label={it.itemName} value={`${formatQty(it.quantity)} phần`}
+                  ratio={topItems[0].quantity > 0 ? it.quantity / topItems[0].quantity : 0} color="var(--chart-1)" />
+              ))}
+            </ul>
+          </SectionCard>
+          <SectionCard title="Lý do hay gặp" hint="Số lần theo lý do ghi trên phiếu">
+            <ul className="space-y-3.5 px-5 pb-5 pt-3">
+              {reasons.map((r) => (
+                <RankRow key={r.reason} label={r.reason} value={`${formatQty(r.count)} lần`}
+                  ratio={reasons[0].count > 0 ? r.count / reasons[0].count : 0} color="var(--critical-dot)" />
+              ))}
+            </ul>
+          </SectionCard>
+        </div>
+      ) : null}
 
       <section className="min-w-0 rounded-xl border border-border bg-surface">
         {rows.length === 0 ? <EmptyState>{EMPTY_TEXT}</EmptyState> : (
