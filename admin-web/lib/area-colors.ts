@@ -1,7 +1,8 @@
 // Màu nhận diện KHU (PA-3, 2026-10-08) — giống quy tắc màu mâm (lib/tray-colors.ts): chỉ NHẬN DIỆN, không
 // phải trạng thái. Chấm/viền + chữ; nền ô bàn vẫn trắng. Cố tình KHÔNG có xanh lá / xanh dương / vàng / đỏ /
 // cam / xám và các sắc sát chúng (teal, emerald, lime, sky, cyan, rose, amber, slate…) — quyết định 2026-10-02.
-// Tông PASTEL (anh Tú 2026-10-08): chấm / vạch -300, nền -50, chữ đậm -700/-800 để vẫn đọc rõ.
+// Tông PASTEL (anh Tú 2026-10-08): chấm / vạch -300, nền -50, chữ đậm -700/-800 để vẫn đọc rõ. Dải tên khu ở đỉnh ô
+// Sơ đồ POS (bố cục B, 2026-11-17): nền -100 + chữ -800 + gạch đáy -400 (trường `band`).
 // ⚠️ Tailwind v4 không safelist: mọi class phải là chuỗi NGUYÊN VẸN, không ghép động.
 
 export type AreaColor = 'violet' | 'indigo' | 'purple' | 'fuchsia' | 'pink'

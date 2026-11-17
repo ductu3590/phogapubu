@@ -226,7 +226,7 @@ function GridTile({
       </span>
       {view.pending > 0 && (
         // Chấm nháy chờ duyệt nằm dưới dải khu, không đè chữ tên khu.
-        <span className="absolute top-[27px] right-2 flex size-2.5" aria-hidden>
+        <span className="absolute top-[32px] right-2 flex size-2.5" aria-hidden>
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75 motion-reduce:animate-none" />
           <span className="relative inline-flex size-2.5 rounded-full bg-amber-500" />
         </span>
