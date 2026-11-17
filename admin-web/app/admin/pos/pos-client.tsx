@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { ArrowLeftRight, Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, Layers, ListTodo, TriangleAlert, UserPlus, UserRound, Volume2, X, Zap } from 'lucide-react'
 import { TableStateLegend } from '@/components/ui/badge'
 import { Button, IconButton } from '@/components/ui/button'
-import { Banner, EmptyState, SkeletonList } from '@/components/ui/feedback'
+import { Banner, EmptyState, Skeleton, SkeletonList } from '@/components/ui/feedback'
 import { useToast } from '@/components/ui/toast'
 import type { StatusTone } from '@/components/ui/status'
 import { createClient } from '@/lib/supabase/client'
@@ -80,6 +80,21 @@ import { heldTableIdsForReservationWindow } from '../reservations/reservation-ta
 import { useFloorLayout } from './use-floor-layout'
 import AreaControls from './area-controls'
 import FloorMap, { type TableState } from './floor-map'
+import FloorGrid, { FloorGridFilters } from './floor-grid'
+import {
+  ALL_AREAS,
+  NO_AREA_ID,
+  buildGridGroups,
+  gridAreaCounts,
+  gridStatusCounts,
+  heldReservationByTable,
+  type GridContext,
+  type GridStatus,
+} from '@/lib/pos-floor-grid'
+import { gridTileAction, gridTileView } from '@/lib/pos-grid-tile'
+import { POS_VIEW_LABEL, type PinnableView, type PosView } from '@/lib/pos-view-pref'
+import { usePosView } from './use-pos-view'
+import DefaultViewPin from './default-view-pin'
 import RejectOrderSheet from './reject-order-sheet'
 import ManualOrderSheet, { type PosMenuCategory } from './manual-order-sheet'
 import WalkInPicker from './walk-in-picker'
@@ -109,8 +124,6 @@ import ShiftControls, { ShiftStaleBanner, type ShiftRequest } from './shift-cont
 import { continueStaleShift } from '@/lib/actions/cash-shift'
 import { isNoOpenShiftError, shouldClearNoShiftError } from '@/lib/cash-shift'
 
-type View = 'timeline' | 'floor' | 'list'
-
 // Chip hàng đợi trên dải nền xanh than (Stitch P01): viền + chữ sáng cùng sắc, số tô đặc.
 const QUEUE_CHIP: Record<StatusTone, { chip: string; count: string }> = {
   warning: { chip: 'border-amber-400/70 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20', count: 'bg-amber-500 text-white' },
@@ -120,8 +133,6 @@ const QUEUE_CHIP: Record<StatusTone, { chip: string; count: string }> = {
   accent: { chip: 'border-orange-400/70 bg-orange-400/10 text-orange-300 hover:bg-orange-400/20', count: 'bg-orange-600 text-white' },
   neutral: { chip: 'border-slate-500 text-slate-200 hover:bg-slate-800', count: 'bg-slate-600 text-white' },
 }
-const ALL = '__all__'
-const NO_AREA = '__none__'
 
 function browserStorage(): ReminderStorage | undefined {
   try {
@@ -211,8 +222,14 @@ export default function PosClient({
   const floor = useFloorLayout(storeId, initialFloor, initialFloorError)
   const placed = floor.draft.tables
   const arrange = floor.arrange
-  const [view, setView] = useState<View>('timeline')
-  const [areaFilter, setAreaFilter] = useState<string>(ALL)
+  // Tab đang xem + màn mặc định của máy (localStorage, spec 2026-11-17 §5.1). null = chưa hydrate → khung chờ,
+  // không vẽ Timeline rồi mới nhảy sang Sơ đồ. Bấm tab chỉ đổi tạm; chọn bàn cho đặt bàn ép tab rồi trả lại.
+  const { view, defaultView, choose, pin, force, restore } = usePosView()
+  const [areaFilter, setAreaFilter] = useState<string>(ALL_AREAS)
+  // Bộ lọc của lưới Sơ đồ: chỉ là state trong trang, không nhớ qua lần mở.
+  const [gridArea, setGridArea] = useState<string>(ALL_AREAS)
+  const [gridStatus, setGridStatus] = useState<GridStatus>('all')
+  const [gridQuery, setGridQuery] = useState('')
   const [workOpen, setWorkOpen] = useState(false)
   const [volumeOpen, setVolumeOpen] = useState(false)
   const [workFilter, setWorkFilter] = useState<WorkFilter>('all')
@@ -424,11 +441,10 @@ export default function PosClient({
   const reservationBlockedTableIds = useMemo(() => pickReservation
     ? heldTableIdsForReservationWindow(reservations, pickReservation.reservationId, pickReservation.arrivalAt, pickReservation.planningHoldMinutes)
     : new Set<string>(), [reservations, pickReservation])
-  const prearrivalReservedTableIds = useMemo(() => new Set(reservations
-    .filter((reservation) => reservation.status === 'confirmed' && reservation.sessionId === null
-      && new Date(reservation.arrivalAt).getTime() - 60 * 60_000 <= now
-      && new Date(reservation.arrivalAt).getTime() + reservation.planningHoldMinutes * 60_000 > now)
-    .flatMap((reservation) => reservation.tableIds)), [reservations, now])
+  // Bàn đang giữ cho khách đặt (đến − 60' ≤ now < đến + planningHoldMinutes): Map bàn → đặt bàn đến sớm nhất,
+  // để ô bàn hiện giờ đặt và bấm ô mở đúng đặt bàn đó.
+  const heldByTable = useMemo(() => heldReservationByTable(reservations, now), [reservations, now])
+  const prearrivalReservedTableIds = useMemo(() => new Set(heldByTable.keys()), [heldByTable])
 
   // Bàn đích của "Chuyển sang bàn trống": bàn trống, trừ bàn đang trong khung giữ cho khách đặt trước.
   const moveTargets = useMemo(() => buildMoveTargets(freeTables, reservations, now), [freeTables, reservations, now])
@@ -455,9 +471,32 @@ export default function PosClient({
   }, [timeline])
 
   const filteredTables = useMemo(() => placed.filter((t) =>
-    areaFilter === ALL ? true : areaFilter === NO_AREA ? !t.area_id : t.area_id === areaFilter,
+    areaFilter === ALL_AREAS ? true : areaFilter === NO_AREA_ID ? !t.area_id : t.area_id === areaFilter,
   ), [placed, areaFilter])
   const visibleTableIds = useMemo(() => new Set(filteredTables.map((t) => t.id)), [filteredTables])
+
+  // ─── Lưới Sơ đồ (spec 2026-11-17 §5.2–5.4) ───────────────────────────────
+  const gridCtx = useMemo<GridContext>(() => {
+    const sessionByTable = new Map<string, OpenTableSession>()
+    for (const [tableId, st] of stateByTable) sessionByTable.set(tableId, st.session)
+    return { sessionByTable, heldByTable }
+  }, [stateByTable, heldByTable])
+  // Phiên đang có yêu cầu gọi nhân viên — cùng cách khớp phiên/bàn với hàng Việc cần xử lý.
+  const callingSessionIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const r of serviceRequests.requests) {
+      const s = serviceRequestSession(r, sessions)
+      if (s) ids.add(s.session_id)
+    }
+    return ids
+  }, [serviceRequests.requests, sessions])
+  const gridAreaItems = useMemo(() => gridAreaCounts(placed, floor.draft.areas), [placed, floor.draft.areas])
+  // Khu đang lọc vừa bị xoá / gộp ở Sắp xếp bàn → về "Tất cả khu" thay vì lưới trống không nút nào sáng.
+  const gridAreaFilter = gridAreaItems.some((a) => a.value === gridArea) ? gridArea : ALL_AREAS
+  const gridGroups = useMemo(() => buildGridGroups({
+    tables: placed, areas: floor.draft.areas, areaFilter: gridAreaFilter, status: gridStatus, query: gridQuery, ctx: gridCtx,
+  }), [placed, floor.draft.areas, gridAreaFilter, gridStatus, gridQuery, gridCtx])
+  const gridCounts = useMemo(() => gridStatusCounts(placed, gridAreaFilter, gridCtx), [placed, gridAreaFilter, gridCtx])
 
   const servingCount = openSessions.filter((s) => s.order_count > 0).length
   const bookedSoon = [...reservationBars.values()].filter((b) => b.state === 'booked').length
@@ -624,6 +663,7 @@ export default function PosClient({
       await reload()
       // Mở luôn bill bàn vừa mở để thu ngân thấy món + thu tiền ngay nếu khách trả liền.
       setSelectedReservationId(null)
+      setPickedTableIds(new Set()) // bàn trống vừa chọn ở Sơ đồ nay đã có phiên
       setSelectedSessionId(res.sessionId)
       return true
     } catch {
@@ -737,14 +777,15 @@ export default function PosClient({
       return next
     })
 
-  // Chọn bàn cho đặt bàn chỉ làm được trên Sơ đồ bàn (bấm ô bàn) — tự chuyển sang tab đó.
+  // Chọn bàn cho đặt bàn chỉ làm được trên Sơ đồ (bấm ô bàn) — hệ thống ép sang tab đó (không ghi màn mặc định),
+  // xong / huỷ chọn bàn thì restore() về đúng tab đang đứng trước đó.
   const beginReservationConfirm = (reservation: ReservationRow) => {
     if (arrange) { reportActionError('Lưu hoặc hủy sắp xếp bàn trước khi xử lý đặt bàn.'); return }
     const next = beginReservationTablePick({ selectedSessionId, pickedSessionIds, pickedTableIds, reservationPick }, reservation)
     setReservationPick(next.reservationPick)
     setSelectedReservationId(null)
     setWorkOpen(false)
-    setView('floor')
+    force('floor')
   }
 
   const onReleasePreorder = async (row: ReservationPreorderRow) => {
@@ -792,6 +833,7 @@ export default function PosClient({
   const cancelReservationPick = () => {
     const next = cancelReservationTablePick({ selectedSessionId, pickedSessionIds, pickedTableIds, reservationPick })
     setReservationPick(next.reservationPick)
+    restore()
   }
 
   const confirmReservationFromPos = async () => {
@@ -807,6 +849,7 @@ export default function PosClient({
       return
     }
     setReservationPick(null)
+    restore()
     await Promise.all([reload(), reloadReservations()])
     setBusy(false)
   }
@@ -835,6 +878,7 @@ export default function PosClient({
     setPickedSessionIds(next.pickedSessionIds)
     setPickedTableIds(next.pickedTableIds)
     setReservationPick(next.reservationPick)
+    if (reservationPick) restore() // đang chọn bàn cho đặt bàn thì trả tab đã bị ép
     setBusy(false)
   }
 
@@ -941,6 +985,56 @@ export default function PosClient({
     setSelectedReservationId(id)
   }
 
+  // Bấm bàn trống trên lưới Sơ đồ: bỏ bill / chi tiết đặt bàn đang mở để cột phải chuyển sang bàn trống.
+  const pickFreeTable = (tableId: string) => {
+    setSelectedSessionId(null)
+    setSelectedReservationId(null)
+    setPickedSessionIds(new Set())
+    setWorkOpen(false)
+    togglePickTable(tableId)
+  }
+
+  // Bấm ô bàn trên lưới Sơ đồ — quyết định ở hàm thuần gridTileAction (lib/pos-grid-tile.ts).
+  const onGridTile = (tableId: string, modifier: boolean) => {
+    if (arrange) return
+    const action = gridTileAction(tableId, {
+      ctx: gridCtx,
+      mode: reservationPick ? 'reservation' : 'normal',
+      mergeMode,
+      modifier,
+      reservationBlocked: reservationBlockedTableIds.has(tableId),
+    })
+    switch (action.kind) {
+      case 'session': selectSession(action.sessionId, action.additive); return
+      case 'reservation': selectReservation(action.reservationId); return
+      case 'reservation-pick': toggleReservationPickTable(action.tableId); return
+      case 'pick-free': pickFreeTable(action.tableId); return
+      case 'none': return
+    }
+  }
+
+  // Bấm tab: chỉ đổi tạm (không ghi màn mặc định). Khoá như cũ khi đang sắp xếp / chọn bàn cho đặt bàn.
+  // Rời Sơ đồ thì bỏ chọn bàn trống — Timeline / Danh sách không chọn bàn trống được.
+  const switchView = (value: PosView) => {
+    // Bấm lại tab đang đứng không làm gì — nhất là lúc chọn bàn cho đặt bàn: choose() sẽ xoá tab cần trả về.
+    if (value === view) return
+    if (arrange && value !== 'floor') return
+    if (reservationPick && value !== 'floor') return
+    if (value !== 'floor') setPickedTableIds(new Set())
+    choose(value)
+  }
+
+  const pinView = (v: PinnableView) => {
+    if (pin(v)) toast({ tone: 'success', title: `Máy này sẽ mở POS bằng ${POS_VIEW_LABEL[v]}` })
+    else toast({ tone: 'error', title: 'Không lưu được trên máy này' })
+  }
+
+  // Giờ đến mặc định của đặt bàn mới: làm tròn lên theo bước giờ đặt bàn (tối thiểu 5').
+  const roundedArrival = () => {
+    const step = Math.max(5, slotIntervalMinutes) * 60_000
+    return new Date(Math.ceil(Date.now() / step) * step).toISOString()
+  }
+
   const dongBill = () => {
     setSelectedSessionId(null)
     setPickedSessionIds(new Set())
@@ -960,6 +1054,26 @@ export default function PosClient({
   const mergeButton = openSessions.length > 1 && !arrange && !reservationPick && !mergeMode ? (
     <Button icon={<Layers />} onClick={beginMerge} className="min-h-9 border-slate-900 bg-slate-900 text-white hover:bg-slate-800 hover:text-white md:min-h-9">Gộp bill</Button>
   ) : null
+
+  // Nút Sắp xếp bàn / Lưu sơ đồ (chỉ chủ quán). Ngoài lúc sắp xếp nó nằm ở hàng lọc của lưới; lúc sắp xếp ở hàng tab.
+  // Lưới đang lọc một khu thật → mở sẵn khu đó trong màn sắp xếp (spec 2026-11-17 §5.6).
+  const arrangeButton = (
+    <Button
+      variant={arrange ? 'primary' : 'outline'}
+      icon={arrange ? <Check /> : <ArrowLeftRight />}
+      isLoading={floor.saving}
+      disabled={!floor.ready || reservationPick !== null}
+      onClick={() => {
+        if (arrange) { void floor.save(); return }
+        if (floor.draft.areas.some((a) => a.id === gridAreaFilter)) floor.setAreaId(gridAreaFilter)
+        void floor.begin()
+        dongBill()
+        setSelectedReservationId(null)
+      }}
+    >
+      {reservationPick ? 'Đang chọn bàn đặt trước' : arrange ? 'Lưu sơ đồ' : 'Sắp xếp bàn'}
+    </Button>
+  )
 
   const openWork = (filter: WorkFilter = 'all') => {
     dongBill()
@@ -990,11 +1104,26 @@ export default function PosClient({
   const customerCallsById = new Map(customerCalls.map((t) => [t.taskId, t]))
   const reminderIds = new Set(dueReminders.reservationIds)
 
-  // Cột phải: chọn bàn cho đặt bàn > chi tiết đặt bàn > bill > việc cần xử lý.
+  // Cột phải: chọn bàn cho đặt bàn > chi tiết đặt bàn > bill > 1 bàn trống (chỉ tab Sơ đồ) > việc cần xử lý.
   const selectedReservation = selectedReservationId ? reservationsById.get(selectedReservationId) ?? null : null
   const hasBill = selected !== null || pickedSessions.length > 0 || pickedTableIds.size >= 2
-  const panel: 'pick' | 'reservation' | 'bill' | 'work' =
-    reservationPick && pickReservation ? 'pick' : selectedReservation ? 'reservation' : hasBill ? 'bill' : 'work'
+  // Đúng 1 bàn trống đang chọn trên Sơ đồ. Bàn vừa có khách (QR) / bị xoá giữa chừng thì không còn trong
+  // freeTables → null → cột phải về Việc cần xử lý thay vì để trống.
+  const pickedFreeTable = view === 'floor' && pickedTableIds.size === 1
+    ? freeTables.find((t) => pickedTableIds.has(t.id)) ?? null
+    : null
+  const panel: 'pick' | 'reservation' | 'bill' | 'free' | 'work' =
+    reservationPick && pickReservation ? 'pick'
+      : selectedReservation ? 'reservation'
+        : hasBill ? 'bill'
+          : pickedFreeTable ? 'free'
+            : 'work'
+  const pickedFreeTableInfo = pickedFreeTable ? {
+    id: pickedFreeTable.id,
+    table_number: pickedFreeTable.table_number,
+    areaName: floor.draft.areas.find((a) => a.id === pickedFreeTable.area_id)?.name ?? null,
+    laterReservationAt: moveTargets.find((t) => t.id === pickedFreeTable.id)?.laterReservationAt ?? null,
+  } : null
 
   // "Trực tuyến" chỉ khi: trình duyệt có mạng + kênh realtime đang nối + lần tải dữ liệu gần nhất không lỗi.
   // Trước đây chỉ đọc trạng thái kênh realtime — mất mạng kênh chưa kịp báo nên vẫn hiện xanh.
@@ -1014,9 +1143,9 @@ export default function PosClient({
   useEffect(() => { if (workTotal === 0) stopBell() }, [workTotal])
 
   const areaItems = [
-    { value: ALL, label: 'Tất cả', count: placed.length },
+    { value: ALL_AREAS, label: 'Tất cả', count: placed.length },
     ...(placed.some((t) => !t.area_id) && floor.draft.areas.length > 0
-      ? [{ value: NO_AREA, label: 'Chưa phân khu', count: placed.filter((t) => !t.area_id).length }] : []),
+      ? [{ value: NO_AREA_ID, label: 'Chưa phân khu', count: placed.filter((t) => !t.area_id).length }] : []),
     ...floor.draft.areas.map((a) => ({ value: a.id, label: a.name, count: placed.filter((t) => t.area_id === a.id).length })),
   ]
 
@@ -1082,8 +1211,7 @@ export default function PosClient({
             {reservationsEnabled && !arrange && !reservationPick && (
               <Button variant="primary" icon={<CalendarPlus />} onClick={() => {
                 setBookingError(null)
-                const step = Math.max(5, slotIntervalMinutes) * 60_000
-                setNewBooking({ table: null, arrivalAt: new Date(Math.ceil(Date.now() / step) * step).toISOString() })
+                setNewBooking({ table: null, arrivalAt: roundedArrival() })
               }}>
                 Đặt bàn mới
               </Button>
@@ -1094,7 +1222,7 @@ export default function PosClient({
               </Button>
             )}
             {/* Timeline: nút Gộp bill nằm ở hàng "Về Bây giờ" (anh Tú 2026-10-09); sơ đồ / danh sách giữ ở đây. */}
-            {view !== 'timeline' && mergeButton}
+            {view !== null && view !== 'timeline' && mergeButton}
             <Button icon={<ListTodo />} onClick={() => openWork()} className="xl:hidden">
               Việc cần xử lý{workTotal > 0 ? ` · ${workTotal}` : ''}
             </Button>
@@ -1180,74 +1308,67 @@ export default function PosClient({
           </div>
         )}
 
-        {/* Đổi cách xem + lọc khu vực + chú giải — bản Stitch P01 */}
+        {/* Đổi cách xem + lọc khu vực + chú giải — bản Stitch P01. Chưa hydrate (view null) → khung chờ, không nháy Timeline. */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200 bg-white px-4 py-2 md:px-5">
-          <div role="tablist" aria-label="Cách xem" className="inline-flex rounded-lg bg-slate-100 p-1">
-            {([['timeline', 'Timeline'], ['floor', 'Sơ đồ bàn'], ['list', 'Danh sách']] as const).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={view === value}
-                onClick={() => {
-                  if (arrange && value !== 'floor') return
-                  if (reservationPick && value !== 'floor') return
-                  setView(value)
-                }}
-                className={cn(
-                  'min-h-9 cursor-pointer rounded-md px-4 text-sm font-semibold transition-colors',
-                  view === value ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {view !== 'floor' && areaItems.length > 1 && (
-            <label className="flex items-center gap-2 text-[13px] font-medium text-slate-500">
-              <span className="sr-only">Khu vực</span>
-              <select
-                value={areaFilter}
-                onChange={(e) => setAreaFilter(e.target.value)}
-                className="min-h-9 cursor-pointer rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none"
-              >
-                {areaItems.map((a) => (
-                  <option key={a.value} value={a.value}>{a.value === ALL ? `Tất cả khu vực (${a.count} bàn)` : `${a.label} (${a.count} bàn)`}</option>
-                ))}
-              </select>
-            </label>
-          )}
-          {view !== 'floor' && <TableStateLegend className="ml-auto hidden 2xl:flex" />}
-          {view === 'floor' && canArrange && (
-            <div className="ml-auto flex flex-wrap items-center gap-2">
-              {arrange && <Button disabled={floor.saving} onClick={floor.cancel}>Hủy chỉnh sửa</Button>}
-              <Button
-                variant={arrange ? 'primary' : 'outline'}
-                icon={arrange ? <Check /> : <ArrowLeftRight />}
-                isLoading={floor.saving}
-                disabled={!floor.ready || reservationPick !== null}
-                onClick={() => {
-                  if (arrange) { void floor.save(); return }
-                  void floor.begin()
-                  dongBill()
-                  setSelectedReservationId(null)
-                }}
-              >
-                {reservationPick ? 'Đang chọn bàn đặt trước' : arrange ? 'Lưu sơ đồ' : 'Sắp xếp bàn'}
-              </Button>
-            </div>
+          {view === null ? (
+            <Skeleton className="h-11 w-72" />
+          ) : (
+            <>
+              <div className="flex items-center gap-1">
+                <div role="tablist" aria-label="Cách xem" className="inline-flex rounded-lg bg-slate-100 p-1">
+                  {(['timeline', 'floor', 'list'] as const).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="tab"
+                      aria-selected={view === value}
+                      onClick={() => switchView(value)}
+                      className={cn(
+                        'min-h-9 cursor-pointer rounded-md px-4 text-sm font-semibold transition-colors',
+                        view === value ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900',
+                      )}
+                    >
+                      {POS_VIEW_LABEL[value]}
+                    </button>
+                  ))}
+                </div>
+                {defaultView && <DefaultViewPin view={view} defaultView={defaultView} onPin={pinView} />}
+              </div>
+              {view !== 'floor' && areaItems.length > 1 && (
+                <label className="flex items-center gap-2 text-[13px] font-medium text-slate-500">
+                  <span className="sr-only">Khu vực</span>
+                  <select
+                    value={areaFilter}
+                    onChange={(e) => setAreaFilter(e.target.value)}
+                    className="min-h-9 cursor-pointer rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none"
+                  >
+                    {areaItems.map((a) => (
+                      <option key={a.value} value={a.value}>{a.value === ALL_AREAS ? `Tất cả khu vực (${a.count} bàn)` : `${a.label} (${a.count} bàn)`}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {view !== 'floor' && <TableStateLegend className="ml-auto hidden 2xl:flex" />}
+              {/* Đang sắp xếp: Hủy / Lưu sơ đồ ở hàng tab như cũ. Ngoài lúc sắp xếp, nút Sắp xếp bàn nằm ở hàng lọc của lưới. */}
+              {view === 'floor' && arrange && canArrange && (
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  <Button disabled={floor.saving} onClick={floor.cancel}>Hủy chỉnh sửa</Button>
+                  {arrangeButton}
+                </div>
+              )}
+            </>
           )}
         </div>
 
         {/* Vùng chính */}
         <div className="flex min-h-0 flex-1 flex-col">
-          {clockNow === null && view !== 'floor' && <div className="px-4 md:px-5"><SkeletonList rows={6} label="Đang dựng Timeline" /></div>}
+          {(view === null || (clockNow === null && !arrange)) && <div className="px-4 md:px-5"><SkeletonList rows={6} label="Đang tải POS" /></div>}
           {clockNow !== null && view === 'timeline' && (
             <TimelineView
               tables={filteredTables}
               areas={floor.draft.areas}
               rows={timeline.rows}
-              unassigned={areaFilter === ALL ? timeline.unassigned : []}
+              unassigned={areaFilter === ALL_AREAS ? timeline.unassigned : []}
               window={timeWindow}
               now={now}
               sessionsById={sessionsById}
@@ -1283,8 +1404,9 @@ export default function PosClient({
               onSelectReservation={selectReservation}
             />
           )}
-          {view === 'floor' && (
+          {view === 'floor' && arrange && (
             <div className="min-h-0 flex-1 overflow-auto">
+              {/* Sắp xếp bàn: giữ nguyên màn theo toạ độ, một khu một lúc (spec 2026-11-17 §5.6). */}
               <AreaControls floor={floor} />
               <div className="overflow-auto p-4 md:p-5">
                 {floor.ready && !placed.some((t) => t.area_id === floor.areaId) && (
@@ -1308,6 +1430,43 @@ export default function PosClient({
                   onReservationPick={toggleReservationPickTable}
                 />
               </div>
+            </div>
+          )}
+          {clockNow !== null && view === 'floor' && !arrange && (
+            <div className="min-h-0 flex-1 overflow-auto p-4 md:p-5">
+              <div className="mb-3">
+                <FloorGridFilters
+                  areaItems={gridAreaItems}
+                  areaFilter={gridAreaFilter}
+                  onArea={setGridArea}
+                  counts={gridCounts}
+                  status={gridStatus}
+                  onStatus={setGridStatus}
+                  query={gridQuery}
+                  onQuery={setGridQuery}
+                  trailing={canArrange ? arrangeButton : null}
+                />
+              </div>
+              <FloorGrid
+                groups={gridGroups}
+                tile={(tableId) => gridTileView(tableId, { ...gridCtx, trays: trayColors, callingSessionIds, now })}
+                trayColor={(tableId) => stateByTable.get(tableId)?.tray}
+                selectedSessionId={selectedSessionId}
+                pickedSessionIds={pickedSessionIds}
+                pickedTableIds={pickedTableIds}
+                sessionIdOf={(tableId) => stateByTable.get(tableId)?.session.session_id ?? null}
+                reservationMode={reservationPick !== null}
+                reservationTableIds={reservationPick?.tableIds ?? new Set()}
+                // Chọn bàn cho đặt bàn: đúng lý do khoá của floor-map.tsx (bàn có khách / đã giữ cho booking khác).
+                // Ngoài chế độ đó không khoá ô nào: bàn đang giữ cho khách đặt bấm vào mở chi tiết đặt bàn (§5.4).
+                disabledReason={(tableId) => reservationPick
+                  ? stateByTable.has(tableId)
+                    ? 'Bàn đang có khách'
+                    : reservationBlockedTableIds.has(tableId) ? 'Đã giữ cho booking khác' : null
+                  : null}
+                onTile={onGridTile}
+                showGroupHeaders={gridAreaFilter === ALL_AREAS}
+              />
             </div>
           )}
         </div>
@@ -1412,7 +1571,8 @@ export default function PosClient({
           onPrintPreorder={(row, reason) => onPrintPreorder(row, 'original', reason)}
         />
       )}
-      {panel === 'bill' && (
+      {/* 'free' = đúng 1 bàn trống đang chọn trên Sơ đồ (spec 2026-11-17 §5.5) — dùng chung khung bill (sheet dưới xl). */}
+      {(panel === 'bill' || panel === 'free') && (
         <PosBillPanel
           bankAccount={bankAccount}
           loadBankAccount={async () => {
@@ -1430,6 +1590,19 @@ export default function PosClient({
           freeTables={freeTables}
           otherSessions={openSessions.filter((s) => s.session_id !== selectedSessionId)}
           pickedFreeTables={pickedTableIds.size}
+          freeTable={panel === 'free' ? pickedFreeTableInfo : null}
+          reservationsEnabled={reservationsEnabled}
+          onWalkInTable={(tableId) => {
+            // "Gọi món & mở bàn" = Khách lẻ đã chọn sẵn bàn; gửi món xong onWalkIn tự mở bill bàn.
+            const table = freeTables.find((t) => t.id === tableId)
+            if (table) setWalkIn({ step: 'menu', tableId: table.id, tableNumber: table.table_number })
+          }}
+          onBookTable={(tableId) => {
+            const table = freeTables.find((t) => t.id === tableId)
+            if (!table) return
+            setBookingError(null)
+            setNewBooking({ table: { id: table.id, table_number: table.table_number }, arrivalAt: roundedArrival() })
+          }}
           busy={busy}
           onPay={(list, payment) => void onPay(list, payment)}
           onPrint={onPrint}
