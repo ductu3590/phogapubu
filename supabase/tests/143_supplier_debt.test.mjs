@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { openDebtDb } from './helpers/debt-db.mjs'
 
-const migrations = ['143_supplier_debt.sql', '144_supplier_inventory_patch.sql'].map((f) => new URL(`../migrations/${f}`, import.meta.url))
+const migrations = ['143_supplier_debt.sql', '144_supplier_inventory_patch.sql', '145_supplier_payments.sql'].map((f) => new URL(`../migrations/${f}`, import.meta.url))
 const load = async (u) => (await readFile(u, 'utf8')).replace(/\r\n/g, '\n')
 
 const h = await openDebtDb({ through: '122b' })
@@ -216,5 +216,203 @@ describe('143 phiếu nhập gắn NCC', () => {
     const c = await unpaid('Đại lý bia Hà')
     await voidDoc(c)
     assert.equal((await docJson(c)).outstanding, null)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// RPC NCC (mig 145)
+// ---------------------------------------------------------------------------
+const pay = (supplierId, amount, { method = 'bank', docs = null, note = null, requestId = randomUUID(), uid = ids.manager } = {}) =>
+  as(uid, 'SELECT supplier_pay($1::uuid, $2::bigint, $3::text, $4::uuid[], $5::text, $6::uuid) AS r',
+    [supplierId, amount, method, docs, note, requestId]).then((r) => r.rows[0].r)
+const voidPay = (id, reason = 'trả nhầm', uid = ids.manager) =>
+  as(uid, 'SELECT supplier_payment_void($1, $2) AS r', [id, reason]).then((r) => r.rows[0].r)
+const detail = (id, uid = ids.manager) => as(uid, 'SELECT supplier_detail($1) AS r', [id]).then((r) => r.rows[0].r)
+const list = (uid = ids.manager, store = ids.store) => as(uid, 'SELECT supplier_list($1) AS r', [store]).then((r) => r.rows[0].r)
+const outstandingOf = async (docId) => {
+  await db.exec('RESET ROLE')
+  const n = (await one('SELECT inventory_receipt_outstanding($1) AS n', [docId])).n
+  return n === null ? null : Number(n)
+}
+
+// Hai phiếu nợ: phiếu A 5.000.000 (đã trả 2.000.000 → còn 3.000.000) và phiếu B 4.200.000, cùng NCC "Đại lý bia Hà".
+async function twoDebts() {
+  const s = await insertSupplier()
+  const a = await unpaid('Đại lý bia Hà', [[beer, 100, 50000]])
+  const b = await unpaid('Đại lý bia Hà', [[beer, 84, 50000]])
+  await pay(s, 2000000, { docs: [a] })
+  return { s, a, b }
+}
+
+describe('145 trả nợ NCC', () => {
+  beforeEach(async () => {
+    await resetAll()
+    beer = await freshItem()
+  })
+
+  test('chọn 2 phiếu (3tr + 4,2tr), CK 4tr: phân bổ cũ trước, một phiếu chi bank có cả hai số phiếu', async () => {
+    const { s, a, b } = await twoDebts()
+    const nos = [(await docRow(a)).doc_no, (await docRow(b)).doc_no]
+    const r = await pay(s, 4000000, { docs: [b, a], note: 'CK Vietcombank' })
+    assert.equal(r.ok, true)
+    assert.equal(r.already, false)
+    assert.deepEqual(r.allocations.map((x) => [x.document_id, x.amount]), [[a, 3000000], [b, 1000000]])
+    assert.equal(r.remaining, 3200000)
+    assert.equal(await outstandingOf(a), 0)
+    assert.equal(await outstandingOf(b), 3200000)
+    const e = await one('SELECT * FROM cash_book_entries WHERE id = $1', [r.cash_book_entry_id])
+    assert.deepEqual([e.kind, e.method, Number(e.amount), e.source, e.source_ref, e.counterparty, e.cash_shift_id],
+      ['payment', 'bank', 4000000, 'supplier_payment', r.supplier_payment_id, 'Đại lý bia Hà', null])
+    assert.equal(e.category_id, await systemCategory())
+    assert.equal(e.note, `Trả nợ NCC: ${nos[0]}, ${nos[1]}`)
+    const p = await one('SELECT * FROM supplier_payments WHERE id = $1', [r.supplier_payment_id])
+    assert.equal(p.note, 'CK Vietcombank')
+    assert.deepEqual(p.requested_document_ids, [a, b].sort())
+  })
+
+  test('trả một phần: ghi chú chỉ liệt kê phiếu thực nhận tiền', async () => {
+    const { s, a, b } = await twoDebts()
+    const r = await pay(s, 1000000, { docs: [a, b] })
+    assert.deepEqual(r.allocations.map((x) => x.document_id), [a])
+    const e = await one('SELECT note FROM cash_book_entries WHERE id = $1', [r.cash_book_entry_id])
+    assert.equal(e.note, `Trả nợ NCC: ${(await docRow(a)).doc_no}`)
+    assert.equal(await outstandingOf(b), 4200000)
+  })
+
+  test('docs NULL = mọi phiếu còn nợ; vượt tổng còn nợ → từ chối, không ghi gì', async () => {
+    const { s } = await twoDebts()
+    const before = await count('cash_book_entries')
+    await assert.rejects(pay(s, 7200001), /Số tiền vượt số còn nợ/)
+    assert.equal(await count('cash_book_entries'), before)
+    const r = await pay(s, 7200000)
+    assert.equal(r.remaining, 0)
+  })
+
+  test('phiếu chọn đã hết nợ / đã huỷ / NCC khác / mảng rỗng → từ chối toàn bộ', async () => {
+    const { s, a, b } = await twoDebts()
+    await pay(s, 3000000, { docs: [a] })
+    await assert.rejects(pay(s, 100000, { docs: [a, b] }), /tải lại trang/)
+    const other = await insertSupplier({ name: 'Chợ Cốc Lếu' })
+    const c = await unpaid('Chợ Cốc Lếu')
+    await assert.rejects(pay(s, 100000, { docs: [c] }), /tải lại trang/)
+    const d = await unpaid('Đại lý bia Hà')
+    await voidDoc(d)
+    await assert.rejects(pay(s, 100000, { docs: [d] }), /tải lại trang/)
+    await assert.rejects(pay(s, 100000, { docs: [] }), /Chọn ít nhất một phiếu/)
+    await assert.rejects(pay(other, 0), /Số tiền/)
+  })
+
+  test('NCC không còn nợ → "Nhà cung cấp không còn nợ"', async () => {
+    const s = await insertSupplier()
+    await assert.rejects(pay(s, 1000), /không còn nợ/)
+  })
+
+  test('tiền mặt khi bật ca: không ca → Chưa mở ca, không ghi gì; có ca → gắn ca, két giảm', async () => {
+    const { s, b } = await twoDebts()
+    await h.setShiftRequired(ids.store, true)
+    const before = await count('supplier_payments')
+    await assert.rejects(pay(s, 500000, { method: 'cash', docs: [b] }), /Chưa mở ca/)
+    assert.equal(await count('supplier_payments'), before)
+    assert.equal(await outstandingOf(b), 4200000)
+    const shift = await h.insertShift({ openingCash: 1000000 })
+    const r = await pay(s, 500000, { method: 'cash', docs: [b] })
+    const e = await one('SELECT cash_shift_id FROM cash_book_entries WHERE id = $1', [r.cash_book_entry_id])
+    assert.equal(e.cash_shift_id, shift)
+    const t = (await one('SELECT cash_shift_totals($1) AS t', [shift])).t
+    assert.equal(t.cash_payments, 500000)
+  })
+
+  test('gửi lại cùng mã: trả lần cũ kể cả sau khi kết ca; khác nội dung → lỗi', async () => {
+    const { s, b } = await twoDebts()
+    await h.setShiftRequired(ids.store, true)
+    const shift = await h.insertShift({ openingCash: 1000000 })
+    const req = randomUUID()
+    const first = await pay(s, 500000, { method: 'cash', docs: [b], requestId: req, note: 'lần 1' })
+    await h.closeShiftRow(shift)
+    const again = await pay(s, 500000, { method: 'cash', docs: [b], requestId: req, note: 'ghi chú khác' })
+    assert.equal(again.already, true)
+    assert.equal(again.supplier_payment_id, first.supplier_payment_id)
+    assert.equal((await one('SELECT note FROM supplier_payments WHERE id = $1', [first.supplier_payment_id])).note, 'lần 1')
+    await assert.rejects(pay(s, 600000, { method: 'cash', docs: [b], requestId: req }), /đã dùng cho lần trả khác/)
+    await assert.rejects(pay(s, 500000, { method: 'cash', docs: null, requestId: req }), /đã dùng cho lần trả khác/)
+    await assert.rejects(pay(s, 500000, { method: 'cash', docs: [b], requestId: req, uid: ids.owner }), /đã dùng cho lần trả khác/)
+    assert.equal(await count("cash_book_entries WHERE source = 'supplier_payment'"), 2)
+  })
+
+  test('huỷ lần trả: ca mở → khôi phục nợ, huỷ phiếu chi; ca đã kết → từ chối, giữ nguyên', async () => {
+    const { s, b } = await twoDebts()
+    await h.setShiftRequired(ids.store, true)
+    const shift = await h.insertShift({ openingCash: 1000000 })
+    const r = await pay(s, 500000, { method: 'cash', docs: [b] })
+    assert.deepEqual(await voidPay(r.supplier_payment_id, 'trả nhầm NCC'), { ok: true, already: false })
+    assert.equal(await outstandingOf(b), 4200000)
+    const e = await one('SELECT voided_at, void_reason FROM cash_book_entries WHERE id = $1', [r.cash_book_entry_id])
+    assert.notEqual(e.voided_at, null)
+    assert.equal(e.void_reason, 'Huỷ trả nợ NCC: trả nhầm NCC')
+    assert.equal((await voidPay(r.supplier_payment_id)).already, true)
+    const r2 = await pay(s, 300000, { method: 'cash', docs: [b] })
+    await h.closeShiftRow(shift)
+    await assert.rejects(voidPay(r2.supplier_payment_id), /Ca của phiếu này đã kết/)
+    assert.equal(await outstandingOf(b), 3900000)
+    assert.equal((await one('SELECT voided_at FROM supplier_payments WHERE id = $1', [r2.supplier_payment_id])).voided_at, null)
+    const r3 = await pay(s, 1000, { docs: [b] })
+    await assert.rejects(voidPay(r3.supplier_payment_id, '  '), /lý do/)
+  })
+
+  test('ghi chú phiếu chi nhiều phiếu: ≤ 500 ký tự, đuôi "… (+N phiếu)"', async () => {
+    const s = await insertSupplier()
+    for (let i = 0; i < 60; i += 1) await unpaid('Đại lý bia Hà', [[beer, 1, 1000]])
+    const r = await pay(s, 60000)
+    assert.equal(r.allocations.length, 60)
+    const note = (await one('SELECT note FROM cash_book_entries WHERE id = $1', [r.cash_book_entry_id])).note
+    assert.ok(note.length <= 500, `dài ${note.length}`)
+    assert.match(note, /^Trả nợ NCC: PN-\d{4}, /)
+    assert.match(note, /… \(\+\d+ phiếu\)$/)
+    const shown = note.replace(/^Trả nợ NCC: /, '').replace(/,? … \(\+\d+ phiếu\)$/, '').split(', ').length
+    const hidden = Number(note.match(/\(\+(\d+) phiếu\)$/)[1])
+    assert.equal(shown + hidden, 60)
+  })
+
+  test('quyền: thu ngân, chủ quán khác, NCC lạ → Không có quyền', async () => {
+    const { s } = await twoDebts()
+    await assert.rejects(pay(s, 1000, { uid: ids.cashier }), /Không có quyền/)
+    await assert.rejects(pay(s, 1000, { uid: ids.otherOwner }), /Không có quyền/)
+    await assert.rejects(pay(randomUUID(), 1000), /Không có quyền/)
+    await assert.rejects(detail(s, ids.cashier), /Không có quyền/)
+    await assert.rejects(list(ids.cashier), /Không có quyền/)
+  })
+
+  test('supplier_list / supplier_detail: số khớp; NCC ngừng vẫn trả được', async () => {
+    const { s, a, b } = await twoDebts()
+    await as(ids.manager, 'SELECT supplier_set_active($1, false)', [s])
+    const row = (await list()).find((x) => x.id === s)
+    assert.deepEqual([row.name, row.is_active, row.outstanding, row.open_docs], ['Đại lý bia Hà', false, 7200000, 2])
+    assert.equal(typeof row.oldest_open_date, 'string')
+    const r = await pay(s, 3000000, { docs: [a] })
+    const d = await detail(s)
+    assert.equal(d.supplier.outstanding, 4200000)
+    assert.deepEqual(d.documents.map((x) => [x.id, x.total_amount, x.paid_amount, x.outstanding]),
+      [[a, 5000000, 5000000, 0], [b, 4200000, 0, 4200000]])
+    assert.equal(d.payments.length, 2)
+    assert.equal(d.payments[0].id, r.supplier_payment_id)
+    assert.deepEqual(d.payments[0].allocations.map((x) => [x.document_id, x.amount]), [[a, 3000000]])
+    assert.equal(typeof d.payments[0].allocations[0].doc_no, 'string')
+    // Phiếu lưu Đã trả không có trong documents.
+    await post({ paid_status: 'paid', paid_method: 'bank', supplier_name: 'Đại lý bia Hà' })
+    assert.equal((await detail(s)).documents.length, 2)
+  })
+
+  test('supplier_upsert: tạo, sửa, trùng tên → lỗi; SĐT chuẩn hoá', async () => {
+    const up = (id, name, phone = null, note = null) =>
+      as(ids.manager, 'SELECT supplier_upsert($1, $2, $3, $4, $5) AS r', [ids.store, id, name, phone, note]).then((r) => r.rows[0].r)
+    const { supplier_id: id } = await up(null, '  Đại lý  Hà ', '+84 912 345 678')
+    const s = await one('SELECT name, phone FROM suppliers WHERE id = $1', [id])
+    assert.deepEqual([s.name, s.phone], ['Đại lý Hà', '0912345678'])
+    await up(id, 'Đại lý Hà Nội', null, 'giao thứ 2')
+    assert.equal((await one('SELECT name FROM suppliers WHERE id = $1', [id])).name, 'Đại lý Hà Nội')
+    await up(null, 'Chợ')
+    await assert.rejects(up(null, 'đại lý hà nội'), /Đã có nhà cung cấp tên này/)
+    await assert.rejects(up(null, '   '), /Tên nhà cung cấp/)
+    await assert.rejects(as(ids.cashier, 'SELECT supplier_upsert($1, NULL, $2, NULL, NULL)', [ids.store, 'X']), /Không có quyền/)
   })
 })

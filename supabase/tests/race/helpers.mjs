@@ -337,6 +337,29 @@ export async function openHarness() {
            AND d.total_amount > 0
            AND (SELECT count(*) FROM cash_book_entries e
                  WHERE e.source = 'inventory_receipt' AND e.source_ref = d.id AND e.voided_at IS NULL) <> 1`],
+      // Công nợ NCC (mig 143–145).
+      ['Phiếu nhập bị phân bổ trả nợ NCC QUÁ tiền phiếu', `
+        SELECT d.doc_no AS ref, d.total_amount AS a, x.paid AS b
+          FROM inventory_documents d
+          JOIN LATERAL (SELECT COALESCE(sum(a.amount), 0) AS paid
+                          FROM supplier_payment_allocations a JOIN supplier_payments p ON p.id = a.supplier_payment_id
+                         WHERE a.inventory_document_id = d.id AND p.voided_at IS NULL) x ON true
+         WHERE d.store_id = $1 AND x.paid > d.total_amount`],
+      ['Lần trả nợ NCC lệch tổng phân bổ của nó', `
+        SELECT p.id::text AS ref, p.amount AS a,
+               COALESCE((SELECT sum(a.amount) FROM supplier_payment_allocations a WHERE a.supplier_payment_id = p.id), 0) AS b
+          FROM supplier_payments p WHERE p.store_id = $1
+           AND p.amount <> COALESCE((SELECT sum(a.amount) FROM supplier_payment_allocations a WHERE a.supplier_payment_id = p.id), 0)`],
+      ['Lần trả nợ NCC lệch trạng thái phiếu chi đi kèm (còn hiệu lực ↔ đã huỷ) hoặc lệch số tiền', `
+        SELECT p.id::text AS ref FROM supplier_payments p JOIN cash_book_entries e ON e.id = p.cash_book_entry_id
+         WHERE p.store_id = $1
+           AND ((p.voided_at IS NULL) <> (e.voided_at IS NULL) OR e.amount <> p.amount
+                OR e.source <> 'supplier_payment' OR e.source_ref <> p.id)`],
+      ['Phân bổ trả nợ NCC còn hiệu lực trỏ vào phiếu nhập không còn là phiếu nợ', `
+        SELECT d.doc_no AS ref FROM supplier_payment_allocations a
+          JOIN supplier_payments p ON p.id = a.supplier_payment_id AND p.voided_at IS NULL
+          JOIN inventory_documents d ON d.id = a.inventory_document_id
+         WHERE p.store_id = $1 AND (d.status <> 'posted' OR d.paid_status <> 'unpaid' OR d.supplier_id <> p.supplier_id)`],
     ]
     const violations = []
     for (const [title, query] of checks) {
