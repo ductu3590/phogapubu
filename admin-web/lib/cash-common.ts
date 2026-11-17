@@ -6,7 +6,7 @@ export const MAX_CASH_AMOUNT = 2_000_000_000
 
 export const KINDS = ['receipt', 'payment'] as const
 export const METHODS = ['cash', 'bank'] as const
-export const SOURCES = ['manual', 'pos_drawer', 'inventory_receipt'] as const
+export const SOURCES = ['manual', 'pos_drawer', 'inventory_receipt', 'supplier_payment'] as const
 
 export type CashBookKind = (typeof KINDS)[number]
 export type CashBookMethod = (typeof METHODS)[number]

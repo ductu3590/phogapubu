@@ -3,7 +3,7 @@ import {
   REPORT_GROUP_LABEL,
   filtersToRpc,
   filtersToSearch,
-  cashEntryVoidable,
+  cashEntryVoidable, cashCategoryOptionLabel,
   groupByCategory,
   parseCashBookCategories,
   parseCashBookList,
@@ -158,5 +158,16 @@ describe('cashEntryVoidable', () => {
     expect(cashEntryVoidable({ ...base, voidedAt: '2026-11-09T01:00:00Z' }, true)).toBe(false)
     expect(cashEntryVoidable({ source: 'inventory_receipt', voidedAt: null }, true)).toBe(false)
     expect(cashEntryVoidable({ source: 'pos_drawer', voidedAt: null }, true)).toBe(true)
+    // Mig 143: phiếu chi trả nợ NCC huỷ ở trang Công nợ.
+    expect(cashEntryVoidable({ source: 'supplier_payment', voidedAt: null }, true)).toBe(false)
+  })
+})
+
+describe('cashCategoryOptionLabel', () => {
+  it('danh mục chi tên đúng "Đi chợ" hiện "Chi đi chợ ngoài nhập kho"; tên khác / phiếu thu giữ nguyên', () => {
+    expect(cashCategoryOptionLabel({ kind: 'payment', name: 'Đi chợ' })).toBe('Chi đi chợ ngoài nhập kho')
+    expect(cashCategoryOptionLabel({ kind: 'payment', name: 'Đi chợ sáng' })).toBe('Đi chợ sáng')
+    expect(cashCategoryOptionLabel({ kind: 'receipt', name: 'Đi chợ' })).toBe('Đi chợ')
+    expect(cashCategoryOptionLabel({ kind: 'payment', name: 'Đá' })).toBe('Đá')
   })
 })

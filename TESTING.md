@@ -6,8 +6,9 @@
 
 ## Chờ test
 
-- ✅ [POS tab Sơ đồ (lưới bàn kiểu KiotViet, ghim màn mặc định)](docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md) — PASS hết (T1–T8) 2026-11-17
-- ✅ [Báo cáo — giao diện mới (biểu đồ, % so với kỳ trước)](docs/testing/bao-cao-chuyen-nghiep/BAO-CAO-UI.md) — Test 1–7 PASS 2026-11-17 (anh Tú)
+- ✅ [POS tab Sơ đồ (lưới bàn kiểu KiotViet, ghim màn mặc định)](docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md) — PASS hết (T1–T8) 2026-11-17; đã merge main
+- ✅ [Công nợ nhà cung cấp + trả nhiều phiếu một lần (mig 143–146)](docs/testing/cong-no-ncc/CONG-NO-NCC.md) — PASS hết 2026-11-17 (agent Playwright A1–A5, B1–B12, B14, C1–C4; anh Tú B13); đã merge main
+- ✅ [Báo cáo — giao diện mới (biểu đồ, % so với kỳ trước)](docs/testing/bao-cao-chuyen-nghiep/BAO-CAO-UI.md) — Test 1–7 PASS 2026-11-17 (anh Tú); Test 8 (đợt dọn nốt) PASS 2026-11-17
 - ⏳ [POS — "+ Mở bàn" trên Timeline, rail gọn, Báo cáo thành trang (RAIL-1)](docs/testing/pos-rail/RAIL-1.md) — A–F PASS 2026-11-16 (anh Tú); nhóm G (xoá bàn đã có đơn + chọn nhiều bàn, mig 141–142 đã áp prod) agent ✓ G1–G6, chờ anh Tú G7 + xem lại; nhánh `claude/timeline-ui-buttons-43fcde`, chưa commit
 - 👉 [**Trước go-live: việc còn lại của anh Tú, gom theo màn / thiết bị**](docs/testing/TRUOC-GO-LIVE.md) — T-002 2026-11-15; hạn 24/11
 

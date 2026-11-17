@@ -93,7 +93,7 @@ Mẫu:
 - Lần 2 (2026-11-16, xoá bàn + chọn nhiều bàn): cổng hết hạn, agent xin anh mở lại `secrets` 1 giờ để tạo phiên test
   `baoluong@` cho Playwright (cùng cách trên).
 
-## D-007 · 2026-11-16 · gate: harness · task: báo cáo chuyên nghiệp · trạng thái: chờ
+## D-007 · 2026-11-16 · gate: harness · task: báo cáo chuyên nghiệp · trạng thái: xong
 - Cần làm: sửa cổng `harness` để không chặn nhầm lệnh shell chỉ vì đường dẫn có `.claude`.
 - Vì sao: worktree của phiên nằm ở `D:\Code\mevo\.claude\worktrees\<tên>\`, nên mọi lệnh có đường dẫn tuyệt đối tới chính
   file dự án (vd `cp … D:/Code/mevo/.claude/worktrees/…/docs/x.html`) và mọi script của skill superpowers (nằm ở
@@ -104,4 +104,17 @@ Mẫu:
   `.claude/agents/**`, `.claude/skills/**` của repo gốc — không khớp `.claude/worktrees/**` và `~/.claude/plugins/**`.
   Phương án khác: để nguyên, agent tiếp tục dùng đường dẫn tương đối.
 - Rủi ro nếu duyệt: thấp — chỉ thu hẹp mẫu khớp đường dẫn, các file harness thật vẫn bị gác.
-- Trả lời của anh:
+- Trả lời của anh: Đồng ý đề xuất của bạn
+- **Đã áp dụng 2026-11-17:** `.harness/gates.json` thay `.claude/**` bằng `.claude/settings*.json`, `.claude/hooks/**`,
+  `.claude/agents/**`, `.claude/skills/**`; `.claude/hooks/harness_guard.py` lấy phần trước ký tự glob đầu tiên làm chuỗi
+  dò lệnh shell (trước rút về `.claude` trần). Kiểm: lệnh có đường dẫn worktree / `~/.claude/plugins` không còn bị chặn;
+  ghi vào `.claude/hooks|settings|skills`, `.harness/gates.json` vẫn bị gác.
+
+## D-008 · 2026-11-17 · gate: deploy · task: công nợ NCC (mig 143–146) · trạng thái: xong
+- Cần làm: `git push origin main` (main đã fast-forward gồm nhánh `claude/import-payables-payment-vouchers-1c9d16`).
+- Vì sao: anh Tú PASS hết CONG-NO-NCC.md (B13 cuối cùng) và bảo "merge vào main và push". Mig 143–146 đã ở prod từ
+  sáng nay → bản Vercel cũ đang từ chối phiếu nhập Chưa trả không có NCC; push xong Vercel dựng bản mới là hết.
+- Phương án đề xuất: anh mở cổng deploy 1 giờ, agent push.
+- Rủi ro nếu duyệt: thấp — verify xanh sau khi gộp main (vitest 1772/1772, DB, mini-app, print-agent).
+- Trả lời của anh: Đã mở cổng
+- **Đã áp dụng 2026-11-17:** push main c1e63a9..f94ac99.

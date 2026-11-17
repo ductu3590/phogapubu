@@ -7,6 +7,7 @@ import { collectedRate, debtAgeDays, topDebtors } from '@/lib/reports/insights'
 import { ShareBar } from './charts/share-bar'
 import { KpiCard } from './kpi-card'
 import { SectionCard } from './section-card'
+import { LegendDot } from './report-bits'
 import { EMPTY_TEXT, formatPercent, formatYmd } from './report-format'
 
 // Tab "Công nợ" (report_receivables, mig 125): nợ đầu kỳ + phát sinh − đã thu = nợ cuối kỳ cho từng khách; tuổi nợ
@@ -20,9 +21,7 @@ function AgeBox({ label, value, tone }: { label: string; value: number; tone: ke
   return (
     <div className={cn('min-w-0 rounded-xl border bg-surface p-3',
       tone === 'bad' && value > 0 ? 'border-critical-border' : tone === 'warn' && value > 0 ? 'border-warning-border' : 'border-border')}>
-      <p className="flex items-center gap-1.5 text-[13px] font-medium text-muted">
-        <i className="size-2.5 rounded-full" style={{ background: AGE_COLORS[tone] }} />{label}
-      </p>
+      <div className="text-[13px] font-medium text-muted"><LegendDot color={AGE_COLORS[tone]}>{label}</LegendDot></div>
       <p className="mt-1 truncate text-lg font-semibold tabular text-foreground">{formatVND(value)}</p>
     </div>
   )
@@ -34,7 +33,7 @@ const nums = (r: ReceivableAmounts) => [r.opening, r.incurred, r.collected, r.cl
 /** Nhãn đỏ chỉ khi nợ cũ nhất quá 30 ngày (âm/null = chưa tới hạn hoặc không có bill nợ). */
 function AgeTag({ days }: { days: number | null }) {
   if (days === null || days <= 30) return null
-  return <span className="ml-1.5 rounded-md bg-critical-bg px-1.5 py-0.5 text-[12px] font-medium text-critical">{days} ngày</span>
+  return <span data-age-tag className="ml-1.5 rounded-md bg-critical-bg px-1.5 py-0.5 text-[12px] font-medium text-critical">{days} ngày</span>
 }
 
 export default function ReceivablesView({ report }: { report: ReceivablesReport }) {

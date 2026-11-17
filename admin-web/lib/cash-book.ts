@@ -210,11 +210,24 @@ export function filtersToRpc(f: CashbookFilters): Record<string, string> {
 
 /**
  * Phiếu có nút "Huỷ phiếu" không (POS panel ca + trang Sổ thu chi dùng chung): chỉ người quản lý sổ (chủ quán / quản lý),
- * phiếu chưa huỷ, và KHÔNG phải phiếu chi sinh từ phiếu nhập kho (huỷ ở trang Kho — RPC cash_book_void cũng chặn).
+ * phiếu chưa huỷ, và KHÔNG phải phiếu chi sinh từ phiếu nhập kho (huỷ ở trang Kho) hay từ lần trả nợ NCC (huỷ ở trang
+ * Công nợ, mig 143) — RPC cash_book_void cũng chặn hai nguồn này.
  */
 export function cashEntryVoidable(e: { source: CashBookSource; voidedAt: string | null }, canManage: boolean): boolean {
-  return canManage && !e.voidedAt && e.source !== 'inventory_receipt'
+  return canManage && !e.voidedAt && e.source !== 'inventory_receipt' && e.source !== 'supplier_payment'
 }
+
+/**
+ * Nhãn danh mục trong ô chọn của form chi tay (Sổ thu chi + Chi két): danh mục chi tên đúng "Đi chợ" hiện "Chi đi chợ
+ * ngoài nhập kho" để không nhầm với tiền mua rau nhập kho (ghi ở Kho). Chỉ là nhãn ô chọn — sổ, Excel, báo cáo vẫn đọc
+ * tên đã lưu; quán đã đổi tên thì hiện tên quán đặt.
+ */
+export function cashCategoryOptionLabel(c: { kind: CashBookKind; name: string }): string {
+  return c.kind === 'payment' && c.name === 'Đi chợ' ? 'Chi đi chợ ngoài nhập kho' : c.name
+}
+
+/** Dòng nhắc ở form phiếu chi tay: tiền hàng không ghi ở đây. */
+export const MANUAL_PAYMENT_HINT = 'Tiền mua hàng nhập kho ghi ở Kho. Trả nợ nhà cung cấp ghi ở Công nợ.'
 
 // ---------------------------------------------------------------------------
 // Phiếu bàn giao ca: thu / chi theo danh mục, bỏ phiếu đã huỷ. Thu trước, chi sau; trong mỗi loại tiền lớn trước.

@@ -16,6 +16,7 @@ import {
 } from '@/lib/inventory'
 import { readStockLevels } from '@/lib/inventory-server'
 import { createClient } from '@/lib/supabase/server'
+import { parseSupplierList } from '@/lib/suppliers'
 import { RECEIPT_NO_SHIFT, RECEIPT_VOID_SHIFT_CLOSED, isNoOpenShiftError, isShiftClosedVoidError } from '@/lib/cash-shift'
 
 // Kho (mig 118). Mọi action gọi RPC bằng phiên người dùng (createClient): RPC kiểm lại is_store_back_office /
@@ -133,9 +134,17 @@ export async function loadInventoryDocuments(
   if (isFail(storeId)) return storeId
   if (!DOC_KINDS.includes(kind)) return fail('Loại phiếu không hợp lệ')
   if (!isDate(from) || !isDate(to)) return fail(BAD_DATE)
-  const r = await rpc('inventory_list_documents', { p_store_id: storeId, p_kind: kind, p_from: from, p_to: to })
+  const [r, s] = await Promise.all([
+    rpc('inventory_list_documents', { p_store_id: storeId, p_kind: kind, p_from: from, p_to: to }),
+    // Phiếu nhập: gợi ý NCC lấy từ danh mục NCC đang dùng (mig 145). Đọc lỗi → giữ gợi ý tên cũ của mig 118.
+    kind === 'receipt' ? rpc('supplier_list', { p_store_id: storeId }) : Promise.resolve(null),
+  ])
   if (isFail(r)) return r
-  return { ok: true, ...parseDocuments(r.data) }
+  const parsed = parseDocuments(r.data)
+  if (s && !isFail(s)) {
+    parsed.suppliers = parseSupplierList(s.data).filter((x) => x.isActive).map((x) => x.name)
+  }
+  return { ok: true, ...parsed }
 }
 
 export async function loadInventoryDocument(id: string): Promise<{ ok: true; document: DocDetail } | Fail> {

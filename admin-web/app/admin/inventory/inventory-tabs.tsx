@@ -25,14 +25,17 @@ export type InventoryTabsProps = {
   ledgerSlot?: (row: StockRow, onClose: () => void) => ReactNode
   /** Ghi đè nội dung một tab phiếu. Mặc định cả 3 tab phiếu là DocumentsTab. */
   docSlots?: Partial<Record<DocKind, ReactNode>>
+  /** Mở sẵn chi tiết một phiếu nhập (?doc=<id>, link từ Công nợ NCC). Chỉ chủ quán + quản lý; thu ngân bỏ qua. */
+  initialDocId?: string | null
 }
 
 // Tab giữ bằng state client, KHÔNG đẩy lên URL: điều hướng mềm (?tab=) bị route chặn @modal/(.)inventory bắt
 // lại (xem comment app/admin/bills/report-date-picker.tsx).
 export default function InventoryTabs(props: InventoryTabsProps) {
-  const { canEdit, today, initialStock, ledgerSlot, docSlots } = props
+  const { canEdit, today, initialStock, ledgerSlot, docSlots, initialDocId } = props
   const toast = useToast()
-  const [tab, setTab] = useState<TabValue>('stock')
+  const openDoc = canEdit && initialDocId ? initialDocId : null
+  const [tab, setTab] = useState<TabValue>(openDoc ? 'receipt' : 'stock')
   const [ledgerRow, setLedgerRow] = useState<StockRow | null>(null)
   // Tồn kho dùng chung cho tab Tồn kho và ô chọn hàng của phiếu. Server tải lại trang (revalidate) → nhận mới.
   const [stock, setStock] = useState(initialStock)
@@ -60,7 +63,8 @@ export default function InventoryTabs(props: InventoryTabsProps) {
 
   const docContent = (kind: DocKind): ReactNode => {
     if (docSlots?.[kind]) return docSlots[kind]
-    return <DocumentsTab key={kind} kind={kind} today={today} items={stock} onChanged={refreshStock} />
+    return <DocumentsTab key={kind} kind={kind} today={today} items={stock} onChanged={refreshStock}
+      initialOpenId={kind === 'receipt' ? openDoc : null} />
   }
 
   // Thẻ kho: RPC chỉ cho chủ quán + quản lý (is_store_back_office) → thu ngân không có lối mở.

@@ -53,6 +53,9 @@ function SourceNote({ e }: { e: CashBookEntry }) {
   if (e.source === 'inventory_receipt') {
     return <span className="text-[13px] text-muted">Phiếu nhập kho · Huỷ ở trang Kho</span>
   }
+  if (e.source === 'supplier_payment') {
+    return <span className="text-[13px] text-muted">Trả nợ NCC · Huỷ ở trang Công nợ</span>
+  }
   if (e.source === 'pos_drawer') return <span className="text-[13px] text-muted">Thu/Chi két</span>
   return null
 }

@@ -13,12 +13,13 @@ vi.mock('@/lib/actions/inventory', () => ({
 
 const { ToastProvider } = await import('@/components/ui/toast')
 const { DocumentList } = await import('./documents-tab')
-const { orderedRange } = await import('./doc-format')
+const { orderedRange, paidLabel } = await import('./doc-format')
 const { default: LinesEditor } = await import('./lines-editor')
-const { default: ReceiptForm } = await import('./receipt-form')
+const { default: ReceiptForm, receiptBlocker } = await import('./receipt-form')
 const { default: WriteoffForm } = await import('./writeoff-form')
 const { addDaysIso, DocumentFormShell, makeDocumentSubmit, savedToasts } = await import('./document-form')
 const { escapeHandler } = await import('@/components/ui/dialog')
+const { default: InventoryTabs } = await import('./inventory-tabs')
 
 const html = (el: ReactElement) => renderToStaticMarkup(<ToastProvider>{el}</ToastProvider>)
 
@@ -39,7 +40,7 @@ const doc = (over: Partial<DocSummary>): DocSummary => ({
   id: 'd1', kind: 'receipt', docNo: 'PN-0001', docDate: '2026-11-09', effectiveAt: '2026-11-09T03:00:00Z',
   supplierName: 'Đại lý Hà Nội', note: null, totalAmount: 567000, paidStatus: 'paid', paidMethod: 'cash',
   status: 'posted', lineCount: 2, createdAt: '2026-11-09T03:00:00Z', createdByName: 'Chị Lan', voidedAt: null,
-  voidReason: null, cashBookEntryId: null, ...over,
+  voidReason: null, cashBookEntryId: null, supplierId: null, outstanding: null, ...over,
 })
 
 /** Thuộc tính disabled thật (không phải lớp Tailwind `disabled:…`). */
@@ -112,7 +113,7 @@ describe('Kho — phiếu nhập / xuất huỷ', () => {
     // Mig 122b: không còn câu hứa "sẽ tự tạo khi có Sổ thu chi"; nói rõ lưu phiếu là ghi luôn phiếu chi.
     expect(markup).not.toContain('đã tạo phiếu chi')
     expect(markup).not.toContain('sẽ tự tạo khi có Sổ thu chi')
-    expect(markup).toContain('Lưu phiếu sẽ ghi luôn một phiếu chi')
+    expect(markup).toContain('Khi có tiền trả, Kho tự ghi phiếu chi “Nhập hàng”.')
 
     const ok = html(<ReceiptForm today="2026-11-09" items={items} suppliers={[]} onClose={vi.fn()} onSaved={vi.fn()}
       initial={{ paidStatus: 'paid', paidMethod: 'cash', drafts: lines }} />)
@@ -234,5 +235,55 @@ describe('Kho — toast sau khi lưu phiếu', () => {
     const back = savedToasts({ docNo: 'PN-0005', replayed: false, beforeCountDocNo: 'PK-0001' }, (n) => `Đã chốt ${n}`)
     expect(back[0]).toEqual({ tone: 'success', title: 'Đã chốt PN-0005' })
     expect(back[1].title).toBe('Phiếu ghi lùi ngày trước phiếu kiểm PK-0001 nên tồn hiện tại không đổi')
+  })
+})
+
+describe('Kho — công nợ NCC (mig 144)', () => {
+  const base = { docDate: '2026-11-09', supplierName: '', note: '', paidMethod: null, drafts: lines }
+  it('Chưa trả bắt buộc có nhà cung cấp; Đã trả thì không', () => {
+    expect(receiptBlocker({ ...base, paidStatus: 'unpaid' })).toBe('Chọn nhà cung cấp')
+    expect(receiptBlocker({ ...base, paidStatus: 'unpaid', supplierName: '   ' })).toBe('Chọn nhà cung cấp')
+    expect(receiptBlocker({ ...base, paidStatus: 'unpaid', supplierName: 'Đại lý bia Hà' })).toBeNull()
+    expect(receiptBlocker({ ...base, paidStatus: 'paid', paidMethod: 'bank' })).toBeNull()
+  })
+
+  it('form Chưa trả nói rõ phiếu ghi vào công nợ NCC; chưa có NCC thì nút Lưu tắt', () => {
+    const named = html(<ReceiptForm today="2026-11-09" items={items} suppliers={[]} onClose={vi.fn()} onSaved={vi.fn()}
+      initial={{ paidStatus: 'unpaid', supplierName: ' Đại lý bia Hà ', drafts: lines }} />)
+    expect(named).toContain('Phiếu sẽ ghi vào công nợ NCC Đại lý bia Hà.')
+    expect(buttonWith(named, 'Lưu')).not.toMatch(DISABLED)
+    const empty = html(<ReceiptForm today="2026-11-09" items={items} suppliers={[]} onClose={vi.fn()} onSaved={vi.fn()}
+      initial={{ paidStatus: 'unpaid', drafts: lines }} />)
+    expect(empty).toContain('Chọn nhà cung cấp')
+    expect(buttonWith(empty, 'Lưu')).toMatch(DISABLED)
+  })
+
+  it('nhãn trả tiền: còn nợ / đã trả hết qua công nợ / thiếu NCC', () => {
+    const unpaid = { paidStatus: 'unpaid' as const, paidMethod: null, status: 'posted' as const, totalAmount: 5000000 }
+    expect(paidLabel({ ...unpaid, supplierId: 's1', outstanding: 3000000 })).toBe('Còn nợ 3.000.000đ')
+    expect(paidLabel({ ...unpaid, supplierId: 's1', outstanding: 0 })).toBe('Đã trả hết qua công nợ')
+    expect(paidLabel({ ...unpaid, supplierId: null, outstanding: null })).toBe('Chưa trả · Thiếu nhà cung cấp')
+    expect(paidLabel({ ...unpaid, supplierId: 's1', outstanding: null, status: 'voided' })).toBe('Chưa trả')
+    expect(paidLabel({ ...unpaid, paidStatus: 'paid', paidMethod: 'bank', supplierId: null, outstanding: null }))
+      .toBe('Đã trả · Chuyển khoản')
+  })
+
+  it('danh sách phiếu nhập hiện "Còn nợ …"', () => {
+    const markup = html(<DocumentList kind="receipt" onOpen={vi.fn()} documents={[
+      doc({ paidStatus: 'unpaid', paidMethod: null, supplierId: 's1', outstanding: 3000000 }),
+    ]} />)
+    expect(markup).toContain('Còn nợ 3.000.000đ')
+  })
+})
+
+describe('Kho — mở phiếu theo ?doc= (link từ Công nợ NCC)', () => {
+  it('chủ quán / quản lý: mở sẵn tab Nhập hàng và hộp chi tiết phiếu', () => {
+    const markup = html(<InventoryTabs canEdit today="2026-11-09" initialStock={[]} initialDocId="d1" />)
+    expect(markup).toMatch(/aria-selected="true"[^>]*>(?:(?!<\/button>).)*Nhập hàng/)
+    expect(markup).toContain('Chi tiết phiếu')
+  })
+  it('thu ngân: bỏ qua ?doc=, ở tab Tồn kho', () => {
+    const markup = html(<InventoryTabs canEdit={false} today="2026-11-09" initialStock={[]} initialDocId="d1" />)
+    expect(markup).not.toContain('Chi tiết phiếu')
   })
 })

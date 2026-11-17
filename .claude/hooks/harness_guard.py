@@ -325,7 +325,10 @@ def check_bash(data):
             block(root, "secrets", tool, "Không đọc/ghi/in file secret (.env*)", cmd)
 
     protected = cfg.get("protected_paths", [])
-    prot_tokens = [re.sub(r"/?\*\*.*$", "", p) for p in protected]
+    # Lấy phần chữ trước ký tự glob đầu tiên: ".claude/hooks/**" → ".claude/hooks", ".claude/settings*.json" →
+    # ".claude/settings". Không rút về ".claude" trần — nếu không mọi lệnh có đường dẫn worktree (.claude/worktrees/…)
+    # hay plugin (~/.claude/plugins/…) đều bị coi là đụng file harness (D-007).
+    prot_tokens = [re.split(r"[*?\[]", p)[0].rstrip("/") for p in protected]
     for seg in split_segments(cmd):
         toks = tokens(seg)
         if not toks:

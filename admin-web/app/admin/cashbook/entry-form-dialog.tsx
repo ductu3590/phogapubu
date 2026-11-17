@@ -6,7 +6,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Field, Input, Select, Textarea } from '@/components/ui/field'
 import { createCashBookEntry } from '@/lib/actions/cash-book'
 import { formatVndInput } from '@/lib/cash-change'
-import type { CashBookCategory, CashBookKind, CashBookMethod } from '@/lib/cash-book'
+import { cashCategoryOptionLabel, MANUAL_PAYMENT_HINT, type CashBookCategory, type CashBookKind, type CashBookMethod } from '@/lib/cash-book'
 import { cn, formatVND } from '@/lib/utils'
 import { drawerAmount, drawerCategories } from '../pos/cash-drawer-dialog'
 
@@ -55,6 +55,7 @@ export function EntryForm({
   const canSubmit = entryCanSubmit({ categories, kind, amountText, categoryId, note })
   return (
     <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); if (canSubmit && !busy) onSubmit() }}>
+      {kind === 'payment' ? <p className="rounded-lg bg-background px-3 py-2 text-[13px] text-muted">{MANUAL_PAYMENT_HINT}</p> : null}
       <div role="radiogroup" aria-label="Phương thức" className="grid grid-cols-2 gap-2">
         {(['cash', 'bank'] as const).map((m) => (
           <button
@@ -85,7 +86,7 @@ export function EntryForm({
       <Field label="Danh mục" htmlFor="entry-category" required>
         <Select id="entry-category" value={categoryId} disabled={off} onChange={(e) => onCategory(e.target.value)}>
           {options.length === 0 ? <option value="">Chưa có danh mục</option> : null}
-          {options.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {options.map((c) => <option key={c.id} value={c.id}>{cashCategoryOptionLabel(c)}</option>)}
         </Select>
       </Field>
       <Field label="Người nộp / Người nhận" htmlFor="entry-counterparty" hint="Không bắt buộc">

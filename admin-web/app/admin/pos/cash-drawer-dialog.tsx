@@ -7,7 +7,7 @@ import { Field, Input, Select, Textarea } from '@/components/ui/field'
 import { createCashBookEntry } from '@/lib/actions/cash-book'
 import { formatVndInput, parseVnd } from '@/lib/cash-change'
 import { MAX_CASH_AMOUNT, type CashBookKind } from '@/lib/cash-common'
-import type { CashBookCategory } from '@/lib/cash-book'
+import { cashCategoryOptionLabel, MANUAL_PAYMENT_HINT, type CashBookCategory } from '@/lib/cash-book'
 import { cn, formatVND } from '@/lib/utils'
 
 // Hộp "Thu/Chi két" trên POS (mig 122): phiếu thu / chi TIỀN MẶT tại két, gắn ca đang mở (server gắn).
@@ -88,6 +88,7 @@ export function CashDrawerForm({
           </button>
         ))}
       </div>
+      {kind === 'payment' ? <p className="rounded-lg bg-background px-3 py-2 text-[13px] text-muted">{MANUAL_PAYMENT_HINT}</p> : null}
       <Field label="Số tiền" htmlFor="drawer-amount" required>
         <Input
           id="drawer-amount"
@@ -102,7 +103,7 @@ export function CashDrawerForm({
       <Field label="Danh mục" htmlFor="drawer-category" required>
         <Select id="drawer-category" value={categoryId} disabled={fieldsOff} onChange={(e) => onCategory(e.target.value)}>
           {options.length === 0 ? <option value="">Chưa có danh mục</option> : null}
-          {options.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {options.map((c) => <option key={c.id} value={c.id}>{cashCategoryOptionLabel(c)}</option>)}
         </Select>
       </Field>
       <Field

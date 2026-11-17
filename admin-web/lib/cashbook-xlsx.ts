@@ -12,7 +12,7 @@ export type CashbookWorkbookMeta = { storeName: string; filters: CashbookFilters
 
 const vnDate = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`
 const SOURCE_LABEL: Record<CashBookSource, string> = {
-  manual: 'Ghi tay', pos_drawer: 'Thu/Chi két', inventory_receipt: 'Phiếu nhập kho',
+  manual: 'Ghi tay', pos_drawer: 'Thu/Chi két', inventory_receipt: 'Phiếu nhập kho', supplier_payment: 'Trả nợ NCC',
 }
 
 export function buildCashbookWorkbook(

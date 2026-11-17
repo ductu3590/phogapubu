@@ -9,7 +9,7 @@ import { Field, Input } from '@/components/ui/field'
 import { loadInventoryDocuments } from '@/lib/actions/inventory'
 import { DOC_KIND_LABEL, type DocKind, type DocSummary, type StockRow } from '@/lib/inventory'
 import { cn, formatVND } from '@/lib/utils'
-import { formatDocDate, orderedRange, paidLabel } from './doc-format'
+import { formatDocDate, orderedRange, paidLabel, paidSettled } from './doc-format'
 import { addDaysIso } from './document-form'
 import CountForm from './count-form'
 import DocumentDialog from './document-dialog'
@@ -36,7 +36,7 @@ export function DocumentList({ kind, documents, onOpen }: {
   const statusBadges = (d: DocSummary) => (
     <>
       {d.status === 'voided' ? <Badge tone="neutral">Đã huỷ</Badge> : null}
-      {isReceipt ? <Badge tone={d.paidStatus === 'paid' ? 'info' : 'warning'}>{paidLabel(d)}</Badge> : null}
+      {isReceipt ? <Badge tone={paidSettled(d) ? 'info' : 'warning'}>{paidLabel(d)}</Badge> : null}
     </>
   )
 
@@ -103,18 +103,20 @@ type Loaded = { key: string; result: Awaited<ReturnType<typeof loadInventoryDocu
  * Tab phiếu (nhập / huỷ; Task 8 cắm kiểm kho). Tải khi mở tab và khi đổi khoảng ngày, không poll.
  * Lưu / huỷ phiếu xong tải lại danh sách và gọi `onChanged` để tab Tồn kho lấy số mới.
  */
-export default function DocumentsTab({ kind, today, items, onChanged }: {
+export default function DocumentsTab({ kind, today, items, onChanged, initialOpenId = null }: {
   kind: DocKind
   today: string
   items: StockRow[]
   onChanged?: () => void
+  /** Mở sẵn hộp chi tiết phiếu này (hộp tự tải theo id, không phụ thuộc khoảng ngày đang lọc). */
+  initialOpenId?: string | null
 }) {
   const [from, setFrom] = useState(() => addDaysIso(today, -29))
   const [to, setTo] = useState(today)
   const [tick, setTick] = useState(0)
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [creating, setCreating] = useState(false)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(initialOpenId)
 
   // Gõ tay ngày đầu sau ngày cuối (ô date vẫn cho gõ) → đảo lại cho đúng thứ tự, báo một dòng.
   const { lo, hi, swapped } = orderedRange(from, to)

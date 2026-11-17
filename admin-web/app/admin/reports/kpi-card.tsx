@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { formatPercent } from './report-format'
+import { DeltaChip } from './report-bits'
 
 export type KpiTone = 'orange' | 'amber' | 'green' | 'sky' | 'red' | 'violet' | 'slate'
 
@@ -19,18 +19,8 @@ export function KpiCard({ icon: Icon, tone, label, value, unit, delta, inverse =
   icon: LucideIcon; tone: KpiTone; label: string; value: string; unit?: string
   delta?: number | null; inverse?: boolean; compareLabel?: string; note?: ReactNode; valueClassName?: string
 }) {
-  let chip: ReactNode = null
-  if (typeof delta === 'number' && Number.isFinite(delta)) {
-    const good = inverse ? delta < 0 : delta > 0
-    const cls = delta === 0 ? 'bg-secondary text-muted' : good ? 'bg-success-bg text-success' : 'bg-critical-bg text-critical'
-    const text = delta === 0 ? '— 0%' : `${delta > 0 ? '↑' : '↓'} ${formatPercent(Math.abs(delta))}`
-    chip = (
-      <>
-        <span className={`tabular inline-flex items-center whitespace-nowrap rounded-md px-1.5 py-px text-[12.5px] font-semibold ${cls}`}>{text}</span>
-        {compareLabel ? <span className="whitespace-nowrap text-xs">{compareLabel}</span> : null}
-      </>
-    )
-  }
+  const hasDelta = typeof delta === 'number' && Number.isFinite(delta)
+  const chip = hasDelta ? <DeltaChip delta={delta} inverse={inverse} label={compareLabel} /> : null
   return (
     <div className="flex min-w-0 flex-col gap-2.5 rounded-2xl border border-border bg-surface px-4 py-4 shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
       <div className="flex items-center gap-2.5">

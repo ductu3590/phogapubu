@@ -228,6 +228,18 @@ describe('server action kho', () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin/inventory')
   })
 
+  it('loadInventoryDocuments: gợi ý NCC lấy từ danh sách NCC đang dùng (mig 145); đọc lỗi thì giữ gợi ý cũ', async () => {
+    mocks.state.rpc.inventory_list_documents = ok({ documents: [], suppliers: ['Tên cũ gõ tay'] })
+    mocks.state.rpc.supplier_list = ok([
+      { id: 's1', name: 'Đại lý bia Hà', is_active: true }, { id: 's2', name: 'Chợ cũ', is_active: false },
+      { id: 's3', name: 'Chợ Cốc Lếu', is_active: true },
+    ])
+    expect(await actions.loadInventoryDocuments('receipt', '2026-11-01', '2026-11-09'))
+      .toEqual({ ok: true, documents: [], suppliers: ['Đại lý bia Hà', 'Chợ Cốc Lếu'] })
+    expect(rpcCalls('supplier_list')).toEqual([{ p_store_id: 'store-1' }])
+    delete mocks.state.rpc.supplier_list
+  })
+
   it('loadInventoryDocuments / loadInventoryDocument / loadItemLedger gửi store của guard và parse', async () => {
     mocks.state.rpc.inventory_list_documents = ok({ documents: [], suppliers: ['Đại lý'] })
     expect(await actions.loadInventoryDocuments('count', '2026-11-01', '2026-11-09'))

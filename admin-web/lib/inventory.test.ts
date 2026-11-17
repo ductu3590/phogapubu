@@ -209,8 +209,14 @@ describe('parseLedger, parseDocuments, parseDocument, parseMenuStock', () => {
     id: 'd1', kind: 'receipt', docNo: 'PN-0001', docDate: '2026-11-09', effectiveAt: '2026-11-09T03:00:00+00:00',
     supplierName: 'Đại lý', note: null, totalAmount: 567000, paidStatus: 'paid', paidMethod: 'bank', status: 'posted',
     lineCount: 2, createdAt: '2026-11-09T03:00:00+00:00', createdByName: 'Chị Lan', voidedAt: null, voidReason: null,
-    cashBookEntryId: null,
+    cashBookEntryId: null, supplierId: null, outstanding: null,
   }
+
+  it('parseDocuments đọc supplier_id + outstanding (mig 144)', () => {
+    const r = parseDocuments({ documents: [{ ...doc, paid_status: 'unpaid', paid_method: null, supplier_id: 's1', outstanding: '300000' }] })
+    expect(r.documents[0]).toMatchObject({ supplierId: 's1', outstanding: 300000 })
+    expect(parseDocuments({ documents: [{ ...doc, outstanding: null }] }).documents[0].outstanding).toBeNull()
+  })
 
   it('parseDocuments đổi tên trường, bỏ phiếu hỏng', () => {
     expect(parseDocuments({ documents: [doc, { ...doc, id: null }, { ...doc, id: 'd2', kind: 'transfer' }], suppliers: ['Đại lý'] }))
