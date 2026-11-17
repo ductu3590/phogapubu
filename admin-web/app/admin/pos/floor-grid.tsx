@@ -54,7 +54,7 @@ export function FloorGridFilters({
           value={areaFilter}
           onChange={e => onArea(e.target.value)}
           aria-label="Lọc theo khu"
-          className="min-h-9 cursor-pointer rounded-lg border border-border-strong bg-surface px-2.5 text-sm font-semibold text-foreground"
+          className="min-h-9 cursor-pointer rounded-lg border border-border-strong bg-surface px-2.5 text-sm font-semibold text-foreground focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none"
         >
           {areaItems.map(a => (
             <option key={a.value} value={a.value}>{`${a.label} (${a.count})`}</option>

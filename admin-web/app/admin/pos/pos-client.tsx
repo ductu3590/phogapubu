@@ -502,7 +502,7 @@ export default function PosClient({
   const gridGroups = useMemo(() => buildGridGroups({
     tables: placed, areas: floor.draft.areas, areaFilter: gridAreaFilter, status: gridStatus, query: gridQuery, ctx: gridCtx,
   }), [placed, floor.draft.areas, gridAreaFilter, gridStatus, gridQuery, gridCtx])
-  const gridCounts = useMemo(() => gridStatusCounts(placed, gridAreaFilter, gridCtx), [placed, gridAreaFilter, gridCtx])
+  const gridCounts = useMemo(() => gridStatusCounts(placed, floor.draft.areas, gridAreaFilter, gridCtx), [placed, floor.draft.areas, gridAreaFilter, gridCtx])
 
   const servingCount = openSessions.filter((s) => s.order_count > 0).length
   const bookedSoon = [...reservationBars.values()].filter((b) => b.state === 'booked').length
@@ -1512,7 +1512,8 @@ export default function PosClient({
         aria-label="Việc cần xử lý"
         className={cn(
           'flex-col bg-surface',
-          workDrawerOnly
+          // Chưa hydrate (view null) thì chưa biết có phải Sơ đồ không → ẩn hẳn (vẫn mount), không chớp cột ở xl.
+          view === null ? 'hidden' : workDrawerOnly
             // Tab Sơ đồ: chỉ là ngăn kéo phủ ở mọi cỡ màn.
             ? (workOpen ? 'fixed inset-y-0 right-0 z-40 flex w-full max-w-md border-l border-border shadow-modal' : 'hidden')
             : [

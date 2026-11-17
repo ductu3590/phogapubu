@@ -62,7 +62,7 @@ export function matchesGridStatus(tableId: string, status: GridStatus, ctx: Grid
 export function normalizeTableSearch(text: string): string {
   return text
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '') // dấu thanh / dấu mũ tách ra sau NFD
     .replace(/[đĐ]/g, 'd')
     .toLowerCase()
     .replace(/\s+/g, ' ')
@@ -73,8 +73,14 @@ export type GridGroup = { areaId: string | null; name: string; color: string | n
 
 const byYThenX = (a: AreaPlacedTable, b: AreaPlacedTable) => a.y - b.y || a.x - b.x
 
-const inArea = (t: AreaPlacedTable, areaFilter: string) =>
-  areaFilter === ALL_AREAS ? true : areaFilter === NO_AREA_ID ? !t.area_id : t.area_id === areaFilter
+/**
+ * MỘT định nghĩa "Chưa phân khu" cho nhóm, lọc và đếm: chưa gán khu HOẶC trỏ tới khu không còn trong `areas`
+ * (khu đã xoá). knownAreaIds = id các khu hiện có.
+ */
+const isLoose = (t: AreaPlacedTable, knownAreaIds: ReadonlySet<string>) => !t.area_id || !knownAreaIds.has(t.area_id)
+
+const inArea = (t: AreaPlacedTable, areaFilter: string, knownAreaIds: ReadonlySet<string>) =>
+  areaFilter === ALL_AREAS ? true : areaFilter === NO_AREA_ID ? isLoose(t, knownAreaIds) : t.area_id === areaFilter
 
 export function buildGridGroups(input: {
   tables: AreaPlacedTable[]
@@ -85,8 +91,9 @@ export function buildGridGroups(input: {
   ctx: GridContext
 }): GridGroup[] {
   const q = normalizeTableSearch(input.query)
+  const known = new Set(input.areas.map(a => a.id))
   const visible = input.tables.filter(t =>
-    inArea(t, input.areaFilter)
+    inArea(t, input.areaFilter, known)
     && matchesGridStatus(t.id, input.status, input.ctx)
     && (q === '' || normalizeTableSearch(t.table_number).includes(q)),
   )
@@ -95,30 +102,39 @@ export function buildGridGroups(input: {
     tables: visible.filter(t => t.area_id === a.id).sort(byYThenX),
   }))
   // Bàn chưa phân khu (hoặc trỏ tới khu đã xoá) luôn xuống nhóm cuối.
-  const known = new Set(input.areas.map(a => a.id))
   groups.push({
     areaId: null, name: 'Chưa phân khu', color: null,
-    tables: visible.filter(t => !t.area_id || !known.has(t.area_id)).sort(byYThenX),
+    tables: visible.filter(t => isLoose(t, known)).sort(byYThenX),
   })
   return groups.filter(g => g.tables.length > 0)
 }
 
-/** Nút lọc khu: "Chưa phân khu" chỉ hiện khi có cả khu lẫn bàn chưa phân khu (giống areaItems cũ). */
+/**
+ * Lựa chọn lọc khu: "Tất cả khu", từng khu theo thứ tự `areas`, rồi "Chưa phân khu" CUỐI (cùng thứ tự lưới).
+ * "Chưa phân khu" chỉ hiện khi có cả khu lẫn bàn chưa phân khu (giống areaItems cũ).
+ */
 export function gridAreaCounts(
   tables: AreaPlacedTable[],
   areas: TableArea[],
 ): { value: string; label: string; color: string | null; count: number }[] {
-  const loose = tables.filter(t => !t.area_id).length
+  const known = new Set(areas.map(a => a.id))
+  const loose = tables.filter(t => isLoose(t, known)).length
   return [
     { value: ALL_AREAS, label: 'Tất cả khu', color: null, count: tables.length },
-    ...(loose > 0 && areas.length > 0 ? [{ value: NO_AREA_ID, label: 'Chưa phân khu', color: null, count: loose }] : []),
     ...areas.map(a => ({ value: a.id, label: a.name, color: a.color ?? null, count: tables.filter(t => t.area_id === a.id).length })),
+    ...(loose > 0 && areas.length > 0 ? [{ value: NO_AREA_ID, label: 'Chưa phân khu', color: null, count: loose }] : []),
   ]
 }
 
 /** Đếm theo khu đang lọc, KHÔNG theo ô tìm kiếm. */
-export function gridStatusCounts(tables: AreaPlacedTable[], areaFilter: string, ctx: GridContext): Record<GridStatus, number> {
-  const scoped = tables.filter(t => inArea(t, areaFilter))
+export function gridStatusCounts(
+  tables: AreaPlacedTable[],
+  areas: TableArea[],
+  areaFilter: string,
+  ctx: GridContext,
+): Record<GridStatus, number> {
+  const known = new Set(areas.map(a => a.id))
+  const scoped = tables.filter(t => inArea(t, areaFilter, known))
   const count = (s: GridStatus) => scoped.filter(t => matchesGridStatus(t.id, s, ctx)).length
   return { all: count('all'), busy: count('busy'), free: count('free'), pending: count('pending'), booked: count('booked') }
 }

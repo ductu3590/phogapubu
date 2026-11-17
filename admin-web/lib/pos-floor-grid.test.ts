@@ -83,17 +83,31 @@ describe('matchesGridStatus', () => {
 
 describe('đếm', () => {
   it('gridStatusCounts đếm trong khu đang lọc', () => {
-    expect(gridStatusCounts(tables, ALL_AREAS, ctx)).toEqual({ all: 4, busy: 1, free: 3, pending: 1, booked: 1 })
-    expect(gridStatusCounts(tables, 'b', ctx)).toEqual({ all: 1, busy: 0, free: 1, pending: 0, booked: 1 })
+    expect(gridStatusCounts(tables, areas, ALL_AREAS, ctx)).toEqual({ all: 4, busy: 1, free: 3, pending: 1, booked: 1 })
+    expect(gridStatusCounts(tables, areas, 'b', ctx)).toEqual({ all: 1, busy: 0, free: 1, pending: 0, booked: 1 })
   })
-  it('gridAreaCounts', () => {
+  it('gridAreaCounts: Chưa phân khu đứng cuối (như thứ tự lưới)', () => {
     expect(gridAreaCounts(tables, areas)).toEqual([
       { value: '__all__', label: 'Tất cả khu', color: null, count: 4 },
-      { value: '__none__', label: 'Chưa phân khu', color: null, count: 1 },
       { value: 'a', label: 'A', color: null, count: 2 },
       { value: 'b', label: 'B', color: null, count: 1 },
+      { value: '__none__', label: 'Chưa phân khu', color: null, count: 1 },
     ])
     expect(gridAreaCounts([X1], [])).toEqual([{ value: '__all__', label: 'Tất cả khu', color: null, count: 1 }])
+  })
+})
+
+describe('bàn trỏ tới khu đã xoá = Chưa phân khu (một định nghĩa cho nhóm, lọc, đếm)', () => {
+  const Z1 = mk('z1', 'Bàn Z1', 0, 0, 'khu-da-xoa')
+  const all = [...tables, Z1]
+  it('buildGridGroups xếp vào Chưa phân khu và lọc NO_AREA_ID vẫn thấy', () => {
+    const base = { tables: all, areas, areaFilter: ALL_AREAS, status: 'all' as const, query: '', ctx }
+    expect(buildGridGroups(base).at(-1)?.tables.map(t => t.id)).toEqual(['x1', 'z1'])
+    expect(buildGridGroups({ ...base, areaFilter: NO_AREA_ID }).flatMap(g => g.tables.map(t => t.id))).toEqual(['x1', 'z1'])
+  })
+  it('gridAreaCounts + gridStatusCounts đếm cả bàn đó vào Chưa phân khu', () => {
+    expect(gridAreaCounts(all, areas).find(a => a.value === NO_AREA_ID)?.count).toBe(2)
+    expect(gridStatusCounts(all, areas, NO_AREA_ID, ctx).all).toBe(2)
   })
 })
 
