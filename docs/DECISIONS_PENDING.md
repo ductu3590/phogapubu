@@ -142,3 +142,11 @@ Mẫu:
   Phương án khác: bỏ xem local, merge rồi kiểm luôn trên mevo.vn sau khi Vercel deploy (đổi chỉ là chữ, đã có unit test).
 - Rủi ro nếu duyệt: thấp — chép sang thư mục gitignored trên máy anh, không in nội dung.
 - Trả lời của anh: "Bỏ qua, commit" (chat 2026-11-18) → không mở cổng; kiểm bằng S1–S5 sau khi bản này chạy.
+
+## D-011 · 2026-11-18 · gate: deploy · task: sửa chữ màn nhân viên (d81a18e) · trạng thái: chờ
+- Cần làm: đẩy `main` lên `origin` (main ở máy đã fast-forward tới d81a18e, gồm nhánh
+  `claude/mevo-production-test-guide-d0ce6c`) để Vercel dựng bản mới.
+- Vì sao: anh Tú bảo "Merge + push" để test S1–S5 ở `docs/testing/staff-chu/STAFF-CHU.md` trên mevo.vn.
+- Phương án đề xuất: anh mở cổng deploy 1 giờ, agent đẩy main.
+- Rủi ro nếu duyệt: thấp — chỉ đổi chữ màn `/staff`, không migration; vitest admin-web 1846/1846 xanh trên cùng cây code.
+- Trả lời của anh:
