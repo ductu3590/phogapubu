@@ -1217,14 +1217,14 @@ export default function PosClient({
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-slate-900">MEVO POS</h1>
                 <span className="max-w-48 truncate rounded-md border border-orange-200 bg-orange-50 px-2 py-0.5 text-[13px] font-semibold text-orange-700">{storeName}</span>
-                {/* Vai trò đang vận hành máy quầy, nhãn lấy từ ROLE_LABEL (chủ quán, thu ngân, quản lý có quyền khác nhau). */}
+                {/* Vai trò đang vận hành máy quầy, nhãn lấy từ ROLE_LABEL (chủ quán, thu ngân, quản lý có quyền khác nhau).
+                    Chỉ hiện tên vai trò; email chỉ còn ở tooltip khi rê chuột (anh Tú 2026-11-17). */}
                 <span
                   className="inline-flex max-w-64 items-center gap-1.5 truncate rounded-md border border-slate-300 bg-slate-900 px-2 py-0.5 text-[13px] font-semibold text-white"
                   title={operatorEmail ?? undefined}
                 >
                   <UserRound className="size-3.5 shrink-0" aria-hidden />
                   {operatorRoleLabel ?? (canArrange ? 'Chủ quán' : 'Thu ngân')}
-                  {operatorEmail && <span className="hidden truncate font-normal text-slate-300 lg:inline">· {operatorEmail}</span>}
                 </span>
               </div>
               <p className="hidden text-[13px] text-slate-500 sm:block">Điều hành bàn &amp; mâm gọi món</p>

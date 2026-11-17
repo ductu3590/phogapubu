@@ -1,8 +1,8 @@
 # POS tab "Sơ đồ" — checklist test
 
-Spec: [2026-11-17-pos-so-do-ban-design.md](../../superpowers/specs/2026-11-17-pos-so-do-ban-design.md) (bố cục B, màn quầy 1920×1080). Trạng thái: **Chờ test** (T4/T5/T6 phần không đổi đã PASS 2026-11-17).
+Spec: [2026-11-17-pos-so-do-ban-design.md](../../superpowers/specs/2026-11-17-pos-so-do-ban-design.md) (bố cục B, màn quầy 1920×1080). Trạng thái: **PASS 2026-11-17** (T1–T7), chờ test **T8** (2 chỉnh sau PASS).
 
-Tab giữa của POS tên **Sơ đồ** (Timeline · Sơ đồ · Danh sách). Bố cục B cho màn quầy 1920×1080: ô **To** 156×120 có **dải tên khu** ở đỉnh ô (không còn chấm màu khu), **cột phải luôn hiện** (Việc cần xử lý / bill), **bấm bàn trống ra thẳng hộp "Tên bàn · Gọi món"** (không còn bảng 1 bàn trống), và chế độ **"Ghép bàn trống"** để ghép nhiều bàn trống thành một mâm. Nút "Sắp xếp bàn" nằm ở thanh trên cạnh "Ghép bàn trống". Nút "Đặt làm mặc định máy này" ghim màn mở sẵn theo từng máy.
+Tab giữa của POS tên **Sơ đồ** (Timeline · Sơ đồ · Danh sách). Bố cục B cho màn quầy 1920×1080: ô **To** 156×120 có **dải tên khu** ở đỉnh ô (không còn chấm màu khu), **cột phải luôn hiện** (Việc cần xử lý / bill), **bấm bàn trống ra thẳng hộp "Tên bàn · Gọi món"** (không còn bảng 1 bàn trống), và chế độ **"Ghép bàn trống"** để ghép nhiều bàn trống thành một mâm. Nút "Sắp xếp bàn" nằm ở thanh trên cạnh "Ghép bàn trống". Nút ngôi sao (chỉ icon, chữ ở tooltip) ghim màn mở sẵn theo từng máy.
 
 ## Đã tự động (Playwright) — anh không cần làm lại
 
@@ -98,5 +98,12 @@ bằng cách thu / huỷ tiền qua RPC tiền; làm hỏng giữa chừng là �
 |---|---|---|
 | 7.1 | So với Timeline, quán đông bàn dùng Sơ đồ có nhanh hơn không? | |
 | 7.2 | Điều gì muốn chỉnh (cỡ ô, thông tin trên ô, vị trí nút, màu dải khu)? | |
+
+### T8. Chỉnh sau PASS (2026-11-17)
+
+| # | Làm gì | Mong đợi | Kết quả |
+|---|---|---|---|
+| 8.1 | Mở POS, nhìn thanh trên cạnh tên quán | Chỉ hiện ô đen **"Chủ quán"** (hoặc "Thu ngân"...), không còn email. Rê chuột lên ô đó mới thấy email | |
+| 8.2 | Nhìn cạnh hàng tab Timeline · Sơ đồ · Danh sách | Chỉ còn **icon ngôi sao**, không có chữ "Mặc định máy này" / "Đặt làm mặc định máy này" ở mọi cỡ màn. Sao tô vàng = màn đang là mặc định; bấm sao rỗng vẫn ghim được, rê chuột thấy chữ | |
 
 Đã bỏ nhóm T3 "Hai máy" (ghim mặc định máy đã có e2e; ý "tải lại không chớp" chuyển vào T1.6). Xong thì báo: "PASS" hoặc danh sách bài FAIL.

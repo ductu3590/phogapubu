@@ -4,7 +4,8 @@ import { Star } from 'lucide-react'
 import type { PinnableView, PosView } from '@/lib/pos-view-pref'
 
 // Nút ghim màn mặc định của máy, đứng cạnh hàng tab POS. Tab Danh sách không ghim được → không vẽ.
-// Chữ chỉ hiện từ 2xl: ở 1366 hàng tab còn chứa bộ lọc của Sơ đồ (bố cục A), dưới 2xl chỉ còn ☆/★ (chữ vẫn đọc được bằng trình đọc màn hình: sr-only, kèm aria-label + title).
+// Chỉ có icon ☆/★, không hiện chữ ở mọi cỡ màn (anh Tú 2026-11-17). Chữ vẫn đọc được bằng trình đọc
+// màn hình (sr-only) và hiện khi rê chuột (title).
 export default function DefaultViewPin({
   view,
   defaultView,
@@ -16,12 +17,12 @@ export default function DefaultViewPin({
 }) {
   if (view === 'list') return null
   const pinned = view === defaultView
-  const base = 'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium'
+  const base = 'inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-medium'
   if (pinned) {
     return (
       <span className={`${base} text-amber-600`} title="Mặc định máy này">
         <Star className="size-4 fill-current" aria-hidden />
-        <span className="sr-only 2xl:not-sr-only">Mặc định máy này</span>
+        <span className="sr-only">Mặc định máy này</span>
       </span>
     )
   }
@@ -35,7 +36,7 @@ export default function DefaultViewPin({
       className={`${base} text-slate-600 hover:bg-slate-100`}
     >
       <Star className="size-4" aria-hidden />
-      <span className="sr-only 2xl:not-sr-only">{label}</span>
+      <span className="sr-only">{label}</span>
     </button>
   )
 }

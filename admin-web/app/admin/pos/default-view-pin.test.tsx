@@ -13,13 +13,13 @@ describe('DefaultViewPin', () => {
     expect(html).toContain('Mặc định máy này')
     expect(html).not.toContain('<button')
   })
-  it('dưới 2xl chữ chỉ ẩn bằng mắt (sr-only), vẫn nằm trong cây trợ năng; title giữ nguyên', () => {
+  it('chỉ icon ở mọi cỡ màn: chữ luôn sr-only (không not-sr-only), title giữ nguyên', () => {
     const pinned = renderToStaticMarkup(<DefaultViewPin view="floor" defaultView="floor" onPin={vi.fn()} />)
-    expect(pinned).toContain('<span class="sr-only 2xl:not-sr-only">Mặc định máy này</span>')
+    expect(pinned).toContain('<span class="sr-only">Mặc định máy này</span>')
     expect(pinned).toContain('title="Mặc định máy này"')
     const button = renderToStaticMarkup(<DefaultViewPin view="timeline" defaultView="floor" onPin={vi.fn()} />)
-    expect(button).toContain('<span class="sr-only 2xl:not-sr-only">Đặt làm mặc định máy này</span>')
-    expect(button).not.toContain('hidden 2xl:inline')
+    expect(button).toContain('<span class="sr-only">Đặt làm mặc định máy này</span>')
+    expect(pinned + button).not.toContain('not-sr-only')
   })
   it('đang xem list → rỗng', () => {
     expect(renderToStaticMarkup(<DefaultViewPin view="list" defaultView="timeline" onPin={vi.fn()} />)).toBe('')
