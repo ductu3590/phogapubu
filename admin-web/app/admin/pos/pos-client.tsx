@@ -1119,7 +1119,7 @@ export default function PosClient({
     <Button icon={<Layers />} onClick={beginMerge} className="min-h-9 border-slate-900 bg-slate-900 text-white hover:bg-slate-800 hover:text-white md:min-h-9">Gộp bill</Button>
   ) : null
 
-  // Nút Sắp xếp bàn / Lưu sơ đồ (chỉ chủ quán). Ngoài lúc sắp xếp nó nằm ở hàng lọc của lưới; lúc sắp xếp ở hàng tab.
+  // Nút Sắp xếp bàn / Lưu sơ đồ (chỉ chủ quán). Ngoài lúc sắp xếp nó nằm ở thanh trên (cạnh Ghép bàn trống); lúc sắp xếp ở hàng tab.
   // Lưới đang lọc một khu thật → mở sẵn khu đó trong màn sắp xếp (spec 2026-11-17 §5.6).
   const arrangeButton = (
     <Button
@@ -1279,6 +1279,8 @@ export default function PosClient({
             {/* Timeline: nút Gộp bill nằm ở hàng "Về Bây giờ" (anh Tú 2026-10-09); sơ đồ / danh sách giữ ở đây. */}
             {view !== null && view !== 'timeline' && mergeButton}
             {freeMergeButton}
+            {/* Sắp xếp bàn ở thanh trên (không ở hàng lọc): màn quầy 1920 có cột phải thì hàng lọc xuống dòng, ăn chiều cao lưới. */}
+            {view === 'floor' && !arrange && canArrange && arrangeButton}
             <Button icon={<ListTodo />} onClick={() => openWork()} className="xl:hidden">
               Việc cần xử lý{workTotal > 0 ? ` · ${workTotal}` : ''}
             </Button>
@@ -1410,7 +1412,6 @@ export default function PosClient({
                   onStatus={setGridStatus}
                   query={gridQuery}
                   onQuery={setGridQuery}
-                  trailing={canArrange ? arrangeButton : null}
                 />
               )}
               {view !== 'floor' && areaItems.length > 1 && (
@@ -1428,7 +1429,7 @@ export default function PosClient({
                 </label>
               )}
               {view !== 'floor' && <TableStateLegend className="ml-auto hidden 2xl:flex" />}
-              {/* Đang sắp xếp: Hủy / Lưu sơ đồ ở hàng tab như cũ. Ngoài lúc sắp xếp, nút Sắp xếp bàn nằm ở hàng lọc của lưới. */}
+              {/* Đang sắp xếp: Hủy / Lưu sơ đồ ở hàng tab như cũ. Ngoài lúc sắp xếp, nút Sắp xếp bàn nằm ở thanh trên. */}
               {view === 'floor' && arrange && canArrange && (
                 <div className="ml-auto flex flex-wrap items-center gap-2">
                   <Button disabled={floor.saving} onClick={floor.cancel}>Hủy chỉnh sửa</Button>
