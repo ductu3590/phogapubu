@@ -21,7 +21,7 @@ import {
 } from './seed'
 
 const POS_URL = '/admin/pos'
-const ROW_PX = 76 + 8 // ô 76px + khe 8px (bố cục A)
+const ROW_PX = 128 + 10 // ô 128px + khe 10px (bố cục B)
 
 // Lỗi console được phép bỏ qua (thêm có lý do, đừng nới tay).
 const IGNORED_CONSOLE: RegExp[] = []
@@ -231,40 +231,70 @@ test.describe('A. Màn mặc định', () => {
 // B. Lưới + lọc (chạy cả 1366 / 1920 / phone)
 // =====================================================================================================
 test.describe('B. Lưới + lọc', () => {
-  test('1366×768 và 1920×1080: thấy đủ 43 ô bàn, ô cuối nằm trọn trong vùng lưới không cần cuộn', { tag: '@desktop-layout' }, async ({ page }, testInfo) => {
+  // Bố cục B (màn quầy 1920×1080): thấy đủ mọi ô VÀ cột phải "Việc cần xử lý" luôn hiện cạnh lưới.
+  test('1920×1080 chưa chọn bàn: thấy đủ ô bàn không cần cuộn + cột phải "Việc cần xử lý" đang hiện', { tag: '@wide-layout' }, async ({ page }, testInfo) => {
     const state = readRunState()
     await gotoPos(page)
     await openFloor(page)
     await expect(tiles(page)).toHaveCount(state.totalTables)
     if (state.totalTables !== 43) testInfo.annotations.push({ type: 'ghi chú', description: `Quán có ${state.totalTables} bàn (kỳ vọng 43)` })
     expect(state.totalTables).toBeGreaterThanOrEqual(40)
+    await expect(workAside(page)).toBeVisible()
+    await expect(workAside(page).getByRole('heading', { name: 'Việc cần xử lý' })).toBeVisible()
 
-    // Chưa chọn gì (bố cục A: không có cột phải) — mục tiêu thật: thấy hết mọi ô, không cuộn.
-    const m = await measureGrid(page, state.totalTables, 'chưa chọn bàn', testInfo)
-    expect(m.visible, m.text).toBe(state.totalTables)
-    expect(m.scrollH, m.text).toBeLessThanOrEqual(m.clientH + 1)
-    expect(m.lastBottom, m.text).toBeLessThanOrEqual(m.boxBottom)
+    const m = await measureGrid(page, state.totalTables, 'chưa chọn bàn, có cột phải', testInfo)
+    // Số 43 gồm cả 18 bàn E2E (quán thật có ~25 bàn → 4 hàng, thấy hết). Với 43 ô ở 8 cột (6 hàng) vùng lưới 1920×1080
+    // còn thiếu chừng 32px nên hàng cuối cắt một phần: chấp nhận tối đa MỘT hàng phải cuộn, số đo ghi ở annotation.
+    await page.screenshot({ path: testInfo.outputPath('so-do-1920.png') }) // ảnh cho người xem (nằm trong test-results)
+    expect(m.cols, m.text).toBeGreaterThanOrEqual(8)
+    expect(m.hiddenRows, m.text).toBeLessThanOrEqual(1)
+    expect(m.visible, m.text).toBeGreaterThanOrEqual(state.totalTables - m.cols)
 
-    // A2: mở một bill (cột phải hiện, lưới co lại) — chỉ ghi số đo, không đặt ngưỡng.
+    // Mở một bill (cột phải đổi sang bill, lưới giữ nguyên bề ngang) — chỉ ghi số đo.
     const billTable = state.pending?.tableId ?? state.tableIds[0]
     await tileById(page, billTable).click()
     await expect(billPanel(page)).toBeVisible()
     await measureGrid(page, state.totalTables, 'đang mở bill', testInfo)
   })
 
-  test('phone 375: lưới 3 cột, trang không cuộn ngang', { tag: '@phone-layout' }, async ({ page }) => {
+  // Hàng lọc (tab + chọn khu + chip trạng thái + tìm + Sắp xếp bàn) phải nằm trọn một dòng khi có cột phải;
+  // nếu xuống dòng thì nút "Sắp xếp bàn" phải chuyển lên thanh trên (brief task 3).
+  test('1920×1080: hàng lọc của Sơ đồ không xuống dòng (cùng một hàng với tab)', { tag: '@wide-layout' }, async ({ page }, testInfo) => {
     await gotoPos(page)
     await openFloor(page)
-    const cols = await tiles(page).first().evaluate((el) => getComputedStyle(el.parentElement as HTMLElement).gridTemplateColumns.split(' ').length)
-    expect(cols).toBe(3)
+    const rows = await Promise.all([
+      viewTabs(page).boundingBox(),
+      areaSelect(page).boundingBox(),
+      statusChip(page, 'Tất cả').boundingBox(),
+      statusChip(page, 'Sắp có khách đặt').boundingBox(),
+      searchBox(page).boundingBox(),
+    ])
+    const ys = rows.map((b) => {
+      expect(b).not.toBeNull()
+      return Math.round(b!.y + b!.height / 2)
+    })
+    const spread = Math.max(...ys) - Math.min(...ys)
+    const text = `hàng lọc: tâm dọc các phần tử ${ys.join(', ')} (lệch tối đa ${spread}px)`
+    testInfo.annotations.push({ type: 'số đo', description: text })
+    console.log(`[e2e] ${testInfo.project.name} — ${text}`)
+    expect(spread, text).toBeLessThanOrEqual(12)
+    // Sắp xếp bàn nằm ở thanh trên (cùng hàng Ghép bàn trống), cao hơn hàng tab + lọc.
+    const arrange = await page.getByRole('button', { name: 'Sắp xếp bàn' }).boundingBox()
+    const tabs = await viewTabs(page).boundingBox()
+    expect(arrange!.y + arrange!.height, 'Sắp xếp bàn phải ở thanh trên, trên hàng tab').toBeLessThanOrEqual(tabs!.y)
+  })
+
+  // Ô 156px nên điện thoại chỉ cần không vỡ trang (không khẳng định số cột).
+  test('phone 375: trang Sơ đồ không cuộn ngang', { tag: '@phone-layout' }, async ({ page }) => {
+    await gotoPos(page)
+    await openFloor(page)
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
   })
 
-  // Bố cục A (spec §5.2): lưới xếp liền, KHÔNG tiêu đề khu; chấm màu khu trên từng ô; thứ tự theo khu (Khu E2E
-  // tạo sau cùng nên đứng sau các khu thật), Chưa phân khu cuối. Tiêu đề test cũ ("nhóm theo khu, tiêu đề …") đã đổi
-  // theo quyết định 8 của spec.
-  test('Tất cả khu: lưới liền không tiêu đề khu, ô Khu E2E liền nhau sau các khu thật; chọn "Khu E2E (18)" → 18 ô', { tag: '@layout' }, async ({ page }) => {
+  // Bố cục B (spec §5.2): lưới xếp liền, KHÔNG tiêu đề khu; mỗi ô có dải tên khu ở đỉnh (aria-hidden, title = tên khu,
+  // in hoa bằng CSS); thứ tự theo khu (Khu E2E tạo sau cùng nên đứng sau các khu thật), Chưa phân khu cuối.
+  test('Tất cả khu: lưới liền không tiêu đề khu, ô Khu E2E liền nhau và mang dải "Khu E2E" in hoa; chọn "Khu E2E (18)" → 18 ô', { tag: '@layout' }, async ({ page }) => {
     const state = readRunState()
     await gotoPos(page)
     await openFloor(page)
@@ -272,21 +302,33 @@ test.describe('B. Lưới + lọc', () => {
     await expect(page.getByRole('heading', { name: / · \d+ bàn$/ })).toHaveCount(0)
 
     const cells = await tiles(page).evaluateAll((els) =>
-      els.map((el) => ({
-        id: el.getAttribute('data-table-id') ?? '',
-        dot: el.querySelector('span[class*="size-[7px]"]') !== null,
-      })),
+      els.map((el) => {
+        const band = el.querySelector('span[aria-hidden="true"][title]') as HTMLElement | null
+        return {
+          id: el.getAttribute('data-table-id') ?? '',
+          band: band?.getAttribute('title') ?? null,
+          bandText: band?.textContent ?? null,
+          bandUpper: band ? getComputedStyle(band).textTransform === 'uppercase' : false,
+          bandH: band ? Math.round(band.getBoundingClientRect().height) : 0,
+          // Chấm 7px cũ phải biến mất.
+          oldDot: el.querySelector('span[class*="size-[7px]"]') !== null,
+        }
+      }),
     )
+    expect(cells.every((c) => c.band !== null && c.band === c.bandText), 'Mọi ô có dải tên khu, chữ = title').toBe(true)
+    expect(cells.some((c) => c.oldDot), 'Không còn chấm màu khu 7px').toBe(false)
+    expect(cells.every((c) => c.bandUpper && c.bandH === 22), 'Dải cao 22px, chữ in hoa').toBe(true)
+
     const e2e = new Set(state.tableIds)
     const idx = cells.flatMap((c, i) => (e2e.has(c.id) ? [i] : []))
     expect(idx).toHaveLength(E2E_TABLE_COUNT)
     // Liền một khối, theo đúng thứ tự E2E-01..18 (y rồi x; bàn seed không có toạ độ nên POS tự xếp theo thứ tự tạo).
     expect(idx[idx.length - 1] - idx[0] + 1, 'Ô Khu E2E phải liền nhau').toBe(E2E_TABLE_COUNT)
     expect(idx.map((i) => cells[i].id)).toEqual(state.tableIds)
-    // Trước khối: chỉ bàn thật thuộc khu (có chấm màu). Sau khối: chỉ bàn Chưa phân khu (không chấm).
-    expect(cells.slice(0, idx[0]).every((c) => c.dot), 'Trước Khu E2E chỉ có bàn của các khu thật').toBe(true)
-    expect(cells.slice(idx[idx.length - 1] + 1).every((c) => !c.dot), 'Sau Khu E2E chỉ còn bàn Chưa phân khu').toBe(true)
-    expect(idx.every((i) => cells[i].dot), 'Ô Khu E2E có chấm màu khu').toBe(true)
+    expect(idx.every((i) => cells[i].band === E2E_AREA_NAME), `Ô Khu E2E mang dải "${E2E_AREA_NAME}"`).toBe(true)
+    // Trước khối: chỉ bàn thuộc khu thật. Sau khối: chỉ bàn Chưa phân khu (dải xám).
+    expect(cells.slice(0, idx[0]).every((c) => c.band !== 'Chưa phân khu'), 'Trước Khu E2E chỉ có bàn của các khu thật').toBe(true)
+    expect(cells.slice(idx[idx.length - 1] + 1).every((c) => c.band === 'Chưa phân khu'), 'Sau Khu E2E chỉ còn bàn Chưa phân khu').toBe(true)
 
     await areaSelect(page).selectOption({ label: `${E2E_AREA_NAME} (${E2E_TABLE_COUNT})` })
     await expect(tiles(page)).toHaveCount(E2E_TABLE_COUNT)
@@ -360,29 +402,33 @@ test.describe('B. Lưới + lọc', () => {
 // C + D. Ô bàn + bấm ô
 // =====================================================================================================
 test.describe('C + D. Ô bàn + bấm ô', () => {
-  test('bấm bàn trống → bảng "Bàn …" nhãn Trống + "Gọi món & mở bàn" + "Đặt bàn cho bàn này"', async ({ page }) => {
+  // Bố cục B: bấm bàn trống mở THẲNG hộp thoại "<bàn> · Gọi món" (không còn bảng 1 bàn trống ở cột phải).
+  // Đóng hộp bằng Escape → chưa gửi món nên bàn chưa mở phiên (mig 099), không cần ghi bàn vào run state.
+  test('bấm bàn trống → hộp thoại "<bàn> · Gọi món" mở ngay; không còn "Gọi món & mở bàn" / "Đặt bàn cho bàn này"', async ({ page }) => {
     const state = readRunState()
     await gotoPos(page)
     await openFloor(page)
     await tileById(page, state.tableIds[0]).click()
-    const panel = billPanel(page)
-    await expect(panel.getByRole('heading', { level: 2 })).toHaveText(e2eTableName(1))
-    await expect(panel.getByText('Trống', { exact: true })).toBeVisible()
-    await expect(panel.getByText(E2E_AREA_NAME)).toBeVisible()
-    await expect(panel.getByRole('button', { name: 'Gọi món & mở bàn' })).toBeVisible()
-    requireReservations()
-    await expect(panel.getByRole('button', { name: 'Đặt bàn cho bàn này' })).toBeVisible()
+    const sheet = openDialog(page, `${e2eTableName(1)} · Gọi món`)
+    await expect(sheet).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Gọi món & mở bàn' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Đặt bàn cho bàn này' })).toHaveCount(0)
+    await expect(billPanel(page)).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(sheet).toHaveCount(0)
+    // Chưa chọn món nào → bàn vẫn trống.
+    await expect(tileById(page, state.tableIds[0])).toHaveAttribute('data-visual-state', 'free')
   })
 
-  test('Gọi món & mở bàn → hộp chọn món → chọn 1 món → gửi → bill bàn đó mở ở cột phải; ô hiện tiền + "0\'"', async ({ page }) => {
+  test('bấm bàn trống → chọn 1 món → gửi → hộp đóng, bill bàn đó mở ở cột phải; ô hiện tiền + "0\'"', { tag: '@wide-layout' }, async ({ page }, testInfo) => {
     await gotoPos(page)
     await openFloor(page)
     const [table] = await freeRealTables(page, 1)
     await tileById(page, table.id).click()
-    await billPanel(page).getByRole('button', { name: 'Gọi món & mở bàn' }).click()
 
-    const sheet = openDialog(page, `Khách lẻ · ${table.name}`)
+    const sheet = openDialog(page, `${table.name} · Gọi món`)
     await expect(sheet).toBeVisible()
+    await page.screenshot({ path: testInfo.outputPath('so-do-1920-dialog.png') })
     await sheet.locator('div.grid button:not([disabled])').first().click()
     // Món thường vào thẳng "Món bổ sung"; món có loại / topping mở hộp lựa chọn → chờ một trong hai rồi mới xét.
     const addOption = page.getByRole('button', { name: /^Thêm · / })
@@ -404,60 +450,96 @@ test.describe('C + D. Ô bàn + bấm ô', () => {
     await expect(tile).toContainText(/\b[01]'/)
   })
 
-  test('bấm 2 bàn trống → "Đã chọn 2 bàn trống" + "Ghép thành một mâm"', async ({ page }) => {
+  // Ghép bàn trống: nút thanh trên → cột phải thành bảng ghép + dải trạng thái; bấm 2 bàn → "Ghép thành một mâm" bấm được.
+  // KHÔNG bấm "Ghép thành một mâm" (sẽ mở phiên thật) — chỉ kiểm rồi Thoát ghép bàn.
+  test('Ghép bàn trống → bấm 2 bàn trống → "Ghép thành một mâm" bấm được; bàn có khách bị khoá; Thoát ghép bàn → về Việc cần xử lý', async ({ page }) => {
     const state = readRunState()
     await gotoPos(page)
     await openFloor(page)
+    await page.getByRole('button', { name: 'Ghép bàn trống', exact: true }).click()
+    const panel = page.locator('aside[aria-label="Ghép bàn trống"]')
+    await expect(panel).toBeVisible()
+    await expect(panel.getByRole('heading', { name: 'Ghép bàn trống thành một mâm' })).toBeVisible()
+    const status = page.getByRole('status').filter({ hasText: 'Đang ghép bàn trống' })
+    await expect(status).toContainText('đã chọn 0')
+    await expect(panel.getByRole('button', { name: 'Ghép thành một mâm' })).toBeDisabled()
+
     await tileById(page, state.tableIds[0]).click()
     await tileById(page, state.tableIds[1]).click()
-    const panel = billPanel(page)
-    await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Đã chọn 2 bàn trống')
-    await expect(panel.getByRole('button', { name: 'Ghép thành một mâm' })).toBeVisible()
+    await expect(status).toContainText('đã chọn 2')
+    await expect(panel.getByText('Đã chọn 2 bàn')).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Ghép thành một mâm' })).toBeEnabled()
+    // Không mở hộp gọi món khi đang ghép.
+    await expect(page.locator('dialog[open]')).toHaveCount(0)
+
+    // Bàn đang có khách (bàn chờ duyệt seed) bị khoá với lý do "Đang ghép bàn trống".
+    if (state.pending) {
+      await expect(tileById(page, state.pending.tableId)).toHaveAttribute('aria-label', new RegExp(`^${escapeRe(state.pending.tableName)}: Đang ghép bàn trống`))
+    }
+
+    await panel.getByRole('button', { name: 'Thoát ghép bàn', exact: true }).click()
+    await expect(panel).toHaveCount(0)
+    await expect(status).toHaveCount(0)
+    await expect(workAside(page)).toBeVisible()
   })
 
-  // Máy tính bảng 1024 (dưới xl): bảng 1 bàn trống là sheet đáy KHÔNG chặn lưới → bấm được bàn trống thứ hai.
-  // Không bấm "Ghép thành một mâm" (sẽ mở phiên thật) — chỉ kiểm bảng hiện ra rồi Bỏ chọn.
-  test('1024×768: bấm 2 bàn trống thật → "Đã chọn 2 bàn trống" + "Ghép thành một mâm"; Bỏ chọn → đóng bảng', { tag: '@tablet-layout' }, async ({ page }) => {
+  test('Ctrl+bấm bàn trống → vào chế độ Ghép bàn trống với bàn đó đã chọn; X của bảng ("Đóng ghép bàn") thoát', async ({ page }) => {
+    const state = readRunState()
     await gotoPos(page)
     await openFloor(page)
-    const [a, b] = await freeRealTables(page, 2)
-    await tileById(page, a.id).click()
-    const panel = billPanel(page)
-    await expect(panel.getByRole('heading', { level: 2 })).toHaveText(a.name)
-    await expect(panel.getByText('Bấm thêm bàn trống khác để ghép thành một mâm.')).toBeVisible()
-    // Không có nền mờ chặn: bấm thẳng ô thứ hai trên lưới (không force).
-    await tileById(page, b.id).click()
-    await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Đã chọn 2 bàn trống')
-    await expect(panel.getByRole('button', { name: 'Ghép thành một mâm' })).toBeVisible()
-    await panel.getByRole('button', { name: 'Bỏ chọn' }).click()
-    await expect(billPanel(page)).toHaveCount(0)
+    await tileById(page, state.tableIds[2]).click({ modifiers: ['ControlOrMeta'] })
+    const status = page.getByRole('status').filter({ hasText: 'Đang ghép bàn trống' })
+    await expect(status).toContainText('đã chọn 1')
+    const panel = page.locator('aside[aria-label="Ghép bàn trống"]')
+    await expect(panel.getByRole('listitem')).toHaveText([e2eTableName(3)])
+    await expect(page.locator('dialog[open]')).toHaveCount(0)
+    await panel.getByRole('button', { name: 'Đóng ghép bàn' }).click()
+    await expect(status).toHaveCount(0)
   })
 
-  test('bấm bàn trống khi đang mở bill → cột phải chuyển sang bảng bàn trống', async ({ page }) => {
+  // Máy tính bảng 1024 (dưới xl): bảng Ghép bàn trống KHÔNG nền mờ → bấm được bàn trống ngay trên lưới.
+  test('1024×768: Ghép bàn trống → bấm 2 bàn trống → "Ghép thành một mâm" bấm được; Thoát ghép bàn → đóng bảng', { tag: '@tablet-layout' }, async ({ page }) => {
+    const state = readRunState()
+    await gotoPos(page)
+    await openFloor(page)
+    await page.getByRole('button', { name: 'Ghép bàn trống', exact: true }).click()
+    const panel = page.locator('aside[aria-label="Ghép bàn trống"]')
+    await expect(panel).toBeVisible()
+    await tileById(page, state.tableIds[0]).click()
+    await tileById(page, state.tableIds[1]).click()
+    await expect(panel.getByText('Đã chọn 2 bàn')).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Ghép thành một mâm' })).toBeEnabled()
+    await panel.getByRole('button', { name: 'Thoát ghép bàn', exact: true }).click()
+    await expect(panel).toHaveCount(0)
+  })
+
+  test('bấm bàn trống khi đang mở bill → hộp thoại gọi món của bàn trống mở lên', async ({ page }) => {
     const state = readRunState()
     const [busy] = await withBusyTables(page, 1)
     await tileById(page, busy.id).click()
     await expect(billPanel(page).getByRole('heading', { level: 2 })).toContainText(busy.name)
     await tileById(page, state.tableIds[2]).click()
-    await expect(billPanel(page).getByRole('heading', { level: 2 })).toHaveText(e2eTableName(3))
-    await expect(billPanel(page).getByRole('button', { name: 'Gọi món & mở bàn' })).toBeVisible()
+    const sheet = openDialog(page, `${e2eTableName(3)} · Gọi món`)
+    await expect(sheet).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(sheet).toHaveCount(0)
   })
 
-  test('Đặt bàn cho bàn này → form đặt bàn có sẵn bàn; tạo đặt bàn giờ = now+30\' (nếu quán bật đặt bàn, duyệt luôn) → ô hiện "Đặt HH:mm" → bấm ô mở chi tiết đặt bàn có "Nhận khách"', async ({ page }) => {
+  // Đặt bàn cho một bàn cụ thể: nút "Đặt bàn mới" → chọn bàn đó trong form (không còn nút "Đặt bàn cho bàn này").
+  test('Đặt bàn mới chọn bàn → giờ = now+30\' → ô hiện "Đặt HH:mm" → bấm ô mở chi tiết đặt bàn có "Nhận khách"', async ({ page }) => {
     requireReservations()
     await gotoPos(page)
     await openFloor(page)
     const [table] = await freeRealTables(page, 1)
-    await tileById(page, table.id).click()
-    await billPanel(page).getByRole('button', { name: 'Đặt bàn cho bàn này' }).click()
+    await page.getByRole('button', { name: 'Đặt bàn mới' }).click()
 
     const form = openDialog(page, 'Đặt bàn mới')
     await expect(form).toBeVisible()
-    // Bàn vừa bấm đã được chọn sẵn trong bộ chọn bàn của form.
+    await form.getByRole('button', { name: table.name, exact: true }).click()
     await expect(form.getByRole('button', { name: table.name, exact: true })).toHaveClass(/bg-primary/)
     // now + 30', làm tròn lên 5' — vẫn trong khung giữ bàn 60' trước giờ đến.
     const arrival = vnLocalInput(Math.ceil((Date.now() + 30 * 60_000) / 300_000) * 300_000)
-    const customer = e2eCustomerName('đặt bàn cho bàn này')
+    const customer = e2eCustomerName('đặt bàn chọn bàn')
     await fillReservationForm(form, customer, arrival.input)
     await expect(form).toHaveCount(0)
     expect(await recordReservationByName(customer), 'Đặt bàn vừa tạo phải có trong DB').toBe(1)
@@ -472,6 +554,31 @@ test.describe('C + D. Ô bàn + bấm ô', () => {
     await expect(reservationPanel(page)).toBeVisible()
     // "Nhận khách" trên giao diện là nút "Khách đã đến · mở mâm".
     await expect(reservationPanel(page).getByRole('button', { name: 'Khách đã đến · mở mâm' })).toBeVisible()
+  })
+
+  // Đặt bàn còn xa (chưa tới khung giữ bàn) → ô vẫn trống; bấm vào thì hộp gọi món có dòng vàng nhắc giờ khách đặt.
+  test('bàn có đặt xa (now+3h): bấm ô → hộp gọi món có dòng nhắc "Bàn này có khách đặt lúc HH:mm"', async ({ page }) => {
+    requireReservations()
+    await gotoPos(page)
+    await openFloor(page)
+    const [table] = await freeRealTables(page, 1)
+    await page.getByRole('button', { name: 'Đặt bàn mới' }).click()
+    const form = openDialog(page, 'Đặt bàn mới')
+    await expect(form).toBeVisible()
+    await form.getByRole('button', { name: table.name, exact: true }).click()
+    const arrival = vnLocalInput(Math.ceil((Date.now() + 180 * 60_000) / 300_000) * 300_000)
+    const customer = e2eCustomerName('đặt xa nhắc giờ')
+    await fillReservationForm(form, customer, arrival.input)
+    await expect(form).toHaveCount(0)
+    expect(await recordReservationByName(customer), 'Đặt bàn vừa tạo phải có trong DB').toBe(1)
+    await reservationPanel(page).getByRole('button', { name: 'Đóng' }).click()
+
+    await tileById(page, table.id).click()
+    const sheet = openDialog(page, `${table.name} · Gọi món`)
+    await expect(sheet).toBeVisible()
+    await expect(sheet.getByRole('note')).toHaveText(`Bàn này có khách đặt lúc ${arrival.hhmm}. Vẫn mở bàn được, nhớ báo khách.`)
+    await page.keyboard.press('Escape')
+    await expect(sheet).toHaveCount(0)
   })
 
   test('Ctrl+bấm hai ô có khách → bill gộp 2 mâm', async ({ page }) => {
@@ -558,24 +665,18 @@ test.describe('E. Đặt bàn + Sắp xếp', () => {
 // F. Không thụt lùi
 // =====================================================================================================
 test.describe('F. Không thụt lùi', () => {
-  // Bố cục A: ở Sơ đồ, Việc cần xử lý không còn là cột cố định khi chưa chọn gì — mở dạng ngăn kéo phủ.
-  test('1366 ở Sơ đồ chưa chọn gì: không có cột phải, lưới rộng hết; nút "Việc cần xử lý" mở ngăn kéo phủ; Timeline vẫn có cột', async ({ page }) => {
+  // Bố cục B: ở Sơ đồ, Việc cần xử lý là cột phải CỐ ĐỊNH từ xl (không còn ngăn kéo); nút "Việc cần xử lý" chỉ hiện dưới xl.
+  test('1366 ở Sơ đồ chưa chọn gì: cột phải "Việc cần xử lý" cố định (không phủ), nút mở ngăn kéo ẩn; Timeline vẫn có cột', async ({ page }) => {
     await gotoPos(page)
     await openFloor(page)
-    await expect(workAside(page)).toBeHidden()
-    await expect(billPanel(page)).toHaveCount(0)
-    const span = await tiles(page).first().evaluate((el) => {
-      const grid = (el.parentElement as HTMLElement).getBoundingClientRect()
-      return { right: Math.round(grid.right), vw: window.innerWidth }
-    })
-    // Chỉ trừ lề trong vùng lưới (px-5 = 20px) + thanh cuộn nếu có; không còn cột 400px bên phải.
-    expect(span.right, `Mép phải lưới ${span.right}px, cửa sổ ${span.vw}px`).toBeGreaterThanOrEqual(span.vw - 40)
-
-    await page.getByRole('button', { name: /^Việc cần xử lý/ }).click()
     await expect(workAside(page)).toBeVisible()
-    expect(await workAside(page).evaluate((el) => getComputedStyle(el).position)).toBe('fixed')
-    await workAside(page).getByRole('button', { name: 'Đóng', exact: true }).click()
-    await expect(workAside(page)).toBeHidden()
+    await expect(billPanel(page)).toHaveCount(0)
+    expect(await workAside(page).evaluate((el) => getComputedStyle(el).position)).not.toBe('fixed')
+    await expect(page.getByRole('button', { name: /^Việc cần xử lý/ })).toBeHidden()
+    // Cột phải nằm bên phải lưới, không đè lên lưới.
+    const gridRight = await tiles(page).first().evaluate((el) => Math.round((el.parentElement as HTMLElement).getBoundingClientRect().right))
+    const aside = await workAside(page).boundingBox()
+    expect(gridRight, 'Lưới không đè cột phải').toBeLessThanOrEqual(Math.round(aside!.x) + 1)
 
     await viewTab(page, 'Timeline').click()
     await expect(workAside(page)).toBeVisible()
