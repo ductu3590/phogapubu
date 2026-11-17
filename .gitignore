@@ -60,6 +60,11 @@ mini-app-instances/
 # Log của playwright-cli (đầu ra công cụ, không commit)
 .playwright-cli/
 
+# e2e Playwright của admin-web: phiên đăng nhập + trạng thái lượt chạy (có token), kết quả chạy
+admin-web/e2e/.auth/
+admin-web/test-results/
+admin-web/playwright-report/
+
 # harness runtime
 __pycache__/
 .harness/run/
