@@ -1,14 +1,14 @@
 'use client'
 
 import { useCallback, useSyncExternalStore } from 'react'
-import { readDefaultView, writeDefaultView, type PinnableView, type PosView } from '@/lib/pos-view-pref'
+import { createForcedViewMemory, readDefaultView, writeDefaultView, type PinnableView, type PosView } from '@/lib/pos-view-pref'
 
 // Tab đang xem + màn mặc định của máy. Server / trước hydrate: null (không nháy Timeline).
 // Snapshot được cache (đối tượng chỉ đổi khi có thay đổi thật) để useSyncExternalStore không lặp vô hạn.
 type Snapshot = { view: PosView; defaultView: PinnableView }
 
 let snapshot: Snapshot | null = null
-let before: PosView | null = null // view trước khi hệ thống ép (force)
+const forced = createForcedViewMemory() // view trước khi hệ thống ép (force)
 const listeners = new Set<() => void>()
 
 function storage(): Storage | undefined {
@@ -46,13 +46,16 @@ export function usePosView(): {
   choose: (v: PosView) => void
   pin: (v: PinnableView) => boolean
   force: (v: PosView) => void
-  restore: () => void
+  /** Trả về tab vừa quay lại (null = không có gì để trả). */
+  restore: () => PosView | null
+  /** Rời POS (unmount): quên tab đã ép, để lần ép sau ở POS mới không trả về tab cũ. */
+  reset: () => void
 } {
   const snap = useSyncExternalStore(subscribe, getSnapshot, () => null)
 
   // Bấm tab: chỉ đổi tạm, KHÔNG ghi storage.
   const choose = useCallback((v: PosView) => {
-    before = null
+    forced.clear()
     set({ ...getSnapshot(), view: v })
   }, [])
 
@@ -66,16 +69,17 @@ export function usePosView(): {
   // Hệ thống ép (chọn bàn cho đặt bàn): nhớ view cũ một lần.
   const force = useCallback((v: PosView) => {
     const cur = getSnapshot()
-    if (before === null) before = cur.view
+    forced.remember(cur.view)
     set({ ...cur, view: v })
   }, [])
 
   const restore = useCallback(() => {
-    if (before === null) return
-    const b = before
-    before = null
-    set({ ...getSnapshot(), view: b })
+    const b = forced.take()
+    if (b !== null) set({ ...getSnapshot(), view: b })
+    return b
   }, [])
 
-  return { view: snap?.view ?? null, defaultView: snap?.defaultView ?? null, choose, pin, force, restore }
+  const reset = useCallback(() => forced.clear(), [])
+
+  return { view: snap?.view ?? null, defaultView: snap?.defaultView ?? null, choose, pin, force, restore, reset }
 }

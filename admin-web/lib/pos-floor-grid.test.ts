@@ -3,7 +3,7 @@ import type { AreaPlacedTable, TableArea } from './area-layout'
 import type { OpenTableSession } from './actions/table-session'
 import type { ReservationRow } from './actions/reservations'
 import {
-  ALL_AREAS, NO_AREA_ID, buildGridGroups, gridAreaCounts, gridStatusCounts, heldReservationByTable,
+  ALL_AREAS, NO_AREA_ID, buildGridGroups, effectivePickedTables, gridAreaCounts, gridStatusCounts, heldReservationByTable,
   matchesGridStatus, normalizeTableSearch, seatedLabel, type GridContext,
 } from './pos-floor-grid'
 
@@ -107,5 +107,20 @@ describe('chuỗi', () => {
     expect(seatedLabel(ago(72), now)).toBe('1g12')
     expect(seatedLabel(ago(125), now)).toBe('2g05')
     expect(seatedLabel(ago(-10), now)).toBe("0'")
+  })
+})
+
+describe('effectivePickedTables', () => {
+  const free = new Set(['a1', 'a2', 'b1'])
+  it('giữ bàn còn trống, bỏ bàn vừa có phiên / đã xoá / đang giữ cho khách đặt', () => {
+    const picked = new Set(['a1', 'x9', 'b1', 'gone'])
+    expect([...effectivePickedTables(picked, free, new Set(['b1']))]).toEqual(['a1'])
+  })
+  it('không có gì bị loại → vẫn đủ bàn, thứ tự giữ nguyên', () => {
+    expect([...effectivePickedTables(new Set(['a2', 'a1']), free, new Set())]).toEqual(['a2', 'a1'])
+  })
+  it('nhận Map bàn → đặt bàn làm danh sách bàn đang giữ', () => {
+    const held = new Map([['a2', {}]])
+    expect([...effectivePickedTables(new Set(['a1', 'a2']), free, held)]).toEqual(['a1'])
   })
 })

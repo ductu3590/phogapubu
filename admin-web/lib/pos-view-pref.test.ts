@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { POS_VIEW_KEY, POS_VIEW_LABEL, readDefaultView, writeDefaultView } from './pos-view-pref'
+import { POS_VIEW_KEY, POS_VIEW_LABEL, createForcedViewMemory, readDefaultView, writeDefaultView } from './pos-view-pref'
 
 describe('readDefaultView', () => {
   it('chưa ghim → timeline', () => expect(readDefaultView({ getItem: () => null })).toBe('timeline'))
@@ -32,5 +32,23 @@ describe('POS_VIEW_LABEL', () => {
     expect(POS_VIEW_LABEL.floor).toBe('Sơ đồ')
     expect(POS_VIEW_LABEL.timeline).toBe('Timeline')
     expect(POS_VIEW_LABEL.list).toBe('Danh sách')
+  })
+})
+
+describe('createForcedViewMemory (tab trước khi hệ thống ép)', () => {
+  it('remember giữ tab ĐẦU TIÊN, take trả về rồi xoá', () => {
+    const m = createForcedViewMemory()
+    m.remember('timeline')
+    m.remember('floor') // ép lần hai không đè tab gốc
+    expect(m.take()).toBe('timeline')
+    expect(m.take()).toBeNull()
+  })
+  it('clear (bấm tab / rời POS) → take không trả tab cũ', () => {
+    const m = createForcedViewMemory()
+    m.remember('list')
+    m.clear()
+    expect(m.take()).toBeNull()
+    m.remember('timeline')
+    expect(m.take()).toBe('timeline')
   })
 })

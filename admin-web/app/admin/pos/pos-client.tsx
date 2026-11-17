@@ -85,6 +85,7 @@ import {
   ALL_AREAS,
   NO_AREA_ID,
   buildGridGroups,
+  effectivePickedTables,
   gridAreaCounts,
   gridStatusCounts,
   heldReservationByTable,
@@ -224,7 +225,9 @@ export default function PosClient({
   const arrange = floor.arrange
   // Tab đang xem + màn mặc định của máy (localStorage, spec 2026-11-17 §5.1). null = chưa hydrate → khung chờ,
   // không vẽ Timeline rồi mới nhảy sang Sơ đồ. Bấm tab chỉ đổi tạm; chọn bàn cho đặt bàn ép tab rồi trả lại.
-  const { view, defaultView, choose, pin, force, restore } = usePosView()
+  const { view, defaultView, choose, pin, force, restore, reset } = usePosView()
+  // Rời POS (điều hướng mềm) giữa lúc chọn bàn cho đặt bàn: quên tab đã ép, lần ép sau không trả về nhầm tab.
+  useEffect(() => () => reset(), [reset])
   const [areaFilter, setAreaFilter] = useState<string>(ALL_AREAS)
   // Bộ lọc của lưới Sơ đồ: chỉ là state trong trang, không nhớ qua lần mở.
   const [gridArea, setGridArea] = useState<string>(ALL_AREAS)
@@ -445,6 +448,9 @@ export default function PosClient({
   // để ô bàn hiện giờ đặt và bấm ô mở đúng đặt bàn đó.
   const heldByTable = useMemo(() => heldReservationByTable(reservations, now), [reservations, now])
   const prearrivalReservedTableIds = useMemo(() => new Set(heldByTable.keys()), [heldByTable])
+  // Bàn trống đang chọn CÒN hiệu lực (vẫn trống, không bị giữ cho khách đặt). Mọi chỗ đọc lựa chọn bàn trống
+  // (bảng bàn trống, ghép mâm, viền ô) dùng tập này — pickedTableIds thô có thể còn bàn vừa có khách qua QR.
+  const effectivePicked = useMemo(() => effectivePickedTables(pickedTableIds, freeTableIds, heldByTable), [pickedTableIds, freeTableIds, heldByTable])
 
   // Bàn đích của "Chuyển sang bàn trống": bàn trống, trừ bàn đang trong khung giữ cho khách đặt trước.
   const moveTargets = useMemo(() => buildMoveTargets(freeTables, reservations, now), [freeTables, reservations, now])
@@ -788,6 +794,12 @@ export default function PosClient({
     force('floor')
   }
 
+  // Trả tab đã bị ép; quay về tab khác Sơ đồ thì bỏ chọn bàn trống (Timeline / Danh sách không chọn bàn trống được).
+  const restoreView = () => {
+    const back = restore()
+    if (back !== null && back !== 'floor') setPickedTableIds(new Set())
+  }
+
   const onReleasePreorder = async (row: ReservationPreorderRow) => {
     setBusy(true)
     const result = await releaseReservationPreorder(row.orderId, row.revision)
@@ -833,7 +845,7 @@ export default function PosClient({
   const cancelReservationPick = () => {
     const next = cancelReservationTablePick({ selectedSessionId, pickedSessionIds, pickedTableIds, reservationPick })
     setReservationPick(next.reservationPick)
-    restore()
+    restoreView()
   }
 
   const confirmReservationFromPos = async () => {
@@ -849,7 +861,7 @@ export default function PosClient({
       return
     }
     setReservationPick(null)
-    restore()
+    restoreView()
     await Promise.all([reload(), reloadReservations()])
     setBusy(false)
   }
@@ -878,7 +890,7 @@ export default function PosClient({
     setPickedSessionIds(next.pickedSessionIds)
     setPickedTableIds(next.pickedTableIds)
     setReservationPick(next.reservationPick)
-    if (reservationPick) restore() // đang chọn bàn cho đặt bàn thì trả tab đã bị ép
+    if (reservationPick) restoreView() // đang chọn bàn cho đặt bàn thì trả tab đã bị ép
     setBusy(false)
   }
 
@@ -991,7 +1003,13 @@ export default function PosClient({
     setSelectedReservationId(null)
     setPickedSessionIds(new Set())
     setWorkOpen(false)
-    togglePickTable(tableId)
+    // Bỏ bàn đã hết hiệu lực trước khi thêm/bớt, để ghép mâm không gửi bàn vừa có khách.
+    setPickedTableIds((prev) => {
+      const next = effectivePickedTables(prev, freeTableIds, heldByTable)
+      if (next.has(tableId)) next.delete(tableId)
+      else next.add(tableId)
+      return next
+    })
   }
 
   // Bấm ô bàn trên lưới Sơ đồ — quyết định ở hàm thuần gridTileAction (lib/pos-grid-tile.ts).
@@ -1106,11 +1124,11 @@ export default function PosClient({
 
   // Cột phải: chọn bàn cho đặt bàn > chi tiết đặt bàn > bill > 1 bàn trống (chỉ tab Sơ đồ) > việc cần xử lý.
   const selectedReservation = selectedReservationId ? reservationsById.get(selectedReservationId) ?? null : null
-  const hasBill = selected !== null || pickedSessions.length > 0 || pickedTableIds.size >= 2
+  const hasBill = selected !== null || pickedSessions.length > 0 || effectivePicked.size >= 2
   // Đúng 1 bàn trống đang chọn trên Sơ đồ. Bàn vừa có khách (QR) / bị xoá giữa chừng thì không còn trong
   // freeTables → null → cột phải về Việc cần xử lý thay vì để trống.
-  const pickedFreeTable = view === 'floor' && pickedTableIds.size === 1
-    ? freeTables.find((t) => pickedTableIds.has(t.id)) ?? null
+  const pickedFreeTable = view === 'floor' && effectivePicked.size === 1
+    ? freeTables.find((t) => effectivePicked.has(t.id)) ?? null
     : null
   const panel: 'pick' | 'reservation' | 'bill' | 'free' | 'work' =
     reservationPick && pickReservation ? 'pick'
@@ -1453,7 +1471,7 @@ export default function PosClient({
                 trayColor={(tableId) => stateByTable.get(tableId)?.tray}
                 selectedSessionId={selectedSessionId}
                 pickedSessionIds={pickedSessionIds}
-                pickedTableIds={pickedTableIds}
+                pickedTableIds={effectivePicked}
                 sessionIdOf={(tableId) => stateByTable.get(tableId)?.session.session_id ?? null}
                 reservationMode={reservationPick !== null}
                 reservationTableIds={reservationPick?.tableIds ?? new Set()}
@@ -1589,7 +1607,7 @@ export default function PosClient({
           picked={pickedSessions}
           freeTables={freeTables}
           otherSessions={openSessions.filter((s) => s.session_id !== selectedSessionId)}
-          pickedFreeTables={pickedTableIds.size}
+          pickedFreeTables={effectivePicked.size}
           freeTable={panel === 'free' ? pickedFreeTableInfo : null}
           reservationsEnabled={reservationsEnabled}
           onWalkInTable={(tableId) => {
@@ -1614,7 +1632,7 @@ export default function PosClient({
           onSetItemQuantity={onSetItemQuantity}
           onRestoreOrderItem={(itemId) => void onRestoreOrderItem(itemId)}
           onReset={onReset}
-          onCreateTray={() => void chay(() => createTraySession([...pickedTableIds]))}
+          onCreateTray={() => void chay(() => createTraySession([...effectivePicked]))}
           onAddTable={(sid, tid) => void chay(() => addTableToSession(sid, tid))}
           moveTargets={moveTargets}
           moveAreas={floor.draft.areas.map((a) => ({ id: a.id, name: a.name, color: a.color ?? null }))}

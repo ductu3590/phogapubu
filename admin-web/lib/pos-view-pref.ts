@@ -26,3 +26,24 @@ export function writeDefaultView(storage: Pick<Storage, 'setItem'> | undefined, 
     return false
   }
 }
+
+/**
+ * Nhớ tab đang đứng ngay trước khi hệ thống ép đổi tab (chọn bàn cho đặt bàn) để trả về sau.
+ * Chỉ nhớ lần ép đầu tiên; bấm tab hoặc rời POS thì xoá (clear) để lần ép sau không trả về tab cũ.
+ */
+export function createForcedViewMemory() {
+  let before: PosView | null = null
+  return {
+    remember(current: PosView) {
+      if (before === null) before = current
+    },
+    take(): PosView | null {
+      const b = before
+      before = null
+      return b
+    },
+    clear() {
+      before = null
+    },
+  }
+}

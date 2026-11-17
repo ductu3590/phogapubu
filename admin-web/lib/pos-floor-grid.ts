@@ -134,3 +134,16 @@ export function seatedLabel(openedAt: string, now: number): string {
 export function clockHHmm(iso: string): string {
   return clock(new Date(iso).getTime())
 }
+
+/**
+ * Bàn trống đang chọn CÒN hiệu lực: vẫn còn trong danh sách bàn trống (chưa có phiên, chưa bị xoá) và không bị
+ * giữ cho khách đặt. Bàn vừa có khách qua QR / vừa vào khung giữ thì rơi khỏi lựa chọn — không được gửi đi ghép mâm,
+ * không làm bảng bàn trống hiện lại bất ngờ khi phiên đóng.
+ */
+export function effectivePickedTables(
+  picked: ReadonlySet<string>,
+  freeTableIds: ReadonlySet<string>,
+  heldTableIds: { has(id: string): boolean },
+): Set<string> {
+  return new Set([...picked].filter(id => freeTableIds.has(id) && !heldTableIds.has(id)))
+}
