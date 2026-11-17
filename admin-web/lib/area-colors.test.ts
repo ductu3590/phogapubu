@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AREA_COLORS, NO_AREA_BAND, areaColorClasses, nextAreaColor, parseAreaColor } from './area-colors'
+import { AREA_COLORS, NO_AREA_MARK,areaColorClasses, nextAreaColor, parseAreaColor } from './area-colors'
 
 describe('màu khu', () => {
   it('đúng 5 màu nhận diện, không màu trạng thái', () => {
@@ -10,13 +10,13 @@ describe('màu khu', () => {
   it('class là chuỗi nguyên vẹn (Tailwind v4 không safelist), tông pastel', () => {
     for (const c of AREA_COLORS) expect(c.dot).toMatch(new RegExp(`bg-${c.key}-300`))
   })
-  it('dải tên khu: nền -100, chữ -800, gạch đáy -400; chưa phân khu xám', () => {
+  it('dải tên khu (phương án B): chỉ chấm -300 + chữ -700, không nền; chưa phân khu xám', () => {
     for (const c of AREA_COLORS) {
-      expect(c.band).toContain(`bg-${c.key}-100`)
-      expect(c.band).toContain(`text-${c.key}-800`)
-      expect(c.band).toContain(`border-b-${c.key}-400`)
+      expect(c.dot).toBe(`bg-${c.key}-300`)
+      expect(c.text).toBe(`text-${c.key}-700`)
+      expect(c).not.toHaveProperty('band')
     }
-    expect(NO_AREA_BAND).toContain('bg-slate-100')
+    expect(NO_AREA_MARK).toEqual({ dot: 'bg-slate-300', text: 'text-slate-500' })
   })
   it('giá trị rác → tím', () => {
     expect(parseAreaColor('cyan')).toBe('violet')

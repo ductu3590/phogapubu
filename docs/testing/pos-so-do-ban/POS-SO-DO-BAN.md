@@ -1,6 +1,6 @@
 # POS tab "Sơ đồ" — checklist test
 
-Spec: [2026-11-17-pos-so-do-ban-design.md](../../superpowers/specs/2026-11-17-pos-so-do-ban-design.md) (bố cục B, màn quầy 1920×1080). Trạng thái: **PASS 2026-11-17** (T1–T7), chờ test **T8** (2 chỉnh sau PASS).
+Spec: [2026-11-17-pos-so-do-ban-design.md](../../superpowers/specs/2026-11-17-pos-so-do-ban-design.md) (bố cục B, màn quầy 1920×1080). Trạng thái: **PASS 2026-11-17** (T1–T7), chờ test **T8** (3 chỉnh sau PASS).
 
 Tab giữa của POS tên **Sơ đồ** (Timeline · Sơ đồ · Danh sách). Bố cục B cho màn quầy 1920×1080: ô **To** 156×120 có **dải tên khu** ở đỉnh ô (không còn chấm màu khu), **cột phải luôn hiện** (Việc cần xử lý / bill), **bấm bàn trống ra thẳng hộp "Tên bàn · Gọi món"** (không còn bảng 1 bàn trống), và chế độ **"Ghép bàn trống"** để ghép nhiều bàn trống thành một mâm. Nút "Sắp xếp bàn" nằm ở thanh trên cạnh "Ghép bàn trống". Nút ngôi sao (chỉ icon, chữ ở tooltip) ghim màn mở sẵn theo từng máy.
 
@@ -21,7 +21,7 @@ Số đo ở 1920×1080 (có cột phải 400px): lưới 1404×810px, **8 cột
 | B. Lưới + lọc | 1920×1080: cột phải "Việc cần xử lý" hiện sẵn, thấy đủ 43/43 ô không cuộn (8 cột), cả khi mở bill |
 | | 1920×1080: tab + chọn khu + chip lọc + tìm cùng một hàng; "Sắp xếp bàn" ở thanh trên |
 | | Phone 375: trang không cuộn ngang |
-| | Tất cả khu: lưới liền không tiêu đề khu; mỗi ô có dải tên khu in hoa cao 22px (title = tên khu), không còn chấm 7px; ô "Khu E2E" liền nhau; chọn "Khu E2E (18)" → 18 ô |
+| | Tất cả khu: lưới liền không tiêu đề khu; mỗi ô có dải tên khu cao 22px, không nền màu, có chấm màu khu (title = tên khu), không còn chấm 7px; ô "Khu E2E" liền nhau; chọn "Khu E2E (18)" → 18 ô |
 | | Lọc khu → đúng số ô, nút khu hiện đúng số |
 | | Lọc trạng thái: số trên nút khớp số ô |
 | | Tìm không dấu / theo mã bàn; không khớp → "Không có bàn nào khớp bộ lọc." |
@@ -105,5 +105,6 @@ bằng cách thu / huỷ tiền qua RPC tiền; làm hỏng giữa chừng là �
 |---|---|---|---|
 | 8.1 | Mở POS, nhìn thanh trên cạnh tên quán | Chỉ hiện ô đen **"Chủ quán"** (hoặc "Thu ngân"...), không còn email. Rê chuột lên ô đó mới thấy email | |
 | 8.2 | Nhìn cạnh hàng tab Timeline · Sơ đồ · Danh sách | Chỉ còn **icon ngôi sao**, không có chữ "Mặc định máy này" / "Đặt làm mặc định máy này" ở mọi cỡ màn. Sao tô vàng = màn đang là mặc định; bấm sao rỗng vẫn ghim được, rê chuột thấy chữ | |
+| 8.3 | Mở Sơ đồ ở quán có nhiều khu (Yên Garden) | Đỉnh mỗi ô chỉ còn **chấm màu nhỏ + tên khu chữ thường**, không còn dải nền tím/hồng in hoa. Màn nhìn nhẹ, các ô có khách (xanh) / chờ duyệt (vàng) / đặt trước (cam) nổi rõ; vẫn nhận ra khu qua màu chấm + tên | |
 
 Đã bỏ nhóm T3 "Hai máy" (ghim mặc định máy đã có e2e; ý "tải lại không chớp" chuyển vào T1.6). Xong thì báo: "PASS" hoặc danh sách bài FAIL.

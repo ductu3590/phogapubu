@@ -1,0 +1,88 @@
+<title>Màu khu nhẹ hơn</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta charset="utf-8">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11/dist/index.global.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<style>
+  :root { color-scheme: light; --bg: #f8fafc; --fg: #0f172a; }
+  body { background: var(--bg); color: var(--fg); font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px; }
+  .grid8 { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 10px; }
+  .scroll { overflow-x: auto; }
+</style>
+
+<main class="mx-auto max-w-[1500px] flex flex-col gap-6">
+  <header class="flex flex-col gap-1">
+    <h1 class="text-2xl font-bold">Màu khu trên Sơ đồ: nhẹ hơn</h1>
+    <p class="text-slate-600 text-[15px] max-w-3xl">Cùng một góc quán Yên Garden (Phòng VIP hồng, Khu Sự kiện chàm, Sân vườn hồng tím), ô To 156×120 như màn 1920. Giữ 5 màu tím–hồng (không đụng màu trạng thái xanh lá / cam / vàng / đỏ / xám), chỉ đổi <b>độ đậm</b> của dải khu và ô chọn màu.</p>
+  </header>
+  <div id="opts" class="flex flex-col gap-6"></div>
+</main>
+
+<script>
+// Màu Tailwind v4 viết NGUYÊN VẸN để bản CDN quét được.
+const HUES = {
+  violet:  { label: 'Tím',      cur: 'bg-violet-100 text-violet-800 border-b-[3px] border-b-violet-400',   a: 'bg-violet-50 text-violet-700 border-b-2 border-b-violet-200',   dotCur: 'bg-violet-300',  dotA: 'bg-violet-200',  dotB: 'bg-violet-300',  ink: 'text-violet-700' },
+  indigo:  { label: 'Chàm',     cur: 'bg-indigo-100 text-indigo-800 border-b-[3px] border-b-indigo-400',   a: 'bg-indigo-50 text-indigo-700 border-b-2 border-b-indigo-200',   dotCur: 'bg-indigo-300',  dotA: 'bg-indigo-200',  dotB: 'bg-indigo-300',  ink: 'text-indigo-700' },
+  purple:  { label: 'Tím đậm',  cur: 'bg-purple-100 text-purple-800 border-b-[3px] border-b-purple-400',   a: 'bg-purple-50 text-purple-700 border-b-2 border-b-purple-200',   dotCur: 'bg-purple-300',  dotA: 'bg-purple-200',  dotB: 'bg-purple-300',  ink: 'text-purple-700' },
+  fuchsia: { label: 'Hồng tím', cur: 'bg-fuchsia-100 text-fuchsia-800 border-b-[3px] border-b-fuchsia-400', a: 'bg-fuchsia-50 text-fuchsia-700 border-b-2 border-b-fuchsia-200', dotCur: 'bg-fuchsia-300', dotA: 'bg-fuchsia-200', dotB: 'bg-fuchsia-300', ink: 'text-fuchsia-700' },
+  pink:    { label: 'Hồng',     cur: 'bg-pink-100 text-pink-800 border-b-[3px] border-b-pink-400',         a: 'bg-pink-50 text-pink-700 border-b-2 border-b-pink-200',         dotCur: 'bg-pink-300',    dotA: 'bg-pink-200',    dotB: 'bg-pink-300',    ink: 'text-pink-700' },
+}
+const AREAS = [
+  { name: 'Phòng VIP', hue: 'pink', prefix: 'V' },
+  { name: 'Khu Sự kiện', hue: 'indigo', prefix: 'A' },
+  { name: 'Sân vườn + Vỉa hè', hue: 'fuchsia', prefix: 'B' },
+]
+// Trạng thái giống POS thật: trống trắng, có khách xanh lá nhạt, chờ duyệt vàng, đặt trước cam.
+const STATES = {
+  free:    { box: 'border-slate-200 bg-white', badge: 'bg-slate-100 text-slate-600 border-slate-200', text: 'Trống' },
+  serving: { box: 'border-emerald-200 bg-emerald-50', badge: 'bg-emerald-600 text-white border-emerald-600', text: 'Đang phục vụ' },
+  pending: { box: 'border-amber-200 bg-amber-50 ring-2 ring-amber-500', badge: 'bg-amber-500 text-white border-amber-500', text: 'Chờ duyệt · 2' },
+  booked:  { box: 'border-orange-200 bg-orange-50', badge: 'bg-orange-500 text-white border-orange-500', text: 'Đặt 19:30' },
+}
+const PLAN = [
+  ['free','serving','free','pending','free','serving','free','booked'],
+  ['serving','free','free','free','serving','free','pending','free'],
+  ['free','free','serving','free','free','booked','free','serving'],
+]
+const MONEY = ['485.000đ','1.240.000đ','320.000đ','760.000đ','2.150.000đ']
+
+function band(opt, a) {
+  const h = HUES[a.hue]
+  if (opt === 'cur') return `<span class="absolute inset-x-0 top-0 block h-[22px] truncate px-2 text-[12px] leading-[19px] font-bold uppercase ${h.cur}">${a.name}</span>`
+  if (opt === 'a') return `<span class="absolute inset-x-0 top-0 block h-[22px] truncate px-2 text-[12px] leading-[20px] font-semibold uppercase tracking-wide ${h.a}">${a.name}</span>`
+  // B: không nền, chấm màu + tên khu chữ màu, gạch mảnh xám
+  return `<span class="absolute inset-x-0 top-0 flex h-[22px] items-center gap-1.5 truncate px-2 text-[12px] font-semibold border-b border-b-slate-100 ${h.ink}"><span class="size-2 shrink-0 rounded-full ${h.dotB}"></span><span class="truncate">${a.name}</span></span>`
+}
+function tile(opt, a, i, st) {
+  const s = STATES[st]
+  const busy = st === 'serving' || st === 'pending'
+  return `<div class="relative flex h-[120px] flex-col justify-between overflow-hidden rounded-xl border px-2 pt-[26px] pb-1.5 ${s.box}">
+    ${band(opt, a)}
+    <span><span class="block truncate text-[18px] leading-[22px] font-bold ${busy ? 'text-slate-900' : 'text-slate-600'}">${a.prefix}${i + 1}</span>
+    ${busy ? `<span class="block text-[17px] leading-5 font-bold text-slate-900 tabular-nums">${MONEY[i % MONEY.length]}</span>` : ''}</span>
+    <span>${busy ? `<span class="flex justify-between text-[14px] leading-[18px] text-slate-500"><span>1g12</span><span>Mâm 1</span></span>` : ''}
+    <span class="inline-flex rounded-md border px-1 text-[14px] leading-[18px] font-bold ${s.badge}">${s.text}</span></span>
+  </div>`
+}
+function picker(opt) {
+  const key = opt === 'cur' ? 'dotCur' : opt === 'a' ? 'dotA' : 'dotB'
+  return `<div class="flex items-center gap-3 flex-wrap"><span class="text-sm font-medium text-slate-600">Ô chọn màu trong "Tuỳ chỉnh khu":</span>${
+    Object.values(HUES).map((h, i) => `<span class="flex flex-col items-center gap-1"><span class="flex size-11 items-center justify-center rounded-full border ${i === 4 ? 'border-slate-900 border-2' : 'border-slate-200'} bg-white"><span class="size-7 rounded-full ${h[key]}"></span></span><span class="text-[11px] text-slate-500">${h.label}</span></span>`).join('')
+  }</div>`
+}
+const OPTS = [
+  { key: 'cur', title: 'Đang dùng', note: 'Nền -100, chữ -800 in đậm, gạch đáy 3px -400. Cả màn tím hồng dày đặc.' },
+  { key: 'a', title: 'A · Nhạt', note: 'Nền -50 (gần trắng), chữ -700, gạch đáy 2px -200. Vẫn thấy vệt màu khu, mắt đỡ mỏi. Ô chọn màu nhạt theo (-200).' },
+  { key: 'b', title: 'B · Chỉ chấm + chữ', note: 'Bỏ nền dải: chỉ chấm màu + tên khu chữ màu, gạch mảnh xám. Nhẹ nhất; màu trạng thái (xanh / vàng / cam) nổi bật hơn hẳn.' },
+]
+document.getElementById('opts').innerHTML = OPTS.map(o => `
+  <section class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+    <div class="flex flex-wrap items-baseline gap-x-3"><h2 class="text-lg font-bold">${o.title}</h2><p class="text-sm text-slate-600">${o.note}</p></div>
+    <div class="scroll"><div class="min-w-[1000px] grid8">${
+      AREAS.map((a, r) => PLAN[r].map((st, i) => tile(o.key, a, i, st)).join('')).join('')
+    }</div></div>
+    ${picker(o.key)}
+  </section>`).join('')
+</script>

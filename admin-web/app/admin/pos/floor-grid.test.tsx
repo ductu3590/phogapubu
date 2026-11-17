@@ -61,20 +61,22 @@ describe('FloorGrid', () => {
     expect(html.indexOf('Bàn A1')).toBeLessThan(html.indexOf('Bàn A2'))
     expect(html.indexOf('Bàn A2')).toBeLessThan(html.indexOf('Bàn X9'))
   })
-  it('ô có dải tên khu (aria-hidden, có title); bàn chưa phân khu dải xám "Chưa phân khu"; không còn chấm 7px', () => {
+  it('ô có dải tên khu kiểu chấm + chữ, không nền màu (aria-hidden, có title); chưa phân khu xám; không còn chấm 7px', () => {
     const two: GridGroup[] = [
       { areaId: 'a1', name: 'Sân vườn', color: 'violet', tables: [t('t1', 'Bàn A1')] },
       { areaId: null, name: 'Chưa phân khu', color: null, tables: [{ ...t('t9', 'Bàn X9'), area_id: null }] },
     ]
     const html = render({ groups: two })
     const tileOf = (id: string) => html.match(new RegExp(`<button[^>]*data-table-id="${id}"[\\s\\S]*?</button>`))?.[0] ?? ''
-    expect(tileOf('t1')).toContain('Sân vườn')
-    expect(tileOf('t1')).toContain('bg-violet-100')
-    expect(tileOf('t1')).toContain('border-b-violet-400')
-    expect(tileOf('t1')).toContain('title="Sân vườn"')
-    expect(tileOf('t1')).toMatch(/aria-hidden="true"[^>]*>Sân vườn|<span[^>]*aria-hidden="true"[^>]*title="Sân vườn"/)
-    expect(tileOf('t9')).toContain('Chưa phân khu')
-    expect(tileOf('t9')).toContain('bg-slate-100')
+    const band = (id: string) => tileOf(id).match(/<span aria-hidden="true" title="[^"]*"[^>]*>[\s\S]*?<\/span><\/span>/)?.[0] ?? ''
+    expect(band('t1')).toContain('title="Sân vườn"')
+    expect(band('t1')).toContain('text-violet-700')
+    expect(band('t1')).toContain('bg-violet-300')
+    expect(band('t1')).toContain('>Sân vườn</span>')
+    expect(band('t1')).not.toMatch(/bg-violet-(?:50|100)\b|border-b-violet|uppercase/)
+    expect(band('t9')).toContain('>Chưa phân khu</span>')
+    expect(band('t9')).toContain('bg-slate-300')
+    expect(band('t9')).toContain('text-slate-500')
     expect(html).not.toContain('size-[7px]')
   })
   it('ô To 156×120: tên 18px, tiền 17px', () => {

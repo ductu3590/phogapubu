@@ -102,9 +102,11 @@ Nơi đặt màn mặc định đã cân nhắc: (1) ⚙ Cài đặt chung theo 
 >   tối ưu số bàn thấy được ở 1366 / máy tính bảng / điện thoại nữa.
 > - **Ô To**: `minmax(156px, 1fr)`, cao 120px (mockup 128; hạ 8px để 1920 có cột phải thấy đủ 43 bàn — Playwright đo), khe 10px. Chữ: tên bàn 18px đậm, tiền 17px đậm, giờ ngồi / Mâm /
 >   nhãn trạng thái 14px. Nhãn trạng thái một dòng riêng, không bị cắt (quyết định 8 giữ nguyên).
-> - **Dải tên khu ở đỉnh ô** (thay chấm màu khu): dải cao 22px chạy hết bề ngang ô, nền `-100` + chữ `-800` in hoa
->   12px đậm + gạch đáy 3px `-400` theo màu khu (`AREA_COLORS`, chỉ 5 màu họ tím–hồng như cũ). Bàn chưa phân khu: dải
->   xám nhạt chữ "Chưa phân khu". Vạch trái vẫn dành cho màu mâm.
+> - **Dải tên khu ở đỉnh ô** (thay chấm màu khu): dải cao 22px chạy hết bề ngang ô, **không nền màu** — chấm 8px `-300`
+>   + tên khu chữ thường 12px đậm vừa `-700` theo màu khu (`AREA_COLORS.dot` / `.text`, chỉ 5 màu họ tím–hồng như cũ),
+>   gạch đáy mảnh `slate-100`. Bàn chưa phân khu: chấm + chữ xám "Chưa phân khu". Vạch trái vẫn dành cho màu mâm.
+>   (Bản đầu nền `-100` + chữ `-800` in hoa + gạch 3px `-400` phủ tím hồng cả màn, át màu trạng thái → anh Tú chọn
+>   phương án B "chỉ chấm + chữ" 2026-11-17, mockup `2026-11-17-pos-mau-khu-nhe-mockup.html`.)
 > - **Cột phải luôn cố định ở tab Sơ đồ** như Timeline (bỏ ẩn cột / ngăn kéo của bố cục A): không chọn gì → Việc cần
 >   xử lý; bấm bàn có khách → bill. Dải đỏ "bàn hết hạn còn tiền chưa thu" trên lưới giữ nguyên (đã PASS).
 > - **Bấm bàn trống → mở ngay hộp thoại chọn món** của bàn đó (`setWalkIn({ step: 'menu', … })`, tiêu đề

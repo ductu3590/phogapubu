@@ -7,7 +7,7 @@
 
 import { BellRing, Search } from 'lucide-react'
 import { STATUS_TONE_CLASSES, TABLE_STATE } from '@/components/ui/status'
-import { areaColorClasses, NO_AREA_BAND } from '@/lib/area-colors'
+import { areaColorClasses, NO_AREA_MARK } from '@/lib/area-colors'
 import { GRID_STATUS_LABEL, type GridGroup, type GridStatus, type gridAreaCounts } from '@/lib/pos-floor-grid'
 import type { GridTileView } from '@/lib/pos-grid-tile'
 import type { TrayAssignment } from '@/lib/tray-colors'
@@ -113,16 +113,16 @@ export default function FloorGrid({
   if (groups.length === 0) {
     return <p className="py-10 text-center text-sm text-muted">Không có bàn nào khớp bộ lọc.</p>
   }
-  // Làm phẳng các nhóm (thứ tự khu như buildGridGroups, Chưa phân khu cuối). Dải tên khu: khu thật theo màu khu;
-  // nhóm areaId null (chưa gán hoặc trỏ tới khu không còn, xem buildGridGroups) → dải xám "Chưa phân khu".
+  // Làm phẳng các nhóm (thứ tự khu như buildGridGroups, Chưa phân khu cuối). Dải tên khu: chấm + chữ theo màu khu;
+  // nhóm areaId null (chưa gán hoặc trỏ tới khu không còn, xem buildGridGroups) → chấm + chữ xám "Chưa phân khu".
   const cells = groups.flatMap(g => g.tables.map(table => ({
     table,
     areaName: g.areaId !== null ? g.name : 'Chưa phân khu',
-    areaBand: g.areaId !== null ? areaColorClasses(g.color).band : NO_AREA_BAND,
+    areaMark: g.areaId !== null ? areaColorClasses(g.color) : NO_AREA_MARK,
   })))
   return (
     <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(156px, 1fr))', gap: '10px' }}>
-      {cells.map(({ table, areaName, areaBand }) => {
+      {cells.map(({ table, areaName, areaMark }) => {
         const sessionId = sessionIdOf(table.id)
         return (
           <GridTile
@@ -130,7 +130,7 @@ export default function FloorGrid({
             tableId={table.id}
             name={table.table_number}
             areaName={areaName}
-            areaBand={areaBand}
+            areaMark={areaMark}
             view={tile(table.id)}
             tray={trayColor?.(table.id)}
             selected={selectedSessionId !== null && sessionId === selectedSessionId}
@@ -150,7 +150,7 @@ function GridTile({
   tableId,
   name,
   areaName,
-  areaBand,
+  areaMark,
   view,
   tray,
   selected,
@@ -163,7 +163,7 @@ function GridTile({
   tableId: string
   name: string
   areaName: string
-  areaBand: string
+  areaMark: { dot: string; text: string }
   view: GridTileView
   tray: TrayAssignment | undefined
   selected: boolean
@@ -220,13 +220,15 @@ function GridTile({
         disabledReason ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:brightness-95',
       )}
     >
-      {/* Dải tên khu: aria-hidden vì aria-label của nút đã đủ (e2e dựa vào đó); tên dài thì cắt + title. */}
+      {/* Dải tên khu (phương án B, anh Tú 2026-11-17): KHÔNG nền màu — chấm màu khu + tên khu chữ màu, gạch mảnh xám,
+          để màu trạng thái của ô nổi lên. aria-hidden vì aria-label của nút đã đủ (e2e dựa vào đó); tên dài thì cắt + title. */}
       <span
         aria-hidden="true"
         title={areaName}
-        className={cn('absolute inset-x-0 top-0 block h-[22px] truncate px-2 text-[12px] leading-[19px] font-bold uppercase', areaBand)}
+        className={cn('absolute inset-x-0 top-0 flex h-[22px] items-center gap-1.5 border-b border-b-slate-100 px-2 text-[12px] font-semibold', areaMark.text)}
       >
-        {areaName}
+        <span className={cn('size-2 shrink-0 rounded-full', areaMark.dot)} />
+        <span className="truncate">{areaName}</span>
       </span>
       {view.pending > 0 && (
         // Chấm nháy chờ duyệt nằm dưới dải khu, không đè chữ tên khu.

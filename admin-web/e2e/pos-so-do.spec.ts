@@ -293,7 +293,7 @@ test.describe('B. Lưới + lọc', () => {
 
   // Bố cục B (spec §5.2): lưới xếp liền, KHÔNG tiêu đề khu; mỗi ô có dải tên khu ở đỉnh (aria-hidden, title = tên khu,
   // in hoa bằng CSS); thứ tự theo khu (Khu E2E tạo sau cùng nên đứng sau các khu thật), Chưa phân khu cuối.
-  test('Tất cả khu: lưới liền không tiêu đề khu, ô Khu E2E liền nhau và mang dải "Khu E2E" in hoa; chọn "Khu E2E (18)" → 18 ô', { tag: '@layout' }, async ({ page }) => {
+  test('Tất cả khu: lưới liền không tiêu đề khu, ô Khu E2E liền nhau và mang dải chấm + "Khu E2E"; chọn "Khu E2E (18)" → 18 ô', { tag: '@layout' }, async ({ page }) => {
     const state = readRunState()
     await gotoPos(page)
     await openFloor(page)
@@ -307,7 +307,9 @@ test.describe('B. Lưới + lọc', () => {
           id: el.getAttribute('data-table-id') ?? '',
           band: band?.getAttribute('title') ?? null,
           bandText: band?.textContent ?? null,
-          bandUpper: band ? getComputedStyle(band).textTransform === 'uppercase' : false,
+          // Phương án B (2026-11-17): dải không có nền màu, có chấm màu khu đứng trước tên.
+          bandBgClear: band ? getComputedStyle(band).backgroundColor === 'rgba(0, 0, 0, 0)' : false,
+          bandDot: band ? band.querySelector('span[class*="rounded-full"]') !== null : false,
           bandH: band ? Math.round(band.getBoundingClientRect().height) : 0,
           // Chấm 7px cũ phải biến mất.
           oldDot: el.querySelector('span[class*="size-[7px]"]') !== null,
@@ -316,7 +318,7 @@ test.describe('B. Lưới + lọc', () => {
     )
     expect(cells.every((c) => c.band !== null && c.band === c.bandText), 'Mọi ô có dải tên khu, chữ = title').toBe(true)
     expect(cells.some((c) => c.oldDot), 'Không còn chấm màu khu 7px').toBe(false)
-    expect(cells.every((c) => c.bandUpper && c.bandH === 22), 'Dải cao 22px, chữ in hoa').toBe(true)
+    expect(cells.every((c) => c.bandBgClear && c.bandDot && c.bandH === 22), 'Dải cao 22px, không nền màu, có chấm màu khu').toBe(true)
 
     const e2e = new Set(state.tableIds)
     const idx = cells.flatMap((c, i) => (e2e.has(c.id) ? [i] : []))
