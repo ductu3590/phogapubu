@@ -11,7 +11,7 @@ const BUSY: GridTileView = { ...FREE, visual: 'serving', money: 485000, seated: 
 
 const groups: GridGroup[] = [{ areaId: 'a1', name: 'A', color: 'violet', tables: [t('t1', 'Bàn A1'), t('t2', 'Bàn A2')] }]
 
-function render(over: { views?: Record<string, GridTileView>; groups?: GridGroup[]; showGroupHeaders?: boolean } = {}) {
+function render(over: { views?: Record<string, GridTileView>; groups?: GridGroup[] } = {}) {
   const views = over.views ?? {}
   return renderToStaticMarkup(
     <FloorGrid
@@ -25,15 +25,36 @@ function render(over: { views?: Record<string, GridTileView>; groups?: GridGroup
       reservationTableIds={new Set()}
       disabledReason={() => null}
       onTile={vi.fn()}
-      showGroupHeaders={over.showGroupHeaders ?? true}
     />,
   )
 }
 
 describe('FloorGrid', () => {
-  it('vẽ tiêu đề nhóm "A · 2 bàn" khi showGroupHeaders', () => {
-    expect(render()).toContain('A · 2 bàn')
-    expect(render({ showGroupHeaders: false })).not.toContain('A · 2 bàn')
+  it('bố cục A: lưới liền một khối, không tiêu đề khu, thứ tự giữ theo nhóm', () => {
+    const two: GridGroup[] = [
+      ...groups,
+      { areaId: null, name: 'Chưa phân khu', color: null, tables: [{ ...t('t9', 'Bàn X9'), area_id: null }] },
+    ]
+    const html = render({ groups: two })
+    expect(html).not.toContain('<h3')
+    expect(html).not.toContain('A · 2 bàn')
+    expect(html.match(/minmax\(104px, 1fr\)/g)).toHaveLength(1)
+    expect(html.indexOf('Bàn A1')).toBeLessThan(html.indexOf('Bàn A2'))
+    expect(html.indexOf('Bàn A2')).toBeLessThan(html.indexOf('Bàn X9'))
+  })
+  it('ô có chấm màu khu 7px trước tên; bàn chưa phân khu không chấm', () => {
+    const two: GridGroup[] = [
+      ...groups,
+      { areaId: null, name: 'Chưa phân khu', color: null, tables: [{ ...t('t9', 'Bàn X9'), area_id: null }] },
+    ]
+    const html = render({ groups: two })
+    const tileOf = (id: string) => html.match(new RegExp(`<button[^>]*data-table-id="${id}"[\\s\\S]*?</button>`))?.[0] ?? ''
+    expect(tileOf('t1')).toMatch(/size-\[7px\][^"]*bg-violet-300|bg-violet-300[^"]*size-\[7px\]/)
+    expect(tileOf('t9')).not.toContain('size-[7px]')
+  })
+  it('ô cao 76px', () => {
+    expect(render()).toContain('h-[76px]')
+    expect(render()).not.toContain('h-[84px]')
   })
   it('ô có phiên hiện tiền "485.000đ" và "1g12"; ô mâm có "Mâm 2"', () => {
     const html = render({ views: { t1: { ...BUSY, trayIndex: 2 } } })
@@ -51,13 +72,19 @@ describe('FloorGrid', () => {
     expect(html).toContain('Chờ duyệt · 2')
     expect(html).toContain('Gọi NV')
   })
-  it('nhãn "Gọi NV" màu đỏ (critical), không phải amber; ô vừa chờ duyệt vừa gọi NV hiện cả hai nhãn', () => {
-    const html = render({ views: { t1: { ...BUSY, visual: 'pending', pending: 2, calling: true } } })
-    expect(html).toContain('Chờ duyệt · 2')
-    expect(html).toContain('Gọi NV')
+  it('nhãn "Gọi NV" đứng một mình màu đỏ (critical), không phải amber', () => {
+    const html = render({ views: { t1: { ...BUSY, calling: true } } })
     const badge = html.match(/<span class="[^"]*">(?:<svg[\s\S]*?<\/svg>)Gọi NV<\/span>/)?.[0] ?? ''
     expect(badge).toContain('bg-red-600')
     expect(badge).not.toContain('amber')
+  })
+  it('ô vừa chờ duyệt vừa gọi NV: đủ "Chờ duyệt · 2", Gọi NV chỉ còn icon đỏ có aria-label', () => {
+    const html = render({ views: { t1: { ...BUSY, visual: 'pending', pending: 2, calling: true } } })
+    expect(html).toContain('Chờ duyệt · 2')
+    expect(html).not.toContain('Gọi NV')
+    const icon = html.match(/<span[^>]*aria-label="Đang gọi nhân viên"[^>]*>/)?.[0] ?? ''
+    expect(icon).toContain('title="Đang gọi nhân viên"')
+    expect(icon).toContain('bg-red-600')
   })
   it('groups rỗng → "Không có bàn nào khớp bộ lọc."', () => {
     expect(render({ groups: [] })).toContain('Không có bàn nào khớp bộ lọc.')
@@ -68,7 +95,7 @@ describe('FloorGrid', () => {
 })
 
 describe('FloorGridFilters', () => {
-  it('hiện "Sắp có khách đặt" kèm số đếm và nút khu có số', () => {
+  it('hiện "Sắp có khách đặt" kèm số đếm; chọn khu là ô thả xuống "Tên (N)"', () => {
     const html = renderToStaticMarkup(
       <FloorGridFilters
         areaItems={gridAreaCounts([t('t1', 'Bàn A1'), t('t2', 'Bàn A2')], [{ id: 'a1', name: 'Khu A' }])}
@@ -84,7 +111,11 @@ describe('FloorGridFilters', () => {
     )
     expect(html).toContain('Sắp có khách đặt')
     expect(html).toContain('>3<')
-    expect(html).toContain('Khu A')
+    expect(html).toContain('<select')
+    expect(html).toContain('aria-label="Lọc theo khu"')
+    expect(html).toContain('>Tất cả khu (2)</option>')
+    expect(html).toContain('>Khu A (2)</option>')
+    expect(html).not.toContain('role="group" aria-label="Lọc theo khu"')
     expect(html).toContain('NutSapXep')
   })
 })

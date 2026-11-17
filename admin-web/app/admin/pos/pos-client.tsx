@@ -1136,6 +1136,9 @@ export default function PosClient({
         : hasBill ? 'bill'
           : pickedFreeTable ? 'free'
             : 'work'
+  // Bố cục A: ở tab Sơ đồ, Việc cần xử lý KHÔNG chiếm cột cố định ở mọi cỡ màn — chỉ mở dạng ngăn kéo phủ (workOpen),
+  // để lưới bàn rộng hết chiều ngang. Bill / bàn trống / đặt bàn / chọn bàn vẫn hiện ở cột phải như cũ.
+  const workDrawerOnly = view === 'floor'
   const pickedFreeTableInfo = pickedFreeTable ? {
     id: pickedFreeTable.id,
     table_number: pickedFreeTable.table_number,
@@ -1241,7 +1244,7 @@ export default function PosClient({
             )}
             {/* Timeline: nút Gộp bill nằm ở hàng "Về Bây giờ" (anh Tú 2026-10-09); sơ đồ / danh sách giữ ở đây. */}
             {view !== null && view !== 'timeline' && mergeButton}
-            <Button icon={<ListTodo />} onClick={() => openWork()} className="xl:hidden">
+            <Button icon={<ListTodo />} onClick={() => openWork()} className={workDrawerOnly ? undefined : 'xl:hidden'}>
               Việc cần xử lý{workTotal > 0 ? ` · ${workTotal}` : ''}
             </Button>
           </div>
@@ -1352,6 +1355,20 @@ export default function PosClient({
                 </div>
                 {defaultView && <DefaultViewPin view={view} defaultView={defaultView} onPin={pinView} />}
               </div>
+              {/* Bố cục A (spec 2026-11-17 §5.2): ở Sơ đồ, chọn khu + lọc trạng thái + tìm + Sắp xếp bàn chung dòng với tab. */}
+              {view === 'floor' && !arrange && (
+                <FloorGridFilters
+                  areaItems={gridAreaItems}
+                  areaFilter={gridAreaFilter}
+                  onArea={setGridArea}
+                  counts={gridCounts}
+                  status={gridStatus}
+                  onStatus={setGridStatus}
+                  query={gridQuery}
+                  onQuery={setGridQuery}
+                  trailing={canArrange ? arrangeButton : null}
+                />
+              )}
               {view !== 'floor' && areaItems.length > 1 && (
                 <label className="flex items-center gap-2 text-[13px] font-medium text-slate-500">
                   <span className="sr-only">Khu vực</span>
@@ -1451,20 +1468,7 @@ export default function PosClient({
             </div>
           )}
           {clockNow !== null && view === 'floor' && !arrange && (
-            <div className="min-h-0 flex-1 overflow-auto p-4 md:p-5">
-              <div className="mb-3">
-                <FloorGridFilters
-                  areaItems={gridAreaItems}
-                  areaFilter={gridAreaFilter}
-                  onArea={setGridArea}
-                  counts={gridCounts}
-                  status={gridStatus}
-                  onStatus={setGridStatus}
-                  query={gridQuery}
-                  onQuery={setGridQuery}
-                  trailing={canArrange ? arrangeButton : null}
-                />
-              </div>
+            <div className="min-h-0 flex-1 overflow-auto px-4 py-3 md:px-5">
               <FloorGrid
                 groups={gridGroups}
                 tile={(tableId) => gridTileView(tableId, { ...gridCtx, trays: trayColors, callingSessionIds, now })}
@@ -1483,7 +1487,6 @@ export default function PosClient({
                     : reservationBlockedTableIds.has(tableId) ? 'Đã giữ cho booking khác' : null
                   : null}
                 onTile={onGridTile}
-                showGroupHeaders={gridAreaFilter === ALL_AREAS}
               />
             </div>
           )}
@@ -1502,17 +1505,22 @@ export default function PosClient({
       </div>
 
       {workOpen && (
-        <button type="button" aria-label="Đóng việc cần xử lý" onClick={() => setWorkOpen(false)} className="fixed inset-0 z-30 cursor-default bg-foreground/30 xl:hidden" />
+        <button type="button" aria-label="Đóng việc cần xử lý" onClick={() => setWorkOpen(false)} className={cn('fixed inset-0 z-30 cursor-default bg-foreground/30', !workDrawerOnly && 'xl:hidden')} />
       )}
       {/* Cột phải. Việc cần xử lý LUÔN mount (ẩn bằng class) để watcher gọi NV + chuông không bị tắt. */}
       <aside
         aria-label="Việc cần xử lý"
         className={cn(
           'flex-col bg-surface',
-          // Màn hẹp: sheet phủ khi bấm chip/nút; từ xl: cột cố định khi không mở bill.
-          workOpen ? 'fixed inset-y-0 right-0 z-40 flex w-full max-w-md shadow-modal xl:static xl:inset-auto xl:z-auto xl:max-w-none xl:shadow-none' : 'hidden',
-          panel === 'work' ? 'xl:flex' : 'xl:hidden',
-          'xl:w-[400px] xl:shrink-0 xl:border-l xl:border-border',
+          workDrawerOnly
+            // Tab Sơ đồ: chỉ là ngăn kéo phủ ở mọi cỡ màn.
+            ? (workOpen ? 'fixed inset-y-0 right-0 z-40 flex w-full max-w-md border-l border-border shadow-modal' : 'hidden')
+            : [
+              // Màn hẹp: sheet phủ khi bấm chip/nút; từ xl: cột cố định khi không mở bill.
+              workOpen ? 'fixed inset-y-0 right-0 z-40 flex w-full max-w-md shadow-modal xl:static xl:inset-auto xl:z-auto xl:max-w-none xl:shadow-none' : 'hidden',
+              panel === 'work' ? 'xl:flex' : 'xl:hidden',
+              'xl:w-[400px] xl:shrink-0 xl:border-l xl:border-border',
+            ],
         )}
       >
         <header className="flex shrink-0 items-center justify-between gap-3 border-b-2 border-orange-600 bg-white py-2.5 pr-2 pl-4">
@@ -1520,7 +1528,7 @@ export default function PosClient({
             <ListTodo className="size-5" aria-hidden />Hàng đợi việc cần xử lý
             {workTotal > 0 && <span className="grid min-w-6 place-items-center rounded-full bg-red-600 px-1.5 text-[12px] leading-6 font-bold text-white tabular">{workTotal}</span>}
           </h2>
-          <IconButton icon={<X />} label="Đóng" onClick={() => setWorkOpen(false)} className="xl:hidden" />
+          <IconButton icon={<X />} label="Đóng" onClick={() => setWorkOpen(false)} className={workDrawerOnly ? undefined : 'xl:hidden'} />
         </header>
         <ExpiredSessions sessions={sessions} selectedSessionId={selectedSessionId} onOpen={(id) => selectSession(id, false)} />
         <WorkQueue
