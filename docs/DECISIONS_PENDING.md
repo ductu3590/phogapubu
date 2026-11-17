@@ -118,3 +118,16 @@ Mẫu:
 - Rủi ro nếu duyệt: thấp — verify xanh sau khi gộp main (vitest 1772/1772, DB, mini-app, print-agent).
 - Trả lời của anh: Đã mở cổng
 - **Đã áp dụng 2026-11-17:** push main c1e63a9..f94ac99.
+
+## D-009 · 2026-11-17 · gate: test · task: POS Sơ đồ (e2e) · trạng thái: chờ
+- Cần làm: thêm `test.skip(...)` có điều kiện vào bài e2e "bàn có đặt xa (now+3h)" ở `admin-web/e2e/pos-so-do.spec.ts`,
+  bỏ qua khi now+3h đã sang ngày mai giờ VN (chạy sau ~21:00).
+- Vì sao: dòng nhắc "Bàn này có khách đặt lúc HH:mm" chỉ tính đặt bàn muộn hơn TRONG NGÀY (`buildMoveTargets`), nên chạy
+  e2e sau 21:00 bài này đỏ giả (2026-11-17 21:05: đặt 00:05 hôm sau → không có dòng nhắc). 33/34 còn lại xanh; trước
+  21:00 cùng code 34/34.
+- Phương án đề xuất (khuyến nghị): skip có điều kiện kèm lý do "chạy lại trước 21:00". Anh mở cổng `test` 1 giờ rồi nói
+  "áp dụng D-009".
+- Phương án khác: (a) để nguyên, ai chạy sau 21:00 tự biết bỏ qua; (b) nếu quán mở qua nửa đêm và muốn nhắc cả đặt bàn
+  sau 0h → đổi hành vi app (nhắc theo ngày kinh doanh `business_date_of`), là việc riêng.
+- Rủi ro nếu duyệt: thấp — chỉ bỏ qua đúng khung giờ không kiểm được.
+- Trả lời của anh:
