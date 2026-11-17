@@ -94,6 +94,31 @@ Nơi đặt màn mặc định đã cân nhắc: (1) ⚙ Cài đặt chung theo 
 
 ### 5.2 Tab Sơ đồ bàn — khi KHÔNG sắp xếp
 
+> **Bố cục B "Màn quầy" — anh Tú chốt 2026-11-17 sau test tay (THAY bố cục A ở những điểm dưới).** Lý do: MEVO tư
+> vấn phần cứng cho quán (Yên Garden) → máy POS là màn quầy to, không phải laptop / máy tính bảng; ô 76px quá nhỏ;
+> ẩn cột phải làm khó dùng; bấm bàn trống phải ra gọi món ngay. Mockup đã chốt:
+> [2026-11-17-pos-so-do-1920-mockup.html](2026-11-17-pos-so-do-1920-mockup.html) (cỡ "To", "Dải màu có tên khu").
+> - **Màn đích 1920×1080** (màn quầy, chạy toàn màn hình). Màn nhỏ hơn chỉ cần dùng được (không cuộn ngang), không
+>   tối ưu số bàn thấy được ở 1366 / máy tính bảng / điện thoại nữa.
+> - **Ô To**: `minmax(156px, 1fr)`, cao 128px, khe 10px. Chữ: tên bàn 18px đậm, tiền 17px đậm, giờ ngồi / Mâm /
+>   nhãn trạng thái 14px. Nhãn trạng thái một dòng riêng, không bị cắt (quyết định 8 giữ nguyên).
+> - **Dải tên khu ở đỉnh ô** (thay chấm màu khu): dải cao 22px chạy hết bề ngang ô, nền `-100` + chữ `-800` in hoa
+>   12px đậm + gạch đáy 3px `-400` theo màu khu (`AREA_COLORS`, chỉ 5 màu họ tím–hồng như cũ). Bàn chưa phân khu: dải
+>   xám nhạt chữ "Chưa phân khu". Vạch trái vẫn dành cho màu mâm.
+> - **Cột phải luôn cố định ở tab Sơ đồ** như Timeline (bỏ ẩn cột / ngăn kéo của bố cục A): không chọn gì → Việc cần
+>   xử lý; bấm bàn có khách → bill. Dải đỏ "bàn hết hạn còn tiền chưa thu" trên lưới giữ nguyên (đã PASS).
+> - **Bấm bàn trống → mở ngay hộp thoại chọn món** của bàn đó (`setWalkIn({ step: 'menu', … })`, tiêu đề
+>   "`<Bàn>` · Gọi món"); gửi món thì bàn mở, bill hiện bên phải (như `onWalkIn` hiện có). Bàn có đặt bàn muộn hơn trong
+>   ngày (`laterReservationAt`) → hộp thoại hiện một dòng vàng "Bàn này có khách đặt lúc HH:mm…", không chặn. **Bỏ bảng
+>   1 bàn trống** (§5.5 cũ: "Gọi món & mở bàn" / "Đặt bàn cho bàn này") — đặt bàn đi nút "Đặt bàn mới" ở thanh trên.
+> - **Ghép nhiều bàn trống thành một mâm**: nút **"Ghép bàn trống"** ở thanh trên cạnh "Gộp bill" (chỉ tab Sơ đồ, khi
+>   có ≥2 bàn trống, không đang Sắp xếp / chọn bàn cho đặt bàn / Gộp bill). Bấm → chế độ ghép: bấm bàn trống để chọn /
+>   bỏ (viền cam), bàn khác mờ và không bấm được; cột phải "Ghép bàn trống thành một mâm" liệt kê bàn đã chọn + nút
+>   "Ghép thành một mâm" (≥2 bàn mới bấm được) + "Thoát ghép bàn". Ghép xong thoát chế độ. Ctrl/⌘+bấm bàn trống ngoài
+>   chế độ = vào chế độ ghép với bàn đó đã chọn. Chế độ ghép và Gộp bill loại trừ nhau.
+> - Nút "Sắp xếp bàn" giữ ở hàng lọc; nếu ở 1920 có cột phải mà hàng lọc xuống dòng thì chuyển lên thanh trên.
+> - T3 (hai máy) bỏ khỏi test tay: POS chỉ mở trên MỘT máy. Ghim màn mặc định vẫn giữ.
+
 > **Bố cục A "Gọn tối đa" — anh Tú chốt 2026-11-17** sau khi Playwright đo bản đầu chỉ thấy 14/43 bàn ở
 > 1366×768. Mockup so sánh: [2026-11-17-pos-so-do-1366-mockup.html](2026-11-17-pos-so-do-1366-mockup.html)
 > (A thấy 43/43 khi chưa chọn bàn, kể cả Chrome thật trên laptop 1366). Các mục dưới đã sửa theo A:

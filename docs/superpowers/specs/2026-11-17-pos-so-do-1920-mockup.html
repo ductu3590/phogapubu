@@ -1,0 +1,337 @@
+<meta charset="utf-8">
+<title>POS Sơ đồ màn quầy</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<style>
+/* Một khung 1920×1080 (màn POS đặt ở quầy) thu nhỏ theo bề rộng trang; bấm thẳng vào ô trong khung để thử.
+   Chỉ giao diện sáng như POS thật — màu đặt tường minh, không theo theme người xem. */
+:root {
+  color-scheme: light;
+  --page: #eef0f3; --surface: #fff; --line: #e2e8f0; --line-2: #cbd5e1;
+  --ink: #0f172a; --ink-2: #334155; --muted: #64748b; --faint: #94a3b8;
+  --brand: #ea580c; --brand-ink: #c2410c; --brand-soft: #fff7ed; --dark: #0f172a; --dark-3: #334155;
+  --ok-soft: #ecfdf5; --ok-line: #a7f3d0; --ok-ink: #065f46;
+  --warn-soft: #fffbeb; --warn-line: #fcd34d; --warn-ink: #92400e;
+  --bad: #dc2626; --bad-soft: #fef2f2; --bad-line: #fecaca;
+  --acc-soft: #fff7ed; --acc-line: #fdba74; --acc-ink: #c2410c;
+  --font: "Be Vietnam Pro", system-ui, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font-family: var(--font); font-size: 14px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; }
+.wrap { max-width: 1400px; margin: 0 auto; display: grid; gap: 14px; }
+header.intro h1 { margin: 0; font-size: 20px; font-weight: 800; text-wrap: balance; }
+header.intro p { margin: 6px 0 0; color: var(--muted); max-width: 90ch; line-height: 1.5; }
+.ctl { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+.ctl .g { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.ctl .g > b { font-size: 13px; color: var(--ink-2); margin-right: 2px; }
+.seg { border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2); border-radius: 8px; padding: 6px 12px; font: 700 13px var(--font); cursor: pointer; }
+.seg[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.seg:focus-visible, .tile:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+.score { display: flex; gap: 8px; flex-wrap: wrap; }
+.score span { border-radius: 999px; padding: 3px 10px; font-weight: 700; font-size: 13px; border: 1px solid var(--line-2); background: var(--surface); font-variant-numeric: tabular-nums; }
+.score .good { border-color: #6ee7b7; background: var(--ok-soft); color: var(--ok-ink); }
+.score .bad { border-color: var(--bad-line); background: var(--bad-soft); color: #b91c1c; }
+.notes { margin: 0; padding-left: 18px; color: var(--ink-2); line-height: 1.55; max-width: 110ch; }
+.stage { width: 100%; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgb(15 23 42 / .06), 0 10px 28px rgb(15 23 42 / .10); background: var(--surface); }
+.screen { width: 1920px; height: 1080px; transform-origin: 0 0; position: absolute; top: 0; left: 0; display: grid; grid-template-columns: 72px 1fr 440px; background: var(--surface); overflow: hidden; }
+.cut { position: absolute; left: 0; right: 0; border-top: 2px dashed #e11d48; z-index: 6; pointer-events: none; }
+.cut span { position: absolute; right: 8px; top: -24px; background: #e11d48; color: #fff; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+
+.rail { border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 14px 0; }
+.logo { width: 44px; height: 44px; border-radius: 10px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 20px; }
+.rail i { width: 44px; height: 38px; border-radius: 8px; background: #f1f5f9; display: block; }
+.rail i.on { background: var(--brand); }
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.top { display: flex; align-items: center; gap: 12px; padding: 10px 24px; border-bottom: 1px solid var(--line); height: 66px; }
+.top b { font-size: 20px; font-weight: 800; }
+.chip { border: 1px solid var(--acc-line); background: var(--brand-soft); color: var(--brand-ink); border-radius: 6px; padding: 2px 9px; font-size: 14px; font-weight: 600; }
+.sp { flex: 1; }
+.btn { border: 1px solid var(--line-2); background: var(--surface); border-radius: 9px; padding: 9px 16px; font-weight: 700; font-size: 15px; white-space: nowrap; color: var(--ink); font-family: var(--font); }
+.btn.p { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn.d { background: var(--dark); border-color: var(--dark); color: #fff; }
+.btn.on { box-shadow: 0 0 0 3px var(--acc-line); }
+.queue { background: var(--dark); display: flex; gap: 10px; align-items: center; padding: 8px 24px; height: 48px; white-space: nowrap; overflow: hidden; }
+.queue .l { color: #fbbf24; font-weight: 800; font-size: 13px; letter-spacing: .05em; }
+.queue .q { border: 1px solid var(--dark-3); color: #cbd5e1; border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 600; }
+.row { display: flex; align-items: center; gap: 10px 12px; padding: 10px 24px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tabs { display: inline-flex; background: #f1f5f9; border-radius: 9px; padding: 3px; }
+.tabs span { padding: 7px 16px; border-radius: 7px; font-weight: 700; font-size: 15px; color: var(--ink-2); }
+.tabs span.on { background: var(--brand); color: #fff; }
+.pill { border: 1px solid var(--line); border-radius: 999px; padding: 6px 13px; font-size: 14px; font-weight: 600; color: var(--ink-2); background: var(--surface); white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
+.pill.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.pill .d { width: 9px; height: 9px; border-radius: 9px; }
+.pill .n { color: var(--faint); font-weight: 700; }
+.sel { border: 1px solid var(--line-2); border-radius: 9px; padding: 7px 12px; font-weight: 700; font-size: 15px; }
+.search { border: 1px solid var(--line-2); border-radius: 9px; padding: 7px 12px; color: var(--faint); font-size: 15px; width: 140px; }
+.row .pill { padding: 6px 11px; }
+.mergebar { display: flex; gap: 12px; align-items: center; padding: 10px 24px; background: var(--acc-soft); border-bottom: 1px solid var(--acc-line); color: var(--acc-ink); font-weight: 700; font-size: 15px; }
+.board { flex: 1; min-height: 0; overflow: hidden; padding: 14px 24px; position: relative; }
+.grid { display: grid; gap: 10px; }
+.tile { position: relative; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 8px 10px 8px 12px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; cursor: pointer; text-align: left; font-family: var(--font); color: var(--ink); }
+.tile:hover { filter: brightness(.97); }
+.tile .n { font-weight: 800; display: flex; align-items: center; gap: 6px; white-space: nowrap; min-width: 0; }
+.tile .n .t { overflow: hidden; text-overflow: ellipsis; }
+.tile .n .ad { border-radius: 9px; flex: none; }
+.tile .s { color: var(--muted); white-space: nowrap; display: flex; justify-content: space-between; gap: 6px; }
+.tile .m { font-weight: 800; color: var(--ok-ink); font-variant-numeric: tabular-nums; }
+.tile.busy { background: var(--ok-soft); border-color: var(--ok-line); }
+.tile.pend { background: var(--warn-soft); border-color: var(--warn-line); box-shadow: inset 0 0 0 2px #f59e0b; }
+.tile.book { background: var(--acc-soft); border-color: var(--acc-line); }
+.tile.book .s { color: var(--acc-ink); font-weight: 600; }
+.tile.selt { box-shadow: 0 0 0 3px var(--ink); }
+.tile.mp { box-shadow: 0 0 0 3px var(--brand); background: var(--brand-soft); }
+.tile.dim { opacity: .45; cursor: not-allowed; }
+.bdg { font-weight: 800; border-radius: 6px; padding: 0 6px; }
+.bw { background: #f59e0b; color: var(--dark); } .br { background: var(--bad); color: #fff; }
+/* Ba cỡ ô — bề rộng tối thiểu, chiều cao, cỡ chữ tên / tiền / dòng phụ */
+.z1 .grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); } .z1 .tile { height: 96px; } .z1 .n { font-size: 16px; } .z1 .m { font-size: 15px; } .z1 .s, .z1 .bdg { font-size: 13px; } .z1 .ad { width: 8px; height: 8px; }
+.z2 .grid { grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); } .z2 .tile { height: 112px; } .z2 .n { font-size: 18px; } .z2 .m { font-size: 17px; } .z2 .s, .z2 .bdg { font-size: 14px; } .z2 .ad { width: 9px; height: 9px; }
+.z3 .grid { grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); } .z3 .tile { height: 132px; } .z3 .n { font-size: 21px; } .z3 .m { font-size: 19px; } .z3 .s, .z3 .bdg { font-size: 15px; } .z3 .ad { width: 10px; height: 10px; }
+/* Dải màu khu ở đỉnh ô */
+.tile .band { position: absolute; top: 0; left: 0; right: 0; height: 7px; display: block; }
+.tile .band.named { height: 22px; font-style: normal; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 2px 12px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b1 .tile { padding-top: 13px; }
+.b2 .tile { padding-top: 28px; }
+.b2.z1 .tile { height: 112px; } .b2.z2 .tile { height: 128px; } .b2.z3 .tile { height: 148px; }
+.more { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; background: linear-gradient(to bottom, transparent, rgb(255 255 255 / .96) 60%); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; font-weight: 800; color: #b91c1c; font-size: 15px; pointer-events: none; }
+.foot { border-top: 1px solid var(--line); padding: 10px 24px; font-size: 14px; color: var(--muted); display: flex; gap: 22px; height: 46px; align-items: center; }
+.foot b { color: var(--ink); }
+
+.right { border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.right .h { padding: 15px 18px; border-bottom: 2px solid var(--brand); font-weight: 800; color: var(--brand-ink); font-size: 16px; }
+.wk { padding: 12px 18px; border-bottom: 1px solid var(--line); display: grid; gap: 4px; }
+.wk b { font-size: 15px; } .wk span { color: var(--muted); font-size: 14px; }
+.wk .tag { justify-self: start; font-size: 12px; font-weight: 800; border-radius: 6px; padding: 1px 7px; }
+.bh { background: var(--dark); color: #fff; padding: 16px 18px; }
+.bh b { font-size: 20px; } .bh p { margin: 4px 0 0; color: #94a3b8; font-size: 14px; }
+.li { display: flex; justify-content: space-between; padding: 11px 18px; border-bottom: 1px dashed var(--line); font-size: 15px; }
+.li b { font-variant-numeric: tabular-nums; }
+.acts { display: flex; gap: 8px; padding: 12px 18px; }
+.acts .btn { flex: 1; text-align: center; }
+.pay { margin: auto 18px 18px; background: var(--brand); color: #fff; border-radius: 12px; padding: 16px; text-align: center; font-weight: 800; font-size: 17px; }
+.mg { padding: 18px; display: grid; gap: 12px; }
+.mg p { margin: 0; color: var(--ink-2); line-height: 1.5; font-size: 15px; }
+.mg .lst { display: flex; flex-wrap: wrap; gap: 8px; }
+.mg .lst span { border: 2px solid var(--brand); background: var(--brand-soft); color: var(--brand-ink); border-radius: 8px; padding: 4px 10px; font-weight: 800; }
+.mg .btn { text-align: center; padding: 14px; font-size: 16px; }
+.mg .btn[disabled] { opacity: .45; }
+
+/* Hộp thoại chọn món (như hộp thoại Khách lẻ đang có) */
+.scrim { position: absolute; inset: 0; background: rgb(15 23 42 / .45); display: grid; place-items: center; z-index: 5; }
+.dlg { width: 1100px; height: 800px; background: var(--surface); border-radius: 16px; display: grid; grid-template-rows: auto auto 1fr auto; overflow: hidden; box-shadow: 0 20px 60px rgb(15 23 42 / .35); }
+.dlg .dh { display: flex; align-items: center; gap: 12px; padding: 16px 22px; border-bottom: 1px solid var(--line); }
+.dlg .dh b { font-size: 22px; } .dlg .dh .x { margin-left: auto; font-size: 26px; color: var(--muted); }
+.dlg .warnl { margin: 12px 22px 0; background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn-ink); border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 15px; }
+.dlg .body { display: grid; grid-template-columns: 200px 1fr 300px; min-height: 0; margin-top: 12px; }
+.dlg .cats { border-right: 1px solid var(--line); padding: 6px 12px; display: grid; align-content: start; gap: 6px; }
+.dlg .cats span { padding: 10px 12px; border-radius: 8px; font-weight: 700; font-size: 15px; color: var(--ink-2); }
+.dlg .cats span.on { background: var(--brand-soft); color: var(--brand-ink); }
+.dlg .items { padding: 6px 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-content: start; }
+.dlg .items div { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 6px; font-size: 15px; font-weight: 700; }
+.dlg .items div span { color: var(--brand-ink); font-variant-numeric: tabular-nums; }
+.dlg .cart { border-left: 1px solid var(--line); padding: 6px 16px; }
+.dlg .cart .li { padding: 10px 0; }
+.dlg .df { padding: 14px 22px; border-top: 1px solid var(--line); display: flex; gap: 12px; justify-content: flex-end; }
+.dlg .df .btn { font-size: 17px; padding: 12px 24px; }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <h1>Tab Sơ đồ trên màn quầy 1920×1080</h1>
+    <p>Bản sửa theo góp ý T1/T7: cột bán hàng bên phải luôn cố định, ô bàn to hơn, bấm bàn trống mở luôn hộp thoại gọi món. Bấm thẳng vào các ô trong khung để thử. Đường đỏ nét đứt là chỗ bị cắt nếu mở Chrome thường (có thanh địa chỉ, taskbar); chạy toàn màn hình thì thấy hết khung.</p>
+  </header>
+
+  <div class="ctl">
+    <div class="g" role="group" aria-label="Cỡ ô bàn"><b>Cỡ ô</b>
+      <button class="seg" id="z1" data-z="z1">Vừa · 132×96</button>
+      <button class="seg" id="z2" data-z="z2">To · 156×112</button>
+      <button class="seg" id="z3" data-z="z3">Rất to · 184×132</button>
+    </div>
+    <div class="g" role="group" aria-label="Số bàn"><b>Số bàn</b>
+      <button class="seg" id="c43" data-c="43">43 (Bảo Lương)</button>
+      <button class="seg" id="c70" data-c="70">70 (garden lớn)</button>
+    </div>
+    <div class="g" role="group" aria-label="Dải màu khu"><b>Dải khu</b>
+      <button class="seg" id="b1" data-b="b1">Dải màu</button>
+      <button class="seg" id="b2" data-b="b2">Dải màu có tên khu</button>
+    </div>
+    <div class="score" id="score"></div>
+  </div>
+
+  <ul class="notes">
+    <li><b>Chưa chọn bàn:</b> cột phải là "Việc cần xử lý" như Timeline. <b>Bấm bàn có khách:</b> cột phải thành bill của bàn đó.</li>
+    <li><b>Bấm bàn trống:</b> mở ngay hộp thoại chọn món của bàn đó; gửi món thì bàn mở và bill hiện bên phải. Bàn có khách đặt muộn hơn trong ngày thì hộp thoại nhắc một dòng vàng. Đặt bàn dùng nút "Đặt bàn mới" ở trên.</li>
+    <li><b>Ghép nhiều bàn trống thành một mâm:</b> bấm "Ghép bàn trống", bấm các bàn, rồi "Ghép thành một mâm" ở cột phải. Máy có bàn phím thì Ctrl+bấm cũng được.</li>
+  </ul>
+
+  <div class="stage" id="stage"></div>
+</div>
+
+<script>
+const SETS = {
+  // Màu khu lấy đúng bảng màu khu đang có (lib/area-colors.ts: tím, chàm, tím đậm, hồng tím, hồng — cố tình tránh
+  // xanh lá / vàng / đỏ / cam / xám vì trùng màu trạng thái). Dải dùng sắc -400 cho đậm hơn chấm -300 cũ.
+  // t = nền nhạt -100 và chữ -800 cho kiểu "dải có tên khu".
+  43: [
+    { name: 'Trong nhà', n: 7, p: 'Bàn ', c: '#f472b6', bg: '#fce7f3', ink: '#9d174d' },
+    { name: 'Ngoài trời', n: 13, p: 'NT ', c: '#818cf8', bg: '#e0e7ff', ink: '#3730a3' },
+    { name: 'PHÒNG VIP', n: 5, p: 'VIP ', c: '#c084fc', bg: '#f3e8ff', ink: '#6b21a8' },
+    { name: 'Khu E2E', n: 18, p: 'E2E-', c: '#a78bfa', bg: '#ede9fe', ink: '#5b21b6', pad: true },
+  ],
+  70: [
+    { name: 'Sân vườn', n: 30, p: 'SV ', c: '#a78bfa', bg: '#ede9fe', ink: '#5b21b6' },
+    { name: 'Nhà kính', n: 20, p: 'NK ', c: '#818cf8', bg: '#e0e7ff', ink: '#3730a3' },
+    { name: 'Tầng 2', n: 12, p: 'T2-', c: '#e879f9', bg: '#fae8ff', ink: '#86198f', pad: true },
+    { name: 'VIP', n: 8, p: 'VIP ', c: '#c084fc', bg: '#f3e8ff', ink: '#6b21a8' },
+  ],
+};
+// Trạng thái mẫu: busy [tiền, giờ ngồi, gọi NV?], pend [tiền, giờ], book [giờ đặt], later = bàn trống có khách đặt muộn
+const STATE = {
+  'Bàn 1': ['busy', 735000, '1g04'], 'Bàn 3': ['pend', 540000, "41'"], 'NT 2': ['busy', 455000, "52'"], 'NT 5': ['busy', 485000, '1g12'],
+  'NT 6': ['book', '19:30'], 'NT 9': ['busy', 1640000, '1g58', 'call'], 'VIP 1': ['busy', 2350000, '1g28'], 'VIP 3': ['book', '20:00'],
+  'NT 12': ['busy', 310000, "35'"], 'NT 4': ['later', '21:00'],
+  'SV 2': ['busy', 820000, '1g10'], 'SV 5': ['pend', 260000, "18'"], 'SV 8': ['busy', 1250000, '2g05', 'call'], 'SV 11': ['busy', 390000, "44'"],
+  'SV 14': ['book', '19:45'], 'SV 20': ['busy', 655000, "58'"], 'NK 3': ['busy', 1120000, '1g31'], 'NK 7': ['later', '21:00'],
+  'NK 10': ['busy', 285000, "26'"], 'T2-04': ['book', '20:15'], 'VIP 2': ['busy', 3150000, '1g47'],
+};
+const BILL = [['1× Lẩu riêu cua bắp bò', 329000], ['6× Bia Hà Nội', 108000], ['1× Ba chỉ nướng', 48000]];
+const st = { z: 'z2', c: 70, b: 'b1', sel: null, merge: false, picked: new Set(), dlg: null };
+const dong = n => n.toLocaleString('vi-VN') + 'đ';
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+const tables = () => SETS[st.c].flatMap(a => Array.from({ length: a.n }, (_, i) => ({ name: a.p + (a.pad ? String(i + 1).padStart(2, '0') : i + 1), area: a })));
+const isFree = name => { const s = STATE[name]; return !s || s[0] === 'later'; };
+
+function tile(t) {
+  const s = STATE[t.name];
+  // Dải màu khu ở đỉnh ô (vạch trái đã dành cho màu mâm). b2 = dải có ghi tên khu.
+  const ad = '';
+  const band = st.b === 'b2'
+    ? `<i class="band named" style="background:${t.area.bg};color:${t.area.ink};border-bottom:3px solid ${t.area.c}">${esc(t.area.name)}</i>`
+    : `<i class="band" style="background:${t.area.c}"></i>`;
+  const nm = `<span class="t">${esc(t.name)}</span>`;
+  const free = isFree(t.name);
+  const cls = ['tile'];
+  if (st.merge && !free) cls.push('dim');
+  if (st.merge && st.picked.has(t.name)) cls.push('mp');
+  if (!st.merge && st.sel === t.name) cls.push('selt');
+  let inner;
+  if (free) inner = `<div class="n">${ad}${nm}</div><div class="s"><span>Trống</span></div>`;
+  else if (s[0] === 'book') { cls.push('book'); inner = `<div class="n">${ad}${nm}</div><div class="s"><span>Đặt ${s[1]}</span></div>`; }
+  else {
+    cls.push(s[0]);
+    const badge = s[0] === 'pend' ? '<span class="bdg bw">Chờ duyệt · 2</span>' : s[3] ? '<span class="bdg br">Gọi NV</span>' : '';
+    // Ô cao đủ 4 dòng: tên · tiền · giờ ngồi · nhãn trạng thái (nhãn có dòng riêng, không bị cắt).
+    inner = `<div class="n">${ad}${nm}</div><div class="m">${dong(s[1])}</div><div class="s"><span>⏱ ${s[2]}</span></div>${badge ? `<div>${badge}</div>` : ''}`;
+  }
+  return `<button type="button" class="${cls.join(' ')}" data-t="${esc(t.name)}">${band}${inner}</button>`;
+}
+
+function rightCol() {
+  if (st.merge) {
+    const n = st.picked.size;
+    return `<aside class="right"><div class="h">Ghép bàn trống thành một mâm</div><div class="mg">
+      <p>Bấm các bàn trống trên sơ đồ để chọn. Bấm lại để bỏ.</p>
+      <div class="lst">${[...st.picked].map(x => `<span>${esc(x)}</span>`).join('') || '<em style="color:var(--muted)">Chưa chọn bàn nào</em>'}</div>
+      <button class="btn p" ${n < 2 ? 'disabled' : ''}>Ghép thành một mâm${n >= 2 ? ` (${n} bàn)` : ''}</button>
+      <button class="btn" data-act="exit-merge">Thoát ghép bàn</button></div></aside>`;
+  }
+  if (st.sel) {
+    const s = STATE[st.sel];
+    const total = BILL.reduce((a, b) => a + b[1], 0);
+    return `<aside class="right"><div class="bh"><b>${esc(st.sel)}</b> <span class="bdg" style="background:#059669;color:#fff;font-size:13px">ĐANG PHỤC VỤ</span><p>mở lúc 18:42 · ngồi ${s[2]}</p></div>
+      <div class="acts"><span class="btn">+ Gọi thêm món</span><span class="btn">Chuyển bàn</span><span class="btn" data-act="close-bill">Đóng</span></div>
+      ${BILL.map(([n, v]) => `<div class="li"><span>${n}</span><b>${dong(v)}</b></div>`).join('')}
+      <div class="pay">Thanh toán · ${dong(total)}</div></aside>`;
+  }
+  return `<aside class="right"><div class="h">☰ Việc cần xử lý</div>
+    <div class="wk"><span class="tag bw">Chờ duyệt</span><b>${st.c === 43 ? 'Bàn 3' : 'SV 5'} · 2 món chờ duyệt</b><span>Gửi lúc 19:02 · Duyệt & in</span></div>
+    <div class="wk"><span class="tag br">Gọi nhân viên</span><b>${st.c === 43 ? 'NT 9' : 'SV 8'} · khách gọi</b><span>1 phút trước</span></div>
+    <div class="wk"><span class="tag" style="background:var(--acc-soft);color:var(--acc-ink)">Đặt bàn sắp tới</span><b>${st.c === 43 ? 'NT 6 · 19:30' : 'SV 14 · 19:45'}</b><span>Anh Hùng · 6 khách</span></div></aside>`;
+}
+
+function dialog() {
+  if (!st.dlg) return '';
+  const later = STATE[st.dlg] && STATE[st.dlg][0] === 'later' ? `<div class="warnl">Bàn này có khách đặt lúc ${STATE[st.dlg][1]}. Vẫn mở bàn được, nhớ báo khách.</div>` : '<div></div>';
+  const items = [['Lẩu riêu cua bắp bò', 329000], ['Lẩu thái hải sản', 359000], ['Ba chỉ nướng', 48000], ['Nem chua rán', 65000], ['Rau muống xào tỏi', 45000], ['Bia Hà Nội', 18000]];
+  return `<div class="scrim"><div class="dlg" role="dialog" aria-label="Gọi món">
+    <div class="dh"><b>${esc(st.dlg)} · Gọi món</b><span style="color:var(--muted)">Gửi món thì bàn tự mở</span><span class="x" data-act="close-dlg" role="button" aria-label="Đóng">✕</span></div>
+    ${later}
+    <div class="body"><div class="cats"><span class="on">Lẩu</span><span>Nướng</span><span>Món nhậu</span><span>Rau</span><span>Đồ uống</span></div>
+      <div class="items">${items.map(([n, v]) => `<div>${n}<span>${dong(v)}</span></div>`).join('')}</div>
+      <div class="cart"><div class="li"><span>1× Lẩu riêu cua bắp bò</span><b>329.000đ</b></div><div class="li"><span>4× Bia Hà Nội</span><b>72.000đ</b></div></div></div>
+    <div class="df"><span class="btn" data-act="close-dlg">Huỷ</span><span class="btn p" data-act="send">Gửi món · 401.000đ</span></div>
+  </div></div>`;
+}
+
+function render() {
+  const stage = document.getElementById('stage');
+  const list = tables();
+  const busy = list.filter(t => STATE[t.name] && ['busy', 'pend'].includes(STATE[t.name][0])).length;
+  const book = list.filter(t => STATE[t.name] && STATE[t.name][0] === 'book').length;
+  const free = list.length - busy - book;
+  const tabs = `<span class="tabs"><span>Timeline</span><span class="on">Sơ đồ</span><span>Danh sách</span></span>`;
+  const pills = `<span class="pill on">Tất cả <span class="n">${list.length}</span></span><span class="pill"><i class="d" style="background:#059669"></i>Có khách <span class="n">${busy}</span></span><span class="pill"><i class="d" style="background:#94a3b8"></i>Trống <span class="n">${free}</span></span><span class="pill"><i class="d" style="background:#f59e0b"></i>Chờ duyệt <span class="n">1</span></span><span class="pill"><i class="d" style="background:#ea580c"></i>Sắp có khách đặt <span class="n">${book}</span></span>`;
+  stage.innerHTML = `<div class="screen">
+    <nav class="rail"><div class="logo">M</div><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></nav>
+    <section class="main">
+      <div class="top"><b>MEVO POS</b><span class="chip">${st.c === 43 ? 'Bia lẩu Bảo Lương' : 'Quán garden 70 bàn'}</span><span class="pill">● Trực tuyến</span><span class="sp"></span><span class="btn">Sắp xếp bàn</span><button type="button" class="btn${st.merge ? ' on' : ''}" data-act="merge">Ghép bàn trống</button><span class="btn d">Gộp bill</span><span class="btn p">Đặt bàn mới</span><span class="btn">Khách lẻ</span></div>
+      <div class="queue"><span class="l">⚡ HÀNG ĐỢI:</span><span class="q">Lượt món chờ duyệt 1</span><span class="q">Gọi nhân viên 1</span><span class="q">Đặt bàn chờ duyệt 0</span><span class="q">Khách trễ / xung đột 0</span></div>
+      <div class="row">${tabs}<span class="sel">Tất cả khu (${list.length}) ▾</span>${pills}<span class="sp"></span><span class="search">Tìm bàn…</span></div>
+      ${st.merge ? `<div class="mergebar">Đang ghép bàn trống: bấm các bàn trống để chọn · đã chọn ${st.picked.size}</div>` : ''}
+      <div class="board ${st.z} ${st.b}"><div class="grid">${list.map(tile).join('')}</div></div>
+      <div class="foot"><span><b>${list.length}</b> tổng bàn</span><span><b>${busy} bàn đang ăn</b></span><span><b>${book} đã đặt trong ca</b></span><span><b>${free} bàn trống</b></span></div>
+    </section>
+    ${rightCol()}
+    ${dialog()}
+  </div><div class="cut"><span>Chrome thường cắt ở đây</span></div>`;
+  const scr = stage.querySelector('.screen');
+  const scale = stage.clientWidth / 1920;
+  scr.style.transform = `scale(${scale})`;
+  stage.style.height = (1080 * scale) + 'px';
+  stage.querySelector('.cut').style.top = ((1080 - 120) * scale) + 'px';
+  // Đếm ô thấy trọn khi chạy toàn màn hình (khung 1080) và khi mở Chrome thường (mất ~120px).
+  const board = scr.querySelector('.board');
+  const bb = board.getBoundingClientRect();
+  const tiles = [...board.querySelectorAll('.tile')];
+  const fit = cut => tiles.filter(t => t.getBoundingClientRect().bottom <= cut + 0.5).length;
+  const full = fit(bb.bottom - 14 * scale);
+  const real = fit(bb.bottom - 14 * scale - 120 * scale);
+  const cols = getComputedStyle(board.querySelector('.grid')).gridTemplateColumns.split(' ').length;
+  if (full < tiles.length) board.insertAdjacentHTML('beforeend', `<div class="more">↓ còn ${tiles.length - full} bàn phải cuộn</div>`);
+  document.getElementById('score').innerHTML =
+    `<span class="${full >= tiles.length ? 'good' : 'bad'}">Toàn màn hình: thấy ${full}/${tiles.length}</span>` +
+    `<span class="${real >= tiles.length ? 'good' : 'bad'}">Chrome thường: thấy ${real}/${tiles.length}</span>` +
+    `<span>${cols} cột</span>`;
+  document.querySelectorAll('[data-z]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.z === st.z)));
+  document.querySelectorAll('[data-c]').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.c) === st.c)));
+  document.querySelectorAll('[data-b]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.b === st.b)));
+}
+
+document.addEventListener('click', e => {
+  const z = e.target.closest('[data-z]'); if (z) { st.z = z.dataset.z; render(); return; }
+  const bb = e.target.closest('[data-b]'); if (bb) { st.b = bb.dataset.b; render(); return; }
+  const c = e.target.closest('[data-c]'); if (c) { st.c = Number(c.dataset.c); st.sel = null; st.merge = false; st.picked.clear(); st.dlg = null; render(); return; }
+  const a = e.target.closest('[data-act]');
+  if (a) {
+    const act = a.dataset.act;
+    if (act === 'merge') { st.merge = !st.merge; st.picked.clear(); st.sel = null; }
+    if (act === 'exit-merge') { st.merge = false; st.picked.clear(); }
+    if (act === 'close-bill') st.sel = null;
+    if (act === 'close-dlg') st.dlg = null;
+    if (act === 'send') { STATE[st.dlg] = ['busy', 401000, "0'"]; st.sel = st.dlg; st.dlg = null; }
+    render(); return;
+  }
+  const t = e.target.closest('.tile');
+  if (!t) return;
+  const name = t.dataset.t;
+  const s = STATE[name];
+  if (st.merge) { if (isFree(name)) { st.picked.has(name) ? st.picked.delete(name) : st.picked.add(name); render(); } return; }
+  if (isFree(name)) { st.dlg = name; st.sel = null; }
+  else if (s[0] === 'book') { st.sel = null; }
+  else st.sel = name;
+  render();
+});
+addEventListener('resize', () => { clearTimeout(window.__t); window.__t = setTimeout(render, 120); });
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(render);
+render();
+</script>
