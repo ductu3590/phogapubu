@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Tab Sơ đồ bàn của POS thành lưới ô bàn dày kiểu KiotViet (lọc khu/trạng thái/tìm, ô đủ thông tin, bảng bàn trống) và máy nhớ tab thu ngân chọn.
+**Goal:** Tab "Sơ đồ bàn" của POS đổi tên "Sơ đồ" và thành lưới ô bàn dày kiểu KiotViet (lọc khu/trạng thái/tìm, ô đủ thông tin, bảng bàn trống); mỗi máy ghim được màn mặc định (Timeline / Sơ đồ) ngay trên POS.
 
 **Architecture:** Logic thuần (xếp/lọc/đếm bàn, nội dung ô, hành động khi bấm ô, đọc/ghi tab đã chọn) nằm ở `admin-web/lib/` để vitest được. Component mới `floor-grid.tsx` vẽ lưới; `floor-map.tsx` giữ nguyên cho Sắp xếp bàn. `pos-client.tsx` chỉ nối dây: nhớ tab, Map bàn-đang-giữ, ưu tiên cột phải, bảng 1 bàn trống trong `bill-panel.tsx`.
 
@@ -15,7 +15,8 @@
 - Không đổi DB / RPC / migration / server action. Chỉ sửa trong `admin-web/`.
 - Mọi chữ người dùng thấy bằng tiếng Việt; comment logic khó bằng tiếng Việt.
 - Màu + nhãn trạng thái chỉ lấy từ `tableVisualState` (`lib/table-status.ts`) + `TABLE_STATE` / `STATUS_TONE_CLASSES` (`components/ui/status.ts`).
-- `localStorage` khoá `mevo:pos-view`, giá trị `'timeline' | 'floor' | 'list'`, mọi đọc/ghi bọc try/catch; giá trị lạ → coi như chưa chọn → `'timeline'`.
+- Nhãn tab: `Timeline` · `Sơ đồ` · `Danh sách`. Trang cấu hình "Sơ đồ bàn & QR" giữ tên.
+- Màn mặc định: `localStorage` khoá `mevo:pos-view`, chỉ ghi khi bấm "Đặt làm mặc định máy này", giá trị `'timeline' | 'floor'`; mọi đọc/ghi bọc try/catch; giá trị lạ (kể cả `'list'`) → `'timeline'`. Bấm tab chỉ đổi tạm, không ghi. Không đụng DB / Cài đặt chung.
 - Ô bàn ~104×84px: `grid-template-columns: repeat(auto-fill, minmax(104px, 1fr))`, khe 8px, chữ ≥12px.
 - Bàn đang giữ cho khách đặt = đặt bàn `status === 'confirmed'`, `sessionId === null`, `arrivalAt − 60' ≤ now < arrivalAt + planningHoldMinutes`; nhiều đặt bàn → `arrivalAt` sớm nhất.
 - Lệnh chạy trong `admin-web/` (KHÔNG `cd` bằng đường dẫn tuyệt đối chứa `.claude` — hook chặn; shell đã đứng ở thư mục worktree, dùng đường dẫn tương đối `admin-web`).
@@ -119,39 +120,49 @@ it('gridTileAction reservation mode: có phiên hoặc reservationBlocked → no
 
 ---
 
-### Task 3: Nhớ tab POS theo máy
+### Task 3: Màn mặc định theo máy + nút ghim
 
 **Files:**
-- Create: `admin-web/lib/pos-view-pref.ts`, `admin-web/app/admin/pos/use-pos-view.ts`
-- Test: `admin-web/lib/pos-view-pref.test.ts`
+- Create: `admin-web/lib/pos-view-pref.ts`, `admin-web/app/admin/pos/use-pos-view.ts`, `admin-web/app/admin/pos/default-view-pin.tsx`
+- Test: `admin-web/lib/pos-view-pref.test.ts`, `admin-web/app/admin/pos/default-view-pin.test.tsx`
 
 **Interfaces:**
 - Produces:
   - `export type PosView = 'timeline' | 'floor' | 'list'`
+  - `export type PinnableView = 'timeline' | 'floor'`
   - `export const POS_VIEW_KEY = 'mevo:pos-view'`
-  - `export function readPosView(storage: Pick<Storage, 'getItem'> | undefined): PosView` (lỗi / thiếu / lạ → `'timeline'`)
-  - `export function writePosView(storage: Pick<Storage, 'setItem'> | undefined, view: PosView): void` (nuốt lỗi)
-  - `use-pos-view.ts`: `export function usePosView(): { view: PosView | null; choose: (v: PosView) => void; force: (v: PosView) => void; restore: () => void }`
-    - `view === null` khi đang render ở server / trước hydrate (dùng `useSyncExternalStore` với server snapshot `null`; client snapshot = state trong module hoặc `readPosView(localStorage)`).
-    - `choose` = thu ngân tự bấm: đặt view + ghi storage.
-    - `force` = hệ thống ép (chọn bàn cho đặt bàn): nhớ view hiện tại vào ref `before` (chỉ khi chưa ép), đặt view, KHÔNG ghi storage.
+  - `export const POS_VIEW_LABEL: Record<PosView, string>` = `{ timeline: 'Timeline', floor: 'Sơ đồ', list: 'Danh sách' }` (hàng tab dùng chung)
+  - `export function readDefaultView(storage: Pick<Storage, 'getItem'> | undefined): PinnableView` (lỗi / thiếu / lạ / `'list'` → `'timeline'`)
+  - `export function writeDefaultView(storage: Pick<Storage, 'setItem'> | undefined, view: PinnableView): boolean` (true = ghi được; nuốt lỗi → false)
+  - `use-pos-view.ts`: `export function usePosView(): { view: PosView | null; defaultView: PinnableView | null; choose: (v: PosView) => void; pin: (v: PinnableView) => boolean; force: (v: PosView) => void; restore: () => void }`
+    - `view`/`defaultView` = `null` khi render ở server / trước hydrate (`useSyncExternalStore`, server snapshot `null`); lần đầu ở trình duyệt `view = readDefaultView(localStorage)`.
+    - `choose` = bấm tab: chỉ đổi `view` trong trang, KHÔNG ghi storage.
+    - `pin` = bấm "Đặt làm mặc định máy này": `writeDefaultView` + cập nhật `defaultView`.
+    - `force` = hệ thống ép (chọn bàn cho đặt bàn): nhớ view hiện tại vào ref `before` (chỉ khi chưa ép), đặt view.
     - `restore` = quay về `before` (nếu có) rồi xoá `before`.
+  - `default-view-pin.tsx`: `export default function DefaultViewPin(props: { view: PosView; defaultView: PinnableView; onPin: (v: PinnableView) => void })`
 
-- [ ] **Step 1: Test hỏng** cho `readPosView` / `writePosView`:
+- [ ] **Step 1: Test hỏng**
 
 ```ts
-it('chưa có → timeline', () => expect(readPosView({ getItem: () => null })).toBe('timeline'))
-it('đọc giá trị hợp lệ', () => expect(readPosView({ getItem: () => 'floor' })).toBe('floor'))
-it('giá trị lạ → timeline', () => expect(readPosView({ getItem: () => 'grid' })).toBe('timeline'))
-it('getItem ném lỗi → timeline', ...)                          // Review Focus 4
-it('storage undefined → timeline, write không ném', ...)
-it('writePosView ghi đúng khoá', ...)                           // setItem nhận ('mevo:pos-view', 'list')
+// lib/pos-view-pref.test.ts
+it('chưa ghim → timeline', () => expect(readDefaultView({ getItem: () => null })).toBe('timeline'))
+it('đọc floor', () => expect(readDefaultView({ getItem: () => 'floor' })).toBe('floor'))
+it('list hoặc giá trị lạ → timeline', ...)                       // 'list', 'grid'
+it('getItem ném lỗi / storage undefined → timeline', ...)        // Review Focus 4
+it('writeDefaultView ghi ("mevo:pos-view","floor") và trả true; setItem ném → false', ...)
+it('POS_VIEW_LABEL.floor === "Sơ đồ"', ...)
+
+// default-view-pin.test.tsx (renderToStaticMarkup)
+it('đang xem floor, mặc định timeline → nút "Đặt làm mặc định máy này"', ...)
+it('đang xem floor, mặc định floor → "Mặc định máy này", không phải <button>', ...)
+it('đang xem list → rỗng', ...)
 ```
 
-- [ ] **Step 2: Chạy** `npm --prefix admin-web test -- pos-view-pref` → FAIL.
-- [ ] **Step 3: Viết hai file.** Hook không có test riêng (không có DOM test); giữ nó mỏng, logic nằm ở `lib/pos-view-pref.ts`.
+- [ ] **Step 2: Chạy** `npm --prefix admin-web test -- pos-view-pref default-view-pin` → FAIL.
+- [ ] **Step 3: Viết ba file.** Nút: icon `Star` (lucide) rỗng / tô đặc; chữ ẩn ở màn hẹp (`hidden lg:inline`), luôn có `aria-label` + `title` đủ chữ. Hook không có test riêng (không có DOM test); giữ nó mỏng.
 - [ ] **Step 4: Chạy lại** → PASS.
-- [ ] **Step 5: Commit** `feat: POS nhớ tab Timeline / Sơ đồ bàn / Danh sách theo máy`
+- [ ] **Step 5: Commit** `feat: ghim màn POS mặc định theo máy (Timeline / Sơ đồ)`
 
 ---
 
@@ -210,7 +221,9 @@ it('có laterReservationAt → dòng "Có khách đặt 21:00"', ...)
 - [ ] **Step 2: Chạy** → FAIL. **Step 3:** viết nhánh `freeTable && list.length === 0 && pickedFreeTables === 1` trong `PosBillPanel`, dùng `Khung` (icon `Armchair` hoặc `LayoutGrid`, `onDismiss={props.onClearPick}`). **Step 4:** chạy → PASS.
 
 - [ ] **Step 5: Nối dây `pos-client.tsx`** (không có test DOM; kiểm bằng typecheck + test tay Task 6):
-  - `const { view, choose, force, restore } = usePosView()`; bỏ `useState<View>`. Bấm tab → `choose(value)` (giữ các chặn `arrange` / `reservationPick` hiện có). `view === null` → hàng tab + vùng giữa hiện `SkeletonList`.
+  - `const { view, defaultView, choose, pin, force, restore } = usePosView()`; bỏ `useState<View>`. Hàng tab lấy nhãn từ `POS_VIEW_LABEL` (tab giữa thành "Sơ đồ"). Bấm tab → `choose(value)` (giữ các chặn `arrange` / `reservationPick` hiện có). `view === null` → hàng tab + vùng giữa hiện `SkeletonList`.
+  - `<DefaultViewPin>` đặt ngay sau tablist; `onPin` → `pin(v)` rồi toast `Máy này sẽ mở POS bằng ${POS_VIEW_LABEL[v]}` (ghi lỗi → toast cảnh báo "Không lưu được trên máy này").
+  - Sửa các chữ "Sơ đồ bàn" trong `pos-client.tsx` / `timeline-view.tsx` chỉ tab POS (vd. comment, `Chọn bàn cho đặt bàn chỉ làm được trên Sơ đồ bàn`) thành "Sơ đồ" nếu là chữ người dùng thấy; giữ nguyên "Sơ đồ bàn & QR".
   - `beginReservationConfirm`: `force('floor')` thay `setView('floor')`. Ở `confirmReservationFromPos` thành công và `cancelReservationPick` → `restore()`.
   - Đổi sang tab khác `floor` → `setPickedTableIds(new Set())`.
   - `heldByTable = useMemo(() => heldReservationByTable(reservations, now), …)`; `prearrivalReservedTableIds = new Set(heldByTable.keys())` (giữ tên cũ cho chỗ đang dùng).
@@ -221,7 +234,7 @@ it('có laterReservationAt → dòng "Có khách đặt 21:00"', ...)
   - `onTile` → `gridTileAction(...)`: `session` → `selectSession(id, additive)`; `reservation` → `selectReservation(id)`; `reservation-pick` → `toggleReservationPickTable`; `pick-free` → bỏ `selectedSessionId` / `selectedReservationId` / `pickedSessionIds` rồi `togglePickTable`.
   - `panel`: thêm `'free'` khi `view === 'floor' && pickedTableIds.size === 1 && !hasBill` (thứ tự: pick > reservation > bill > free > work). `'free'` render `PosBillPanel` với `freeTable` (tên khu từ `floor.draft.areas`, `laterReservationAt` từ `moveTargets`), `onWalkInTable` → `setWalkIn({ step: 'menu', tableId, tableNumber })`, `onBookTable` → `setNewBooking({ table, arrivalAt })` làm tròn như nút Đặt bàn mới (tách hàm `roundedArrival()` dùng chung). Gửi món xong `onWalkIn` đã mở bill; thêm `setPickedTableIds(new Set())` ở đó.
 - [ ] **Step 6: Kiểm** `npm --prefix admin-web test` → toàn bộ PASS; `npx --prefix admin-web tsc --noEmit -p admin-web` → 0 lỗi mới; `npm --prefix admin-web run lint` → 0 lỗi mới.
-- [ ] **Step 7: Commit** `feat: POS Sơ đồ bàn dạng lưới dày, bảng bàn trống, nhớ tab theo máy`
+- [ ] **Step 7: Commit** `feat: POS tab Sơ đồ dạng lưới dày, bảng bàn trống, ghim màn mặc định`
 
 ---
 
@@ -229,11 +242,11 @@ it('có laterReservationAt → dòng "Có khách đặt 21:00"', ...)
 
 **Files:**
 - Create: `docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md`
-- Modify: `TESTING.md` (thêm 1 dòng link + trạng thái "Chờ test"), `docs/decisions.md` (1 dòng cuối bảng chính: "2026-11-17 POS Sơ đồ bàn: lưới dày auto-fill, thứ tự theo toạ độ Sắp xếp bàn; máy nhớ tab ở localStorage `mevo:pos-view`; bàn giữ cho khách đặt bấm mở chi tiết đặt bàn")
+- Modify: `TESTING.md` (thêm 1 dòng link + trạng thái "Chờ test"), `docs/decisions.md` (1 dòng cuối bảng chính: "2026-11-17 POS Sơ đồ bàn: lưới dày auto-fill, thứ tự theo toạ độ Sắp xếp bàn; tab đổi tên "Sơ đồ"; màn mặc định ghim theo máy trên POS (localStorage `mevo:pos-view`, không DB); bàn giữ cho khách đặt bấm mở chi tiết đặt bàn")
 
 - [ ] **Step 1:** Chạy admin-web của worktree (preview_start), đăng nhập theo cách tự mint phiên (memory "Tự đăng nhập admin khi test"), mở `/admin/pos` quán Bảo Lương. Chụp 1366×768 và 1920×1080 tab Sơ đồ bàn; kiểm: thấy hết 25 bàn không cuộn, đổi tab rồi F5 vẫn đúng tab, bấm bàn trống ra bảng bàn trống, bấm "Gọi món & mở bàn" ra hộp chọn món, bấm 2 bàn trống ra "Ghép thành một mâm", console không lỗi. Chụp thêm cỡ 375px.
 - [ ] **Step 2:** Viết checklist nhóm test (mỗi nhóm có bước + kết quả mong đợi):
-  - **A. Nhớ tab** — chọn từng tab, F5, đóng mở lại trình duyệt; máy khác không bị ảnh hưởng.
+  - **A. Màn mặc định** — tab giữa tên "Sơ đồ"; máy chưa ghim mở Timeline; bấm tab Sơ đồ rồi F5 → về Timeline (đổi tab chỉ tạm); ghim Sơ đồ → toast, nút thành "Mặc định máy này", F5 / đóng mở trình duyệt vẫn vào Sơ đồ; tab Danh sách không có nút ghim; máy khác không bị ảnh hưởng.
   - **B. Lưới + lọc** — đủ bàn mọi khu, nhóm theo khu, lọc khu, lọc 5 trạng thái + số đếm, tìm "ban 1".
   - **C. Ô bàn** — tiền, giờ ngồi, mâm, chờ duyệt (khách quét QR gọi món), gọi NV, đặt bàn trong 60'.
   - **D. Bấm ô** — mở bill, Ctrl+bấm gộp, nút Gộp bill, bàn trống → bảng bàn trống → gọi món mở bàn / đặt bàn, 2 bàn trống → ghép mâm, bàn giữ → chi tiết đặt bàn → Nhận khách.

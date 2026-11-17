@@ -11,7 +11,9 @@ hết quán. Tab **Sơ đồ bàn** đã có nhưng vẽ bàn theo đúng toạ 
 nên thưa và còn ô trống, chỉ xem một khu một lúc — không thay được Timeline khi đông.
 
 Anh Tú muốn: Sơ đồ bàn trở thành **một màn POS đúng nghĩa kiểu KiotViet** — lưới ô bàn dày, nhìn một cái thấy cả
-quán, bấm bàn là ra bill — và **thu ngân tự chọn** dùng Timeline hay Sơ đồ bàn, máy nhớ lựa chọn đó.
+quán, bấm bàn là ra bill — và **thu ngân tự chọn** dùng Timeline hay Sơ đồ. Mặc định cấu hình **ngay trên màn
+POS, theo từng máy** (anh Tú chốt 2026-11-17): nút "Đặt làm mặc định máy này" cạnh hàng tab. Tab đổi tên
+"Sơ đồ bàn" → **"Sơ đồ"** (anh Tú chốt 2026-11-17); trang cấu hình "Sơ đồ bàn & QR" giữ tên.
 
 ## 2. Mục tiêu / không làm / thất bại nếu
 
@@ -19,7 +21,7 @@ quán, bấm bàn là ra bill — và **thu ngân tự chọn** dùng Timeline h
 - Màn 1366px thấy hết ~40 bàn của mọi khu mà không phải cuộn (ô ~104×84px, tự dồn đủ cột).
 - Mỗi ô đủ để thu ngân ra quyết định mà không phải mở bill: tên bàn, tiền, thời gian ngồi, mâm, chờ duyệt,
   gọi nhân viên, trễ, giờ khách đặt sắp đến.
-- Mỗi máy nhớ kiểu màn đã chọn; mở lại POS vào đúng kiểu đó.
+- Mỗi máy ghim được màn mặc định (Timeline hoặc Sơ đồ); mở lại POS vào đúng màn đó.
 - Bàn trống bấm vào có lối đi thẳng: gọi món & mở bàn, đặt bàn cho bàn này, ghép mâm.
 
 **Không làm (đợt này)**
@@ -27,7 +29,8 @@ quán, bấm bàn là ra bill — và **thu ngân tự chọn** dùng Timeline h
   (`ManualOrderSheet`). Phần này có trong mockup nhưng KHÔNG làm.
 - Không đổi DB, RPC, migration, realtime, cách tính tiền. Đây là việc giao diện thuần trong `admin-web/app/admin/pos/`.
 - Không đổi màn nhân viên `/staff/tables`, trang cấu hình `/admin/tables`.
-- Không lưu lựa chọn kiểu màn lên server / theo tài khoản.
+- Không lưu màn mặc định lên server / theo tài khoản / theo quán; không thêm mục nào vào ⚙ Cài đặt chung
+  (anh Tú chọn "chỉ trên màn POS", 2026-11-17).
 
 **Thất bại nếu (dù chạy được)**
 - Bất kỳ thao tác nào đang làm được ở POS mất đi khi dùng Sơ đồ bàn: duyệt món, gộp bill, ghép mâm bàn trống,
@@ -56,24 +59,34 @@ quán, bấm bàn là ra bill — và **thu ngân tự chọn** dùng Timeline h
 
 | Cách | Mô tả | Được / mất |
 |---|---|---|
-| **A. Giữ hàng tab 3 nút, nhớ tab, làm lại tab Sơ đồ bàn** (CHỌN) | Hàng tab Timeline · Sơ đồ bàn · Danh sách giữ nguyên chỗ; máy nhớ tab đã chọn; tab Sơ đồ bàn đổi sang lưới dày + bộ lọc + bảng bàn trống | Ít đụng code, thu ngân đã quen chỗ bấm; thanh trên vốn đã chật nên không nhét thêm nút |
+| **A. Giữ hàng tab 3 nút, ghim mặc định theo máy, làm lại tab Sơ đồ** (CHỌN) | Hàng tab Timeline · Sơ đồ · Danh sách giữ nguyên chỗ; nút "Đặt làm mặc định máy này" cạnh hàng tab; tab Sơ đồ đổi sang lưới dày + bộ lọc + bảng bàn trống | Ít đụng code, thu ngân đã quen chỗ bấm; thanh trên vốn đã chật nên không nhét thêm nút |
 | B. Nút "Kiểu màn" ở thanh trên (như mockup), Danh sách thành tab con của Timeline | Hai "chế độ" tách hẳn | Rõ ràng là hai màn, nhưng thêm một tầng điều hướng, thanh trên đã xuống dòng ở màn hẹp; Danh sách bị giấu đi |
 | C. Màn riêng `/admin/pos/floor` | Trang mới | Nhân đôi state + realtime + chuông của `pos-client` — rủi ro lệch, loại |
 
 **Chọn A** (quyết định của Claude, anh Tú chưa chọn riêng điểm này — sửa được khi duyệt): cùng kết quả anh muốn
 (chọn kiểu nào, máy nhớ kiểu đó) với ít thay đổi nhất. Mockup vẽ nút ở thanh trên chỉ là minh hoạ vị trí.
 
+Nơi đặt màn mặc định đã cân nhắc: (1) ⚙ Cài đặt chung theo quán — cần cột DB, thu ngân không vào được;
+(2) cả hai tầng quán + máy; (3) **chỉ trên màn POS, theo máy** — anh Tú chọn (3).
+
 ## 5. Thiết kế
 
-### 5.1 Nhớ kiểu màn theo máy
-- Lưu tab đang xem (`timeline` | `floor` | `list`) vào `localStorage` khoá `mevo:pos-view` mỗi khi thu ngân
-  **tự bấm** đổi tab. Đọc/ghi bọc try/catch; hỏng thì dùng `timeline`.
-- Chưa từng chọn → `timeline` (như hiện nay, không bất ngờ cho Bảo Lương).
+### 5.1 Màn mặc định theo máy (ghim trên màn POS)
+- Nhãn tab: **Timeline · Sơ đồ · Danh sách** (đổi chữ "Sơ đồ bàn" → "Sơ đồ").
+- Cạnh hàng tab (bên phải tab, trước các nút khác của hàng) có nút nhỏ:
+  - Tab đang xem là Timeline hoặc Sơ đồ và **chưa** là mặc định của máy → `☆ Đặt làm mặc định máy này`.
+    Bấm → ghi vào `localStorage` khoá `mevo:pos-view` (giá trị `timeline` | `floor`), toast ngắn
+    "Máy này sẽ mở POS bằng Sơ đồ" (hoặc Timeline).
+  - Tab đang xem đã là mặc định → nhãn tĩnh `★ Mặc định máy này` (không bấm).
+  - Tab Danh sách → không hiện nút (chỉ ghim được Timeline hoặc Sơ đồ).
+  - Màn hẹp: chỉ còn icon ☆/★ có `aria-label` + `title` đủ chữ.
+- **Bấm đổi tab chỉ đổi tạm**, không ghi gì; tải lại trang → về màn mặc định của máy.
+- Mở POS: màn mặc định đã ghim; chưa ghim → `timeline` (như hiện nay, không bất ngờ cho Bảo Lương).
+  Đọc/ghi bọc try/catch; giá trị lạ (kể cả `list`) hoặc storage hỏng → `timeline`.
 - Không chớp: đọc kiểu màn trước lần vẽ đầu ở trình duyệt (vd. `useSyncExternalStore` với giá trị server =
   `null` → hiện khung chờ chung như `clockNow === null` đang làm), không vẽ Timeline rồi mới nhảy.
-- Giá trị đọc ra phải là một trong 3 tab, lạ/cũ thì dùng `timeline`. Khung chờ chỉ thay hàng tab + vùng giữa
-  (thanh trên, hàng đợi, cột phải vẫn vẽ ngay).
-- Đổi tab do hệ thống ép (chọn bàn cho đặt bàn) **không ghi** vào lựa chọn của máy. Ghi lại tab đang đứng ngay
+- Khung chờ chỉ thay hàng tab + vùng giữa (thanh trên, hàng đợi, cột phải vẫn vẽ ngay).
+- Đổi tab do hệ thống ép (chọn bàn cho đặt bàn) không ghi gì. Ghi lại tab đang đứng ngay
   trước khi ép (`viewBeforePick`); xong/huỷ chọn bàn thì quay về đúng tab đó. Trong lúc chọn bàn cho đặt bàn,
   các tab khác vẫn bị khoá như hiện nay.
 - Rời tab Sơ đồ bàn (sang Timeline/Danh sách) thì bỏ chọn bàn trống (`pickedTableIds`) — hai tab kia không chọn
@@ -192,8 +205,8 @@ thanh trên vẫn qua `WalkInPicker`), chuông, in. Không đổi server action 
 - Cách bỏ dấu khi tìm bàn.
 
 ## 8. Quyết định Claude tự đưa ra (anh Tú soát khi duyệt)
-1. Giữ hàng tab 3 nút và nhớ tab, không làm nút "Kiểu màn" ở thanh trên như mockup (mục 4).
-2. Máy chưa chọn bao giờ → mở Timeline.
+1. Giữ hàng tab 3 nút, nút ghim mặc định đặt cạnh hàng tab — không làm nút "Kiểu màn" ở thanh trên như mockup (mục 4).
+2. Máy chưa ghim → mở Timeline. Đổi tab chỉ đổi tạm, F5 về màn đã ghim. Danh sách không ghim được.
 3. Khi không chọn bàn nào, cột phải vẫn là **Việc cần xử lý** như hiện nay (mockup để trống) — có ích hơn ô trống.
 4. Bàn giữ cho khách đặt: bấm mở chi tiết đặt bàn thay vì khoá.
 5. Màu trạng thái dùng màu hệ thống hiện có, không dùng màu tím của mockup.
