@@ -18,7 +18,7 @@ POS, theo từng máy** (anh Tú chốt 2026-11-17): nút "Đặt làm mặc đ�
 ## 2. Mục tiêu / không làm / thất bại nếu
 
 **Mục tiêu**
-- Màn 1366px thấy hết ~40 bàn của mọi khu mà không phải cuộn (ô ~104×84px, tự dồn đủ cột).
+- Màn 1366px thấy hết ~40 bàn của mọi khu mà không phải cuộn (ô rộng tối thiểu 104px, cao 76px, tự dồn đủ cột).
 - Mỗi ô đủ để thu ngân ra quyết định mà không phải mở bill: tên bàn, tiền, thời gian ngồi, mâm, chờ duyệt,
   gọi nhân viên, trễ, giờ khách đặt sắp đến.
 - Mỗi máy ghim được màn mặc định (Timeline hoặc Sơ đồ); mở lại POS vào đúng màn đó.
@@ -154,8 +154,10 @@ viên; màu tím của mockup chỉ minh hoạ). Nội dung:
 - **Nhãn phụ "Gọi NV"** (chuông đỏ) khi bàn có yêu cầu gọi nhân viên đang mở (`serviceRequests` khớp phiên/bàn,
   cùng cách `serviceRequestSession` đang dùng).
 - Mâm: vạch màu mâm cạnh trái (`tray.color.bar`) như ô hiện tại.
-- Viền chọn: bill đang mở (đậm) > đang tick gộp / chọn bàn trống (cam) > chờ duyệt (vàng). Chế độ chọn bàn cho
-  đặt bàn: giữ logic `disabledReason` / `reservationSelected` hiện có.
+- Viền chọn (một ô chỉ một viền, theo thứ tự ưu tiên): bàn đang chọn cho đặt bàn (xanh) > bill đang mở (đậm) >
+  đang tick gộp / chọn bàn trống (cam) > chờ duyệt (vàng). Chờ duyệt vẫn nổi nhờ chấm nháy + nhãn `Chờ duyệt · N`
+  dù viền bị viền chọn đè; ở chế độ gộp thu ngân phải thấy ô nào đã tick. Chế độ chọn bàn cho đặt bàn: giữ logic
+  `disabledReason` / `reservationSelected` hiện có.
 - Thời gian ngồi cập nhật theo `now` sẵn có (`useNow`), không thêm bộ đếm riêng.
 - Chữ không bị cắt: tên dài thì `truncate` + `title`.
 
@@ -214,7 +216,7 @@ thanh trên vẫn qua `WalkInPicker`), chuông, in. Không đổi server action 
 ## 7. Để người làm tự quyết
 - Tách component: ô bàn / lưới dày / hàng lọc / bảng bàn trống thành file mới trong `app/admin/pos/`
   (khuyến nghị, `floor-map.tsx` giữ cho Sắp xếp bàn), hay sửa trong `floor-map.tsx`.
-- Kích thước chính xác của ô, chữ (giữ quanh 104×84, chữ tối thiểu 12px).
+- Kích thước chính xác của ô, chữ (rộng tối thiểu 104px, cao 76px, chữ tối thiểu 12px).
 - Có thu gọn tiêu đề khu khi lọc một khu hay không.
 - Cách bỏ dấu khi tìm bàn.
 

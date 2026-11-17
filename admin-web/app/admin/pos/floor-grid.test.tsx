@@ -11,18 +11,26 @@ const BUSY: GridTileView = { ...FREE, visual: 'serving', money: 485000, seated: 
 
 const groups: GridGroup[] = [{ areaId: 'a1', name: 'A', color: 'violet', tables: [t('t1', 'Bàn A1'), t('t2', 'Bàn A2')] }]
 
-function render(over: { views?: Record<string, GridTileView>; groups?: GridGroup[] } = {}) {
+function render(over: {
+  views?: Record<string, GridTileView>
+  groups?: GridGroup[]
+  selectedSessionId?: string | null
+  pickedSessionIds?: Set<string>
+  pickedTableIds?: Set<string>
+  sessionOf?: Record<string, string>
+  reservationTableIds?: Set<string>
+} = {}) {
   const views = over.views ?? {}
   return renderToStaticMarkup(
     <FloorGrid
       groups={over.groups ?? groups}
       tile={id => views[id] ?? FREE}
-      selectedSessionId={null}
-      pickedSessionIds={new Set()}
-      pickedTableIds={new Set()}
-      sessionIdOf={() => null}
-      reservationMode={false}
-      reservationTableIds={new Set()}
+      selectedSessionId={over.selectedSessionId ?? null}
+      pickedSessionIds={over.pickedSessionIds ?? new Set()}
+      pickedTableIds={over.pickedTableIds ?? new Set()}
+      sessionIdOf={id => over.sessionOf?.[id] ?? null}
+      reservationMode={over.reservationTableIds !== undefined}
+      reservationTableIds={over.reservationTableIds ?? new Set()}
       disabledReason={() => null}
       onTile={vi.fn()}
     />,
@@ -85,6 +93,36 @@ describe('FloorGrid', () => {
     const icon = html.match(/<span[^>]*aria-label="Đang gọi nhân viên"[^>]*>/)?.[0] ?? ''
     expect(icon).toContain('title="Đang gọi nhân viên"')
     expect(icon).toContain('bg-red-600')
+  })
+  // Ưu tiên viền (spec §5.3): chọn bàn cho đặt bàn > bill đang mở (đậm) > đang tick (cam) > chờ duyệt (vàng).
+  // Chờ duyệt vẫn nổi nhờ chấm nháy + nhãn "Chờ duyệt · N"; ở chế độ gộp thu ngân phải thấy ô nào đã tick.
+  describe('viền chọn', () => {
+    const tileOf = (html: string, id: string) => html.match(new RegExp(`<button[^>]*data-table-id="${id}"[^>]*>`))?.[0] ?? ''
+    const PENDING: GridTileView = { ...BUSY, visual: 'pending', pending: 1 }
+    it('chờ duyệt mà đang mở bill → viền đậm, không vàng', () => {
+      const html = render({ views: { t1: PENDING }, sessionOf: { t1: 's1' }, selectedSessionId: 's1' })
+      expect(tileOf(html, 't1')).toContain('ring-foreground')
+      expect(tileOf(html, 't1')).not.toContain('ring-amber-500')
+    })
+    it('chờ duyệt mà đang tick gộp → viền cam, không vàng', () => {
+      const html = render({ views: { t1: PENDING }, sessionOf: { t1: 's1' }, pickedSessionIds: new Set(['s1']) })
+      expect(tileOf(html, 't1')).toContain('ring-primary')
+      expect(tileOf(html, 't1')).not.toContain('ring-amber-500')
+    })
+    it('chờ duyệt không chọn gì → viền vàng', () => {
+      const html = render({ views: { t1: PENDING }, sessionOf: { t1: 's1' } })
+      expect(tileOf(html, 't1')).toContain('ring-amber-500')
+    })
+    it('bill đang mở thắng tick', () => {
+      const html = render({ views: { t1: BUSY }, sessionOf: { t1: 's1' }, selectedSessionId: 's1', pickedTableIds: new Set(['t1']) })
+      expect(tileOf(html, 't1')).toContain('ring-foreground')
+      expect(tileOf(html, 't1')).not.toContain('ring-primary')
+    })
+    it('chọn bàn cho đặt bàn thắng tất cả', () => {
+      const html = render({ views: { t1: PENDING }, sessionOf: { t1: 's1' }, selectedSessionId: 's1', reservationTableIds: new Set(['t1']) })
+      expect(tileOf(html, 't1')).toContain('ring-info-dot')
+      expect(tileOf(html, 't1')).not.toContain('ring-foreground')
+    })
   })
   it('groups rỗng → "Không có bàn nào khớp bộ lọc."', () => {
     expect(render({ groups: [] })).toContain('Không có bàn nào khớp bộ lọc.')

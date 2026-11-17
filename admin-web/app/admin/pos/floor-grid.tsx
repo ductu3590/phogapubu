@@ -166,15 +166,16 @@ function GridTile({
   const { label, tone } = TABLE_STATE[view.visual]
   const hasSession = view.money !== null
   const nen = view.visual === 'free' ? 'border-slate-200 bg-white' : STATUS_TONE_CLASSES[tone].badge
-  // Ưu tiên viền: chọn bàn cho đặt bàn > chờ duyệt > bill đang mở > đang tick.
+  // Ưu tiên viền (spec §5.3): chọn bàn cho đặt bàn > bill đang mở (đậm) > đang tick (cam) > chờ duyệt (vàng).
+  // Chờ duyệt vẫn nổi nhờ chấm nháy + nhãn "Chờ duyệt · N"; ở chế độ gộp thu ngân phải thấy ô nào đã tick.
   const vien = reservationSelected
     ? 'ring-2 ring-info-dot'
-    : view.pending > 0
-      ? 'ring-2 ring-amber-500'
-      : selected
-        ? 'ring-2 ring-foreground'
-        : picked
-          ? 'ring-2 ring-primary'
+    : selected
+      ? 'ring-2 ring-foreground'
+      : picked
+        ? 'ring-2 ring-primary'
+        : view.pending > 0
+          ? 'ring-2 ring-amber-500'
           : ''
   // Vừa chờ duyệt vừa gọi NV: nhãn "Chờ duyệt · N" cần đủ chỗ → Gọi NV chỉ còn icon chuông đỏ ở dòng tên.
   const callingIconOnly = view.calling && view.pending > 0
