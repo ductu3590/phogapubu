@@ -20,7 +20,7 @@ phiếu chi cùng số tiền. Tiền mặt trả NCC đi qua két ca đang mở
   2 ca test đã kết. Công tắc "bắt buộc mở ca" bật tạm rồi đã trả về TẮT.
 - Playwright tìm ra và đã sửa: dòng báo "Đã trả …" còn treo sau khi huỷ chính lần trả đó; ô tích phiếu trên điện thoại chỉ
   20×20px (nay vùng chạm 44×44px).
-- ⏳ Chờ anh Tú: **B13** (đăng nhập tài khoản thu ngân — agent không có mật khẩu).
+- ✓ **B13** PASS (anh Tú, tài khoản thu ngân) 2026-11-17 — loạt test khép lại, đã merge main.
 
 ## Chuẩn bị
 
