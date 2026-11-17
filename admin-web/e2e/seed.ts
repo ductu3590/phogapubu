@@ -193,10 +193,27 @@ function appendRunState(key: 'sessionIds' | 'touchedTableIds' | 'reservationIds'
   writeRunState(state)
 }
 
-/** Test sắp mở phiên qua giao diện trên bàn thật đang trống → ghi lại để teardown đóng phiên trên bàn đó. */
-export function recordTouchedTable(tableId: string) {
+/**
+ * Test vừa mở phiên THÀNH CÔNG trên một bàn thật (qua giao diện / RPC) → ghi id phiên đang mở trên bàn đó + ghi bàn.
+ * Bàn chỉ là lưới an toàn cho teardown CÙNG lượt (xem cleanup); id phiên mới là thứ được tin.
+ */
+export async function recordOpenSessionOnTable(tableId: string): Promise<string | null> {
   appendRunState('touchedTableIds', [tableId])
+  const state = readRunState()
+  const { data, error } = await serviceClient()
+    .from('table_sessions')
+    .select('id')
+    .eq('store_id', state.storeId)
+    .eq('table_id', tableId)
+    .eq('status', 'open')
+  if (error) throw new Error(`Không tra được phiên vừa mở: ${error.message}`)
+  const ids = (data ?? []).map((r) => r.id as string)
+  appendRunState('sessionIds', ids)
+  return ids[0] ?? null
 }
+
+/** Quá mốc này thì run.json là đồ sót của lượt cũ: không suy phiên theo bàn nữa (có thể là khách thật mở sau). */
+const TOUCHED_TABLE_TRUST_MS = 60 * 60 * 1000
 
 /** Tên khách đặt bàn duy nhất của lượt chạy (để tra id sau khi tạo qua giao diện). */
 export function e2eCustomerName(label: string) {
@@ -472,7 +489,17 @@ export async function cleanup(state: RunState): Promise<void> {
   const sessionsToClose = new Set<string>()
   await step('Tra phiên e2e đang mở', async () => {
     const ids = new Set(state.sessionIds)
-    if (state.touchedTableIds.length > 0) {
+    const fresh = Date.now() - new Date(state.startedAt).getTime() <= TOUCHED_TABLE_TRUST_MS
+    if (!fresh && state.touchedTableIds.length > 0) {
+      // run.json sót từ lượt cũ (dọn hỏng, chạy lại sau): chỉ đóng phiên theo id đã ghi, KHÔNG đụng phiên đang mở trên
+      // các bàn này — có thể là khách thật mở sau đó. Để người kiểm tay.
+      const { data: names } = await admin.from('tables').select('table_number').eq('store_id', storeId).in('id', state.touchedTableIds)
+      console.warn(
+        `[e2e] run.json cũ (bắt đầu ${state.startedAt}): không tự đóng phiên theo bàn. Kiểm tay các bàn: ` +
+          ((names ?? []) as { table_number: string }[]).map((t) => t.table_number).join(', '),
+      )
+    }
+    if (fresh && state.touchedTableIds.length > 0) {
       const { data, error } = await admin
         .from('table_sessions')
         .select('id')
@@ -502,7 +529,8 @@ export async function cleanup(state: RunState): Promise<void> {
         .select('id')
         .eq('store_id', storeId)
         .eq('status', 'pending')
-        .neq('order_source', 'pos')
+        // Null-safe: đơn có order_source NULL cũng là đơn khách (neq bỏ sót NULL).
+        .or('order_source.is.null,order_source.neq.pos')
         .in('session_id', [...sessionsToClose])
       if (error) throw new Error(error.message)
       for (const r of data ?? []) orderIds.add(r.id as string)
@@ -588,8 +616,6 @@ export async function cleanup(state: RunState): Promise<void> {
 
 /** Mở phiên ở một bàn trống bằng Khách lẻ (pos_walk_in_order, mig 099) — đúng RPC nút "Gọi món & mở bàn" gọi. */
 export async function openWalkInSession(tableId: string): Promise<string> {
-  // Ghi bàn TRƯỚC khi gọi: RPC thành công mà mất phản hồi thì teardown vẫn tìm ra phiên trên bàn này.
-  recordTouchedTable(tableId)
   const state = readRunState()
   const admin = serviceClient()
   const owner = userClient(await ownerSession())
@@ -603,5 +629,6 @@ export async function openWalkInSession(tableId: string): Promise<string> {
   const sessionId = (data as { session_id?: string } | null)?.session_id
   if (!sessionId) throw new Error('pos_walk_in_order không trả session_id')
   appendRunState('sessionIds', [sessionId])
+  appendRunState('touchedTableIds', [tableId])
   return sessionId
 }

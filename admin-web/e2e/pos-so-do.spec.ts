@@ -16,7 +16,7 @@ import {
   openWalkInSession,
   readRunState,
   recordReservationByName,
-  recordTouchedTable,
+  recordOpenSessionOnTable,
 } from './seed'
 
 const POS_URL = '/admin/pos'
@@ -388,10 +388,10 @@ test.describe('C + D. Ô bàn + bấm ô', () => {
     await expect(addOption.or(sheet.getByText('Món bổ sung'))).toBeVisible()
     if (await addOption.isVisible()) await addOption.click()
     await expect(sheet.getByText('Món bổ sung')).toBeVisible()
-    // Bàn thật sắp có phiên do test mở qua giao diện → ghi lại để teardown đóng.
-    recordTouchedTable(table.id)
     await sheet.getByRole('button', { name: 'Thêm vào bill · không báo bếp' }).click()
+    // Hộp chọn món chỉ đóng khi gửi món thành công (bàn đã mở) → ghi id phiên vừa mở để teardown đóng.
     await expect(sheet).toHaveCount(0)
+    expect(await recordOpenSessionOnTable(table.id), 'Bàn vừa gọi món phải có phiên mở').not.toBeNull()
 
     await expect(billPanel(page).getByRole('heading', { level: 2 })).toContainText(table.name)
     const tile = tileById(page, table.id)
