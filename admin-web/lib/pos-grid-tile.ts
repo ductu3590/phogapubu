@@ -52,9 +52,9 @@ export function gridTileAction(
     return { kind: 'reservation-pick', tableId }
   }
   if (session) return { kind: 'session', sessionId: session.session_id, additive: input.modifier || input.mergeMode }
+  // Đang gộp bill: mâm chỉ gộp phiên đang mở, bấm bàn trống (kể cả bàn đang giữ) không làm gì.
+  if (input.mergeMode) return { kind: 'none' }
   const held = input.ctx.heldByTable.get(tableId)
   if (held) return { kind: 'reservation', reservationId: held.reservationId }
-  // Đang gộp bill: mâm chỉ gộp phiên đang mở, bấm bàn trống không làm gì.
-  if (input.mergeMode) return { kind: 'none' }
   return { kind: 'pick-free', tableId }
 }

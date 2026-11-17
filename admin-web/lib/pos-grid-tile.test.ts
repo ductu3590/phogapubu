@@ -66,6 +66,10 @@ describe('gridTileAction', () => {
     const ctx = { ...empty, heldByTable: new Map([['t1', held('r-early', '2026-11-17T12:30:00Z')]]) }
     expect(gridTileAction('t1', { ctx, ...inp })).toEqual({ kind: 'reservation', reservationId: 'r-early' })
   })
+  it('mergeMode + bàn đang giữ → none', () => {
+    const ctx = { ...empty, heldByTable: new Map([['t1', held('r1', '2026-11-17T12:30:00Z')]]) }
+    expect(gridTileAction('t1', { ctx, ...inp, mergeMode: true })).toEqual({ kind: 'none' })
+  })
   it('normal: bàn trống → pick-free; mergeMode + bàn trống → none', () => {
     expect(gridTileAction('t1', { ctx: empty, ...inp })).toEqual({ kind: 'pick-free', tableId: 't1' })
     expect(gridTileAction('t1', { ctx: empty, ...inp, mergeMode: true })).toEqual({ kind: 'none' })
