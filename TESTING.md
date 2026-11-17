@@ -6,7 +6,7 @@
 
 ## Chờ test
 
-- ✅ [Báo cáo — giao diện mới (biểu đồ, % so với kỳ trước)](docs/testing/bao-cao-chuyen-nghiep/BAO-CAO-UI.md) — Test 1–7 PASS 2026-11-17 (anh Tú)
+- ✅ [Báo cáo — giao diện mới (biểu đồ, % so với kỳ trước)](docs/testing/bao-cao-chuyen-nghiep/BAO-CAO-UI.md) — Test 1–7 PASS 2026-11-17 (anh Tú); ⏳ Test 8 (đợt dọn nốt: nhãn trên điện thoại, huy hiệu dễ đọc) chờ test
 - ⏳ [POS — "+ Mở bàn" trên Timeline, rail gọn, Báo cáo thành trang (RAIL-1)](docs/testing/pos-rail/RAIL-1.md) — A–F PASS 2026-11-16 (anh Tú); nhóm G (xoá bàn đã có đơn + chọn nhiều bàn, mig 141–142 đã áp prod) agent ✓ G1–G6, chờ anh Tú G7 + xem lại; nhánh `claude/timeline-ui-buttons-43fcde`, chưa commit
 - 👉 [**Trước go-live: việc còn lại của anh Tú, gom theo màn / thiết bị**](docs/testing/TRUOC-GO-LIVE.md) — T-002 2026-11-15; hạn 24/11
 

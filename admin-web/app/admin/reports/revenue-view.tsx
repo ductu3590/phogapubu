@@ -1,5 +1,4 @@
-import { ArrowDownToLine, ArrowUpToLine, Receipt, Scale, Tag, Users, Wallet, type LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { ArrowDownToLine, ArrowUpToLine, Receipt, Scale, Tag, Users, Wallet } from 'lucide-react'
 import { EmptyState } from '@/components/ui/feedback'
 import { formatVND } from '@/lib/utils'
 import { deltaPercent } from '@/lib/reports/compare'
@@ -12,6 +11,7 @@ import { Donut } from './charts/donut'
 import { PAYMENT_COLORS } from './charts/palette'
 import { KpiCard } from './kpi-card'
 import { SectionCard } from './section-card'
+import { HighlightTag, LegendDot, StripCell } from './report-bits'
 import { EMPTY_TEXT, formatPercent, formatQty, shortMoney } from './report-format'
 
 // Tab "Doanh thu": mỗi ngày (hoặc mỗi tháng trong 12 tháng) một dòng, số = A04 ngày đó (report_day_totals, mig 125).
@@ -25,18 +25,6 @@ function cells(r: Omit<RevenueRow, 'date'>): string[] {
     formatVND(r.revenue), formatVND(r.discountTotal), formatVND(r.cash), formatVND(r.bank), formatVND(r.debt),
     formatQty(r.billsCount), formatVND(avgPerBill(r.revenue, r.billsCount)),
   ]
-}
-
-function StripCell({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2.5 px-3.5 py-3">
-      <Icon className="size-5 shrink-0 text-primary" aria-hidden />
-      <div className="min-w-0">
-        <div className="text-xs text-muted">{label}</div>
-        <div className="tabular text-[14.5px] font-bold">{children}</div>
-      </div>
-    </div>
-  )
 }
 
 export default function RevenueView({ report, prev, compareLabel }: {
@@ -91,8 +79,7 @@ export default function RevenueView({ report, prev, compareLabel }: {
                 hint={isMonth ? `12 tháng, ${labels[0]} – ${labels[labels.length - 1]}` : undefined}
               >
                 <div className="flex gap-4 px-5 pt-2.5 text-[12.5px] text-muted">
-                      <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-1)' }} />Doanh thu</span>
-                      <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-3)' }} />Số bill</span>
+                  {series.map((s) => <LegendDot key={s.name} color={s.color}>{s.name}</LegendDot>)}
                 </div>
                 {/* SVG co theo bề rộng nên chữ nhỏ đi trên điện thoại: hai bản, mobile vẽ khung hẹp hơn để chữ đọc được. */}
                 <div className="hidden md:block px-3 pt-1"><AreaChart {...chartProps} width={720} /></div>
@@ -143,7 +130,7 @@ export default function RevenueView({ report, prev, compareLabel }: {
                   <tr key={r.date}>
                     <td className="px-4 py-3 font-medium tabular text-foreground">
                       {revenueRowLabel(r, grain)}
-                      {ext && r === ext.best ? <span className="ml-2 rounded-md bg-primary-light px-1.5 py-px text-[12px] font-semibold text-primary">Cao nhất</span> : null}
+                      {ext && r === ext.best ? <HighlightTag>Cao nhất</HighlightTag> : null}
                     </td>
                     {cells(r).map((v, i) => <td key={COLS[i]} className="px-4 py-3 text-right tabular">{v}</td>)}
                   </tr>
@@ -161,7 +148,10 @@ export default function RevenueView({ report, prev, compareLabel }: {
               {rows.map((r) => (
                 <li key={r.date} className="space-y-1 px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="font-medium tabular text-foreground">{revenueRowLabel(r, grain)}</span>
+                    <span className="font-medium tabular text-foreground">
+                      {revenueRowLabel(r, grain)}
+                      {ext && r === ext.best ? <HighlightTag>Cao nhất</HighlightTag> : null}
+                    </span>
                     <span className="font-semibold tabular text-foreground">{formatVND(r.revenue)}</span>
                   </div>
                   <p className="text-[13px] tabular text-muted">

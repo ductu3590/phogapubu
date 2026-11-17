@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { niceCountMax, niceMax, smoothPath } from '@/lib/reports/chart-geometry'
+import { tintBg } from './palette'
 
 export type AreaSeries = { name: string; values: number[]; color: string; axis?: 'left' | 'right' }
 
@@ -84,8 +85,9 @@ export function AreaChart({
         <g>
           <line x1={peak.px} x2={peak.px} y1={peak.topY} y2={T + ih} stroke="var(--neutral-dot)" strokeDasharray="3 3" />
           <circle cx={peak.px} cy={peak.py} r="5" fill="#fff" stroke={s0.color} strokeWidth="2.5" />
-          <rect x={peak.labelX} y={peak.labelY} width="68" height="22" rx="6" fill={s0.color} />
-          <text x={peak.labelX + 34} y={peak.labelY + 15} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="#fff">{formatLeft(s0.values[pi])}</text>
+          {/* Nhãn nền nhạt + viền màu + chữ đậm (chữ trắng trên nền xanh lá chỉ ~2,5:1). */}
+          <rect x={peak.labelX} y={peak.labelY} width="68" height="22" rx="6" stroke={s0.color} strokeWidth="1.5" style={{ fill: tintBg(s0.color) }} />
+          <text x={peak.labelX + 34} y={peak.labelY + 15} textAnchor="middle" fontSize="11.5" fontWeight="700" style={{ fill: 'var(--foreground)' }}>{formatLeft(s0.values[pi])}</text>
           {series.slice(1).map((s, k) => {
             const [qx, qy] = lines[k + 1][pi] ?? [peak.px, peak.py]
             const fmt = s.axis === 'right' && formatRight ? formatRight : formatLeft
@@ -93,8 +95,8 @@ export function AreaChart({
             return (
               <g key={k}>
                 <circle cx={qx} cy={qy} r="4.5" fill="#fff" stroke={s.color} strokeWidth="2.5" />
-                <rect x={bx} y={qy - 10} width="36" height="20" rx="6" fill={s.color} />
-                <text x={bx + 18} y={qy + 4} textAnchor="middle" fontSize="11" fontWeight="700" fill="#fff">{fmt(s.values[pi])}</text>
+                <rect x={bx} y={qy - 10} width="36" height="20" rx="6" stroke={s.color} strokeWidth="1.5" style={{ fill: tintBg(s.color) }} />
+                <text x={bx + 18} y={qy + 4} textAnchor="middle" fontSize="11" fontWeight="700" style={{ fill: 'var(--foreground)' }}>{fmt(s.values[pi])}</text>
               </g>
             )
           })}

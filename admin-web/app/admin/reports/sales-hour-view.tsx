@@ -1,7 +1,6 @@
 'use client'
 
-import { Clock, Flame, Receipt, Wallet, type LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { Clock, Flame, Receipt, Wallet } from 'lucide-react'
 import { EmptyState } from '@/components/ui/feedback'
 import { formatVND } from '@/lib/utils'
 import { fillHourGaps, hourSummary } from '@/lib/reports/insights'
@@ -9,24 +8,13 @@ import type { SalesHourRow } from '@/lib/reports/sales'
 import { AreaChart } from './charts/area-chart'
 import { ShareBar } from './charts/share-bar'
 import { SectionCard } from './section-card'
+import { HighlightTag, LegendDot, StripCell } from './report-bits'
 import { EMPTY_TEXT, formatQty, hourLabel, shortMoney } from './report-format'
 
 // Tab "Theo giờ": giờ món VÀO BẾP, đã xếp theo ngày kinh doanh ở server (quán 05:00 → 18h đứng trước 04h).
 // Giữ nguyên thứ tự server, không sắp lại theo đồng hồ.
 
 const ARIA = 'Tiền món và lượt gọi theo giờ'
-
-function StripCell({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2.5 px-3.5 py-3">
-      <Icon className="size-5 shrink-0 text-primary" aria-hidden />
-      <div className="min-w-0">
-        <div className="text-xs text-muted">{label}</div>
-        <div className="tabular text-[14.5px] font-bold">{children}</div>
-      </div>
-    </div>
-  )
-}
 
 export default function SalesHourView({ rows }: { rows: SalesHourRow[] }) {
   const sum = hourSummary(rows)
@@ -48,8 +36,7 @@ export default function SalesHourView({ rows }: { rows: SalesHourRow[] }) {
     <div className="space-y-4">
       <SectionCard title="Tiền món & lượt gọi theo giờ" hint="Giờ món vào bếp, xếp theo ngày kinh doanh">
         <div className="flex gap-4 px-5 pt-2.5 text-[12.5px] text-muted">
-          <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-1)' }} />Tiền món</span>
-          <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: 'var(--chart-3)' }} />Lượt gọi</span>
+          {series.map((s) => <LegendDot key={s.name} color={s.color}>{s.name}</LegendDot>)}
         </div>
         {/* SVG co theo bề rộng nên chữ nhỏ đi trên điện thoại: hai bản, mobile vẽ khung hẹp hơn để chữ đọc được. */}
         <div className="hidden md:block px-3 pt-1"><AreaChart {...chartProps} /></div>
@@ -80,7 +67,7 @@ export default function SalesHourView({ rows }: { rows: SalesHourRow[] }) {
               <tr key={r.hour}>
                 <td className="px-4 py-3 font-medium tabular text-foreground">
                   {hourLabel(r.hour)}
-                  {r.hour === sum.peakHour ? <span className="ml-2 rounded-md bg-primary-light px-1.5 py-px text-[12px] font-semibold text-primary">Cao điểm</span> : null}
+                  {r.hour === sum.peakHour ? <HighlightTag>Cao điểm</HighlightTag> : null}
                 </td>
                 <td className="px-4 py-3 text-right tabular">{formatQty(r.ordersCount)}</td>
                 <td className="px-4 py-3 text-right tabular">{formatQty(r.itemsQty)}</td>
@@ -95,7 +82,10 @@ export default function SalesHourView({ rows }: { rows: SalesHourRow[] }) {
           {rows.map((r) => (
             <li key={r.hour} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="min-w-0">
-                <p className="font-medium tabular text-foreground">{hourLabel(r.hour)}</p>
+                <p className="font-medium tabular text-foreground">
+                  {hourLabel(r.hour)}
+                  {r.hour === sum.peakHour ? <HighlightTag>Cao điểm</HighlightTag> : null}
+                </p>
                 <p className="text-[13px] text-muted">{formatQty(r.ordersCount)} lượt gọi · {formatQty(r.itemsQty)} món</p>
               </div>
               <p className="shrink-0 font-semibold tabular text-foreground">{formatVND(r.amount)}</p>
