@@ -122,6 +122,17 @@ Giao diện đổi nhưng **số phải giữ nguyên**. Đối chiếu với c�
 7. Tab Công nợ: Nợ cuối kỳ = Nợ đầu kỳ + Phát sinh − Đã thu; so với trang **Công nợ** (`/admin/debts`) hôm nay: tổng nợ hiện tại khớp.
 8. Banner vàng "Chênh lệch …" **không xuất hiện** ở tab Bán hàng cùng kỳ (nếu xuất hiện: ghi lại kỳ + số hiển thị).
 
+# Test 8 — Đợt dọn nốt (2026-11-17)
+
+Kiểm 5 chỗ sửa thêm sau khi Test 1–7 đã PASS. Kỳ **Tháng này**, tài khoản chủ quán.
+
+1. **Điện thoại (375px)**, tab **Theo giờ**, kéo xuống danh sách giờ: giờ đông nhất có nhãn cam **"Cao điểm"** cạnh giờ (trước đây chỉ có ở bảng máy tính).
+2. **Điện thoại**, tab **Doanh thu** (Ngày), kéo xuống danh sách ngày: ngày doanh thu cao nhất có nhãn **"Cao nhất"**.
+3. Tab **Theo món**, khối **Món bán chạy**: 5 huy hiệu số 1–5 là **vòng tròn nền nhạt, viền màu, chữ số màu đen** — đọc rõ cả số 2 (vàng) và 3 (xanh lá). Không còn chữ trắng.
+4. Tab **Theo giờ** và **Doanh thu**: hai nhãn số trên đỉnh biểu đồ (cam và xanh lá) là **nền nhạt + viền màu + chữ đen**, đọc rõ.
+5. Tab **Thu chi**: dưới số Chênh lệch của mỗi quỹ vẫn có chip **"↑/↓ x% so với tháng trước"** như trước; chú giải "Tiền mặt / Chuyển khoản" của khối "Tiền ra đi đâu" vẫn đủ chấm màu.
+6. Tab **Công nợ**: 3 ô tuổi nợ vẫn có chấm màu xanh / vàng / đỏ trước nhãn; bill nợ quá 30 ngày vẫn có nhãn đỏ "n ngày" ở cả bảng và thẻ điện thoại.
+
 ---
 
 Ghi kết quả: PASS / FAIL từng bài. FAIL thì ghi bài số mấy, kỳ nào, số thấy trên màn hình và số kỳ vọng. Chụp màn hình giúp càng tốt.

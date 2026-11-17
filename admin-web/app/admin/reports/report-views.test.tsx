@@ -119,6 +119,11 @@ describe('Theo món (kiểu mới)', () => {
     const html = renderToStaticMarkup(<SalesItemView rows={MANY} itemsAmount={280000} />)
     expect(html).toContain('Món bán chạy')
     expect(count(html, 'data-rank=')).toBe(5)
+    // Huy hiệu hạng: chữ đậm trên nền nhạt pha màu, không chữ trắng.
+    const rank = html.slice(html.indexOf('data-rank="1"'), html.indexOf('</span>', html.indexOf('data-rank="1"')))
+    expect(rank).toContain('text-foreground')
+    expect(rank).not.toContain('text-white')
+    expect(rank).toContain('color-mix(')
     expect(html).toContain('mang lại nhiều tiền nhất kỳ này')
     expect(html).toContain('MÓN BÁN RA')
     expect(html).toContain('lg:grid-cols-[1.65fr_1fr]')
@@ -167,7 +172,9 @@ describe('Theo giờ', () => {
     for (const l of ['Giờ cao điểm', 'Lượt gọi đông nhất', 'Tổng lượt gọi', 'TB / lượt gọi']) expect(html).toContain(l)
     expect(html).toContain('18:00')
     expect(html.indexOf('18:00')).toBeLessThan(html.indexOf('04:00'))
-    expect(count(html, 'Cao điểm')).toBe(1) // chỉ ở bảng, đúng một dòng
+    // Đúng một giờ được gắn nhãn, hiện ở cả bảng desktop và thẻ điện thoại.
+    expect(count(html, 'data-highlight')).toBe(2)
+    expect(count(html, '>Cao điểm<')).toBe(2)
   })
 
   it('ô tóm tắt không cắt chữ (không truncate)', () => {
@@ -371,6 +378,10 @@ describe('tab tài chính', async () => {
     expect(html).toContain('>01/12<')
     expect(html).toContain('>03/12<')
     for (const l of ['Doanh thu &amp; số bill theo ngày', 'Ngày cao nhất', 'TB / ngày', 'Ngày thấp nhất', 'Cơ cấu thanh toán', 'Tiền mặt', 'Chuyển khoản', 'DOANH THU', 'Cao nhất']) expect(html).toContain(l)
+    // Ngày cao nhất được gắn nhãn ở cả bảng desktop và thẻ điện thoại.
+    expect(count(html, '>Cao nhất<')).toBe(2)
+    // Nhãn đỉnh trên biểu đồ: chữ đậm trên nền nhạt, không còn chữ trắng (khó đọc trên nền xanh / vàng).
+    expect(html).not.toMatch(/<text[^>]*fill="#fff"/)
     expect(html).toContain('hidden md:table')
     expect(html).toContain('md:hidden')
     for (const head of ['Ngày', 'Doanh thu', 'Giảm giá', 'Tiền mặt', 'Chuyển khoản', 'Ghi nợ', 'Số bill', 'TB/bill']) {
@@ -544,9 +555,10 @@ describe('tab tài chính', async () => {
     const row = r.rows[0]
     const at = (oldest: string) => renderToStaticMarkup(<ReceivablesView report={{ ...r, head: { ...r.head, to: '2026-12-31' }, rows: [{ ...row, oldestOpenDate: oldest }] }} />)
     const d30 = at('2026-12-01') // 30 ngày trước 31/12
-    expect(d30).not.toMatch(/\d+ ngày<\/span>/)
+    expect(d30).not.toContain('data-age-tag')
     const d31 = at('2026-11-30')
     expect(d31).toContain('31 ngày</span>')
+    expect(count(d31, 'data-age-tag')).toBe(2) // bảng desktop + thẻ điện thoại
   })
 })
 

@@ -9,7 +9,7 @@ import { itemCategoryShares, topItems } from '@/lib/reports/insights'
 import { percentOf, sortItemRows, type SalesItemRow } from '@/lib/reports/sales'
 import { ChartLegend } from './charts/chart-legend'
 import { Donut } from './charts/donut'
-import { CHART_COLORS } from './charts/palette'
+import { CHART_COLORS, shareColor, tintBg } from './charts/palette'
 import { ShareBar } from './charts/share-bar'
 import { SectionCard } from './section-card'
 import { EMPTY_TEXT, formatPercent, formatQty } from './report-format'
@@ -43,7 +43,7 @@ const SORTS = [{ value: 'amount' as const, label: 'Tiền' }, { value: 'qty' as 
 const TOP_SORTS = [{ value: 'amount' as const, label: 'Theo tiền' }, { value: 'qty' as const, label: 'Theo SL' }]
 
 // Màu nhạt cho ô chữ cái đầu: trộn màu lát với trắng, chữ theo màu lát.
-const tint = (color: string) => ({ background: `color-mix(in srgb, ${color} 16%, white)`, color })
+const tint = (color: string) => ({ background: tintBg(color), color })
 
 export default function SalesItemView({ rows, itemsAmount, qtySold }: { rows: SalesItemRow[]; itemsAmount: number; qtySold?: number }) {
   const [sortBy, setSortBy] = useState<SortBy>('amount')
@@ -58,11 +58,7 @@ export default function SalesItemView({ rows, itemsAmount, qtySold }: { rows: Sa
   if (rows.length === 0) return <section className="rounded-xl border border-border bg-surface"><EmptyState>{EMPTY_TEXT}</EmptyState></section>
 
   // Màu theo vị trí lát; món thuộc danh mục đã gộp vào "Khác" lấy màu lát gộp.
-  const colorOfKey = (key: string): string => {
-    let i = shares.findIndex((s) => s.key === key)
-    if (i < 0) i = shares.findIndex((s) => s.key === '__rest')
-    return CHART_COLORS[i >= 0 ? i : 5]
-  }
+  const colorOfKey = (key: string) => shareColor(shares, key)
   const shareTotal = shares.reduce((a, s) => a + s.value, 0)
   const totalQty = qtySold ?? rows.reduce((a, r) => a + r.qtySold, 0)
   const maxAmount = Math.max(0, ...visible.map((r) => r.amount))
@@ -77,7 +73,9 @@ export default function SalesItemView({ rows, itemsAmount, qtySold }: { rows: Sa
               const key = keyOf(r)
               return (
                 <li key={`${r.itemName}|${key}`} className="grid grid-cols-[24px_40px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border py-2.5 last:border-b-0">
-                  <span data-rank={i + 1} className="grid size-6 place-items-center rounded-full text-xs font-bold text-white" style={{ background: CHART_COLORS[i] }}>{i + 1}</span>
+                  {/* Nền nhạt + viền màu + chữ đậm: chữ trắng trên nền vàng/xanh chỉ ~2:1, khó đọc. */}
+                  <span data-rank={i + 1} className="grid size-6 place-items-center rounded-full text-xs font-bold text-foreground"
+                    style={{ background: tintBg(CHART_COLORS[i]), boxShadow: `inset 0 0 0 1.5px ${CHART_COLORS[i]}` }}>{i + 1}</span>
                   <span className="grid size-10 place-items-center rounded-xl text-[15px] font-bold" style={tint(colorOfKey(key))} aria-hidden>{Array.from(r.itemName)[0]?.toUpperCase()}</span>
                   <div className="min-w-0">
                     <p className="line-clamp-2 font-semibold text-foreground">{r.itemName}</p>

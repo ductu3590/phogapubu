@@ -7,7 +7,7 @@ import { categoryShares } from '@/lib/reports/insights'
 import { percentOf, type SalesCategoryRow } from '@/lib/reports/sales'
 import { ChartLegend } from './charts/chart-legend'
 import { Donut } from './charts/donut'
-import { CHART_COLORS } from './charts/palette'
+import { CHART_COLORS, shareColor } from './charts/palette'
 import { ShareBar } from './charts/share-bar'
 import { SectionCard } from './section-card'
 import { EMPTY_TEXT, formatPercent, formatQty, shortMoney } from './report-format'
@@ -21,11 +21,7 @@ export default function SalesCategoryView({ rows, itemsAmount }: { rows: SalesCa
   const shares = categoryShares(rows)
   const shareTotal = shares.reduce((a, s) => a + s.value, 0)
   // Danh mục nằm ngoài 5 lát đầu dùng màu lát "Khác" gộp.
-  const colorOf = (key: string): string => {
-    let i = shares.findIndex((s) => s.key === key)
-    if (i < 0) i = shares.findIndex((s) => s.key === '__rest')
-    return CHART_COLORS[i >= 0 ? i : 5]
-  }
+  const colorOf = (key: string) => shareColor(shares, key)
   const maxAmount = Math.max(0, ...rows.map((r) => r.amount))
 
   return (

@@ -7,31 +7,20 @@ import type { CashFlowLine, CashFlowReport, FundTotals } from '@/lib/reports/fin
 import { outflowBars } from '@/lib/reports/insights'
 import { PAYMENT_COLORS } from './charts/palette'
 import { SectionCard } from './section-card'
-import { EMPTY_TEXT, VOID_LATER_NOTE, formatPercent, shortMoney } from './report-format'
+import { DeltaChip, LegendDot } from './report-bits'
+import { EMPTY_TEXT, VOID_LATER_NOTE, shortMoney } from './report-format'
 
 // Tab "Thu chi": hai quỹ Tiền mặt / Ngân hàng (report_cash_flow, mig 125). Ghi nợ không là tiền vào; tiền chỉ vào khi
 // khách trả nợ. Không có số dư đầu kỳ: "Chênh lệch" là vào − ra trong kỳ.
 
 const money = (v: number) => <span className={cn('tabular', v < 0 && 'text-critical')}>{formatVND(v)}</span>
 
-/** Chip % thay đổi (null/không hữu hạn → không hiện). Chênh lệch quỹ: tăng là tốt. */
-function DeltaChip({ delta, label }: { delta: number | null; label?: string }) {
-  if (delta === null || !Number.isFinite(delta)) return null
-  const cls = delta === 0 ? 'bg-secondary text-muted' : delta > 0 ? 'bg-success-bg text-success' : 'bg-critical-bg text-critical'
-  const text = delta === 0 ? '— 0%' : `${delta > 0 ? '↑' : '↓'} ${formatPercent(Math.abs(delta))}`
-  return (
-    <span className="flex items-center gap-1.5 text-[12.5px] text-muted">
-      <span className={`tabular inline-flex items-center rounded-md px-1.5 py-px font-semibold ${cls}`}>{text}</span>
-      {label ? <span>{label}</span> : null}
-    </span>
-  )
-}
-
 function FundCard({ icon: Icon, tone, title, fund, prevNet, compareLabel, note }: {
   icon: LucideIcon; tone: string; title: string; fund: FundTotals; prevNet?: number; compareLabel?: string; note?: string
 }) {
   const total = fund.in + fund.out
   const inRatio = total > 0 ? Math.min(Math.max(fund.in / total, 0), 1) : 0
+  const delta = deltaPercent(fund.net, prevNet)
   return (
     <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-surface px-4 py-4 shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
       <div className="flex items-center gap-2.5">
@@ -42,7 +31,12 @@ function FundCard({ icon: Icon, tone, title, fund, prevNet, compareLabel, note }
         <p className="text-[12.5px] text-muted">Chênh lệch trong kỳ</p>
         <p className={cn('tabular text-xl font-bold leading-tight tracking-tight [overflow-wrap:anywhere] md:text-[28px]', fund.net < 0 ? 'text-critical' : 'text-success')}>{formatVND(fund.net)}</p>
       </div>
-      <DeltaChip delta={deltaPercent(fund.net, prevNet)} label={compareLabel} />
+      {/* Chênh lệch quỹ: tăng là tốt. */}
+      {delta !== null ? (
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12.5px] text-muted">
+          <DeltaChip delta={delta} label={compareLabel} />
+        </div>
+      ) : null}
       {/* Thanh tỉ lệ vào / ra trong kỳ */}
       <span className="flex h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
         <i className="block h-full" style={{ width: `${inRatio * 100}%`, background: 'var(--chart-3)' }} />
@@ -128,8 +122,8 @@ export default function CashFlowView({ report, prev, compareLabel }: {
       {bars.length > 0 ? (
         <SectionCard title="Tiền ra đi đâu" hint="Không gồm chuyển quỹ">
           <div className="flex gap-4 px-5 pt-2.5 text-[12.5px] text-muted">
-            <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: PAYMENT_COLORS.cash }} />Tiền mặt</span>
-            <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: PAYMENT_COLORS.bank }} />Chuyển khoản</span>
+            <LegendDot color={PAYMENT_COLORS.cash}>Tiền mặt</LegendDot>
+            <LegendDot color={PAYMENT_COLORS.bank}>Chuyển khoản</LegendDot>
           </div>
           <ul className="space-y-3.5 px-5 pb-5 pt-3">
             {bars.map((b) => (
