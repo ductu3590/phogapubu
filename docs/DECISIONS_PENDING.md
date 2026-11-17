@@ -119,7 +119,7 @@ Mẫu:
 - Trả lời của anh: Đã mở cổng
 - **Đã áp dụng 2026-11-17:** push main c1e63a9..f94ac99.
 
-## D-009 · 2026-11-17 · gate: test · task: POS Sơ đồ (e2e) · trạng thái: chờ
+## D-009 · 2026-11-17 · gate: test · task: POS Sơ đồ (e2e) · trạng thái: đã chốt — để nguyên
 - Cần làm: thêm `test.skip(...)` có điều kiện vào bài e2e "bàn có đặt xa (now+3h)" ở `admin-web/e2e/pos-so-do.spec.ts`,
   bỏ qua khi now+3h đã sang ngày mai giờ VN (chạy sau ~21:00).
 - Vì sao: dòng nhắc "Bàn này có khách đặt lúc HH:mm" chỉ tính đặt bàn muộn hơn TRONG NGÀY (`buildMoveTargets`), nên chạy
@@ -130,4 +130,6 @@ Mẫu:
 - Phương án khác: (a) để nguyên, ai chạy sau 21:00 tự biết bỏ qua; (b) nếu quán mở qua nửa đêm và muốn nhắc cả đặt bàn
   sau 0h → đổi hành vi app (nhắc theo ngày kinh doanh `business_date_of`), là việc riêng.
 - Rủi ro nếu duyệt: thấp — chỉ bỏ qua đúng khung giờ không kiểm được.
-- Trả lời của anh:
+- Trả lời của anh: Chỉ cần hiện cảnh báo 3h là được. Ai làm sau 9h tự biết bỏ qua, chọn bàn khác
+- **Đã chốt 2026-11-17:** KHÔNG thêm skip, KHÔNG đổi hành vi app (nhắc vẫn chỉ tính đặt bàn trong ngày). Chạy e2e sau
+  21:00 thấy đúng bài này đỏ thì bỏ qua; đã ghi chú ngay trên bài trong `admin-web/e2e/pos-so-do.spec.ts`.

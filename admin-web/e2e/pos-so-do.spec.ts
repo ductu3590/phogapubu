@@ -558,6 +558,8 @@ test.describe('C + D. Ô bàn + bấm ô', () => {
   })
 
   // Đặt bàn còn xa (chưa tới khung giữ bàn) → ô vẫn trống; bấm vào thì hộp gọi món có dòng vàng nhắc giờ khách đặt.
+  // Chạy sau ~21:00 giờ VN bài này ĐỎ GIẢ: now+3h sang ngày mai, mà nhắc chỉ tính đặt bàn trong ngày. Anh Tú chốt
+  // để nguyên, bỏ qua bài này khi chạy muộn (D-009, 2026-11-17).
   test('bàn có đặt xa (now+3h): bấm ô → hộp gọi món có dòng nhắc "Bàn này có khách đặt lúc HH:mm"', async ({ page }) => {
     requireReservations()
     await gotoPos(page)
