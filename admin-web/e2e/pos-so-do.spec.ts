@@ -17,6 +17,7 @@ import {
   readRunState,
   recordReservationByName,
   recordOpenSessionOnTable,
+  recordTouchedTable,
 } from './seed'
 
 const POS_URL = '/admin/pos'
@@ -388,6 +389,8 @@ test.describe('C + D. Ô bàn + bấm ô', () => {
     await expect(addOption.or(sheet.getByText('Món bổ sung'))).toBeVisible()
     if (await addOption.isVisible()) await addOption.click()
     await expect(sheet.getByText('Món bổ sung')).toBeVisible()
+    // Ghi bàn TRƯỚC khi gửi: assert đóng hộp bên dưới có fail thì teardown cùng lượt vẫn đóng phiên vừa mở.
+    recordTouchedTable(table.id)
     await sheet.getByRole('button', { name: 'Thêm vào bill · không báo bếp' }).click()
     // Hộp chọn món chỉ đóng khi gửi món thành công (bàn đã mở) → ghi id phiên vừa mở để teardown đóng.
     await expect(sheet).toHaveCount(0)
@@ -410,6 +413,24 @@ test.describe('C + D. Ô bàn + bấm ô', () => {
     const panel = billPanel(page)
     await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Đã chọn 2 bàn trống')
     await expect(panel.getByRole('button', { name: 'Ghép thành một mâm' })).toBeVisible()
+  })
+
+  // Máy tính bảng 1024 (dưới xl): bảng 1 bàn trống là sheet đáy KHÔNG chặn lưới → bấm được bàn trống thứ hai.
+  // Không bấm "Ghép thành một mâm" (sẽ mở phiên thật) — chỉ kiểm bảng hiện ra rồi Bỏ chọn.
+  test('1024×768: bấm 2 bàn trống thật → "Đã chọn 2 bàn trống" + "Ghép thành một mâm"; Bỏ chọn → đóng bảng', { tag: '@tablet-layout' }, async ({ page }) => {
+    await gotoPos(page)
+    await openFloor(page)
+    const [a, b] = await freeRealTables(page, 2)
+    await tileById(page, a.id).click()
+    const panel = billPanel(page)
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText(a.name)
+    await expect(panel.getByText('Bấm thêm bàn trống khác để ghép thành một mâm.')).toBeVisible()
+    // Không có nền mờ chặn: bấm thẳng ô thứ hai trên lưới (không force).
+    await tileById(page, b.id).click()
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Đã chọn 2 bàn trống')
+    await expect(panel.getByRole('button', { name: 'Ghép thành một mâm' })).toBeVisible()
+    await panel.getByRole('button', { name: 'Bỏ chọn' }).click()
+    await expect(billPanel(page)).toHaveCount(0)
   })
 
   test('bấm bàn trống khi đang mở bill → cột phải chuyển sang bảng bàn trống', async ({ page }) => {

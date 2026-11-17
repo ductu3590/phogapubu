@@ -7,6 +7,7 @@ import { defineConfig, devices } from '@playwright/test'
 // Ba cỡ màn, chọn test bằng tag (không dùng test.skip):
 //   @layout          kịch bản bố cục chạy ở cả ba cỡ
 //   @desktop-layout  chỉ cỡ máy tính (1366 + 1920)   @phone-layout  chỉ cỡ điện thoại
+//   @tablet-layout   chỉ máy tính bảng 1024×768 (dưới xl: bảng bill là sheet đáy)
 //   không tag        kịch bản thao tác — chỉ desktop-1366
 // workers: 1 — mọi test dùng chung một quán, chạy song song sẽ giẫm dữ liệu của nhau.
 
@@ -48,13 +49,18 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop-1366',
-      grepInvert: /@phone-layout/,
+      grepInvert: [/@phone-layout/, /@tablet-layout/],
       use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 768 } },
     },
     {
       name: 'desktop-1920',
       grep: [/@layout/, /@desktop-layout/],
       use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } },
+    },
+    {
+      name: 'tablet-1024',
+      grep: [/@tablet-layout/],
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1024, height: 768 }, hasTouch: true },
     },
     {
       name: 'phone',

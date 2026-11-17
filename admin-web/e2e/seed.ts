@@ -194,6 +194,14 @@ function appendRunState(key: 'sessionIds' | 'touchedTableIds' | 'reservationIds'
 }
 
 /**
+ * Ghi bàn thật SẮP được mở phiên qua giao diện — gọi TRƯỚC khi bấm gửi. Assert sau đó có fail thì teardown cùng lượt
+ * vẫn đóng phiên trên bàn này (lưới an toàn 1 giờ, xem cleanup). Thành công thì gọi tiếp recordOpenSessionOnTable.
+ */
+export function recordTouchedTable(tableId: string) {
+  appendRunState('touchedTableIds', [tableId])
+}
+
+/**
  * Test vừa mở phiên THÀNH CÔNG trên một bàn thật (qua giao diện / RPC) → ghi id phiên đang mở trên bàn đó + ghi bàn.
  * Bàn chỉ là lưới an toàn cho teardown CÙNG lượt (xem cleanup); id phiên mới là thứ được tin.
  */
