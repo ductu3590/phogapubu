@@ -1,7 +1,10 @@
 {
   "_doc": "Cổng cứng bằng máy. Sửa file này cần: python scripts/approve.py harness 1. Mỗi cổng mở khoá tạm bằng: python scripts/approve.py <tên> <giờ>.",
   "protected_paths": [
-    ".claude/**",
+    ".claude/settings*.json",
+    ".claude/hooks/**",
+    ".claude/agents/**",
+    ".claude/skills/**",
     ".harness/gates.json",
     ".harness/unlocks.json",
     ".harness/gate-events.log",
