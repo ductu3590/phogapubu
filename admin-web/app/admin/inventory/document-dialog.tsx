@@ -12,7 +12,7 @@ import { loadInventoryDocument, voidInventoryDocument } from '@/lib/actions/inve
 import { runAction } from '@/lib/run-action'
 import { DOC_KIND_LABEL, formatQty, type DocDetail } from '@/lib/inventory'
 import { formatVND } from '@/lib/utils'
-import { formatDateTime, formatDocDate, paidLabel } from './doc-format'
+import { formatDateTime, formatDocDate, paidLabel, paidSettled } from './doc-format'
 
 type Loaded = { id: string; result: Awaited<ReturnType<typeof loadInventoryDocument>> }
 
@@ -85,7 +85,7 @@ export default function DocumentDialog({ id, onClose, onVoided }: {
           <div className="space-y-4 text-sm">
             <div className="flex flex-wrap items-center gap-2">
               {doc.status === 'voided' ? <Badge tone="neutral">Đã huỷ</Badge> : <Badge tone="success" withDot>Đã lưu</Badge>}
-              {isReceipt ? <Badge tone={doc.paidStatus === 'paid' ? 'info' : 'warning'}>{paidLabel(doc)}</Badge> : null}
+              {isReceipt ? <Badge tone={paidSettled(doc) ? 'info' : 'warning'}>{paidLabel(doc)}</Badge> : null}
             </div>
 
             {doc.status === 'voided' ? (

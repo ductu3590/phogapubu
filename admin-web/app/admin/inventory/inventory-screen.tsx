@@ -8,7 +8,7 @@ import InventoryTabs from './inventory-tabs'
 // Kho (mig 118). Dùng chung cho trang đầy đủ (page.tsx) và bản hộp thoại đè lên POS (@modal/(.)inventory).
 // Guard 'pos': thu ngân vào được để XEM tồn; nút ghi chỉ hiện với chủ quán + quản lý (isBackOfficeRole) — RPC kiểm
 // lại bằng is_store_back_office nên ẩn nút chỉ là giao diện, không phải khoá.
-export default async function InventoryScreen({ inModal }: { inModal: boolean }) {
+export default async function InventoryScreen({ inModal, initialDocId = null }: { inModal: boolean; initialDocId?: string | null }) {
   const operator = await requireAdminPageOrRedirect('pos')
   const canEdit = isBackOfficeRole(operator.role)
   // Thu ngân: giá vốn / giá trị tồn gỡ ngay ở server, không chỉ ẩn trên giao diện.
@@ -31,7 +31,7 @@ export default async function InventoryScreen({ inModal }: { inModal: boolean })
         )}
         {stock.ok ? (
           <ToastProvider>
-            <InventoryTabs canEdit={canEdit} today={today} initialStock={stock.rows} />
+            <InventoryTabs canEdit={canEdit} today={today} initialStock={stock.rows} initialDocId={initialDocId} />
           </ToastProvider>
         ) : (
           <ErrorState title="Không tải được kho" reason={stock.error} />

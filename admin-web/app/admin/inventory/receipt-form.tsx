@@ -24,6 +24,8 @@ export function receiptBlocker(d: ReceiptDraft): string | null {
   if (!d.drafts.some((l) => l.inventoryItemId)) return 'Chọn ít nhất một hàng'
   if (d.paidStatus === null) return 'Chọn đã trả hay chưa trả'
   if (d.paidStatus === 'paid' && d.paidMethod === null) return 'Chọn phương thức trả tiền'
+  // Mig 144: phiếu Chưa trả là một khoản nợ của NCC → bắt buộc có NCC (server cũng chặn).
+  if (d.paidStatus === 'unpaid' && d.supplierName.trim() === '') return 'Chọn nhà cung cấp'
   return null
 }
 
@@ -124,8 +126,8 @@ export default function ReceiptForm({ today, items, suppliers, onClose, onSaved,
               onChange={(paidMethod) => set({ paidMethod })} />
             {/* Mig 122b: lưu phiếu nhập đã trả = ghi luôn phiếu chi "Nhập hàng" trong cùng giao dịch. */}
             <p className="text-[13px] text-muted">
-              Lưu phiếu sẽ ghi luôn một phiếu chi &quot;Nhập hàng&quot; vào Sổ thu chi
-              {form.paidMethod === 'cash' ? ' — tiền mặt lấy từ két, quán bật ca thì cần mở ca trên POS trước.' : '.'}
+              Khi có tiền trả, Kho tự ghi phiếu chi “Nhập hàng”.
+              {form.paidMethod === 'cash' ? ' Tiền mặt lấy từ két, quán bật ca thì cần mở ca trên POS trước.' : ''}
             </p>
             {/* Ghi lùi ngày nhập: tồn kho tính theo ngày nhập, nhưng tiền mặt ra khỏi két HÔM NAY (phiếu chi mang ngày hôm nay,
                 gắn ca đang mở) — cash_book_create_internal không ghi lùi ngày. */}
@@ -135,6 +137,14 @@ export default function ReceiptForm({ today, items, suppliers, onClose, onSaved,
               </p>
             ) : null}
           </>
+        ) : null}
+        {/* Mig 144: phiếu Chưa trả thành nợ của NCC, trả sau ở trang Công nợ. */}
+        {form.paidStatus === 'unpaid' ? (
+          form.supplierName.trim() ? (
+            <p className="text-[13px] text-muted">Phiếu sẽ ghi vào công nợ NCC {form.supplierName.trim().replace(/\s+/g, ' ')}.</p>
+          ) : (
+            <p className="text-[13px] text-amber-800">Chọn nhà cung cấp — phiếu chưa trả sẽ ghi vào công nợ NCC đó.</p>
+          )
         ) : null}
       </Section>
 

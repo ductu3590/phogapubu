@@ -43,6 +43,10 @@ export type DocSummary = {
   voidReason: string | null
   /** Phiếu chi đi kèm trong sổ thu chi (mig 122b: phiếu nhập đã trả). Phiếu khác / chưa trả → null. */
   cashBookEntryId: string | null
+  /** NCC của phiếu nhập (mig 144). */
+  supplierId: string | null
+  /** Số còn nợ (mig 144): chỉ phiếu nhập Chưa trả còn hiệu lực có NCC; còn lại null. */
+  outstanding: number | null
 }
 
 export type DocLine = {
@@ -328,6 +332,8 @@ function parseSummary(r: unknown): DocSummary | null {
     voidedAt: str(r.voided_at),
     voidReason: str(r.void_reason),
     cashBookEntryId: str(r.cash_book_entry_id),
+    supplierId: str(r.supplier_id),
+    outstanding: num(r.outstanding),
   }
 }
 
