@@ -6,6 +6,7 @@
 
 ## Chờ test
 
+- ⏳ [POS tab Sơ đồ (lưới bàn kiểu KiotViet, ghim màn mặc định)](docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md) — Chờ test (Playwright 32/32 xanh 2026-11-17; anh Tú test tay T1→T7)
 - ✅ [Báo cáo — giao diện mới (biểu đồ, % so với kỳ trước)](docs/testing/bao-cao-chuyen-nghiep/BAO-CAO-UI.md) — Test 1–7 PASS 2026-11-17 (anh Tú)
 - ⏳ [POS — "+ Mở bàn" trên Timeline, rail gọn, Báo cáo thành trang (RAIL-1)](docs/testing/pos-rail/RAIL-1.md) — A–F PASS 2026-11-16 (anh Tú); nhóm G (xoá bàn đã có đơn + chọn nhiều bàn, mig 141–142 đã áp prod) agent ✓ G1–G6, chờ anh Tú G7 + xem lại; nhánh `claude/timeline-ui-buttons-43fcde`, chưa commit
 - 👉 [**Trước go-live: việc còn lại của anh Tú, gom theo màn / thiết bị**](docs/testing/TRUOC-GO-LIVE.md) — T-002 2026-11-15; hạn 24/11
@@ -33,4 +34,3 @@
 - ✅ [Giảm giá theo món / danh mục](docs/testing/menu-discount/MD-1.md) — PASS 2026-11-10
 - ✅ [Chuyển bàn](docs/testing/chuyen-ban-giam-gia/CB-1.md) · [Chuyển cả mâm](docs/testing/chuyen-ban-giam-gia/CB-2.md) · [Giảm giá hoá đơn](docs/testing/chuyen-ban-giam-gia/GG-1.md)
 - ✅ [Đợt 1 B1 — Ngày kinh doanh](docs/testing/dot1/B1-ngay-kinh-doanh.md)
-- ⏳ [POS tab Sơ đồ (lưới bàn kiểu KiotViet, ghim màn mặc định)](docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md) — Chờ test (Playwright 31/31 xanh 2026-11-17; anh Tú test tay T1→T6)
