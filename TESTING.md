@@ -33,3 +33,4 @@
 - ✅ [Giảm giá theo món / danh mục](docs/testing/menu-discount/MD-1.md) — PASS 2026-11-10
 - ✅ [Chuyển bàn](docs/testing/chuyen-ban-giam-gia/CB-1.md) · [Chuyển cả mâm](docs/testing/chuyen-ban-giam-gia/CB-2.md) · [Giảm giá hoá đơn](docs/testing/chuyen-ban-giam-gia/GG-1.md)
 - ✅ [Đợt 1 B1 — Ngày kinh doanh](docs/testing/dot1/B1-ngay-kinh-doanh.md)
+- ⏳ [POS tab Sơ đồ (lưới bàn kiểu KiotViet, ghim màn mặc định)](docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md) — Chờ test (Playwright 31/31 xanh 2026-11-17; anh Tú test tay T1→T6)
