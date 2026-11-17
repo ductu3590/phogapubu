@@ -133,3 +133,12 @@ Mẫu:
 - Trả lời của anh: Chỉ cần hiện cảnh báo 3h là được. Ai làm sau 9h tự biết bỏ qua, chọn bàn khác
 - **Đã chốt 2026-11-17:** KHÔNG thêm skip, KHÔNG đổi hành vi app (nhắc vẫn chỉ tính đặt bàn trong ngày). Chạy e2e sau
   21:00 thấy đúng bài này đỏ thì bỏ qua; đã ghi chú ngay trên bài trong `admin-web/e2e/pos-so-do.spec.ts`.
+
+## D-010 · 2026-11-17 · gate: secrets · task: sửa chữ màn nhân viên (sau test prod 4 vai) · trạng thái: đã chốt — bỏ qua xem local
+- Cần làm: chép `admin-web/.env.local` sang worktree `mevo-report-professional-17b25f/admin-web/` để chạy dev server xem
+  màn `/staff/order` (câu báo gửi đơn) và `/staff/orders` (nhãn "Thu ngân ghi", mã đơn) trước khi merge.
+- Vì sao: worktree không có `.env.local`; cổng secrets chặn cả lệnh kiểm file có tồn tại.
+- Phương án đề xuất (khuyến nghị): anh mở cổng `secrets` 1 giờ như D-005, agent chép file + xem bằng trình duyệt.
+  Phương án khác: bỏ xem local, merge rồi kiểm luôn trên mevo.vn sau khi Vercel deploy (đổi chỉ là chữ, đã có unit test).
+- Rủi ro nếu duyệt: thấp — chép sang thư mục gitignored trên máy anh, không in nội dung.
+- Trả lời của anh: "Bỏ qua, commit" (chat 2026-11-18) → không mở cổng; kiểm bằng S1–S5 sau khi bản này chạy.

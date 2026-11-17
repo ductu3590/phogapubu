@@ -19,6 +19,7 @@ import { Banner, EmptyState } from '@/components/ui/feedback'
 import { Input } from '@/components/ui/field'
 import { STATUS_TONE_CLASSES, TABLE_STATE } from '@/components/ui/status'
 import { cn } from '@/lib/utils'
+import { shortOrderCode, staffSubmitTitle } from '@/lib/staff-order-display'
 
 type Topping = { id: string; name: string; price: number }
 // price = giá SAU giảm giá món/danh mục (mig 115, tính ở page.tsx); originalPrice = giá gốc nếu đang giảm.
@@ -49,6 +50,7 @@ export default function StaffOrderClient({
   areas,
   categories,
   paymentTiming,
+  staffNeedsPosConfirmation,
   initialSessions,
   initialReserved,
 }: {
@@ -57,6 +59,8 @@ export default function StaffOrderClient({
   areas: StaffArea[]
   categories: Category[]
   paymentTiming: 'prepay' | 'postpay'
+  /** Quán bắt thu ngân duyệt đơn nhân viên trước khi vào bếp (staff_order_release_policy). */
+  staffNeedsPosConfirmation: boolean
   initialSessions: OpenTableSession[]
   initialReserved: StaffReservedTable[]
 }) {
@@ -314,10 +318,10 @@ export default function StaffOrderClient({
     return (
       <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center overflow-y-auto px-4 py-8 text-center">
         <CircleCheck className="mb-3 size-14 text-success-dot" aria-hidden />
-        <h1 className="text-xl font-semibold text-foreground">Đã gửi vào bếp</h1>
+        <h1 className="text-xl font-semibold text-foreground">{staffSubmitTitle(staffNeedsPosConfirmation)}</h1>
         <dl className="mx-auto mt-5 w-full max-w-xs space-y-2 rounded-xl border border-border bg-surface p-4 text-left text-sm">
           <div className="flex justify-between gap-3"><dt className="text-muted">Bàn</dt><dd className="font-medium text-foreground">{success.tableNumber}</dd></div>
-          <div className="flex justify-between gap-3"><dt className="text-muted">Mã đơn</dt><dd className="font-mono text-foreground">#{success.orderId.slice(0, 8)}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-muted">Mã đơn</dt><dd className="font-mono text-foreground">{shortOrderCode(success.orderId)}</dd></div>
           <div className="flex justify-between gap-3 border-t border-border pt-2"><dt className="text-muted">Tổng</dt><dd className="text-lg font-semibold text-foreground tabular">{dong(success.total)}</dd></div>
         </dl>
         <p className="mt-4 text-sm text-muted">

@@ -23,6 +23,7 @@ import { billTotals } from '@/lib/bill-discount'
 import { sessionTimeoutMessage } from '@/lib/session-timeout'
 import { areaColorClasses } from '@/lib/area-colors'
 import { groupTablesByArea, type StaffArea } from '@/lib/staff-area-groups'
+import { staffOrderStatusLabel } from '@/lib/staff-order-display'
 
 const dong = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 
@@ -250,7 +251,7 @@ export default function TablesClient({
                     {o.items.map((it) => it.name + ' ×' + it.quantity).join(', ') || 'Không có món'}
                   </span>
                   <span className="shrink-0 text-muted tabular">
-                    {gio(o.created_at)} {STATUS_LABEL[o.status] ?? o.status}
+                    {gio(o.created_at)} {staffOrderStatusLabel(o.status, o.order_source, STATUS_LABEL)}
                     {o.payment_received_at && ' ✓'}
                   </span>
                 </li>

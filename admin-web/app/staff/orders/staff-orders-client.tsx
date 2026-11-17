@@ -6,6 +6,7 @@ import { paymentBadge } from '@/lib/order-payment-badge'
 import { Badge, StatusDot } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/feedback'
 import { orderStatusTone } from '@/components/ui/status'
+import { isPosManualPending, shortOrderCode, staffOrderStatusLabel } from '@/lib/staff-order-display'
 import { mapStaffOrderRow, STAFF_ORDER_SELECT, ACTIVE_STATUSES, type StaffOrder } from './types'
 
 const dong = (n: number) => `${n.toLocaleString('vi-VN')}đ`
@@ -126,14 +127,16 @@ export default function StaffOrdersClient({
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="font-semibold text-foreground">{o.tableNumber}</span>
-                      <span className="font-mono text-[13px] text-muted">#{o.id.slice(-6).toUpperCase()}</span>
+                      <span className="font-mono text-[13px] text-muted">{shortOrderCode(o.id)}</span>
                       {o.orderSource === 'staff' && <span className="text-[13px] text-muted">· Đặt hộ</span>}
                     </div>
                     <span className="shrink-0 font-semibold text-foreground tabular">{dong(o.totalAmount)}</span>
                   </div>
 
                   <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                    <Badge tone={orderStatusTone(o.status)}>{STATUS_LABEL[o.status] ?? o.status}</Badge>
+                    <Badge tone={isPosManualPending(o.status, o.orderSource) ? 'neutral' : orderStatusTone(o.status)}>
+                      {staffOrderStatusLabel(o.status, o.orderSource, STATUS_LABEL)}
+                    </Badge>
                     <Badge tone={pay.tone === 'received' ? 'success' : 'warning'}>{pay.label}</Badge>
                     <span className="text-[13px] text-muted tabular">
                       {new Date(o.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}

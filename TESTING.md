@@ -6,6 +6,7 @@
 
 ## Chờ test
 
+- ⏳ [Màn nhân viên — câu báo gửi đơn, nhãn món ghi tay, mã đơn](docs/testing/staff-chu/STAFF-CHU.md) — agent ✓ unit test; chờ anh Tú S1–S5 (chưa merge)
 - ✅ [POS tab Sơ đồ (lưới bàn kiểu KiotViet, ghim màn mặc định)](docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md) — PASS hết (T1–T8) 2026-11-17; đã merge main
 - ✅ [Công nợ nhà cung cấp + trả nhiều phiếu một lần (mig 143–146)](docs/testing/cong-no-ncc/CONG-NO-NCC.md) — PASS hết 2026-11-17 (agent Playwright A1–A5, B1–B12, B14, C1–C4; anh Tú B13); đã merge main
 - ✅ [Báo cáo — giao diện mới (biểu đồ, % so với kỳ trước)](docs/testing/bao-cao-chuyen-nghiep/BAO-CAO-UI.md) — Test 1–7 PASS 2026-11-17 (anh Tú); Test 8 (đợt dọn nốt) PASS 2026-11-17

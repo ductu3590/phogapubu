@@ -1,5 +1,5 @@
 import { requireStaffAreaOrRedirect } from '@/lib/auth/operator'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { listOpenTableSessions } from '@/lib/actions/table-session'
 import { listStaffUpcomingReservedTables } from '@/lib/actions/staff-reservations'
 import StaffOrderClient from './staff-order-client'
@@ -13,7 +13,7 @@ export default async function StaffOrderPage() {
   const storeId = operator.storeId
   const supabase = await createClient()
 
-  const [storeRes, tablesRes, areasRes, categoriesRes, toppingsRes, sessionsRes, reservedRes, discounts] = await Promise.all([
+  const [storeRes, tablesRes, areasRes, categoriesRes, toppingsRes, sessionsRes, reservedRes, discounts, workflowRes] = await Promise.all([
     supabase.from('stores').select('payment_timing').eq('id', storeId).single(),
     supabase.from('tables').select('id, table_number, area_id').eq('store_id', storeId).eq('is_active', true),
     // Khu (mig 097 cho nhân viên đọc). Lỗi / rỗng → màn chọn bàn hiện một lưới như trước.
@@ -32,6 +32,9 @@ export default async function StaffOrderPage() {
     listStaffUpcomingReservedTables(),
     // Giảm giá món / danh mục đang hiệu lực (mig 115) — chỉ để vẽ giá; staff_create_order tự trừ ở server.
     loadActiveMenuDiscounts(supabase, storeId),
+    // Chính sách đơn nhân viên: nhân viên không đọc được bảng này qua RLS (chỉ chủ quán) → đọc bằng admin client,
+    // khoá theo store_id của chính nhân viên (đã qua requireStaffAreaOrRedirect). Chỉ để chọn câu báo gửi đơn.
+    createAdminClient().from('store_workflow_settings').select('staff_order_release_policy').eq('store_id', storeId).maybeSingle(),
   ])
 
   // Bàn: sắp xếp tự nhiên (Bàn 2 trước Bàn 10)
@@ -93,6 +96,7 @@ export default async function StaffOrderPage() {
       areas={(areasRes.data ?? []).map((a) => ({ id: a.id as string, name: a.name as string, color: (a.color as string | null) ?? null }))}
       categories={categories}
       paymentTiming={paymentTiming}
+      staffNeedsPosConfirmation={workflowRes.data?.staff_order_release_policy === 'pos_confirmation'}
       initialSessions={sessionsRes.ok ? sessionsRes.sessions : []}
       initialReserved={reservedRes.ok ? reservedRes.rows : []}
     />
