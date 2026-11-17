@@ -13,9 +13,14 @@ phiếu chi cùng số tiền. Tiền mặt trả NCC đi qua két ca đang mở
 
 ## Kết quả agent (2026-11-17)
 
-- ✓ DB PGlite 640/640 (gồm 25 bài mig 143–145), vitest 1771/1771, test đua 43/43 (25 vòng), `python scripts/verify.py` XANH.
-- ✓ Bài **B4, B5, B6, B8, C2** đã có test tự động tương ứng (vẫn nên xem lại trên giao diện).
-- Còn lại cần anh Tú bấm tay.
+- ✓ DB PGlite 640/640 (gồm 26 bài mig 143–146), vitest 1771/1771, test đua 43/43 (25 vòng), `python scripts/verify.py` XANH.
+- ✓ **Playwright trên localhost:3000 (dữ liệu prod quán Bảo Lương, đăng nhập chủ quán)** — PASS A1–A5, B1–B12, B14, C1–C4;
+  console 0 lỗi; SQL bất biến cuối file ra 0 dòng. Dữ liệu test để lại: NCC "NCC Test PW" (đã ngừng, còn nợ 2.700.000đ),
+  "NCC Test PW Hai", phiếu PN-0011…PN-0014, các lần trả / phiếu chi "Trả nợ NCC", phiếu chi 10.000đ "Test Playwright đi chợ",
+  2 ca test đã kết. Công tắc "bắt buộc mở ca" bật tạm rồi đã trả về TẮT.
+- Playwright tìm ra và đã sửa: dòng báo "Đã trả …" còn treo sau khi huỷ chính lần trả đó; ô tích phiếu trên điện thoại chỉ
+  20×20px (nay vùng chạm 44×44px).
+- ⏳ Chờ anh Tú: **B13** (đăng nhập tài khoản thu ngân — agent không có mật khẩu).
 
 ## Chuẩn bị
 

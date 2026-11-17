@@ -29,8 +29,11 @@ function DocLine({ d, checked, busy, onToggle }: { d: SupplierDoc; checked: bool
   return (
     <li className="flex items-start gap-3 py-2">
       {checked !== null ? (
-        <input type="checkbox" aria-label={`Chọn ${d.docNo}`} checked={checked} disabled={busy} onChange={() => onToggle(d.id)}
-          className="mt-1 size-5 shrink-0 cursor-pointer accent-orange-600" />
+        // Vùng chạm 44×44 quanh ô tích (điện thoại); ô tích vẫn 20px.
+        <label className="-my-2 -ml-3 flex size-11 shrink-0 cursor-pointer items-center justify-center">
+          <input type="checkbox" aria-label={`Chọn ${d.docNo}`} checked={checked} disabled={busy} onChange={() => onToggle(d.id)}
+            className="size-5 cursor-pointer accent-orange-600" />
+        </label>
       ) : null}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
@@ -217,6 +220,8 @@ export default function SupplierDrawer({ supplier, onClose }: { supplier: Suppli
   const run = async (op: () => Promise<{ ok: boolean; error?: string }>, done: () => void) => {
     setBusy(true)
     setActionError(null)
+    // Thao tác mới (huỷ lần trả, ngừng / dùng lại) → bỏ dòng báo của lần trả trước, kẻo báo "Đã trả …" treo sau khi đã huỷ.
+    setNotice(null)
     try {
       const res = await op()
       if (!res.ok) { setActionError(res.error ?? 'Không thực hiện được'); return }
