@@ -1,6 +1,6 @@
 # POS tab "Sơ đồ" — checklist test
 
-Spec: [2026-11-17-pos-so-do-ban-design.md](../../superpowers/specs/2026-11-17-pos-so-do-ban-design.md) (bố cục B, màn quầy 1920×1080). Trạng thái: **PASS 2026-11-17** (T1–T7), chờ test **T8** (3 chỉnh sau PASS).
+Spec: [2026-11-17-pos-so-do-ban-design.md](../../superpowers/specs/2026-11-17-pos-so-do-ban-design.md) (bố cục B, màn quầy 1920×1080). Trạng thái: **PASS hết 2026-11-17** (T1–T8).
 
 Tab giữa của POS tên **Sơ đồ** (Timeline · Sơ đồ · Danh sách). Bố cục B cho màn quầy 1920×1080: ô **To** 156×120 có **dải tên khu** ở đỉnh ô (không còn chấm màu khu), **cột phải luôn hiện** (Việc cần xử lý / bill), **bấm bàn trống ra thẳng hộp "Tên bàn · Gọi món"** (không còn bảng 1 bàn trống), và chế độ **"Ghép bàn trống"** để ghép nhiều bàn trống thành một mâm. Nút "Sắp xếp bàn" nằm ở thanh trên cạnh "Ghép bàn trống". Nút ngôi sao (chỉ icon, chữ ở tooltip) ghim màn mở sẵn theo từng máy.
 
