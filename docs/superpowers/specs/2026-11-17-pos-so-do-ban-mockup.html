@@ -1,0 +1,532 @@
+<title>POS Sơ đồ bàn</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<style>
+/* Bố cục: khung màn POS 1366px (cuộn ngang trên điện thoại) + ghi chú quyết định bên dưới. Giữ đúng màu/chữ của admin-web (cam MEVO, xám slate, Be Vietnam Pro). Mockup cố ý chỉ có giao diện sáng như POS thật. */
+:root {
+  color-scheme: light;
+  --page: #eef0f3; --surface: #ffffff; --line: #e2e8f0; --line-2: #cbd5e1;
+  --ink: #0f172a; --ink-2: #334155; --muted: #64748b; --faint: #94a3b8;
+  --brand: #ea580c; --brand-ink: #c2410c; --brand-soft: #fff7ed;
+  --dark: #0f172a; --dark-2: #1e293b; --dark-3: #334155;
+  --ok: #059669; --ok-soft: #ecfdf5; --ok-line: #a7f3d0;
+  --warn: #d97706; --warn-soft: #fffbeb; --warn-line: #fcd34d;
+  --bad: #dc2626; --bad-soft: #fef2f2; --bad-line: #fecaca;
+  --book: #7c3aed; --book-soft: #f5f3ff; --book-line: #ddd6fe;
+  --font: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font-family: var(--font); font-size: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; }
+button { font: inherit; color: inherit; }
+.tab { font-variant-numeric: tabular-nums; }
+.intro { max-width: 1366px; margin: 0 auto 14px; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: end; justify-content: space-between; }
+.intro h1 { margin: 0; font-size: 20px; font-weight: 800; text-wrap: balance; }
+.intro p { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+.hint { font-size: 13px; color: var(--muted); }
+.hint b { color: var(--brand-ink); }
+
+.scroller { max-width: 1366px; margin: 0 auto; overflow-x: auto; border-radius: 14px; box-shadow: 0 1px 2px rgb(15 23 42 / .06), 0 12px 32px rgb(15 23 42 / .10); }
+.screen { width: 1366px; height: 820px; display: grid; grid-template-columns: 64px 1fr 400px; background: var(--surface); position: relative; overflow: hidden; }
+
+/* Rail */
+.rail { border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0; }
+.logo { width: 40px; height: 40px; border-radius: 10px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 18px; margin-bottom: 8px; }
+.rail a { width: 52px; padding: 7px 0; border-radius: 10px; text-align: center; font-size: 11px; color: var(--muted); text-decoration: none; display: grid; gap: 2px; justify-items: center; }
+.rail a svg { width: 18px; height: 18px; }
+.rail a.on { background: var(--brand); color: #fff; font-weight: 700; }
+
+/* Cột giữa */
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.top { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-bottom: 1px solid var(--line); }
+.top .name { font-weight: 800; font-size: 17px; }
+.chip-store { border: 1px solid #fdba74; color: var(--brand-ink); background: var(--brand-soft); border-radius: 6px; padding: 1px 8px; font-size: 13px; font-weight: 600; }
+.online { color: var(--ok); background: var(--ok-soft); border: 1px solid var(--ok-line); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.spacer { flex: 1; }
+.mode { display: inline-flex; background: #f1f5f9; border-radius: 10px; padding: 3px; position: relative; }
+.mode button { border: 0; background: none; padding: 7px 14px; border-radius: 8px; font-weight: 700; font-size: 13px; color: var(--ink-2); cursor: pointer; display: flex; gap: 6px; align-items: center; }
+.mode button svg { width: 15px; height: 15px; }
+.mode button.on { background: var(--surface); color: var(--brand-ink); box-shadow: 0 1px 2px rgb(15 23 42 / .15); }
+.btn { border: 1px solid var(--line-2); background: var(--surface); border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn svg { width: 15px; height: 15px; }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn.ghost-brand { border-color: var(--brand); color: var(--brand-ink); }
+.btn:focus-visible, .tile:focus-visible, .mode button:focus-visible, .ftab:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.queue { background: var(--dark); display: flex; gap: 8px; align-items: center; padding: 7px 18px; overflow-x: auto; }
+.queue .lbl { color: #fbbf24; font-weight: 800; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.qchip { border: 1px solid var(--dark-3); color: #cbd5e1; background: none; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.qchip b { background: var(--dark-2); border-radius: 999px; padding: 0 6px; }
+.qchip.hot { border-color: #f59e0b; color: #fde68a; }
+.qchip.hot b { background: #f59e0b; color: var(--dark); }
+.qchip.red { border-color: #f87171; color: #fecaca; }
+.qchip.red b { background: #ef4444; color: #fff; }
+
+.ftabs { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); padding: 0 18px; gap: 4px; }
+.ftab { border: 0; background: none; padding: 11px 14px 9px; border-bottom: 3px solid transparent; font-weight: 700; color: var(--muted); cursor: pointer; display: flex; gap: 7px; align-items: center; }
+.ftab svg { width: 16px; height: 16px; }
+.ftab.on { color: var(--brand-ink); border-color: var(--brand); }
+
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: #fbfcfd; }
+.seg { display: flex; gap: 4px; flex-wrap: wrap; }
+.pill { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.pill .n { color: var(--faint); font-weight: 700; }
+.pill.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.pill.on .n { color: #cbd5e1; }
+.pill .dot { width: 8px; height: 8px; border-radius: 99px; }
+.search { margin-left: auto; display: flex; align-items: center; gap: 6px; border: 1px solid var(--line-2); border-radius: 8px; padding: 0 10px; background: var(--surface); }
+.search input { border: 0; outline: 0; padding: 7px 0; width: 120px; font: inherit; }
+.search svg { width: 15px; height: 15px; color: var(--faint); }
+
+.board { flex: 1; min-height: 0; overflow: auto; padding: 14px 18px 18px; }
+.area-h { display: flex; align-items: baseline; gap: 8px; margin: 4px 0 8px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.area-h span { color: var(--faint); font-weight: 600; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.tile { position: relative; height: 84px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); text-align: left; padding: 7px 9px 7px 11px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+.tile:hover { border-color: var(--line-2); background: #f8fafc; }
+.tile .tn { font-weight: 800; font-size: 14px; display: flex; justify-content: space-between; gap: 4px; }
+.tile .sub { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 4px; white-space: nowrap; }
+.tile .money { font-weight: 800; font-size: 14px; }
+.tile .tray { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+.tile.serving { background: var(--ok-soft); border-color: var(--ok-line); }
+.tile.serving .money { color: #065f46; }
+.tile.pending { background: var(--warn-soft); border-color: var(--warn-line); box-shadow: 0 0 0 2px #f59e0b inset; }
+.tile.late { background: var(--bad-soft); border-color: var(--bad-line); }
+.tile.booked { background: var(--book-soft); border-color: var(--book-line); }
+.tile.booked .sub { color: var(--book); font-weight: 600; }
+.tile.free .tn { color: var(--ink-2); }
+.tile.sel { box-shadow: 0 0 0 2px var(--ink) !important; }
+.badge { font-size: 11px; font-weight: 800; border-radius: 5px; padding: 0 5px; line-height: 18px; white-space: nowrap; }
+.b-warn { background: #f59e0b; color: var(--dark); }
+.b-bad { background: var(--bad); color: #fff; }
+.b-call { background: var(--bad); color: #fff; display: inline-flex; gap: 2px; align-items: center; }
+.b-call svg { width: 11px; height: 11px; }
+.ping { position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border-radius: 99px; background: #f59e0b; }
+.ping::after { content: ""; position: absolute; inset: 0; border-radius: 99px; background: #fbbf24; animation: ping 1.2s cubic-bezier(0,0,.2,1) infinite; }
+@keyframes ping { 75%, 100% { transform: scale(2.4); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ping::after { animation: none; } }
+
+/* Thực đơn */
+.menu { display: none; flex: 1; min-height: 0; }
+.menu.on { display: grid; grid-template-columns: 170px 1fr; }
+.cats { border-right: 1px solid var(--line); padding: 10px; display: flex; flex-direction: column; gap: 4px; overflow: auto; }
+.cats button { border: 0; background: none; text-align: left; padding: 9px 10px; border-radius: 8px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+.cats button.on { background: var(--brand-soft); color: var(--brand-ink); font-weight: 800; }
+.items { padding: 14px 18px; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; align-content: start; }
+.item { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--surface); text-align: left; cursor: pointer; display: grid; gap: 6px; min-height: 86px; }
+.item:hover { border-color: var(--brand); }
+.item .nm { font-weight: 700; line-height: 1.3; }
+.item .pr { font-weight: 800; color: var(--brand-ink); }
+.menu-for { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; padding: 8px 18px; border-bottom: 1px solid var(--line); background: var(--brand-soft); color: var(--brand-ink); font-weight: 700; font-size: 13px; }
+
+.foot { border-top: 1px solid var(--line); padding: 9px 18px; display: flex; gap: 20px; font-size: 13px; color: var(--muted); align-items: center; flex-wrap: wrap; }
+.foot b { color: var(--ink); }
+.foot i { display: inline-block; width: 8px; height: 8px; border-radius: 99px; margin-right: 6px; vertical-align: 1px; }
+
+/* Cột bill */
+.bill { border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: var(--surface); }
+.bhead { background: var(--dark); color: #fff; padding: 14px 16px; }
+.bhead .t { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; }
+.bhead .m { color: #94a3b8; font-size: 12.5px; margin-top: 3px; }
+.state { font-size: 11px; font-weight: 800; border-radius: 4px; padding: 0 6px; line-height: 19px; text-transform: uppercase; }
+.st-ok { background: var(--ok); color: #fff; } .st-warn { background: #f59e0b; color: var(--dark); } .st-free { background: #475569; color: #fff; } .st-book { background: var(--book); color: #fff; } .st-bad { background: var(--bad); color: #fff; }
+.boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.box { border: 1px solid var(--dark-3); background: var(--dark-2); border-radius: 8px; padding: 7px 10px; }
+.box p { margin: 0; }
+.box .k { font-size: 10.5px; color: #94a3b8; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.box .v { font-size: 17px; font-weight: 800; }
+.box.hot { border-color: rgb(245 158 11 / .7); background: rgb(245 158 11 / .15); }
+.box.hot .k, .box.hot .v { color: #fcd34d; }
+.btabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); }
+.btabs span { text-align: center; padding: 11px 0 9px; font-weight: 700; font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; }
+.btabs span.on { color: var(--brand-ink); border-color: var(--brand); }
+.btabs em { font-style: normal; background: var(--bad); color: #fff; border-radius: 99px; padding: 0 6px; font-size: 11px; margin-left: 4px; }
+.bbody { flex: 1; overflow: auto; padding: 12px 16px; }
+.line { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; padding: 8px 0; border-bottom: 1px dashed var(--line); align-items: start; }
+.line .q { font-weight: 800; color: var(--brand-ink); }
+.line .n { font-weight: 600; }
+.line .n small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+.line .p { font-weight: 700; }
+.grp { font-size: 11.5px; font-weight: 800; color: var(--faint); letter-spacing: .05em; text-transform: uppercase; margin: 10px 0 2px; }
+.pend { border: 1px solid var(--warn-line); background: var(--warn-soft); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.pend .h { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; }
+.pend ul { margin: 6px 0 8px; padding-left: 18px; color: var(--ink-2); }
+.bfoot { border-top: 1px solid var(--line); padding: 12px 16px; display: grid; gap: 8px; }
+.bfoot .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pay { background: var(--brand); color: #fff; border: 0; border-radius: 10px; padding: 13px; font-weight: 800; font-size: 15px; cursor: pointer; }
+.lock { background: var(--bad-soft); color: #b91c1c; border: 1px solid var(--bad-line); border-radius: 10px; padding: 12px; font-weight: 800; font-size: 13px; text-align: center; text-transform: uppercase; }
+.free-card { border: 1px dashed var(--line-2); border-radius: 12px; padding: 18px; text-align: center; color: var(--muted); }
+.free-card h3 { margin: 0 0 6px; color: var(--ink); font-size: 16px; }
+.resv { border: 1px solid var(--book-line); background: var(--book-soft); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
+.resv b { color: var(--book); }
+.draft { border: 1px solid #fdba74; background: var(--brand-soft); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+.draft .h { font-weight: 800; color: var(--brand-ink); font-size: 13px; display: flex; justify-content: space-between; }
+.empty { display: grid; place-items: center; text-align: center; color: var(--muted); height: 100%; padding: 30px; }
+.empty svg { width: 34px; height: 34px; color: var(--faint); margin-bottom: 8px; }
+
+/* Ngăn kéo Việc cần xử lý */
+.drawer-bg { position: absolute; inset: 0; background: rgb(15 23 42 / .35); display: none; }
+.drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 400px; background: var(--surface); box-shadow: -12px 0 32px rgb(15 23 42 / .2); display: none; flex-direction: column; }
+.screen.work .drawer-bg { display: block; } .screen.work .drawer { display: flex; }
+.drawer .dh { padding: 14px 16px; border-bottom: 2px solid var(--brand); display: flex; justify-content: space-between; align-items: center; font-weight: 800; color: var(--brand-ink); font-size: 16px; }
+.wk { margin: 12px 16px 0; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.wk .h { display: flex; justify-content: space-between; font-weight: 700; }
+.wk p { margin: 4px 0 8px; color: var(--muted); font-size: 13px; }
+
+/* Popover chọn kiểu màn */
+.pref { position: absolute; top: 52px; left: 0; width: 330px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgb(15 23 42 / .18); padding: 14px; z-index: 5; display: none; }
+.pref.on { display: block; }
+.pref h4 { margin: 0 0 4px; font-size: 14px; }
+.pref p { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.opt { display: grid; grid-template-columns: 18px 1fr; gap: 8px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 6px; cursor: pointer; }
+.opt.on { border-color: var(--brand); background: var(--brand-soft); }
+.opt b { display: block; font-size: 13px; }
+.opt span { font-size: 12px; color: var(--muted); }
+.radio { width: 16px; height: 16px; border-radius: 99px; border: 2px solid var(--line-2); margin-top: 2px; }
+.opt.on .radio { border: 5px solid var(--brand); }
+
+/* Timeline (để so sánh) */
+.tl { display: none; flex: 1; min-height: 0; overflow: auto; padding: 0 0 10px; }
+.tl.on { display: block; }
+.tl-row { display: grid; grid-template-columns: 110px 1fr; border-bottom: 1px solid var(--line); height: 46px; align-items: center; }
+.tl-row .n { padding-left: 18px; font-weight: 700; font-size: 13px; }
+.tl-row .lane { position: relative; height: 100%; background: repeating-linear-gradient(90deg, transparent 0 calc(12.5% - 1px), var(--line) calc(12.5% - 1px) 12.5%); }
+.tl-bar { position: absolute; top: 9px; height: 28px; border-radius: 6px; font-size: 12px; font-weight: 700; padding: 0 8px; display: flex; align-items: center; white-space: nowrap; overflow: hidden; }
+.tl-note { padding: 10px 18px; font-size: 13px; color: var(--muted); background: #fbfcfd; border-bottom: 1px solid var(--line); }
+
+/* Ghi chú quyết định */
+.notes { max-width: 1366px; margin: 22px auto 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.note h3 { margin: 0 0 6px; font-size: 14.5px; display: flex; gap: 8px; align-items: baseline; }
+.note h3 .k { background: var(--ink); color: #fff; border-radius: 6px; font-size: 12px; padding: 1px 7px; }
+.note p, .note li { color: var(--ink-2); line-height: 1.55; font-size: 13.5px; }
+.note p { margin: 0 0 6px; }
+.note ul { margin: 0; padding-left: 18px; }
+.note .ask { margin-top: 8px; padding: 8px 10px; background: var(--brand-soft); border-radius: 8px; color: var(--brand-ink); font-weight: 600; font-size: 13px; }
+</style>
+
+<div class="intro">
+  <div>
+    <h1>POS kiểu Sơ đồ bàn (mockup để chốt)</h1>
+    <p>Dữ liệu mẫu 42 bàn / 3 khu. Màn này bấm được: chọn bàn, đổi khu, lọc trạng thái, mở tab Thực đơn để gọi món, bấm chip Hàng đợi, bấm nút đổi kiểu màn ở trên cùng.</p>
+  </div>
+  <div class="hint">Thử: bấm <b>S5</b> (đang ăn) · <b>B4</b> (chờ duyệt) · <b>B3</b> (trống) · <b>VIP2</b> (khách đặt sắp đến)</div>
+</div>
+
+<div class="scroller">
+<div class="screen" id="screen">
+  <nav class="rail" aria-label="Điều hướng">
+    <div class="logo">M</div>
+    <a class="on" href="#pos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>POS</a>
+    <a href="#pos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Đặt bàn</a>
+    <a href="#pos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l16 16M20 4L4 20"/></svg>Món</a>
+    <a href="#pos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/></svg>Hoá đơn</a>
+    <a href="#pos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Báo cáo</a>
+  </nav>
+
+  <section class="main">
+    <div class="top">
+      <span class="name">MEVO POS</span>
+      <span class="chip-store">Bia lẩu Bảo Lương</span>
+      <span class="online">● Trực tuyến</span>
+      <span class="spacer"></span>
+      <div class="mode" role="tablist" aria-label="Kiểu màn POS" id="mode">
+        <button id="m-tl" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h10M3 12h16M3 18h7"/></svg>Timeline</button>
+        <button id="m-fl" role="tab" aria-selected="true" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Sơ đồ bàn</button>
+        <div class="pref" id="pref">
+          <h4>Kiểu màn POS trên máy này</h4>
+          <p>Mỗi máy thu ngân nhớ kiểu màn riêng. Đổi bất cứ lúc nào, không ảnh hưởng máy khác.</p>
+          <div class="opt" data-v="tl"><span class="radio"></span><div><b>Timeline</b><span>Mỗi bàn một dòng theo giờ. Hợp quán ít bàn, nhiều khách đặt trước.</span></div></div>
+          <div class="opt on" data-v="fl"><span class="radio"></span><div><b>Sơ đồ bàn</b><span>Lưới ô bàn kèm bill bên phải. Hợp quán đông bàn, khách vãng lai.</span></div></div>
+        </div>
+      </div>
+      <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M12 13v5M9.5 15.5h5"/></svg>Đặt bàn mới</button>
+      <button class="btn ghost-brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6"/></svg>Khách lẻ</button>
+    </div>
+
+    <div class="queue" id="queue">
+      <span class="lbl">⚡ Hàng đợi:</span>
+      <button class="qchip hot" data-work>Lượt món chờ duyệt <b>2</b></button>
+      <button class="qchip red" data-work>Gọi nhân viên <b>1</b></button>
+      <button class="qchip" data-work>Đặt bàn chờ duyệt <b>0</b></button>
+      <button class="qchip red" data-work>Khách trễ / xung đột <b>1</b></button>
+      <button class="qchip" data-work>Chưa xếp bàn <b>0</b></button>
+    </div>
+
+    <!-- CHẾ ĐỘ SƠ ĐỒ BÀN -->
+    <div id="floorMode" style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <div class="ftabs" role="tablist">
+        <button class="ftab on" id="t-tables"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Phòng bàn</button>
+        <button class="ftab" id="t-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3v8a3 3 0 006 0V3M7 3v18M17 3c-2 2-3 5-3 8h3v10"/></svg>Thực đơn</button>
+        <span class="spacer"></span>
+        <button class="btn" style="align-self:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h13l-3-3M17 17H4l3 3"/></svg>Sắp xếp bàn</button>
+      </div>
+
+      <div id="tablesPane" style="display:flex;flex-direction:column;flex:1;min-height:0">
+        <div class="filters">
+          <div class="seg" id="areas"></div>
+          <div class="seg" id="states"></div>
+          <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" placeholder="Tìm bàn…" aria-label="Tìm bàn"></label>
+        </div>
+        <div class="board" id="board"></div>
+      </div>
+
+      <div class="menu" id="menuPane">
+        <div class="menu-for" id="menuFor"></div>
+        <div class="cats" id="cats"></div>
+        <div class="items" id="items"></div>
+      </div>
+    </div>
+
+    <!-- CHẾ ĐỘ TIMELINE (để so sánh) -->
+    <div class="tl" id="tlMode">
+      <div class="tl-note">Timeline hiện tại: 42 bàn = 42 dòng, màn này chỉ thấy khoảng 13 dòng, phải cuộn ~3 lần mới hết quán.</div>
+      <div id="tlRows"></div>
+    </div>
+
+    <div class="foot" id="foot"></div>
+  </section>
+
+  <aside class="bill" id="bill" aria-label="Bill bàn đang chọn"></aside>
+
+  <div class="drawer-bg" id="drawerBg"></div>
+  <aside class="drawer" aria-label="Việc cần xử lý">
+    <div class="dh">Việc cần xử lý <button class="btn" id="closeWork">Đóng</button></div>
+    <div class="wk"><div class="h">Bàn B4 · 2 món mới <span class="badge b-warn">Chờ duyệt</span></div><p>Lẩu thái hải sản ×1, Bia Hà Nội ×6 · khách quét QR lúc 19:12</p><button class="btn primary">Duyệt &amp; in bếp</button></div>
+    <div class="wk"><div class="h">Bàn S11 · Gọi nhân viên <span class="badge b-call">Gọi NV</span></div><p>“Xin thêm đá” · 2 phút trước</p><button class="btn">Đã xử lý</button></div>
+    <div class="wk"><div class="h">Bàn S18 · Khách trễ / xung đột <span class="badge b-bad">Trễ</span></div><p>Quá giờ giữ bàn 20 phút, còn 380.000đ chưa thu</p><button class="btn">Mở bill</button></div>
+  </aside>
+</div>
+</div>
+
+<section class="notes" aria-label="Các điểm cần chốt">
+  <div class="note">
+    <h3><span class="k">1</span>Hai kiểu màn, mỗi máy nhớ riêng</h3>
+    <p>Nút <b>Timeline | Sơ đồ bàn</b> ở đầu màn. Bấm là đổi ngay, và máy đó lần sau mở POS sẽ vào đúng kiểu đã chọn. Máy quầy dùng Sơ đồ, laptop chủ quán dùng Timeline cũng được.</p>
+    <p>Tab <b>Danh sách</b> hiện có nằm lại bên trong kiểu Timeline.</p>
+  </div>
+  <div class="note">
+    <h3><span class="k">2</span>Lưới bàn dày, xếp tự động</h3>
+    <p>Ô bàn cỡ cố định (~104×84px), tự dồn đủ cột theo chiều rộng màn: màn 1366px thấy hết 42 bàn không cần cuộn. Thứ tự bàn lấy theo vị trí đã kéo ở <b>Sắp xếp bàn</b> (hàng trước, cột sau), bỏ các ô trống.</p>
+    <p>Mỗi ô: tên bàn, số tiền, thời gian ngồi, màu mâm, nhãn chờ duyệt / gọi NV / giờ khách đặt.</p>
+  </div>
+  <div class="note">
+    <h3><span class="k">3</span>Bill luôn nằm cột phải</h3>
+    <p>Bấm bàn là bill hiện ngay bên phải (dùng lại khung bill đang có: duyệt món, in tạm tính, thanh toán). Bàn trống thì cột phải mời <b>Gọi món &amp; mở bàn</b>.</p>
+    <p>Cột "Việc cần xử lý" không còn chiếm chỗ cố định: bấm chip Hàng đợi là mở ngăn kéo phủ lên.</p>
+  </div>
+  <div class="note">
+    <h3><span class="k">4</span>Gọi món ngay trong màn (tab Thực đơn)</h3>
+    <p>Giống KiotViet: chọn bàn, sang tab <b>Thực đơn</b>, bấm món là món vào phần "Món chuẩn bị gửi" ở bill bên phải, rồi bấm <b>Gửi bếp</b>. Không mở hộp thoại chọn món như hiện nay.</p>
+    <div class="ask">Phần này làm nhiều nhất. Có thể làm sau: đợt 1 vẫn mở hộp thoại chọn món cũ.</div>
+  </div>
+</section>
+
+<script>
+const AREAS = [
+  { id: 'in', name: 'Trong nhà', n: 12, p: 'B' },
+  { id: 'out', name: 'Sân vườn', n: 24, p: 'S' },
+  { id: 'vip', name: 'Phòng VIP', n: 6, p: 'VIP' },
+];
+const TRAY = ['#f97316', '#0ea5e9', '#a855f7', '#14b8a6', '#e11d48'];
+// Trạng thái mẫu: serving / pending / late / booked / free
+const SEED = {
+  B1: { st: 'serving', money: 735000, min: 64 }, B2: { st: 'serving', money: 212000, min: 18 },
+  B4: { st: 'pending', money: 540000, min: 41, pend: 2 }, B6: { st: 'serving', money: 1280000, min: 97, tray: 0 },
+  B7: { st: 'serving', money: 0, min: 3, tray: 0 }, B9: { st: 'booked', at: '19:30', who: 'A. Minh · 6 khách' },
+  S2: { st: 'serving', money: 455000, min: 52 }, S3: { st: 'serving', money: 96000, min: 9 },
+  S5: { st: 'serving', money: 485000, min: 72 }, S8: { st: 'pending', money: 0, min: 2, pend: 1 },
+  S9: { st: 'serving', money: 1640000, min: 118, tray: 1 }, S10: { st: 'serving', money: 0, min: 118, tray: 1 },
+  S11: { st: 'serving', money: 310000, min: 35, call: true }, S14: { st: 'serving', money: 870000, min: 66 },
+  S18: { st: 'late', money: 380000, min: 165 }, S20: { st: 'booked', at: '20:00', who: 'C. Hoa · 10 khách' },
+  S21: { st: 'serving', money: 150000, min: 14 }, S23: { st: 'serving', money: 620000, min: 47 },
+  VIP1: { st: 'serving', money: 2350000, min: 88 }, VIP2: { st: 'booked', at: '19:15', who: 'Anh Tuấn · 12 khách' },
+  VIP4: { st: 'serving', money: 990000, min: 55 },
+};
+const tables = AREAS.flatMap(a => Array.from({ length: a.n }, (_, i) => {
+  const name = a.p + (i + 1);
+  return { name, area: a.id, ...(SEED[name] || { st: 'free' }) };
+}));
+const STATES = [
+  { id: 'all', label: 'Tất cả' },
+  { id: 'busy', label: 'Có khách', dot: '#059669', test: t => ['serving', 'pending', 'late'].includes(t.st) },
+  { id: 'free', label: 'Trống', dot: '#94a3b8', test: t => t.st === 'free' || t.st === 'booked' },
+  { id: 'pending', label: 'Chờ duyệt', dot: '#f59e0b', test: t => t.st === 'pending' },
+  { id: 'booked', label: 'Sắp có khách đặt', dot: '#7c3aed', test: t => t.st === 'booked' },
+];
+const MENU = {
+  'Lẩu': [['Lẩu thái hải sản', 349000], ['Lẩu riêu cua bắp bò', 329000], ['Lẩu gà lá é', 299000], ['Lẩu nấm chay', 219000]],
+  'Món nướng': [['Ba chỉ nướng', 129000], ['Bò cuốn nấm', 149000], ['Mực nướng sa tế', 169000], ['Sườn nướng mật ong', 139000]],
+  'Món nhậu': [['Nem chua rán', 69000], ['Khoai tây chiên', 49000], ['Lạc rang', 25000], ['Đậu tẩm hành', 45000]],
+  'Bia & nước': [['Bia Hà Nội', 18000], ['Bia Tiger', 22000], ['Coca', 15000], ['Nước suối', 10000]],
+};
+const BILL_SAMPLE = [['Lẩu riêu cua bắp bò', 1, 329000, ''], ['Bia Hà Nội', 6, 18000, ''], ['Đậu tẩm hành', 1, 45000, ''], ['Ba chỉ nướng', 1, 129000, 'ít cay']];
+
+let area = 'all', filter = 'all', query = '', sel = 'S5', tab = 'tables', cat = 'Lẩu', draft = [];
+const $ = id => document.getElementById(id);
+const dong = n => n.toLocaleString('vi-VN') + 'đ';
+const dur = m => m >= 60 ? `${Math.floor(m / 60)}g${String(m % 60).padStart(2, '0')}` : `${m}'`;
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function visible() {
+  const st = STATES.find(s => s.id === filter);
+  return tables.filter(t => (area === 'all' || t.area === area)
+    && (filter === 'all' || st.test(t))
+    && (!query || t.name.toLowerCase().includes(query.toLowerCase())));
+}
+
+function renderFilters() {
+  const inArea = tables.filter(t => area === 'all' || t.area === area);
+  $('areas').innerHTML = [{ id: 'all', name: 'Tất cả khu', n: tables.length }, ...AREAS].map(a =>
+    `<button class="pill ${area === a.id ? 'on' : ''}" data-area="${a.id}">${a.name} <span class="n tab">${a.n}</span></button>`).join('');
+  $('states').innerHTML = STATES.map(s => {
+    const n = s.test ? inArea.filter(s.test).length : inArea.length;
+    return `<button class="pill ${filter === s.id ? 'on' : ''}" data-st="${s.id}">${s.dot ? `<span class="dot" style="background:${s.dot}"></span>` : ''}${s.label} <span class="n tab">${n}</span></button>`;
+  }).join('');
+}
+
+function tileHtml(t) {
+  const tray = t.tray != null ? `<span class="tray" style="background:${TRAY[t.tray]}"></span>` : '';
+  let top = '', bottom = '';
+  if (t.st === 'free') bottom = `<div class="sub">Trống</div>`;
+  else if (t.st === 'booked') bottom = `<div class="sub">Đặt ${t.at}</div>`;
+  else {
+    const tag = t.st === 'pending' ? `<span class="badge b-warn">Chờ duyệt · ${t.pend}</span>`
+      : t.st === 'late' ? `<span class="badge b-bad">Trễ</span>`
+      : t.call ? `<span class="badge b-call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9"/></svg>Gọi NV</span>` : '';
+    top = tag;
+    bottom = `<div class="money tab">${t.money ? dong(t.money) : '—'}</div><div class="sub tab"><span>⏱ ${dur(t.min)}</span>${t.tray != null ? `<span style="color:${TRAY[t.tray]};font-weight:700">Mâm ${t.tray + 1}</span>` : ''}</div>`;
+  }
+  return `<button class="tile ${t.st} ${sel === t.name ? 'sel' : ''}" data-t="${t.name}" aria-label="${t.name}">${tray}
+    ${t.st === 'pending' ? '<span class="ping" aria-hidden="true"></span>' : ''}
+    <div class="tn"><span>${t.name}</span>${t.st !== 'pending' ? top : ''}</div><div>${bottom}</div></button>`;
+}
+
+function renderBoard() {
+  const list = visible();
+  const groups = area === 'all' ? AREAS.map(a => [a, list.filter(t => t.area === a.id)]).filter(([, l]) => l.length) : [[AREAS.find(a => a.id === area), list]];
+  $('board').innerHTML = list.length ? groups.map(([a, l]) =>
+    `<div class="area-h">${a.name} <span class="tab">${l.length} bàn</span></div><div class="grid">${l.map(tileHtml).join('')}</div>`).join('')
+    : `<div class="empty">Không có bàn nào khớp bộ lọc.</div>`;
+}
+
+function renderFoot() {
+  const busy = tables.filter(t => ['serving', 'pending', 'late'].includes(t.st)).length;
+  $('foot').innerHTML = `<span><b style="font-size:16px">${tables.length}</b> tổng bàn</span>
+    <span><i style="background:#059669"></i><b style="color:#047857">${busy} bàn có khách</b> (${Math.round(busy / tables.length * 100)}% lấp đầy)</span>
+    <span><i style="background:#7c3aed"></i><b style="color:#6d28d9">3 đã đặt trong ca</b></span>
+    <span><i style="background:#94a3b8"></i><b>${tables.length - busy} bàn trống</b></span>`;
+}
+
+function draftHtml() {
+  if (!draft.length) return '';
+  const total = draft.reduce((s, d) => s + d.q * d.p, 0);
+  return `<div class="draft"><div class="h"><span>Món chuẩn bị gửi</span><span class="tab">${dong(total)}</span></div>
+    ${draft.map(d => `<div class="line"><span class="q tab">${d.q}×</span><span class="n">${esc(d.n)}</span><span class="p tab">${dong(d.q * d.p)}</span></div>`).join('')}</div>`;
+}
+
+function renderBill() {
+  const t = tables.find(x => x.name === sel);
+  const areaName = t ? AREAS.find(a => a.id === t.area).name : '';
+  if (!t) { $('bill').innerHTML = `<div class="empty"><div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><p>Chọn một bàn để xem bill.</p></div></div>`; return; }
+  const sendBtn = draft.length ? `<button class="pay" data-send>Gửi bếp · ${draft.reduce((s, d) => s + d.q, 0)} món</button>` : '';
+
+  if (t.st === 'free' || t.st === 'booked') {
+    const booked = t.st === 'booked';
+    $('bill').innerHTML = `<div class="bhead"><div class="t">Bàn ${t.name} <span class="state ${booked ? 'st-book' : 'st-free'}">${booked ? 'Đã đặt' : 'Trống'}</span></div><div class="m">${areaName}</div></div>
+      <div class="bbody">${booked ? `<div class="resv"><b>Khách đặt ${t.at}</b> · ${t.who}<br>Bàn đang giữ cho khách này. Khách đến thì bấm Nhận khách.</div>` : ''}
+      ${draftHtml() || `<div class="free-card"><h3>${booked ? 'Khách đặt đã đến?' : 'Bàn đang trống'}</h3>${booked ? 'Nhận khách để mở bàn và gọi món.' : 'Chọn món ở tab Thực đơn rồi gửi bếp, bàn sẽ tự mở.'}</div>`}</div>
+      <div class="bfoot">${sendBtn || (booked
+        ? `<button class="pay">Nhận khách</button><button class="btn" style="justify-content:center">Xem đặt bàn</button>`
+        : `<button class="pay" data-gomenu>Gọi món &amp; mở bàn</button><button class="btn" style="justify-content:center">Đặt bàn cho bàn này</button>`)}</div>`;
+    return;
+  }
+
+  const pending = t.st === 'pending';
+  const items = t.money ? BILL_SAMPLE : [];
+  const goods = items.reduce((s, [, q, p]) => s + q * p, 0);
+  const stateCls = pending ? 'st-warn' : t.st === 'late' ? 'st-bad' : 'st-ok';
+  const stateLbl = pending ? 'Chờ duyệt' : t.st === 'late' ? 'Trễ / xung đột' : 'Đang phục vụ';
+  $('bill').innerHTML = `<div class="bhead">
+      <div class="t">Bàn ${t.name}${t.tray != null ? ` <span style="color:${TRAY[t.tray]};font-size:13px">● Mâm ${t.tray + 1}</span>` : ''} <span class="state ${stateCls}">${stateLbl}</span></div>
+      <div class="m">${areaName} · mở lúc 18:42 · ngồi ${dur(t.min)} · khách quét QR</div>
+      <div class="boxes"><div class="box"><p class="k">Đã duyệt · chưa thu</p><p class="v tab">${dong(goods)}</p></div>
+      <div class="box ${pending ? 'hot' : ''}"><p class="k">Chờ duyệt mới</p><p class="v tab">${pending ? dong(457000) : '0đ'}</p></div></div></div>
+    <div class="btabs"><span class="on">Hoá đơn (${items.length})</span><span>Lượt gọi mới${pending ? `<em>${t.pend}</em>` : ''}</span><span>Lịch sử</span></div>
+    <div class="bbody">
+      ${pending ? `<div class="pend"><div class="h"><span>Lượt mới · 19:12 · khách QR</span><span class="tab">457.000đ</span></div><ul><li>Lẩu thái hải sản ×1</li><li>Bia Hà Nội ×6</li></ul><button class="btn primary">Duyệt &amp; in bếp</button></div>` : ''}
+      ${draftHtml()}
+      ${items.length ? `<div class="grp">Đã gửi bếp</div>` + items.map(([n, q, p, note]) => `<div class="line"><span class="q tab">${q}×</span><span class="n">${esc(n)}${note ? `<small>${note}</small>` : ''}</span><span class="p tab">${dong(q * p)}</span></div>`).join('') : '<p style="color:var(--muted)">Chưa có món đã duyệt.</p>'}
+    </div>
+    <div class="bfoot">${sendBtn}
+      <div class="two"><button class="btn" data-gomenu style="justify-content:center">+ Gọi thêm món</button><button class="btn" style="justify-content:center">In tạm tính</button></div>
+      ${pending ? `<div class="lock">🔒 Khoá thanh toán (còn ${t.pend} lượt chờ duyệt)</div>` : `<button class="pay">Thanh toán · ${dong(goods)}</button>`}
+    </div>`;
+}
+
+function renderMenu() {
+  $('menuFor').innerHTML = sel ? `Đang gọi món cho <b>&nbsp;Bàn ${sel}</b>&nbsp;· bấm món để thêm vào bill bên phải` : 'Chọn bàn ở tab Phòng bàn trước';
+  $('cats').innerHTML = Object.keys(MENU).map(c => `<button class="${c === cat ? 'on' : ''}" data-cat="${c}">${c}</button>`).join('');
+  $('items').innerHTML = MENU[cat].map(([n, p]) => `<button class="item" data-item="${esc(n)}" data-p="${p}"><span class="nm">${n}</span><span class="pr tab">${dong(p)}</span></button>`).join('');
+}
+
+function renderTimeline() {
+  const colors = { serving: ['#d1fae5', '#065f46'], pending: ['#fde68a', '#78350f'], late: ['#fecaca', '#7f1d1d'], booked: ['#ede9fe', '#5b21b6'] };
+  $('tlRows').innerHTML = tables.map(t => {
+    const c = colors[t.st];
+    const bar = c ? `<div class="tl-bar" style="left:${t.st === 'booked' ? 58 : 30}%;width:${t.st === 'booked' ? 22 : 26}%;background:${c[0]};color:${c[1]}">${t.st === 'booked' ? `Đặt ${t.at}` : t.money ? dong(t.money) : 'Mới mở'}</div>` : '';
+    return `<div class="tl-row"><span class="n">${t.name}</span><div class="lane">${bar}</div></div>`;
+  }).join('');
+}
+
+function setTab(v) {
+  tab = v;
+  $('t-tables').classList.toggle('on', v === 'tables');
+  $('t-menu').classList.toggle('on', v === 'menu');
+  $('tablesPane').style.display = v === 'tables' ? 'flex' : 'none';
+  $('menuPane').classList.toggle('on', v === 'menu');
+  if (v === 'menu') renderMenu();
+}
+function setMode(v) {
+  const fl = v === 'fl';
+  $('m-fl').classList.toggle('on', fl); $('m-tl').classList.toggle('on', !fl);
+  $('floorMode').style.display = fl ? 'flex' : 'none';
+  $('tlMode').classList.toggle('on', !fl);
+  document.querySelectorAll('.opt').forEach(o => o.classList.toggle('on', o.dataset.v === v));
+  if (!fl) renderTimeline();
+}
+function all() { renderFilters(); renderBoard(); renderBill(); renderFoot(); }
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-area],[data-st],[data-t],[data-cat],[data-item],[data-gomenu],[data-send],[data-work],.opt,#t-tables,#t-menu,#m-tl,#m-fl,#closeWork,#drawerBg');
+  const pref = $('pref');
+  if (!e.target.closest('#mode')) pref.classList.remove('on');
+  if (!el) return;
+  if (el.dataset.area) { area = el.dataset.area; all(); }
+  else if (el.dataset.st) { filter = el.dataset.st; all(); }
+  else if (el.dataset.t) { if (sel !== el.dataset.t) draft = []; sel = el.dataset.t; renderBoard(); renderBill(); }
+  else if (el.dataset.cat) { cat = el.dataset.cat; renderMenu(); }
+  else if (el.dataset.item) {
+    if (!sel) return;
+    const d = draft.find(x => x.n === el.dataset.item);
+    if (d) d.q++; else draft.push({ n: el.dataset.item, p: +el.dataset.p, q: 1 });
+    renderBill();
+  }
+  else if ('gomenu' in el.dataset) setTab('menu');
+  else if ('send' in el.dataset) {
+    const t = tables.find(x => x.name === sel);
+    const add = draft.reduce((s, d) => s + d.q * d.p, 0);
+    if (t.st === 'free' || t.st === 'booked') Object.assign(t, { st: 'serving', money: add, min: 0 }); else t.money += add;
+    draft = []; setTab('tables'); all();
+  }
+  else if ('work' in el.dataset) $('screen').classList.add('work');
+  else if (el.id === 'closeWork' || el.id === 'drawerBg') $('screen').classList.remove('work');
+  else if (el.classList.contains('opt')) { setMode(el.dataset.v); pref.classList.remove('on'); }
+  else if (el.id === 't-tables') setTab('tables');
+  else if (el.id === 't-menu') setTab('menu');
+  else if (el.id === 'm-tl' || el.id === 'm-fl') { setMode(el.id === 'm-fl' ? 'fl' : 'tl'); pref.classList.add('on'); }
+});
+$('q').addEventListener('input', e => { query = e.target.value.trim(); renderBoard(); });
+all();
+</script>
