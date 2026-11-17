@@ -21,7 +21,7 @@ import {
 } from './seed'
 
 const POS_URL = '/admin/pos'
-const ROW_PX = 128 + 10 // ô 128px + khe 10px (bố cục B)
+const ROW_PX = 120 + 10 // ô 120px + khe 10px (bố cục B)
 
 // Lỗi console được phép bỏ qua (thêm có lý do, đừng nới tay).
 const IGNORED_CONSOLE: RegExp[] = []
@@ -243,12 +243,11 @@ test.describe('B. Lưới + lọc', () => {
     await expect(workAside(page).getByRole('heading', { name: 'Việc cần xử lý' })).toBeVisible()
 
     const m = await measureGrid(page, state.totalTables, 'chưa chọn bàn, có cột phải', testInfo)
-    // Số 43 gồm cả 18 bàn E2E (quán thật có ~25 bàn → 4 hàng, thấy hết). Với 43 ô ở 8 cột (6 hàng) vùng lưới 1920×1080
-    // còn thiếu chừng 32px nên hàng cuối cắt một phần: chấp nhận tối đa MỘT hàng phải cuộn, số đo ghi ở annotation.
+    // 43 ô (gồm 18 bàn E2E) ở 8 cột = 6 hàng × ô 120px phải vừa vùng lưới 1920×1080 có cột phải — không cuộn.
     await page.screenshot({ path: testInfo.outputPath('so-do-1920.png') }) // ảnh cho người xem (nằm trong test-results)
     expect(m.cols, m.text).toBeGreaterThanOrEqual(8)
-    expect(m.hiddenRows, m.text).toBeLessThanOrEqual(1)
-    expect(m.visible, m.text).toBeGreaterThanOrEqual(state.totalTables - m.cols)
+    expect(m.hiddenRows, m.text).toBe(0)
+    expect(m.visible, m.text).toBe(state.totalTables)
 
     // Mở một bill (cột phải đổi sang bill, lưới giữ nguyên bề ngang) — chỉ ghi số đo.
     const billTable = state.pending?.tableId ?? state.tableIds[0]

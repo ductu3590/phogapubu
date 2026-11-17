@@ -66,9 +66,9 @@ describe('FloorGrid', () => {
     expect(tileOf('t9')).toContain('bg-slate-100')
     expect(html).not.toContain('size-[7px]')
   })
-  it('ô To 156×128: tên 18px, tiền 17px', () => {
+  it('ô To 156×120: tên 18px, tiền 17px', () => {
     const html = render({ views: { t1: BUSY } })
-    expect(html).toContain('h-[128px]')
+    expect(html).toContain('h-[120px]')
     expect(html).not.toContain('h-[76px]')
     expect(html).toContain('text-[18px]')
     expect(html).toContain('text-[17px]')

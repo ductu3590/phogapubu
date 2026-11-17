@@ -2,15 +2,15 @@
 
 Spec: [2026-11-17-pos-so-do-ban-design.md](../../superpowers/specs/2026-11-17-pos-so-do-ban-design.md) (bố cục B, màn quầy 1920×1080). Trạng thái: **Chờ test** (T4/T5/T6 phần không đổi đã PASS 2026-11-17).
 
-Tab giữa của POS tên **Sơ đồ** (Timeline · Sơ đồ · Danh sách). Bố cục B cho màn quầy 1920×1080: ô **To** 156×128 có **dải tên khu** ở đỉnh ô (không còn chấm màu khu), **cột phải luôn hiện** (Việc cần xử lý / bill), **bấm bàn trống ra thẳng hộp "Tên bàn · Gọi món"** (không còn bảng 1 bàn trống), và chế độ **"Ghép bàn trống"** để ghép nhiều bàn trống thành một mâm. Nút "Sắp xếp bàn" nằm ở thanh trên cạnh "Ghép bàn trống". Nút "Đặt làm mặc định máy này" ghim màn mở sẵn theo từng máy.
+Tab giữa của POS tên **Sơ đồ** (Timeline · Sơ đồ · Danh sách). Bố cục B cho màn quầy 1920×1080: ô **To** 156×120 có **dải tên khu** ở đỉnh ô (không còn chấm màu khu), **cột phải luôn hiện** (Việc cần xử lý / bill), **bấm bàn trống ra thẳng hộp "Tên bàn · Gọi món"** (không còn bảng 1 bàn trống), và chế độ **"Ghép bàn trống"** để ghép nhiều bàn trống thành một mâm. Nút "Sắp xếp bàn" nằm ở thanh trên cạnh "Ghép bàn trống". Nút "Đặt làm mặc định máy này" ghim màn mở sẵn theo từng máy.
 
 ## Đã tự động (Playwright) — anh không cần làm lại
 
 Lệnh chạy lại: `npm --prefix admin-web run e2e` (cần `admin-web/.env.local`; bật dev server của worktree trước, nếu không phải cổng 3000 thì đặt `E2E_BASE_URL`). Bộ test tạm thêm khu "Khu E2E" + 18 bàn E2E-01..18 vào Bảo Lương rồi xoá, mở/đóng vài phiên trên bàn trống thật — **chỉ chạy khi không ai dùng Bảo Lương**.
 
-Kết quả lần cuối (2026-11-17, Bảo Lương, bố cục B): **34/34 PASS** — desktop-1366 21/21, desktop-1920 7/7, tablet-1024 1/1, phone 5/5; không lỗi console; DB dọn sạch (kiểm theo id ghi lại: không còn "Khu E2E", bàn E2E-xx, phiên mở, đặt bàn "E2E ", yêu cầu gọi NV chưa xử lý).
+Kết quả lần cuối (2026-11-17, Bảo Lương, bố cục B, ô 120px): **34/34 PASS** — desktop-1366 21/21, desktop-1920 7/7, tablet-1024 1/1, phone 5/5; không lỗi console; DB dọn sạch (kiểm theo id ghi lại: không còn "Khu E2E", bàn E2E-xx, phiên mở, đặt bàn "E2E ", yêu cầu gọi NV chưa xử lý).
 
-Số đo ở 1920×1080 (có cột phải 400px): lưới 1404×810px, **8 cột**, 43 ô = 6 hàng, **40/43 ô thấy trọn không cần cuộn**, hàng cuối (3 ô) bị cắt thiếu khoảng 32px. Lưu ý 43 ô này gồm 18 bàn E2E tạm; quán thật chừng 25 bàn = 4 hàng, thấy hết. Hàng lọc (chọn khu + 5 chip + tìm) nằm trọn một dòng sau khi "Sắp xếp bàn" chuyển lên thanh trên (trước đó xuống dòng, thiếu 40px lưới → thấy 40/43 như nay, nhưng cột lọc lệch 46px).
+Số đo ở 1920×1080 (có cột phải 400px): lưới 1404×810px, **8 cột**, 43 ô = 6 hàng, **43/43 ô thấy trọn không cần cuộn** cả khi chưa chọn bàn lẫn khi mở bill. Ô cao 120px (mockup 128px hụt ~32px nên hạ 8px; 4 dòng chữ vẫn vừa). Hàng lọc (tab + chọn khu + 5 chip + tìm) nằm trọn một dòng sau khi "Sắp xếp bàn" chuyển lên thanh trên.
 
 | Nhóm | Kịch bản |
 |---|---|
@@ -18,7 +18,7 @@ Số đo ở 1920×1080 (có cột phải 400px): lưới 1404×810px, **8 cột
 | | Bấm Sơ đồ rồi tải lại → về Timeline (đổi tab chỉ tạm) |
 | | Ghim Sơ đồ → toast, nút thành "Mặc định máy này", tải lại / context mới cùng storage vào Sơ đồ |
 | | Tab Danh sách không có nút ghim |
-| B. Lưới + lọc | 1920×1080: cột phải "Việc cần xử lý" hiện sẵn, tối đa một hàng phải cuộn (đo 8 cột, 40/43 ô) |
+| B. Lưới + lọc | 1920×1080: cột phải "Việc cần xử lý" hiện sẵn, thấy đủ 43/43 ô không cuộn (8 cột), cả khi mở bill |
 | | 1920×1080: tab + chọn khu + chip lọc + tìm cùng một hàng; "Sắp xếp bàn" ở thanh trên |
 | | Phone 375: trang không cuộn ngang |
 | | Tất cả khu: lưới liền không tiêu đề khu; mỗi ô có dải tên khu in hoa cao 22px (title = tên khu), không còn chấm 7px; ô "Khu E2E" liền nhau; chọn "Khu E2E (18)" → 18 ô |
@@ -49,7 +49,7 @@ Ghi PASS / FAIL vào cột Kết quả. FAIL thì chép nguyên văn lỗi + ch�
 
 | # | Bước | Mong đợi | Kết quả |
 |---|---|---|---|
-| 1.1 | Màn quầy 1920×1080 (hoặc Chrome toàn màn hình). Vào POS, bấm Sơ đồ, chưa chọn bàn | Thấy mọi bàn của quán (hoặc chỉ cuộn nhẹ nếu quán trên ~40 bàn); cột "Việc cần xử lý" hiện sẵn bên phải | |
+| 1.1 | Màn quầy 1920×1080 (hoặc Chrome toàn màn hình). Vào POS, bấm Sơ đồ, chưa chọn bàn | Thấy mọi bàn của quán không cuộn (tới 48 bàn = 6 hàng × 8 cột); cột "Việc cần xử lý" hiện sẵn bên phải | |
 | 1.2 | Đứng cách màn khoảng 1m như ở quầy | Đọc được tên bàn (18px), tiền, giờ ngồi trên ô | |
 | 1.3 | Nhìn lướt: phân biệt khu bằng **dải tên khu** ở đỉnh ô (mỗi khu một màu) | Nhận ra khu của bàn không cần đọc kỹ; bàn chưa phân khu có dải xám | |
 | 1.4 | Nhìn lướt các ô Trống / Có khách / Chờ duyệt / Đặt sắp tới | Phân biệt được bằng màu, không nhầm | |

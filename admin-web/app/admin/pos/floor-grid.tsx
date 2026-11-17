@@ -2,7 +2,7 @@
 
 // Lưới ô bàn dày cho tab "Sơ đồ" của POS (thay cho FloorMap ở chế độ xem; FloorMap vẫn dùng cho Sắp xếp bàn).
 // Thuần trình bày: nội dung ô do cha tính (gridTileView), hành động bấm do cha quyết (gridTileAction).
-// Bố cục B "Màn quầy" (spec 2026-11-17 §5.2): màn đích 1920×1080, lưới xếp liền không tiêu đề khu, ô To 156×128
+// Bố cục B "Màn quầy" (spec 2026-11-17 §5.2): màn đích 1920×1080, lưới xếp liền không tiêu đề khu, ô To 156×120
 // với dải tên khu ở đỉnh ô (thay chấm màu khu).
 
 import type { ReactNode } from 'react'
@@ -207,9 +207,10 @@ function GridTile({
       title={disabledReason ?? name}
       onClick={onClick}
       className={cn(
-        // 128px = viền 2 + dải khu 22 + đệm + 4 dòng (tên 18 · tiền 17 · giờ ngồi 14 · nhãn trạng thái 14). Dải nằm tuyệt đối
-        // ở đỉnh (ô overflow-hidden nên dải ăn sát mép bo); nội dung chừa pt-[26px] bên dưới dải.
-        'relative flex h-[128px] w-full flex-col justify-between overflow-hidden rounded-xl border px-2 pt-[26px] pb-1.5 text-left transition-colors',
+        // 120px = viền 2 + pt 26 (dải khu 22 nằm trong) + 4 dòng 78 (tên 22 · tiền 20 · giờ ngồi 18 · nhãn 18) + pb 6 = 112,
+        // dư 8px. Không cao hơn: 1920×1080 có cột phải thì 6 hàng × 120 vừa khít 43 bàn (128px hụt ~32px, Playwright đo).
+        // Dải nằm tuyệt đối ở đỉnh (ô overflow-hidden nên dải ăn sát mép bo); nội dung chừa pt-[26px] bên dưới dải.
+        'relative flex h-[120px] w-full flex-col justify-between overflow-hidden rounded-xl border px-2 pt-[26px] pb-1.5 text-left transition-colors',
         nen,
         tray?.color.bar,
         vien,

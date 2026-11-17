@@ -100,7 +100,7 @@ Nơi đặt màn mặc định đã cân nhắc: (1) ⚙ Cài đặt chung theo 
 > [2026-11-17-pos-so-do-1920-mockup.html](2026-11-17-pos-so-do-1920-mockup.html) (cỡ "To", "Dải màu có tên khu").
 > - **Màn đích 1920×1080** (màn quầy, chạy toàn màn hình). Màn nhỏ hơn chỉ cần dùng được (không cuộn ngang), không
 >   tối ưu số bàn thấy được ở 1366 / máy tính bảng / điện thoại nữa.
-> - **Ô To**: `minmax(156px, 1fr)`, cao 128px, khe 10px. Chữ: tên bàn 18px đậm, tiền 17px đậm, giờ ngồi / Mâm /
+> - **Ô To**: `minmax(156px, 1fr)`, cao 120px (mockup 128; hạ 8px để 1920 có cột phải thấy đủ 43 bàn — Playwright đo), khe 10px. Chữ: tên bàn 18px đậm, tiền 17px đậm, giờ ngồi / Mâm /
 >   nhãn trạng thái 14px. Nhãn trạng thái một dòng riêng, không bị cắt (quyết định 8 giữ nguyên).
 > - **Dải tên khu ở đỉnh ô** (thay chấm màu khu): dải cao 22px chạy hết bề ngang ô, nền `-100` + chữ `-800` in hoa
 >   12px đậm + gạch đáy 3px `-400` theo màu khu (`AREA_COLORS`, chỉ 5 màu họ tím–hồng như cũ). Bàn chưa phân khu: dải
