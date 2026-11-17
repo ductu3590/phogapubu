@@ -5,7 +5,6 @@
 // Bố cục B "Màn quầy" (spec 2026-11-17 §5.2): màn đích 1920×1080, lưới xếp liền không tiêu đề khu, ô To 156×120
 // với dải tên khu ở đỉnh ô (thay chấm màu khu).
 
-import type { ReactNode } from 'react'
 import { BellRing, Search } from 'lucide-react'
 import { STATUS_TONE_CLASSES, TABLE_STATE } from '@/components/ui/status'
 import { areaColorClasses, NO_AREA_BAND } from '@/lib/area-colors'
@@ -34,7 +33,6 @@ export function FloorGridFilters({
   onStatus,
   query,
   onQuery,
-  trailing,
 }: {
   areaItems: ReturnType<typeof gridAreaCounts>
   areaFilter: string
@@ -44,7 +42,6 @@ export function FloorGridFilters({
   onStatus: (s: GridStatus) => void
   query: string
   onQuery: (q: string) => void
-  trailing?: ReactNode
 }) {
   return (
     // Chung một dòng với hàng tab (cha đặt vào cùng hàng flex-wrap); màn hẹp tự xuống dòng.
@@ -80,7 +77,6 @@ export function FloorGridFilters({
           className="min-h-9 w-full rounded-lg border border-border-strong bg-surface pr-3 pl-8 text-sm"
         />
       </label>
-      {trailing}
     </div>
   )
 }
@@ -95,6 +91,7 @@ export default function FloorGrid({
   sessionIdOf,
   reservationMode,
   reservationTableIds,
+  selectMode = false,
   disabledReason,
   onTile,
 }: {
@@ -108,6 +105,8 @@ export default function FloorGrid({
   sessionIdOf: (tableId: string) => string | null
   reservationMode: boolean
   reservationTableIds: Set<string>
+  /** Chế độ Ghép bàn trống: ô chọn được là nút bật/tắt (aria-pressed). */
+  selectMode?: boolean
   disabledReason: (tableId: string) => string | null
   onTile: (tableId: string, modifier: boolean) => void
 }) {
@@ -138,6 +137,7 @@ export default function FloorGrid({
             picked={pickedTableIds.has(table.id) || (sessionId !== null && pickedSessionIds.has(sessionId))}
             reservationSelected={reservationMode && reservationTableIds.has(table.id)}
             disabledReason={disabledReason(table.id)}
+            selectMode={selectMode}
             onClick={e => onTile(table.id, e.ctrlKey || e.metaKey)}
           />
         )
@@ -157,6 +157,7 @@ function GridTile({
   picked,
   reservationSelected,
   disabledReason,
+  selectMode,
   onClick,
 }: {
   tableId: string
@@ -169,6 +170,7 @@ function GridTile({
   picked: boolean
   reservationSelected: boolean
   disabledReason: string | null
+  selectMode: boolean
   onClick: (e: React.MouseEvent) => void
 }) {
   const { label, tone } = TABLE_STATE[view.visual]
@@ -199,6 +201,7 @@ function GridTile({
       data-table-id={tableId}
       data-visual-state={view.visual}
       disabled={disabledReason !== null}
+      aria-pressed={selectMode && disabledReason === null ? picked : undefined}
       aria-label={
         disabledReason
           ? `${name}: ${disabledReason}`

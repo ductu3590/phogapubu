@@ -471,9 +471,9 @@ test.describe('C + D. Ô bàn + bấm ô', () => {
     // Không mở hộp gọi món khi đang ghép.
     await expect(page.locator('dialog[open]')).toHaveCount(0)
 
-    // Bàn đang có khách (bàn chờ duyệt seed) bị khoá với lý do "Đang ghép bàn trống".
+    // Bàn đang có khách (bàn chờ duyệt seed) bị khoá với lý do "Không ghép được".
     if (state.pending) {
-      await expect(tileById(page, state.pending.tableId)).toHaveAttribute('aria-label', new RegExp(`^${escapeRe(state.pending.tableName)}: Đang ghép bàn trống`))
+      await expect(tileById(page, state.pending.tableId)).toHaveAttribute('aria-label', new RegExp(`^${escapeRe(state.pending.tableName)}: Không ghép được`))
     }
 
     await panel.getByRole('button', { name: 'Thoát ghép bàn', exact: true }).click()

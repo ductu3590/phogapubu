@@ -876,6 +876,7 @@ export default function PosClient({
   const arriveReservationFromPos = async (reservation: ReservationRow) => {
     if (arrange) { reportActionError('Lưu hoặc hủy sắp xếp bàn trước khi nhận khách.'); return }
     setBusy(true)
+    exitFreeMerge() // mở mâm xong phải thấy bill, không bị bảng Ghép bàn trống che
     const result = await arriveReservation(reservation.reservationId)
     if (!result.ok) {
       setBusy(false)
@@ -921,6 +922,7 @@ export default function PosClient({
       }
       await reloadReservations()
       setNewBooking(null)
+      exitFreeMerge()
       setSelectedSessionId(null)
       setPickedSessionIds(new Set())
       setSelectedReservationId(id)
@@ -1028,6 +1030,7 @@ export default function PosClient({
   // Bấm bàn trống (không ghép): mở thẳng hộp gọi món như nút Khách lẻ. Bàn chỉ mở phiên khi gửi món (mig 099);
   // bàn vừa có khách QR thì server từ chối và báo lỗi, giống luồng Khách lẻ.
   const orderFreeTable = (tableId: string) => {
+    if (busy) return
     const table = freeTables.find((t) => t.id === tableId)
     if (!table) return
     setSelectedSessionId(null)
@@ -1263,7 +1266,7 @@ export default function PosClient({
               storeId={storeId}
               request={shiftRequest}
             />
-            {reservationsEnabled && !arrange && !reservationPick && (
+            {reservationsEnabled && !arrange && !reservationPick && !freeMerge && (
               <Button variant="primary" icon={<CalendarPlus />} onClick={() => {
                 setBookingError(null)
                 setNewBooking({ table: null, arrivalAt: roundedArrival() })
@@ -1308,7 +1311,6 @@ export default function PosClient({
             <p className="text-sm font-medium text-primary">
               Đang ghép bàn trống: bấm các bàn trống để chọn · <span className="tabular">đã chọn {effectivePicked.size}</span>
             </p>
-            <Button onClick={exitFreeMerge}>Thoát ghép bàn</Button>
           </div>
         )}
 
@@ -1518,7 +1520,7 @@ export default function PosClient({
             <ExpiredDebtBar sessions={sessions} onOpen={() => openWork()} />
           )}
           {clockNow !== null && view === 'floor' && !arrange && (
-            // Dưới xl bảng 1 bàn trống là sheet đáy không chặn (cao tối đa 45dvh): chừa đáy để cuộn tới hàng ô cuối.
+            // Dưới xl bảng Ghép bàn trống là sheet đáy không chặn (cao tối đa 45dvh): chừa đáy để cuộn tới hàng ô cuối.
             <div className={cn('min-h-0 flex-1 overflow-auto px-4 py-3 md:px-5', panel === 'freeMerge' && 'pb-[45dvh] xl:pb-3')}>
               <FloorGrid
                 groups={gridGroups}
@@ -1529,6 +1531,7 @@ export default function PosClient({
                 pickedTableIds={effectivePicked}
                 sessionIdOf={(tableId) => stateByTable.get(tableId)?.session.session_id ?? null}
                 reservationMode={reservationPick !== null}
+                selectMode={freeMerge}
                 reservationTableIds={reservationPick?.tableIds ?? new Set()}
                 // Chọn bàn cho đặt bàn: đúng lý do khoá của floor-map.tsx (bàn có khách / đã giữ cho booking khác).
                 // Ngoài chế độ đó không khoá ô nào: bàn đang giữ cho khách đặt bấm vào mở chi tiết đặt bàn (§5.4).
@@ -1536,7 +1539,7 @@ export default function PosClient({
                   ? stateByTable.has(tableId)
                     ? 'Bàn đang có khách'
                     : reservationBlockedTableIds.has(tableId) ? 'Đã giữ cho booking khác' : null
-                  : freeMerge && (stateByTable.has(tableId) || heldByTable.has(tableId)) ? 'Đang ghép bàn trống' : null}
+                  : freeMerge && (stateByTable.has(tableId) || heldByTable.has(tableId)) ? 'Không ghép được: bàn có khách / đang giữ' : null}
                 onTile={onGridTile}
               />
             </div>

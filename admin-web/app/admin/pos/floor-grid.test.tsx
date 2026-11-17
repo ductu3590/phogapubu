@@ -19,6 +19,8 @@ function render(over: {
   pickedTableIds?: Set<string>
   sessionOf?: Record<string, string>
   reservationTableIds?: Set<string>
+  selectMode?: boolean
+  disabled?: Set<string>
 } = {}) {
   const views = over.views ?? {}
   return renderToStaticMarkup(
@@ -31,13 +33,22 @@ function render(over: {
       sessionIdOf={id => over.sessionOf?.[id] ?? null}
       reservationMode={over.reservationTableIds !== undefined}
       reservationTableIds={over.reservationTableIds ?? new Set()}
-      disabledReason={() => null}
+      selectMode={over.selectMode}
+      disabledReason={id => (over.disabled?.has(id) ? 'Không ghép được: bàn có khách / đang giữ' : null)}
       onTile={vi.fn()}
     />,
   )
 }
 
 describe('FloorGrid', () => {
+  it('selectMode (Ghép bàn trống): ô chọn được có aria-pressed true/false, ô khoá không có', () => {
+    const html = render({ selectMode: true, pickedTableIds: new Set(['t1']), disabled: new Set(['t2']) })
+    const tile = (id: string) => html.match(new RegExp(`<button[^>]*data-table-id="${id}"[^>]*>`))![0]
+    expect(tile('t1')).toContain('aria-pressed="true"')
+    expect(tile('t2')).not.toContain('aria-pressed')
+    expect(render({ pickedTableIds: new Set(['t1']) })).not.toContain('aria-pressed="true"')
+    expect(render({ selectMode: true })).toContain('aria-pressed="false"')
+  })
   it('bố cục A: lưới liền một khối, không tiêu đề khu, thứ tự giữ theo nhóm', () => {
     const two: GridGroup[] = [
       ...groups,
@@ -154,7 +165,6 @@ describe('FloorGridFilters', () => {
         onStatus={vi.fn()}
         query=""
         onQuery={vi.fn()}
-        trailing={<span>NutSapXep</span>}
       />,
     )
     expect(html).toContain('Sắp có khách đặt')
@@ -164,6 +174,5 @@ describe('FloorGridFilters', () => {
     expect(html).toContain('>Tất cả khu (2)</option>')
     expect(html).toContain('>Khu A (2)</option>')
     expect(html).not.toContain('role="group" aria-label="Lọc theo khu"')
-    expect(html).toContain('NutSapXep')
   })
 })
