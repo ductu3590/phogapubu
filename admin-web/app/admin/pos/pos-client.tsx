@@ -1111,7 +1111,7 @@ export default function PosClient({
     setPickedTableIds(new Set())
   }
 
-  const freeMergeButton = view === 'floor' && freeTables.length >= 2 && !arrange && !reservationPick && !mergeMode && !freeMerge ? (
+  const freeMergeButton = view === 'floor' && freeTables.filter((t) => !heldByTable.has(t.id)).length >= 2 && !arrange && !reservationPick && !mergeMode && !freeMerge ? (
     <Button icon={<Layers />} onClick={beginFreeMerge} className="min-h-9 md:min-h-9">Ghép bàn trống</Button>
   ) : null
 
@@ -1511,14 +1511,14 @@ export default function PosClient({
               </div>
             </div>
           )}
-          {/* Bố cục A: Việc cần xử lý chỉ là ngăn kéo ở Sơ đồ → nợ phiên hết hạn có dải đỏ riêng trên lưới
-              (POS là lối thu DUY NHẤT của phiên hết hạn). Không có thì không vẽ. */}
+          {/* Bố cục B: Việc cần xử lý là cột phải cố định (từ xl); dải đỏ nợ phiên hết hạn vẫn giữ riêng trên lưới
+              để thu ngân thấy ngay (POS là lối thu DUY NHẤT của phiên hết hạn). Không có thì không vẽ. */}
           {clockNow !== null && view === 'floor' && !arrange && (
             <ExpiredDebtBar sessions={sessions} onOpen={() => openWork()} />
           )}
           {clockNow !== null && view === 'floor' && !arrange && (
             // Dưới xl bảng 1 bàn trống là sheet đáy không chặn (cao tối đa 45dvh): chừa đáy để cuộn tới hàng ô cuối.
-            <div className="min-h-0 flex-1 overflow-auto px-4 py-3 md:px-5">
+            <div className={cn('min-h-0 flex-1 overflow-auto px-4 py-3 md:px-5', panel === 'freeMerge' && 'pb-[45dvh] xl:pb-3')}>
               <FloorGrid
                 groups={gridGroups}
                 tile={(tableId) => gridTileView(tableId, { ...gridCtx, trays: trayColors, callingSessionIds, now })}

@@ -1018,7 +1018,7 @@ export function FreeMergePanel({ tables, busy, onCreate, onExit }: {
   onExit: () => void
 }) {
   return (
-    <Khung icon={<Layers />} tieuDe="Ghép bàn trống thành một mâm" closeLabel="Thoát ghép bàn" onDismiss={onExit}>
+    <Khung icon={<Layers />} tieuDe="Ghép bàn trống thành một mâm" closeLabel="Đóng ghép bàn" ariaLabel="Ghép bàn trống" nonModal onDismiss={onExit}>
       <div className="space-y-3">
         {tables.length === 0 ? (
           <p className="text-sm text-muted">Bấm các bàn trống trên sơ đồ để chọn.</p>
@@ -1043,7 +1043,7 @@ export function FreeMergePanel({ tables, busy, onCreate, onExit }: {
  * Khung cột phải, đầu nền tối như bản Stitch. Từ xl: cột 400px cạnh Timeline (X đưa về Việc cần xử lý).
  * Dưới xl: sheet đáy có nền mờ. Tổng + nút thu ở footer đứng yên, phần món cuộn.
  */
-function Khung({ icon, tieuDe, badge, moTa, lead, right, headerExtra, top, footer, onDismiss, closeLabel = 'Đóng bill', children }: {
+function Khung({ icon, tieuDe, badge, moTa, lead, right, headerExtra, top, footer, onDismiss, closeLabel = 'Đóng bill', ariaLabel = 'Bill', nonModal = false, children }: {
   icon?: ReactNode
   tieuDe: string
   badge?: ReactNode
@@ -1055,16 +1055,19 @@ function Khung({ icon, tieuDe, badge, moTa, lead, right, headerExtra, top, foote
   footer?: ReactNode
   onDismiss: () => void
   closeLabel?: string
+  ariaLabel?: string
+  /** Dưới xl: không nền mờ chặn màn, sheet thấp gọn — lưới phía trên vẫn bấm được (chỉ bảng Ghép bàn trống). */
+  nonModal?: boolean
   children: ReactNode
 }) {
   return (
     <>
-      <button type="button" aria-label={closeLabel} onClick={onDismiss} className="fixed inset-0 z-30 bg-foreground/40 xl:hidden" />
+      {!nonModal && <button type="button" aria-label={closeLabel} onClick={onDismiss} className="fixed inset-0 z-30 bg-foreground/40 xl:hidden" />}
       <aside
-        aria-label="Bill"
+        aria-label={ariaLabel}
         className={cn(
           'fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-2xl bg-white shadow-modal',
-          'max-h-[88dvh]',
+          nonModal ? 'max-h-[45dvh] border-t border-slate-200 xl:border-t-0' : 'max-h-[88dvh]',
           'xl:static xl:max-h-none xl:w-[400px] xl:shrink-0 xl:rounded-none xl:border-l xl:border-slate-200 xl:shadow-none',
         )}
       >

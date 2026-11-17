@@ -34,6 +34,16 @@ describe('FreeMergePanel', () => {
   })
 })
 
+describe('FreeMergePanel — không chặn lưới', () => {
+  it('không có nền mờ fixed inset-0, aside gắn nhãn Ghép bàn trống, nút X đóng ghép bàn', () => {
+    const html = render([])
+    expect(html).not.toContain('fixed inset-0')
+    expect(html).toContain('aria-label="Ghép bàn trống"')
+    expect(html).toContain('aria-label="Đóng ghép bàn"')
+    expect(html).toContain('max-h-[45dvh]')
+  })
+})
+
 describe('ManualOrderSheet notice', () => {
   const sheet = (notice?: string | null) => renderToStaticMarkup(
     <ManualOrderSheet tableNumber="Bàn 3" categories={[]} busy={false} onClose={vi.fn()} onSubmit={async () => true} notice={notice} />,
