@@ -118,3 +118,18 @@ describe('SuppliersView + DebtsTabs', () => {
     expect(cashier).toContain('<p>KH</p>')
   })
 })
+
+describe('Hộp trả nợ đóng → ngăn kéo tải lại (review #1)', () => {
+  it('đóng hộp (kể cả sau lỗi "tải lại trang") luôn tải lại chi tiết NCC; trả xong thì bỏ tích + báo + tải lại', async () => {
+    const { payDialogHandlers } = await import('./supplier-drawer')
+    const setPaying = vi.fn(); const reload = vi.fn(); const clearSelected = vi.fn(); const setNotice = vi.fn()
+    const h = payDialogHandlers({ setPaying, reload, clearSelected, setNotice })
+    h.onClose()
+    expect(setPaying).toHaveBeenLastCalledWith(undefined)
+    expect(reload).toHaveBeenCalledTimes(1)
+    h.onDone('Đã trả')
+    expect(clearSelected).toHaveBeenCalled()
+    expect(setNotice).toHaveBeenLastCalledWith('Đã trả')
+    expect(reload).toHaveBeenCalledTimes(2)
+  })
+})

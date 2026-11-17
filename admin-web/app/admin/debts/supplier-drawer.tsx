@@ -74,6 +74,22 @@ function PaymentLine({ p, busy, onVoid }: { p: SupplierPaymentRow; busy: boolean
   )
 }
 
+/**
+ * Đóng / xong hộp trả nợ. Đóng LUÔN tải lại chi tiết: hộp có thể vừa bị server từ chối vì dữ liệu đã đổi (máy khác trả
+ * trước, phiếu bị huỷ) — mở lại mà vẫn cầm danh sách phiếu cũ thì gặp đúng lỗi đó mãi.
+ */
+export function payDialogHandlers(a: {
+  setPaying: (v: undefined) => void
+  reload: () => void
+  clearSelected: () => void
+  setNotice: (n: string) => void
+}) {
+  return {
+    onClose: () => { a.setPaying(undefined); a.reload() },
+    onDone: (notice: string) => { a.setPaying(undefined); a.clearSelected(); a.setNotice(notice); a.reload() },
+  }
+}
+
 /** Thân ngăn kéo (thuần props — test vẽ tĩnh được). selected = các phiếu còn nợ đang tích. */
 export function SupplierDrawerBody({ detail, selected, busy, onToggle, onToggleAll, onPaySelected, onPay, onVoid, onEdit, onToggleActive }: {
   detail: SupplierDetail
@@ -213,6 +229,9 @@ export default function SupplierDrawer({ supplier, onClose }: { supplier: Suppli
     }
   }
 
+  const payHandlers = payDialogHandlers({
+    setPaying, reload: afterWrite, clearSelected: () => setSelected([]), setNotice,
+  })
   const shown = detail ?? { supplier, documents: [], payments: [] }
   const openIds = shown.documents.filter((d) => d.outstanding > 0).map((d) => d.id)
 
@@ -251,8 +270,8 @@ export default function SupplierDrawer({ supplier, onClose }: { supplier: Suppli
           supplier={shown.supplier}
           docs={detail.documents}
           initialSelected={paying}
-          onClose={() => setPaying(undefined)}
-          onDone={(n) => { setPaying(undefined); setSelected([]); setNotice(n); afterWrite() }}
+          onClose={payHandlers.onClose}
+          onDone={payHandlers.onDone}
         />
       ) : null}
 

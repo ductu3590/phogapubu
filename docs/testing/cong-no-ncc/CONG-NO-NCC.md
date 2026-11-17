@@ -5,8 +5,8 @@ tích chọn nhiều phiếu còn nợ → **Trả các phiếu đã chọn** �
 chú liệt kê số phiếu. Phiếu nhập **Đã trả** vẫn tự ghi phiếu chi như trước (không có ô tích bỏ qua — anh Tú chốt trong spec).
 
 Spec: `docs/superpowers/specs/2026-11-17-cong-no-ncc-design.md` · Plan: `docs/superpowers/plans/2026-11-17-cong-no-ncc.md`
-Migration: `143_supplier_debt.sql`, `144_supplier_inventory_patch.sql`, `145_supplier_payments.sql` (áp đúng thứ tự)
-Test tự động: `supabase/tests/143_supplier_debt.test.mjs` (25 bài), `supabase/tests/race/05-supplier-debt.test.mjs` (3 kịch bản đua)
+Migration: `143_supplier_debt.sql`, `144_supplier_inventory_patch.sql`, `145_supplier_payments.sql`, `146_supplier_link_catchup.sql` (áp đúng thứ tự)
+Test tự động: `supabase/tests/143_supplier_debt.test.mjs` (26 bài), `supabase/tests/race/05-supplier-debt.test.mjs` (3 kịch bản đua)
 
 Bất biến: **nợ một phiếu = tiền phiếu − các lần trả còn hiệu lực** (không lưu sẵn). Mỗi lần trả còn hiệu lực có đúng một
 phiếu chi cùng số tiền. Tiền mặt trả NCC đi qua két ca đang mở khi quán bật ca.

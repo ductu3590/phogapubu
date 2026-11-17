@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { openDebtDb } from './helpers/debt-db.mjs'
 
-const migrations = ['143_supplier_debt.sql', '144_supplier_inventory_patch.sql', '145_supplier_payments.sql'].map((f) => new URL(`../migrations/${f}`, import.meta.url))
+const migrations = ['143_supplier_debt.sql', '144_supplier_inventory_patch.sql', '145_supplier_payments.sql', '146_supplier_link_catchup.sql'].map((f) => new URL(`../migrations/${f}`, import.meta.url))
 const load = async (u) => (await readFile(u, 'utf8')).replace(/\r\n/g, '\n')
 
 const h = await openDebtDb({ through: '122b' })
@@ -29,7 +29,17 @@ const legacy = {
   none: await legacyDoc({ supplier: null, no: 'PN-9003' }),
   other: await legacyDoc({ store: ids.otherStore, supplier: 'Đại lý Hà', no: 'PN-9001' }),
 }
-for (const m of migrations) await db.exec(await load(m))
+// Phiếu lưu trong khe giữa lúc áp 143 và 144 (hàm lưu phiếu chưa ghi supplier_id): mig 146 phải nối bù.
+let gapDoc = null
+for (const m of migrations) {
+  await db.exec(await load(m))
+  if (m.pathname.endsWith('143_supplier_debt.sql')) {
+    gapDoc = await legacyDoc({ supplier: 'Đại lý trong khe', no: 'PN-9100' })
+  }
+}
+
+const gapLinked = await one(`SELECT d.supplier_id, s.name FROM inventory_documents d LEFT JOIN suppliers s ON s.id = d.supplier_id
+  WHERE d.id = $1`, [gapDoc])
 
 const backfill = {
   docs: await db.query('SELECT id, supplier_id, supplier_name FROM inventory_documents').then((r) => r.rows),
@@ -46,9 +56,16 @@ async function resetAll() {
 const systemCategory = async () =>
   (await one("SELECT id FROM cash_book_categories WHERE store_id = $1 AND is_system AND report_group = 'inventory_purchase'", [ids.store])).id
 
+describe('146 nối bù phiếu lưu giữa 143 và 144', () => {
+  test('phiếu có tên NCC mà chưa có supplier_id → tạo NCC + nối', () => {
+    assert.notEqual(gapLinked.supplier_id, null)
+    assert.equal(gapLinked.name, 'Đại lý trong khe')
+  })
+})
+
 describe('143 backfill', () => {
   test('gộp tên NCC theo hoa thường + khoảng trắng, mỗi quán riêng; phiếu không tên giữ NULL', () => {
-    const mine = backfill.suppliers.filter((s) => s.store_id === ids.store)
+    const mine = backfill.suppliers.filter((s) => s.store_id === ids.store && s.name !== 'Đại lý trong khe')
     const theirs = backfill.suppliers.filter((s) => s.store_id === ids.otherStore)
     assert.equal(mine.length, 1)
     assert.equal(theirs.length, 1)
