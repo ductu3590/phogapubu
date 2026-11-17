@@ -93,18 +93,32 @@ Nơi đặt màn mặc định đã cân nhắc: (1) ⚙ Cài đặt chung theo 
   bàn trống được.
 
 ### 5.2 Tab Sơ đồ bàn — khi KHÔNG sắp xếp
-Bố cục từ trên xuống, trong vùng giữa (cột phải giữ nguyên):
 
-1. **Hàng lọc** (thay `AreaControls` khi không sắp xếp):
-   - Nút khu: `Tất cả khu (N)` + mỗi khu `Tên (N)` có chấm màu khu (`areaColorClasses`), + `Chưa phân khu` nếu có.
+> **Bố cục A "Gọn tối đa" — anh Tú chốt 2026-11-17** sau khi Playwright đo bản đầu chỉ thấy 14/43 bàn ở
+> 1366×768. Mockup so sánh: [2026-11-17-pos-so-do-1366-mockup.html](2026-11-17-pos-so-do-1366-mockup.html)
+> (A thấy 43/43 khi chưa chọn bàn, kể cả Chrome thật trên laptop 1366). Các mục dưới đã sửa theo A:
+> - **Một dòng công cụ**: tab (Timeline · Sơ đồ · Danh sách) + nút ghim + ô chọn khu (thả xuống) + nút lọc trạng
+>   thái + ô tìm + nút Sắp xếp bàn chung MỘT hàng (màn hẹp được xuống dòng). Không còn hàng nút khu riêng.
+> - **Không chia nhóm theo khu**: lưới luôn xếp liền; mỗi ô có chấm màu khu cạnh tên bàn. Thứ tự: theo thứ tự khu
+>   (`floor.draft.areas`, Chưa phân khu cuối), trong khu theo `y` rồi `x`.
+> - **Ô cao 76px** (thay 84px), vẫn `minmax(104px, 1fr)`.
+> - **Cột phải ở tab Sơ đồ**: khi không có gì để hiện (panel = Việc cần xử lý) thì **ẩn cột** ở mọi cỡ màn; Việc cần
+>   xử lý mở dạng ngăn kéo phủ lên khi bấm chip Hàng đợi / nút "Việc cần xử lý" (như dưới `xl` hiện nay). Khi có bill /
+>   bàn trống / chi tiết đặt bàn / chọn bàn cho đặt bàn thì cột phải hiện như cũ và lưới co lại. Tab Timeline và
+>   Danh sách giữ cột phải như hiện tại. Chuông + watcher của Việc cần xử lý vẫn luôn chạy (cột vẫn mount, chỉ ẩn).
+
+Bố cục từ trên xuống, trong vùng giữa:
+
+1. **Hàng lọc** (thay `AreaControls` khi không sắp xếp; theo A là chung một dòng với tab):
+   - Chọn khu: ô thả xuống `Tất cả khu (N)` + mỗi khu `Tên (N)` + `Chưa phân khu` nếu có.
    - Nút trạng thái kèm số đếm (đếm trong khu đang lọc): `Tất cả` · `Có khách` (có phiên mở, gồm cả chờ duyệt,
      trễ) · `Trống` (không phiên, gồm cả bàn đang giữ cho khách đặt) · `Chờ duyệt` (`pendingCount > 0`) ·
      `Sắp có khách đặt` (trống + đang giữ cho đặt bàn trong 60').
    - Ô tìm bàn theo tên (không phân biệt hoa thường, bỏ dấu không bắt buộc).
    - Nút **Sắp xếp bàn** giữ như cũ (chỉ chủ quán).
-2. **Lưới bàn**: `grid-template-columns: repeat(auto-fill, minmax(104px, 1fr))`, ô cao cố định ~84px, khe 8px.
-   - `Tất cả khu`: chia nhóm theo khu, mỗi nhóm có tiêu đề `Tên khu · N bàn`, thứ tự khu như `floor.draft.areas`,
-     `Chưa phân khu` cuối.
+2. **Lưới bàn**: `grid-template-columns: repeat(auto-fill, minmax(104px, 1fr))`, ô cao cố định 76px, khe 8px.
+   - ~~`Tất cả khu`: chia nhóm theo khu có tiêu đề~~ → bỏ theo bố cục A: xếp liền, chấm màu khu trên từng ô,
+     thứ tự khu như `floor.draft.areas`, `Chưa phân khu` cuối.
    - Trong một khu: thứ tự theo toạ độ đã sắp (`y` rồi `x`) — chủ quán vẫn điều khiển thứ tự bằng Sắp xếp bàn;
      bỏ các ô trống giữa chừng.
    - Không còn bàn khớp lọc → dòng chữ "Không có bàn nào khớp bộ lọc."
@@ -207,7 +221,10 @@ thanh trên vẫn qua `WalkInPicker`), chuông, in. Không đổi server action 
 ## 8. Quyết định Claude tự đưa ra (anh Tú soát khi duyệt)
 1. Giữ hàng tab 3 nút, nút ghim mặc định đặt cạnh hàng tab — không làm nút "Kiểu màn" ở thanh trên như mockup (mục 4).
 2. Máy chưa ghim → mở Timeline. Đổi tab chỉ đổi tạm, F5 về màn đã ghim. Danh sách không ghim được.
-3. Khi không chọn bàn nào, cột phải vẫn là **Việc cần xử lý** như hiện nay (mockup để trống) — có ích hơn ô trống.
+3. ~~Khi không chọn bàn nào, cột phải vẫn là Việc cần xử lý~~ → thay bằng bố cục A (anh Tú chốt 2026-11-17): ở tab
+   Sơ đồ, không chọn gì thì ẩn cột phải, Việc cần xử lý mở dạng ngăn kéo.
+8. Ô vừa chờ duyệt vừa gọi NV: nhãn trạng thái không được bị cắt — "Gọi NV" khi đó chỉ còn icon chuông đỏ (có
+   `aria-label`), nhãn "Chờ duyệt · N" giữ đủ chữ.
 4. Bàn giữ cho khách đặt: bấm mở chi tiết đặt bàn thay vì khoá.
 5. Màu trạng thái dùng màu hệ thống hiện có, không dùng màu tím của mockup.
 6. Bàn bị nhiều đặt bàn giữ → lấy đặt bàn đến sớm nhất. Bàn giữ cho khách đặt vẫn không ghép mâm từ lưới được.

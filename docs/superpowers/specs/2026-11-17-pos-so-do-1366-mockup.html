@@ -1,0 +1,198 @@
+<title>POS Sơ đồ ở 1366</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<style>
+/* Ba khung 1366×768 thu nhỏ theo bề rộng trang; JS đo số ô thấy được không cần cuộn. Chỉ giao diện sáng như POS thật. */
+:root {
+  color-scheme: light;
+  --page: #eef0f3; --surface: #fff; --line: #e2e8f0; --line-2: #cbd5e1;
+  --ink: #0f172a; --ink-2: #334155; --muted: #64748b; --faint: #94a3b8;
+  --brand: #ea580c; --brand-ink: #c2410c; --brand-soft: #fff7ed; --dark: #0f172a; --dark-3: #334155;
+  --ok-soft: #ecfdf5; --ok-line: #a7f3d0; --ok-ink: #065f46;
+  --warn-soft: #fffbeb; --warn-line: #fcd34d;
+  --bad: #dc2626; --bad-soft: #fef2f2; --bad-line: #fecaca;
+  --acc-soft: #fff7ed; --acc-line: #fdba74; --acc-ink: #c2410c;
+  --font: "Be Vietnam Pro", system-ui, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font-family: var(--font); font-size: 14px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; }
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 28px; }
+header.intro h1 { margin: 0; font-size: 20px; font-weight: 800; }
+header.intro p { margin: 6px 0 0; color: var(--muted); max-width: 80ch; line-height: 1.5; }
+.opt { display: grid; gap: 10px; }
+.opt-h { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+.opt-h h2 { margin: 0; font-size: 17px; font-weight: 800; }
+.opt-h h2 .k { display: inline-block; background: var(--ink); color: #fff; border-radius: 6px; padding: 0 8px; margin-right: 8px; font-size: 14px; }
+.opt-h h2 .rec { color: var(--brand-ink); font-size: 13px; font-weight: 700; margin-left: 6px; }
+.score { display: flex; gap: 8px; flex-wrap: wrap; }
+.score span { border-radius: 999px; padding: 3px 10px; font-weight: 700; font-size: 13px; border: 1px solid var(--line-2); background: var(--surface); font-variant-numeric: tabular-nums; }
+.score .good { border-color: #6ee7b7; background: var(--ok-soft); color: var(--ok-ink); }
+.score .bad { border-color: var(--bad-line); background: var(--bad-soft); color: #b91c1c; }
+.opt ul { margin: 0; padding-left: 18px; color: var(--ink-2); line-height: 1.55; }
+.stage { width: 100%; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgb(15 23 42 / .06), 0 10px 28px rgb(15 23 42 / .10); background: var(--surface); }
+.screen { width: 1366px; height: 768px; transform-origin: 0 0; position: absolute; top: 0; left: 0; display: grid; grid-template-columns: 64px 1fr; background: var(--surface); overflow: hidden; }
+.screen.rightcol { grid-template-columns: 64px 1fr 400px; }
+.cut { position: absolute; left: 0; right: 0; border-top: 2px dashed #e11d48; z-index: 3; pointer-events: none; }
+.cut span { position: absolute; right: 8px; top: -22px; background: #e11d48; color: #fff; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+
+.rail { border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
+.logo { width: 40px; height: 40px; border-radius: 10px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 18px; }
+.rail i { width: 40px; height: 34px; border-radius: 8px; background: #f1f5f9; display: block; }
+.rail i.on { background: var(--brand); }
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.top { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-bottom: 1px solid var(--line); height: 62px; }
+.top b { font-size: 18px; font-weight: 800; }
+.chip { border: 1px solid var(--acc-line); background: var(--brand-soft); color: var(--brand-ink); border-radius: 6px; padding: 1px 8px; font-size: 13px; font-weight: 600; }
+.sp { flex: 1; }
+.btn { border: 1px solid var(--line-2); background: var(--surface); border-radius: 8px; padding: 7px 12px; font-weight: 700; font-size: 13px; white-space: nowrap; }
+.btn.p { background: var(--brand); border-color: var(--brand); color: #fff; }
+.queue { background: var(--dark); display: flex; gap: 8px; align-items: center; padding: 8px 20px; height: 44px; white-space: nowrap; overflow: hidden; }
+.queue .l { color: #fbbf24; font-weight: 800; font-size: 12px; letter-spacing: .05em; }
+.queue .q { border: 1px solid var(--dark-3); color: #cbd5e1; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+.row { display: flex; align-items: center; gap: 8px 12px; padding: 8px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tabs { display: inline-flex; background: #f1f5f9; border-radius: 8px; padding: 3px; }
+.tabs span { padding: 6px 14px; border-radius: 6px; font-weight: 700; font-size: 13px; color: var(--ink-2); }
+.tabs span.on { background: var(--brand); color: #fff; }
+.pin { font-size: 13px; color: var(--muted); font-weight: 600; }
+.pill { border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600; color: var(--ink-2); background: var(--surface); white-space: nowrap; display: inline-flex; gap: 5px; align-items: center; }
+.pill.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.pill .d { width: 8px; height: 8px; border-radius: 9px; }
+.pill .n { color: var(--faint); font-weight: 700; }
+.sel { border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 10px; font-weight: 700; font-size: 13px; }
+.search { border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 10px; color: var(--faint); font-size: 13px; width: 150px; }
+.board { flex: 1; min-height: 0; overflow: hidden; padding: 12px 20px; position: relative; }
+.gh { font-size: 13px; font-weight: 700; color: var(--ink-2); margin: 2px 0 6px; }
+.gh span { color: var(--faint); font-weight: 600; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.tile { position: relative; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 6px 9px 6px 11px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+.t84 .tile { height: 84px; } .t76 .tile { height: 76px; }
+.tile .n { font-weight: 800; font-size: 14px; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.tile .n .ad { width: 7px; height: 7px; border-radius: 9px; flex: none; }
+.tile .s { font-size: 12px; color: var(--muted); white-space: nowrap; display: flex; justify-content: space-between; }
+.tile .m { font-weight: 800; font-size: 13.5px; color: var(--ok-ink); }
+.tile.busy { background: var(--ok-soft); border-color: var(--ok-line); }
+.tile.pend { background: var(--warn-soft); border-color: var(--warn-line); box-shadow: inset 0 0 0 2px #f59e0b; }
+.tile.book { background: var(--acc-soft); border-color: var(--acc-line); }
+.tile.book .s { color: var(--acc-ink); font-weight: 600; }
+.tile.selt { box-shadow: 0 0 0 2px var(--ink); }
+.bdg { font-size: 11px; font-weight: 800; border-radius: 5px; padding: 0 5px; line-height: 17px; }
+.bw { background: #f59e0b; color: var(--dark); } .br { background: var(--bad); color: #fff; }
+.more { position: absolute; left: 0; right: 0; bottom: 0; height: 46px; background: linear-gradient(to bottom, transparent, rgb(255 255 255 / .96) 60%); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; font-weight: 800; color: #b91c1c; font-size: 13px; }
+.foot { border-top: 1px solid var(--line); padding: 10px 20px; font-size: 13px; color: var(--muted); display: flex; gap: 20px; height: 42px; align-items: center; }
+.foot b { color: var(--ink); }
+.right { border-left: 1px solid var(--line); display: flex; flex-direction: column; }
+.right .h { padding: 13px 16px; border-bottom: 2px solid var(--brand); font-weight: 800; color: var(--brand-ink); }
+.right .e { padding: 40px 24px; text-align: center; color: var(--muted); }
+.bill { background: var(--surface); border-left: 1px solid var(--line); display: flex; flex-direction: column; }
+.bill .bh { background: var(--dark); color: #fff; padding: 14px 16px; }
+.bill .bh b { font-size: 17px; } .bill .bh p { margin: 4px 0 0; color: #94a3b8; font-size: 12.5px; }
+.bill .li { display: flex; justify-content: space-between; padding: 9px 16px; border-bottom: 1px dashed var(--line); font-size: 13px; }
+.bill .pay { margin: auto 16px 16px; background: var(--brand); color: #fff; border-radius: 10px; padding: 13px; text-align: center; font-weight: 800; }
+.note { font-size: 13px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <h1>Tab Sơ đồ ở màn 1366×768: ba phương án</h1>
+    <p>Dữ liệu giống lượt Playwright: 43 bàn (Trong nhà 7 · Ngoài trời 13 · PHÒNG VIP 5 · Khu E2E 18). Số "thấy" ở mỗi khung do trang tự đếm. Đường đỏ nét đứt là chỗ màn bị cắt khi mở bằng Chrome thật trên laptop 1366×768 (thanh địa chỉ, tab, taskbar ăn mất khoảng 110px).</p>
+  </header>
+
+  <section class="opt" data-opt="A">
+    <div class="opt-h"><h2><span class="k">A</span>Gọn tối đa<span class="rec">Em khuyên dùng</span></h2><div class="score"></div></div>
+    <ul>
+      <li>Chưa chọn bàn: ẩn cột Việc cần xử lý, bấm chip Hàng đợi để mở dạng ngăn kéo (như mockup đầu tiên).</li>
+      <li>Tab, chọn khu, lọc trạng thái, ô tìm và nút Sắp xếp nằm chung một dòng. Chọn khu đổi thành ô thả xuống.</li>
+      <li>"Tất cả khu" xếp liền, không chia nhóm. Mỗi ô có chấm màu khu cạnh tên bàn. Ô thấp 76px.</li>
+    </ul>
+    <div class="stage"></div>
+  </section>
+
+  <section class="opt" data-opt="A2">
+    <div class="opt-h"><h2><span class="k">A</span>Gọn tối đa, khi đang mở bill một bàn</h2><div class="score"></div></div>
+    <ul><li>Bấm bàn thì bill hiện ở cột phải, lưới co lại còn 8 cột. Đóng bill thì lưới giãn ra lại.</li></ul>
+    <div class="stage"></div>
+  </section>
+
+  <section class="opt" data-opt="B">
+    <div class="opt-h"><h2><span class="k">B</span>Giữ chia khu và cột phải</h2><div class="score"></div></div>
+    <ul>
+      <li>Cột Việc cần xử lý luôn hiện như hiện tại. Tiêu đề từng khu giữ nguyên.</li>
+      <li>Hàng lọc gọn còn một dòng (chung dòng với tab). Ô thấp 76px.</li>
+    </ul>
+    <div class="stage"></div>
+  </section>
+
+  <section class="opt" data-opt="C">
+    <div class="opt-h"><h2><span class="k">C</span>Như bản đang chạy</h2><div class="score"></div></div>
+    <ul><li>Cột phải 400px, hàng lọc 3 dòng, chia khu có tiêu đề, ô 84px. Playwright đo được 14/43 ô.</li></ul>
+    <div class="stage"></div>
+  </section>
+</div>
+
+<script>
+const AREAS = [
+  { name: 'Trong nhà', n: 7, p: 'Bàn ', c: '#ec4899' },
+  { name: 'Ngoài trời', n: 13, p: 'NT ', c: '#3b82f6' },
+  { name: 'PHÒNG VIP', n: 5, p: 'VIP ', c: '#a855f7' },
+  { name: 'Khu E2E', n: 18, p: 'E2E-', c: '#14b8a6', pad: true },
+];
+const STATE = { 'Bàn 1': ['busy', 735000, "1g04"], 'Bàn 3': ['pend', 540000, "41'"], 'NT 2': ['busy', 455000, "52'"], 'NT 5': ['busy', 485000, "1g12"], 'NT 6': ['book', '19:30'], 'NT 9': ['busy', 1640000, "1g58", 'call'], 'VIP 1': ['busy', 2350000, "1g28"], 'VIP 3': ['book', '20:00'], 'NT 12': ['busy', 310000, "35'"] };
+const tables = AREAS.flatMap(a => Array.from({ length: a.n }, (_, i) => ({ name: a.p + (a.pad ? String(i + 1).padStart(2, '0') : i + 1), area: a })));
+const dong = n => n.toLocaleString('vi-VN') + 'đ';
+
+function tile(t, dot, sel) {
+  const s = STATE[t.name];
+  const ad = dot ? `<i class="ad" style="background:${t.area.c}"></i>` : '';
+  if (!s) return `<div class="tile"><div class="n">${ad}${t.name}</div><div class="s">Trống</div></div>`;
+  if (s[0] === 'book') return `<div class="tile book"><div class="n">${ad}${t.name}</div><div class="s">Đặt ${s[1]}</div></div>`;
+  const badge = s[0] === 'pend' ? '<span class="bdg bw">Chờ duyệt · 2</span>' : s[3] ? '<span class="bdg br">Gọi NV</span>' : '';
+  return `<div class="tile ${s[0]}${sel === t.name ? ' selt' : ''}"><div class="n">${ad}${t.name} ${badge}</div><div><div class="m">${dong(s[1])}</div><div class="s"><span>⏱ ${s[2]}</span></div></div></div>`;
+}
+const topBar = `<div class="top"><b>MEVO POS</b><span class="chip">Bia lẩu Bảo Lương</span><span class="pill">● Trực tuyến</span><span class="sp"></span><span class="btn p">Đặt bàn mới</span><span class="btn">Khách lẻ</span></div>
+  <div class="queue"><span class="l">⚡ HÀNG ĐỢI:</span><span class="q">Lượt món chờ duyệt 1</span><span class="q">Gọi nhân viên 1</span><span class="q">Đặt bàn chờ duyệt 0</span><span class="q">Khách trễ / xung đột 0</span></div>`;
+const tabs = `<span class="tabs"><span>Timeline</span><span class="on">Sơ đồ</span><span>Danh sách</span></span><span class="pin">☆</span>`;
+const statusPills = `<span class="pill on">Tất cả <span class="n">43</span></span><span class="pill"><i class="d" style="background:#059669"></i>Có khách <span class="n">7</span></span><span class="pill"><i class="d" style="background:#94a3b8"></i>Trống <span class="n">36</span></span><span class="pill"><i class="d" style="background:#f59e0b"></i>Chờ duyệt <span class="n">1</span></span><span class="pill"><i class="d" style="background:#ea580c"></i>Sắp có khách đặt <span class="n">2</span></span>`;
+const areaPills = `<span class="pill on">Tất cả khu <span class="n">43</span></span>` + AREAS.map(a => `<span class="pill"><i class="d" style="background:${a.c}"></i>${a.name} <span class="n">${a.n}</span></span>`).join('');
+const foot = `<div class="foot"><span><b>43</b> tổng bàn</span><span><b>7 bàn đang ăn</b> (16% lấp đầy)</span><span><b>2 đã đặt trong ca</b></span><span><b>36 bàn trống</b></span></div>`;
+const rail = `<nav class="rail"><div class="logo">M</div><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></nav>`;
+const work = `<aside class="right"><div class="h">☰ Hàng đợi việc cần xử lý</div><div class="e">Bàn 3 · 2 món chờ duyệt<br>NT 9 · gọi nhân viên</div></aside>`;
+const bill = `<aside class="bill"><div class="bh"><b>NT 5</b> <span class="bdg" style="background:#059669;color:#fff">ĐANG PHỤC VỤ</span><p>Ngoài trời · mở lúc 18:42 · ngồi 1g12</p></div><div class="li"><span>1× Lẩu riêu cua bắp bò</span><b>329.000đ</b></div><div class="li"><span>6× Bia Hà Nội</span><b>108.000đ</b></div><div class="li"><span>1× Ba chỉ nướng</span><b>48.000đ</b></div><div class="pay">Thanh toán · 485.000đ</div></aside>`;
+
+function flat(sel) { return `<div class="grid">${tables.map(t => tile(t, true, sel)).join('')}</div>`; }
+function grouped() { return AREAS.map(a => `<div class="gh">${a.name} <span>· ${a.n} bàn</span></div><div class="grid">${tables.filter(t => t.area === a).map(t => tile(t, false)).join('')}</div>`).join(''); }
+
+const BUILD = {
+  A: () => `<div class="screen">${rail}<section class="main">${topBar}<div class="row">${tabs}<span class="sel">Tất cả khu (43) ▾</span>${statusPills}<span class="sp"></span><span class="search">Tìm bàn…</span><span class="btn">Sắp xếp bàn</span></div><div class="board t76">${flat()}</div>${foot}</section></div>`,
+  A2: () => `<div class="screen rightcol">${rail}<section class="main">${topBar}<div class="row">${tabs}<span class="sel">Tất cả khu ▾</span>${statusPills}<span class="search">Tìm bàn…</span></div><div class="board t76">${flat('NT 5')}</div>${foot}</section>${bill}</div>`,
+  B: () => `<div class="screen rightcol">${rail}<section class="main">${topBar}<div class="row">${tabs}<span class="sel">Tất cả khu ▾</span>${statusPills}<span class="search">Tìm bàn…</span></div><div class="board t76">${grouped()}</div>${foot}</section>${work}</div>`,
+  C: () => `<div class="screen rightcol">${rail}<section class="main">${topBar}<div class="row">${tabs}</div><div class="row">${areaPills}</div><div class="row">${statusPills}<span class="search">Tìm bàn…</span><span class="btn">Sắp xếp bàn</span></div><div class="board t84">${grouped()}</div>${foot}</section>${work}</div>`,
+};
+
+function render() {
+  document.querySelectorAll('.opt').forEach(sec => {
+    const stage = sec.querySelector('.stage');
+    stage.innerHTML = BUILD[sec.dataset.opt]() + '<div class="cut"><span>Chrome thật trên laptop cắt ở đây</span></div>';
+    const scr = stage.querySelector('.screen');
+    const scale = stage.clientWidth / 1366;
+    scr.style.transform = `scale(${scale})`;
+    stage.style.height = (768 * scale) + 'px';
+    stage.querySelector('.cut').style.top = (657 * scale) + 'px';
+    // Đếm ô nằm trọn trong vùng lưới (khung 768) và khi màn chỉ còn 657 (Chrome thật).
+    const board = scr.querySelector('.board');
+    const bb = board.getBoundingClientRect();
+    const tiles = [...board.querySelectorAll('.tile')];
+    const fit = cut => tiles.filter(t => t.getBoundingClientRect().bottom <= cut + 0.5).length;
+    const full = fit(bb.bottom - 12 * scale);
+    const real = fit(bb.bottom - 12 * scale - 111 * scale);
+    const cols = getComputedStyle(board.querySelector('.grid')).gridTemplateColumns.split(' ').length;
+    if (full < tiles.length) board.insertAdjacentHTML('beforeend', `<div class="more">↓ còn ${tiles.length - full} bàn phải cuộn</div>`);
+    sec.querySelector('.score').innerHTML =
+      `<span class="${full >= tiles.length ? 'good' : 'bad'}">Khung 768: thấy ${full}/${tiles.length}</span>` +
+      `<span class="${real >= tiles.length ? 'good' : 'bad'}">Chrome thật: thấy ${real}/${tiles.length}</span>` +
+      `<span>${cols} cột</span>`;
+  });
+}
+addEventListener('resize', () => { clearTimeout(window.__t); window.__t = setTimeout(render, 120); });
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(render);
+render();
+</script>
