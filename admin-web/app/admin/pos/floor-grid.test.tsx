@@ -46,23 +46,32 @@ describe('FloorGrid', () => {
     const html = render({ groups: two })
     expect(html).not.toContain('<h3')
     expect(html).not.toContain('A · 2 bàn')
-    expect(html.match(/minmax\(104px, 1fr\)/g)).toHaveLength(1)
+    expect(html.match(/minmax\(156px, 1fr\)/g)).toHaveLength(1)
     expect(html.indexOf('Bàn A1')).toBeLessThan(html.indexOf('Bàn A2'))
     expect(html.indexOf('Bàn A2')).toBeLessThan(html.indexOf('Bàn X9'))
   })
-  it('ô có chấm màu khu 7px trước tên; bàn chưa phân khu không chấm', () => {
+  it('ô có dải tên khu (aria-hidden, có title); bàn chưa phân khu dải xám "Chưa phân khu"; không còn chấm 7px', () => {
     const two: GridGroup[] = [
-      ...groups,
+      { areaId: 'a1', name: 'Sân vườn', color: 'violet', tables: [t('t1', 'Bàn A1')] },
       { areaId: null, name: 'Chưa phân khu', color: null, tables: [{ ...t('t9', 'Bàn X9'), area_id: null }] },
     ]
     const html = render({ groups: two })
     const tileOf = (id: string) => html.match(new RegExp(`<button[^>]*data-table-id="${id}"[\\s\\S]*?</button>`))?.[0] ?? ''
-    expect(tileOf('t1')).toMatch(/size-\[7px\][^"]*bg-violet-300|bg-violet-300[^"]*size-\[7px\]/)
-    expect(tileOf('t9')).not.toContain('size-[7px]')
+    expect(tileOf('t1')).toContain('Sân vườn')
+    expect(tileOf('t1')).toContain('bg-violet-100')
+    expect(tileOf('t1')).toContain('border-b-violet-400')
+    expect(tileOf('t1')).toContain('title="Sân vườn"')
+    expect(tileOf('t1')).toMatch(/aria-hidden="true"[^>]*>Sân vườn|<span[^>]*aria-hidden="true"[^>]*title="Sân vườn"/)
+    expect(tileOf('t9')).toContain('Chưa phân khu')
+    expect(tileOf('t9')).toContain('bg-slate-100')
+    expect(html).not.toContain('size-[7px]')
   })
-  it('ô cao 76px', () => {
-    expect(render()).toContain('h-[76px]')
-    expect(render()).not.toContain('h-[84px]')
+  it('ô To 156×128: tên 18px, tiền 17px', () => {
+    const html = render({ views: { t1: BUSY } })
+    expect(html).toContain('h-[128px]')
+    expect(html).not.toContain('h-[76px]')
+    expect(html).toContain('text-[18px]')
+    expect(html).toContain('text-[17px]')
   })
   it('ô có phiên hiện tiền "485.000đ" và "1g12"; ô mâm có "Mâm 2"', () => {
     const html = render({ views: { t1: { ...BUSY, trayIndex: 2 } } })
@@ -127,8 +136,9 @@ describe('FloorGrid', () => {
   it('groups rỗng → "Không có bàn nào khớp bộ lọc."', () => {
     expect(render({ groups: [] })).toContain('Không có bàn nào khớp bộ lọc.')
   })
-  it('grid dùng repeat(auto-fill, minmax(104px, 1fr))', () => {
-    expect(render()).toContain('repeat(auto-fill, minmax(104px, 1fr))')
+  it('grid dùng repeat(auto-fill, minmax(156px, 1fr)), khe 10px', () => {
+    expect(render()).toContain('repeat(auto-fill, minmax(156px, 1fr))')
+    expect(render()).toContain('gap:10px')
   })
 })
 
