@@ -154,3 +154,26 @@ describe('Sổ thu chi', () => {
     expect(createReceipt).not.toContain('Chi phí vận hành')
   })
 })
+
+describe('Sổ thu chi — công nợ NCC (mig 143)', () => {
+  it('phiếu chi trả nợ NCC: ghi nguồn + nơi huỷ, không có nút Huỷ phiếu', () => {
+    const html = renderToStaticMarkup(createElement(CashbookEntries, { canManage: true, onVoid: noop, entries: [
+      entry({ source: 'supplier_payment', sourceRef: 'p1', categoryName: 'Nhập hàng', reportGroup: 'inventory_purchase',
+        method: 'bank', cashShiftId: null, shiftOpenedAt: null }),
+    ] }))
+    expect(text(html)).toContain('Trả nợ NCC · Huỷ ở trang Công nợ')
+    expect(html).not.toContain('>Huỷ phiếu<')
+  })
+  it('form phiếu chi: dòng nhắc nơi ghi tiền hàng; "Đi chợ" hiện "Chi đi chợ ngoài nhập kho"; phiếu thu không nhắc', () => {
+    const cats = [...categories, cat({ id: 'cho', name: 'Đi chợ', sortOrder: 20 })]
+    const props = { categories: cats, method: 'cash' as const, onMethod: noop, amountText: '', onAmount: noop, categoryId: 'cho',
+      onCategory: noop, counterparty: '', onCounterparty: noop, note: '', onNote: noop, error: null, busy: false, locked: false,
+      notice: null, onSubmit: noop, onCancel: noop }
+    const pay = renderToStaticMarkup(createElement(EntryForm, { ...props, kind: 'payment' }))
+    expect(text(pay)).toContain('Tiền mua hàng nhập kho ghi ở Kho. Trả nợ nhà cung cấp ghi ở Công nợ.')
+    expect(pay).toMatch(/<option[^>]*value="cho"[^>]*>Chi đi chợ ngoài nhập kho<\/option>/)
+    expect(pay).not.toMatch(/<option[^>]*>Nhập hàng<\/option>/)
+    const rec = renderToStaticMarkup(createElement(EntryForm, { ...props, kind: 'receipt', categoryId: 'nop' }))
+    expect(text(rec)).not.toContain('Tiền mua hàng nhập kho ghi ở Kho')
+  })
+})

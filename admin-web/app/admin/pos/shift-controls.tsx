@@ -148,6 +148,8 @@ export function ShiftPanelBody({ shift, canManageEntries, onVoid, onDrawer, onCl
                       <button type="button" className="min-h-8 text-[13px] font-medium text-danger hover:underline" onClick={() => onVoid(e)}>Huỷ phiếu</button>
                     ) : e.source === 'inventory_receipt' ? (
                       <span className="text-[13px] text-muted">Huỷ ở trang Kho</span>
+                    ) : e.source === 'supplier_payment' ? (
+                      <span className="text-[13px] text-muted">Huỷ ở trang Công nợ</span>
                     ) : null}
                 </div>
               </li>

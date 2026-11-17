@@ -97,3 +97,17 @@ describe('Excel sổ thu chi', () => {
     expect(cashbookWorkbookFileName('', '2026-11-09', '2026-11-09')).toBe('so-thu-chi_2026-11-09_2026-11-09.xlsx')
   })
 })
+
+describe('nguồn Trả nợ NCC (mig 143)', () => {
+  it('cột nguồn ghi "Trả nợ NCC"', async () => {
+    const one = parseCashBookList({ entries: [raw({ id: 's1', source: 'supplier_payment', source_ref: 'p1', method: 'bank',
+      category_name: 'Nhập hàng', report_group: 'inventory_purchase', cash_shift_id: null, shift_opened_at: null })],
+      totals: { receipt_cash: 0, receipt_bank: 0, payment_cash: 0, payment_bank: 0 }, truncated: false })
+    const buf = await buildCashbookWorkbook(one, meta).xlsx.writeBuffer()
+    const wb = new ExcelJS.Workbook()
+    await wb.xlsx.load(buf)
+    const cells: string[] = []
+    wb.eachSheet((ws) => ws.eachRow((row) => row.eachCell((c) => cells.push(String(c.value)))))
+    expect(cells).toContain('Trả nợ NCC')
+  })
+})

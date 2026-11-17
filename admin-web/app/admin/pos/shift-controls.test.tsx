@@ -264,3 +264,20 @@ describe('fix round 1', () => {
     })
   })
 })
+
+describe('Ca — công nợ NCC (mig 143)', () => {
+  it('phiếu chi trả nợ NCC trong ca: "Huỷ ở trang Công nợ", không có nút Huỷ phiếu', () => {
+    const shiftWith = { ...shiftState().shift!, entries: [entry({ id: 's', source: 'supplier_payment', categoryName: 'Nhập hàng', amount: 500000 })] }
+    const html = render(createElement(ShiftPanelBody, { shift: shiftWith, canManageEntries: true, onVoid: noop, onDrawer: noop, onCloseShift: noop }))
+    expect(text(html)).toContain('Huỷ ở trang Công nợ')
+    expect(html).not.toContain('>Huỷ phiếu<')
+  })
+  it('Chi két: dòng nhắc nơi ghi tiền hàng + nhãn "Chi đi chợ ngoài nhập kho"', () => {
+    const cats = [{ id: 'cho', kind: 'payment' as const, name: 'Đi chợ', reportGroup: 'operating_expense' as const, isSystem: false,
+      isActive: true, requiresNote: false, sortOrder: 20 }]
+    const html = render(createElement(CashDrawerForm, { categories: cats, kind: 'payment', onKind: noop, amountText: '', onAmount: noop,
+      categoryId: 'cho', onCategory: noop, note: '', onNote: noop, error: null, busy: false, onSubmit: noop, onCancel: noop }))
+    expect(text(html)).toContain('Tiền mua hàng nhập kho ghi ở Kho. Trả nợ nhà cung cấp ghi ở Công nợ.')
+    expect(html).toContain('>Chi đi chợ ngoài nhập kho</option>')
+  })
+})
