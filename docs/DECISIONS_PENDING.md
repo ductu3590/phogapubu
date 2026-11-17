@@ -110,10 +110,11 @@ Mẫu:
   dò lệnh shell (trước rút về `.claude` trần). Kiểm: lệnh có đường dẫn worktree / `~/.claude/plugins` không còn bị chặn;
   ghi vào `.claude/hooks|settings|skills`, `.harness/gates.json` vẫn bị gác.
 
-## D-008 · 2026-11-17 · gate: deploy · task: công nợ NCC (mig 143–146) · trạng thái: chờ
+## D-008 · 2026-11-17 · gate: deploy · task: công nợ NCC (mig 143–146) · trạng thái: xong
 - Cần làm: `git push origin main` (main đã fast-forward gồm nhánh `claude/import-payables-payment-vouchers-1c9d16`).
 - Vì sao: anh Tú PASS hết CONG-NO-NCC.md (B13 cuối cùng) và bảo "merge vào main và push". Mig 143–146 đã ở prod từ
   sáng nay → bản Vercel cũ đang từ chối phiếu nhập Chưa trả không có NCC; push xong Vercel dựng bản mới là hết.
 - Phương án đề xuất: anh mở cổng deploy 1 giờ, agent push.
 - Rủi ro nếu duyệt: thấp — verify xanh sau khi gộp main (vitest 1772/1772, DB, mini-app, print-agent).
-- Trả lời của anh:
+- Trả lời của anh: Đã mở cổng
+- **Đã áp dụng 2026-11-17:** push main c1e63a9..f94ac99.
