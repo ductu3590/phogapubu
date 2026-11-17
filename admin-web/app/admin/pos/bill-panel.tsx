@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  ArrowLeft, Banknote, BellRing, Clock3, EllipsisVertical, Gift, Hash, Layers, Link2, Lock, Minus, Plus, Printer, Receipt,
-  RotateCcw, Smartphone, Trash2, UserRound, X,
+  Armchair, ArrowLeft, Banknote, BellRing, CalendarClock, CalendarPlus, Clock3, EllipsisVertical, Gift, Hash, Layers, Link2, Lock, Minus, Plus, Printer, Receipt,
+  RotateCcw, Smartphone, Trash2, UserPlus, UserRound, X,
 } from 'lucide-react'
 import type { OpenTableSession, SessionOrderItem, SessionOrderRow } from '@/lib/actions/table-session'
 import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
@@ -103,6 +103,16 @@ export type PosBillPanelProps = {
   /** Hàng chờ món đặt trước — để in phiếu món đặt trước ngay trong bill khi khách đã đến. */
   preorders: ReservationPreorderRow[]
   onPrintPreorder: (row: ReservationPreorderRow, reason?: string) => Promise<{ ok: boolean }>
+  /**
+   * Tab Sơ đồ: ĐÚNG MỘT bàn trống đang chọn (spec 2026-11-17 §5.5). laterReservationAt = giờ khách đặt muộn hơn
+   * trong ngày (buildMoveTargets), chỉ để nhắc, không chặn. Không truyền / null = không có bảng này.
+   */
+  freeTable?: { id: string; table_number: string; areaName: string | null; laterReservationAt: string | null } | null
+  /** Quán bật đặt bàn → hiện nút "Đặt bàn cho bàn này". */
+  reservationsEnabled?: boolean
+  /** "Gọi món & mở bàn": vào thẳng bước chọn món của Khách lẻ (bàn chỉ mở khi gửi món, mig 099). */
+  onWalkInTable?: (tableId: string) => void
+  onBookTable?: (tableId: string) => void
 }
 
 /** Ai gọi lượt này — tab Lịch sử. */
@@ -139,6 +149,37 @@ export default function PosBillPanel(props: PosBillPanelProps) {
           <Button variant="primary" size="touch" icon={<Layers />} onClick={props.onCreateTray} disabled={busy} className="w-full">
             Ghép thành một mâm
           </Button>
+          <Button variant="ghost" onClick={props.onClearPick} className="w-full">Bỏ chọn</Button>
+        </div>
+      </Khung>
+    )
+  }
+  const freeTable = props.freeTable
+  if (freeTable && list.length === 0 && pickedFreeTables === 1) {
+    return (
+      <Khung
+        icon={<Armchair />}
+        tieuDe={freeTable.table_number}
+        badge={<span className={cn('shrink-0 rounded px-1.5 text-[11px] leading-5 font-bold whitespace-nowrap uppercase', STATUS_TONE_CLASSES[TABLE_STATE.free.tone].solid)}>{TABLE_STATE.free.label}</span>}
+        moTa={freeTable.areaName ?? 'Chưa phân khu'}
+        onDismiss={props.onClearPick}
+      >
+        <div className="space-y-2">
+          {freeTable.laterReservationAt && (
+            <p className="flex items-center gap-2 rounded-lg bg-warning-bg px-3 py-2 text-sm font-medium text-warning tabular">
+              <CalendarClock className="size-4 shrink-0" aria-hidden />
+              {`Có khách đặt ${gio(freeTable.laterReservationAt)}`}
+            </p>
+          )}
+          <Button variant="primary" size="touch" icon={<UserPlus />} onClick={() => props.onWalkInTable?.(freeTable.id)} disabled={busy} className="w-full">
+            Gọi món &amp; mở bàn
+          </Button>
+          {props.reservationsEnabled && (
+            <Button size="touch" icon={<CalendarPlus />} onClick={() => props.onBookTable?.(freeTable.id)} disabled={busy} className="w-full">
+              Đặt bàn cho bàn này
+            </Button>
+          )}
+          <p className="text-[13px] text-muted">Bấm thêm bàn trống khác để ghép thành một mâm.</p>
           <Button variant="ghost" onClick={props.onClearPick} className="w-full">Bỏ chọn</Button>
         </div>
       </Khung>
