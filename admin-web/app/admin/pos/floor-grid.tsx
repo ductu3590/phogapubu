@@ -237,7 +237,7 @@ function GridTile({
             <span className="truncate">{statusText}</span>
           </span>
           {view.calling && (
-            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-amber-500 px-1 text-[12px] leading-[18px] font-bold text-white">
+            <span className={cn('inline-flex shrink-0 items-center gap-0.5 rounded-md border px-1 text-[12px] leading-[18px] font-bold', STATUS_TONE_CLASSES.critical.solid)}>
               <BellRing className="size-3" aria-hidden />
               Gọi NV
             </span>

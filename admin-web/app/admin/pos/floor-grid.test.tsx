@@ -51,6 +51,14 @@ describe('FloorGrid', () => {
     expect(html).toContain('Chờ duyệt · 2')
     expect(html).toContain('Gọi NV')
   })
+  it('nhãn "Gọi NV" màu đỏ (critical), không phải amber; ô vừa chờ duyệt vừa gọi NV hiện cả hai nhãn', () => {
+    const html = render({ views: { t1: { ...BUSY, visual: 'pending', pending: 2, calling: true } } })
+    expect(html).toContain('Chờ duyệt · 2')
+    expect(html).toContain('Gọi NV')
+    const badge = html.match(/<span class="[^"]*">(?:<svg[\s\S]*?<\/svg>)Gọi NV<\/span>/)?.[0] ?? ''
+    expect(badge).toContain('bg-red-600')
+    expect(badge).not.toContain('amber')
+  })
   it('groups rỗng → "Không có bàn nào khớp bộ lọc."', () => {
     expect(render({ groups: [] })).toContain('Không có bàn nào khớp bộ lọc.')
   })
