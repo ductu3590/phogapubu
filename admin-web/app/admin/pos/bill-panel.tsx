@@ -163,6 +163,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
         badge={<span className={cn('shrink-0 rounded px-1.5 text-[11px] leading-5 font-bold whitespace-nowrap uppercase', STATUS_TONE_CLASSES[TABLE_STATE.free.tone].solid)}>{TABLE_STATE.free.label}</span>}
         moTa={freeTable.areaName ?? 'Chưa phân khu'}
         onDismiss={props.onClearPick}
+        nonModal
       >
         <div className="space-y-2">
           {freeTable.laterReservationAt && (
@@ -1065,8 +1066,10 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
 /**
  * Khung cột phải, đầu nền tối như bản Stitch. Từ xl: cột 400px cạnh Timeline (X đưa về Việc cần xử lý).
  * Dưới xl: sheet đáy có nền mờ. Tổng + nút thu ở footer đứng yên, phần món cuộn.
+ * nonModal (chỉ bảng 1 bàn trống): dưới xl KHÔNG có nền mờ chặn màn, sheet thấp gọn — lưới phía trên vẫn bấm được
+ * để chọn thêm bàn trống thứ hai ghép mâm. Từ xl không khác gì.
  */
-function Khung({ icon, tieuDe, badge, moTa, lead, right, headerExtra, top, footer, onDismiss, children }: {
+function Khung({ icon, tieuDe, badge, moTa, lead, right, headerExtra, top, footer, onDismiss, nonModal = false, children }: {
   icon?: ReactNode
   tieuDe: string
   badge?: ReactNode
@@ -1077,14 +1080,19 @@ function Khung({ icon, tieuDe, badge, moTa, lead, right, headerExtra, top, foote
   top?: ReactNode
   footer?: ReactNode
   onDismiss: () => void
+  nonModal?: boolean
   children: ReactNode
 }) {
   return (
     <>
-      <button type="button" aria-label="Đóng bill" onClick={onDismiss} className="fixed inset-0 z-30 bg-foreground/40 xl:hidden" />
+      {!nonModal && <button type="button" aria-label="Đóng bill" onClick={onDismiss} className="fixed inset-0 z-30 bg-foreground/40 xl:hidden" />}
       <aside
         aria-label="Bill"
-        className="fixed inset-x-0 bottom-0 z-40 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-2xl bg-white shadow-modal xl:static xl:max-h-none xl:w-[400px] xl:shrink-0 xl:rounded-none xl:border-l xl:border-slate-200 xl:shadow-none"
+        className={cn(
+          'fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-2xl bg-white shadow-modal',
+          nonModal ? 'max-h-[45dvh] border-t border-slate-200 xl:border-t-0' : 'max-h-[88dvh]',
+          'xl:static xl:max-h-none xl:w-[400px] xl:shrink-0 xl:rounded-none xl:border-l xl:border-slate-200 xl:shadow-none',
+        )}
       >
         <header className="shrink-0 bg-slate-900 px-3 py-3 text-white">
           <div className="flex items-start gap-2.5">

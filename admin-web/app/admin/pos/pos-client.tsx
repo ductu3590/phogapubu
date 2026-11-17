@@ -51,7 +51,7 @@ import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import { serviceRequestSession } from '@/lib/service-request-queue'
 import { buildWorkQueue, isReviewableOrder, type WorkFilter } from '@/lib/pos-work-queue'
 import { watchCashierSessions } from '@/lib/cashier-session-watcher'
-import { ExpiredSessions } from './expired-sessions'
+import { ExpiredDebtBar, ExpiredSessions } from './expired-sessions'
 import { actionError, applyReloadError, type CashierError } from '@/lib/cashier-error-state'
 import {
   arriveReservation,
@@ -83,12 +83,12 @@ import FloorMap, { type TableState } from './floor-map'
 import FloorGrid, { FloorGridFilters } from './floor-grid'
 import {
   ALL_AREAS,
-  NO_AREA_ID,
   buildGridGroups,
   effectivePickedTables,
   gridAreaCounts,
   gridStatusCounts,
   heldReservationByTable,
+  tableInAreaFilter,
   type GridContext,
   type GridStatus,
 } from '@/lib/pos-floor-grid'
@@ -476,9 +476,11 @@ export default function PosClient({
     return seen
   }, [timeline])
 
-  const filteredTables = useMemo(() => placed.filter((t) =>
-    areaFilter === ALL_AREAS ? true : areaFilter === NO_AREA_ID ? !t.area_id : t.area_id === areaFilter,
-  ), [placed, areaFilter])
+  // Cùng định nghĩa "Chưa phân khu" với lưới Sơ đồ (gồm bàn trỏ tới khu đã xoá) — hai tab đếm khớp nhau.
+  const filteredTables = useMemo(() => {
+    const known = new Set(floor.draft.areas.map((a) => a.id))
+    return placed.filter((t) => tableInAreaFilter(t, areaFilter, known))
+  }, [placed, areaFilter, floor.draft.areas])
   const visibleTableIds = useMemo(() => new Set(filteredTables.map((t) => t.id)), [filteredTables])
 
   // ─── Lưới Sơ đồ (spec 2026-11-17 §5.2–5.4) ───────────────────────────────
@@ -1163,12 +1165,8 @@ export default function PosClient({
   // Kiểu chuông "Báo liên tục": hết việc chờ thì im ngay, không đợi người chạm màn hình.
   useEffect(() => { if (workTotal === 0) stopBell() }, [workTotal])
 
-  const areaItems = [
-    { value: ALL_AREAS, label: 'Tất cả', count: placed.length },
-    ...(placed.some((t) => !t.area_id) && floor.draft.areas.length > 0
-      ? [{ value: NO_AREA_ID, label: 'Chưa phân khu', count: placed.filter((t) => !t.area_id).length }] : []),
-    ...floor.draft.areas.map((a) => ({ value: a.id, label: a.name, count: placed.filter((t) => t.area_id === a.id).length })),
-  ]
+  // Ô chọn khu của Timeline / Danh sách: cùng danh sách + số đếm với lưới Sơ đồ (gridAreaCounts).
+  const areaItems = gridAreaItems
 
   return (
     <div className="flex h-full min-h-0 flex-1 bg-slate-50" onClickCapture={unlockAllBells}>
@@ -1467,8 +1465,14 @@ export default function PosClient({
               </div>
             </div>
           )}
+          {/* Bố cục A: Việc cần xử lý chỉ là ngăn kéo ở Sơ đồ → nợ phiên hết hạn có dải đỏ riêng trên lưới
+              (POS là lối thu DUY NHẤT của phiên hết hạn). Không có thì không vẽ. */}
           {clockNow !== null && view === 'floor' && !arrange && (
-            <div className="min-h-0 flex-1 overflow-auto px-4 py-3 md:px-5">
+            <ExpiredDebtBar sessions={sessions} onOpen={() => openWork()} />
+          )}
+          {clockNow !== null && view === 'floor' && !arrange && (
+            // Dưới xl bảng 1 bàn trống là sheet đáy không chặn (cao tối đa 45dvh): chừa đáy để cuộn tới hàng ô cuối.
+            <div className={cn('min-h-0 flex-1 overflow-auto px-4 py-3 md:px-5', panel === 'free' && 'pb-[45dvh] xl:pb-3')}>
               <FloorGrid
                 groups={gridGroups}
                 tile={(tableId) => gridTileView(tableId, { ...gridCtx, trays: trayColors, callingSessionIds, now })}
@@ -1607,8 +1611,14 @@ export default function PosClient({
             return r.ok ? r.bank : null
           }}
           loadDebtCustomers={() => readDebtCustomers(supabase, storeId)}
-          // Đổi bàn / gộp bill khác = bill mới: về tab Hoá đơn, thoát màn thanh toán đang dở.
-          key={selected?.session_id ?? [...pickedSessionIds].sort().join(',') ?? 'pick'}
+          // Đổi bàn / gộp bill khác = bill mới: về tab Hoá đơn, thoát màn thanh toán đang dở. Khoá ghi rõ từng nhánh.
+          key={panel === 'free' && pickedFreeTable
+            ? `free:${pickedFreeTable.id}`
+            : selected
+              ? `bill:${selected.session_id}`
+              : pickedSessions.length > 0
+                ? `merge:${[...pickedSessionIds].sort().join(',')}`
+                : `pick:${[...effectivePicked].sort().join(',')}`}
           trayColors={trayColors}
           preorders={preorders}
           onPrintPreorder={(row, reason) => onPrintPreorder(row, 'original', reason)}

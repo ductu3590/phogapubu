@@ -54,6 +54,22 @@ describe('PosBillPanel — 1 bàn trống', () => {
     expect(html).not.toContain('Gọi món &amp; mở bàn')
   })
 
+  // Dưới xl: 1 bàn trống là sheet KHÔNG chặn (không nền mờ phủ màn), để bấm tiếp bàn trống thứ hai ghép mâm.
+  // ≥2 bàn trống / bill vẫn là sheet có nền mờ như cũ.
+  it('1 bàn trống: sheet không nền mờ, thấp gọn; vẫn có nút X "Đóng bill" và "Bỏ chọn"', () => {
+    const html = panel()
+    expect(html).not.toContain('fixed inset-0')
+    expect(html).toContain('max-h-[45dvh]')
+    expect(html).toContain('aria-label="Đóng bill"')
+    expect(html).toContain('Bỏ chọn')
+  })
+
+  it('≥2 bàn trống vẫn là sheet có nền mờ', () => {
+    const html = panel({ pickedFreeTables: 2 })
+    expect(html).toContain('fixed inset-0')
+    expect(html).not.toContain('max-h-[45dvh]')
+  })
+
   it('không có freeTable thì không vẽ gì (như trước)', () => {
     expect(panel({ freeTable: null })).toBe('')
   })

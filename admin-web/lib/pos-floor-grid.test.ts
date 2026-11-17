@@ -4,7 +4,7 @@ import type { OpenTableSession } from './actions/table-session'
 import type { ReservationRow } from './actions/reservations'
 import {
   ALL_AREAS, NO_AREA_ID, buildGridGroups, effectivePickedTables, gridAreaCounts, gridStatusCounts, heldReservationByTable,
-  matchesGridStatus, normalizeTableSearch, seatedLabel, type GridContext,
+  matchesGridStatus, normalizeTableSearch, seatedLabel, tableInAreaFilter, type GridContext,
 } from './pos-floor-grid'
 
 const areas: TableArea[] = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }]
@@ -108,6 +108,12 @@ describe('bàn trỏ tới khu đã xoá = Chưa phân khu (một định nghĩa
   it('gridAreaCounts + gridStatusCounts đếm cả bàn đó vào Chưa phân khu', () => {
     expect(gridAreaCounts(all, areas).find(a => a.value === NO_AREA_ID)?.count).toBe(2)
     expect(gridStatusCounts(all, areas, NO_AREA_ID, ctx).all).toBe(2)
+  })
+  it('tableInAreaFilter (lọc khu của Timeline / Danh sách) dùng cùng định nghĩa', () => {
+    const known = new Set(areas.map(a => a.id))
+    expect(all.filter(t => tableInAreaFilter(t, NO_AREA_ID, known)).map(t => t.id)).toEqual(['x1', 'z1'])
+    expect(all.filter(t => tableInAreaFilter(t, ALL_AREAS, known))).toHaveLength(all.length)
+    expect(all.filter(t => tableInAreaFilter(t, 'a', known)).every(t => t.area_id === 'a')).toBe(true)
   })
 })
 

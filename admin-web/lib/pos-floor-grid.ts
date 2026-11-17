@@ -79,8 +79,10 @@ const byYThenX = (a: AreaPlacedTable, b: AreaPlacedTable) => a.y - b.y || a.x - 
  */
 const isLoose = (t: AreaPlacedTable, knownAreaIds: ReadonlySet<string>) => !t.area_id || !knownAreaIds.has(t.area_id)
 
-const inArea = (t: AreaPlacedTable, areaFilter: string, knownAreaIds: ReadonlySet<string>) =>
-  areaFilter === ALL_AREAS ? true : areaFilter === NO_AREA_ID ? isLoose(t, knownAreaIds) : t.area_id === areaFilter
+/** Bàn có thuộc lựa chọn khu không — dùng chung cho lưới Sơ đồ và ô chọn khu của Timeline / Danh sách. */
+export function tableInAreaFilter(t: AreaPlacedTable, areaFilter: string, knownAreaIds: ReadonlySet<string>): boolean {
+  return areaFilter === ALL_AREAS ? true : areaFilter === NO_AREA_ID ? isLoose(t, knownAreaIds) : t.area_id === areaFilter
+}
 
 export function buildGridGroups(input: {
   tables: AreaPlacedTable[]
@@ -93,7 +95,7 @@ export function buildGridGroups(input: {
   const q = normalizeTableSearch(input.query)
   const known = new Set(input.areas.map(a => a.id))
   const visible = input.tables.filter(t =>
-    inArea(t, input.areaFilter, known)
+    tableInAreaFilter(t, input.areaFilter, known)
     && matchesGridStatus(t.id, input.status, input.ctx)
     && (q === '' || normalizeTableSearch(t.table_number).includes(q)),
   )
@@ -134,7 +136,7 @@ export function gridStatusCounts(
   ctx: GridContext,
 ): Record<GridStatus, number> {
   const known = new Set(areas.map(a => a.id))
-  const scoped = tables.filter(t => inArea(t, areaFilter, known))
+  const scoped = tables.filter(t => tableInAreaFilter(t, areaFilter, known))
   const count = (s: GridStatus) => scoped.filter(t => matchesGridStatus(t.id, s, ctx)).length
   return { all: count('all'), busy: count('busy'), free: count('free'), pending: count('pending'), booked: count('booked') }
 }
