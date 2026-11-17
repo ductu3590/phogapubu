@@ -238,19 +238,75 @@ it('có laterReservationAt → dòng "Có khách đặt 21:00"', ...)
 
 ---
 
-### Task 6: Tự kiểm trên trình duyệt + checklist test tay
+### Task 6: Lớp review Playwright (e2e trên POS thật của Bảo Lương)
+
+Anh Tú chốt 2026-11-17: thêm một lớp review tự động bằng Playwright; anh chỉ test tay phần lớp này không làm
+được. Được phép thêm dữ liệu thử vào Bảo Lương / Yên Garden (chưa onboard, dữ liệu prod đều là dữ liệu test).
+
+**Files:**
+- Modify: `admin-web/package.json` (devDependency `@playwright/test`, script `"e2e": "playwright test"`), `.gitignore` (`admin-web/e2e/.auth/`, `admin-web/test-results/`, `admin-web/playwright-report/`)
+- Create: `admin-web/playwright.config.ts`, `admin-web/e2e/global-setup.ts`, `admin-web/e2e/global-teardown.ts`, `admin-web/e2e/seed.ts`, `admin-web/e2e/pos-so-do.spec.ts`
+- vitest không được nhặt `e2e/**` (thêm `exclude` trong cấu hình vitest nếu cần).
+
+**Ràng buộc:**
+- Chạy trên dev server của worktree (`E2E_BASE_URL`, mặc định `http://localhost:3000`), Chromium, `workers: 1` (cùng một quán, cùng dữ liệu).
+- Ba cỡ màn (project): `desktop-1366` (1366×768), `desktop-1920` (1920×1080), `phone` (375×812). Kịch bản thao tác chạy ở 1366; 1920 + phone chỉ chạy kịch bản bố cục.
+- Đăng nhập: `global-setup.ts` mint phiên chủ quán `baoluong@mevo.vn` bằng service key đọc từ `admin-web/.env.local` (generate_link magiclink → verify → cookie `sb-<ref>-auth-token` = `"base64-" + base64url(session)`, chia khúc `.0/.1` nếu > 3180 ký tự) rồi ghi `storageState` vào `e2e/.auth/owner.json`. Không in token ra log.
+- Dữ liệu: `seed.ts` dùng service-role client, CHỈ đụng quán Bảo Lương (tra `store_id` theo slug, dừng nếu không thấy). Setup thêm khu `Khu E2E` + 18 bàn `E2E-01..18` (để quán có 43 bàn — đủ kiểm "40+ bàn không cuộn"); teardown xoá khu + bàn đó (chúng không có phiên nào). Phiên / đặt bàn kịch bản tự tạo qua giao diện thì teardown đóng/huỷ hết (`close_table_session` staff_reset, huỷ đặt bàn) — kể cả khi test fail giữa chừng.
+- Tạo "chờ duyệt" và "gọi nhân viên" bằng đúng đường khách dùng nếu gọi được bằng service role (RPC tạo đơn của Mini App / insert `service_requests`); không được thì bỏ hai ô đó khỏi e2e và đưa sang checklist tay (Task 7) — ghi rõ lý do trong báo cáo.
+- Mỗi kịch bản ghi lỗi console (`page.on('console')` mức error) và fail nếu có.
+
+**Kịch bản (`pos-so-do.spec.ts`)** — mỗi dòng là một `test(...)`:
+
+```ts
+// A. Màn mặc định
+'tab giữa tên "Sơ đồ"; máy chưa ghim mở Timeline'
+'bấm Sơ đồ rồi reload → về Timeline (đổi tab chỉ tạm)'
+'ghim Sơ đồ → toast "Máy này sẽ mở POS bằng Sơ đồ", nút thành "Mặc định máy này", reload và context mới cùng storage → vào Sơ đồ'
+'tab Danh sách không có nút ghim'
+// B. Lưới + lọc (chạy cả 1366 / 1920 / phone)
+'1366×768 và 1920×1080: thấy đủ 43 ô bàn, ô cuối nằm trọn trong vùng lưới không cần cuộn'   // 1366: nếu vùng lưới thấp hơn 4 hàng thì assert số hàng phải cuộn ≤ 1 — ghi số đo thật vào báo cáo
+'phone 375: lưới 3 cột, trang không cuộn ngang'
+'Tất cả khu: nhóm theo khu, tiêu đề "Khu E2E · 18 bàn"'
+'lọc khu Khu E2E → chỉ 18 ô; nút khu hiện đúng số'
+'lọc trạng thái: số trên nút khớp số ô hiện ra (Tất cả / Có khách / Trống / Chờ duyệt / Sắp có khách đặt)'
+'tìm "e2e 0" không dấu / "E2E-01" → đúng ô; chuỗi không có → "Không có bàn nào khớp bộ lọc."'
+// C + D. Ô bàn + bấm ô
+'bấm bàn trống → bảng "Bàn …" nhãn Trống + "Gọi món & mở bàn" + "Đặt bàn cho bàn này"'
+'Gọi món & mở bàn → hộp chọn món → chọn 1 món → gửi → bill bàn đó mở ở cột phải; ô hiện tiền + "0\'"'
+'bấm 2 bàn trống → "Đã chọn 2 bàn trống" + "Ghép thành một mâm"'
+'bấm bàn trống khi đang mở bill → cột phải chuyển sang bảng bàn trống'
+'Đặt bàn cho bàn này → form đặt bàn có sẵn bàn; tạo đặt bàn giờ = now+30\' (nếu quán bật đặt bàn, duyệt luôn) → ô hiện "Đặt HH:mm" → bấm ô mở chi tiết đặt bàn có "Nhận khách"'
+'Ctrl+bấm hai ô có khách → bill gộp 2 mâm'
+'(nếu seed được) ô chờ duyệt có "Chờ duyệt · N" + viền vàng; ô gọi NV có "Gọi NV"'
+// E. Đặt bàn + Sắp xếp
+'đang ở Timeline, duyệt đặt bàn cần xếp bàn → tự sang Sơ đồ → chọn bàn → xác nhận → quay về Timeline'
+'lọc Khu E2E rồi bấm Sắp xếp bàn → màn sắp xếp mở đúng khu đó; Huỷ → về lưới, bộ lọc giữ nguyên'
+// F. Không thụt lùi
+'Timeline và Danh sách vẫn vẽ (có hàng bàn / có dòng), không lỗi console'
+'cỡ 1024 (dưới xl): bấm bàn → bill hiện dạng sheet có nút đóng'
+```
+
+- [ ] **Step 1:** Cài `@playwright/test` (cùng bản với `playwright` mà `scripts/ui_shot.py` đang dùng nếu có, không thì bản ổn định mới nhất ≥ 2 tuần tuổi) + `npx playwright install chromium`; viết config + setup/teardown + seed. Chạy `npm --prefix admin-web run e2e -- --list` → liệt kê đủ test.
+- [ ] **Step 2:** Viết `pos-so-do.spec.ts`. Chạy dev server worktree (preview_start `admin-web`), rồi `npm --prefix admin-web run e2e` → toàn bộ PASS. Test nào fail vì lỗi code thì sửa code (quay lại task sở hữu code đó), không nới test.
+- [ ] **Step 3:** Chạy lại lần 2 liên tiếp → vẫn PASS (dữ liệu dọn sạch giữa các lần). Kiểm DB: không còn khu `Khu E2E`, không còn phiên mở / đặt bàn do e2e tạo.
+- [ ] **Step 4: Commit** `test: e2e Playwright cho POS tab Sơ đồ (Bảo Lương)`
+
+---
+
+### Task 7: Checklist test tay — chỉ phần Playwright không làm được
 
 **Files:**
 - Create: `docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md`
-- Modify: `TESTING.md` (thêm 1 dòng link + trạng thái "Chờ test"), `docs/decisions.md` (1 dòng cuối bảng chính: "2026-11-17 POS Sơ đồ bàn: lưới dày auto-fill, thứ tự theo toạ độ Sắp xếp bàn; tab đổi tên "Sơ đồ"; màn mặc định ghim theo máy trên POS (localStorage `mevo:pos-view`, không DB); bàn giữ cho khách đặt bấm mở chi tiết đặt bàn")
+- Modify: `TESTING.md` (1 dòng link + "Chờ test"), `docs/decisions.md` (1 dòng cuối bảng chính: "2026-11-17 POS tab Sơ đồ: lưới dày auto-fill, thứ tự theo toạ độ Sắp xếp bàn; tab đổi tên "Sơ đồ"; màn mặc định ghim theo máy trên POS (localStorage `mevo:pos-view`, không DB); bàn giữ cho khách đặt bấm mở chi tiết đặt bàn; e2e Playwright `admin-web/e2e/`")
 
-- [ ] **Step 1:** Chạy admin-web của worktree (preview_start), đăng nhập theo cách tự mint phiên (memory "Tự đăng nhập admin khi test"), mở `/admin/pos` quán Bảo Lương. Chụp 1366×768 và 1920×1080 tab Sơ đồ bàn; kiểm: thấy hết 25 bàn không cuộn, đổi tab rồi F5 vẫn đúng tab, bấm bàn trống ra bảng bàn trống, bấm "Gọi món & mở bàn" ra hộp chọn món, bấm 2 bàn trống ra "Ghép thành một mâm", console không lỗi. Chụp thêm cỡ 375px.
-- [ ] **Step 2:** Viết checklist nhóm test (mỗi nhóm có bước + kết quả mong đợi):
-  - **A. Màn mặc định** — tab giữa tên "Sơ đồ"; máy chưa ghim mở Timeline; bấm tab Sơ đồ rồi F5 → về Timeline (đổi tab chỉ tạm); ghim Sơ đồ → toast, nút thành "Mặc định máy này", F5 / đóng mở trình duyệt vẫn vào Sơ đồ; tab Danh sách không có nút ghim; máy khác không bị ảnh hưởng.
-  - **B. Lưới + lọc** — đủ bàn mọi khu, nhóm theo khu, lọc khu, lọc 5 trạng thái + số đếm, tìm "ban 1".
-  - **C. Ô bàn** — tiền, giờ ngồi, mâm, chờ duyệt (khách quét QR gọi món), gọi NV, đặt bàn trong 60'.
-  - **D. Bấm ô** — mở bill, Ctrl+bấm gộp, nút Gộp bill, bàn trống → bảng bàn trống → gọi món mở bàn / đặt bàn, 2 bàn trống → ghép mâm, bàn giữ → chi tiết đặt bàn → Nhận khách.
-  - **E. Đặt bàn + Sắp xếp** — duyệt đặt bàn từ Việc cần xử lý khi đang ở Timeline → tự sang Sơ đồ bàn → chọn bàn → xác nhận → quay lại Timeline; Sắp xếp bàn mở đúng khu đang lọc, lưu xong thứ tự ô đổi theo.
-  - **F. Không thụt lùi** — Timeline, Danh sách, thanh toán, chuyển bàn vẫn như cũ; màn hẹp (máy tính bảng) bill hiện dạng sheet.
-- [ ] **Step 3: Commit** `docs: checklist test POS Sơ đồ bàn`
-- [ ] **Step 4:** DỪNG. Báo anh Tú: "Xong rồi anh, test theo `docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md` — nhóm A→F nhé", để sẵn server đang chạy + link. Chờ PASS.
+- [ ] **Step 1:** Đầu file: bảng "Đã tự động (Playwright)" liệt kê tên kịch bản Task 6 + lệnh chạy lại `npm --prefix admin-web run e2e` + kết quả lần chạy cuối (số test PASS, ngày).
+- [ ] **Step 2:** Phần anh Tú test tay — CHỈ những thứ máy không kiểm được, mỗi mục có bước + kết quả mong đợi:
+  - **T1. Nhìn & đọc** — ở khoảng cách đứng quầy, ô bàn đọc được tên / tiền / giờ; màu trạng thái phân biệt được; không chỗ nào chữ bị cắt.
+  - **T2. Máy tính bảng / màn cảm ứng thật** — chạm ô, chạm nút lọc, kéo cuộn lưới mượt, bill dạng sheet dùng được bằng tay.
+  - **T3. Hai máy** — ghim Sơ đồ ở máy A, máy B vẫn mở Timeline.
+  - **T4. Khách thật** — quét QR bàn bằng Zalo gọi món → ô bàn nháy "Chờ duyệt" + chuông kêu; bấm gọi nhân viên → "Gọi NV" (bỏ mục nào Playwright đã làm được ở Task 6).
+  - **T5. In** — từ bảng bàn trống gọi món & mở bàn → phiếu in ra đúng như luồng Khách lẻ cũ.
+  - **T6. Cảm nhận** — so với Timeline, quán đông bàn có nhanh hơn không; điều gì muốn chỉnh.
+- [ ] **Step 3: Commit** `docs: checklist test POS tab Sơ đồ`
+- [ ] **Step 4:** DỪNG. Để sẵn dev server worktree + link. Báo anh Tú: "Xong rồi anh, Playwright PASS N/N; anh test tay theo `docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md` — mục T1→T6 nhé". Chờ PASS.
