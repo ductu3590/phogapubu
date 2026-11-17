@@ -8,7 +8,16 @@
 // Mọi test fail nếu trang có lỗi console mức error / lỗi JS chưa bắt.
 
 import { test as base, expect, type Locator, type Page } from '@playwright/test'
-import { E2E_AREA_NAME, E2E_CUSTOMER_PREFIX, E2E_TABLE_COUNT, e2eTableName, openWalkInSession, readRunState } from './seed'
+import {
+  E2E_AREA_NAME,
+  E2E_TABLE_COUNT,
+  e2eCustomerName,
+  e2eTableName,
+  openWalkInSession,
+  readRunState,
+  recordReservationByName,
+  recordTouchedTable,
+} from './seed'
 
 const POS_URL = '/admin/pos'
 const ROW_PX = 84 + 8 // ô 84px + khe 8px
@@ -152,7 +161,7 @@ test.describe('A. Màn mặc định', () => {
     await openFloor(page)
     await page.getByRole('button', { name: 'Đặt làm mặc định máy này' }).click()
     await expect(page.getByText('Máy này sẽ mở POS bằng Sơ đồ')).toBeVisible()
-    await expect(page.getByTitle('Mặc định máy này')).toBeVisible()
+    await expect(page.getByTitle('Mặc định máy này', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Đặt làm mặc định máy này' })).toHaveCount(0)
 
     await page.reload()
@@ -180,7 +189,7 @@ test.describe('A. Màn mặc định', () => {
     await viewTab(page, 'Danh sách').click()
     await expect(viewTab(page, 'Danh sách')).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByRole('button', { name: 'Đặt làm mặc định máy này' })).toHaveCount(0)
-    await expect(page.getByTitle('Mặc định máy này')).toHaveCount(0)
+    await expect(page.getByTitle('Mặc định máy này', { exact: true })).toHaveCount(0)
   })
 })
 
@@ -202,21 +211,26 @@ test.describe('B. Lưới + lọc', () => {
       const b = box.getBoundingClientRect()
       const t = last.getBoundingClientRect()
       const grid = last.parentElement as HTMLElement
+      const tops = new Set(els.map((el) => Math.round(el.getBoundingClientRect().top)))
       return {
         clientH: box.clientHeight,
         scrollH: box.scrollHeight,
         lastBottom: Math.round(t.bottom),
         boxBottom: Math.round(b.bottom),
         cols: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+        rows: tops.size,
+        visible: els.filter((el) => el.getBoundingClientRect().bottom <= b.bottom + 0.5).length,
       }
     })
     const hiddenRows = Math.max(0, Math.ceil((m.scrollH - m.clientH) / ROW_PX))
-    const measured = `vùng lưới cao ${m.clientH}px, nội dung ${m.scrollH}px, ${m.cols} cột, số hàng phải cuộn ${hiddenRows}`
+    const measured =
+      `vùng lưới cao ${m.clientH}px, nội dung ${m.scrollH}px, ${m.cols} cột, ${m.rows} hàng ô, ` +
+      `${m.visible}/${state.totalTables} ô thấy không cần cuộn, số hàng phải cuộn ${hiddenRows}`
     testInfo.annotations.push({ type: 'số đo', description: measured })
     console.log(`[e2e] ${testInfo.project.name}: ${measured}`)
 
-    if (testInfo.project.name === 'desktop-1366' && m.clientH < 4 * ROW_PX) {
-      // Màn 1366 quá thấp (chưa tới 4 hàng ô): chấp nhận cuộn tối đa 1 hàng.
+    if (testInfo.project.name === 'desktop-1366' && m.scrollH > m.clientH + 1) {
+      // Luật của brief cho 1366: vùng lưới thấp hơn nội dung cần → chấp nhận cuộn tối đa 1 hàng (số đo thật ghi ở trên).
       expect(hiddenRows, measured).toBeLessThanOrEqual(1)
     } else {
       expect(m.scrollH, measured).toBeLessThanOrEqual(m.clientH + 1)
@@ -336,16 +350,20 @@ test.describe('C + D. Ô bàn + bấm ô', () => {
     const sheet = openDialog(page, `Khách lẻ · ${table.name}`)
     await expect(sheet).toBeVisible()
     await sheet.locator('div.grid button:not([disabled])').first().click()
-    // Món có loại / topping mở hộp lựa chọn → bấm "Thêm · …".
+    // Món thường vào thẳng "Món bổ sung"; món có loại / topping mở hộp lựa chọn → chờ một trong hai rồi mới xét.
     const addOption = page.getByRole('button', { name: /^Thêm · / })
-    if (await addOption.isVisible({ timeout: 1_500 }).catch(() => false)) await addOption.click()
+    await expect(addOption.or(sheet.getByText('Món bổ sung'))).toBeVisible()
+    if (await addOption.isVisible()) await addOption.click()
+    await expect(sheet.getByText('Món bổ sung')).toBeVisible()
+    // Bàn thật sắp có phiên do test mở qua giao diện → ghi lại để teardown đóng.
+    recordTouchedTable(table.id)
     await sheet.getByRole('button', { name: 'Thêm vào bill · không báo bếp' }).click()
     await expect(sheet).toHaveCount(0)
 
     await expect(billPanel(page).getByRole('heading', { level: 2 })).toContainText(table.name)
     const tile = tileById(page, table.id)
     await expect(tile).not.toHaveAttribute('data-visual-state', 'free')
-    await expect(tile).toContainText('đ')
+    await expect(tile).toContainText(/\d[\d.]*đ/)
     // Vừa mở: thời gian ngồi 0' (máy chậm qua phút thì 1').
     await expect(tile).toContainText(/\b[01]'/)
   })
@@ -385,8 +403,10 @@ test.describe('C + D. Ô bàn + bấm ô', () => {
     await expect(form.getByRole('button', { name: table.name, exact: true })).toHaveClass(/bg-primary/)
     // now + 30', làm tròn lên 5' — vẫn trong khung giữ bàn 60' trước giờ đến.
     const arrival = vnLocalInput(Math.ceil((Date.now() + 30 * 60_000) / 300_000) * 300_000)
-    await fillReservationForm(form, `${E2E_CUSTOMER_PREFIX}đặt bàn cho bàn này`, arrival.input)
+    const customer = e2eCustomerName('đặt bàn cho bàn này')
+    await fillReservationForm(form, customer, arrival.input)
     await expect(form).toHaveCount(0)
+    expect(await recordReservationByName(customer), 'Đặt bàn vừa tạo phải có trong DB').toBe(1)
 
     // Tạo xong POS mở luôn chi tiết đặt bàn; đóng lại rồi bấm từ ô bàn.
     await expect(reservationPanel(page)).toBeVisible()
@@ -440,8 +460,10 @@ test.describe('E. Đặt bàn + Sắp xếp', () => {
     // Đặt bàn chưa xếp bàn (chờ duyệt) tạo bằng nút "Đặt bàn mới", không chọn bàn.
     await page.getByRole('button', { name: 'Đặt bàn mới' }).click()
     const form = openDialog(page, 'Đặt bàn mới')
-    await fillReservationForm(form, `${E2E_CUSTOMER_PREFIX}chờ xếp bàn`)
+    const customer = e2eCustomerName('chờ xếp bàn')
+    await fillReservationForm(form, customer)
     await expect(form).toHaveCount(0)
+    expect(await recordReservationByName(customer), 'Đặt bàn vừa tạo phải có trong DB').toBe(1)
 
     await reservationPanel(page).getByRole('button', { name: 'Xác nhận & chọn bàn' }).click()
     await expect(viewTab(page, 'Sơ đồ')).toHaveAttribute('aria-selected', 'true')
