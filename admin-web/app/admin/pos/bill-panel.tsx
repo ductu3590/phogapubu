@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  Armchair, ArrowLeft, Banknote, BellRing, CalendarClock, CalendarPlus, Clock3, EllipsisVertical, Gift, Hash, Layers, Link2, Lock, Minus, Plus, Printer, Receipt,
-  RotateCcw, Smartphone, Trash2, UserPlus, UserRound, X,
+  ArrowLeft, Banknote, BellRing, Clock3, EllipsisVertical, Gift, Hash, Layers, Link2, Lock, Minus, Plus, Printer, Receipt,
+  RotateCcw, Smartphone, Trash2, UserRound, X,
 } from 'lucide-react'
 import type { OpenTableSession, SessionOrderItem, SessionOrderRow } from '@/lib/actions/table-session'
 import type { ReservationPreorderRow } from '@/lib/actions/reservation-preorders'
@@ -72,13 +72,11 @@ export type PosBillPanelProps = {
   picked: OpenTableSession[]
   freeTables: { id: string; table_number: string }[]
   otherSessions: OpenTableSession[]
-  pickedFreeTables: number
   trayColors: Map<string, TrayAssignment>
   busy: boolean
   onPay: (list: OpenTableSession[], payment: PosPayment) => void
   onPrint: (list: OpenTableSession[]) => void
   onReset: (s: OpenTableSession) => void
-  onCreateTray: () => void
   onAddTable: (sessionId: string, tableId: string) => void
   /** Bàn trống chuyển được tới (đã loại bàn trong khung giữ đặt trước) + khu để nhóm danh sách. */
   moveTargets: MoveTarget[]
@@ -103,16 +101,6 @@ export type PosBillPanelProps = {
   /** Hàng chờ món đặt trước — để in phiếu món đặt trước ngay trong bill khi khách đã đến. */
   preorders: ReservationPreorderRow[]
   onPrintPreorder: (row: ReservationPreorderRow, reason?: string) => Promise<{ ok: boolean }>
-  /**
-   * Tab Sơ đồ: ĐÚNG MỘT bàn trống đang chọn (spec 2026-11-17 §5.5). laterReservationAt = giờ khách đặt muộn hơn
-   * trong ngày (buildMoveTargets), chỉ để nhắc, không chặn. Không truyền / null = không có bảng này.
-   */
-  freeTable?: { id: string; table_number: string; areaName: string | null; laterReservationAt: string | null } | null
-  /** Quán bật đặt bàn → hiện nút "Đặt bàn cho bàn này". */
-  reservationsEnabled?: boolean
-  /** "Gọi món & mở bàn": vào thẳng bước chọn món của Khách lẻ (bàn chỉ mở khi gửi món, mig 099). */
-  onWalkInTable?: (tableId: string) => void
-  onBookTable?: (tableId: string) => void
 }
 
 /** Ai gọi lượt này — tab Lịch sử. */
@@ -130,7 +118,7 @@ function orderLabel(session: OpenTableSession, order: SessionOrderRow): string {
 }
 
 export default function PosBillPanel(props: PosBillPanelProps) {
-  const { selected, picked, pickedFreeTables, trayColors, busy } = props
+  const { selected, picked, trayColors, busy } = props
   const [tab, setTab] = useState<Tab>('bill')
   const [paying, setPaying] = useState(false)
   const [qtyItem, setQtyItem] = useState<SessionOrderItem | null>(null)
@@ -142,50 +130,6 @@ export default function PosBillPanel(props: PosBillPanelProps) {
     return tray ? `Mâm ${tray.index} · ${s.table_number}` : s.table_number
   }
 
-  if (pickedFreeTables >= 2 && list.length === 0) {
-    return (
-      <Khung icon={<Layers />} tieuDe={`Đã chọn ${pickedFreeTables} bàn trống`} onDismiss={props.onClearPick}>
-        <div className="space-y-2">
-          <Button variant="primary" size="touch" icon={<Layers />} onClick={props.onCreateTray} disabled={busy} className="w-full">
-            Ghép thành một mâm
-          </Button>
-          <Button variant="ghost" onClick={props.onClearPick} className="w-full">Bỏ chọn</Button>
-        </div>
-      </Khung>
-    )
-  }
-  const freeTable = props.freeTable
-  if (freeTable && list.length === 0 && pickedFreeTables === 1) {
-    return (
-      <Khung
-        icon={<Armchair />}
-        tieuDe={freeTable.table_number}
-        badge={<span className={cn('shrink-0 rounded px-1.5 text-[11px] leading-5 font-bold whitespace-nowrap uppercase', STATUS_TONE_CLASSES[TABLE_STATE.free.tone].solid)}>{TABLE_STATE.free.label}</span>}
-        moTa={freeTable.areaName ?? 'Chưa phân khu'}
-        onDismiss={props.onClearPick}
-        nonModal
-      >
-        <div className="space-y-2">
-          {freeTable.laterReservationAt && (
-            <p className="flex items-center gap-2 rounded-lg bg-warning-bg px-3 py-2 text-sm font-medium text-warning tabular">
-              <CalendarClock className="size-4 shrink-0" aria-hidden />
-              {`Có khách đặt ${gio(freeTable.laterReservationAt)}`}
-            </p>
-          )}
-          <Button variant="primary" size="touch" icon={<UserPlus />} onClick={() => props.onWalkInTable?.(freeTable.id)} disabled={busy} className="w-full">
-            Gọi món &amp; mở bàn
-          </Button>
-          {props.reservationsEnabled && (
-            <Button size="touch" icon={<CalendarPlus />} onClick={() => props.onBookTable?.(freeTable.id)} disabled={busy} className="w-full">
-              Đặt bàn cho bàn này
-            </Button>
-          )}
-          <p className="text-[13px] text-muted">Bấm thêm bàn trống khác để ghép thành một mâm.</p>
-          <Button variant="ghost" onClick={props.onClearPick} className="w-full">Bỏ chọn</Button>
-        </div>
-      </Khung>
-    )
-  }
   if (list.length === 0) return null
 
   // Số tiền thu + giảm giá cả bill (mig 107/108): tính bằng cùng hàm với server, trên tiền hàng CHƯA thu của từng mâm
@@ -1064,12 +1008,42 @@ export function PaymentView({ title, list, goods, paid, expiredNote, discount, d
 }
 
 /**
+ * Cột phải của chế độ "Ghép bàn trống" (Bố cục B): danh sách bàn trống đã chọn + nút ghép thành một mâm.
+ * `tables` đã lọc bỏ bàn vừa có khách (effectivePickedTables) nên không gửi bàn đã bị chiếm lên server.
+ */
+export function FreeMergePanel({ tables, busy, onCreate, onExit }: {
+  tables: { id: string; table_number: string }[]
+  busy: boolean
+  onCreate: () => void
+  onExit: () => void
+}) {
+  return (
+    <Khung icon={<Layers />} tieuDe="Ghép bàn trống thành một mâm" closeLabel="Thoát ghép bàn" onDismiss={onExit}>
+      <div className="space-y-3">
+        {tables.length === 0 ? (
+          <p className="text-sm text-muted">Bấm các bàn trống trên sơ đồ để chọn.</p>
+        ) : (
+          <ul className="flex flex-wrap gap-1.5" aria-label="Bàn đã chọn">
+            {tables.map((t) => (
+              <li key={t.id} className="rounded-md bg-orange-100 px-2 py-1 text-sm font-semibold text-orange-800">{t.table_number}</li>
+            ))}
+          </ul>
+        )}
+        <p className="text-[13px] text-muted tabular">{`Đã chọn ${tables.length} bàn${tables.length < 2 ? ' · cần ít nhất 2 bàn để ghép' : ''}`}</p>
+        <Button variant="primary" size="touch" icon={<Layers />} onClick={onCreate} disabled={busy || tables.length < 2} className="w-full">
+          Ghép thành một mâm
+        </Button>
+        <Button variant="ghost" onClick={onExit} className="w-full">Thoát ghép bàn</Button>
+      </div>
+    </Khung>
+  )
+}
+
+/**
  * Khung cột phải, đầu nền tối như bản Stitch. Từ xl: cột 400px cạnh Timeline (X đưa về Việc cần xử lý).
  * Dưới xl: sheet đáy có nền mờ. Tổng + nút thu ở footer đứng yên, phần món cuộn.
- * nonModal (chỉ bảng 1 bàn trống): dưới xl KHÔNG có nền mờ chặn màn, sheet thấp gọn — lưới phía trên vẫn bấm được
- * để chọn thêm bàn trống thứ hai ghép mâm. Từ xl không khác gì.
  */
-function Khung({ icon, tieuDe, badge, moTa, lead, right, headerExtra, top, footer, onDismiss, nonModal = false, children }: {
+function Khung({ icon, tieuDe, badge, moTa, lead, right, headerExtra, top, footer, onDismiss, closeLabel = 'Đóng bill', children }: {
   icon?: ReactNode
   tieuDe: string
   badge?: ReactNode
@@ -1080,17 +1054,17 @@ function Khung({ icon, tieuDe, badge, moTa, lead, right, headerExtra, top, foote
   top?: ReactNode
   footer?: ReactNode
   onDismiss: () => void
-  nonModal?: boolean
+  closeLabel?: string
   children: ReactNode
 }) {
   return (
     <>
-      {!nonModal && <button type="button" aria-label="Đóng bill" onClick={onDismiss} className="fixed inset-0 z-30 bg-foreground/40 xl:hidden" />}
+      <button type="button" aria-label={closeLabel} onClick={onDismiss} className="fixed inset-0 z-30 bg-foreground/40 xl:hidden" />
       <aside
         aria-label="Bill"
         className={cn(
           'fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-2xl bg-white shadow-modal',
-          nonModal ? 'max-h-[45dvh] border-t border-slate-200 xl:border-t-0' : 'max-h-[88dvh]',
+          'max-h-[88dvh]',
           'xl:static xl:max-h-none xl:w-[400px] xl:shrink-0 xl:rounded-none xl:border-l xl:border-slate-200 xl:shadow-none',
         )}
       >
@@ -1106,7 +1080,7 @@ function Khung({ icon, tieuDe, badge, moTa, lead, right, headerExtra, top, foote
               {moTa ? <p className="mt-0.5 truncate text-[13px] text-slate-300">{moTa}</p> : null}
             </div>
             {right}
-            <IconButton icon={<X />} label="Đóng bill" onClick={onDismiss} className="shrink-0 text-slate-300 hover:bg-white/10 hover:text-white" />
+            <IconButton icon={<X />} label={closeLabel} onClick={onDismiss} className="shrink-0 text-slate-300 hover:bg-white/10 hover:text-white" />
           </div>
           {headerExtra}
         </header>

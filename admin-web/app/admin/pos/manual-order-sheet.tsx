@@ -52,6 +52,7 @@ function Stepper({ value, onMinus, onPlus, label }: { value: number; onMinus: ()
 export default function ManualOrderSheet({
   tableNumber,
   title,
+  notice,
   categories,
   busy,
   onClose,
@@ -60,6 +61,8 @@ export default function ManualOrderSheet({
   tableNumber: string
   /** Mặc định "Thêm món tay · <bàn>"; Khách lẻ đổi thành "Khách lẻ · <bàn>". */
   title?: string
+  /** Dòng nhắc vàng dưới tiêu đề (vd bàn có khách đặt sắp tới). Không truyền = không hiện. */
+  notice?: string | null
   categories: PosMenuCategory[]
   busy: boolean
   onClose: () => void
@@ -147,6 +150,9 @@ export default function ManualOrderSheet({
           </div>
         }
       >
+        {notice ? (
+          <p role="note" className="mb-3 rounded-lg bg-warning-bg px-3 py-2 text-sm font-medium text-warning">{notice}</p>
+        ) : null}
         <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm món..." aria-label="Tìm món" type="search" />
         {!query && (
           <div className="mt-3 flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Danh mục">

@@ -55,7 +55,7 @@ describe('gridTileView', () => {
 })
 
 describe('gridTileAction', () => {
-  const inp = { mode: 'normal' as const, mergeMode: false, modifier: false, reservationBlocked: false }
+  const inp = { mode: 'normal' as const, mergeMode: false, freeMerge: false, modifier: false, reservationBlocked: false }
   it('normal: có phiên → session (additive = modifier || mergeMode)', () => {
     const ctx = { ...empty, sessionByTable: new Map([['t1', sess()]]) }
     expect(gridTileAction('t1', { ctx, ...inp })).toEqual({ kind: 'session', sessionId: 's1', additive: false })
@@ -70,9 +70,18 @@ describe('gridTileAction', () => {
     const ctx = { ...empty, heldByTable: new Map([['t1', held('r1', '2026-11-17T12:30:00Z')]]) }
     expect(gridTileAction('t1', { ctx, ...inp, mergeMode: true })).toEqual({ kind: 'none' })
   })
-  it('normal: bàn trống → pick-free; mergeMode + bàn trống → none', () => {
-    expect(gridTileAction('t1', { ctx: empty, ...inp })).toEqual({ kind: 'pick-free', tableId: 't1' })
+  it('bàn trống thường → order-free; mergeMode + bàn trống → none', () => {
+    expect(gridTileAction('t1', { ctx: empty, ...inp })).toEqual({ kind: 'order-free', tableId: 't1' })
     expect(gridTileAction('t1', { ctx: empty, ...inp, mergeMode: true })).toEqual({ kind: 'none' })
+  })
+  it('bàn trống + Ctrl → vào chế độ ghép bàn trống', () => {
+    expect(gridTileAction('t1', { ctx: empty, ...inp, modifier: true })).toEqual({ kind: 'pick-free', tableId: 't1', enterFreeMerge: true })
+  })
+  it('freeMerge: bàn trống → pick-free (không vào lại); có phiên / đang giữ → none', () => {
+    const f = { ...inp, freeMerge: true }
+    expect(gridTileAction('t1', { ctx: empty, ...f })).toEqual({ kind: 'pick-free', tableId: 't1', enterFreeMerge: false })
+    expect(gridTileAction('t1', { ctx: { ...empty, sessionByTable: new Map([['t1', sess()]]) }, ...f })).toEqual({ kind: 'none' })
+    expect(gridTileAction('t1', { ctx: { ...empty, heldByTable: new Map([['t1', held('r1', '2026-11-17T12:30:00Z')]]) }, ...f })).toEqual({ kind: 'none' })
   })
   it('reservation mode: có phiên hoặc reservationBlocked → none; còn lại → reservation-pick', () => {
     const r = { ...inp, mode: 'reservation' as const }

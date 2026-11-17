@@ -36,7 +36,8 @@ export function gridTileView(
 
 export type GridTileAction =
   | { kind: 'session'; sessionId: string; additive: boolean }
-  | { kind: 'pick-free'; tableId: string }
+  | { kind: 'order-free'; tableId: string }
+  | { kind: 'pick-free'; tableId: string; enterFreeMerge: boolean }
   | { kind: 'reservation'; reservationId: string }
   | { kind: 'reservation-pick'; tableId: string }
   | { kind: 'none' }
@@ -44,17 +45,24 @@ export type GridTileAction =
 /** Giữ đúng hành vi onClick của floor-map.tsx: chế độ chọn bàn cho booking tách hẳn chọn/gộp bill. */
 export function gridTileAction(
   tableId: string,
-  input: { ctx: GridContext; mode: 'normal' | 'reservation'; mergeMode: boolean; modifier: boolean; reservationBlocked: boolean },
+  input: { ctx: GridContext; mode: 'normal' | 'reservation'; mergeMode: boolean; freeMerge: boolean; modifier: boolean; reservationBlocked: boolean },
 ): GridTileAction {
   const session = input.ctx.sessionByTable.get(tableId)
   if (input.mode === 'reservation') {
     if (session || input.reservationBlocked) return { kind: 'none' }
     return { kind: 'reservation-pick', tableId }
   }
+  // Đang ghép bàn trống: chỉ bàn trống (không giữ chỗ) chọn được; bàn có phiên / đang giữ không làm gì.
+  if (input.freeMerge) {
+    if (session || input.ctx.heldByTable.has(tableId)) return { kind: 'none' }
+    return { kind: 'pick-free', tableId, enterFreeMerge: false }
+  }
   if (session) return { kind: 'session', sessionId: session.session_id, additive: input.modifier || input.mergeMode }
   // Đang gộp bill: mâm chỉ gộp phiên đang mở, bấm bàn trống (kể cả bàn đang giữ) không làm gì.
   if (input.mergeMode) return { kind: 'none' }
   const held = input.ctx.heldByTable.get(tableId)
   if (held) return { kind: 'reservation', reservationId: held.reservationId }
-  return { kind: 'pick-free', tableId }
+  // Bàn trống: bấm thường = mở hộp gọi món; Ctrl/Cmd+bấm = vào chế độ Ghép bàn trống với bàn này.
+  if (input.modifier) return { kind: 'pick-free', tableId, enterFreeMerge: true }
+  return { kind: 'order-free', tableId }
 }
