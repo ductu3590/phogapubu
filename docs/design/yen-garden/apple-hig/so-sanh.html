@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yên Garden — so sánh theo Apple HIG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Chỉ để xem bản vẽ. Trong app: tự lưu 1 file Fraunces 600 (latin + vietnamese), không @import chặn hiển thị. -->
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,500..700,100&family=Lora:wght@600&family=Be+Vietnam+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ===== Trang tài liệu ===== */
+  :root { --doc-bg:#F4F1E8; --doc-ink:#23271A; --doc-mute:#5E624C; --doc-line:#DED8C7; --doc-card:#FFFFFF; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--doc-bg); color:var(--doc-ink); font:16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .doc { max-width: 1120px; margin: 0 auto; padding: 28px 16px 80px; }
+  .doc h1 { font-family: Fraunces, Georgia, serif; font-variation-settings: "SOFT" 100; font-weight: 650; font-size: 34px; line-height: 1.15; color:#3E4728; margin: 0 0 6px; }
+  .doc h2 { font-family: Fraunces, Georgia, serif; font-variation-settings: "SOFT" 100; font-weight: 600; font-size: 26px; color:#3E4728; margin: 48px 0 10px; }
+  .doc h3 { font-size: 17px; margin: 0 0 6px; }
+  .lead { color: var(--doc-mute); margin: 0 0 18px; max-width: 760px; }
+  .card { background: var(--doc-card); border:1px solid var(--doc-line); border-radius: 16px; padding: 16px 20px; margin: 14px 0; }
+  .card ul { margin: 6px 0; padding-left: 20px; } .card li { margin: 5px 0; }
+  .sev { display:inline-block; font-size:12px; font-weight:700; border-radius:999px; padding:1px 8px; margin-right:6px; vertical-align: 1px; }
+  .sev.h { background:#F6E3C8; color:#6E4300; } .sev.m { background:#E6EBD6; color:#3E4728; } .sev.ok { background:#E3EEDB; color:#2F4A18; }
+  .cite { color: var(--doc-mute); font-size: 14px; }
+  code { background:#EFEADC; padding:1px 5px; border-radius:6px; font-size:14px; }
+  .pair { display:flex; gap: 28px; flex-wrap: wrap; align-items:flex-start; }
+  .col { flex: 0 0 auto; }
+  .col .cap { font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--doc-mute); margin: 0 0 8px; }
+  .col.new .cap { color:#3E4728; }
+  .shot { width: 390px; max-width: 100%; border-radius: 34px; border: 1px solid var(--doc-line); display:block; background:#fff; }
+  .notes { flex: 1 1 260px; min-width: 260px; }
+  .notes li { margin: 6px 0; }
+  table.tok { border-collapse: collapse; font-size: 14px; width: 100%; }
+  table.tok td, table.tok th { border-bottom: 1px solid var(--doc-line); padding: 6px 8px; text-align: left; vertical-align: middle; }
+  .sw { display:inline-block; width: 22px; height: 22px; border-radius: 6px; border: 1px solid #0002; vertical-align: middle; }
+  .spec { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .spec .card { margin: 0; }
+  .spec .big { font-size: 34px; line-height: 1.1; color:#3E4728; margin: 6px 0 8px; }
+  .spec .dish { font-size: 18px; margin: 0; }
+  .spec .meta { font-size: 14px; color: var(--doc-mute); margin: 2px 0 0; }
+  .f-cur { font-family: "Be Vietnam Pro", sans-serif; }
+  .f-fr { font-family: Fraunces, Georgia, serif; font-variation-settings: "SOFT" 100; font-weight: 600; }
+  .f-lora { font-family: Lora, Georgia, serif; font-weight: 600; }
+  .f-sys { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+  /* ===== Bản vẽ điện thoại (token mới) ===== */
+  .phone {
+    --bg:#EDE9DE; --surface:#F7F4EC; --ink:#23271A; --ink2:#545A40; --line:#D9D3C2;
+    --accent:#3E4728; --on-accent:#FFFFFF; --tint:#DCE0CB; --on-tint:#3E4728;
+    --sand:#7A5524; --warn:#8A5300; --ok:#3E5F22; --scrim: rgba(237,233,222,.92);
+    width: 390px; height: 844px; position: relative; overflow: hidden; border-radius: 34px;
+    border: 1px solid var(--doc-line); background: var(--bg); color: var(--ink);
+    font: 17px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .phone.night {
+    --bg:#16180F; --surface:#20231A; --ink:#ECE8DC; --ink2:#B5B29E; --line:#34382A;
+    --accent:#B9C48F; --on-accent:#1A1D12; --tint:#2E3420; --on-tint:#D3DCB0;
+    --sand:#D9B88A; --warn:#E3B565; --ok:#B9C48F; --scrim: rgba(22,24,15,.92);
+  }
+  .phone * { box-sizing: border-box; }
+  .scroll { height: 100%; overflow: hidden; }
+  .serif { font-family: Fraunces, Georgia, serif; font-variation-settings: "SOFT" 100, "opsz" 72; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: lining-nums; }
+  .num { font-variant-numeric: tabular-nums lining-nums; }
+  .ink2 { color: var(--ink2); }
+  .pad { padding: 0 20px; }
+  .ic { width: 22px; height: 22px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .ic.fill { fill: currentColor; stroke: none; }
+  .btn { height: 52px; border: 0; border-radius: 16px; background: var(--accent); color: var(--on-accent); font: 600 17px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display:flex; align-items:center; justify-content:center; gap: 8px; width: 100%; }
+  .btn.tint { background: var(--tint); color: var(--on-tint); }
+  .pill { height: 44px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--surface); color: var(--ink); font: 600 15px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display:inline-flex; align-items:center; gap: 6px; }
+  .round { width: 44px; height: 44px; border-radius: 50%; border:0; background: var(--surface); color: var(--ink); display:grid; place-items:center; }
+  .group { background: var(--surface); border-radius: 16px; overflow: hidden; }
+  .row { display:flex; align-items:center; gap: 14px; min-height: 52px; padding: 10px 16px; }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row .grow { flex: 1; min-width: 0; }
+  .link { color: var(--accent); font-weight: 600; font-size: 15px; }
+  .phone.night .link { color: var(--accent); }
+
+  /* Thanh tab đáy */
+  .tabbar { position:absolute; left:0; right:0; bottom:0; display:grid; grid-template-columns: 1fr 1fr; padding: 6px 0 22px; background: var(--bg); border-top: 1px solid var(--line); }
+  .tab { display:flex; flex-direction:column; align-items:center; gap: 3px; font-size: 12px; font-weight: 500; color: var(--ink2); position: relative; }
+  .tab.on { color: var(--accent); font-weight: 700; }
+  .tab .dot { position:absolute; top: 0; left: calc(50% + 8px); width: 8px; height: 8px; border-radius: 50%; background: #C8462E; }
+
+  /* Trang chủ */
+  .hero { position: relative; height: 300px; }
+  .hero img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; border-radius: 0 0 28px 28px; display:block; }
+  .hero .acct { position:absolute; top: 14px; right: 14px; background: rgba(247,244,236,.86); }
+  .title { font-size: 36px; line-height: 1.05; color: var(--accent); margin: 18px 0 4px; }
+  .tagline { font-size: 15px; color: var(--ink2); letter-spacing: .02em; }
+  .status { display:inline-flex; align-items:center; gap: 6px; font-size: 15px; font-weight: 600; color: var(--ok); }
+  .status i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display:inline-block; }
+
+  /* Thực đơn */
+  .bar { position: absolute; left: 0; right: 0; top: 0; z-index: 3; background: var(--bg); padding: 14px 20px 0; }
+  .bar-top { display:flex; align-items:center; gap: 10px; }
+  .table-no { font-size: 30px; line-height: 1; }
+  .search { margin-top: 12px; height: 44px; border-radius: 12px; background: var(--surface); display:flex; align-items:center; gap: 8px; padding: 0 12px; color: var(--ink2); font-size: 17px; }
+  .cats { display:flex; gap: 22px; margin-top: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
+  .cat { padding: 12px 0 10px; font-size: 16px; font-weight: 500; color: var(--ink2); border-bottom: 2.5px solid transparent; margin-bottom: -1px; }
+  .cat.on { color: var(--ink); font-weight: 700; border-color: var(--accent); }
+  .list-top { padding-top: 186px; }
+  .sec { display:flex; align-items: baseline; justify-content: space-between; padding: 18px 20px 4px; }
+  .sec .serif { font-size: 24px; }
+  .dish { display:flex; gap: 14px; padding: 14px 20px; }
+  .dish + .dish { border-top: 1px solid var(--line); margin: 0 20px; padding-left: 0; padding-right: 0; }
+  .dish .txt { flex:1; min-width:0; }
+  .dish .name { font-size: 17px; font-weight: 600; line-height: 1.3; }
+  .dish .desc { font-size: 15px; color: var(--ink2); margin-top: 3px; line-height: 1.35; }
+  .dish .price { font-size: 17px; font-weight: 600; margin-top: 8px; }
+  .tag { display:flex; align-items:center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--sand); margin-bottom: 3px; }
+  .tag svg { width: 14px; height: 14px; }
+  .pic { position: relative; flex: none; width: 104px; }
+  .pic img { width: 104px; height: 104px; border-radius: 16px; object-fit: cover; display:block; }
+  .add { position:absolute; right: -4px; bottom: -4px; width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--bg); background: var(--accent); color: var(--on-accent); display:grid; place-items:center; }
+  .step { position:absolute; left: 50%; transform: translateX(-50%); bottom: -14px; height: 40px; border-radius: 999px; background: var(--accent); color: var(--on-accent); display:flex; align-items:center; gap: 2px; padding: 0 2px; border: 3px solid var(--bg); }
+  .step span { width: 36px; height: 34px; display:grid; place-items:center; }
+  .step b { min-width: 16px; text-align:center; font-size: 16px; }
+  .dock { position:absolute; left:0; right:0; bottom: 72px; padding: 10px 12px 8px; background: linear-gradient(to bottom, transparent, var(--bg) 22%); display:flex; flex-direction:column; gap: 8px; z-index: 3; }
+  .beer { display:flex; align-items:center; gap: 12px; padding: 8px 8px 8px 12px; border-radius: 18px; background: var(--surface); }
+  .mug { width: 40px; height: 40px; border-radius: 12px; background: var(--tint); color: var(--on-tint); display:grid; place-items:center; flex:none; }
+  .beer .pill { background: var(--tint); color: var(--on-tint); }
+  .cart { height: 56px; border-radius: 18px; background: var(--accent); color: var(--on-accent); display:flex; align-items:center; gap: 12px; padding: 0 8px 0 18px; }
+  .cart .n { font-size: 15px; opacity: .85; }
+  .cart .sum { font-size: 18px; font-weight: 700; }
+  .cart .go { margin-left:auto; height: 44px; padding: 0 16px; border-radius: 14px; background: rgba(255,255,255,.14); display:flex; align-items:center; gap: 4px; font-weight: 600; font-size: 16px; }
+  .phone.night .cart .go { background: rgba(0,0,0,.12); }
+
+  /* Đơn gọi */
+  .seg { display:grid; grid-template-columns: 1fr 1fr; background: var(--surface); border-radius: 12px; padding: 3px; margin: 14px 20px 6px; }
+  .seg div { height: 36px; display:grid; place-items:center; font-size: 15px; font-weight: 600; color: var(--ink2); border-radius: 9px; }
+  .seg .on { background: var(--bg); color: var(--ink); box-shadow: 0 1px 2px #0002; }
+  .ghead { display:flex; align-items:center; justify-content: space-between; padding: 16px 24px 6px; font-size: 15px; }
+  .ghead b { font-weight: 700; }
+  .st { display:inline-flex; align-items:center; gap: 5px; font-weight: 600; }
+  .st svg { width: 17px; height: 17px; }
+  .st.warn { color: var(--warn); } .st.ok { color: var(--ok); }
+  .qty { width: 30px; color: var(--ink2); font-weight: 600; }
+  @media (max-width: 440px) { .phone { transform: scale(.86); transform-origin: top left; margin-bottom: -118px; margin-right: -55px; } }
+</style>
+</head>
+<body>
+<main class="doc">
+  <h1>Yên Garden — làm lại thử theo Apple HIG</h1>
+  <p class="lead">Ba màn anh không ưng: chữ, logo ở trang chủ, màn gọi món và danh sách món đã gọi. Trái là ảnh chụp theme garden
+  đang chạy, phải là bản vẽ mới (HTML, chưa phải code app). Bản vẽ giữ bố cục A và dải gọi thêm bia trên thanh giỏ.</p>
+
+  <div class="card">
+    <h3>Tóm tắt duyệt thiết kế hiện tại — mức: <i>Cần sửa</i></h3>
+    <p style="margin:4px 0 8px">Màu ô-liu và kem lấy đúng từ logo, bố cục một cột dễ đọc, dải gọi bia là thứ riêng của quán bia —
+    giữ. Nhưng chữ là font chung của cả hệ MEVO (Bảo Lương cũng y hệt) nên Yên Garden không có giọng riêng, logo xuất hiện hai
+    lần ở trang chủ, và nút bấm hơi nhỏ cho người cầm cốc bia bấm bằng một tay.</p>
+    <ul>
+      <li><span class="sev h">Cao</span><b>Chữ không mang thương hiệu, lại nặng.</b> Mọi chữ dùng Be Vietnam Pro, 4 độ đậm nạp bằng
+        <code>@import</code> trong CSS: đo được 8 file, ~136 KB (latin + tiếng Việt) trước khi chữ hiện đúng.
+        <span class="cite"><code>branding.md › Best practices</code>: "use a custom font for headlines and subheadings while using
+        system fonts for body copy".</span></li>
+      <li><span class="sev h">Cao</span><b>Logo lặp và lộ khung.</b> Logo nhỏ góc trên + biển hiệu trong ảnh bìa = 2 lần; dòng "Chào
+        mừng bạn đến với" chiếm chỗ. Nền kem của ảnh logo (<code>#EDE9DE</code>) khác nền trang (<code>#F2EFE6</code>) nên thành một ô mờ quanh logo.
+        <span class="cite"><code>branding.md › Best practices</code>: "Resist the temptation to display your logo throughout your app".</span></li>
+      <li><span class="sev h">Cao</span><b>Nút + và nút tăng giảm nhỏ hơn chuẩn.</b> Nút + 32–34 px, nút −/+ 28 px (đo trong
+        <code>product-card.tsx</code>). <span class="cite"><code>buttons.md › Best practices</code>: "a button needs a hit region of at least 44x44 pt".</span></li>
+      <li><span class="sev m">Vừa</span><b>Đầu màn gọi món chật.</b> Trước món đầu tiên có lời chào, Gọi nhân viên, chip Bàn, icon giỏ,
+        icon tài khoản, dải "Bàn mẫu 1 · 2 lần gọi", ô tìm, danh mục — tên bàn hiện 2 lần, món đầu bắt đầu ở ~295/800 px.
+        <span class="cite"><code>layout.md › Visual hierarchy</code>: "Order content by relative importance".</span></li>
+      <li><span class="sev m">Vừa</span><b>Đơn gọi là chồng thẻ.</b> Mỗi lượt một thẻ viền trái màu + viên trạng thái; số lượng "×1" nằm
+        cuối dòng, khó dò. Chữ in hoa "CÁC LƯỢT GỌI MÓN" làm dấu tiếng Việt khó đọc (nhận định).
+        <span class="cite"><code>lists-and-tables.md › Style</code>: "the grouped style uses headers, footers, and additional space to separate groups".</span></li>
+      <li><span class="sev ok">Giữ</span>Bảng màu từ logo · bố cục A chữ trước ảnh sau · dải gọi bia · thanh tab 2 mục có chữ · trạng thái
+        có cả chữ lẫn màu (không chỉ màu).</li>
+    </ul>
+  </div>
+
+  <h2>1. Chữ</h2>
+  <p class="lead">Đề xuất: <b>Fraunces</b> (bản "soft", nét tròn mềm như chữ "Yên" trong logo) chỉ cho tên quán, tên bàn, tiêu đề
+  mục; mọi chữ còn lại dùng <b>font hệ thống</b> của máy (Roboto trên Android, SF trên iPhone) — rõ nhất ở cỡ nhỏ, không phải tải.
+  Tải 1 độ đậm Fraunces: 2 file ~44 KB thay cho 8 file ~136 KB hiện tại.</p>
+  <div class="spec">
+    <div class="card"><div class="cap cite">Hiện tại — Be Vietnam Pro cho tất cả</div>
+      <div class="big f-cur" style="font-weight:700">Yên Garden</div>
+      <p class="dish f-cur" style="font-weight:600">Gà đồi nướng lá móc mật</p>
+      <p class="meta f-cur">Bàn 1 · tạm tính 205.000đ · Đặt trước 30 phút</p></div>
+    <div class="card" style="border-color:#3E4728"><div class="cap cite"><b style="color:#3E4728">Đề xuất A</b> — Fraunces soft + font hệ thống</div>
+      <div class="big f-fr">Yên Garden</div>
+      <p class="dish f-sys" style="font-weight:600">Gà đồi nướng lá móc mật</p>
+      <p class="meta f-sys">Bàn 1 · tạm tính 205.000đ · Đặt trước 30 phút</p></div>
+    <div class="card"><div class="cap cite">Phương án B — Lora + font hệ thống</div>
+      <div class="big f-lora">Yên Garden</div>
+      <p class="dish f-sys" style="font-weight:600">Gà đồi nướng lá móc mật</p>
+      <p class="meta f-sys">Bàn 1 · tạm tính 205.000đ · Đặt trước 30 phút</p></div>
+  </div>
+  <p class="cite">Cỡ chữ theo HIG: tên món 17, mô tả 15, phụ 13 (không dưới 11); chữ đậm vừa (600) thay vì mảnh.
+  <code>typography.md › Ensuring legibility</code>: mặc định 17 pt, tối thiểu 11 pt. Ảnh xem trên máy tính dùng Segoe UI thay cho Roboto.</p>
+
+  <div class="card">
+    <h3>Màu (đo từ mã thật)</h3>
+    <table class="tok">
+      <tr><th></th><th>Vai</th><th>Sáng</th><th>Tương phản</th><th>Đêm</th></tr>
+      <tr><td><span class="sw" style="background:#EDE9DE"></span></td><td>Nền trang = đúng nền kem của logo (hết ô mờ)</td><td><code>#EDE9DE</code></td><td>—</td><td><code>#16180F</code></td></tr>
+      <tr><td><span class="sw" style="background:#23271A"></span></td><td>Chữ chính</td><td><code>#23271A</code></td><td>12,6:1</td><td><code>#ECE8DC</code> 14,6:1</td></tr>
+      <tr><td><span class="sw" style="background:#545A40"></span></td><td>Chữ phụ</td><td><code>#545A40</code></td><td>5,9:1</td><td><code>#B5B29E</code> 8,4:1</td></tr>
+      <tr><td><span class="sw" style="background:#3E4728"></span></td><td>Nút chính, mục đang chọn (chỉ chỗ này)</td><td><code>#3E4728</code> chữ trắng</td><td>9,8:1</td><td><code>#B9C48F</code> chữ tối 9,2:1</td></tr>
+      <tr><td><span class="sw" style="background:#7A5524"></span></td><td>Nhãn "Bán chạy" (chữ, không nền)</td><td><code>#7A5524</code></td><td>5,5:1</td><td><code>#D9B88A</code> 8,5:1</td></tr>
+      <tr><td><span class="sw" style="background:#CBA473"></span></td><td>Be vàng — chỉ trang trí, không đặt chữ lên</td><td><code>#CBA473</code></td><td>1,9:1 so với nền</td><td>—</td></tr>
+    </table>
+  </div>
+
+  <h2>2. Trang chủ — logo</h2>
+  <div class="pair">
+    <div class="col"><p class="cap">Hiện tại</p><img class="shot" src="hien-tai/trang-chu.png" alt="Trang chủ hiện tại"></div>
+    <div class="col new"><p class="cap">Đề xuất</p>
+      <div class="phone"><div class="scroll">
+        <div class="hero"><img src="anh/banner.webp" alt="Biển hiệu Yên Garden">
+          <button class="round acct" aria-label="Tài khoản"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button>
+        </div>
+        <div class="pad">
+          <div class="serif title">Yên Garden</div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span class="tagline">Chill · Relax · Xanh</span>
+            <span class="status"><i></i>Đang mở</span>
+          </div>
+          <div class="group" style="margin-top:16px">
+            <div class="row"><svg class="ic ink2" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+              <div class="grow" style="font-size:15px">96 Nguyễn Tất Thành, Văn Phú, Lào Cai</div><span class="link">Chỉ đường</span></div>
+            <div class="row"><svg class="ic ink2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              <div class="grow" style="font-size:15px">Mở cả ngày</div></div>
+            <div class="row"><svg class="ic ink2" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/></svg>
+              <div class="grow" style="font-size:15px">Gọi cho quán</div><svg class="ic ink2" viewBox="0 0 24 24" style="width:18px"><path d="m9 6 6 6-6 6"/></svg></div>
+          </div>
+          <div style="margin-top:14px"><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>Đặt bàn trước</button></div>
+          <div class="row" style="padding:14px 4px 0;gap:12px"><svg class="ic ink2" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>
+            <div class="grow ink2" style="font-size:15px">Đang ngồi ở quán? Quét mã QR trên bàn để gọi món.</div></div>
+          <div class="sec" style="padding:20px 0 0"><span class="serif" style="font-size:24px">Thực đơn</span><span class="link">Xem tất cả</span></div>
+        </div>
+        <div class="dish"><div class="txt">
+            <div class="name">Sườn nướng mật ong</div><div class="desc">Sườn non ướp mật ong rừng, nướng than hoa</div><div class="price num">165.000đ</div></div>
+          <div class="pic"><img src="https://images.unsplash.com/photo-1544025162-d76694265947?w=240&q=70&auto=format&fit=crop" alt=""></div></div>
+      </div>
+      <div class="tabbar"><div class="tab on"><svg class="ic fill" viewBox="0 0 24 24"><path d="M3 11.2 12 4l9 7.2V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Trang chủ</div>
+        <div class="tab"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>Đặt bàn</div></div>
+      </div>
+    </div>
+    <div class="notes card">
+      <h3>Thay đổi</h3>
+      <ul>
+        <li>Logo chỉ còn <b>một lần</b>: chính biển hiệu trong ảnh bìa, tràn sát mép, bo đáy. Bỏ logo nhỏ góc trên và câu "Chào mừng
+          bạn đến với".</li>
+        <li>Tên quán viết bằng Fraunces 36 màu ô-liu + khẩu hiệu "Chill · Relax · Xanh" — giọng của logo, nhưng là chữ thật (đọc được bằng trình đọc màn hình).</li>
+        <li>Nút tài khoản tròn 44 nổi trên ảnh. Địa chỉ, giờ, gọi quán gom một nhóm hàng; một nút chính "Đặt bàn trước".</li>
+        <li>Nếu cần logo nhỏ ở chỗ khác (thẻ chia sẻ, màn chờ): nền trang mới dùng đúng màu kem của ảnh logo nên không còn ô mờ.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>3. Gọi món tại bàn</h2>
+  <div class="pair">
+    <div class="col"><p class="cap">Hiện tại</p><img class="shot" src="hien-tai/thuc-don.png" alt="Thực đơn hiện tại"></div>
+    <div class="col new"><p class="cap">Đề xuất</p>
+      <div class="phone" id="menu-light"></div>
+    </div>
+    <div class="notes card">
+      <h3>Thay đổi</h3>
+      <ul>
+        <li>Đầu màn chỉ còn thứ khách cần: <b>"Bàn 1"</b> to (Fraunces) + tạm tính, nút Gọi nhân viên có chữ, nút tài khoản. Bỏ lời chào,
+          chip Bàn, icon giỏ (giỏ đã ở dưới), dải lặp số bàn → món đầu bắt đầu ở ~240 px thay vì ~295 px.</li>
+        <li>Món: tên 17 đậm, mô tả 15, giá 17; ảnh 104 px. "Bán chạy" thành chữ nâu có lá nhỏ (không viên nhãn).</li>
+        <li>Nút + đủ 44 px, viền màu nền để tách khỏi ảnh. Món đã có trong giỏ đổi thành bộ <b>− 1 +</b> ngay dưới ảnh.</li>
+        <li><b>Dải gọi bia là điểm nhấn riêng của quán</b>: ghi "Bàn đã gọi 2 ca" và nút "+1 ca" màu nhạt, để nút đậm duy nhất là thanh giỏ.</li>
+        <li>Thanh tab: icon mục đang chọn tô đặc, chấm đỏ ở Đơn gọi khi có lượt chờ xác nhận.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 style="margin-top:28px">Cùng màn đó buổi tối (điện thoại bật chế độ tối)</h3>
+  <p class="lead" style="margin-bottom:10px">Quán bia garden đông nhất lúc trời tối; màn kem sáng chói trong vườn tối. HIG yêu cầu mọi
+  màu có bản sáng và tối (<code>color.md › Best practices</code>). Đề xuất: tự theo chế độ tối của máy, không thêm nút chuyển.</p>
+  <div class="pair"><div class="col new"><div class="phone night" id="menu-night"></div></div></div>
+
+  <h2>4. Danh sách món đã gọi</h2>
+  <div class="pair">
+    <div class="col"><p class="cap">Hiện tại</p><img class="shot" src="hien-tai/don-goi.png" alt="Đơn gọi hiện tại"></div>
+    <div class="col new"><p class="cap">Đề xuất</p>
+      <div class="phone"><div class="scroll">
+        <div class="pad" style="padding-top:14px">
+          <div class="bar-top">
+            <div style="flex:1"><div class="serif" style="font-size:30px;line-height:1">Đơn gọi</div><div class="ink2" style="font-size:13px;margin-top:4px">Bàn 1 · vào lúc 12:43</div></div>
+            <button class="pill"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>Gọi NV</button>
+          </div>
+          <div style="margin-top:22px" class="ink2"><span style="font-size:15px">Tạm tính</span></div>
+          <div class="num" style="font-size:40px;font-weight:700;letter-spacing:-.02em;line-height:1.1">205.000đ</div>
+          <div class="ink2" style="font-size:15px;margin-top:2px">2 món · 2 lượt · trả tại quầy khi về</div>
+        </div>
+        <div class="seg"><div class="on">Theo lượt</div><div>Gộp món</div></div>
+        <div class="ghead"><b>Lượt 2 · 14:10</b><span class="st warn"><svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Chờ xác nhận</span></div>
+        <div class="pad"><div class="group">
+          <div class="row"><span class="qty num">1×</span><div class="grow">Bia hơi Hà Nội<div class="ink2" style="font-size:13px">Ca 1 lít</div></div><span class="num" style="font-weight:600">60.000đ</span></div>
+        </div></div>
+        <div class="ghead"><b>Lượt 1 · 12:43</b><span class="st ok"><svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16 9.8"/></svg>Đã vào bếp</span></div>
+        <div class="pad"><div class="group">
+          <div class="row"><span class="qty num">1×</span><div class="grow">Ba chỉ nướng riềng mẻ</div><span class="num" style="font-weight:600">145.000đ</span></div>
+        </div></div>
+      </div>
+      <div class="dock" style="bottom:72px"><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Gọi thêm món</button></div>
+      <div class="tabbar"><div class="tab"><svg class="ic" viewBox="0 0 24 24"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M16 3c-1.8 1.5-2.5 4-2.5 7h3V21"/></svg>Thực đơn</div>
+        <div class="tab on"><svg class="ic" viewBox="0 0 24 24"><path d="M8 4H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-2" fill="currentColor"/><path d="M8 3h8v3H8z" fill="currentColor"/><path d="M9 11h6M9 15h4" stroke="var(--bg)"/></svg><span class="dot"></span>Đơn gọi</div></div>
+      </div>
+    </div>
+    <div class="notes card">
+      <h3>Thay đổi</h3>
+      <ul>
+        <li>Số tiền tạm tính lên đầu, to 40; dưới là "2 món · 2 lượt · trả tại quầy khi về" (bỏ thẻ và câu dài có icon !).</li>
+        <li>Mỗi lượt là <b>một nhóm hàng</b> có tiêu đề "Lượt 2 · 14:10" + trạng thái bằng <b>icon + chữ</b> (đồng hồ = chờ, dấu tích =
+          đã vào bếp) — không còn viền trái màu, không dựa vào màu.</li>
+        <li>Số lượng "1×" đứng đầu dòng, thẳng cột; giá căn phải chữ số đều — dò hoá đơn nhanh.</li>
+        <li><b>Mới (tuỳ anh):</b> nút "Gộp món" cộng dồn món qua các lượt (vd "Bia hơi ca ×4") để khách soát trước khi ra quầy.</li>
+        <li>Chữ trạng thái giữ đúng chữ app đang dùng theo chính sách duyệt của quán.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:40px">
+    <h3>Nếu dựng vào app (chỉ theme garden)</h3>
+    <ul>
+      <li>Font: theme garden nạp Fraunces 600 (1 file tiếng Việt + 1 latin, tự lưu trong app) chỉ cho tiêu đề; chữ thân font hệ thống.
+        Bảo Lương / Pubu vẫn Be Vietnam Pro như cũ.</li>
+      <li>Màu nền trang garden đổi từ <code>#F2EFE6</code> sang <code>#EDE9DE</code>; chữ phụ <code>#545A40</code>.</li>
+      <li>Nút +, −/+ lên 44 px; đầu màn gọi món, trang chủ, Đơn gọi dựng lại như bản vẽ. Chế độ tối và "Gộp món" là việc riêng, làm sau nếu anh muốn.</li>
+    </ul>
+  </div>
+</main>
+
+<template id="menu-tpl">
+  <div class="bar">
+    <div class="bar-top">
+      <div style="flex:1;min-width:0"><div class="serif table-no">Bàn 1</div><div class="ink2 num" style="font-size:13px;margin-top:4px">Yên Garden · tạm tính 205.000đ</div></div>
+      <button class="pill"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>Gọi NV</button>
+      <button class="round" aria-label="Tài khoản"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button>
+    </div>
+    <div class="search"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>Tìm món</div>
+    <div class="cats"><span class="cat on">Nướng</span><span class="cat">Bia &amp; đồ uống</span><span class="cat">Lẩu</span><span class="cat">Rau &amp; cơm</span></div>
+  </div>
+  <div class="scroll list-top">
+    <div class="sec"><span class="serif">Nướng</span><span class="ink2" style="font-size:13px">4 món</span></div>
+    <div class="dish"><div class="txt">
+        <div class="tag"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4c-9 0-15 4-15 11 0 1.7.5 3.2 1.3 4.4C8 14 11 10.5 16 8.5 12 11 9.5 14.5 8.2 20.4 9.3 20.8 10.6 21 12 21c6 0 8-7 8-17z"/></svg>Bán chạy</div>
+        <div class="name">Sườn nướng mật ong</div><div class="desc">Sườn non ướp mật ong rừng, nướng than hoa</div><div class="price num">165.000đ</div></div>
+      <div class="pic"><img src="https://images.unsplash.com/photo-1544025162-d76694265947?w=240&q=70&auto=format&fit=crop" alt=""><span class="add"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span></div></div>
+    <div class="dish"><div class="txt">
+        <div class="name">Ba chỉ nướng riềng mẻ</div><div class="desc">Ăn kèm bún, rau thơm, mắm tôm</div><div class="price num">145.000đ</div></div>
+      <div class="pic"><img src="https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=240&q=70&auto=format&fit=crop" alt=""><span class="step"><span><svg class="ic" viewBox="0 0 24 24" style="width:18px"><path d="M5 12h14"/></svg></span><b class="num">1</b><span><svg class="ic" viewBox="0 0 24 24" style="width:18px"><path d="M12 5v14M5 12h14"/></svg></span></span></div></div>
+    <div class="dish" style="padding-top:26px"><div class="txt">
+        <div class="tag"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4c-9 0-15 4-15 11 0 1.7.5 3.2 1.3 4.4C8 14 11 10.5 16 8.5 12 11 9.5 14.5 8.2 20.4 9.3 20.8 10.6 21 12 21c6 0 8-7 8-17z"/></svg>Món của quán</div>
+        <div class="name">Gà đồi nướng lá móc mật nguyên con (1,6–1,8 kg)</div><div class="desc">Đặt trước 30 phút</div><div class="price num">420.000đ</div></div>
+      <div class="pic"><img src="https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=240&q=70&auto=format&fit=crop" alt=""><span class="add"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span></div></div>
+  </div>
+  <div class="dock">
+    <div class="beer">
+      <span class="mug"><svg class="ic" viewBox="0 0 24 24"><path d="M5 7h10v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zM15 10h2a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2M5 7c0-2 1.5-3 3-3 1 0 1.5.5 2 1 .5-.7 1.2-1 2-1 1.7 0 3 1.2 3 3"/></svg></span>
+      <div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:600">Bia hơi Hà Nội · ca 1 lít</div><div class="ink2 num" style="font-size:13px">Bàn đã gọi 2 ca · 60.000đ/ca</div></div>
+      <button class="pill"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M12 5v14M5 12h14"/></svg>1 ca</button>
+    </div>
+    <div class="cart"><span class="n num">3 món</span><span class="sum num">255.000đ</span><span class="go">Xem giỏ<svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="m9 6 6 6-6 6"/></svg></span></div>
+  </div>
+  <div class="tabbar"><div class="tab on"><svg class="ic fill" viewBox="0 0 24 24"><path d="M5 2.5a1 1 0 0 1 1 1V8h1V3.5a1 1 0 0 1 2 0V8h1V3.5a1 1 0 0 1 2 0V9a3 3 0 0 1-2 2.8V21a1 1 0 0 1-2 0v-9.2A3 3 0 0 1 4 9V3.5a1 1 0 0 1 1-1zM17 2.5c.6 0 1 .4 1 1V21a1 1 0 0 1-2 0v-6h-2a1 1 0 0 1-1-1c0-5 1.5-9.5 4-11.5z"/></svg>Thực đơn</div>
+    <div class="tab"><svg class="ic" viewBox="0 0 24 24"><path d="M8 4H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-2M8 3h8v3H8zM9 11h6M9 15h4"/></svg><span class="dot"></span>Đơn gọi</div></div>
+</template>
+<script>
+  // Hai bản sáng / tối của màn gọi món dùng chung một khuôn.
+  for (const id of ['menu-light', 'menu-night']) {
+    document.getElementById(id).appendChild(document.getElementById('menu-tpl').content.cloneNode(true));
+  }
+  // so-sanh.html#phone=2 → chỉ hiện khung điện thoại thứ 2 (để chụp ảnh 390×844).
+  const m = location.hash.match(/phone=(\d+)/);
+  if (m) {
+    const p = document.querySelectorAll('.phone')[+m[1] - 1];
+    document.body.replaceChildren(p);
+    document.body.style.cssText = 'margin:0;background:transparent';
+    p.style.cssText = 'border:0;border-radius:0;transform:none;margin:0';
+  }
+</script>
+</body>
+</html>
