@@ -115,6 +115,9 @@ import { useNow } from './use-now'
 import { useOnline } from './use-online'
 import { usePrintStatus } from './use-print-status'
 import PrintStatusBanner from './print-status-banner'
+import OfflineBanner from './offline-banner'
+import { useOfflineWatch } from './use-offline-watch'
+import { outageOrders } from '@/lib/pos-offline-watch'
 import { dismissPrintJobs, markPrintedInBrowser, retryPrintJob } from '@/lib/actions/print-jobs'
 import { useServiceRequests } from './use-service-requests'
 import WorkQueue from './work-queue'
@@ -1190,6 +1193,11 @@ export default function PosClient({
   // "Trực tuyến" chỉ khi: trình duyệt có mạng + kênh realtime đang nối + lần tải dữ liệu gần nhất không lỗi.
   // Trước đây chỉ đọc trạng thái kênh realtime — mất mạng kênh chưa kịp báo nên vẫn hiện xanh.
   const live = online && connected && error?.source !== 'reload'
+  const offlineWatch = useOfflineWatch(live)
+  const outageInfo = useMemo(
+    () => (offlineWatch.outage ? { ...offlineWatch.outage, ...outageOrders(sessions, offlineWatch.outage) } : null),
+    [offlineWatch.outage, sessions],
+  )
 
   const chips: { key: string; label: string; count: number; tone: StatusTone; icon: ReactNode; filter: WorkFilter }[] = [
     { key: 'orders', label: 'Lượt món chờ duyệt', count: workItems.filter((i) => i.kind === 'order').length, tone: 'success', icon: <BellRing />, filter: 'orders' },
@@ -1290,6 +1298,7 @@ export default function PosClient({
           </div>
         </div>
 
+        <OfflineBanner downSince={offlineWatch.downSince} outage={outageInfo} onDismiss={offlineWatch.dismiss} onShowOrders={() => openWork('orders')} />
         <PrintStatusBanner
           status={printStatus.status}
           busyJobIds={busyPrintJobs}
