@@ -57,7 +57,9 @@ Chọn **Ca 1 lít** → nút thành "Thêm vào giỏ — 60.000đ" → bấm. 
 
 **B6. Danh mục.** Bấm "Lẩu (mẫu)" → danh sách cuộn tới nhóm Lẩu, chữ "Lẩu (mẫu)" đậm và có gạch chân. Cuộn tay lên xuống → gạch chân chạy theo nhóm đang xem.
 
-**B7. Gửi đơn.** Bấm thanh giỏ → màn Xác nhận đơn → **Gọi món**. Phải sang thẳng tab **Đơn gọi**, lượt mới ở trên cùng với nhãn vàng **Chờ xác nhận**,
+**B7. Gửi đơn.** Bấm thanh giỏ → màn Xác nhận đơn. Màn này chỉ còn **Món đã chọn**, **Ghi chú cho bếp** và **Tổng cộng** ở đáy:
+KHÔNG còn khối "Bàn … — Món sẽ được gửi cho bàn này" (tên bàn vẫn ở chip trên thanh trên) và KHÔNG còn dòng "Tạm tính món"
+(quán trả trước có mã giảm giá thì dòng Tạm tính + Giảm giá vẫn hiện, vì khi đó khác Tổng cộng). Bấm **Gọi món**. Phải sang thẳng tab **Đơn gọi**, lượt mới ở trên cùng với nhãn vàng **Chờ xác nhận**,
 tổng tạm tính cộng đúng.
 
 **B8. Thu ngân duyệt.** Ở POS (`/admin/pos`, tài khoản chủ quán) duyệt lượt vừa gọi. Trong vài giây, không tải lại trang, nhãn ở Mini App phải đổi sang xanh **Đã vào bếp**.

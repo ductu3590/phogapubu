@@ -23,7 +23,7 @@ import { useTableSessionBill } from "@/services/order/order.queries";
 import { findPreorderDuplicates } from "@/utils/order-duplicates";
 import { vouchersEnabled, voucherForOrder } from "@/utils/store-model";
 import { afterOrderRoute } from "@/utils/after-order-route";
-import { ArmchairIcon, FootprintsIcon, BikeIcon, UtensilsIcon, CreditCardIcon, BanknoteIcon } from "@/components/common/icons";
+import { FootprintsIcon, BikeIcon, UtensilsIcon, CreditCardIcon, BanknoteIcon } from "@/components/common/icons";
 import SectionCard from "@/components/ui/section-card";
 import StickyActionBar from "@/components/ui/sticky-action-bar";
 import { TAKEAWAY_FORM_KEY } from "@/constants/storage-keys";
@@ -100,7 +100,7 @@ export default function CheckoutPage() {
   const [addressError, setAddressError] = useState("");
 
   const { items: cartItems, updateQuantity, clearCart, setCartLock } = useCartStore();
-  const { storeId, tableId, tableNumber, zaloUserId, deviceId, paymentMethods, paymentTiming, orderMode, isAcceptingOrders, servingHours, entryContext, workflow, workflowError, sessionState } = useAppStore();
+  const { storeId, tableId, zaloUserId, deviceId, paymentMethods, paymentTiming, orderMode, isAcceptingOrders, servingHours, entryContext, workflow, workflowError, sessionState } = useAppStore();
   const isTakeaway = orderMode === "takeaway";
   const hasVerifiedTable = entryContext.kind === "root" || tableId === entryContext.tableId;
   const orderingAllowed = workflow
@@ -466,14 +466,8 @@ export default function CheckoutPage() {
     <div className="flex h-full flex-col bg-background">
       <div className="no-scrollbar flex-1 overflow-y-auto pb-4">
 
-        {/* Thông tin bàn — chỉ hiện khi ăn tại quán */}
-        {!isTakeaway && (
-          <SectionCard
-            icon={<ArmchairIcon />}
-            title={tableNumber || "Bàn không xác định"}
-            subtitle="Món sẽ được gửi cho bàn này"
-          />
-        )}
+        {/* Ăn tại quán: KHÔNG có khối "Bàn … — Món sẽ được gửi cho bàn này" — tên bàn đã hiện ở
+            thanh trên (chip bàn), lặp lại chỉ tốn chỗ (anh Tú 2026-11-18). */}
 
         {/* Form mang về */}
         {isTakeaway && (
@@ -670,7 +664,9 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        {/* Tóm tắt tiền */}
+        {/* Tóm tắt tiền — chỉ cần khi có giảm giá (tạm tính khác tổng). Không giảm thì "Tạm tính món"
+            trùng y "Tổng cộng" ở thanh dưới nên bỏ (anh Tú 2026-11-18). */}
+        {discount > 0 && (
         <SectionCard>
           <div className="flex justify-between">
             <span className="text-small text-text-secondary">Tạm tính món</span>
@@ -685,6 +681,7 @@ export default function CheckoutPage() {
             </div>
           )}
         </SectionCard>
+        )}
       </div>
 
 

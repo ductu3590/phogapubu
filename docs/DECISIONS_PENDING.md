@@ -152,21 +152,31 @@ Mẫu:
 - Trả lời của anh: Đã mở cổng
 - **Đã áp dụng 2026-11-18:** đẩy main bf5f629..cef7308.
 
-## D-012 · 2026-11-18 · gate: harness · task: mất mạng Đợt 1, Task 4 (kiểm toàn bộ) · trạng thái: chờ anh
+## D-012 · 2026-11-18 · gate: deploy · task: Mini App — màn Xác nhận đơn gọn (5689078) · trạng thái: chờ
+- Cần làm: đẩy `main` lên `origin` (main ở máy đã fast-forward gồm nhánh `claude/yen-garden-mini-app-aa37d2`, commit
+  5689078: bỏ khối "Bàn … — Món sẽ được gửi cho bàn này" và dòng "Tạm tính món" trùng Tổng cộng ở màn Xác nhận đơn).
+- Vì sao: anh Tú bảo "Gộp và push" (chat 2026-11-18).
+- Phương án đề xuất: anh mở cổng deploy 1 giờ, agent đẩy main.
+- Rủi ro nếu duyệt: thấp — chỉ đổi giao diện Mini App, không migration, không đụng admin-web (Vercel dựng lại nhưng
+  không đổi gì). Mini App KHÔNG tự lên Zalo, cần `zmp deploy` riêng từ worktree quán. tsc sạch, vitest mini-app 265/265.
+- Trả lời của anh:
+
+## D-013 · 2026-11-18 · gate: harness · task: mất mạng Đợt 1, Task 4 (kiểm toàn bộ) · trạng thái: chờ anh
 - Cần làm: chạy `python scripts/verify.py` (bước 5 của task) để xác nhận docs không làm tăng nợ cũ.
 - Vì sao: hook harness chặn lệnh này (thông báo "Đụng vào file harness được bảo vệ (chỉ đọc)"); agent không đổi lệnh để lách.
 - Phương án đề xuất: anh mở cổng `harness` 1 giờ rồi agent chạy lại; hoặc anh tự chạy verify và báo kết quả.
 - Rủi ro nếu duyệt: thấp — chỉ đọc/kiểm, task này chỉ đổi tài liệu.
 - Ghi chú của phiên điều phối (2026-11-18, chưa phải trả lời của anh): lệnh bị chặn là bản có thêm tiền tố giới hạn thời
   gian. Phiên điều phối sau đó chạy đúng lệnh chuẩn ghi trong `docs/HARNESS.md`, cổng cho qua, kết quả XANH trên
-  `fa5de71`. Việc chạy này diễn ra khi mục D-012 chưa có trả lời của anh; anh xác nhận thì mới đóng mục.
+  `fa5de71`. Việc chạy này diễn ra khi mục này chưa có trả lời của anh; anh xác nhận thì mới đóng mục.
 - Trả lời của anh:
 
-## D-013 · 2026-11-18 · gate: secrets · task: mất mạng Đợt 1 (nhìn tận mắt trên trình duyệt + mở sẵn POS cho anh test) · trạng thái: chờ anh
+## D-014 · 2026-11-18 · gate: secrets · task: mất mạng Đợt 1 (nhìn tận mắt trên trình duyệt + mở sẵn POS cho anh test) · trạng thái: đã áp dụng
 - Cần làm: worktree `.claude/worktrees/mat-mang-tam-thoi-311b27` chưa có tệp cấu hình môi trường của admin-web, nên không
   chạy được màn POS ở đây để xem hai băng mất mạng và để anh test theo `docs/testing/mat-mang/DOT-1.md`.
 - Vì sao: tệp đó thuộc vùng bí mật; agent không đọc, không chép khi anh chưa cho phép.
 - Phương án đề xuất: anh mở cổng `secrets` (1 giờ) để agent chép tệp từ repo gốc sang worktree rồi chạy admin-web
   (khuyến nghị)  /  Phương án khác: anh tự chép tệp đó; hoặc ghép nhánh này về repo gốc rồi test ở đó.
 - Rủi ro nếu duyệt: thấp — tệp chỉ nằm trong worktree trên máy anh, không vào git.
-- Trả lời của anh:
+- Trả lời của anh: Đã mở cổng
+- **Đã áp dụng 2026-11-18:** chép tệp cấu hình admin-web sang worktree, xem băng mất mạng trên POS Bảo Lương; anh test DOT-1 PASS.
