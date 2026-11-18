@@ -1,0 +1,67 @@
+{
+  "name": "yengarden",
+  "like": "matcha",
+  "mode": "both",
+  "settings": [
+    {
+      "thing": "accent",
+      "value": "#3E4728",
+      "source": "dial"
+    },
+    {
+      "thing": "neutral",
+      "value": "#7A7560",
+      "source": "dial"
+    },
+    {
+      "thing": "success",
+      "value": "#5E7A3A",
+      "source": "dial"
+    },
+    {
+      "thing": "warning",
+      "value": "#CBA473",
+      "source": "dial"
+    },
+    {
+      "thing": "corners",
+      "value": "round",
+      "source": "dial"
+    },
+    {
+      "thing": "surfaces",
+      "value": "flat",
+      "source": "dial"
+    },
+    {
+      "thing": "buttons",
+      "value": "solid",
+      "source": "dial"
+    },
+    {
+      "thing": "spacing",
+      "value": "medium",
+      "source": "dial"
+    },
+    {
+      "thing": "font",
+      "value": "georgia",
+      "source": "dial",
+      "on": "heading"
+    },
+    {
+      "thing": "--color-background-body",
+      "value": "#EDE9DE",
+      "source": "token",
+      "mode": "light"
+    },
+    {
+      "thing": "font",
+      "value": "system",
+      "source": "dial",
+      "on": "body"
+    }
+  ],
+  "lifted": [],
+  "palette": "b6d06929a8fab4085e7e4b13ce7b92c6a4361301fe325ca48f10bdcba5a725c0"
+}

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yên Garden — so sánh hướng Astryx</title>
+<style>
+  :root { --ink:#2b2a22; --muted:#6b6755; --bg:#f6f3ea; --card:#fff; --accent:#3E4728; --line:#e2ddcf; --warn:#724800; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-family: Georgia, serif; color: var(--accent); font-size: 28px; margin: 0 0 4px; }
+  h2 { font-family: Georgia, serif; font-size: 22px; margin: 40px 0 8px; color: var(--accent); }
+  .lead { color: var(--muted); margin: 0 0 16px; }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 12px 0; }
+  .box h3 { margin: 0 0 6px; font-size: 16px; }
+  ul { margin: 6px 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  figure { margin: 0; }
+  figure img { width: 100%; max-width: 390px; display: block; border-radius: 18px; border: 1px solid var(--line); background: #fff; }
+  figcaption { font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .new figcaption { color: var(--accent); }
+  .none { aspect-ratio: 390/800; max-width: 390px; border: 1px dashed var(--line); border-radius: 18px; display: grid; place-items: center; text-align: center; color: var(--muted); padding: 24px; font-size: 14px; }
+  .notes { margin-top: 10px; }
+  .tag { display:inline-block; font-size:12px; font-weight:700; padding:1px 8px; border-radius:999px; background:#e6ecd6; color:var(--accent); margin-right:6px; }
+  .warn { color: var(--warn); }
+  code { background:#efeadc; padding:1px 5px; border-radius:6px; font-size: 13px; }
+  @media (max-width: 640px) { .pair { grid-template-columns: 1fr 1fr; gap: 8px; } figcaption { font-size: 11px; } main { padding: 16px 12px 48px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mini App Yên Garden — thử hướng Astryx</h1>
+  <p class="lead">Trái: giao diện theme "garden" đang chạy. Phải: bản vẽ dựng bằng linh kiện thật của Astryx (React 19) trong một
+  dự án nháp, theme <code>yengarden</code> tạo bằng bộ sửa theme của Astryx từ màu thương hiệu. Bản vẽ, chưa phải app.</p>
+
+  <div class="box">
+    <h3>Hướng thiết kế (rút từ quy tắc của Astryx)</h3>
+    <ul>
+      <li><b>Danh sách là hàng, không bọc thẻ.</b> Đơn gọi, Đặt bàn, Tài khoản bỏ các thẻ trắng lồng nhau, thay bằng mục phẳng
+        có tiêu đề nhỏ in hoa + gạch mảnh. Màn nhẹ mắt hơn, ít khung hơn.</li>
+      <li><b>Không dùng nhãn trang trí.</b> "Best seller", "Món của quán" thành chữ nhỏ màu nâu thay vì viên nhãn; trạng thái lượt gọi
+        là chấm màu + chữ thay vì viên màu + viền trái.</li>
+      <li><b>Một nút chính mỗi màn, dính đáy</b>, ghi luôn điều sẽ xảy ra ("Xác nhận đặt bàn · 18:00 hôm nay", "Thêm vào giỏ · 60.000đ").</li>
+      <li><b>Chữ:</b> tiêu đề và tên quán dùng serif Georgia (hợp logo nét mềm), chữ thân giữ font hệ thống — không tải webfont nên
+        không chậm thêm.</li>
+      <li><b>Giữ nguyên điều anh đã chốt:</b> bố cục A (một cột, chữ trước, ảnh vuông bên phải, danh mục chữ gạch chân) và dải gọi thêm
+        bia ngay trên thanh giỏ.</li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <h3>Màu (bộ sửa theme của Astryx tự kiểm độ tương phản)</h3>
+    <ul>
+      <li>Ô-liu đậm <code>#3E4728</code> làm nút chính, chữ trắng trên nền ô-liu: đạt.</li>
+      <li class="warn">Be vàng <code>#CBA473</code> làm NỀN nút/nhãn chỉ đạt 2,01:1 so với nền kem (cần 3:1) → bản vẽ dùng màu này
+        cho chữ đậm hơn <code>#724800</code> (5,3:1), không dùng làm nền có chữ.</li>
+      <li>Nền kem <code>#EDE9DE</code>, ô nhập và ảnh trên nền trắng; chữ phụ <code>#4B4736</code> (đọc rõ hơn xám hiện tại).</li>
+    </ul>
+  </div>
+
+  <h2>1. Thực đơn</h2>
+  <div class="pair">
+    <figure><figcaption>Hiện tại</figcaption><img src="hien-tai/01-thuc-don.png" alt="Thực đơn hiện tại"></figure>
+    <figure class="new"><figcaption>Hướng Astryx</figcaption><img src="moi/01-thuc-don.jpg" alt="Thực đơn hướng Astryx"></figure>
+  </div>
+  <div class="notes"><ul>
+    <li>Dải "Bàn mẫu 1 · 2 lần gọi · 205.000đ" gộp vào dòng phụ dưới tên quán → bớt một hàng, menu lên cao hơn.</li>
+    <li>Ảnh món 88px bo 16, nút + nằm gọn trong ảnh; hàng cách nhau bằng gạch mảnh.</li>
+    <li>Thanh giỏ dạng viên ô-liu: số món · tổng · "Xem giỏ &amp; gửi".</li>
+    <li class="warn">Bản vẽ bỏ icon giỏ + tài khoản ở góc trên (giỏ đã có thanh dưới). Nếu dựng: chạm logo mở Tài khoản, hoặc giữ một
+      icon tài khoản nhỏ — anh chọn.</li>
+  </ul></div>
+
+  <h2>2. Chi tiết món</h2>
+  <div class="pair">
+    <figure><figcaption>Hiện tại</figcaption><div class="none">Chưa có ảnh chụp — cần chạy Mini App (đang chờ cổng secrets, D-016).</div></figure>
+    <figure class="new"><figcaption>Hướng Astryx</figcaption><img src="moi/02-chi-tiet-mon.jpg" alt="Chi tiết món hướng Astryx"></figure>
+  </div>
+  <div class="notes"><ul>
+    <li>Tấm trượt từ dưới gần full màn: ảnh 16:10, tên món serif, chọn cỡ dạng danh sách chọn một, ghi chú, bộ tăng giảm + nút "Thêm vào giỏ · giá".</li>
+  </ul></div>
+
+  <h2>3. Xác nhận đơn</h2>
+  <div class="pair">
+    <figure><figcaption>Hiện tại</figcaption><div class="none">Chưa có ảnh chụp sau commit 5689078 — cần chạy Mini App (D-016).</div></figure>
+    <figure class="new"><figcaption>Hướng Astryx</figcaption><img src="moi/03-xac-nhan-don.jpg" alt="Xác nhận đơn hướng Astryx"></figure>
+  </div>
+  <div class="notes"><ul>
+    <li>Mỗi món một hàng, tăng giảm ngay bên phải; "Gọi thêm món" là nút chữ; tổng cộng to + "Gửi đơn cho quán" dính đáy. Giữ đúng việc
+      vừa bỏ khối "Món sẽ được gửi cho bàn này" và dòng "Tạm tính món".</li>
+  </ul></div>
+
+  <h2>4. Đơn gọi</h2>
+  <div class="pair">
+    <figure><figcaption>Hiện tại</figcaption><img src="hien-tai/04-don-goi.png" alt="Đơn gọi hiện tại"></figure>
+    <figure class="new"><figcaption>Hướng Astryx</figcaption><img src="moi/04-don-goi.jpg" alt="Đơn gọi hướng Astryx"></figure>
+  </div>
+  <div class="notes"><ul>
+    <li>Bỏ thẻ viền trái vàng/xanh + viên trạng thái → mỗi lượt là một mục phẳng, chấm màu + chữ trạng thái.</li>
+    <li>Chữ trạng thái khi dựng sẽ giữ đúng chữ app đang dùng theo chính sách duyệt ("Chờ xác nhận", "Đã vào bếp"…); bản vẽ chỉ minh hoạ.</li>
+  </ul></div>
+
+  <h2>5. Đặt bàn</h2>
+  <div class="pair">
+    <figure><figcaption>Hiện tại</figcaption><img src="hien-tai/05-dat-ban.png" alt="Đặt bàn hiện tại"></figure>
+    <figure class="new"><figcaption>Hướng Astryx</figcaption><img src="moi/05-dat-ban.jpg" alt="Đặt bàn hướng Astryx"></figure>
+  </div>
+  <div class="notes"><ul>
+    <li>Một form cuộn liền (mẫu "settings" của Astryx): Người đặt → Thời gian đến → Số khách, không thẻ lồng thẻ.</li>
+    <li>Nút chính ghi luôn giờ đã chọn. Ô "Bắt buộc" đỏ bỏ đi, báo lỗi khi bấm gửi mà thiếu.</li>
+  </ul></div>
+
+  <h2>6. Tài khoản</h2>
+  <div class="pair">
+    <figure><figcaption>Hiện tại</figcaption><img src="hien-tai/06-tai-khoan.png" alt="Tài khoản hiện tại"></figure>
+    <figure class="new"><figcaption>Hướng Astryx</figcaption><img src="moi/06-tai-khoan.jpg" alt="Tài khoản hướng Astryx"></figure>
+  </div>
+  <div class="notes"><ul>
+    <li>Quyền riêng tư, Điều khoản, Xoá thông tin thành 3 hàng có mũi tên (đoạn giải thích dài vào trong). Nút "Lấy số từ Zalo" giữ xanh Zalo.</li>
+  </ul></div>
+
+  <div class="box">
+    <h3>Nếu anh duyệt dựng vào app</h3>
+    <ul>
+      <li><span class="tag">Không thêm thư viện</span> Astryx cần React 19 + StyleX, Mini App đang React 18 + zmp-ui → không nhét linh kiện
+        Astryx vào được (và sẽ làm app nặng hơn). Em chép lại kiểu dáng bằng Tailwind vào các nhánh <code>garden</code> sẵn có.</li>
+      <li><span class="tag">Chỉ theme garden</span> Bảo Lương / Pubu (classic) giữ nguyên, chụp ảnh chứng minh.</li>
+      <li>Cần anh mở cổng <code>secrets</code> (D-016) để chạy Mini App chụp trước/sau.</li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>

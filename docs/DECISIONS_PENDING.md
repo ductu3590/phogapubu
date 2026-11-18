@@ -160,3 +160,24 @@ Mẫu:
 - Rủi ro nếu duyệt: thấp — chỉ đổi giao diện Mini App, không migration, không đụng admin-web (Vercel dựng lại nhưng
   không đổi gì). Mini App KHÔNG tự lên Zalo, cần `zmp deploy` riêng từ worktree quán. tsc sạch, vitest mini-app 265/265.
 - Trả lời của anh:
+
+## D-015 · 2026-11-18 · gate: harness · task: thử skill Astryx cho Mini App Yên Garden (nhánh claude/yg-astryx-redesign-67a515) · trạng thái: chờ
+- Cần làm: chép 1 file `SKILL.md` của Meta (repo `meta/astryx`, `plugins/astryx/skills/astryx/SKILL.md`, MIT, chỉ là chữ
+  hướng dẫn, không có script) vào `.claude/skills/astryx/SKILL.md` trên nhánh thử này.
+- Vì sao: anh Tú bảo cài skill Astryx, chọn "Riêng repo, CLI tạm" (chat 2026-11-18); `.claude/skills/**` là đường dẫn
+  harness được bảo vệ nên hook chặn tạo thư mục.
+- Phương án đề xuất (khuyến nghị): anh mở cổng `harness` 1 giờ (lệnh duyệt như mẫu đầu file) rồi nói "áp dụng D-015",
+  agent chép file. Phương án khác: không cài vào repo — agent vẫn làm theo nội dung skill (đã đọc) và chạy CLI `astryx`
+  bằng npx ở thư mục nháp ngoài repo; chỉ thiếu việc skill tự hiện trong danh sách skill của các phiên sau.
+- Rủi ro nếu duyệt: thấp — 1 file chữ, chỉ nằm trên nhánh thử, không đổi code/cấu hình chạy.
+- Trả lời của anh:
+
+## D-016 · 2026-11-18 · gate: secrets · task: thử skill Astryx cho Mini App Yên Garden · trạng thái: chờ
+- Cần làm: chép `mini-app-instances/yen-garden/mini-app/.env` sang `mini-app/.env` của worktree
+  `yg-astryx-redesign-67a515` (gitignored) để `npm run dev` Mini App theme garden, không in nội dung.
+- Vì sao: brief của phiên giao việc bảo chép để chụp ảnh trước/sau (Thực đơn, chi tiết món, Xác nhận đơn, Đơn gọi, Đặt bàn,
+  Tài khoản + 1 ảnh Bảo Lương) và mở sẵn link cho anh xem; hook secrets chặn lệnh chép.
+- Phương án đề xuất (khuyến nghị): chỉ cần khi anh duyệt dựng hướng Astryx vào app — lúc đó anh mở cổng `secrets` 1 giờ
+  (lệnh duyệt như mẫu đầu file), agent chép file. Phương án khác: anh tự chép file trong Explorer.
+- Rủi ro nếu duyệt: thấp — chép giữa hai thư mục gitignored trên máy anh, không in nội dung.
+- Trả lời của anh:
