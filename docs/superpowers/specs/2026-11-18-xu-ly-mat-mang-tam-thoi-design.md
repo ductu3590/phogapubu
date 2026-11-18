@@ -1,6 +1,6 @@
 # Xử lý mất mạng tạm thời — "Quầy dự phòng" trong MEVO In
 
-> Trạng thái: **CHỜ ANH TÚ DUYỆT** (2026-11-18). Chưa có dòng code sản phẩm nào.
+> Trạng thái: **ANH TÚ ĐÃ DUYỆT** (2026-11-18), gồm cả 16 điểm ở mục B10. Làm theo ba đợt ở A6; đang lập kế hoạch Đợt 1.
 > Đã sửa theo lượt review của Codex ngày 2026-11-18 (5 điểm; cách xử lý từng điểm ở mục B11).
 > Phạm vi: quán trả sau dùng MEVO bản Online, in ở chế độ "Nhiều nơi" (`print_mode = 'agent'`) — trước mắt là Yên Garden.
 > Phương án lớn "MEVO Tại quán" (máy chủ đặt tại quán) KHÔNG thuộc tài liệu này; anh Tú đã quyết tạm chưa làm.
