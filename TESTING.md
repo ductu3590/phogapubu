@@ -6,7 +6,7 @@
 
 ## Chờ test
 
-- ⏳ [Mất mạng Đợt 1 — POS báo mất mạng + tờ quy trình](docs/testing/mat-mang/DOT-1.md) — chờ anh Tú test 9 bài
+- ✅ [Mất mạng Đợt 1 — POS báo mất mạng + tờ quy trình](docs/testing/mat-mang/DOT-1.md) — PASS 2026-11-18 (anh Tú)
 - ⏳ [Màn nhân viên — câu báo gửi đơn, nhãn món ghi tay, mã đơn](docs/testing/staff-chu/STAFF-CHU.md) — agent ✓ unit test; chờ anh Tú S1–S5 (chưa merge)
 - ✅ [POS tab Sơ đồ (lưới bàn kiểu KiotViet, ghim màn mặc định)](docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md) — PASS hết (T1–T8) 2026-11-17; đã merge main
 - ✅ [Công nợ nhà cung cấp + trả nhiều phiếu một lần (mig 143–146)](docs/testing/cong-no-ncc/CONG-NO-NCC.md) — PASS hết 2026-11-17 (agent Playwright A1–A5, B1–B12, B14, C1–C4; anh Tú B13); đã merge main

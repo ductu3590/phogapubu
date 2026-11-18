@@ -1,6 +1,6 @@
 # Mất mạng Đợt 1 — POS báo mất mạng + tờ quy trình: checklist test
 
-Thiết kế: [2026-11-18-xu-ly-mat-mang-tam-thoi-design.md](../../superpowers/specs/2026-11-18-xu-ly-mat-mang-tam-thoi-design.md). Mô tả tính năng: [mat-mang-dot-1.md](../../features/mat-mang-dot-1.md). Trạng thái: **chờ anh Tú test 9 bài**.
+Thiết kế: [2026-11-18-xu-ly-mat-mang-tam-thoi-design.md](../../superpowers/specs/2026-11-18-xu-ly-mat-mang-tam-thoi-design.md). Mô tả tính năng: [mat-mang-dot-1.md](../../features/mat-mang-dot-1.md). Trạng thái: **PASS** — anh Tú báo 2026-11-18.
 
 Đợt 1 làm ba việc ở POS thu ngân: (1) mất mạng quá 60 giây thì hiện **băng đỏ** "Mất mạng từ HH:MM"; (2) có mạng lại thì hiện **băng vàng** "Vừa có mạng lại" báo có bao nhiêu lượt món khách gọi lúc mất mạng; (3) lượt món chờ duyệt từ 10 phút trở lên có nhãn **"Gọi lúc HH:MM · đã chờ N phút"**. Kèm một tờ quy trình A4 để in dán ở quầy.
 
