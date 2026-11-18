@@ -151,3 +151,12 @@ Mẫu:
 - Rủi ro nếu duyệt: thấp — chỉ đổi chữ màn `/staff`, không migration; vitest admin-web 1846/1846 xanh trên cùng cây code.
 - Trả lời của anh: Đã mở cổng
 - **Đã áp dụng 2026-11-18:** đẩy main bf5f629..cef7308.
+
+## D-012 · 2026-11-18 · gate: deploy · task: Mini App — màn Xác nhận đơn gọn (5689078) · trạng thái: chờ
+- Cần làm: đẩy `main` lên `origin` (main ở máy đã fast-forward gồm nhánh `claude/yen-garden-mini-app-aa37d2`, commit
+  5689078: bỏ khối "Bàn … — Món sẽ được gửi cho bàn này" và dòng "Tạm tính món" trùng Tổng cộng ở màn Xác nhận đơn).
+- Vì sao: anh Tú bảo "Gộp và push" (chat 2026-11-18).
+- Phương án đề xuất: anh mở cổng deploy 1 giờ, agent đẩy main.
+- Rủi ro nếu duyệt: thấp — chỉ đổi giao diện Mini App, không migration, không đụng admin-web (Vercel dựng lại nhưng
+  không đổi gì). Mini App KHÔNG tự lên Zalo, cần `zmp deploy` riêng từ worktree quán. tsc sạch, vitest mini-app 265/265.
+- Trả lời của anh:
