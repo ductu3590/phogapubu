@@ -77,6 +77,27 @@
   .link { color: var(--accent); font-weight: 600; font-size: 15px; }
   .phone.night .link { color: var(--accent); }
 
+  /* Khung Zalo: thanh trạng thái máy (44) + cụm nút "··· | X" Zalo tự vẽ, không đổi được.
+     Vùng cấm: 96 px bên phải của hàng 44 px ngay dưới thanh trạng thái (như ZALO_CAPSULE_GAP trong app-toolbar.tsx). */
+  .sbar { position:absolute; top:0; left:0; right:0; height:44px; z-index: 9; display:flex; align-items:center; justify-content:space-between; padding: 0 26px 0 30px; font: 600 15px/1 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); pointer-events:none; }
+  .sbar.light { color:#fff; text-shadow: 0 1px 2px #0006; }
+  .sbar .sig { display:flex; gap:5px; align-items:center; }
+  .sbar .sig i { display:block; width: 17px; height: 9px; border-radius: 2px; border: 1.5px solid currentColor; }
+  .capsule { position:absolute; z-index: 10; top: 50px; right: 8px; width: 87px; height: 32px; border-radius: 16px; background: rgba(255,255,255,.72); border: .5px solid rgba(0,0,0,.12); display:flex; align-items:center; color:#1b1b1b; }
+  .capsule span { flex:1; display:grid; place-items:center; height: 100%; }
+  .capsule span + span { border-left: .5px solid rgba(0,0,0,.18); height: 18px; }
+  .phone.night .capsule { background: rgba(40,40,40,.72); border-color: rgba(255,255,255,.14); color:#f2f2f2; }
+  .phone.night .capsule span + span { border-color: rgba(255,255,255,.25); }
+  .zone { display:none; position:absolute; z-index: 8; top: 44px; right: 0; width: 96px; height: 44px; outline: 1.5px dashed #C8462E; outline-offset: -2px; border-radius: 8px; pointer-events:none; }
+  .show-zone .zone { display:block; }
+  .r1 { height: 44px; display:flex; align-items:center; gap: 8px; padding-right: 84px; } /* 96 vùng Zalo trừ lề trang 20, cộng 8 khe */
+  .ib { width: 36px; height: 36px; border-radius: 50%; border: 0; background: transparent; color: var(--ink); display:grid; place-items:center; margin: -4px; padding: 0; } /* vùng chạm 44 nhờ lề âm */
+  .ib .ic { width: 22px; height: 22px; }
+  .ib.heart { color: var(--accent); }
+  .r2 { display:flex; align-items:center; gap: 8px; margin-top: 6px; }
+  .r2 .search { margin-top: 0; flex: 1; }
+  .hero::before { content:""; position:absolute; inset:0 0 auto 0; height: 110px; background: linear-gradient(#0007, transparent); z-index: 1; pointer-events:none; }
+
   /* Thanh tab đáy */
   .tabbar { position:absolute; left:0; right:0; bottom:0; display:grid; grid-template-columns: 1fr 1fr; padding: 6px 0 22px; background: var(--bg); border-top: 1px solid var(--line); }
   .tab { display:flex; flex-direction:column; align-items:center; gap: 3px; font-size: 12px; font-weight: 500; color: var(--ink2); position: relative; }
@@ -93,14 +114,14 @@
   .status i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display:inline-block; }
 
   /* Thực đơn */
-  .bar { position: absolute; left: 0; right: 0; top: 0; z-index: 3; background: var(--bg); padding: 14px 20px 0; }
+  .bar { position: absolute; left: 0; right: 0; top: 0; z-index: 3; background: var(--bg); padding: 44px 20px 0; }
   .bar-top { display:flex; align-items:center; gap: 10px; }
-  .table-no { font-size: 30px; line-height: 1; }
+  .table-no { font-size: 26px; line-height: 1; }
   .search { margin-top: 12px; height: 44px; border-radius: 12px; background: var(--surface); display:flex; align-items:center; gap: 8px; padding: 0 12px; color: var(--ink2); font-size: 17px; }
   .cats { display:flex; gap: 22px; margin-top: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
   .cat { padding: 12px 0 10px; font-size: 16px; font-weight: 500; color: var(--ink2); border-bottom: 2.5px solid transparent; margin-bottom: -1px; }
   .cat.on { color: var(--ink); font-weight: 700; border-color: var(--accent); }
-  .list-top { padding-top: 186px; }
+  .list-top { padding-top: 202px; }
   .sec { display:flex; align-items: baseline; justify-content: space-between; padding: 18px 20px 4px; }
   .sec .serif { font-size: 24px; }
   .dish { display:flex; gap: 14px; padding: 14px 20px; }
@@ -172,6 +193,14 @@
     </ul>
   </div>
 
+  <div class="card">
+    <h3>Khung cố định của Zalo Mini App</h3>
+    <p style="margin:4px 0">Zalo luôn tự vẽ cụm nút <b>"··· | X"</b> ở góc phải trên (87×32 px, cách mép phải 8 px, ngay dưới thanh
+    trạng thái); mini app không đổi hay ẩn được. Bản vẽ mới vẽ cụm này vào mọi khung và giữ đúng luật app đang dùng
+    (<code>ZALO_CAPSULE_GAP = 96</code> trong <code>app-toolbar.tsx</code>): hàng 44 px dưới thanh trạng thái chừa trống 96 px bên phải,
+    nút của quán cách cụm Zalo ≥ 8 px để khách không bấm nhầm thành thoát app. Mở <code>so-sanh.html?vung</code> để thấy vùng cấm tô đỏ.</p>
+  </div>
+
   <h2>1. Chữ</h2>
   <p class="lead">Đề xuất: <b>Fraunces</b> (bản "soft", nét tròn mềm như chữ "Yên" trong logo) chỉ cho tên quán, tên bàn, tiêu đề
   mục; mọi chữ còn lại dùng <b>font hệ thống</b> của máy (Roboto trên Android, SF trên iPhone) — rõ nhất ở cỡ nhỏ, không phải tải.
@@ -210,12 +239,11 @@
   <div class="pair">
     <div class="col"><p class="cap">Hiện tại</p><img class="shot" src="hien-tai/trang-chu.png" alt="Trang chủ hiện tại"></div>
     <div class="col new"><p class="cap">Đề xuất</p>
-      <div class="phone"><div class="scroll">
+      <div class="phone"><div class="sbar light"><span>21:05</span><span class="sig"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M2 20h3v-4H2zm5 0h3v-8H7zm5 0h3V8h-3zm5 0h3V4h-3z"/></svg><i></i></span></div><div class="capsule" title="Nút của Zalo (không đổi được)"><span><svg width="18" height="4" viewBox="0 0 18 4" fill="currentColor"><circle cx="2" cy="2" r="2"/><circle cx="9" cy="2" r="2"/><circle cx="16" cy="2" r="2"/></svg></span><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></span></div><div class="zone"></div><div class="scroll">
         <div class="hero"><img src="anh/banner.webp" alt="Biển hiệu Yên Garden">
-          <button class="round acct" aria-label="Tài khoản"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button>
         </div>
         <div class="pad">
-          <div class="serif title">Yên Garden</div>
+          <div style="display:flex;align-items:center;gap:6px"><div class="serif title" style="flex:1">Yên Garden</div><button class="ib heart" aria-label="Quan tâm quán trên Zalo"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button><button class="ib" aria-label="Tài khoản" style="margin-left:4px"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button></div>
           <div style="display:flex;align-items:center;justify-content:space-between">
             <span class="tagline">Chill · Relax · Xanh</span>
             <span class="status"><i></i>Đang mở</span>
@@ -247,7 +275,8 @@
         <li>Logo chỉ còn <b>một lần</b>: chính biển hiệu trong ảnh bìa, tràn sát mép, bo đáy. Bỏ logo nhỏ góc trên và câu "Chào mừng
           bạn đến với".</li>
         <li>Tên quán viết bằng Fraunces 36 màu ô-liu + khẩu hiệu "Chill · Relax · Xanh" — giọng của logo, nhưng là chữ thật (đọc được bằng trình đọc màn hình).</li>
-        <li>Nút tài khoản tròn 44 nổi trên ảnh. Địa chỉ, giờ, gọi quán gom một nhóm hàng; một nút chính "Đặt bàn trước".</li>
+        <li>Ảnh bìa nằm dưới thanh trạng thái và cụm nút Zalo (có lớp tối mờ ở mép trên cho chữ giờ / nút Zalo dễ thấy). Không đặt nút nào của mình ở góc phải trên — ♡ Quan tâm OA và Tài khoản ở hàng tên quán.</li>
+        <li>Địa chỉ, giờ, gọi quán gom một nhóm hàng; một nút chính "Đặt bàn trước".</li>
         <li>Nếu cần logo nhỏ ở chỗ khác (thẻ chia sẻ, màn chờ): nền trang mới dùng đúng màu kem của ảnh logo nên không còn ô mờ.</li>
       </ul>
     </div>
@@ -262,8 +291,9 @@
     <div class="notes card">
       <h3>Thay đổi</h3>
       <ul>
-        <li>Đầu màn chỉ còn thứ khách cần: <b>"Bàn 1"</b> to (Fraunces) + tạm tính, nút Gọi nhân viên có chữ, nút tài khoản. Bỏ lời chào,
-          chip Bàn, icon giỏ (giỏ đã ở dưới), dải lặp số bàn → món đầu bắt đầu ở ~240 px thay vì ~295 px.</li>
+        <li>Hàng 1 (ngang cụm nút Zalo, chừa 96 px phải): <b>"Bàn 1"</b> (Fraunces) + tạm tính, nút "Gọi nhân viên". Hàng 2: ô tìm, ♡ Quan tâm OA,
+          Tài khoản. Bỏ lời chào, chip Bàn, icon giỏ (giỏ đã ở dưới), dải lặp số bàn → tên món đầu cách thanh trạng thái ~247 px
+          (bản hiện tại ~332 px, ảnh chụp chưa có thanh trạng thái).</li>
         <li>Món: tên 17 đậm, mô tả 15, giá 17; ảnh 104 px. "Bán chạy" thành chữ nâu có lá nhỏ (không viên nhãn).</li>
         <li>Nút + đủ 44 px, viền màu nền để tách khỏi ảnh. Món đã có trong giỏ đổi thành bộ <b>− 1 +</b> ngay dưới ảnh.</li>
         <li><b>Dải gọi bia là điểm nhấn riêng của quán</b>: ghi "Bàn đã gọi 2 ca" và nút "+1 ca" màu nhạt, để nút đậm duy nhất là thanh giỏ.</li>
@@ -281,13 +311,12 @@
   <div class="pair">
     <div class="col"><p class="cap">Hiện tại</p><img class="shot" src="hien-tai/don-goi.png" alt="Đơn gọi hiện tại"></div>
     <div class="col new"><p class="cap">Đề xuất</p>
-      <div class="phone"><div class="scroll">
-        <div class="pad" style="padding-top:14px">
-          <div class="bar-top">
-            <div style="flex:1"><div class="serif" style="font-size:30px;line-height:1">Đơn gọi</div><div class="ink2" style="font-size:13px;margin-top:4px">Bàn 1 · vào lúc 12:43</div></div>
-            <button class="pill"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>Gọi NV</button>
-          </div>
-          <div style="margin-top:22px" class="ink2"><span style="font-size:15px">Tạm tính</span></div>
+      <div class="phone"><div class="sbar"><span>21:05</span><span class="sig"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M2 20h3v-4H2zm5 0h3v-8H7zm5 0h3V8h-3zm5 0h3V4h-3z"/></svg><i></i></span></div><div class="capsule" title="Nút của Zalo (không đổi được)"><span><svg width="18" height="4" viewBox="0 0 18 4" fill="currentColor"><circle cx="2" cy="2" r="2"/><circle cx="9" cy="2" r="2"/><circle cx="16" cy="2" r="2"/></svg></span><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></span></div><div class="zone"></div><div class="scroll">
+        <div class="pad" style="padding-top:44px">
+          <div class="r1"><div class="serif" style="font-size:28px;line-height:1">Đơn gọi</div></div>
+          <div class="r2"><div class="ink2" style="font-size:15px;flex:1">Bàn 1 · vào lúc 12:43</div>
+            <button class="pill"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>Gọi nhân viên</button></div>
+          <div style="margin-top:14px" class="ink2"><span style="font-size:15px">Tạm tính</span></div>
           <div class="num" style="font-size:40px;font-weight:700;letter-spacing:-.02em;line-height:1.1">205.000đ</div>
           <div class="ink2" style="font-size:15px;margin-top:2px">2 món · 2 lượt · trả tại quầy khi về</div>
         </div>
@@ -331,13 +360,15 @@
 </main>
 
 <template id="menu-tpl">
-  <div class="bar">
-    <div class="bar-top">
-      <div style="flex:1;min-width:0"><div class="serif table-no">Bàn 1</div><div class="ink2 num" style="font-size:13px;margin-top:4px">Yên Garden · tạm tính 205.000đ</div></div>
-      <button class="pill"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>Gọi NV</button>
-      <button class="round" aria-label="Tài khoản"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button>
+<div class="sbar"><span>21:05</span><span class="sig"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M2 20h3v-4H2zm5 0h3v-8H7zm5 0h3V8h-3zm5 0h3V4h-3z"/></svg><i></i></span></div><div class="capsule" title="Nút của Zalo (không đổi được)"><span><svg width="18" height="4" viewBox="0 0 18 4" fill="currentColor"><circle cx="2" cy="2" r="2"/><circle cx="9" cy="2" r="2"/><circle cx="16" cy="2" r="2"/></svg></span><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></span></div><div class="zone"></div>  <div class="bar">
+    <div class="r1">
+      <div style="flex:1;min-width:0;white-space:nowrap"><div class="serif table-no">Bàn 1</div><div class="ink2 num" style="font-size:12px;margin-top:2px">tạm tính 205.000đ</div></div>
+      <button class="pill" style="height:40px"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>Gọi nhân viên</button>
     </div>
-    <div class="search"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>Tìm món</div>
+    <div class="r2" style="margin-top:10px">
+      <div class="search"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>Tìm món</div>
+      <button class="ib heart" aria-label="Quan tâm quán trên Zalo" style="margin:0 2px 0 6px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button><button class="ib" aria-label="Tài khoản" style="margin:0 -4px 0 2px"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button>
+    </div>
     <div class="cats"><span class="cat on">Nướng</span><span class="cat">Bia &amp; đồ uống</span><span class="cat">Lẩu</span><span class="cat">Rau &amp; cơm</span></div>
   </div>
   <div class="scroll list-top">
@@ -371,6 +402,7 @@
     document.getElementById(id).appendChild(document.getElementById('menu-tpl').content.cloneNode(true));
   }
   // so-sanh.html#phone=2 → chỉ hiện khung điện thoại thứ 2 (để chụp ảnh 390×844).
+  if (location.search.includes('vung')) document.body.classList.add('show-zone');
   const m = location.hash.match(/phone=(\d+)/);
   if (m) {
     const p = document.querySelectorAll('.phone')[+m[1] - 1];
