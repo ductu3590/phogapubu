@@ -15,23 +15,58 @@
    rgb(var(--c-x, <mặc định classic>) / alpha) nên theme 'classic' KHÔNG cần khai gì ở đây.
    Màu trạng thái (success / info / warning / critical) cố ý không đổi theo theme. */
 :root[data-theme="garden"] {
-  --c-background: 242 239 230;     /* #F2EFE6 kem — nền trang */
-  --c-surface: 251 250 246;        /* #FBFAF6 kem sáng — thẻ, thanh nổi */
+  /* Bản vẽ docs/design/yen-garden/apple-hig (2026-11-18): nền = ĐÚNG màu kem của ảnh logo quán
+     để logo tròn không lộ ô mờ; số tương phản tính trên nền này. */
+  --c-background: 237 233 222;     /* #EDE9DE kem — nền trang */
+  --c-surface: 247 244 236;        /* #F7F4EC kem sáng — ô tìm, nhóm hàng, thanh nổi */
   --c-neutral50: 245 242 234;      /* #F5F2EA */
-  --c-neutral100: 229 224 210;     /* #E5E0D2 kem trầm — nét kẻ, ô tìm, nền phụ */
+  --c-neutral100: 222 216 199;     /* #DED8C7 kem trầm — nét kẻ, nền phụ */
   --c-neutral300: 116 122 86;      /* #747A56 ô-liu nhạt — icon phụ */
-  --c-neutral900: 38 43 26;        /* #262B1A */
-  --c-text-secondary: 90 96 69;    /* #5A6045 — 5,0:1 trên nền kem */
-  --c-text-tertiary: 90 96 69;
+  --c-neutral900: 35 39 26;        /* #23271A — chữ chính 12,6:1 */
+  --c-text-secondary: 84 90 64;    /* #545A40 — 5,9:1 trên nền kem */
+  --c-text-tertiary: 84 90 64;
   --c-text-disabled: 143 146 122;  /* #8F927A */
   --c-border-strong: 205 199 180;  /* #CDC7B4 */
   --shadow-card: none;                /* thẻ phẳng, không bóng */
   --g-brown: #5C4636;              /* nâu chữ "GARDEN" — nhãn danh mục */
-  --g-sand: 203 164 115;           /* #CBA473 be vàng — nhãn Bán chạy */
+  --g-sand: 203 164 115;           /* #CBA473 be vàng — chỉ trang trí, KHÔNG đặt chữ lên (1,9:1) */
+  --g-sand-text: #7A5524;          /* nâu be — chữ nhãn Bán chạy, 5,5:1 */
 }
 
 * {
   font-family: "Be Vietnam Pro", Roboto, system-ui, sans-serif;
+}
+
+/* Theme garden: chữ thân dùng font của máy (Roboto Android / SF iPhone) — không tải gì, rõ nhất ở cỡ nhỏ.
+   File Be Vietnam Pro chỉ tải khi có chữ dùng tới nó, nên quán garden không tải 8 file đó nữa.
+   Chỉ tiêu đề (tên quán, tên mục, số tiền lớn) dùng Fraunces qua class .g-display. */
+:root[data-theme="garden"] * {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Fraunces 600 "soft" (SIL OFL 1.1, xem static/fonts/Fraunces-OFL.txt), lưu trong app, 2 tệp ~25 KB:
+   trình duyệt chỉ tải tệp có ký tự cần (unicode-range). Chỉ dùng ở theme garden. */
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../static/fonts/fraunces-600-vietnamese.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../static/fonts/fraunces-600-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+:root[data-theme="garden"] .g-display {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: lining-nums;
 }
 
 /* Số tiền, giờ: chữ số thẳng hàng của chính font. */

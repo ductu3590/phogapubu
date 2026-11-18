@@ -6,6 +6,7 @@ import { useSnackbar } from "zmp-ui";
 import { oaFollowMessage } from "@/utils/oa-follow-message";
 import type { ToolbarMode } from "@/utils/nav-sets";
 import { cn } from "@/utils/cn";
+import { formatCurrency } from "@/utils/format";
 import CallStaffButton from "./call-staff-button";
 
 const ZALO_CAPSULE_GAP = 96; // px — chỗ Zalo tự vẽ nút "··· ⊗" ở góc phải
@@ -13,7 +14,9 @@ const ZALO_CAPSULE_GAP = 96; // px — chỗ Zalo tự vẽ nút "··· ⊗" �
 // Thanh công cụ m06–m08 cho MỌI màn (spec Q3, cập nhật 2026-10-08). Hàng 1 (nếu có): quay lại + tiêu đề.
 // Hàng chính: logo quán → lời chào + tên quán → tim follow OA · giỏ · tài khoản — chừa 96px phải cho capsule Zalo.
 // Tại quán: thêm hàng riêng Gọi NV + chip bàn.
-export default function AppToolbar({ title, back, mode, cartCount }: { title?: string; back?: boolean; mode: ToolbarMode; cartCount: number }) {
+// tableTotal: tạm tính cả bàn do server tính (get_table_session_bill). Theme garden hiện nó ngay dưới tên quán
+// thay cho dải "Bàn · N lần gọi" riêng của trang menu; classic bỏ qua.
+export default function AppToolbar({ title, back, mode, cartCount, tableTotal }: { title?: string; back?: boolean; mode: ToolbarMode; cartCount: number; tableTotal?: number }) {
   const navigate = useNavigate();
   const { storeName, storeLogoUrl, tableId, tableNumber } = useAppStore();
   const oa = useOaFollow();
@@ -38,23 +41,23 @@ export default function AppToolbar({ title, back, mode, cartCount }: { title?: s
           onClick={() => void onHeart()}
           disabled={oa.pending}
           className={cn(
-            "grid size-9 shrink-0 place-items-center rounded-full",
-            oa.connected ? "bg-primary/10 text-primary" : "border border-primary/40 text-primary active:bg-primary/10",
+            "grid size-9 shrink-0 place-items-center rounded-full garden:size-10",
+            oa.connected ? "bg-primary/10 text-primary" : "border border-primary/40 text-primary active:bg-primary/10 garden:border-0",
           )}
         >
-          <HeartIcon className={cn("size-4", oa.connected && "fill-current")} />
+          <HeartIcon className={cn("size-4 garden:size-[22px]", oa.connected && "fill-current")} />
         </button>
       )}
       {mode.cart && (
-        <button type="button" aria-label={`Giỏ hàng, ${cartCount} món`} onClick={() => navigate("/checkout")} className="relative grid size-9 place-items-center rounded-full active:bg-neutral100">
-          <ShoppingCartIcon className="size-5 text-text-primary" />
+        <button type="button" aria-label={`Giỏ hàng, ${cartCount} món`} onClick={() => navigate("/checkout")} className="relative grid size-9 place-items-center rounded-full active:bg-neutral100 garden:size-10">
+          <ShoppingCartIcon className="size-5 text-text-primary garden:size-[22px]" />
           {cartCount > 0 && (
             <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-critical px-1 text-xxxsmall font-bold text-white">{cartCount > 9 ? "9+" : cartCount}</span>
           )}
         </button>
       )}
-      <button type="button" aria-label="Tài khoản" onClick={() => navigate("/account")} className="grid size-9 place-items-center rounded-full active:bg-neutral100">
-        <UserIcon className="size-5 text-text-primary" />
+      <button type="button" aria-label="Tài khoản" onClick={() => navigate("/account")} className="grid size-9 place-items-center rounded-full active:bg-neutral100 garden:size-10">
+        <UserIcon className="size-5 text-text-primary garden:size-[22px]" />
       </button>
     </>
   );
@@ -69,7 +72,7 @@ export default function AppToolbar({ title, back, mode, cartCount }: { title?: s
             </button>
           ) : <span className="w-2" />}
           <div className="min-w-0">
-            {title && <p className="truncate text-normal-sb font-bold leading-tight text-text-primary">{title}</p>}
+            {title && <p className="g-display truncate text-normal-sb font-bold leading-tight text-text-primary garden:text-[21px] garden:leading-[1.15]">{title}</p>}
             {title && storeName && <p className="truncate text-xxxsmall leading-tight text-text-secondary">{storeName}</p>}
           </div>
         </div>
@@ -80,15 +83,19 @@ export default function AppToolbar({ title, back, mode, cartCount }: { title?: s
       <div className="flex h-14 items-center gap-2 px-3 pb-2" style={{ paddingRight: ZALO_CAPSULE_GAP }}>
         <button type="button" aria-label="Thông tin nhà hàng" onClick={() => navigate("/store-info")} className="relative shrink-0">
           {storeLogoUrl ? (
-            <img src={storeLogoUrl} alt="" className="size-9 rounded-full object-cover ring-2 ring-primary/20" draggable={false} />
+            <img src={storeLogoUrl} alt="" className="size-9 rounded-full object-cover ring-2 ring-primary/20 garden:ring-0" draggable={false} />
           ) : (
             <span className="grid size-9 place-items-center rounded-full bg-primary text-small-m font-bold text-white">{mark || <UtensilsIcon className="size-4" />}</span>
           )}
         </button>
-        {/* Lời chào 2 dòng (giống mẫu Nhà Hàng Phì Lũ 1): dòng nhỏ + tên quán đậm */}
+        {/* Lời chào 2 dòng (giống mẫu Nhà Hàng Phì Lũ 1): dòng nhỏ + tên quán đậm.
+            Garden: bỏ lời chào, tên quán viết Fraunces; ở bàn thì dòng dưới là tạm tính cả bàn. */}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xxxsmall leading-tight text-text-secondary">Chào mừng bạn đến với</p>
-          <p className="truncate text-normal-sb font-bold leading-tight text-text-primary">{storeName || "MEVO"}</p>
+          <p className="truncate text-xxxsmall leading-tight text-text-secondary garden:hidden">Chào mừng bạn đến với</p>
+          <p className="g-display truncate text-normal-sb font-bold leading-tight text-text-primary garden:text-[21px] garden:leading-[1.15] garden:text-primary">{storeName || "MEVO"}</p>
+          {atTable && tableTotal !== undefined && tableTotal > 0 && (
+            <p className="tabular hidden truncate text-xsmall leading-tight text-text-secondary garden:block">tạm tính {formatCurrency(tableTotal)}đ</p>
+          )}
         </div>
         {!atTable && actionIcons}
       </div>

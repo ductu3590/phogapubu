@@ -23,6 +23,7 @@ import ProductListFrame from "@/components/ui/product-list-frame";
 import { matchesQuery } from "@/utils/search-fold";
 import { activeCategoryAt } from "@/utils/active-category";
 import { callStaffMessage } from "@/utils/call-staff-message";
+import { cn } from "@/utils/cn";
 import { LockIcon, ArmchairIcon, BellIcon, MoonIcon, CircleAlertIcon, RotateCwIcon, SearchIcon } from "@/components/common/icons";
 
 // Bàn đang có khách KHÁC gọi món (quán trả sau). Vẫn cho xem menu, chỉ chặn thêm món.
@@ -87,7 +88,8 @@ function SessionBar({ label, orderCount, total, isTray }: {
 }) {
   if (orderCount === 0) return null;
   return (
-    <div className="flex items-center justify-between border-b border-neutral100 bg-primary/5 px-4 py-2.5">
+    // Theme garden: tạm tính đã nằm dưới tên quán ở thanh đầu → ẩn dải này, TRỪ khi là mâm (cần tên các bàn ghép).
+    <div className={cn("flex items-center justify-between border-b border-neutral100 bg-primary/5 px-4 py-2.5", !isTray && "garden:hidden")}>
       <p className="min-w-0 flex-1 truncate text-small text-text-secondary">
         {label || "Bàn của bạn"} · {orderCount} lần gọi
       </p>
@@ -429,7 +431,7 @@ export default function MenuPage() {
               showScanHint={workflow?.tableOrderingEnabled === true}
             />
             <div className="px-4 pb-1 pt-5">
-              <h2 className="text-large-m font-bold text-text-primary">{workflowAllowsOrdering ? "Thực đơn" : "Thực đơn tham khảo"}</h2>
+              <h2 className="g-display text-large-m font-bold text-text-primary garden:text-[24px] garden:leading-tight">{workflowAllowsOrdering ? "Thực đơn" : "Thực đơn tham khảo"}</h2>
               {!workflowAllowsOrdering && (
                 <p className="mt-0.5 text-xxsmall text-text-secondary">Xem trước món ngon — gọi món bằng cách quét QR tại bàn.</p>
               )}
@@ -439,14 +441,14 @@ export default function MenuPage() {
 
         {/* Ô tìm + chip danh mục — DÍNH trên đầu vùng cuộn (Stitch m06); lối thường thì cuộn qua phần đầu Trang chủ rồi mới dính */}
         <div ref={stickyRef} className="sticky top-0 z-10 bg-background/95 pb-0.5 backdrop-blur">
-          <label className="mx-3 mt-2.5 flex h-10 items-center gap-2 rounded-full border border-neutral200 bg-surface px-3.5 garden:mx-4 garden:mt-1 garden:h-[42px] garden:border-0 garden:bg-neutral100">
+          <label className="mx-3 mt-2.5 flex h-10 items-center gap-2 rounded-full border border-neutral200 bg-surface px-3.5 garden:mx-4 garden:mt-1 garden:h-11 garden:rounded-xl garden:border-0 garden:bg-surface">
             <SearchIcon className="size-4 shrink-0 text-text-secondary" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Tìm món…"
               enterKeyHint="search"
-              className="min-w-0 flex-1 bg-transparent text-small text-text-primary outline-none placeholder:text-text-secondary"
+              className="min-w-0 flex-1 bg-transparent text-small text-text-primary outline-none placeholder:text-text-secondary garden:text-[17px]"
             />
           </label>
           <CategoryChips

@@ -18,7 +18,7 @@ import StatusPill, { type PillTone } from "@/components/ui/status-pill";
 import StickyActionBar from "@/components/ui/sticky-action-bar";
 import { GET_SESSION_ORDERS_KEY, GET_TABLE_SESSION_BILL_KEY } from "@/constants/api";
 import type { SessionOrder, TakeawayOrder, OrderItem, TableSessionBillItem } from "@/types/order.types";
-import { ScanLineIcon, PackageIcon, ClipboardListIcon, CircleAlertIcon, PlusIcon, RotateCwIcon } from "@/components/common/icons";
+import { ScanLineIcon, PackageIcon, ClipboardListIcon, CircleAlertIcon, PlusIcon, RotateCwIcon, ClockIcon, ChefHatIcon, CircleCheckIcon, CircleXIcon } from "@/components/common/icons";
 
 // Hook dùng chung: mở/đóng card + fetch món lần đầu
 function useExpandableItems() {
@@ -75,12 +75,23 @@ const TONE_BAR: Record<RoundTone, string> = {
   neutral: "border-l-neutral200",
 };
 
+// Theme garden: trạng thái lượt = icon + chữ (không viền màu, không viên nền). Màu chữ đo trên nền kem
+// #EDE9DE: cam 5,2:1 · xanh dương 5,5:1 · ô-liu 6,0:1 · đỏ 5,3:1.
+const GARDEN_TONE: Record<RoundTone, { text: string; Icon: typeof ClockIcon }> = {
+  warning: { text: "text-[#8A5300]", Icon: ClockIcon },
+  info: { text: "text-[#1D4ED8]", Icon: ChefHatIcon },
+  success: { text: "text-[#3E5F22]", Icon: CircleCheckIcon },
+  critical: { text: "text-[#B91C1C]", Icon: CircleXIcon },
+  neutral: { text: "text-text-secondary", Icon: ClockIcon },
+};
+
 const hhmm = (iso: string) =>
   new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 
 function DineInOrdersView() {
   const navigate = useNavigate();
-  const { zaloUserId, deviceId, tableId, tableNumber, paymentTiming, workflow, sessionState, entryContext } = useAppStore();
+  const { zaloUserId, deviceId, tableId, tableNumber, paymentTiming, workflow, sessionState, entryContext, theme } = useAppStore();
+  const garden = theme === "garden";
   const queryClient = useQueryClient();
   const isPostpay = paymentTiming === "postpay";
   const ctx: RoundContext = {
@@ -184,8 +195,26 @@ function DineInOrdersView() {
           />
         ) : (
           <>
+            {/* Theme garden (bản vẽ HIG 2026-11-18): số tạm tính lên đầu, không thẻ, không chữ in hoa. */}
+            {isPostpay && garden && (
+              <div className="px-5 pb-1 pt-3">
+                <p className="text-normal text-text-secondary">Tạm tính</p>
+                <p className="tabular text-[40px] font-bold leading-[1.1] tracking-tight text-text-primary">{formatCurrency(totals.subtotal)}đ</p>
+                {totals.discount > 0 && (
+                  <div className="mt-2 space-y-1 text-normal">
+                    <p className="flex justify-between text-text-secondary"><span>Giảm giá</span><span className="tabular font-semibold text-[#3E5F22]">−{formatCurrency(totals.discount)}đ</span></p>
+                    <p className="flex justify-between font-semibold text-text-primary"><span>Tạm tính sau giảm</span><span className="tabular">{formatCurrency(totals.payable)}đ</span></p>
+                  </div>
+                )}
+                <p className="mt-1 text-normal text-text-secondary">
+                  {tableLabel}{bill && bill.found ? ` · vào lúc ${hhmm(bill.opened_at)}` : ""} · {rounds.length} lượt gọi
+                </p>
+                <p className="text-xsmall text-text-secondary">Thanh toán tại quầy thu ngân khi kết thúc bữa.</p>
+              </div>
+            )}
+
             {/* Thẻ đầu: bàn / mâm + tổng tạm tính (trả sau). Trả trước mỗi đơn đã tự thanh toán. */}
-            {isPostpay && (
+            {isPostpay && !garden && (
             <SectionCard>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -220,20 +249,23 @@ function DineInOrdersView() {
             </SectionCard>
             )}
 
+            {!garden && (
             <div className="flex items-baseline justify-between px-4 pb-1 pt-5">
               <h2 className="text-small-m font-bold uppercase tracking-wide text-text-primary">
                 Các lượt gọi món ({rounds.length} lượt)
               </h2>
               <span className="text-xxsmall text-text-secondary">Mới nhất ở trên</span>
             </div>
+            )}
 
-            <div className="space-y-3">
+            <div className={garden ? "pt-1" : "space-y-3"}>
               {rounds.map((round) => (
                 <RoundCard
                   key={round.id}
                   round={round}
                   number={numbers.get(round.id) ?? null}
                   ctx={ctx}
+                  garden={garden}
                   // Trả trước: món tải khi mở thẻ (get_session_orders không kèm món)
                   lazy={
                     round.items === null
@@ -270,11 +302,13 @@ function RoundCard({
   number,
   ctx,
   lazy,
+  garden = false,
 }: {
   round: Round;
   number: number | null;
   ctx: RoundContext;
   lazy: { expanded: boolean; loading: boolean; items: OrderItem[] | null; onToggle: () => void } | null;
+  garden?: boolean;
 }) {
   const status = roundStatus(round.status, ctx, round.source);
   const lines = (round.items ?? []).map((item) => {
@@ -299,6 +333,64 @@ function RoundCard({
       <StatusPill tone={status.tone}>{status.label}</StatusPill>
     </div>
   );
+
+  // Theme garden: tiêu đề lượt nằm ngoài, món là một nhóm hàng nền kem sáng; số lượng "2×" đứng đầu
+  // dòng cho thẳng cột, giá căn phải. Cùng dữ liệu, cùng luật tiền với thẻ classic bên dưới.
+  if (garden) {
+    const tone = GARDEN_TONE[status.tone];
+    const gardenHeader = (
+      <div className="flex items-start justify-between gap-3 px-1 pb-2 pt-4">
+        <div className="min-w-0">
+          <p className="text-normal-sb font-bold text-text-primary">
+            {title} <span className="tabular">· {hhmm(round.createdAt)}</span>
+          </p>
+          {source && <p className="text-xsmall text-text-secondary">{source}</p>}
+        </div>
+        <span className={cn("inline-flex shrink-0 items-center gap-1.5 text-normal-sb font-semibold", tone.text)}>
+          <tone.Icon className="size-[18px]" />
+          {status.label}
+        </span>
+      </div>
+    );
+    return (
+      <section className="px-4">
+        {lazy ? (
+          <button type="button" onClick={lazy.onToggle} className="block w-full text-left">{gardenHeader}</button>
+        ) : gardenHeader}
+        {lines.length > 0 && (
+          <ul className={cn("divide-y divide-neutral100 rounded-2xl bg-surface", rejected && "opacity-70")}>
+            {lines.map(({ item, toppings, line }) => (
+              <li key={item.id} className="flex items-baseline gap-3 px-4 py-3">
+                <span className="tabular w-8 shrink-0 text-normal-sb font-semibold text-text-secondary">{item.quantity}×</span>
+                <div className="min-w-0 flex-1">
+                  <p className={cn("line-clamp-2 text-large text-text-primary", rejected && "line-through")}>{item.name}</p>
+                  {toppings.length > 0 && (
+                    <p className="line-clamp-1 text-xsmall text-text-secondary">{toppings.map((t) => `+ ${t.name}`).join(", ")}</p>
+                  )}
+                </div>
+                <span className={cn("tabular shrink-0 whitespace-nowrap text-large font-semibold", line.gift ? "text-[#3E5F22]" : rejected ? "text-text-secondary line-through" : "text-text-primary")}>
+                  {line.gift ? "Đã tặng 0đ" : `${formatCurrency(line.amount)}đ`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {lazy?.expanded && <div className="rounded-2xl bg-surface px-4 py-1"><ItemsList isLoadingItems={lazy.loading} items={lazy.items} /></div>}
+        {discount > 0 && (
+          <div className="mt-1.5 flex justify-between px-1 text-small">
+            <span className="text-text-secondary">Giảm giá</span>
+            <span className="tabular font-semibold text-[#3E5F22]">−{formatCurrency(discount)}đ</span>
+          </div>
+        )}
+        {rejected && (
+          <p className="mt-2 rounded-xl bg-critical-bg px-3 py-2 text-xsmall text-critical">
+            Quán không nhận lượt này{round.rejectionReason ? ` · Lý do: ${round.rejectionReason}` : ""}
+            {round.rejectedAt ? ` · lúc ${hhmm(round.rejectedAt)}` : ""}. Không tính tiền.
+          </p>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section className={cn("mx-3 rounded-2xl border-l-4 bg-surface p-4 shadow-card", TONE_BAR[status.tone], rejected && "bg-critical-bg/40")}>

@@ -33,35 +33,39 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
     )
   ) : !available ? <span className="shrink-0 rounded-full bg-neutral100 px-2 py-0.5 text-xxxsmall font-semibold text-text-secondary">Tạm hết</span> : null;
 
-  // Theme garden: chữ đi trước, ảnh nhỏ bên phải, nút thêm gối lên góc ảnh. Không có thẻ bọc.
+  // Theme garden: chữ đi trước, ảnh vuông bên phải, nút thêm gối lên góc ảnh. Không có thẻ bọc.
+  // Cỡ theo bản vẽ HIG (docs/design/yen-garden/apple-hig): tên 17, mô tả 15, giá 17; nút bấm ≥ 44 px vùng chạm.
   if (layout === "garden") {
     const ring = "ring-[3px] ring-background";
-    const gardenControl = !available ? null : !canOrder ? null : !hasOptions && count > 0 ? (
-      <span className={cn("inline-flex items-center gap-1.5 rounded-full bg-primary p-[3px] text-white", ring)}>
-        <button type="button" aria-label="Giảm" onClick={onDecrease} className="grid size-7 place-items-center rounded-full bg-white/15 active:scale-90"><MinusIcon className="size-3.5" /></button>
-        <span className="tabular min-w-4 text-center text-small-m font-bold">{count}</span>
-        <button type="button" aria-label="Thêm" onClick={onAdd} className="grid size-7 place-items-center rounded-full bg-white/15 active:scale-90"><PlusIcon className="size-3.5" /></button>
+    const stepping = !hasOptions && count > 0;
+    const gardenControl = !available ? null : !canOrder ? null : stepping ? (
+      <span className={cn("inline-flex items-center gap-1 rounded-full bg-primary p-[3px] text-white", ring)}>
+        <button type="button" aria-label="Giảm" onClick={onDecrease} className="grid size-10 place-items-center rounded-full active:bg-white/15"><MinusIcon className="size-[18px]" /></button>
+        <span className="tabular min-w-4 text-center text-large font-bold">{count}</span>
+        <button type="button" aria-label="Thêm" onClick={onAdd} className="grid size-10 place-items-center rounded-full active:bg-white/15"><PlusIcon className="size-[18px]" /></button>
       </span>
     ) : (
-      <button type="button" aria-label={`Thêm ${product.name}`} onClick={onAdd} className={cn("relative grid size-[34px] place-items-center rounded-full bg-primary text-white active:scale-90", ring)}>
-        <PlusIcon className="size-4" />
+      <button type="button" aria-label={`Thêm ${product.name}`} onClick={onAdd} className={cn("relative grid size-11 place-items-center rounded-full bg-primary text-white active:scale-90", ring)}>
+        <PlusIcon className="size-[22px]" />
         {hasOptions && count > 0 && <span className="absolute -right-1.5 -top-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-neutral900 px-1 text-xxxsmall font-bold">{count}</span>}
       </button>
     );
     const soldOut = !available ? <span className="shrink-0 rounded-full bg-neutral100 px-2.5 py-1 text-xxxsmall font-semibold text-text-secondary">Tạm hết</span> : null;
     return (
-      <div className={cn("flex items-center gap-3.5 border-b border-neutral100 py-3.5 last:border-b-0", !available && "opacity-60")}>
+      <div className={cn("flex items-center gap-3.5 border-b border-neutral100 py-4 last:border-b-0", stepping && image && "pb-6", !available && "opacity-60")}>
         <div className="min-w-0 flex-1">
           <BadgePill badge={product.badge} className="mb-1" />
-          <p className="line-clamp-2 text-normal-sb font-semibold text-text-primary">{product.name}</p>
-          {product.description && <p className="mt-0.5 line-clamp-2 text-xxsmall text-text-secondary">{product.description}</p>}
-          <p className="tabular mt-1.5 whitespace-nowrap text-small-m font-bold text-primary">{price}</p>
+          <p className="line-clamp-2 text-[17px] font-semibold leading-snug text-text-primary">{product.name}</p>
+          {product.description && <p className="mt-0.5 line-clamp-2 text-[15px] leading-snug text-text-secondary">{product.description}</p>}
+          <p className="tabular mt-2 whitespace-nowrap text-[17px] font-semibold text-text-primary">{price}</p>
           <DiscountLine product={product} />
         </div>
         {image ? (
-          <div className="relative mb-1.5 mr-1.5 shrink-0">
-            <img src={image} alt={product.name} loading="lazy" decoding="async" width={78} height={78} onError={() => setImageFailed(true)} className="size-[78px] rounded-[18px] object-cover" draggable={false} />
-            {gardenControl && <div className="absolute -bottom-2 -right-2">{gardenControl}</div>}
+          <div className="relative shrink-0">
+            <img src={image} alt={product.name} loading="lazy" decoding="async" width={104} height={104} onError={() => setImageFailed(true)} className="size-[104px] rounded-2xl object-cover" draggable={false} />
+            {gardenControl && (
+              <div className={stepping ? "absolute -bottom-4 left-1/2 -translate-x-1/2" : "absolute -bottom-1 -right-1"}>{gardenControl}</div>
+            )}
             {soldOut && <div className="absolute inset-x-0 -bottom-2 flex justify-center">{soldOut}</div>}
           </div>
         ) : (gardenControl ?? soldOut)}

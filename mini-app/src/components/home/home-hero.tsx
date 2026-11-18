@@ -44,12 +44,12 @@ export default function HomeHero({
   const directions = directionsUrl(mapsUrl, address);
 
   return (
-    <div className="px-3 pt-3">
-      <section className="overflow-hidden rounded-2xl bg-surface shadow-card">
+    <div className="px-3 pt-3 garden:px-4 garden:pt-2">
+      <section className="overflow-hidden rounded-2xl bg-surface shadow-card garden:overflow-visible garden:rounded-none garden:bg-transparent">
         {/* Ảnh bìa: banner quán; chưa có thì khối màu chủ đạo + logo/chữ viết tắt + tên quán */}
         {bannerUrl ? (
           <div className="relative">
-            <img src={bannerUrl} alt={storeName} className="aspect-[16/9] w-full object-cover" draggable={false} />
+            <img src={bannerUrl} alt={storeName} className="aspect-[16/9] w-full object-cover garden:aspect-auto garden:h-[168px] garden:rounded-[20px]" draggable={false} />
           </div>
         ) : (
           <div className="flex items-center gap-3 bg-primary px-4 py-5">
@@ -62,7 +62,7 @@ export default function HomeHero({
           </div>
         )}
 
-        <div className="space-y-2.5 p-4">
+        <div className="space-y-2.5 p-4 garden:mt-3 garden:rounded-2xl garden:bg-surface">
           {address && (
             <div className="flex items-start gap-2.5">
               <MapPinIcon className="mt-0.5 size-4 shrink-0 text-text-secondary" />
@@ -91,8 +91,8 @@ export default function HomeHero({
       </section>
 
       {showScanHint && (
-        <div className="mt-3 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-primary">
+        <div className="mt-3 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 garden:border-0 garden:bg-transparent garden:px-1 garden:py-2">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-primary garden:size-6 garden:bg-transparent garden:text-text-secondary">
             <ScanLineIcon className="size-5" />
           </span>
           <div className="min-w-0">

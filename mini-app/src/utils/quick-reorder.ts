@@ -47,3 +47,19 @@ export function pickQuickReorder(orders: BillOrder[], menu: CategoryWithProducts
   }
   return null;
 }
+
+/** Bàn đã gọi bao nhiêu phần đúng món + đúng cỡ gợi ý (dòng "Bàn đã gọi N" của theme garden).
+ *  Bỏ lượt bị huỷ / thu ngân từ chối và món đã huỷ — cùng luật với pickQuickReorder. Chỉ để hiển thị,
+ *  không dính tới tiền. */
+export function orderedQuantity(orders: BillOrder[], pick: QuickReorderPick): number {
+  let total = 0;
+  for (const round of orders) {
+    if (round.status === "cancelled" || round.rejected_at) continue;
+    for (const item of round.items) {
+      if (item.void_type === "cancelled" || item.menu_item_id !== pick.product.id) continue;
+      if (pick.variant && item.variant_id !== pick.variant.id) continue;
+      total += item.quantity;
+    }
+  }
+  return total;
+}

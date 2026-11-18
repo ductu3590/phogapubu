@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickQuickReorder } from "./quick-reorder";
+import { orderedQuantity, pickQuickReorder } from "./quick-reorder";
 import type { CategoryWithProducts } from "@/types/category.types";
 import type { Product } from "@/types/product.types";
 
@@ -73,5 +73,27 @@ describe("pickQuickReorder", () => {
     // cỡ "tháp" không còn trong danh sách cỡ đang bán; đơn cũ thiếu variant_id cũng không đoán cỡ
     expect(pickQuickReorder([order("2026-11-12T10:00:00Z", [{ menu_item_id: "bia-hoi", variant_id: "thap" }])], off)).toBeNull();
     expect(pickQuickReorder([order("2026-11-12T10:00:00Z", [{ menu_item_id: "bia-hoi", variant_id: null }])], off)).toBeNull();
+  });
+});
+
+describe("orderedQuantity", () => {
+  const pick = { product: biaHoi, variant: biaHoi.variants[1] };
+  it("cộng số phần đúng món + đúng cỡ qua mọi lượt", () => {
+    expect(orderedQuantity([
+      order("2026-11-12T10:00:00Z", [{ menu_item_id: "bia-hoi", variant_id: "ca", quantity: 2 }, { menu_item_id: "suon" }]),
+      order("2026-11-12T11:00:00Z", [{ menu_item_id: "bia-hoi", variant_id: "ca", quantity: 1 }, { menu_item_id: "bia-hoi", variant_id: "coc", quantity: 5 }]),
+    ], pick)).toBe(3);
+  });
+
+  it("không tính lượt bị huỷ / từ chối và món đã huỷ", () => {
+    expect(orderedQuantity([
+      order("2026-11-12T10:00:00Z", [{ menu_item_id: "bia-hoi", variant_id: "ca", quantity: 2 }], { status: "cancelled" }),
+      order("2026-11-12T10:30:00Z", [{ menu_item_id: "bia-hoi", variant_id: "ca", quantity: 4 }], { rejected_at: "2026-11-12T10:31:00Z" }),
+      order("2026-11-12T11:00:00Z", [{ menu_item_id: "bia-hoi", variant_id: "ca", quantity: 1, void_type: "cancelled" }, { menu_item_id: "bia-hoi", variant_id: "ca", quantity: 1 }]),
+    ], pick)).toBe(1);
+  });
+
+  it("món không có cỡ: chỉ so món", () => {
+    expect(orderedQuantity([order("2026-11-12T10:00:00Z", [{ menu_item_id: "tiger", quantity: 3 }])], { product: tiger, variant: null })).toBe(3);
   });
 });
