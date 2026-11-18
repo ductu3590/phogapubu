@@ -1,6 +1,7 @@
 # Xử lý mất mạng tạm thời — "Quầy dự phòng" trong MEVO In
 
 > Trạng thái: **CHỜ ANH TÚ DUYỆT** (2026-11-18). Chưa có dòng code sản phẩm nào.
+> Đã sửa theo lượt review của Codex ngày 2026-11-18 (5 điểm; cách xử lý từng điểm ở mục B11).
 > Phạm vi: quán trả sau dùng MEVO bản Online, in ở chế độ "Nhiều nơi" (`print_mode = 'agent'`) — trước mắt là Yên Garden.
 > Phương án lớn "MEVO Tại quán" (máy chủ đặt tại quán) KHÔNG thuộc tài liệu này; anh Tú đã quyết tạm chưa làm.
 
@@ -38,8 +39,9 @@ Tách mạng khách khỏi mạng hệ thống (anh đang làm với quán) giú
 
 ### Kịch bản 1 — Rớt vài chục giây
 
-- **Thu ngân:** không làm gì. Nếu vừa bấm một nút mà báo "Lỗi kết nối" thì chờ nhãn xanh lại rồi bấm lại. Bấm lại
-  **không** tạo món trùng và **không** thu tiền hai lần (máy chủ đã có mã chống trùng).
+- **Thu ngân:** không làm gì. Nếu vừa bấm một nút mà báo "Lỗi kết nối" thì chờ nhãn xanh lại rồi bấm lại **ngay trên
+  MEVO POS**. Bấm lại ở đó **không** tạo món trùng và **không** thu tiền hai lần (máy chủ đã có mã chống trùng). Mã
+  chống trùng này chỉ có tác dụng khi bấm lại trên POS; nhập lại ở Quầy dự phòng là chuyện khác (xem kịch bản 3).
 - **Nhân viên:** điện thoại báo lỗi khi gửi đơn thì giỏ món vẫn còn, bấm gửi lại.
 - **Phiếu in:** phiếu đang chờ tự in ra khi có mạng lại.
 - **MEVO In không hiện thông báo gì.** Dưới 1 phút coi như chưa có chuyện gì.
@@ -58,10 +60,15 @@ Tách mạng khách khỏi mạng hệ thống (anh đang làm với quán) giú
 Thu ngân làm việc hẳn trên Quầy dự phòng. MEVO POS để nguyên, không tắt, không dùng. Lúc mở, Quầy dự phòng hỏi
 "Ai đang trực quầy?" — thu ngân chọn tên mình trong danh sách (không cần mật khẩu) để các phiếu và tờ tổng kết có tên.
 
+- **Việc vừa bấm trên POS đúng lúc mạng rớt (POS báo "Lỗi kết nối"):** có thể MEVO đã nhận, có thể chưa. Quầy dự
+  phòng **không biết** việc đó, nên "không thấy ở Quầy dự phòng" **chưa chắc là "chưa được lưu"**. Thu ngân ghi ra giấy
+  "bàn nào, vừa bấm gì". Bếp chưa có phiếu thì cứ nhập lại ở Quầy dự phòng để bếp làm. Có mạng lại, mở bill bàn đó trên
+  POS: thấy hai lượt giống nhau thì bỏ một lượt trước khi thu tiền. POS gắn nhãn **"Kiểm tra trùng"** cho những bàn như vậy.
 - **Món vừa duyệt ngay trước lúc mất mạng mà bếp chưa nhận được phiếu:** chọn bàn, chọn lượt món đó, bấm **In lại phiếu
   bếp** (phiếu có chữ IN LẠI). Không nhập lại món, kẻo bill có hai dòng.
 - **Lượt món đang chờ duyệt lúc mạng rớt:** Quầy dự phòng hiện chúng ở dạng "chờ duyệt — chưa vào bếp, chưa tính tiền",
   không duyệt được. Khách vẫn cần món thì thu ngân nhập lại bằng tay; có mạng lại thì Từ chối lượt cũ (lý do "Trùng").
+  Nếu lúc đó thấy lượt cũ hoá ra đã được duyệt rồi (bấm Duyệt đúng lúc mạng rớt) thì bỏ lượt nhập tay.
 - **Bàn gọi thêm món:** nhân viên về quầy đọc món. Thu ngân chọn bàn, chọn món, bấm **Gửi & in phiếu**. Phiếu bếp ra
   đúng máy Bếp / Nướng / Bar, phiếu bàn ra máy Quầy.
 - **Khách mới vào bàn trống:** thu ngân chọn bàn trống, nhập món, in phiếu như trên.
@@ -77,8 +84,10 @@ Thu ngân làm việc hẳn trên Quầy dự phòng. MEVO POS để nguyên, kh
 
 Trong buổi làm như kịch bản 3. Thêm phần cuối ngày:
 
-1. **Không kết ca được trên MEVO** (kết ca cần mạng). Thu ngân bấm **In tổng kết** trên Quầy dự phòng: tờ này liệt kê
-   từng bàn đã nhận tiền mặt (giờ, số tiền), các bàn còn mở, và tổng tiền mặt đã nhận lúc mất mạng.
+1. **Không kết ca trên MEVO** trong lúc quầy mất mạng. Máy quầy không kết được (cần mạng); người có 4G riêng (quản lý,
+   chủ quán) cũng **không kết ca hộ** từ điện thoại, vì tiền mặt nhận lúc mất mạng chưa lên MEVO. Thu ngân bấm **In
+   tổng kết** trên Quầy dự phòng: tờ này liệt kê từng bàn đã nhận tiền mặt (giờ, số tiền), các bàn còn mở, và tổng tiền
+   mặt đã nhận lúc mất mạng.
 2. Thu ngân đếm két, đối chiếu với tờ tổng kết, ghi tay số đếm lên tờ đó và ký. Kẹp tờ này lại cho hôm sau.
 3. Tắt máy như thường. Mọi thứ đã nằm trong ổ cứng máy quầy, **không mất khi tắt máy**.
 4. **Hôm sau, khi có mạng:** bật máy, MEVO In tự gửi hết lên MEVO. Thu ngân mở MEVO POS, làm mục A4, rồi **kết ca
@@ -112,23 +121,30 @@ Thực đơn, giá và bill các bàn được MEVO In **tự chép sẵn về m
 
 ## A4. Khi có mạng trở lại
 
-Quầy dự phòng tự làm, thu ngân không phải bấm gửi. **Quy tắc quan trọng nhất: chờ Quầy dự phòng báo "Đã gửi xong"
-rồi mới thu tiền hoặc bỏ bàn trên MEVO POS.** Thu tiền một bàn trước khi món nhập lúc mất mạng kịp lên bill là thu
-thiếu. POS có băng nhắc việc này cho tới khi MEVO In báo đã gửi hết (nhắc, không khoá nút).
+Quầy dự phòng tự làm, thu ngân không phải bấm gửi. Có hai bước nối nhau và **chỉ bước sau mới là xong**:
+Quầy dự phòng **gửi lên MEVO** (món mới nằm chờ trên máy chủ), rồi MEVO POS **nhận vào bill** (món mới có trong bill).
 
-1. Quầy dự phòng gửi hết lên MEVO, hiện "Đã gửi xong. Quay lại MEVO POS", rồi **tự khoá** (không nhập thêm được).
-   Phiếu in đang xếp hàng từ trước lúc mất mạng **không tự in ra muộn**; chúng nằm ở băng "phiếu lỗi" sẵn có của POS
-   để thu ngân chọn In lại hoặc Bỏ.
-2. Thu ngân quay lại MEVO POS. POS tự nhận các lượt món vào bill và báo: "Đã nhận 6 lượt món nhập lúc mất mạng".
-   Phiếu bếp **không in lại** (đã in lúc mất mạng).
+**Quy tắc quan trọng nhất: băng nhắc màu vàng trên MEVO POS còn hiện thì chưa thu tiền, chưa bỏ bàn.** Băng chỉ tắt khi
+mọi lượt món nhập lúc mất mạng đã vào bill hoặc đã được thu ngân xử lý tay. Thu tiền một bàn trước lúc đó là thu
+thiếu. Riêng trong màn Thanh toán, POS ghi rõ tình trạng của **đúng bàn đang thu** ("Bàn này còn 2 lượt món nhập lúc
+mất mạng chưa vào bill"). Đây là nhắc, không khoá nút.
+
+1. Quầy dự phòng gửi hết lên MEVO, hiện "Đã gửi lên MEVO. Quay lại MEVO POS", rồi **tự khoá** (không nhập thêm được).
+   Trong lúc đang gửi, MEVO In **chưa nhận phiếu in mới**; gửi xong mới in tiếp như thường. Phiếu in đang xếp hàng từ
+   trước lúc mất mạng **không tự in ra muộn**; chúng nằm ở băng "phiếu lỗi" sẵn có của POS để thu ngân chọn In lại hoặc Bỏ.
+2. Thu ngân quay lại MEVO POS. POS tự nhận các lượt món vào bill và báo: "Đã nhận 6 lượt món nhập lúc mất mạng vào
+   bill". Phiếu bếp **không in lại** (đã in lúc mất mạng). Bàn nào có nhãn **"Kiểm tra trùng"** thì mở bill xem có hai
+   lượt giống nhau không (kịch bản 3, gạch đầu dòng thứ nhất).
 3. POS có mục **"Đã nhận tiền mặt lúc mất mạng — chờ chốt"**. Mỗi bàn một dòng: số tiền đã nhận, giờ nhận, số tiền MEVO
    tính. Thu ngân bấm **Chốt** từng bàn. Hai số khớp thì chốt luôn. Hai số lệch thì POS chỉ rõ lệch bao nhiêu, thu
-   ngân sửa bill cho đúng (bỏ món, giảm giá, có ghi lý do) rồi chốt. **MEVO không tự sửa tiền.**
+   ngân sửa bill cho đúng (bỏ món, giảm giá, có ghi lý do) rồi chốt. **MEVO không tự sửa tiền.** Bàn nào hoá ra đã
+   được thu trên POS rồi (ví dụ bấm Thu đúng lúc mạng rớt) thì POS không ghi thêm lần nữa và không sửa khoản cũ; nó
+   hiện cả hai bên để thu ngân đối chiếu.
 4. POS báo **các lượt món khách / nhân viên gửi qua điện thoại trong lúc mất mạng**: "Có N lượt món gọi lúc mất mạng
    (từ 19:52)". Thu ngân bộ đàm cho nhân viên hỏi lại khách. Khách còn dùng thì **Duyệt**; khách không dùng nữa, hoặc
    món đó đã được nhập tay ở Quầy dự phòng rồi, thì **Từ chối** (lý do "Trùng" hoặc "Khách đổi ý").
 5. Lượt nào MEVO không nhận được (ví dụ bàn đã bị bỏ ở máy khác) nằm ở mục **"Cần xử lý tay"**, kèm lý do. Không có
-   lượt món nào bị bỏ đi im lặng.
+   lượt món nào bị bỏ đi im lặng. Băng nhắc **vẫn hiện** cho tới khi thu ngân xử lý hết mục này.
 
 ## A5. Những việc Quầy dự phòng KHÔNG làm
 
@@ -280,9 +296,17 @@ Nhờ vậy token của máy in không có thêm quyền ghi vào đơn hàng (�
 - "Mất mạng" = vòng hỏi việc lỗi mạng / quá hạn **liên tục ≥ 60 giây** (token bị thu hồi không tính).
 - Khi vượt 60 giây: hiện thông báo hệ thống "Mất mạng. Bấm để mở Quầy dự phòng"; khay có mục "Mở Quầy dự phòng".
   Không tự bật cửa sổ đè lên màn hình.
-- Cửa sổ chỉ cho nhập khi đang mất mạng. Lần hỏi việc đầu tiên thành công trở lại → cửa sổ **khoá nhập**, chuyển sang
-  màn "Đang gửi lên MEVO…" rồi "Đã gửi xong. Quay lại MEVO POS". Giỏ món đang chọn dở lúc khoá được giữ lại và hiện rõ
-  "chưa gửi — nhập món này trên MEVO POS" (không tự gửi một giỏ chưa bấm Gửi).
+- **Trạng thái phục hồi (thứ tự nối lại).** `print_agent_poll` nhận giữ một phiếu và chuyển nó sang `printing` ngay
+  trong lời gọi (mig 114), nên **không được dùng lần hỏi việc để dò xem mạng đã về chưa**. Sau khi mất mạng ≥ 60 giây,
+  MEVO In vào trạng thái phục hồi: **ngừng gọi `print_agent_poll`**, và dò mạng bằng chính lời gọi **gửi nhật ký** (gọi
+  cả khi nhật ký rỗng), cùng nhịp 2 giây. Chỉ khi lời gọi gửi nhật ký trả về thành công **và** mọi sự kiện trên đĩa đã
+  được máy chủ xác nhận, MEVO In mới thoát trạng thái phục hồi và hỏi việc in lại như thường. Trạng thái phục hồi được
+  ghi xuống đĩa: tắt máy rồi bật lại vẫn bắt đầu từ đó, không hỏi việc in trước.
+- Mất mạng dưới 60 giây không vào trạng thái phục hồi: vòng hỏi việc chạy tiếp như hôm nay (kịch bản 1).
+- Cửa sổ chỉ cho nhập khi đang mất mạng. Lời gọi gửi nhật ký đầu tiên thành công → cửa sổ **khoá nhập**, chuyển sang
+  màn "Đang gửi lên MEVO…" rồi "Đã gửi lên MEVO. Quay lại MEVO POS" (không viết "xong": món vào bill là việc của POS,
+  B5.7). Giỏ món đang chọn dở lúc khoá được giữ lại và hiện rõ "chưa gửi — nhập món này trên MEVO POS" (không tự gửi
+  một giỏ chưa bấm Gửi).
 - Mạng chập chờn: khoá khi có mạng; mở lại khi mất tiếp ≥ 60 giây. Trạng thái trên màn luôn dựng từ *bản chép sẵn +
   mọi dòng nhật ký chưa được máy chủ xác nhận đã vào bill*; chỉ thay bản chép sẵn bằng bản mới khi bản mới đã phản ánh
   các dòng đó. Bất biến: một lượt món nhập lúc mất mạng không bao giờ hiện thiếu, không bao giờ hiện hai lần.
@@ -290,18 +314,21 @@ Nhờ vậy token của máy in không có thêm quyền ghi vào đơn hàng (�
 - Mỗi lần mở để nhập thật, cửa sổ bắt chọn "Ai đang trực quầy?" từ danh sách đã chép. Đây là tên **tự khai**, không
   phải đăng nhập; nó đi kèm mọi sự kiện trong nhật ký và in trên tờ tổng kết. Trên máy chủ, `created_by` của đơn vẫn là
   thu ngân đang đăng nhập ở POS lúc nhận; tên tự khai được lưu riêng cạnh đó.
-- **Báo cho máy chủ biết còn nhật ký chưa gửi:** lời gọi đầu tiên của MEVO In sau khi có mạng lại (sau một lần mất
-  ≥ 60 giây) phải là lời gọi gửi nhật ký, kể cả khi nhật ký rỗng; mỗi lần gọi mang theo số sự kiện còn chưa gửi. Máy
-  chủ lưu con số và thời điểm đó theo máy in để POS đọc (B5.7).
-- **Phiếu xếp hàng từ trước lúc mất mạng:** trong lời gọi đầu tiên đó, máy chủ chuyển mọi phiếu in còn `queued` của quán
-  (tạo trước thời điểm nối lại) sang `expired`. Chúng hiện ở băng phiếu lỗi sẵn có của POS (In lại / Bỏ) thay vì tự in
-  ra muộn cho bếp.
+- **Báo cho máy chủ biết còn nhật ký chưa gửi:** mỗi lời gọi gửi nhật ký mang theo số sự kiện còn chưa gửi và cờ "vừa
+  qua một lần mất mạng ≥ 60 giây". Máy chủ lưu con số và thời điểm đó theo máy in để POS đọc (B5.7).
+- **Phiếu xếp hàng từ trước lúc mất mạng:** trong lời gọi gửi nhật ký đầu tiên sau lần mất mạng, máy chủ chuyển mọi
+  phiếu in còn `queued` của quán (tạo trước thời điểm đó) sang `expired`. Chúng hiện ở băng phiếu lỗi sẵn có của POS
+  (In lại / Bỏ) thay vì tự in ra muộn cho bếp. Vì MEVO In chưa hỏi việc in trước khi lời gọi này xong, không phiếu
+  `queued` nào kịp thoát ra thành `printing`. Phiếu đã ở `printing` đúng lúc mạng rớt (đã nhận giữ nhưng chưa báo kết
+  quả): người làm kiểm hành vi hiện có của `expire_print_jobs` và bảo đảm chúng cũng **không tự in lại**, mà về băng
+  phiếu lỗi.
 
 ### B5.4 MEVO In — nhật ký trên ổ cứng
 
 - Tệp chỉ-ghi-thêm, mỗi dòng một sự kiện, ghi xong ép xuống đĩa trước khi báo "đã lưu" cho giao diện. Mỗi sự kiện có
   `event_id` (UUID sinh tại máy, cũng là mã chống trùng), `occurred_at` (giờ máy quầy đã hiệu chỉnh theo độ lệch với
-  máy chủ lúc chép gần nhất), và trạng thái gửi.
+  máy chủ lúc chép gần nhất), `snapshot_at` (giờ máy chủ của bản chép sẵn mà cửa sổ đang dùng lúc ghi sự kiện), và
+  trạng thái gửi.
 - Loại sự kiện:
   - `items_added` — một lượt món: bàn, phiên (mã phiên máy chủ, hoặc mã phiên tạm nếu bàn mở lúc mất mạng), danh sách
     `{menu_item_id, variant_id, topping_ids, quantity, note}` kèm tên + đơn giá lúc nhập (để hiện và để so lệch).
@@ -355,6 +382,12 @@ Nhờ vậy token của máy in không có thêm quyền ghi vào đơn hàng (�
     điểm chép → `failed` "bàn đã có khách từ trước" (không gộp bill hai nhóm khách);
   - `occurred_at` ở tương lai hoặc cũ hơn 72 giờ → `failed`, không tự đoán giờ.
   - Đơn tạo từ nhật ký phải nhận ra được trên POS và trong lịch sử ("nhập lúc mất mạng, HH:MM").
+  - **Gợi ý "Kiểm tra trùng" (không chặn):** lúc nhận một `items_added`, nếu phiên đích có đơn **không do nhật ký tạo**
+    mà được tạo hoặc được duyệt **sau `snapshot_at`** của sự kiện (tức là Quầy dự phòng chưa hề thấy đơn đó khi thu
+    ngân nhập), máy chủ gắn cờ gợi ý lên sự kiện. Đây là dấu vết của thao tác POS "máy chủ đã nhận nhưng phản hồi bị
+    mất". Món vẫn vào bill bình thường; POS chỉ hiện nhãn để thu ngân mở bill xem có hai lượt giống nhau không. Không
+    tự gộp, không tự bỏ. **Không làm** cầu nối chuyển "thao tác chưa rõ kết quả" từ POS (trình duyệt) sang Quầy dự
+    phòng (Electron): hai phần mềm tách nhau, cầu nối đó nặng hơn nhiều so với một khe hở vài giây (B11, điểm 1).
 - Hai hàm đang sống `pos_add_manual_items` / `add_order_line` **không đổi hành vi với lời gọi hiện có**. Cách tái dùng
   (hàm anh em, hay tham số mới có mặc định) do người làm chọn, tuân luật migration ở B2.
 - **RPC đọc** cho POS: danh sách sự kiện `pending` / `failed` (+ khoản chờ chốt ở Đợt 3). **RPC bỏ qua** một sự kiện
@@ -378,13 +411,21 @@ Nhờ vậy token của máy in không có thêm quyền ghi vào đơn hàng (�
   - Mục **"Cần xử lý tay"**: sự kiện `failed`, hiện bàn, giờ, các món, lý do; thu ngân nhập lại bằng tay ở đúng chỗ rồi
     bấm "Đã xử lý" (có lý do).
   - Lượt món từ nhật ký có nhãn "nhập lúc mất mạng" trong bill.
-  - **Băng nhắc "chưa gửi xong":** hiện ở thanh trên và trong màn Thanh toán / hộp Bỏ bàn khi một trong các điều sau
-    đúng: (a) quán còn sự kiện `pending`; (b) MEVO In báo còn sự kiện chưa gửi; (c) POS này vừa qua một lần mất mạng
-    ≥ 60 giây mà MEVO In chưa có lời gọi gửi nhật ký nào sau thời điểm POS nối lại; (d) MEVO In đang mất kết nối
-    (`agent_online` sai). Câu nhắc: "Có thể còn món nhập lúc mất mạng chưa lên bill. Chờ Quầy dự phòng báo Đã gửi xong
-    rồi hãy thu tiền / bỏ bàn." Đây là **nhắc, không khoá**: khoá cứng sẽ chặn cả việc bán ngày thường mỗi khi MEVO In
-    trục trặc (AG1). Rủi ro còn lại (thu ngân bỏ qua lời nhắc → lượt món rơi vào "Cần xử lý tay" sau khi khách đã về)
-    được chấp nhận và ghi trong tờ quy trình.
+  - **Băng nhắc "món nhập lúc mất mạng chưa vào bill hết":** phân biệt rõ hai mức. "Đã gửi nhật ký" (MEVO In báo) chỉ
+    nghĩa là dữ liệu đã tới máy chủ; "đã vào bill" mới là xong. Băng hiện ở thanh trên khi một trong các điều sau đúng:
+    (a) quán còn sự kiện `pending`; (b) quán còn sự kiện `failed` **chưa được thu ngân bấm "Đã xử lý"**; (c) MEVO In
+    báo còn sự kiện chưa gửi; (d) POS này vừa qua một lần mất mạng ≥ 60 giây mà MEVO In chưa có lời gọi gửi nhật ký nào
+    sau thời điểm POS nối lại; (e) MEVO In đang mất kết nối (`agent_online` sai). Câu chữ theo đúng nguyên nhân: "Quầy
+    dự phòng chưa gửi xong" cho (c)(d)(e); "Còn N lượt món đang nhận vào bill" cho (a); "Còn N lượt món nhập lúc mất
+    mạng cần xử lý tay" cho (b).
+  - **Trong màn Thanh toán và hộp Bỏ bàn:** hiện tình trạng của **đúng phiên đang thao tác**, lấy từ danh sách sự kiện
+    POS đã đọc sẵn: "Bàn này còn N lượt món nhập lúc mất mạng chưa vào bill" (đếm cả `pending` lẫn `failed` chưa xử lý
+    của phiên / bàn đó). Khi nguyên nhân là (c)(d)(e) thì POS chưa biết bàn nào dính, nên hiện câu chung "Có thể còn
+    món nhập lúc mất mạng chưa lên bill".
+  - Đây là **nhắc, không khoá**: khoá cứng sẽ chặn cả việc bán ngày thường mỗi khi MEVO In trục trặc (AG1). Rủi ro còn
+    lại chỉ còn là thu ngân **cố tình bỏ qua** lời nhắc (lượt món rơi vào "Cần xử lý tay" sau khi khách đã về); rủi ro
+    này được chấp nhận và ghi trong tờ quy trình. Thu ngân làm đúng theo băng nhắc thì không bị thu thiếu.
+  - Nhãn **"Kiểm tra trùng"** trên bàn có sự kiện mang cờ gợi ý ở B5.6; tắt khi thu ngân đã mở bill bàn đó.
 - **Đợt 3:** mục **"Đã nhận tiền mặt lúc mất mạng — chờ chốt"** (đặt cạnh khối "Bàn hết hạn còn tiền chưa thu"), xem B5.9.
 
 ### B5.8 Chế độ tập dượt
@@ -407,7 +448,26 @@ cũng là cách thử 4 máy in ngày lắp máy mà không cần rút dây mạ
   - Tối thiểu phải lùi: `bill_payments.collected_at`, `orders.payment_received_at` (hai cột báo cáo ngày dựa vào).
     Người làm phải liệt kê mọi nơi khác ghi giờ lúc thu (đóng phiên, hoàn tất đơn, sổ quỹ, trừ kho, công nợ…) và quyết
     từng nơi; ghi kết quả vào plan.
-  - Tiền thu vào **ca đang mở lúc chốt**. Vì kết ca cần mạng, ca của buổi mất mạng vẫn còn mở khi có mạng lại.
+  - **Chỉ lùi giờ của khoản thu do chính lần chốt này tạo ra.** `collect_table_bill` trả `{ok: true, already: true}`
+    cả khi **máy khác đã thu phiên đó bằng một lần thu khác** (mig 112a, nhánh "Máy khác đã thu hết nhóm này"), nên
+    `ok` không có nghĩa là "khoản vừa tạo". Luật của hàm bọc:
+    - mã chống trùng của lần thu được suy ra từ `event_id` của khoản chờ chốt (một khoản chờ chốt = đúng một mã);
+    - khoản chờ chốt đã chốt rồi → trả lại kết quả đã lưu, không gọi thu, không đụng giờ;
+    - `collect_table_bill` trả `already = false` → khoản thu vừa được tạo bởi lần chốt này: lùi giờ của **đúng
+      `payment_id` đó**, lưu `payment_id` vào khoản chờ chốt, đánh dấu đã chốt;
+    - trả `already = true` → phiên đã được thu bằng giao dịch khác (thu thường trên POS, có thể là chuyển khoản):
+      **không sửa bất kỳ mốc giờ nào**, không ghi thêm tiền. Khoản chờ chốt chuyển sang trạng thái "đã thu bằng giao
+      dịch khác — cần đối chiếu"; POS hiện cạnh nhau số tiền mặt nhận lúc mất mạng và khoản thu đã có (giờ, cách thu,
+      ai thu) để thu ngân xác nhận (có lý do) rằng đó là cùng một lần khách trả, hoặc báo quản lý nếu khách trả hai lần.
+  - **Ca:** tiền thu vào **ca đang mở lúc chốt**. Thường đó chính là ca của buổi mất mạng, nhưng **không chắc**: quản
+    lý có 4G có thể đã kết ca trong lúc quầy mất mạng, hoặc POS nối lại trước MEVO In và ai đó kết ca khi nhật ký tiền
+    mặt chưa lên (lúc đó máy chủ chưa có khoản chờ chốt nào để chặn). Xử lý, theo thứ tự ưu tiên:
+    1. Quy trình (tờ dán ở quầy): không kết ca khi quầy đang mất mạng hoặc khi POS còn băng nhắc.
+    2. Hộp Kết ca hiện đúng băng nhắc của B5.7 (nhắc, không khoá); và máy chủ chặn kết ca khi đã có khoản chờ chốt.
+    3. Lúc chốt, nếu `occurred_at` của khoản **sớm hơn giờ mở của ca đang mở** (ca gốc đã kết): không gắn im lặng.
+       POS báo rõ "Khoản này nhận lúc HH:MM, thuộc ca đã kết. Ca đó đang thừa đúng số này; chốt bây giờ thì ca hiện
+       tại lệch đúng số này", bắt buộc ghi chú, lưu ghi chú vào khoản. So giờ là đủ để nhận ra; **không** chép mã ca
+       vào bản chép sẵn và **không** dựng luồng đối chiếu ca riêng (B11, điểm 5).
 - Số thực nhận ≠ số máy chủ tính: POS hiện cả hai số và phần lệch. Thiếu → thu ngân sửa bill bằng công cụ hiện có (bỏ
   món, giảm giá, có lý do) cho tới khi khớp rồi chốt. Thừa → chốt theo số máy chủ tính, POS nhắc phần thừa đang nằm
   trong két để xử lý lúc kết ca. Không tự động sửa gì.
@@ -429,6 +489,10 @@ cũng là cách thử 4 máy in ngày lắp máy mà không cần rút dây mạ
   thiểu phải làm ở Đợt 1: băng "vừa có mạng lại" đếm **mọi** đơn không phải nguồn `pos` tạo trong khoảng mất mạng (không
   chỉ đơn chờ duyệt), và với đơn tự vào bếp thì ghi "kiểm tra bếp đã có phiếu chưa". Không sửa `auto_kitchen_print_enqueue`,
   không khoá việc đổi chính sách.
+- **Thao tác POS "máy chủ đã nhận, phản hồi bị mất" đúng lúc mạng rớt:** bản chép sẵn chưa kịp có thao tác đó, nên Quầy
+  dự phòng không thấy. Nhập lại ở Quầy dự phòng sinh mã mới → cả hai lượt cùng vào bill dù từng lượt đều chống trùng.
+  Xử lý bằng quy trình (ghi giấy, có mạng lại thì xem bill, bỏ lượt trùng) + nhãn gợi ý "Kiểm tra trùng" (B5.6); không
+  làm cầu nối POS → Quầy dự phòng. Với **thu tiền**: Đợt 3 đã chịu được nhờ luật `already` ở B5.9.
 - Đồng hồ máy quầy có thể sai → luôn hiệu chỉnh theo giờ máy chủ lúc chép gần nhất; máy chủ từ chối giờ vô lý.
 - Giảm giá theo món có thể có khung giờ: nhập 18:50, gửi 21:00 → phải tính giá theo 18:50 (B5.6), nếu không tạm tính
   đã in sẽ lệch với bill.
@@ -456,8 +520,14 @@ Mỗi đợt có checklist riêng ở `docs/testing/mat-mang/`, dừng chờ anh
   lại trạng thái), mẫu phiếu, chia trạm. Test tay **với 4 máy in thật ngày 24–25/11**: rút dây mạng thật; nhập món cho
   bàn đang mở và bàn trống; phiếu ra đúng máy; tắt máy bật lại vẫn còn; cắm mạng → món vào đúng bill một lần, không
   phiếu bếp nào in lại; tập dượt không để lại gì trên máy chủ. `python scripts/verify.py` xanh (hoặc chỉ còn nợ cũ).
+  Thêm ba bài bắt buộc: (1) **thứ tự nối lại** — một phiếu `queued` từ trước lúc mất mạng và một phiếu đã In lại ở Quầy
+  dự phòng đều **không** tự in ra khi cắm mạng lại (kể cả khi tắt máy rồi bật lại lúc đã có mạng); (2) **băng nhắc** —
+  còn sự kiện `failed` chưa xử lý thì băng không tắt, và màn Thanh toán của đúng bàn đó có dòng cảnh báo; (3) **kiểm
+  tra trùng** — thêm món trên POS, chặn phản hồi (máy chủ đã lưu), nhập lại ở Quầy dự phòng → có mạng lại bàn đó có nhãn.
 - **Đợt 3:** như trên, thêm `npm run test:race` (chốt đua với thu thường, hai máy cùng chốt), test giờ lùi qua mốc
-  ngày kinh doanh, chặn kết ca, bàn quay vòng hai lượt khách.
+  ngày kinh doanh, chặn kết ca, bàn quay vòng hai lượt khách. Thêm: phiên đã được máy khác thu (kể cả chuyển khoản)
+  rồi mới chốt → **không mốc giờ nào của khoản cũ bị đổi**, khoản chờ chốt sang "cần đối chiếu"; gọi chốt hai lần cho
+  cùng một khoản → một khoản thu; ca gốc đã kết rồi mới chốt → có cảnh báo và bắt ghi chú.
 
 ## B9. Tài liệu phải cập nhật khi làm
 
@@ -477,9 +547,10 @@ Mỗi đợt có checklist riêng ở `docs/testing/mat-mang/`, dừng chờ anh
 7. **Quy trình:** khi quầy báo mất mạng, nhân viên ngừng gửi đơn qua điện thoại, ghi giấy / ghi chú rồi đọc cho thu ngân.
 8. **Phần cứng nên có** (ngoài phần mềm): router có SIM 4G dự phòng hoặc ít nhất một dây USB + điện thoại phát 4G cho
    máy quầy; UPS cho máy quầy, modem, router.
-9. **Sau khi có mạng lại, POS chỉ NHẮC chờ Quầy dự phòng gửi xong, không khoá nút Thanh toán.** Nếu thu ngân bỏ qua
-   lời nhắc và thu tiền sớm, món nhập lúc mất mạng của bàn đó có thể không kịp vào bill (thu thiếu). Em chọn nhắc vì
-   khoá cứng có thể chặn nhầm việc bán ngày thường.
+9. **Sau khi có mạng lại, POS chỉ NHẮC, không khoá nút Thanh toán.** Băng nhắc hiện cho tới khi mọi lượt món nhập lúc
+   mất mạng đã vào bill hoặc đã được xử lý tay, và màn Thanh toán ghi rõ tình trạng của đúng bàn đang thu. Thu ngân
+   làm theo băng nhắc thì không thu thiếu; chỉ khi cố tình bỏ qua mới có thể thu thiếu. Em chọn nhắc vì khoá cứng có
+   thể chặn nhầm việc bán ngày thường.
 10. **Quầy dự phòng không đăng nhập.** Thu ngân chỉ chọn tên mình trong danh sách (tự khai). MEVO In vì vậy được chép
     thêm tên những người vận hành POS của quán.
 11. **Khách tự quét QR ở bàn trống trong lúc quầy mất mạng:** món thu ngân nhập cho bàn đó được gộp vào bill mà khách
@@ -489,3 +560,21 @@ Mỗi đợt có checklist riêng ở `docs/testing/mat-mang/`, dừng chờ anh
 13. **Trước khi có Đợt 3**, nếu mất mạng cả tối thì tiền tối đó nằm trong báo cáo của ngày hôm sau.
 14. **Chỉ nhắm quán duyệt đơn ở POS** (cả hai kênh `pos_confirmation`). Quán cho đơn tự vào bếp chỉ được cảnh báo, chưa
     được xử lý trọn.
+15. **Việc bấm trên POS đúng lúc mạng rớt được xử lý bằng quy trình, không bằng code nặng:** thu ngân ghi giấy, có mạng
+    lại thì xem bill và bỏ lượt trùng; máy chỉ gắn nhãn "Kiểm tra trùng" để nhắc. Em không làm phần chuyển dữ liệu từ
+    POS sang Quầy dự phòng.
+16. **Không kết ca khi quầy đang mất mạng hoặc POS còn băng nhắc** (kể cả quản lý kết hộ bằng 4G). Nếu vẫn lỡ kết, lúc
+    chốt tiền POS báo rõ ca nào thừa, ca nào lệch và bắt ghi chú; MEVO không tự dời tiền giữa hai ca.
+
+## B11. Lượt review của Codex (2026-11-18) — tiếp thu gì, không làm gì
+
+Anh Tú dặn: chỗ hợp lý thì tiếp thu; chỗ quy trình và con người xử lý được thì không thêm code rắc rối. Cả năm điểm
+đều đã đối chiếu với mã thật trước khi quyết.
+
+| # | Codex nêu | Đúng không | Quyết | Sửa ở |
+|---|---|---|---|---|
+| 1 | Thao tác POS máy chủ đã nhận nhưng quầy không biết → nhập lại ở Quầy dự phòng thành trùng | Đúng | **Tiếp thu vấn đề, không làm cầu nối POS → Quầy dự phòng.** Quy trình (ghi giấy, xem bill, bỏ lượt trùng) + một cờ gợi ý rẻ trên máy chủ | A2 kịch bản 1 và 3, A4, B5.4, B5.6, B5.7, B6, B10.15 |
+| 2 | Dùng lần hỏi việc in để dò mạng thì phiếu cũ đã thành `printing` trước khi kịp vô hiệu hoá | Đúng (`print_agent_poll`, mig 114) | **Tiếp thu trọn.** Trạng thái phục hồi: ngừng hỏi việc in, dò mạng bằng lời gọi gửi nhật ký, xong mới in tiếp | A4, B5.3, B8 |
+| 3 | "Đã gửi xong" chưa phải "đã vào bill"; băng nhắc bỏ sót sự kiện `failed` | Đúng | **Tiếp thu trọn**, vẫn giữ "nhắc, không khoá". Băng tính cả `failed`; màn Thanh toán báo theo đúng bàn | A4, B5.3, B5.7, B8, B10.9 |
+| 4 | Hàm chốt bọc ngoài có thể lùi giờ của khoản thu khác vì `already: true` | Đúng (`collect_table_bill`, mig 112a) | **Tiếp thu trọn.** Chỉ lùi giờ khoản do chính lần chốt này tạo; còn lại sang đối chiếu | A4, B5.9, B8 |
+| 5 | "Ca cũ chắc chắn còn mở" không luôn đúng | Đúng | **Tiếp thu vấn đề, làm gọn hơn đề xuất.** Quy trình cấm kết ca lúc mất mạng + nhắc ở hộp Kết ca + cảnh báo khi chốt vào ca khác. Không chép mã ca, không dựng luồng đối chiếu ca | A2 kịch bản 4, B5.9, B8, B10.16 |
