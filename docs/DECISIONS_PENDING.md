@@ -172,7 +172,7 @@ Mẫu:
 - Rủi ro nếu duyệt: thấp — 1 file chữ, chỉ nằm trên nhánh thử, không đổi code/cấu hình chạy.
 - Trả lời của anh:
 
-## D-016 · 2026-11-18 · gate: secrets · task: thử skill Astryx cho Mini App Yên Garden · trạng thái: chờ
+## D-016 · 2026-11-18 · gate: secrets · task: thử skill Astryx cho Mini App Yên Garden · trạng thái: bỏ — anh chọn "Giữ bản hiện tại" (chat 2026-11-18), không dựng vào app nên không cần chạy Mini App
 - Cần làm: chép `mini-app-instances/yen-garden/mini-app/.env` sang `mini-app/.env` của worktree
   `yg-astryx-redesign-67a515` (gitignored) để `npm run dev` Mini App theme garden, không in nội dung.
 - Vì sao: brief của phiên giao việc bảo chép để chụp ảnh trước/sau (Thực đơn, chi tiết món, Xác nhận đơn, Đơn gọi, Đặt bàn,
