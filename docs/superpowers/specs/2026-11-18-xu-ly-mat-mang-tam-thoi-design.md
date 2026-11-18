@@ -39,9 +39,7 @@ Tách mạng khách khỏi mạng hệ thống (anh đang làm với quán) giú
 
 ### Kịch bản 1 — Rớt vài chục giây
 
-- **Thu ngân:** không làm gì. Nếu vừa bấm một nút mà báo "Lỗi kết nối" thì chờ nhãn xanh lại rồi bấm lại **ngay trên
-  MEVO POS**. Bấm lại ở đó **không** tạo món trùng và **không** thu tiền hai lần (máy chủ đã có mã chống trùng). Mã
-  chống trùng này chỉ có tác dụng khi bấm lại trên POS; nhập lại ở Quầy dự phòng là chuyện khác (xem kịch bản 3).
+- **Thu ngân:** không làm gì. Nếu vừa bấm một nút mà báo "Lỗi kết nối" thì **giữ nguyên màn đang mở**, chờ nhãn xanh lại rồi bấm lại đúng nút đó **ngay trên MEVO POS**. Bấm lại như vậy **không** tạo món trùng và **không** thu tiền hai lần (máy chủ đã có mã chống trùng, mã này gắn với màn đang mở). Lỡ đóng màn rồi nhập lại từ đầu là một lần gửi mới: xem bill trước khi nhập lại. Nhập lại ở Quầy dự phòng cũng là một lần gửi mới (xem kịch bản 3).
 - **Nhân viên:** điện thoại báo lỗi khi gửi đơn thì giỏ món vẫn còn, bấm gửi lại.
 - **Phiếu in:** phiếu đang chờ tự in ra khi có mạng lại.
 - **MEVO In không hiện thông báo gì.** Dưới 1 phút coi như chưa có chuyện gì.
