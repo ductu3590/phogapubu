@@ -1672,6 +1672,7 @@ export default function PosClient({
       )}
       {panel === 'bill' && (
         <PosBillPanel
+          now={now}
           bankAccount={bankAccount}
           loadBankAccount={async () => {
             const r = await readStoreBankAccount(supabase, storeId)

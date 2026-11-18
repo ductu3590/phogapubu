@@ -14,6 +14,7 @@ import { debtChoiceError, type DebtCustomerChoice, type DebtCustomerSummary } fr
 import { billTotals, combinedDiscount, sessionDiscountOf, type BillDiscount } from '@/lib/bill-discount'
 import { isReviewableOrder, orderRound } from '@/lib/pos-work-queue'
 import { clock } from '@/lib/pos-timeline'
+import { staleOrderLabel } from '@/lib/pos-offline-watch'
 import { tableVisualState } from '@/lib/table-status'
 import type { TrayAssignment } from '@/lib/tray-colors'
 import { Button, IconButton } from '@/components/ui/button'
@@ -101,6 +102,8 @@ export type PosBillPanelProps = {
   /** Hàng chờ món đặt trước — để in phiếu món đặt trước ngay trong bill khi khách đã đến. */
   preorders: ReservationPreorderRow[]
   onPrintPreorder: (row: ReservationPreorderRow, reason?: string) => Promise<{ ok: boolean }>
+  /** Giờ hiện tại (ms) — để gắn nhãn "đã chờ N phút" cho lượt món chờ duyệt lâu. */
+  now: number
 }
 
 /** Ai gọi lượt này — tab Lịch sử. */
@@ -144,6 +147,9 @@ export default function PosBillPanel(props: PosBillPanelProps) {
       ? 'Phiên hết hạn không giảm giá được'
       : `Phiên hết hạn không giảm giá được: ${expired.map((s) => name(s)).join(', ')}`
   const pending = list.flatMap((s) => s.orders.filter(isReviewableOrder).map((o) => ({ s, o })))
+  // Nhãn của lượt chờ lâu nhất (nếu đã chờ đủ lâu) — hiện ở hộp cảnh báo của tab Hoá đơn.
+  const oldestPendingMs = pending.reduce((m, p) => Math.min(m, new Date(p.o.created_at).getTime()), Infinity)
+  const oldestPendingLabel = pending.length > 0 ? staleOrderLabel(oldestPendingMs, props.now) : null
   const pendingTotal = pending.reduce((n, p) => n + p.o.total_amount, 0)
   const pendingUnpaid = pending.reduce((n, p) => n + (p.o.payment_received_at ? 0 : p.o.total_amount), 0)
   const title = list.length > 1 ? `Gộp bill ${list.length} mâm` : name(list[0])
@@ -351,6 +357,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-amber-900">Có {pending.length} lượt món đang chờ duyệt!</p>
                   <p className="text-[13px] text-amber-800 tabular">Tổng chờ: <b className="font-bold">{dong(pendingTotal)}</b></p>
+                  {oldestPendingLabel && <p className="text-[13px] font-semibold text-amber-800 tabular">{oldestPendingLabel}</p>}
                 </div>
               </div>
               <button type="button" onClick={() => setTab('new')} className="min-h-9 shrink-0 cursor-pointer rounded-lg bg-amber-500 px-3 text-[13px] font-bold whitespace-nowrap text-white hover:bg-amber-600">
@@ -402,6 +409,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
           <ul className="space-y-3">
             {pending.map(({ s, o }) => {
               const staff = o.order_source === 'staff'
+              const stale = staleOrderLabel(new Date(o.created_at).getTime(), props.now)
               return (
                 <li key={o.id} className={cn('overflow-hidden rounded-xl border', staff ? 'border-blue-200' : 'border-orange-200')}>
                   <div className={cn('flex items-center justify-between gap-2 px-3 py-2', staff ? 'bg-blue-50' : 'bg-orange-50')}>
@@ -413,7 +421,7 @@ export default function PosBillPanel(props: PosBillPanelProps) {
                       <b className="truncate text-sm font-bold text-slate-900">{orderLabel(s, o)}</b>
                     </span>
                     <span className="flex shrink-0 items-center gap-1 text-[12px] text-slate-500 tabular">
-                      <Clock3 className="size-3.5" aria-hidden />{gio(o.created_at)}{list.length > 1 ? ` · ${name(s)}` : ''}
+                      <Clock3 className="size-3.5" aria-hidden />{stale ? <span className="font-semibold text-amber-700">{stale}</span> : gio(o.created_at)}{list.length > 1 ? ` · ${name(s)}` : ''}
                     </span>
                   </div>
                   <div className="bg-white p-3">

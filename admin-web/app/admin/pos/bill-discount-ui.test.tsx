@@ -28,7 +28,7 @@ const session = (over: Partial<OpenTableSession>): OpenTableSession => ({
 
 function panel(s: OpenTableSession) {
   return renderToStaticMarkup(
-    <PosBillPanel loadDebtCustomers={async () => ({ ok: true, customers: [] })} selected={s} picked={[]} freeTables={[]} moveTargets={[]} moveAreas={[]}
+    <PosBillPanel now={Date.now()} loadDebtCustomers={async () => ({ ok: true, customers: [] })} selected={s} picked={[]} freeTables={[]} moveTargets={[]} moveAreas={[]}
       onMoveTable={vi.fn()} onMoveTray={vi.fn()} otherSessions={[]} trayColors={new Map()} busy={false}
       onPay={vi.fn()} onPrint={vi.fn()} onReset={vi.fn()} onAddTable={vi.fn()}
       onMergeInto={vi.fn()} onReleaseHost={vi.fn()} onConfirmOrder={vi.fn()} onRejectOrder={vi.fn()}

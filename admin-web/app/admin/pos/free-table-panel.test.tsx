@@ -6,7 +6,7 @@ import PosBillPanel from './bill-panel'
 describe('PosBillPanel — không còn bảng 1 bàn trống', () => {
   it('không bill → không vẽ gì', () => {
     const html = renderToStaticMarkup(
-      <PosBillPanel loadDebtCustomers={async () => ({ ok: true, customers: [] })} selected={null} picked={[]} freeTables={[{ id: 't3', table_number: 'Bàn 3' }]} moveTargets={[]} moveAreas={[]}
+      <PosBillPanel now={Date.now()} loadDebtCustomers={async () => ({ ok: true, customers: [] })} selected={null} picked={[]} freeTables={[{ id: 't3', table_number: 'Bàn 3' }]} moveTargets={[]} moveAreas={[]}
         onMoveTable={vi.fn()} onMoveTray={vi.fn()} otherSessions={[]} trayColors={new Map()} busy={false}
         onPay={vi.fn()} onPrint={vi.fn()} onReset={vi.fn()} onAddTable={vi.fn()}
         onMergeInto={vi.fn()} onReleaseHost={vi.fn()} onConfirmOrder={vi.fn()} onRejectOrder={vi.fn()}

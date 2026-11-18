@@ -14,6 +14,7 @@ import type { ServiceRequestRow } from '@/lib/actions/service-requests'
 import type { ReservationRow } from '@/lib/actions/reservations'
 import type { ReservationCustomerCallTask } from '@/lib/actions/reservation-customer-calls'
 import { clock } from '@/lib/pos-timeline'
+import { staleOrderLabel } from '@/lib/pos-offline-watch'
 import { countByFilter, waitLabel, type WorkFilter, type WorkItem } from '@/lib/pos-work-queue'
 import type { TrayAssignment } from '@/lib/tray-colors'
 import { phoneHref } from '../reservations/reservation-ui'
@@ -163,7 +164,7 @@ export default function WorkQueue({
         item,
         <BellRing />,
         <>{sessionName(s)} <span className="font-normal text-muted">· Lượt #{String(item.round).padStart(2, '0')}</span></>,
-        `${clock(item.since)} · ${waitLabel(item.since, now)}`,
+        staleOrderLabel(item.since, now) ?? `${clock(item.since)} · ${waitLabel(item.since, now)}`,
         <>
           <span className={cn('mt-1 inline-flex items-center gap-1 rounded px-1.5 text-[11px] leading-5 font-bold text-white uppercase', staff ? 'bg-blue-600' : 'bg-orange-600')}>
             {staff ? 'NV đặt hộ' : 'QR khách tại bàn'}
