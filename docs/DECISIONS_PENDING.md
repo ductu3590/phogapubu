@@ -151,3 +151,10 @@ Mẫu:
 - Rủi ro nếu duyệt: thấp — chỉ đổi chữ màn `/staff`, không migration; vitest admin-web 1846/1846 xanh trên cùng cây code.
 - Trả lời của anh: Đã mở cổng
 - **Đã áp dụng 2026-11-18:** đẩy main bf5f629..cef7308.
+
+## D-012 · 2026-11-18 · gate: harness · task: mất mạng Đợt 1, Task 4 (kiểm toàn bộ) · trạng thái: chờ anh
+- Cần làm: chạy `python scripts/verify.py` (bước 5 của task) để xác nhận docs không làm tăng nợ cũ.
+- Vì sao: hook harness chặn lệnh này (thông báo "Đụng vào file harness được bảo vệ (chỉ đọc)"); agent không đổi lệnh để lách.
+- Phương án đề xuất: anh mở cổng `harness` 1 giờ rồi agent chạy lại; hoặc anh tự chạy verify và báo kết quả.
+- Rủi ro nếu duyệt: thấp — chỉ đọc/kiểm, task này chỉ đổi tài liệu.
+- Trả lời của anh:

@@ -24,10 +24,11 @@ và cần đủ phần "sau quầy" (kho, ca, thu chi, công nợ, báo cáo) tr
 4. In thật: 4 máy (Quầy, Bếp, Nướng, Bar) — thử khi lắp máy 24–25/11, chạy thử 27–30/11.
 5. Bảo Lương giữ ổn định (quán test của anh Tú; Mini App BL đã tắt, không deploy).
 6. `verify` xanh hoặc chỉ còn nợ cũ đã chụp baseline (T-003).
+7. Xử lý mất mạng tạm thời theo `docs/superpowers/specs/2026-11-18-xu-ly-mat-mang-tam-thoi-design.md` (anh Tú duyệt 2026-11-18): Đợt 1 trước 01/12; Đợt 2 (Quầy dự phòng trong MEVO In) chỉ lên nếu thử đạt với 4 máy in ngày 24–25/11; Đợt 3 (tiền mặt lúc mất mạng) sau go-live.
 
 ## Không làm
 - Không thêm tính năng ngoài danh sách trên trước 01/12. Ý tưởng đã hoãn (chỉ làm khi gặp thật): đóng bill muộn,
-  cảnh báo đơn dồn sau mất mạng, POS offline, số hoá đơn thật HD-xxxxxx (plan sẵn `docs/superpowers/plans/2026-10-12-a04-1-bill-numbers.md`),
+  số hoá đơn thật HD-xxxxxx (plan sẵn `docs/superpowers/plans/2026-10-12-a04-1-bill-numbers.md`),
   geocoding phạm vi ship.
 - Không làm ERP kiểu KiotViet; không đa ngôn ngữ, không app native, không offline-first.
 - Không SePay / đối soát tự động chuyển khoản (đã bỏ — Zalo Checkout BANK không chèn được mã đơn).
