@@ -23,9 +23,28 @@ Không migration, không đổi luật tiền. Bản vẽ đã duyệt: `docs/de
    cd mini-app && npm run dev
    ```
    Chrome, F12 → khung điện thoại 390×844.
-2. Lối vào: tại bàn `http://localhost:5173/?store=yen-garden&table=4f99f479-4cbe-49b7-89fe-029d3216c576` (Bàn mẫu 1),
-   lối thường `http://localhost:5173/?store=yen-garden`, Bảo Lương `?store=bia-lau-bao-luong` (chỉ xem, không gửi đơn).
+2. Lối vào (bàn mẫu cũ "Bàn mẫu 1/2" đã không còn, bàn giờ là A1, A2…):
+   - tại bàn A2: `http://localhost:5173/?store=yen-garden&table=7c7f6c23-7687-4347-9a22-3a5abd6c6fa2`
+     (A1 đang có phiên thật gọi từ Zalo lúc 20:45 ngày 18/11 — nếu là của anh thì test luôn trên A1 bằng đúng máy đó)
+   - lối thường `http://localhost:5173/?store=yen-garden`
+   - Bảo Lương `http://localhost:5173/?store=bia-lau-bao-luong` (chỉ xem, không gửi đơn).
+   Thử Bảo Lương bằng **cửa sổ ẩn danh** khác: cùng một trình duyệt, app nhớ theme của quán mở trước để vẽ khung đầu,
+   nên khung đầu tiên có thể thoáng màu Yên Garden (chỉ xảy ra khi dev mở 2 quán chung một trình duyệt, mỗi quán thật là
+   một Mini App riêng nên không gặp).
 3. Lần đầu mở sau khi đổi: tải lại cứng (Ctrl+Shift+R) để không dính CSS cũ.
+
+## Ảnh trước / sau (agent chụp 2026-11-18, khung 390×844)
+
+| Màn | Trước (theme garden cũ) | Sau |
+|---|---|---|
+| Trang chủ | `screens/yg-03-trang-chu.png` | `screens/hig/yg-trang-chu.png` |
+| Gọi món (bàn trống, đã thêm 2 món vào giỏ) | `screens/yg-01-thuc-don-tai-ban.png` | `screens/hig/yg-goi-mon.png` |
+| Gọi món (bàn đã gọi 2 lượt) | `screens/yg-01-thuc-don-tai-ban.png` | `screens/hig/yg-goi-mon-co-phien.png` * |
+| Đơn gọi | `screens/yg-02-don-goi.png` | `screens/hig/yg-don-goi-co-mon.png` * · trống: `screens/hig/yg-don-goi.png` |
+| Bảo Lương (phải y cũ) | `screens/bl-01-trang-chu.png` | `screens/hig/bl-trang-chu.png` |
+
+\* Không tạo đơn trên prod: hai ảnh này chặn 2 RPC đọc phiên bàn (`get_table_session_state`, `get_table_session_bill`)
+ngay trong trình duyệt chụp ảnh và trả dữ liệu mẫu (2 lượt, 325.000đ). Quán / menu / bàn đọc thật. Anh kiểm số thật ở C1, C4, D1–D3.
 
 ## Nhóm A — Chữ và màu
 
@@ -43,9 +62,9 @@ Không migration, không đổi luật tiền. Bản vẽ đã duyệt: `docs/de
 nút "Đặt bàn trước" — tất cả trên một khối nền kem sáng.
 **B3.** Khối "Quý khách đang ngồi tại quán?" không còn khung viền; vẫn đủ hai dòng chữ.
 
-## Nhóm C — Gọi món tại bàn (Bàn mẫu 1)
+## Nhóm C — Gọi món tại bàn (bàn đã gọi ít nhất 1 lượt có bia)
 
-**C1. Thanh đầu.** Dưới "Yên Garden" có dòng "tạm tính …đ" = đúng số "Tạm tính" ở tab Đơn gọi. Dải "Bàn mẫu 1 · N lần gọi"
+**C1. Thanh đầu.** Dưới "Yên Garden" có dòng "tạm tính …đ" = đúng số "Tạm tính" ở tab Đơn gọi. Dải "A1 · N lần gọi"
 không còn. Hàng 2 vẫn là Gọi nhân viên + chip bàn + ♡ / giỏ / tài khoản như cũ.
 **C2. Thẻ món.** Tên món to hơn trước, giá màu chữ đen (không còn ô-liu), ảnh vuông to hơn. Món có nhãn hiện chữ nâu kèm lá
 ("Best seller", "Món của quán"), không có viên nền.
@@ -59,7 +78,7 @@ gạch chân ô-liu. Cuộn danh sách → gạch chân đổi theo mục đang 
 
 ## Nhóm D — Đơn gọi
 
-**D1.** Đầu trang: "Tạm tính" + số to; dưới là "Bàn mẫu 1 · vào lúc HH:mm · N lượt gọi" và "Thanh toán tại quầy…".
+**D1.** Đầu trang: "Tạm tính" + số to; dưới là "A1 · vào lúc HH:mm · N lượt gọi" và "Thanh toán tại quầy…".
 Không còn thẻ trắng, không còn tiêu đề in hoa "CÁC LƯỢT GỌI MÓN".
 **D2.** Mỗi lượt: tiêu đề "Lượt #02 · 14:10" bên trái, trạng thái bên phải có icon + chữ (đồng hồ = chờ xác nhận, mũ bếp =
 vào bếp, dấu tích = xong). Chữ trạng thái giống hệt bản cũ.
