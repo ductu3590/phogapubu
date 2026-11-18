@@ -18,7 +18,7 @@ import StatusPill, { type PillTone } from "@/components/ui/status-pill";
 import StickyActionBar from "@/components/ui/sticky-action-bar";
 import { GET_SESSION_ORDERS_KEY, GET_TABLE_SESSION_BILL_KEY } from "@/constants/api";
 import type { SessionOrder, TakeawayOrder, OrderItem, TableSessionBillItem } from "@/types/order.types";
-import { ScanLineIcon, PackageIcon, ClipboardListIcon, CircleAlertIcon, PlusIcon, RotateCwIcon, ClockIcon, ChefHatIcon, CircleCheckIcon, CircleXIcon } from "@/components/common/icons";
+import { ScanLineIcon, PackageIcon, ClipboardListIcon, CircleAlertIcon, PlusIcon, RotateCwIcon, ClockIcon, CircleCheckIcon, CircleXIcon } from "@/components/common/icons";
 
 // Hook dùng chung: mở/đóng card + fetch món lần đầu
 function useExpandableItems() {
@@ -75,11 +75,12 @@ const TONE_BAR: Record<RoundTone, string> = {
   neutral: "border-l-neutral200",
 };
 
-// Theme garden: trạng thái lượt = icon + chữ (không viền màu, không viên nền). Màu chữ đo trên nền kem
-// #EDE9DE: cam 5,2:1 · xanh dương 5,5:1 · ô-liu 6,0:1 · đỏ 5,3:1.
+// Theme garden: trạng thái lượt = icon + chữ (không viền màu, không viên nền), như bản vẽ: đồng hồ cam =
+// đang chờ, dấu tích ô-liu = quán đã nhận / vào bếp / xong. Màu chữ đo trên nền kem #EDE9DE:
+// cam 5,2:1 · ô-liu 6,0:1 · đỏ 5,3:1.
 const GARDEN_TONE: Record<RoundTone, { text: string; Icon: typeof ClockIcon }> = {
   warning: { text: "text-[#8A5300]", Icon: ClockIcon },
-  info: { text: "text-[#1D4ED8]", Icon: ChefHatIcon },
+  info: { text: "text-[#3E5F22]", Icon: CircleCheckIcon },
   success: { text: "text-[#3E5F22]", Icon: CircleCheckIcon },
   critical: { text: "text-[#B91C1C]", Icon: CircleXIcon },
   neutral: { text: "text-text-secondary", Icon: ClockIcon },
@@ -346,7 +347,7 @@ function RoundCard({
           </p>
           {source && <p className="text-xsmall text-text-secondary">{source}</p>}
         </div>
-        <span className={cn("inline-flex shrink-0 items-center gap-1.5 text-normal-sb font-semibold", tone.text)}>
+        <span className={cn("inline-flex shrink-0 items-center gap-1.5 text-[15px] font-semibold", tone.text)}>
           <tone.Icon className="size-[18px]" />
           {status.label}
         </span>
@@ -363,12 +364,12 @@ function RoundCard({
               <li key={item.id} className="flex items-baseline gap-3 px-4 py-3">
                 <span className="tabular w-8 shrink-0 text-normal-sb font-semibold text-text-secondary">{item.quantity}×</span>
                 <div className="min-w-0 flex-1">
-                  <p className={cn("line-clamp-2 text-large text-text-primary", rejected && "line-through")}>{item.name}</p>
+                  <p className={cn("line-clamp-2 text-[16px] leading-snug text-text-primary", rejected && "line-through")}>{item.name}</p>
                   {toppings.length > 0 && (
                     <p className="line-clamp-1 text-xsmall text-text-secondary">{toppings.map((t) => `+ ${t.name}`).join(", ")}</p>
                   )}
                 </div>
-                <span className={cn("tabular shrink-0 whitespace-nowrap text-large font-semibold", line.gift ? "text-[#3E5F22]" : rejected ? "text-text-secondary line-through" : "text-text-primary")}>
+                <span className={cn("tabular shrink-0 whitespace-nowrap text-[16px] font-semibold", line.gift ? "text-[#3E5F22]" : rejected ? "text-text-secondary line-through" : "text-text-primary")}>
                   {line.gift ? "Đã tặng 0đ" : `${formatCurrency(line.amount)}đ`}
                 </span>
               </li>

@@ -19,7 +19,7 @@ export default function CategoryChips({ items, activeId, onSelect }: { items: { 
       {items.map((c) => (
         <button key={c.id} ref={(el) => { refs.current[c.id] = el; }} type="button" onClick={() => onSelect(c.id)}
           className={cn("shrink-0 rounded-full px-3.5 py-1.5 text-xxsmall font-bold uppercase tracking-wide transition-colors",
-            "garden:-mb-px garden:rounded-none garden:bg-transparent garden:px-0 garden:pb-2.5 garden:pt-3 garden:text-large garden:normal-case garden:tracking-normal garden:shadow-none",
+            "garden:-mb-px garden:rounded-none garden:bg-transparent garden:px-0 garden:pb-2.5 garden:pt-3 garden:text-[16px] garden:normal-case garden:tracking-normal garden:shadow-none",
             activeId === c.id
               ? "bg-primary text-white shadow-sm garden:border-b-[2.5px] garden:border-primary garden:text-text-primary"
               : "border border-neutral200 bg-surface text-text-secondary garden:border-0 garden:font-medium")}>

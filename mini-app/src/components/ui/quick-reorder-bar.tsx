@@ -43,7 +43,11 @@ export default function QuickReorderBar({ pick, ordered = 0 }: { pick: QuickReor
     <div className="shrink-0 px-3 pt-2 garden:px-4">
       <div className="flex h-[52px] items-center gap-2.5 rounded-2xl border border-neutral100 bg-surface pl-2.5 pr-2 shadow-card garden:h-14 garden:rounded-[18px] garden:border-0 garden:pl-3">
         <span className="grid size-[34px] shrink-0 place-items-center rounded-full bg-primary/10 text-primary garden:size-10 garden:rounded-xl garden:bg-primary/15">
-          <BeerIcon className="size-[18px] garden:size-5" />
+          <BeerIcon className="size-[18px] garden:hidden" />
+          {/* Garden: cốc bia đơn giản như bản vẽ (BeerIcon lucide có bọt nhìn giống thùng rác ở cỡ nhỏ) */}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden className="hidden size-[22px] garden:block">
+            <path d="M5 7h10v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zM15 10h2a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2M5 7c0-2 1.5-3 3-3 1 0 1.5.5 2 1 .5-.7 1.2-1 2-1 1.7 0 3 1.2 3 3" />
+          </svg>
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-small-m font-bold leading-tight text-text-primary garden:text-large garden:font-semibold">{product.name}</p>

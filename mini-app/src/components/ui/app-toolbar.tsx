@@ -72,8 +72,8 @@ export default function AppToolbar({ title, back, mode, cartCount, tableTotal }:
             </button>
           ) : <span className="w-2" />}
           <div className="min-w-0">
-            {title && <p className="g-display truncate text-normal-sb font-bold leading-tight text-text-primary garden:text-[21px] garden:leading-[1.15]">{title}</p>}
-            {title && storeName && <p className="truncate text-xxxsmall leading-tight text-text-secondary">{storeName}</p>}
+            {title && <p className="g-display truncate text-normal-sb font-bold leading-tight text-text-primary garden:text-[26px] garden:leading-[1.1]">{title}</p>}
+            {title && storeName && <p className="truncate text-xxxsmall leading-tight text-text-secondary garden:text-xsmall">{storeName}</p>}
           </div>
         </div>
       )}
@@ -106,7 +106,7 @@ export default function AppToolbar({ title, back, mode, cartCount, tableTotal }:
         <div className="flex h-11 items-center gap-2 px-3 pb-2">
           <CallStaffButton tableId={tableId!} />
           {mode.tableChip && tableNumber && (
-            <span className="inline-flex h-8 max-w-[96px] shrink-0 items-center truncate whitespace-nowrap rounded-full bg-neutral100 px-3 text-small-m font-semibold text-text-primary garden:h-9">{tableNumber}</span>
+            <span className="inline-flex h-8 max-w-[96px] shrink-0 items-center truncate whitespace-nowrap rounded-full bg-neutral100 px-3 text-small-m font-semibold text-text-primary garden:h-10 garden:bg-primary/15 garden:px-4 garden:text-normal garden:text-primary">{tableNumber}</span>
           )}
           {!title && (
             <>

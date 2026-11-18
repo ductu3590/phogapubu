@@ -14,9 +14,9 @@ const DOT: Record<PillTone, string> = {
 };
 
 // Nhãn trạng thái — màu theo Ý NGHĨA, không theo màu quán; luôn có chữ.
-export default function StatusPill({ tone, children }: { tone: PillTone; children: ReactNode }) {
+export default function StatusPill({ tone, children, className }: { tone: PillTone; children: ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xxsmall font-semibold", TONE[tone])}>
+    <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xxsmall font-semibold", TONE[tone], className)}>
       <span className={cn("size-1.5 rounded-full", DOT[tone])} aria-hidden />
       {children}
     </span>

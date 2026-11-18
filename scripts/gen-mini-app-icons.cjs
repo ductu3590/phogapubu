@@ -15,7 +15,7 @@ const NAMES = {
   FileText: 'file-text', MessageCircle: 'message-circle',
   ShoppingCart: 'shopping-cart', Heart: 'heart', Search: 'search', ChevronLeft: 'chevron-left',
   Plus: 'plus', Minus: 'minus', ArrowRight: 'arrow-right', CalendarDays: 'calendar-days', Users: 'users',
-  Beer: 'beer', Leaf: 'leaf',
+  Beer: 'beer',
 }
 const out = []
 out.push(`// Icon dùng trong Mini App — đường vẽ lấy từ lucide (ISC license, https://lucide.dev), CÙNG bộ icon với admin-web.

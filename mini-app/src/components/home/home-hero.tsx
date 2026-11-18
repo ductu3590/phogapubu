@@ -3,6 +3,7 @@ import StatusPill from "@/components/ui/status-pill";
 import DirectionsButton from "@/components/ui/directions-button";
 import CallPhoneButton from "@/components/ui/call-phone-button";
 import { directionsUrl } from "@/utils/directions";
+import { cn } from "@/utils/cn";
 import { formatServingHours, isStoreOpen, type ServingShift } from "@/utils/store-hours";
 
 function initials(name: string): string {
@@ -62,32 +63,43 @@ export default function HomeHero({
           </div>
         )}
 
-        <div className="space-y-2.5 p-4 garden:mt-3 garden:rounded-2xl garden:bg-surface">
+        {/* Garden: một nhóm hàng có gạch chia (bản vẽ HIG), nút chữ ô-liu thay viên nền; nút Đặt bàn nằm ngoài nhóm. */}
+        <div className="space-y-2.5 p-4 garden:mt-3 garden:space-y-0 garden:divide-y garden:divide-neutral100 garden:overflow-hidden garden:rounded-2xl garden:bg-surface garden:p-0">
           {address && (
-            <div className="flex items-start gap-2.5">
-              <MapPinIcon className="mt-0.5 size-4 shrink-0 text-text-secondary" />
-              <p className="min-w-0 flex-1 text-small text-text-primary">{address}</p>
-              {directions && <DirectionsButton url={directions} />}
+            <div className="flex items-start gap-2.5 garden:items-center garden:gap-3.5 garden:py-1.5 garden:pl-4 garden:pr-2">
+              <MapPinIcon className="mt-0.5 size-4 shrink-0 text-text-secondary garden:mt-0 garden:size-[22px]" />
+              <p className="min-w-0 flex-1 text-small text-text-primary garden:text-normal">{address}</p>
+              {directions && <DirectionsButton url={directions} className="garden:h-11 garden:bg-transparent garden:px-2 garden:text-[15px] garden:font-semibold garden:[&>svg]:hidden" />}
             </div>
           )}
-          <div className="flex items-center gap-2.5">
-            <ClockIcon className="size-4 shrink-0 text-text-secondary" />
-            <p className="min-w-0 flex-1 text-small text-text-primary">{hours ? `Mở cửa: ${hours}` : "Mở cả ngày"}</p>
-            <StatusPill tone={open ? "success" : "critical"}>{open ? "Đang mở" : isAcceptingOrders ? "Đã đóng cửa" : "Tạm nghỉ"}</StatusPill>
+          <div className="flex items-center gap-2.5 garden:min-h-[52px] garden:gap-3.5 garden:px-4">
+            <ClockIcon className="size-4 shrink-0 text-text-secondary garden:size-[22px]" />
+            <p className="min-w-0 flex-1 text-small text-text-primary garden:text-normal">{hours ? `Mở cửa: ${hours}` : "Mở cả ngày"}</p>
+            <StatusPill tone={open ? "success" : "critical"} className={cn("garden:border-0 garden:bg-transparent garden:px-0 garden:text-[15px]", open && "garden:text-[#3E5F22]")}>{open ? "Đang mở" : isAcceptingOrders ? "Đã đóng cửa" : "Tạm nghỉ"}</StatusPill>
           </div>
-          {phone && <CallPhoneButton phone={phone} />}
+          {phone && <div className="garden:px-4 garden:py-3.5"><CallPhoneButton phone={phone} /></div>}
 
           {canReserve && (
             <button
               type="button"
               onClick={onReserve}
-              className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-normal-sb font-bold text-white shadow active:opacity-90 garden:rounded-full garden:shadow-none"
+              className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-normal-sb font-bold text-white shadow active:opacity-90 garden:hidden"
             >
               <CalendarDaysIcon className="size-5" />
               Đặt bàn trước
             </button>
           )}
         </div>
+        {canReserve && (
+          <button
+            type="button"
+            onClick={onReserve}
+            className="hidden h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-primary text-large font-semibold text-white active:opacity-90 garden:mt-3.5 garden:flex"
+          >
+            <CalendarDaysIcon className="size-[22px]" />
+            Đặt bàn trước
+          </button>
+        )}
       </section>
 
       {showScanHint && (

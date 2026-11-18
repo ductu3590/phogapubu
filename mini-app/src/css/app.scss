@@ -44,6 +44,11 @@
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Icon nét mảnh hơn một chút (1,8 thay vì 2 của lucide) cho khớp bản vẽ và nét chữ font máy. */
+:root[data-theme="garden"] svg[stroke] {
+  stroke-width: 1.8;
+}
+
 /* Fraunces 600 "soft" (SIL OFL 1.1, xem static/fonts/Fraunces-OFL.txt), lưu trong app, 2 tệp ~25 KB:
    trình duyệt chỉ tải tệp có ký tự cần (unicode-range). Chỉ dùng ở theme garden. */
 @font-face {

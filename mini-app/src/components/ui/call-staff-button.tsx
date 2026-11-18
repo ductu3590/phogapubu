@@ -18,9 +18,9 @@ export default function CallStaffButton({ tableId }: { tableId: string }) {
       type="button"
       onClick={call}
       disabled={isPending}
-      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-critical px-3.5 text-small-m font-bold text-white shadow-sm active:opacity-80 disabled:opacity-60 garden:bg-surface garden:font-semibold garden:text-primary garden:shadow-none"
+      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-critical px-3.5 text-small-m font-bold text-white shadow-sm active:opacity-80 disabled:opacity-60 garden:h-10 garden:bg-surface garden:px-4 garden:text-normal garden:font-semibold garden:text-text-primary garden:shadow-none"
     >
-      <BellIcon className="mevo-bell size-4" />
+      <BellIcon className="mevo-bell size-4 garden:size-[18px]" />
       {isPending ? "Đang gọi…" : <><span className="garden:hidden">Gọi NV</span><span className="hidden garden:inline">Gọi nhân viên</span></>}
     </button>
   );
