@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useReducer, useState } from 'react'
 import {
   INITIAL_OFFLINE_STATE,
-  OFFLINE_NOTICE_MS,
   dismissOutage,
+  msUntilNotice,
   nextOfflineState,
   offlineSince,
   type OfflineState,
@@ -31,16 +31,25 @@ export function useOfflineWatch(live: boolean): { downSince: number | null; outa
   const downAt = state.downSince
   useEffect(() => {
     if (downAt === null) return
-    // Hẹn đúng mốc downSince + 60 giây để băng hiện đúng lúc (đồng hồ chung nhịp 30 giây là không đủ sát)
-    const wait = downAt + OFFLINE_NOTICE_MS - Date.now()
-    const timer = setTimeout(() => setNow(Date.now()), Math.max(wait, 0))
+    // Hẹn đúng mốc downSince + 60 giây (+ đệm 50 ms). Hẹn xong đọc lại đồng hồ: nếu vẫn chưa tới ngưỡng
+    // (đồng hồ đọc hụt, hoặc bị chỉnh) thì tự hẹn lại, không thì băng đỏ mất cả đợt mất mạng.
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const arm = (wait: number) => {
+      timer = setTimeout(() => {
+        const t = Date.now()
+        setNow(t)
+        const next = msUntilNotice(downAt, t)
+        if (next !== null) arm(next)
+      }, wait)
+    }
+    arm(msUntilNotice(downAt, Date.now()) ?? 0)
     // Tab nền bị trình duyệt giãn timer: quay lại tab thì tính lại theo đồng hồ
     const onVisible = () => {
       if (document.visibilityState === 'visible') setNow(Date.now())
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
-      clearTimeout(timer)
+      if (timer !== undefined) clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [downAt])

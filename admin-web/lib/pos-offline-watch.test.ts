@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  INITIAL_OFFLINE_STATE as S0, dismissOutage, nextOfflineState, offlineSince, outageOrders, staleOrderLabel,
+  INITIAL_OFFLINE_STATE as S0, OUTAGE_MERGE_GAP_MS, dismissOutage, msUntilNotice, nextOfflineState, offlineSince, outageOrders, staleOrderLabel,
 } from './pos-offline-watch'
 
 const T = Date.parse('2026-11-18T12:40:00Z') // 19:40 giờ Việt Nam
@@ -30,6 +30,14 @@ describe('nextOfflineState', () => {
     s = nextOfflineState(s, true, sec(200))
     expect(s).toEqual({ downSince: null, lastOutage: { from: T, to: sec(200) } })
   })
+  it('hai lần mất cách nhau quá 10 phút: lần sau thay lần trước, không nối', () => {
+    let s = nextOfflineState(S0, false, T)
+    s = nextOfflineState(s, true, sec(70))
+    const t2 = sec(70) + OUTAGE_MERGE_GAP_MS + 1000 // lần 2 bắt đầu sau lần 1 kết thúc 11 phút
+    s = nextOfflineState(s, false, t2)
+    s = nextOfflineState(s, true, t2 + 90_000)
+    expect(s).toEqual({ downSince: null, lastOutage: { from: t2, to: t2 + 90_000 } })
+  })
   it('đã có khoảng cũ, rớt ngắn dưới 60 giây: khoảng cũ giữ nguyên', () => {
     let s = nextOfflineState(S0, false, T)
     s = nextOfflineState(s, true, sec(70))
@@ -49,6 +57,16 @@ describe('offlineSince', () => {
   it('đang có mạng: null', () => expect(offlineSince(S0, sec(300))).toBeNull())
 })
 
+describe('msUntilNotice', () => {
+  it('đang có mạng: null', () => expect(msUntilNotice(null, T)).toBeNull())
+  it('ngay lúc rớt: 60 giây + 50 ms đệm', () => expect(msUntilNotice(T, T)).toBe(60_050))
+  it('còn 1 ms nữa tới ngưỡng: 51 ms', () => expect(msUntilNotice(T, T + 59_999)).toBe(51))
+  it('đã tới / quá ngưỡng: null', () => {
+    expect(msUntilNotice(T, T + 60_000)).toBeNull()
+    expect(msUntilNotice(T, T + 90_000)).toBeNull()
+  })
+})
+
 describe('outageOrders', () => {
   const outage = { from: T, to: sec(600) }
   const o = (id: string, at: number, over: Record<string, unknown> = {}) =>
@@ -58,9 +76,12 @@ describe('outageOrders', () => {
   it('đếm lượt chờ duyệt tạo trong khoảng, firstAt là lượt sớm nhất', () => {
     expect(outageOrders(open(o('a', sec(300)), o('b', sec(120))), outage)).toEqual({ review: 2, autoKitchen: 0, firstAt: sec(120) })
   })
-  it('nới mép đầu 2 phút, không nới mép cuối', () => {
-    const r = outageOrders(open(o('sat-truoc', sec(-120)), o('qua-som', sec(-121)), o('sau-khi-co-mang', sec(601))), outage)
-    expect(r).toEqual({ review: 1, autoKitchen: 0, firstAt: sec(-120) })
+  it('nới cả hai mép 2 phút', () => {
+    const r = outageOrders(open(
+      o('sat-truoc', sec(-120)), o('qua-som', sec(-121)),
+      o('sat-sau', sec(720)), o('qua-muon', sec(721)),
+    ), outage)
+    expect(r).toEqual({ review: 2, autoKitchen: 0, firstAt: sec(-120) })
   })
   it('không đếm món ghi tay, món đặt trước, đơn đã duyệt, phiên không mở', () => {
     const r = outageOrders([
@@ -75,7 +96,14 @@ describe('outageOrders', () => {
   })
   it('đơn tự vào bếp (pending nhưng không cần duyệt) đếm riêng', () => {
     const r = outageOrders(open(o('tu-vao-bep', sec(10), { order_source: 'staff', needs_pos_confirmation: false })), outage)
-    expect(r).toEqual({ review: 0, autoKitchen: 1, firstAt: sec(10) })
+    expect(r).toEqual({ review: 0, autoKitchen: 1, firstAt: null })
+  })
+  it('firstAt chỉ tính lượt chờ duyệt: đơn tự vào bếp sớm hơn không kéo mốc', () => {
+    const r = outageOrders(open(
+      o('tu-vao-bep', sec(10), { order_source: 'staff', needs_pos_confirmation: false }),
+      o('cho-duyet', sec(50)),
+    ), outage)
+    expect(r).toEqual({ review: 1, autoKitchen: 1, firstAt: sec(50) })
   })
 })
 
