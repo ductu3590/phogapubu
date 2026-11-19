@@ -219,7 +219,7 @@ Mẫu:
   ngoài `.next/` sạch, mini-app / DB / print-agent xanh; chỉ 10-admin-web đỏ vì `.next/types`.
 - Trả lời của anh:
 
-## D-018 · 2026-11-19 · gate: deploy · task: giao diện HIG Yên Garden + chữ đặt món trước · trạng thái: chờ
+## D-018 · 2026-11-19 · gate: deploy · task: giao diện HIG Yên Garden + chữ đặt món trước · trạng thái: xong (mọi commit đã lên origin, tới befca6f qua D-019)
 - Cần làm: đẩy `main` ở máy lên `origin` (hơn origin/main 18 commit, tới commit ghi mục này). Gồm: giao diện HIG theme
   garden (PASS GIAO-DIEN-HIG.md), chữ "Lưu ý quan trọng" + nút "Xác nhận" khi đặt món trước (PASS
   LUU-Y-DAT-MON-TRUOC.md), tài liệu thiết kế, đóng D-013/D-014, D-017.
@@ -232,7 +232,7 @@ Mẫu:
 - Ghi chú: commit của D-012 (5689078) đã có trên origin/main từ trước — mục D-012 có thể đóng.
 - Trả lời của anh:
 
-## D-019 · 2026-11-19 · gate: deploy · task: POS báo "Điều chỉnh" khi khách sửa lịch đặt bàn · trạng thái: chờ
+## D-019 · 2026-11-19 · gate: deploy · task: POS báo "Điều chỉnh" khi khách sửa lịch đặt bàn · trạng thái: xong
 - Cần làm: đẩy `main` ở máy lên `origin` (hơn origin/main 4 commit, tới commit ghi mục này): aae935e sửa POS + trang
   Đặt bàn báo "Điều chỉnh" khi khách sửa lịch (chỉ admin-web, không migration); c8e6f02 + df3ad39 màn chờ khởi động
   Yên Garden chỉ còn chữ MEVO.VN (Mini App, đã PASS MAN-CHO-KHOI-DONG.md); và commit ghi mục này.
@@ -242,4 +242,5 @@ Mẫu:
 - Rủi ro nếu duyệt: thấp — Vercel dựng lại admin-web với 1 hàm đổi dòng đặt bàn + 7 chuỗi chữ; vitest admin-web
   1884/1884, tsc sạch. Mini App không tự lên Zalo. verify vẫn đỏ mục 10-admin-web chỉ vì `.next/types` cũ (D-017).
   Sửa POS chưa được anh test tay (docs/testing/dat-ban/POS-BAO-XIN-DOI.md) — anh chọn đẩy trước.
-- Trả lời của anh:
+- Trả lời của anh: Đã mở cổng
+- **Đã áp dụng 2026-11-19:** đẩy main lên origin (4b2fe18..befca6f).
