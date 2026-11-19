@@ -31,7 +31,7 @@
 ## Vừa xong (giữ tới khi Yên Garden go-live)
 
 - ✅ [Mini App — đường dự phòng lọc bàn theo quán (T-007)](docs/testing/mini-app-core/BOOTSTRAP-DU-PHONG.md) — PASS 2026-11-15
-- ⏳ [Yên Garden — màn chờ khởi động chỉ còn dòng chữ MEVO.VN](docs/testing/yen-garden/MAN-CHO-KHOI-DONG.md) — chờ anh Tú (main, đã gộp worktree Yên Garden)
+- ✅ [Yên Garden — màn chờ khởi động chỉ còn dòng chữ MEVO.VN](docs/testing/yen-garden/MAN-CHO-KHOI-DONG.md) — PASS 2026-11-19 (main c8e6f02, đã gộp worktree Yên Garden)
 - ✅ [Mini App — chữ "Lưu ý quan trọng" + nút "Xác nhận" khi đặt món trước](docs/testing/yen-garden/LUU-Y-DAT-MON-TRUOC.md) — PASS 2026-11-19 (main 18996fe, đã gộp worktree Yên Garden)
 - ✅ [Yên Garden — Giao diện mới theo Apple HIG (font, Trang chủ, Gọi món, Đơn gọi)](docs/testing/yen-garden/GIAO-DIEN-HIG.md) — PASS 2026-11-19 (nhánh claude/yg-astryx-redesign-67a515, 1c7b876, chưa gộp main, chưa zmp deploy)
 - ✅ [Yên Garden — Mini App (theme garden, tải nhanh, gọi thêm bia)](docs/testing/yen-garden/MINI-APP.md) — PASS A–E 2026-11-15 (nhóm F làm khi zmp deploy)
