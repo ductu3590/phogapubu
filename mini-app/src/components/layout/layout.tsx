@@ -15,13 +15,14 @@ import { useStoreMenu } from "@/services/category/category.queries";
 import { orderedQuantity, pickQuickReorder } from "@/utils/quick-reorder";
 import { isStoreOpen } from "@/utils/store-hours";
 import QuickReorderBar from "@/components/ui/quick-reorder-bar";
+import BootSplash from "@/components/ui/boot-splash";
 
 export default function Layout() {
   const matches = useMatches();
   const handle = matches[matches.length - 1].handle as RouteHandle | undefined;
   const { hideBottomTabs, hideCart, hideHeader } = handle ?? {};
   const { items, totalItems } = useCartStore();
-  const { workflow, entryContext, tableId, tableNumber, storeId, paymentTiming, zaloUserId, deviceId, sessionState, isAcceptingOrders, servingHours } = useAppStore();
+  const { workflow, entryContext, tableId, tableNumber, storeId, paymentTiming, zaloUserId, deviceId, sessionState, isAcceptingOrders, servingHours, theme, bootDone } = useAppStore();
 
   const hasVerifiedTable = entryContext.kind === "root" || tableId === entryContext.tableId;
   const canOrder = workflow !== null && hasVerifiedTable && canOrderInEntry(workflow, entryContext);
@@ -56,6 +57,10 @@ export default function Layout() {
       ? pickQuickReorder(bill.orders, menu)
       : null;
   const billFound = watchBill && !!bill && bill.found ? bill : null;
+
+  // Theme garden: chưa đọc xong quán thì chỉ hiện dòng chữ MEVO.VN ở giữa (không thanh đầu "M · MEVO", không tab).
+  // Classic giữ màn chờ cũ.
+  if (theme === "garden" && !bootDone) return <BootSplash />;
 
   return (
     <div className="relative flex h-screen w-screen flex-col bg-background">
