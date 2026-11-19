@@ -231,3 +231,15 @@ Mẫu:
   vitest mini-app 274/274.
 - Ghi chú: commit của D-012 (5689078) đã có trên origin/main từ trước — mục D-012 có thể đóng.
 - Trả lời của anh:
+
+## D-019 · 2026-11-19 · gate: deploy · task: POS báo "Điều chỉnh" khi khách sửa lịch đặt bàn · trạng thái: chờ
+- Cần làm: đẩy `main` ở máy lên `origin` (hơn origin/main 4 commit, tới commit ghi mục này): aae935e sửa POS + trang
+  Đặt bàn báo "Điều chỉnh" khi khách sửa lịch (chỉ admin-web, không migration); c8e6f02 + df3ad39 màn chờ khởi động
+  Yên Garden chỉ còn chữ MEVO.VN (Mini App, đã PASS MAN-CHO-KHOI-DONG.md); và commit ghi mục này.
+- Vì sao: anh Tú bảo "Commit và push luôn" (chat 2026-11-19); hook deploy chặn đẩy lên nhánh chính.
+- Phương án đề xuất (khuyến nghị): anh mở cổng `deploy` 1 giờ (lệnh duyệt như mẫu đầu file), agent đẩy main.
+  Phương án khác: anh tự đẩy main lên origin ở `D:\Code\mevo`.
+- Rủi ro nếu duyệt: thấp — Vercel dựng lại admin-web với 1 hàm đổi dòng đặt bàn + 7 chuỗi chữ; vitest admin-web
+  1884/1884, tsc sạch. Mini App không tự lên Zalo. verify vẫn đỏ mục 10-admin-web chỉ vì `.next/types` cũ (D-017).
+  Sửa POS chưa được anh test tay (docs/testing/dat-ban/POS-BAO-XIN-DOI.md) — anh chọn đẩy trước.
+- Trả lời của anh:
