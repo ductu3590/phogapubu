@@ -216,3 +216,16 @@ Mẫu:
   kiểm lại. Phương án khác: anh tự xoá thư mục đó trong Explorer, hoặc chạy `npm run build` ở admin-web (Next sinh lại).
 - Rủi ro nếu duyệt: rất thấp — chỉ là tệp kiểu do Next sinh, `next dev` / `next build` tự tạo lại.
 - Trả lời của anh:
+
+## D-018 · 2026-11-19 · gate: deploy · task: giao diện HIG Yên Garden + chữ đặt món trước · trạng thái: chờ
+- Cần làm: đẩy `main` ở máy lên `origin` (hơn origin/main 18 commit, tới commit ghi mục này). Gồm: giao diện HIG theme
+  garden (PASS GIAO-DIEN-HIG.md), chữ "Lưu ý quan trọng" + nút "Xác nhận" khi đặt món trước (PASS
+  LUU-Y-DAT-MON-TRUOC.md), tài liệu thiết kế, đóng D-013/D-014, D-017.
+- Vì sao: anh Tú bảo "Push main" (chat 2026-11-19); hook deploy chặn push lên nhánh chính.
+- Phương án đề xuất (khuyến nghị): anh mở cổng `deploy` 1 giờ (lệnh duyệt như mẫu đầu file), agent đẩy main.
+  Phương án khác: anh tự chạy `git push origin main` ở `D:\Code\mevo`.
+- Rủi ro nếu duyệt: thấp — chỉ Mini App + tài liệu, không migration, không đổi file admin-web (Vercel dựng lại không đổi
+  gì). Mini App không tự lên Zalo, cần `zmp deploy` riêng (worktree quán đã gộp sẵn). verify trên worktree XANH,
+  vitest mini-app 274/274.
+- Ghi chú: commit của D-012 (5689078) đã có trên origin/main từ trước — mục D-012 có thể đóng.
+- Trả lời của anh:
