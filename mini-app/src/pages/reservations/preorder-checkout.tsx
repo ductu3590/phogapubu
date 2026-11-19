@@ -130,7 +130,7 @@ export default function ReservationPreorderCheckoutPage() {
           <div>
             <p className="text-small-m font-bold text-warning">Lưu ý quan trọng</p>
             <p className="mt-0.5 text-small text-text-primary">
-              Món đặt trước chỉ gửi <b>một lần</b>. Gửi xong món sẽ được <b>khoá</b>, không sửa hoặc huỷ trên ứng dụng. Muốn gọi thêm thì gọi khi đến quán.
+              Món đặt trước khi gửi đi sẽ không sửa, huỷ được trên ứng dụng. Quý khách muốn thay đổi vui lòng liên hệ hotline quán.
             </p>
           </div>
         </section>
