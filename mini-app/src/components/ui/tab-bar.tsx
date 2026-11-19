@@ -14,12 +14,18 @@ const ICON: Record<TabKey, (p: { className: string }) => JSX.Element> = {
 // Theme garden: mục đang chọn dùng icon TÔ ĐẶC (bản vẽ docs/design/yen-garden/apple-hig, HIG tab-bars.md:
 // "Prefer filled symbols"). Vẽ tay cùng hình với icon lucide ở trên; chữ trong hình đục bằng màu nền.
 // Garden: tab "Trang chủ" là ngôi nhà (bản vẽ), không dùng dao nĩa trùng với tab Thực đơn.
-const GARDEN_OUTLINE: Partial<Record<TabKey, (p: { className: string }) => JSX.Element>> = {
-  home: (p) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...p}>
-      <path d="M3.5 11 12 4l8.5 7v8.5a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z" />
-    </svg>
-  ),
+const outline = (d: string) => (p: { className: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...p}>
+    <path d={d} />
+  </svg>
+);
+const CLIPBOARD_OUTLINE = outline("M8 4H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-2M8 3h8v3H8zM9 11h6M9 15h4");
+const GARDEN_OUTLINE: Record<TabKey, (p: { className: string }) => JSX.Element> = {
+  home: outline("M3.5 11 12 4l8.5 7v8.5a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"),
+  menu: outline("M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M16 3c-1.8 1.5-2.5 4-2.5 7h3V21"),
+  reserve: outline("M7 5h10a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM8 3v4M16 3v4M4 10h16"),
+  "my-orders": CLIPBOARD_OUTLINE,
+  session: CLIPBOARD_OUTLINE,
 };
 
 const FILLED: Record<TabKey, (p: { className: string }) => JSX.Element> = {
@@ -50,8 +56,8 @@ function UtensilsFilled(p: { className: string }) {
 function ClipboardFilled(p: { className: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden {...p}>
-      <path fill="currentColor" d="M9 2h6a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1z" />
-      <path fill="none" stroke="rgb(var(--c-background))" strokeWidth={1.8} strokeLinecap="round" d="M9 5.5h6M8.5 11h.01M11.5 11H16M8.5 15.5h.01M11.5 15.5H16" />
+      <path fill="currentColor" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" d="M8 4H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-2M8 3h8v3H8z" />
+      <path fill="none" stroke="rgb(var(--c-background))" strokeWidth={1.8} strokeLinecap="round" d="M9 11h6M9 15h4" />
     </svg>
   );
 }
@@ -69,11 +75,11 @@ export default function TabBar({ tabs, badges = {} }: { tabs: TabDef[]; badges?:
           // Cỡ chữ đặt ở nút: cn() (tailwind-merge) gộp nhầm "text-xxsmall" (cỡ) với "text-primary" (màu)
           // và bỏ mất cỡ chữ ở nhãn bên dưới. Garden đặt 12px ở đây để nhãn không bị phóng 15px.
           <button key={tab.key} type="button" onClick={() => navigate(tab.path)} aria-current={active ? "page" : undefined}
-            className="relative flex flex-1 flex-col items-center gap-0.5 pb-1.5 pt-2 garden:gap-[3px] garden:text-[12px] garden:leading-4">
+            className="relative flex flex-1 flex-col items-center gap-0.5 pb-1.5 pt-2 garden:gap-[3px] garden:pb-0 garden:pt-1.5 garden:text-[12px] garden:leading-4">
             {active && <span className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-primary garden:hidden" aria-hidden />}
             <span className="relative">
-              {ICON[tab.key]({ className: cn("size-6 garden:size-[22px]", active || GARDEN_OUTLINE[tab.key] ? "garden:hidden" : "", active ? "text-primary" : "text-neutral300 garden:text-text-secondary") })}
-              {!active && GARDEN_OUTLINE[tab.key]?.({ className: "hidden size-[22px] text-text-secondary garden:block" })}
+              {ICON[tab.key]({ className: cn("size-6 garden:hidden", active ? "text-primary" : "text-neutral300") })}
+              {!active && GARDEN_OUTLINE[tab.key]({ className: "hidden size-[22px] text-text-secondary garden:block" })}
               {active && FILLED[tab.key]({ className: "hidden size-[22px] text-primary garden:block" })}
               {badges[tab.key] && <span className="absolute -right-1 -top-0.5 size-2.5 rounded-full border-2 border-surface bg-critical-dot garden:border-background" aria-label="Có lượt chờ xác nhận" />}
             </span>

@@ -40,8 +40,8 @@ export default function QuickReorderBar({ pick, ordered = 0 }: { pick: QuickReor
   };
 
   return (
-    <div className="shrink-0 px-3 pt-2 garden:px-4">
-      <div className="flex h-[52px] items-center gap-2.5 rounded-2xl border border-neutral100 bg-surface pl-2.5 pr-2 shadow-card garden:h-14 garden:rounded-[18px] garden:border-0 garden:pl-3">
+    <div className="shrink-0 px-3 pt-2 garden:pt-2.5">
+      <div className="flex h-[52px] items-center gap-2.5 rounded-2xl border border-neutral100 bg-surface pl-2.5 pr-2 shadow-card garden:h-14 garden:gap-3 garden:rounded-[18px] garden:border-0 garden:pl-3">
         <span className="grid size-[34px] shrink-0 place-items-center rounded-full bg-primary/10 text-primary garden:size-10 garden:rounded-xl garden:bg-primary/15">
           <BeerIcon className="size-[18px] garden:hidden" />
           {/* Garden: cốc bia đơn giản như bản vẽ (BeerIcon lucide có bọt nhìn giống thùng rác ở cỡ nhỏ) */}
@@ -50,10 +50,15 @@ export default function QuickReorderBar({ pick, ordered = 0 }: { pick: QuickReor
           </svg>
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-small-m font-bold leading-tight text-text-primary garden:text-large garden:font-semibold">{product.name}</p>
+          {/* Garden (bản vẽ): "Bia hơi Hà Nội · Ca 1 lít" / "Bàn đã gọi 2 · 60.000đ". */}
+          <p className="truncate text-small-m font-bold leading-tight text-text-primary garden:text-large garden:font-semibold">
+            {product.name}
+            {variant && <span className="hidden garden:inline"> · {variant.name}</span>}
+          </p>
           <p className="tabular truncate text-xxsmall leading-tight text-text-secondary garden:text-xsmall">
-            {variant ? `${variant.name} · ` : ""}{formatCurrency(price)}đ
-            {ordered > 0 && <span className="hidden garden:inline"> · bàn đã gọi {ordered}</span>}
+            {ordered > 0 && <span className="hidden garden:inline">Bàn đã gọi {ordered} · </span>}
+            {variant && <span className="garden:hidden">{variant.name} · </span>}
+            {formatCurrency(price)}đ
           </p>
         </div>
         {inCart > 0 ? (
@@ -63,8 +68,8 @@ export default function QuickReorderBar({ pick, ordered = 0 }: { pick: QuickReor
             <button type="button" aria-label={`Thêm một ${product.name}`} onClick={add} className="grid size-7 place-items-center rounded-full bg-white/15 active:scale-90 garden:size-9"><PlusIcon className="size-3.5" /></button>
           </span>
         ) : (
-          <button type="button" onClick={add} aria-label={`Gọi thêm 1 ${product.name}${variant ? ` ${variant.name}` : ""}`} className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-primary pl-2.5 pr-3.5 text-small-m font-bold text-white active:opacity-80 garden:h-11 garden:bg-primary/15 garden:pl-3 garden:pr-4 garden:text-large garden:font-semibold garden:text-primary">
-            <PlusIcon className="size-4" />
+          <button type="button" onClick={add} aria-label={`Gọi thêm 1 ${product.name}${variant ? ` ${variant.name}` : ""}`} className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-primary pl-2.5 pr-3.5 text-small-m font-bold text-white active:opacity-80 garden:h-11 garden:bg-primary/15 garden:pl-3 garden:pr-4 garden:text-[15px] garden:font-semibold garden:text-primary">
+            <PlusIcon className="size-4 garden:size-[18px]" />
             Thêm 1
           </button>
         )}

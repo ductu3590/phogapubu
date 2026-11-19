@@ -60,7 +60,7 @@ export default function Layout() {
   return (
     <div className="relative flex h-screen w-screen flex-col bg-background">
       {!hideHeader && (
-        <AppToolbar title={toolbarTitle} back={handle?.back} mode={toolbarModeFor({ entryKind: entryContext.kind, canOrder })} cartCount={totalItems} tableTotal={billFound ? billFound.total : undefined} />
+        <AppToolbar title={toolbarTitle} back={handle?.back} mode={toolbarModeFor({ entryKind: entryContext.kind, canOrder })} cartCount={totalItems} tableTotal={billFound ? billFound.total : undefined} tableOpenedAt={billFound ? billFound.opened_at : undefined} />
       )}
       <main className="relative min-h-0 flex-1 overflow-y-auto"><Outlet /></main>
       {quickPick && <QuickReorderBar pick={quickPick} ordered={billFound ? orderedQuantity(billFound.orders, quickPick) : 0} />}

@@ -39,10 +39,10 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
     const ring = "ring-[3px] ring-background";
     const stepping = !hasOptions && count > 0;
     const gardenControl = !available ? null : !canOrder ? null : stepping ? (
-      <span className={cn("inline-flex items-center gap-1 rounded-full bg-primary p-[3px] text-white", ring)}>
-        <button type="button" aria-label="Giảm" onClick={onDecrease} className="grid size-10 place-items-center rounded-full active:bg-white/15"><MinusIcon className="size-[18px]" /></button>
-        <span className="tabular min-w-4 text-center text-large font-bold">{count}</span>
-        <button type="button" aria-label="Thêm" onClick={onAdd} className="grid size-10 place-items-center rounded-full active:bg-white/15"><PlusIcon className="size-[18px]" /></button>
+      <span className={cn("inline-flex items-center gap-0.5 rounded-full bg-primary px-0.5 text-white", ring)}>
+        <button type="button" aria-label="Giảm" onClick={onDecrease} className="grid h-[34px] w-9 place-items-center rounded-full active:bg-white/15"><MinusIcon className="size-[18px]" /></button>
+        <span className="tabular min-w-4 text-center text-[16px] font-bold">{count}</span>
+        <button type="button" aria-label="Thêm" onClick={onAdd} className="grid h-[34px] w-9 place-items-center rounded-full active:bg-white/15"><PlusIcon className="size-[18px]" /></button>
       </span>
     ) : (
       <button type="button" aria-label={`Thêm ${product.name}`} onClick={onAdd} className={cn("relative grid size-11 place-items-center rounded-full bg-primary text-white active:scale-90", ring)}>
@@ -64,7 +64,7 @@ export default function ProductCard({ product, layout, canOrder, count, onAdd, o
           <div className="relative shrink-0">
             <img src={image} alt={product.name} loading="lazy" decoding="async" width={104} height={104} onError={() => setImageFailed(true)} className="size-[104px] rounded-2xl object-cover" draggable={false} />
             {gardenControl && (
-              <div className={stepping ? "absolute -bottom-4 left-1/2 -translate-x-1/2" : "absolute -bottom-1 -right-1"}>{gardenControl}</div>
+              <div className={stepping ? "absolute -bottom-3.5 left-1/2 -translate-x-1/2" : "absolute -bottom-1 -right-1"}>{gardenControl}</div>
             )}
             {soldOut && <div className="absolute inset-x-0 -bottom-2 flex justify-center">{soldOut}</div>}
           </div>

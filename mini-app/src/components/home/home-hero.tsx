@@ -45,7 +45,7 @@ export default function HomeHero({
   const directions = directionsUrl(mapsUrl, address);
 
   return (
-    <div className="px-3 pt-3 garden:px-4 garden:pt-2">
+    <div className="px-3 pt-3 garden:px-5 garden:pt-2">
       <section className="overflow-hidden rounded-2xl bg-surface shadow-card garden:overflow-visible garden:rounded-none garden:bg-transparent">
         {/* Ảnh bìa: banner quán; chưa có thì khối màu chủ đạo + logo/chữ viết tắt + tên quán */}
         {bannerUrl ? (
@@ -64,7 +64,7 @@ export default function HomeHero({
         )}
 
         {/* Garden: một nhóm hàng có gạch chia (bản vẽ HIG), nút chữ ô-liu thay viên nền; nút Đặt bàn nằm ngoài nhóm. */}
-        <div className="space-y-2.5 p-4 garden:mt-3 garden:space-y-0 garden:divide-y garden:divide-neutral100 garden:overflow-hidden garden:rounded-2xl garden:bg-surface garden:p-0">
+        <div className="space-y-2.5 p-4 garden:mt-4 garden:space-y-0 garden:divide-y garden:divide-neutral100 garden:overflow-hidden garden:rounded-2xl garden:bg-surface garden:p-0">
           {address && (
             <div className="flex items-start gap-2.5 garden:items-center garden:gap-3.5 garden:py-1.5 garden:pl-4 garden:pr-2">
               <MapPinIcon className="mt-0.5 size-4 shrink-0 text-text-secondary garden:mt-0 garden:size-[22px]" />
@@ -103,11 +103,12 @@ export default function HomeHero({
       </section>
 
       {showScanHint && (
-        <div className="mt-3 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 garden:border-0 garden:bg-transparent garden:px-1 garden:py-2">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-primary garden:size-6 garden:bg-transparent garden:text-text-secondary">
-            <ScanLineIcon className="size-5" />
+        <div className="mt-3 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 garden:mt-0 garden:items-center garden:border-0 garden:bg-transparent garden:px-1 garden:pb-0 garden:pt-3.5">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-primary garden:size-[22px] garden:bg-transparent garden:text-text-secondary">
+            <ScanLineIcon className="size-5 garden:size-[22px]" />
           </span>
-          <div className="min-w-0">
+          <p className="hidden min-w-0 text-[15px] leading-5 text-text-secondary garden:block">Đang ngồi ở quán? Quét mã QR trên bàn để gọi món.</p>
+          <div className="min-w-0 garden:hidden">
             <p className="text-small-m font-bold text-text-primary">Quý khách đang ngồi tại quán?</p>
             <p className="mt-0.5 text-xxsmall text-text-secondary">Quét mã QR dán trên bàn để gọi món, xem tạm tính và gọi nhân viên.</p>
           </div>

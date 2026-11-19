@@ -430,10 +430,11 @@ export default function MenuPage() {
               onReserve={() => navigate("/reservations")}
               showScanHint={workflow?.tableOrderingEnabled === true}
             />
-            <div className="px-4 pb-1 pt-5">
-              <h2 className="g-display text-large-m font-bold text-text-primary garden:text-[24px] garden:leading-tight">{workflowAllowsOrdering ? "Thực đơn" : "Thực đơn tham khảo"}</h2>
+            {/* Garden (bản vẽ): chỉ "Thực đơn" — lời nhắc quét QR đã nằm ngay trên, ở HomeHero. */}
+            <div className="px-4 pb-1 pt-5 garden:px-5">
+              <h2 className="g-display text-large-m font-bold text-text-primary garden:text-[24px] garden:leading-tight">{workflowAllowsOrdering || theme === "garden" ? "Thực đơn" : "Thực đơn tham khảo"}</h2>
               {!workflowAllowsOrdering && (
-                <p className="mt-0.5 text-xxsmall text-text-secondary">Xem trước món ngon — gọi món bằng cách quét QR tại bàn.</p>
+                <p className="mt-0.5 text-xxsmall text-text-secondary garden:hidden">Xem trước món ngon — gọi món bằng cách quét QR tại bàn.</p>
               )}
             </div>
           </>
@@ -441,12 +442,12 @@ export default function MenuPage() {
 
         {/* Ô tìm + chip danh mục — DÍNH trên đầu vùng cuộn (Stitch m06); lối thường thì cuộn qua phần đầu Trang chủ rồi mới dính */}
         <div ref={stickyRef} className="sticky top-0 z-10 bg-background/95 pb-0.5 backdrop-blur">
-          <label className="mx-3 mt-2.5 flex h-10 items-center gap-2 rounded-full border border-neutral200 bg-surface px-3.5 garden:mx-4 garden:mt-1 garden:h-11 garden:rounded-xl garden:border-0 garden:bg-surface">
-            <SearchIcon className="size-4 shrink-0 text-text-secondary" />
+          <label className="mx-3 mt-2.5 flex h-10 items-center gap-2 rounded-full border border-neutral200 bg-surface px-3.5 garden:mx-5 garden:mt-3 garden:h-11 garden:gap-2 garden:rounded-xl garden:border-0 garden:bg-surface garden:px-3">
+            <SearchIcon className="size-4 shrink-0 text-text-secondary garden:size-[18px]" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tìm món…"
+              placeholder={theme === "garden" ? "Tìm món" : "Tìm món…"}
               enterKeyHint="search"
               className="min-w-0 flex-1 bg-transparent text-small text-text-primary outline-none placeholder:text-text-secondary garden:text-[17px]"
             />
