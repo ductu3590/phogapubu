@@ -161,7 +161,7 @@ Mẫu:
   không đổi gì). Mini App KHÔNG tự lên Zalo, cần `zmp deploy` riêng từ worktree quán. tsc sạch, vitest mini-app 265/265.
 - Trả lời của anh:
 
-## D-013 · 2026-11-18 · gate: harness · task: mất mạng Đợt 1, Task 4 (kiểm toàn bộ) · trạng thái: chờ anh
+## D-013 · 2026-11-18 · gate: harness · task: mất mạng Đợt 1, Task 4 (kiểm toàn bộ) · trạng thái: xong
 - Cần làm: chạy `python scripts/verify.py` (bước 5 của task) để xác nhận docs không làm tăng nợ cũ.
 - Vì sao: hook harness chặn lệnh này (thông báo "Đụng vào file harness được bảo vệ (chỉ đọc)"); agent không đổi lệnh để lách.
 - Phương án đề xuất: anh mở cổng `harness` 1 giờ rồi agent chạy lại; hoặc anh tự chạy verify và báo kết quả.
@@ -169,9 +169,11 @@ Mẫu:
 - Ghi chú của phiên điều phối (2026-11-18, chưa phải trả lời của anh): lệnh bị chặn là bản có thêm tiền tố giới hạn thời
   gian. Phiên điều phối sau đó chạy đúng lệnh chuẩn ghi trong `docs/HARNESS.md`, cổng cho qua, kết quả XANH trên
   `fa5de71`. Việc chạy này diễn ra khi mục này chưa có trả lời của anh; anh xác nhận thì mới đóng mục.
-- Trả lời của anh:
+- Trả lời của anh: mở cổng harness 1 giờ, bảo làm D-013 (chat 2026-11-19).
+- **Xong 2026-11-19:** chạy lại kiểm toàn bộ theo lệnh chuẩn trên main `642da5b` (đã gồm mất mạng Đợt 1 + giao diện HIG
+  Yên Garden): XANH, 10-admin-web "nợ cũ 1/1, không tăng".
 
-## D-014 · 2026-11-18 · gate: secrets · task: mất mạng Đợt 1 (nhìn tận mắt trên trình duyệt + mở sẵn POS cho anh test) · trạng thái: đã áp dụng
+## D-014 · 2026-11-18 · gate: secrets · task: mất mạng Đợt 1 (nhìn tận mắt trên trình duyệt + mở sẵn POS cho anh test) · trạng thái: xong
 - Cần làm: worktree `.claude/worktrees/mat-mang-tam-thoi-311b27` chưa có tệp cấu hình môi trường của admin-web, nên không
   chạy được màn POS ở đây để xem hai băng mất mạng và để anh test theo `docs/testing/mat-mang/DOT-1.md`.
 - Vì sao: tệp đó thuộc vùng bí mật; agent không đọc, không chép khi anh chưa cho phép.
@@ -180,6 +182,7 @@ Mẫu:
 - Rủi ro nếu duyệt: thấp — tệp chỉ nằm trong worktree trên máy anh, không vào git.
 - Trả lời của anh: Đã mở cổng
 - **Đã áp dụng 2026-11-18:** chép tệp cấu hình admin-web sang worktree, xem băng mất mạng trên POS Bảo Lương; anh test DOT-1 PASS.
+- **Đóng 2026-11-19** theo lời anh (chat): không còn việc gì; tệp cấu hình chỉ nằm trong worktree, không vào git.
 
 ## D-015 · 2026-11-18 · gate: harness · task: thử skill Astryx cho Mini App Yên Garden (nhánh claude/yg-astryx-redesign-67a515) · trạng thái: chờ
 - Cần làm: chép 1 file `SKILL.md` của Meta (repo `meta/astryx`, `plugins/astryx/skills/astryx/SKILL.md`, MIT, chỉ là chữ
