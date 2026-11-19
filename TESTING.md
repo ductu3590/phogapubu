@@ -6,6 +6,8 @@
 
 ## Chờ test
 
+- ⏳ [POS báo "Điều chỉnh" khi khách sửa lịch đặt bàn](docs/testing/dat-ban/POS-BAO-XIN-DOI.md) — agent ✓ unit test + RPC thật; chờ anh Tú Test 1–3 (Test 1 trước 17:00 19/11)
+
 - ✅ [Mất mạng Đợt 1 — POS báo mất mạng + tờ quy trình](docs/testing/mat-mang/DOT-1.md) — PASS 2026-11-18 (anh Tú)
 - ⏳ [Màn nhân viên — câu báo gửi đơn, nhãn món ghi tay, mã đơn](docs/testing/staff-chu/STAFF-CHU.md) — agent ✓ unit test; chờ anh Tú S1–S5 (chưa merge)
 - ✅ [POS tab Sơ đồ (lưới bàn kiểu KiotViet, ghim màn mặc định)](docs/testing/pos-so-do-ban/POS-SO-DO-BAN.md) — PASS hết (T1–T8) 2026-11-17; đã merge main

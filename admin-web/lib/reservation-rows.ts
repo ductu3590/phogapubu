@@ -29,11 +29,20 @@ export type ReservationRpcRow = {
   reminder_snoozed_by?: string | null
 }
 
+// DB đánh dấu "khách điều chỉnh lịch" bằng requested_arrival_at có giá trị, còn status GIỮ NGUYÊN pending/confirmed
+// (request_reservation_change mig 065 không đổi status; resolve_reservation_change mig 054 còn bắt status phải là
+// pending/confirmed) — khớp cờ has_change_request trong customer_reservation_json. Không RPC nào ghi status
+// 'change_requested', nên UI suy ra ở đây để POS + trang Đặt bàn báo "Điều chỉnh" và hiện nút duyệt.
+function effectiveStatus(row: ReservationRpcRow): ReservationStatus {
+  if (row.requested_arrival_at && (row.status === 'pending' || row.status === 'confirmed')) return 'change_requested'
+  return row.status
+}
+
 export function toReservationRow(row: ReservationRpcRow): ReservationRow {
   return {
     reservationId: row.reservation_id,
     storeId: row.store_id,
-    status: row.status,
+    status: effectiveStatus(row),
     customerName: row.customer_name,
     customerPhone: row.customer_phone,
     partySize: row.party_size,

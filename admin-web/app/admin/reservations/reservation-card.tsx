@@ -15,7 +15,7 @@ export const RESERVATION_TABLE_COLS = '@3xl:grid-cols-[112px_minmax(0,1.6fr)_min
 const ACTION_META: Record<Exclude<ReservationUiAction, 'call'>, { label: string; icon: ReactNode }> = {
   confirm: { label: 'Duyệt & chọn bàn', icon: <Check /> },
   reject: { label: 'Từ chối', icon: <X /> },
-  resolve_change: { label: 'Xử lý yêu cầu đổi', icon: <ArrowLeftRight /> },
+  resolve_change: { label: 'Xử lý điều chỉnh', icon: <ArrowLeftRight /> },
   arrive: { label: 'Khách đã đến', icon: <UserCheck /> },
   reschedule: { label: 'Đổi lịch / bàn', icon: <CalendarClock /> },
   no_show: { label: 'Không đến', icon: <UserX /> },

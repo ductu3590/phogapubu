@@ -440,7 +440,7 @@ export default function ReservationsClient({
 function operationTitle(operation: ActiveOperation): string {
   if (operation.kind === 'manual') return 'Tạo đặt bàn thủ công'
   if (operation.kind === 'confirm') return 'Xác nhận & chọn bàn'
-  if (operation.kind === 'resolve_change') return 'Xử lý yêu cầu đổi'
+  if (operation.kind === 'resolve_change') return 'Xử lý điều chỉnh'
   if (operation.kind === 'reschedule') return 'Đổi lịch hoặc bàn'
   if (operation.kind === 'reject') return 'Từ chối đặt bàn'
   if (operation.kind === 'arrive') return 'Xác nhận khách đã đến'
@@ -474,7 +474,7 @@ function TableDecision({ operation, floor, sessions, busy, actionError, otherRes
   const [rejectNote, setRejectNote] = useState('')
   const canRejectChange = operation.kind === 'resolve_change' && reservationChangeDecisionActions().includes('reject')
   return <div className="space-y-4">
-    {operation.kind === 'resolve_change' && <p className="text-sm text-warning">Khách yêu cầu: {operation.reservation.changeNote ?? 'đổi thông tin đặt bàn'}</p>}
+    {operation.kind === 'resolve_change' && <p className="text-sm text-warning">Khách điều chỉnh: {operation.reservation.changeNote ?? 'thông tin đặt bàn'}</p>}
     <ReservationTablePicker floor={floor} sessions={sessions} selectedTableIds={operation.selectedTableIds}
       currentReservationTableIds={new Set(operation.reservation.tableIds)} otherReservationTableIds={otherReservationTableIds}
       suggestedTableCount={operation.reservation.suggestedTableCount} onToggle={onToggle}

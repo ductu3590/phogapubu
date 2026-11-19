@@ -91,7 +91,7 @@ export function reservationChangeDecisionActions(): Array<'accept' | 'reject'> {
 function statusLabel(reservation: ReservationRow, state: ReservationQueueState): string {
   switch (state.kind) {
     case 'pending': return 'Chờ duyệt'
-    case 'change_requested': return 'Khách xin đổi'
+    case 'change_requested': return 'Điều chỉnh'
     case 'upcoming': return 'Đã xác nhận'
     case 'overdue': return `Quá giờ ${state.minutesOverdue} phút`
     case 'arrived': return 'Đang ngồi'
@@ -137,7 +137,7 @@ export const ACTIVE_WINDOW_DAYS = 7
 
 /**
  * Bảng "đang xử lý" (2026-10-13, phương án B): MỘT bảng phẳng xếp theo giờ đến.
- * - Việc cần làm (chờ duyệt, khách xin đổi, quá giờ, khách đang ngồi) luôn hiện, dù ngày nào.
+ * - Việc cần làm (chờ duyệt, điều chỉnh, quá giờ, khách đang ngồi) luôn hiện, dù ngày nào.
  * - Lịch đã xác nhận chỉ hiện trong 7 ngày tới.
  * - Lượt đã xong (kể cả đã đến + bill đã đóng) KHÔNG hiện — sang cột "Đã qua".
  */

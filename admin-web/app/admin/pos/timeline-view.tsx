@@ -180,7 +180,7 @@ export default function TimelineView({
         ? 'Xung đột'
         : bar.lateMinutes
           ? `Trễ ${bar.lateMinutes}p`
-          : r.status === 'confirmed' ? 'Đã đặt' : r.status === 'change_requested' ? 'Xin đổi' : 'Chờ duyệt'
+          : r.status === 'confirmed' ? 'Đã đặt' : r.status === 'change_requested' ? 'Điều chỉnh' : 'Chờ duyệt'
       const selected = selectedReservationId === r.reservationId
       const look = bar.conflict
         ? 'border-2 border-red-500 bg-red-50 text-red-700'

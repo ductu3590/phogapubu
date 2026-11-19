@@ -37,7 +37,7 @@ const REASON_LABEL = {
   late: 'Khách trễ',
   due: 'Đến giờ hẹn',
   pending: 'Chờ duyệt',
-  change: 'Khách xin đổi',
+  change: 'Điều chỉnh',
   upcoming: 'Sắp đến',
 } as const
 

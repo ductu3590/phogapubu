@@ -215,6 +215,8 @@ Mẫu:
 - Phương án đề xuất (khuyến nghị): anh mở cổng `data` 1 giờ (lệnh duyệt như mẫu đầu file), agent xoá `.next/types` rồi
   kiểm lại. Phương án khác: anh tự xoá thư mục đó trong Explorer, hoặc chạy `npm run build` ở admin-web (Next sinh lại).
 - Rủi ro nếu duyệt: rất thấp — chỉ là tệp kiểu do Next sinh, `next dev` / `next build` tự tạo lại.
+- Ghi chú 2026-11-19 (sửa POS không báo khách xin đổi lịch): lại vướng đúng lỗi này — vitest admin-web 1883/1883, tsc
+  ngoài `.next/` sạch, mini-app / DB / print-agent xanh; chỉ 10-admin-web đỏ vì `.next/types`.
 - Trả lời của anh:
 
 ## D-018 · 2026-11-19 · gate: deploy · task: giao diện HIG Yên Garden + chữ đặt món trước · trạng thái: chờ

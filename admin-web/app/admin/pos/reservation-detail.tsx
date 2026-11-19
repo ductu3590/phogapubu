@@ -48,7 +48,7 @@ export default function ReservationDetail({
   const r = reservation
   const [cancelling, setCancelling] = useState(false)
   const [reason, setReason] = useState('')
-  const statusLabel = bar?.conflict ? 'Xung đột: bàn còn khách' : bar?.lateMinutes ? `Trễ ${bar.lateMinutes} phút` : r.status === 'confirmed' ? 'Đã đặt' : r.status === 'change_requested' ? 'Khách xin đổi' : 'Chờ duyệt'
+  const statusLabel = bar?.conflict ? 'Xung đột: bàn còn khách' : bar?.lateMinutes ? `Trễ ${bar.lateMinutes} phút` : r.status === 'confirmed' ? 'Đã đặt' : r.status === 'change_requested' ? 'Điều chỉnh' : 'Chờ duyệt'
   const href = phoneHref(r.customerPhone)
   const items = preorder?.currentSnapshot?.items ?? []
 
@@ -90,7 +90,7 @@ export default function ReservationDetail({
           </dd>
           {r.note ? (<><dt className="text-muted">Ghi chú</dt><dd className="text-foreground">{r.note}</dd></>) : null}
           {r.status === 'change_requested' && r.requestedArrivalAt ? (
-            <><dt className="text-muted">Xin đổi</dt><dd className="text-foreground tabular">{clock(new Date(r.requestedArrivalAt).getTime())}{r.requestedPartySize ? ` · ${r.requestedPartySize} khách` : ''}{r.changeNote ? ` · ${r.changeNote}` : ''}</dd></>
+            <><dt className="text-muted">Điều chỉnh</dt><dd className="text-foreground tabular">{clock(new Date(r.requestedArrivalAt).getTime())}{r.requestedPartySize ? ` · ${r.requestedPartySize} khách` : ''}{r.changeNote ? ` · ${r.changeNote}` : ''}</dd></>
           ) : null}
         </dl>
 
@@ -156,7 +156,7 @@ export default function ReservationDetail({
           <Button variant="primary" size="touch" isLoading={busy} onClick={() => onArrive(r)}>Khách đã đến · mở mâm</Button>
         )}
         {r.status === 'change_requested' && (
-          <Link href="/admin/reservations" className="text-center text-sm font-semibold text-primary underline-offset-4 hover:underline">Duyệt yêu cầu đổi ở trang Đặt bàn</Link>
+          <Link href="/admin/reservations" className="text-center text-sm font-semibold text-primary underline-offset-4 hover:underline">Duyệt điều chỉnh ở trang Đặt bàn</Link>
         )}
         {!cancelling && (r.status === 'confirmed' || r.status === 'pending' || r.status === 'change_requested') && (
           <div className="grid grid-cols-2 gap-2">

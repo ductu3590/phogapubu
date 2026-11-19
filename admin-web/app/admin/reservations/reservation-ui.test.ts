@@ -106,6 +106,12 @@ describe('reservation mobile view model', () => {
     expect(reservationCardView(reservation({ tableNumbers: [] }), now).tablesLabel).toBe('')
   })
 
+  // Chữ hiển thị là "Điều chỉnh" — anh Tú (2026-11-19): không dùng "khách xin đổi", từ "xin" không hợp với khách.
+  it('khách điều chỉnh lịch → nhãn "Điều chỉnh"', () => {
+    const now = new Date('2026-09-20T10:00:00.000Z')
+    expect(reservationCardView(reservation({ status: 'change_requested' }), now).statusLabel).toBe('Điều chỉnh')
+  })
+
   it('yêu cầu đổi luôn cho chủ quán cả hai lựa chọn chấp nhận và từ chối', () => {
     expect(reservationChangeDecisionActions()).toEqual(['accept', 'reject'])
   })
