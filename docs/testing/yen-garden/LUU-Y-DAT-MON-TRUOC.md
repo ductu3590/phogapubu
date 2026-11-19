@@ -9,3 +9,6 @@ Khối vàng "Lưu ý quan trọng" ghi đúng:
 > Món đặt trước khi gửi đi sẽ không sửa, huỷ được trên ứng dụng. Quý khách muốn thay đổi vui lòng liên hệ hotline quán.
 
 Không bấm gửi nếu không muốn tạo món đặt trước thật.
+
+**Test 2.** Cùng màn đó: nút dưới đáy ghi **"Xác nhận"** (thay "Khoá & gửi món đặt trước"). Bấm → hộp "Gửi món đặt trước?"
+có nút **"Xác nhận"** (thay "Khoá & gửi") và "Xem lại". Bấm "Xem lại" để đóng nếu không muốn gửi thật.

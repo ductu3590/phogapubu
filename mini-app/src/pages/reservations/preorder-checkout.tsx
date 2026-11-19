@@ -194,7 +194,7 @@ export default function ReservationPreorderCheckoutPage() {
           className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-normal-sb font-bold text-white shadow active:opacity-90 disabled:opacity-50"
         >
           <LockIcon className="size-5" />
-          Khoá & gửi món đặt trước
+          Xác nhận
         </button>
       </StickyActionBar>
 
@@ -202,7 +202,7 @@ export default function ReservationPreorderCheckoutPage() {
         open={confirming}
         title="Gửi món đặt trước?"
         description={`${totals.count} món · ${formatCurrency(totals.total)}đ. Gửi xong món sẽ được khoá, không sửa trên ứng dụng.`}
-        confirmLabel="Khoá & gửi"
+        confirmLabel="Xác nhận"
         cancelLabel="Xem lại"
         busy={sending}
         onConfirm={() => void send()}
