@@ -201,3 +201,15 @@ Mẫu:
   (lệnh duyệt như mẫu đầu file), agent chép file. Phương án khác: anh tự chép file trong Explorer.
 - Rủi ro nếu duyệt: thấp — chép giữa hai thư mục gitignored trên máy anh, không in nội dung.
 - Trả lời của anh:
+- **Đã xong 2026-11-19:** anh tự chép `.env`; giao diện HIG PASS và đã gộp main (f0230a8).
+
+## D-017 · 2026-11-19 · gate: data · task: gộp giao diện HIG Yên Garden vào main (kiểm toàn bộ trên repo gốc) · trạng thái: chờ
+- Cần làm: xoá thư mục sinh tự động `admin-web/.next/types` ở repo gốc `D:\Code\mevo` (gitignored), rồi kiểm toàn bộ lại.
+- Vì sao: sau khi gộp, bước kiểm toàn bộ ở repo gốc đỏ mục 10-admin-web vì `.next/types/validator.ts` của lần build cũ còn
+  trỏ tới trang đã xoá (`app/mevo/ui-kit`, `app/staff/tables/print`). Lần gộp không đụng file admin-web nào (mini-app
+  274/274, typecheck, DB, print-agent đều xanh). Hook chặn xoá đệ quy ngoài vùng an toàn.
+  (Đã cài bổ sung `@playwright/test` — gói có sẵn trong package.json nhưng chưa cài ở repo gốc.)
+- Phương án đề xuất (khuyến nghị): anh mở cổng `data` 1 giờ (lệnh duyệt như mẫu đầu file), agent xoá `.next/types` rồi
+  kiểm lại. Phương án khác: anh tự xoá thư mục đó trong Explorer, hoặc chạy `npm run build` ở admin-web (Next sinh lại).
+- Rủi ro nếu duyệt: rất thấp — chỉ là tệp kiểu do Next sinh, `next dev` / `next build` tự tạo lại.
+- Trả lời của anh:
