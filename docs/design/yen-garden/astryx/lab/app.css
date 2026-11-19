@@ -1,0 +1,44 @@
+/* Chỉ phần khung/bố cục mà linh kiện Astryx không có; màu, bo góc, khoảng cách đều lấy token của theme. */
+html, body { background: var(--color-background-body); }
+.phone { max-width: 390px; min-height: 100dvh; margin: 0 auto; background: var(--color-background-body); position: relative; padding-bottom: 150px; }
+.topbar { position: sticky; top: 0; z-index: 5; background: var(--color-background-body); padding: var(--spacing-3) var(--spacing-4) var(--spacing-2); }
+.brand { font-family: var(--font-family-heading); font-size: 20px; color: var(--color-text-accent); line-height: 1.1; }
+.logo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.tabs-wrap { position: sticky; top: 0; z-index: 4; background: var(--color-background-body); padding: 0 var(--spacing-4); }
+.dish-img { width: 88px; height: 88px; border-radius: var(--radius-container); object-fit: cover; display: block; background: var(--color-background-muted); }
+.dish-box { position: relative; flex: none; }
+.dish-add { position: absolute; right: 4px; bottom: 4px; }
+.price { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--color-text-primary); }
+.price-lg { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+.tag { font-size: 12px; font-weight: 600; color: var(--color-text-warning); letter-spacing: .02em; }
+.dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; max-width: 390px; margin: 0 auto; background: var(--color-background-body); }
+.dock-inner { padding: var(--spacing-2) var(--spacing-3); display: flex; flex-direction: column; gap: var(--spacing-2); }
+.quick { display: flex; align-items: center; gap: var(--spacing-3); padding: var(--spacing-2) var(--spacing-2) var(--spacing-2) var(--spacing-3); background: var(--color-background-card); border-radius: var(--radius-container); }
+.quick-ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--color-accent-muted); color: var(--color-icon-accent); flex: none; }
+.cartbar { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-3); height: 52px; padding: 0 var(--spacing-2) 0 var(--spacing-4); border-radius: 999px; background: var(--color-accent); color: var(--color-on-accent); }
+.cart-count { min-width: 26px; height: 26px; border-radius: 999px; display: grid; place-items: center; background: var(--color-on-accent); color: var(--color-accent); font-weight: 700; font-size: 13px; }
+.cart-cta { height: 40px; padding: 0 var(--spacing-4); border-radius: 999px; display: grid; place-items: center; background: rgba(255,255,255,.14); font-weight: 600; }
+.navbar { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--color-border); padding: var(--spacing-1) 0 var(--spacing-2); }
+.navbar button { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; color: var(--color-text-secondary); background: none; border: 0; padding: var(--spacing-1) 0; }
+.navbar button[aria-current="page"] { color: var(--color-text-accent); font-weight: 700; }
+.navbar svg { width: 22px; height: 22px; }
+.sec-label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--color-text-secondary); }
+.hero-sheet img { width: 100%; aspect-ratio: 16/10; object-fit: cover; border-radius: var(--radius-container); display: block; }
+.stepper { display: inline-flex; align-items: center; gap: var(--spacing-3); }
+.stepper b { min-width: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+.round-line { border-left: 2px solid var(--color-border); margin-left: 4px; padding-left: var(--spacing-3); }
+.days { display: flex; gap: var(--spacing-2); overflow-x: auto; padding-bottom: 2px; }
+.day { flex: none; width: 64px; padding: var(--spacing-2) 0; border-radius: var(--radius-element); text-align: center; background: var(--color-background-card); color: var(--color-text-primary); border: 1px solid transparent; }
+.day[aria-pressed="true"] { background: var(--color-accent); color: var(--color-on-accent); }
+.day small { display: block; font-size: 11px; opacity: .8; }
+.day b { display: block; font-size: 18px; font-family: var(--font-family-heading); }
+.slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-2); }
+.slot { height: 40px; border-radius: var(--radius-element); background: var(--color-background-card); display: grid; place-items: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+.slot[aria-pressed="true"] { background: var(--color-accent); color: var(--color-on-accent); }
+.zalo-btn { height: 44px; border-radius: 999px; background: #0068FF; color: #fff; font-weight: 600; display: grid; place-items: center; }
+.foot { text-align: center; font-size: 12px; color: var(--color-text-secondary); padding: var(--spacing-6) 0; }
+
+.topbar .astryx-button { flex: none; white-space: nowrap; }
+.day[aria-pressed="true"] small, .day[aria-pressed="true"] b { color: var(--color-on-accent); }
+.days { scrollbar-width: none; }
+.danger { color: var(--color-text-error); font-weight: 600; }

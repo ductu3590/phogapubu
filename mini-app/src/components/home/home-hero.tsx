@@ -3,6 +3,7 @@ import StatusPill from "@/components/ui/status-pill";
 import DirectionsButton from "@/components/ui/directions-button";
 import CallPhoneButton from "@/components/ui/call-phone-button";
 import { directionsUrl } from "@/utils/directions";
+import { cn } from "@/utils/cn";
 import { formatServingHours, isStoreOpen, type ServingShift } from "@/utils/store-hours";
 
 function initials(name: string): string {
@@ -44,12 +45,12 @@ export default function HomeHero({
   const directions = directionsUrl(mapsUrl, address);
 
   return (
-    <div className="px-3 pt-3">
-      <section className="overflow-hidden rounded-2xl bg-surface shadow-card">
+    <div className="px-3 pt-3 garden:px-5 garden:pt-2">
+      <section className="overflow-hidden rounded-2xl bg-surface shadow-card garden:overflow-visible garden:rounded-none garden:bg-transparent">
         {/* Ảnh bìa: banner quán; chưa có thì khối màu chủ đạo + logo/chữ viết tắt + tên quán */}
         {bannerUrl ? (
           <div className="relative">
-            <img src={bannerUrl} alt={storeName} className="aspect-[16/9] w-full object-cover" draggable={false} />
+            <img src={bannerUrl} alt={storeName} className="aspect-[16/9] w-full object-cover garden:aspect-auto garden:h-[168px] garden:rounded-[20px]" draggable={false} />
           </div>
         ) : (
           <div className="flex items-center gap-3 bg-primary px-4 py-5">
@@ -62,40 +63,52 @@ export default function HomeHero({
           </div>
         )}
 
-        <div className="space-y-2.5 p-4">
+        {/* Garden: một nhóm hàng có gạch chia (bản vẽ HIG), nút chữ ô-liu thay viên nền; nút Đặt bàn nằm ngoài nhóm. */}
+        <div className="space-y-2.5 p-4 garden:mt-4 garden:space-y-0 garden:divide-y garden:divide-neutral100 garden:overflow-hidden garden:rounded-2xl garden:bg-surface garden:p-0">
           {address && (
-            <div className="flex items-start gap-2.5">
-              <MapPinIcon className="mt-0.5 size-4 shrink-0 text-text-secondary" />
-              <p className="min-w-0 flex-1 text-small text-text-primary">{address}</p>
-              {directions && <DirectionsButton url={directions} />}
+            <div className="flex items-start gap-2.5 garden:items-center garden:gap-3.5 garden:py-1.5 garden:pl-4 garden:pr-2">
+              <MapPinIcon className="mt-0.5 size-4 shrink-0 text-text-secondary garden:mt-0 garden:size-[22px]" />
+              <p className="min-w-0 flex-1 text-small text-text-primary garden:text-normal">{address}</p>
+              {directions && <DirectionsButton url={directions} className="garden:h-11 garden:bg-transparent garden:px-2 garden:text-[15px] garden:font-semibold garden:[&>svg]:hidden" />}
             </div>
           )}
-          <div className="flex items-center gap-2.5">
-            <ClockIcon className="size-4 shrink-0 text-text-secondary" />
-            <p className="min-w-0 flex-1 text-small text-text-primary">{hours ? `Mở cửa: ${hours}` : "Mở cả ngày"}</p>
-            <StatusPill tone={open ? "success" : "critical"}>{open ? "Đang mở" : isAcceptingOrders ? "Đã đóng cửa" : "Tạm nghỉ"}</StatusPill>
+          <div className="flex items-center gap-2.5 garden:min-h-[52px] garden:gap-3.5 garden:px-4">
+            <ClockIcon className="size-4 shrink-0 text-text-secondary garden:size-[22px]" />
+            <p className="min-w-0 flex-1 text-small text-text-primary garden:text-normal">{hours ? `Mở cửa: ${hours}` : "Mở cả ngày"}</p>
+            <StatusPill tone={open ? "success" : "critical"} className={cn("garden:border-0 garden:bg-transparent garden:px-0 garden:text-[15px]", open && "garden:text-[#3E5F22]")}>{open ? "Đang mở" : isAcceptingOrders ? "Đã đóng cửa" : "Tạm nghỉ"}</StatusPill>
           </div>
-          {phone && <CallPhoneButton phone={phone} />}
+          {phone && <div className="garden:px-4 garden:py-3.5"><CallPhoneButton phone={phone} /></div>}
 
           {canReserve && (
             <button
               type="button"
               onClick={onReserve}
-              className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-normal-sb font-bold text-white shadow active:opacity-90 garden:rounded-full garden:shadow-none"
+              className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-normal-sb font-bold text-white shadow active:opacity-90 garden:hidden"
             >
               <CalendarDaysIcon className="size-5" />
               Đặt bàn trước
             </button>
           )}
         </div>
+        {canReserve && (
+          <button
+            type="button"
+            onClick={onReserve}
+            className="hidden h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-primary text-large font-semibold text-white active:opacity-90 garden:mt-3.5 garden:flex"
+          >
+            <CalendarDaysIcon className="size-[22px]" />
+            Đặt bàn trước
+          </button>
+        )}
       </section>
 
       {showScanHint && (
-        <div className="mt-3 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-primary">
-            <ScanLineIcon className="size-5" />
+        <div className="mt-3 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 garden:mt-0 garden:items-center garden:border-0 garden:bg-transparent garden:px-1 garden:pb-0 garden:pt-3.5">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-primary garden:size-[22px] garden:bg-transparent garden:text-text-secondary">
+            <ScanLineIcon className="size-5 garden:size-[22px]" />
           </span>
-          <div className="min-w-0">
+          <p className="hidden min-w-0 text-[15px] leading-5 text-text-secondary garden:block">Đang ngồi ở quán? Quét mã QR trên bàn để gọi món.</p>
+          <div className="min-w-0 garden:hidden">
             <p className="text-small-m font-bold text-text-primary">Quý khách đang ngồi tại quán?</p>
             <p className="mt-0.5 text-xxsmall text-text-secondary">Quét mã QR dán trên bàn để gọi món, xem tạm tính và gọi nhân viên.</p>
           </div>

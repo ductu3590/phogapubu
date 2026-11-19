@@ -12,7 +12,7 @@ import type { RouteHandle } from "@/types/router.types";
 import { useTableSessionBill } from "@/services/order/order.queries";
 import { hasPendingRound } from "@/utils/round-status";
 import { useStoreMenu } from "@/services/category/category.queries";
-import { pickQuickReorder } from "@/utils/quick-reorder";
+import { orderedQuantity, pickQuickReorder } from "@/utils/quick-reorder";
 import { isStoreOpen } from "@/utils/store-hours";
 import QuickReorderBar from "@/components/ui/quick-reorder-bar";
 
@@ -55,14 +55,15 @@ export default function Layout() {
     isStoreOpen({ isAcceptingOrders, servingHours })
       ? pickQuickReorder(bill.orders, menu)
       : null;
+  const billFound = watchBill && !!bill && bill.found ? bill : null;
 
   return (
     <div className="relative flex h-screen w-screen flex-col bg-background">
       {!hideHeader && (
-        <AppToolbar title={toolbarTitle} back={handle?.back} mode={toolbarModeFor({ entryKind: entryContext.kind, canOrder })} cartCount={totalItems} />
+        <AppToolbar title={toolbarTitle} back={handle?.back} mode={toolbarModeFor({ entryKind: entryContext.kind, canOrder })} cartCount={totalItems} tableTotal={billFound ? billFound.total : undefined} tableOpenedAt={billFound ? billFound.opened_at : undefined} />
       )}
       <main className="relative min-h-0 flex-1 overflow-y-auto"><Outlet /></main>
-      {quickPick && <QuickReorderBar pick={quickPick} />}
+      {quickPick && <QuickReorderBar pick={quickPick} ordered={billFound ? orderedQuantity(billFound.orders, quickPick) : 0} />}
       {!hideCart && canOrder && (
         <StickyCartBar count={totalItems} total={calculateCartTotal(items)} tableLabel={entryContext.kind === "table" ? tableNumber : undefined} aboveTabBar={showTabs} />
       )}

@@ -6,7 +6,7 @@ import { cn } from "@/utils/cn";
 export default function StickyActionBar({ variant, children, aboveTabBar }: { variant: "dark" | "primary"; children: ReactNode; aboveTabBar: boolean }) {
   return (
     <div
-      className={cn("shrink-0 px-3 pt-2", variant === "dark" ? "bg-transparent" : "border-t border-neutral100 bg-surface")}
+      className={cn("shrink-0 px-3 pt-2", variant === "dark" ? "bg-transparent" : "border-t border-neutral100 bg-surface garden:border-0 garden:bg-background garden:pt-2.5")}
       style={{ paddingBottom: aboveTabBar ? "8px" : "calc(var(--zaui-safe-area-inset-bottom, 0px) + 12px)" }}
     >
       {children}
